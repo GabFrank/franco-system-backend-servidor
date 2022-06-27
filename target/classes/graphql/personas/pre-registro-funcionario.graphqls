@@ -1,0 +1,64 @@
+type PreRegistroFuncionario {
+    id:ID!
+    funcionario: Funcionario
+    nombreCompleto: String
+    apodo: String
+    documento: String
+    telefonoPersonal: String
+    telefonoEmergencia: String
+    nombreContactoEmergencia: String
+    email: String
+    ciudad: String
+    direccion: String
+    sucursal: String
+    fechaNacimiento: Date
+    fechaIngreso: Date
+    habilidades: String
+    registroConducir : Boolean
+    nivelEducacion: String
+    observacion: String
+    verificado: Boolean
+    creadoEn: Date
+}
+
+
+input PreRegistroFuncionarioInput {
+    id:ID
+    funcionarioId: Int
+    nombreCompleto: String
+    apodo: String
+    documento: String
+    telefonoPersonal: String
+    telefonoEmergencia: String
+    nombreContactoEmergencia: String
+    email: String
+    ciudad: String
+    direccion: String
+    sucursal: String
+    fechaNacimiento: String
+    fechaIngreso: String
+    habilidades: String
+    registroConducir : Boolean
+    nivelEducacion: String
+    observacion: String
+    usuarioId: String
+}
+
+extend type Query {
+    preRegistroFuncionario(id:ID!):PreRegistroFuncionario
+    preRegistroFuncionariosSearch(texto:String):[PreRegistroFuncionario]
+    preRegistroFuncionarios(page:Int = 0, size:Int = 10):[PreRegistroFuncionario]!
+    countPreRegistroFuncionario:Int
+}
+
+extend type Mutation {
+    savePreRegistroFuncionario(preRegistroFuncionario:PreRegistroFuncionarioInput!):PreRegistroFuncionario!
+    deletePreRegistroFuncionario(id:ID!):Boolean!
+}
+
+
+
+
+
+
+

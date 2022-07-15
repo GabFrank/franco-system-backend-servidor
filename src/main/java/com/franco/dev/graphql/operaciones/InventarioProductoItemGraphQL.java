@@ -52,6 +52,11 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         return service.findAll(pageable);
     }
 
+    public List<InventarioProductoItem> inventarioProductosItemPorInventarioProducto(Long id, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByInventarioProductoId(id, pageable);
+    }
+
     public InventarioProductoItem saveInventarioProductoItem(InventarioProductoItemInput input) {
         ModelMapper m = new ModelMapper();
         m.getConfiguration()

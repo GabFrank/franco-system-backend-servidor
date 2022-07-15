@@ -22,11 +22,12 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, Long
     public static final Logger log = Logger.getLogger(String.valueOf(CrudService.class));
 
     public List<T> findAll(Pageable pageable){
-        return (List<T>) getRepository().findAll(pageable).getContent();
+
+        return (List<T>) getRepository().findAllByOrderByIdAsc(pageable);
     }
 
     public List<T> findAll2(){
-        return (List<T>) getRepository().findAll();
+        return (List<T>) getRepository().findAllByOrderByIdAsc();
     }
 
     public Optional<T> findById(Long id){

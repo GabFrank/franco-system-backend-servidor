@@ -51,44 +51,4 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
     public List<Inventario> findInventarioAbiertoPorSucursal(Long id){
         return repository.findBySucursalIdAndEstado(id, InventarioEstado.ABIERTO);
     }
-
-//    @Transactional
-//    public Boolean finalizarInventario(Long id){
-//        Boolean ok = true;
-//        Inventario entrada = findById(id).orElse(null);
-//        List<InventarioItem> entradaItemList = new ArrayList<>();
-//        if(entrada!=null){
-//            entradaItemList = entradaItemService.findByInventarioId(entrada.getId());
-//            if(!entradaItemList.isEmpty()){
-//                for(InventarioItem e: entradaItemList){
-//                    MovimientoStock movimientoStock = new MovimientoStock();
-//                    movimientoStock.setCantidad(e.getCantidad() * e.getPresentacion().getCantidad());
-//                    movimientoStock.setProducto(e.getProducto());
-//                    movimientoStock.setEstado(true);
-//                    movimientoStock.setReferencia(id);
-//                    movimientoStock.setTipoMovimiento(TipoMovimiento.ENTRADA);
-//                    movimientoStock.setCreadoEn(LocalDateTime.now());
-//                    movimientoStock.setUsuario(e.getUsuario());
-//                    MovimientoStock newMovimiento = movimientoStockService.save(movimientoStock);
-//                    if(newMovimiento.getId()==null){
-//                        ok = false;
-//                    }
-//                }
-//            }
-//            entrada.setActivo(ok);
-//            save(entrada);
-//        }
-//        return ok;
-//    }
-
-//    public Boolean imprimirInventario(Long id){
-//        Inventario entrada = findById(id).orElse(null);
-//        if(entrada!=null){
-//            List<InventarioItem> entradaItemList = entradaItemService.findByInventarioId(id);
-//            if(!entradaItemList.isEmpty()){
-//                return movimientoPrintService.entrada58mm(entrada, entradaItemList, "TICKET1");
-//            }
-//        }
-//        return false;
-//    }
 }

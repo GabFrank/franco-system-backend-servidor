@@ -19,7 +19,7 @@ public interface InventarioRepository extends HelperRepository<Inventario, Long>
 
     @Query(value = "select distinct on (i.id) i.id, i.id_central, i.id_origen, i.sucursal_id, i.fecha_inicio, i.fecha_fin, i.abierto, i.tipo, i.estado, i.usuario_id, i.observacion  from operaciones.inventario i " +
             "left join operaciones.inventario_producto ip on i.id = ip.inventario_id " +
-            "where ip.usuario_id = ?1 order by i.id", nativeQuery = true)
+            "where i.usuario_id = ?1 or ip.usuario_id = ?1 order by i.id", nativeQuery = true)
     public List<Inventario> findByUsuarioId(Long id);
 
     public List<Inventario> findBySucursalIdAndEstado(Long id, InventarioEstado estado);

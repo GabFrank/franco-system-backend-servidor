@@ -1,7 +1,9 @@
 package com.franco.dev.service.rabbitmq;
 
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.Inventario;
+import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.rabbit.RabbitMQConection;
 import com.franco.dev.rabbit.dto.RabbitDto;
@@ -34,7 +36,7 @@ import java.util.List;
 public class PropagacionService {
 
     Long sucursalVerificar = null;
-    private Logger log = LoggerFactory.getLogger(PropagacionService.class);
+    private final Logger log = LoggerFactory.getLogger(PropagacionService.class);
     @Autowired
     private SucursalService sucursalService;
 
@@ -535,7 +537,6 @@ public class PropagacionService {
         }
     }
 
-
     public <T> void propagar(TipoEntidad tipoEntidad, Long sucId, CrudService service) {
         List<T> list = service.findAll2();
         log.info("cantidad de itenes: " + list.size());
@@ -548,7 +549,7 @@ public class PropagacionService {
     }
 
     public <T> void propagarEntidad(T entity, TipoEntidad tipoEntidad, Long sucId) {
-        log.info("Propagando entidad a todas las sucursales: " + tipoEntidad.name());
+        log.info("Propagando entidad a sucursal: " + sucId + ", entidad:" + tipoEntidad.name());
         sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad));
     }
 
@@ -587,5 +588,14 @@ public class PropagacionService {
             propagarEntidad(sucursal, TipoEntidad.SUCURSAL);
             sender.enviar(RabbitMQConection.FILIAL_KEY + "." + id.toString(), new RabbitDto(sucursal, TipoAccion.GUARDAR, TipoEntidad.LOCAL));
         }
+    }
+
+    public Float solicitarStockByProducto(Long productoId, Long sucursalId) {
+//        return sender.enviar(RabbitMQConection.FILIAL_KEY + sucId, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad));
+        return (Float) sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucursalId.toString(), new RabbitDto(productoId, TipoAccion.SOLICITAR_STOCK_PRODUCTO, TipoEntidad.PRODUCTO));
+    }
+
+    public Inventario finalizarInventario(Inventario inventario, Long sucId){
+        return (Inventario) sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucId.toString(), new RabbitDto(inventario, TipoAccion.FINALIZAR_INVENTARIO, TipoEntidad.INVENTARIO));
     }
 }

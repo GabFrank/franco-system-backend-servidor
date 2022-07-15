@@ -13,6 +13,7 @@ public class InventarioProductoItemInput {
     private Long presentacionId;
     private Long zonaId;
     private Double cantidad;
+    private Double cantidadFisica;
     private String vencimiento;
     private InventarioProductoEstado estado;
     private LocalDateTime creadoEn;

@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.InventarioEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -102,44 +103,13 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Inventario finalizarInventario(Long id) throws GraphQLException {
         Inventario inventario = service.findById(id).orElse(null);
-        if (inventario.getId() != null) {
-            inventario.setEstado(InventarioEstado.CONCLUIDO);
-            inventario.setFechaFin(LocalDateTime.now());
-            Inventario inv = service.save(inventario);
-            propagacionService.propagarEntidad(inv, TipoEntidad.INVENTARIO, inv.getSucursal().getId());
-            List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
-            List<MovimientoStock> movimientoStockList = new ArrayList<>();
-            for (InventarioProducto ip : inventarioProductoList) {
-                List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
-                for (InventarioProductoItem ipi : inventarioProductoItemList) {
-                    MovimientoStock movimientoStockEncontrado = null;
-                    for (MovimientoStock ms : movimientoStockList) {
-                        if (ipi.getPresentacion().getProducto().getId() == ms.getProducto().getId()) {
-                            ms.setCantidad(ms.getCantidad() + (ipi.getPresentacion().getCantidad() * ipi.getCantidad()));
-                            movimientoStockEncontrado = ms;
-                        }
-                    }
-                    if (movimientoStockEncontrado == null) {
-                        movimientoStockEncontrado = new MovimientoStock();
-                        movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
-                        movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
-                        movimientoStockEncontrado.setReferencia(id);
-                        movimientoStockEncontrado.setProducto(ipi.getPresentacion().getProducto());
-                        movimientoStockEncontrado.setEstado(true);
-                        movimientoStockList.add(movimientoStockEncontrado);
-                    }
-                }
-            }
-            for (MovimientoStock ms : movimientoStockList) {
-                Double stockSistema = Double.valueOf(movimientoStockService.stockByProductoId(ms.getProducto().getId()));
-                Double stockFisico = ms.getCantidad();
-                Double diferencia = stockFisico - stockSistema; //9 - 10 = -1, 11 - 10 = 1
-                ms.setCantidad(diferencia);
-                propagacionService.propagarEntidad(ms, TipoEntidad.MOVIMIENTO_STOCK);
-                movimientoStockService.save(ms);
+        if (inventario.getId() != null && inventario.getEstado() != InventarioEstado.CONCLUIDO) {
+            inventario = propagacionService.finalizarInventario(inventario, inventario.getSucursal().getId());
+            if(inventario!=null){
+                return service.save(inventario);
             }
         }
-        return inventario;
+        return null;
     }
 
     public Boolean cancelarInventario(Long id) throws GraphQLException {

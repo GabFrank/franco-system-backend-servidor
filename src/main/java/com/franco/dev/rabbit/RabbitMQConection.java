@@ -20,6 +20,7 @@ public class RabbitMQConection {
     private SucursalService sucursalService;
 
     public static final String NOME_EXCHANGE = "amq.topic";
+    public static final String NOME_EXCHANGE_DIRECT = "amq.direct";
     public static final String FILIAL_KEY = "filial";
     public static final String SERVIDOR_KEY = "servidor";
     private AmqpAdmin amqpAdmin;
@@ -36,7 +37,13 @@ public class RabbitMQConection {
         return new TopicExchange(NOME_EXCHANGE);
     }
 
+    private DirectExchange directExchange() { return  new DirectExchange(NOME_EXCHANGE_DIRECT); }
+
     private Binding binding(Queue fila, TopicExchange exchange, String key){
+        return new Binding(fila.getName(), Binding.DestinationType.QUEUE, exchange.getName(), key, null);
+    }
+
+    private Binding bindingDirect(Queue fila, DirectExchange exchange, String key){
         return new Binding(fila.getName(), Binding.DestinationType.QUEUE, exchange.getName(), key, null);
     }
 

@@ -49,7 +49,9 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
 
-    public List<Codigo> codigoPorCodigo(String texto){ return service.findByCodigo(texto); }
+    public List<Codigo> codigoPorCodigo(String texto){
+        return service.findByCodigo(texto);
+    }
 
     public Boolean deleteCodigo(Long id){
 

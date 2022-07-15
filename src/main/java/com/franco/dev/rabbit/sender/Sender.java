@@ -33,4 +33,8 @@ public class Sender<T> {
         template.convertAndSend(RabbitMQConection.NOME_EXCHANGE, key, p);
     }
 
+    public Object enviarAndRecibir(String key, RabbitDto<T> p){
+        return template.convertSendAndReceive(RabbitMQConection.NOME_EXCHANGE_DIRECT, key+".reply.to", p);
+    }
+
 }

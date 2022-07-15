@@ -59,6 +59,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/general/CiudadGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/operaciones/DeliveryService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/financiero/MonedaBilleteRepository.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/utils/FileService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/NotaPedidoGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/productos/enums/ProductoEstado.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/empresarial/SucursalRepository.java
@@ -119,6 +120,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/personas/input/ClienteUpdateInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/general/UnidadMedida.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/subscriptions/Subscription.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/personas/GrupoRole.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/personas/VendedorProveedorService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/productos/ProductoGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/restaurant/PedidoResService.java
@@ -159,6 +161,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/personas/VendedorRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/productos/input/FamiliaInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/financiero/CambioCajaService.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/configuracion/enums/NivelActualizacion.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/financiero/Retiro.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/personas/ProveedorService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/restaurant/PedidoRes.java
@@ -180,6 +183,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/productos/ProductoCompra.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/print/operaciones/MovimientoPrintService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/InventarioGraphQL.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/configuracion/ActualizacionGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/financiero/input/MaletinInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/security/JwtSuccessHandler.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/DeliveryGraphQL.java
@@ -201,6 +205,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/personas/Usuario.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/operaciones/TransferenciaRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/productos/pdv/PdvGrupoGraphQL.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/configuracion/ActualizacionService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/productos/ProductoProveedorRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/financiero/input/BancoInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/financiero/ConteoRepository.java
@@ -261,6 +266,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/financiero/RetiroDetalleGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/PedidoGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/financiero/MonedaBilleteService.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/configuracion/Actualizacion.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/operaciones/Compra.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/financiero/Documento.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/general/resolver/PaisResolver.java
@@ -283,6 +289,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/VueltoGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/operaciones/NecesidadItem.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/financiero/FormaPagoService.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/configuracion/ActualizacionRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/operaciones/NecesidadItemRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/personas/RoleService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/financiero/input/ConteoInput.java
@@ -340,6 +347,7 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/productos/TipoPrecioRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/empresarial/SucursalGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/productos/input/CostoPorProductoInput.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/configuracion/input/ActualizacionInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/restaurant/enums/PedidoResEstado.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/empresarial/SectorRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/config/RetryableDatabasePostProcessor.java
@@ -347,13 +355,13 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/productos/ProductoIngredienteRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/operaciones/NotaRecepcionItemRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/config/ConfigController.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/utils/FileController.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/general/resolver/CiudadResolver.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/input/NecesidadInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/utilitarios/DateUtils.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/operaciones/Venta.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/impresion/ReportingService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/operaciones/SalidaRepository.java
-/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/personas/GrupoPrivilegio.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/financiero/resolver/ConteoResolver.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/SalidaGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/financiero/CambioCajaRepository.java
@@ -451,8 +459,10 @@
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/operaciones/VueltoRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/productos/FamiliaGraphQL.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/financiero/RetiroDetalleRepository.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/utils/PathService.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/productos/Subfamilia.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/operaciones/VueltoItemGraphQL.java
+/Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/domain/configuracion/enums/TipoActualizacion.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/repository/financiero/MaletinRepository.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/graphql/personas/input/ProveedorInput.java
 /Users/gabfranck/workspace/franco-systems/backend-spring/filial/frc-central-server/src/main/java/com/franco/dev/service/operaciones/VentaService.java

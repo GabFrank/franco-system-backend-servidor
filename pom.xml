@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>com.franco.dev</groupId>
 	<artifactId>franco-dev-systems</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.5</version>
 	<name>Franco Systems</name>
 	<description>Sistema de gestion empresarial</description>
 
@@ -19,8 +19,6 @@
 		<kotlin.version>1.3.70</kotlin.version>
 		<jar.finalName>${project.name}</jar.finalName>
 	</properties>
-
-
 
 	<dependencies>
 		<dependency>
@@ -217,6 +215,12 @@
 			<groupId>org.imgscalr</groupId>
 			<artifactId>imgscalr-lib</artifactId>
 			<version>4.2</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.update4j</groupId>
+			<artifactId>update4j</artifactId>
+			<version>1.5.9</version>
 		</dependency>
 
 	</dependencies>

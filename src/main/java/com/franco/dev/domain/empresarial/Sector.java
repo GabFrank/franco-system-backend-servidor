@@ -24,7 +24,7 @@ public class Sector implements Serializable {
 
     private String descripcion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sucursal_id", nullable = true)
     private Sucursal sucursal;
 

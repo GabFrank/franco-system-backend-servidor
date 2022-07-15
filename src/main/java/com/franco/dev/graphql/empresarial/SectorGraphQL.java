@@ -2,9 +2,11 @@ package com.franco.dev.graphql.empresarial;
 
 import com.franco.dev.domain.empresarial.Sector;
 import com.franco.dev.graphql.empresarial.input.SectorInput;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SectorService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -32,6 +34,9 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private Environment env;
 
+    @Autowired
+    private PropagacionService propagacionService;
+
     public Optional<Sector> sector(Long id) {return service.findById(id);}
 
     public List<Sector> sectores(Long id){
@@ -45,13 +50,19 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Sector saveSector(SectorInput input){
         ModelMapper m = new ModelMapper();
         Sector e = m.map(input, Sector.class);
-        e.setSucursal(sucursalService.findById(input.getId()).orElse(null));
+        e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        propagacionService.propagarEntidad(e, TipoEntidad.SECTOR, input.getSucursalId());
         return service.save(e);
     }
 
     public Boolean deleteSector(Long id){
-        return service.deleteById(id);
+        Sector sector = service.findById(id).orElse(null);
+        Boolean ok = service.deleteById(id);
+        if(ok){
+            propagacionService.eliminarEntidad(id, TipoEntidad.SECTOR, sector.getSucursal().getId());
+        }
+        return ok;
     }
 
     public Long countSector(){

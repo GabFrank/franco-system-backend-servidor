@@ -63,4 +63,5 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public Long countActualizacion(){
         return service.count();
     }
+
 }

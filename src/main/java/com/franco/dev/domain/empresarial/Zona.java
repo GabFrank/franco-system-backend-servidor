@@ -24,7 +24,7 @@ public class Zona implements Serializable {
 
     private String descripcion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sector_id", nullable = true)
     private Sector sector;
 

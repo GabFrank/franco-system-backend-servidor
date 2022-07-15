@@ -20,7 +20,7 @@ public class InventarioProductoResolver implements GraphQLResolver<InventarioPro
     private InventarioProductoItemService inventarioProductoItemService;
 
     public List<InventarioProductoItem> inventarioProductoItemList(InventarioProducto v){
-        return inventarioProductoItemService.findByInventarioProductoId(v.getId());
+        return inventarioProductoItemService.findByInventarioProductoId(v.getId(), null);
     }
 
 }

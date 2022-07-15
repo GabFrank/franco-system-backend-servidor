@@ -6,6 +6,7 @@ type InventarioProductoItem {
     zona: Zona
     presentacion: Presentacion
     cantidad: Float
+    cantidadFisica: Float
     vencimiento: Date
     estado: InventarioProductoEstado
     creadoEn: Date
@@ -20,6 +21,7 @@ input InventarioProductoItemInput {
     zonaId: Int
     presentacionId: Int
     cantidad: Float
+    cantidadFisica: Float
     vencimiento: String
     estado: InventarioProductoEstado
     usuarioId: Int
@@ -28,6 +30,7 @@ input InventarioProductoItemInput {
 extend type Query {
     inventarioProductoItem(id:ID!):InventarioProductoItem
     inventarioProductosItem(page:Int = 0, size:Int = 10):[InventarioProductoItem]!
+    inventarioProductosItemPorInventarioProducto(id:ID!, page:Int = 0, size:Int = 10):[InventarioProductoItem]!
 }
 
 extend type Mutation {

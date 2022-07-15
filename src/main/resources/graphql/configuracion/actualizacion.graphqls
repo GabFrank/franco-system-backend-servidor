@@ -28,7 +28,6 @@ extend type Query {
     actualizaciones(page:Int = 0, size:Int = 10):[Actualizacion]!
     countActualizacion: Int
     ultimaActualizacion(tipo:TipoActualizacion):Actualizacion
-
 }
 
 extend type Mutation {

@@ -98,6 +98,7 @@ com/franco/dev/graphql/empresarial/SucursalResolver.class
 com/franco/dev/graphql/operaciones/resolver/InventarioProductoResolver.class
 com/franco/dev/repository/personas/ClienteRepository.class
 com/franco/dev/security/JwtSuccessHandler.class
+com/franco/dev/domain/configuracion/enums/NivelActualizacion.class
 com/franco/dev/print/operaciones/MovimientoPrintService.class
 com/franco/dev/domain/operaciones/Venta.class
 com/franco/dev/repository/financiero/FormaPagoRepository.class
@@ -184,7 +185,9 @@ com/franco/dev/service/operaciones/DeliveryService.class
 com/franco/dev/security/JwtAuthenticationProvider.class
 com/franco/dev/domain/operaciones/enums/CompraItemEstado.class
 com/franco/dev/repository/financiero/CuentaBancariaRepository.class
+com/franco/dev/service/utils/PathService.class
 com/franco/dev/repository/operaciones/InventarioProductoItemRepository.class
+com/franco/dev/graphql/configuracion/input/ActualizacionInput.class
 com/franco/dev/utilitarios/print/escpos/image/CoffeeImage.class
 com/franco/dev/domain/operaciones/enums/InventarioEstado.class
 com/franco/dev/domain/personas/PreRegistroFuncionario.class
@@ -273,6 +276,7 @@ com/franco/dev/domain/productos/PrecioPorSucursal.class
 com/franco/dev/repository/personas/ProveedorDiasVisitaRepository.class
 com/franco/dev/service/productos/IngredienteService.class
 com/franco/dev/repository/productos/ProductoImagenRepository.class
+com/franco/dev/domain/personas/GrupoRole.class
 com/franco/dev/domain/productos/Codigo.class
 com/franco/dev/graphql/financiero/ConteoMonedaGraphQL.class
 com/franco/dev/graphql/empresarial/resolver/CargoResolver.class
@@ -358,6 +362,7 @@ com/franco/dev/service/operaciones/TransferenciaService.class
 com/franco/dev/graphql/personas/resolver/ProveedorResolver.class
 com/franco/dev/graphql/operaciones/VentaItemGraphQL.class
 com/franco/dev/domain/personas/Usuario$UsuarioBuilder.class
+com/franco/dev/repository/configuracion/ActualizacionRepository.class
 com/franco/dev/utilitarios/print/escpos/barcode/BarCode$BarCodeSystem.class
 com/franco/dev/service/financiero/GastoDetalleService.class
 com/franco/dev/repository/restaurant/PedidoItemResRepository.class
@@ -381,6 +386,7 @@ com/franco/dev/domain/productos/ProductoImagen.class
 com/franco/dev/utilitarios/print/escpos/image/BitonalThreshold.class
 com/franco/dev/graphql/operaciones/input/MotivoDiferenciaPedidoInput.class
 com/franco/dev/graphql/operaciones/input/NecesidadInput.class
+com/franco/dev/graphql/configuracion/ActualizacionGraphQL.class
 com/franco/dev/graphql/operaciones/resolver/MovimientoStockResolverResolver.class
 com/franco/dev/domain/financiero/MovimientoCaja.class
 com/franco/dev/graphql/operaciones/input/SalidaInput.class
@@ -431,6 +437,7 @@ com/franco/dev/graphql/personas/resolver/FuncionarioResolver.class
 com/franco/dev/utilitarios/print/escpos/barcode/PDF417$PDF417Option.class
 com/franco/dev/graphql/operaciones/input/VueltoItemInput.class
 com/franco/dev/domain/restaurant/PedidoItemRes.class
+com/franco/dev/service/configuracion/ActualizacionService.class
 com/franco/dev/domain/productos/enums/UnidadMedida.class
 com/franco/dev/graphql/productos/input/PresentacionInput.class
 com/franco/dev/utilitarios/print/escpos/EscPos.class
@@ -537,7 +544,6 @@ com/franco/dev/graphql/personas/UsuarioGraphQL.class
 com/franco/dev/graphql/financiero/resolver/RetiroResolver.class
 com/franco/dev/graphql/financiero/input/ConteoMonedaInput.class
 com/franco/dev/graphql/financiero/input/BancoInput.class
-com/franco/dev/domain/personas/GrupoPrivilegio.class
 com/franco/dev/security/AdminSecured.class
 com/franco/dev/graphql/operaciones/VueltoGraphQL.class
 com/franco/dev/domain/operaciones/ProgramarPrecio.class
@@ -553,6 +559,7 @@ com/franco/dev/graphql/general/input/PaisInput.class
 com/franco/dev/domain/financiero/enums/PdvCajaTipoMovimiento.class
 com/franco/dev/utilitarios/print/escpos/image/GraphicsImageWrapper$GraphicsImageBxBy.class
 com/franco/dev/service/general/ContactoService.class
+com/franco/dev/service/utils/FileController.class
 com/franco/dev/domain/operaciones/enums/NecesidadItemEstado.class
 com/franco/dev/graphql/personas/input/ClienteInput.class
 com/franco/dev/domain/operaciones/enums/TipoTransferencia.class
@@ -589,12 +596,14 @@ com/franco/dev/service/financiero/PdvCajaService.class
 com/franco/dev/domain/operaciones/PedidoItem.class
 com/franco/dev/repository/operaciones/CobroRepository.class
 com/franco/dev/utilitarios/PostgreSQLEnumType.class
+com/franco/dev/domain/configuracion/Actualizacion.class
 com/franco/dev/graphql/general/input/ContactoInput.class
 com/franco/dev/service/operaciones/VentaService.class
 com/franco/dev/service/operaciones/SalidaItemService.class
 com/franco/dev/repository/operaciones/SalidaRepository.class
 com/franco/dev/graphql/operaciones/PrecioDeliveryGraphQL.class
 com/franco/dev/graphql/financiero/input/CuentaBancariaInput.class
+com/franco/dev/service/utils/FileService.class
 com/franco/dev/graphql/productos/exceptions/ProductoDescripcionYaExisteException.class
 com/franco/dev/repository/operaciones/NotaRecepcionItemRepository.class
 com/franco/dev/graphql/empresarial/input/SectorInput.class
@@ -602,6 +611,7 @@ com/franco/dev/domain/configuracion/Local.class
 com/franco/dev/config/RetryableDataSource.class
 com/franco/dev/service/personas/VendedorProveedorService.class
 com/franco/dev/service/financiero/ConteoMonedaService.class
+com/franco/dev/domain/configuracion/enums/TipoActualizacion.class
 com/franco/dev/graphql/personas/ClienteGraphQL.class
 com/franco/dev/domain/configuracion/InicioSesion.class
 com/franco/dev/graphql/operaciones/InventarioGraphQL.class

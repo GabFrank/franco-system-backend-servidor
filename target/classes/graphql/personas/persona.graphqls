@@ -16,6 +16,7 @@ type Persona {
     isFuncionario: Boolean
     isCliente: Boolean
     isProveedor: Boolean
+    isUsuario: Boolean
 }
 
 input PersonaInput {

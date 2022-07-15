@@ -50,6 +50,8 @@ public class InventarioProductoItem implements Serializable {
 
     private Double cantidad;
 
+    private Double cantidadFisica;
+
     @JoinColumn(name = "vencimiento", nullable = true)
     private LocalDateTime vencimiento;
 

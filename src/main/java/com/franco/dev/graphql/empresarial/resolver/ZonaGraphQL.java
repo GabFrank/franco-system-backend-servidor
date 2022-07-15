@@ -2,9 +2,11 @@ package com.franco.dev.graphql.empresarial.resolver;
 
 import com.franco.dev.domain.empresarial.Zona;
 import com.franco.dev.graphql.empresarial.input.ZonaInput;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SectorService;
 import com.franco.dev.service.empresarial.ZonaService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -32,6 +34,9 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     @Autowired
     private Environment env;
 
+    @Autowired
+    private PropagacionService propagacionService;
+
     public Optional<Zona> zona(Long id) {
         return service.findById(id);
     }
@@ -51,6 +56,7 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         Zona e = m.map(input, Zona.class);
         e.setSector(sectorService.findById(input.getSectorId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
         return service.save(e);
     }
 

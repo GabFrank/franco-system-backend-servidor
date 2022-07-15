@@ -85,7 +85,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Float productoPorSucursalStock(Long proId, Long sucId){
-        return movimientoStockService.stockByProductoIdAndSucursalId(proId, sucId);
+        return propagacionService.solicitarStockByProducto(proId, sucId);
     }
 
     public Boolean deleteProducto(Long id){

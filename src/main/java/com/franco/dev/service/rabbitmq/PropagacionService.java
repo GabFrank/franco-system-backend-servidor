@@ -24,6 +24,7 @@ import com.franco.dev.service.productos.*;
 import com.franco.dev.service.productos.pdv.PdvCategoriaService;
 import com.franco.dev.service.productos.pdv.PdvGrupoService;
 import com.franco.dev.service.productos.pdv.PdvGruposProductosService;
+import com.franco.dev.service.utils.ImageService;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -159,6 +160,9 @@ public class PropagacionService {
 
     @Autowired
     private InventarioProductoItemService inventarioProductoItemService;
+
+    @Autowired
+    private ImageService imageService;
 
     public void verficarConexion(Long sucId) {
         sucursalVerificar = sucId;
@@ -546,6 +550,11 @@ public class PropagacionService {
     public <T> void propagarEntidad(T entity, TipoEntidad tipoEntidad) {
         log.info("Propagando entidad a todas las sucursales: " + tipoEntidad.name());
         sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad));
+    }
+
+    public void propagarImagen(String image, String filename, TipoEntidad tipoEntidad) {
+        log.info("Propagando imagen a todas las sucursales: " + tipoEntidad.name());
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename));
     }
 
     public <T> void propagarEntidad(T entity, TipoEntidad tipoEntidad, Long sucId) {

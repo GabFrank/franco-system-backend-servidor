@@ -191,9 +191,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
                 Map<String, Object> parameters = new HashMap<>();
                 parameters.put("creadoPor", "Gabriel Franco");
                 JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-                JasperExportManager.exportReportToPdfFile(jasperPrint, imageService.storageDirectoryPathReports + "productos.pdf");
+                JasperExportManager.exportReportToPdfFile(jasperPrint, imageService.getStorageDirectoryPathReports() + "productos.pdf");
                 try {
-                    File pdf = new File(imageService.storageDirectoryPathReports + "productos.pdf");
+                    File pdf = new File(imageService.getStorageDirectoryPathReports() + "productos.pdf");
                     byte[] bytes = Files.readAllBytes(pdf.toPath());
                     String b64 = Base64.getEncoder().encodeToString(bytes);
                     return b64;

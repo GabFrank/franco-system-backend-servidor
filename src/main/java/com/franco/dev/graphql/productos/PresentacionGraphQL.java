@@ -91,8 +91,11 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean saveImagenPresentacion(String image, String filename) throws IOException {
-        log.info("intrando en el image save");
-        return imageService.saveImageToPath(image, filename, true);
+        Boolean ok = imageService.saveImageToPath(image, filename, imageService.getImagePresentaciones(), imageService.getImagePresentacionesThumb(), true);
+        if(ok){
+            propagacionService.propagarImagen(image, filename, TipoEntidad.PRESENTACION);
+        }
+        return ok;
     }
 
 }

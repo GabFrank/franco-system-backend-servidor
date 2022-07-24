@@ -48,7 +48,7 @@ public class ImpresionService {
 
                 QRCode qrCode = new QRCode();
 
-                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.storageDirectoryPath + "logo.png"));
+                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
                 EscPos escpos = new EscPos(printerOutputStream);
@@ -228,7 +228,7 @@ public class ImpresionService {
 
                 QRCode qrCode = new QRCode();
 
-                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.storageDirectoryPath + "logo.png"));
+                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
                 EscPos escpos = new EscPos(printerOutputStream);
@@ -311,7 +311,7 @@ public class ImpresionService {
 
                 QRCode qrCode = new QRCode();
 
-                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.storageDirectoryPath + "logo.png"));
+                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
                 EscPos escpos = new EscPos(printerOutputStream);
@@ -393,7 +393,7 @@ public class ImpresionService {
 
                 QRCode qrCode = new QRCode();
 
-                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.storageDirectoryPath + "logo.png"));
+                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
                 EscPos escpos = new EscPos(printerOutputStream);

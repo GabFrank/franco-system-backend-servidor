@@ -194,7 +194,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
         QRCode qrCode = new QRCode();
 
-        BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.storageDirectoryPath + "logo.png"));
+        BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
         imageBufferedImage = resize(imageBufferedImage, 200, 100);
         RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
         EscPos escpos = null;

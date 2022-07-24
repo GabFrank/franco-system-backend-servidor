@@ -50,8 +50,8 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.findAll(pageable);
     }
 
-    public List<TransferenciaItem> transferenciaItemsPorTransferenciaId(Long id){
-        return service.findByTransferenciaItemId(id);
+    public List<TransferenciaItem> transferenciaItensPorTransferenciaId(Long id, Integer page, Integer size){
+        return service.findByTransferenciaItemId(id, page, size);
     }
 
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input){

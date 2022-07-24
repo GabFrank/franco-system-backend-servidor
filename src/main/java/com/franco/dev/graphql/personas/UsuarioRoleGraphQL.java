@@ -1,77 +1,54 @@
 package com.franco.dev.graphql.personas;
 
-import com.franco.dev.domain.personas.Proveedor;
-import com.franco.dev.domain.personas.Vendedor;
-import com.franco.dev.graphql.personas.input.ProveedorInput;
-import com.franco.dev.graphql.personas.input.VendedorInput;
+import com.franco.dev.domain.personas.UsuarioRole;
+import com.franco.dev.graphql.personas.input.UsuarioRoleInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
-import com.franco.dev.service.personas.PersonaService;
-import com.franco.dev.service.personas.ProveedorService;
+import com.franco.dev.service.personas.RoleService;
+import com.franco.dev.service.personas.UsuarioRoleService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.personas.VendedorService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 @Component
-public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
-    private VendedorService service;
+    private UsuarioRoleService service;
 
     @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
-    private PersonaService personaService;
-
-    @Autowired
-    private ProveedorService proveedorService;
+    private RoleService roleService;
 
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<Vendedor> vendedor(Long id) {return service.findById(id);}
+    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {return service.findByUserId(id);}
 
-    public List<Vendedor> vendedores(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
-        return service.findAll(pageable);
-    }
-
-    public List<Vendedor> vendedoresSearchByPersona(String texto){
-        return service.findByPersonaNombre(texto);
-    }
-
-    public Vendedor saveVendedor(VendedorInput input){
-        ModelMapper m = new ModelMapper();
-        Vendedor e = m.map(input, Vendedor.class);
+    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input){
+        UsuarioRole e = new UsuarioRole();
+        if(input.getId()!=null) e.setId(input.getId());
+        e.setUser(usuarioService.findById(input.getUserId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
+        e.setRole(roleService.findById(input.getRoleId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.VENDEDOR);
+        propagacionService.propagarEntidad(e, TipoEntidad.USUARIO_ROLE);
         return e;
     }
 
-    public Boolean deleteVendedor(Long id){
+    public Boolean deleteUsuarioRole(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.VENDEDOR);
         return ok;
     }
 
-    public Long countVendedor(){
+    public Long countUsuarioRole(){
         return service.count();
-    }
-
-    public Vendedor vendedorPorPersona(Long id){
-        return service.findByPersonaId(id);
     }
 
 }

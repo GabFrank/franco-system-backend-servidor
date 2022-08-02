@@ -1,32 +1,25 @@
-type Vendedor {
+type UsuarioRole {
     id:ID!
-    nombrePersona: String
-    persona: Persona
-    observacion: String
-    activo: Boolean
+    user: Usuario
+    role: Role
     usuario: Usuario
-    proveedores: [Proveedor]
+    creadoEn: Date
 }
 
-input VendedorInput {
+input UsuarioRoleInput {
     id:ID,
-    proveedorId: Int
-    personaId: Int
-    activo: Boolean
-    observacion: String
+    userId: Int
+    roleId: Int
     usuarioId: Int
 }
 
 extend type Query {
-    vendedor(id:ID!):Vendedor
-    vendedoresSearchByPersona(texto:String):[Vendedor]
-    vendedores(page:Int = 0, size:Int = 10):[Vendedor]!
-    countVendedor:Int
+    usuarioRolePorUsuarioId(id:ID!):[UsuarioRole]
 }
 
 extend type Mutation {
-    saveVendedor(vendedor:VendedorInput!):Vendedor!
-    deleteVendedor(id:ID!):Boolean!
+    saveUsuarioRole(usuarioRole:UsuarioRoleInput!):UsuarioRole!
+    deleteUsuarioRole(id:ID!):Boolean!
 }
 
 

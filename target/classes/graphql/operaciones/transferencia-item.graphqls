@@ -67,6 +67,7 @@ input TransferenciaItemInput {
 extend type Query {
     transferenciaItem(id:ID!):TransferenciaItem
     transferenciaItems(page:Int = 0, size:Int = 10):[TransferenciaItem]!
+    transferenciaItensPorTransferenciaId(id: ID!, page:Int = 0, size:Int = 10):[TransferenciaItem]!
 #   transferenciaItemPorFecha(start:String, end:String):[TransferenciaItem]!
 }
 

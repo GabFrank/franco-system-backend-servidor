@@ -5,6 +5,7 @@ import com.franco.dev.graphql.operaciones.input.VentaItemInput;
 import com.franco.dev.service.impresion.dto.GastoDto;
 import com.franco.dev.service.impresion.dto.RetiroDto;
 import com.franco.dev.service.utils.ImageService;
+import com.franco.dev.service.utils.PrintingService;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -32,9 +33,14 @@ public class ImpresionService {
     @Autowired
     private ImageService imageService;
 
+    @Autowired
+    private PrintingService printingService;
+
     private PrintService printService;
 
     private PrinterOutputStream printerOutputStream;
+
+    PrintService selectedPrintService = null;
 
     public Boolean printBalance(PdvCajaBalanceDto balanceDto){
         try {
@@ -216,11 +222,11 @@ public class ImpresionService {
     }
 
 
-    public void printGasto(GastoDto gastoDto){
+    public void printGasto(GastoDto gastoDto, String printerName, String local) {
         try {
-            printService = PrinterOutputStream.getPrintServiceByName("TICKET58");
-            if(printService!=null){
-                printerOutputStream  = new PrinterOutputStream(printService);
+            selectedPrintService = printingService.getPrintService(printerName);
+            if (selectedPrintService != null) {
+                printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
                 //Styles
@@ -236,18 +242,19 @@ public class ImpresionService {
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
                 escpos.write(imageWrapper, escposImage);
-                escpos.writeLF(center.setBold(true), "SUC. CENTRO");
-                escpos.writeLF(center, "Salto del Guairá");
-                escpos.writeLF(center.setBold(true), "Gasto: "+ gastoDto.getId());
-                escpos.writeLF(center.setBold(true), "Caja: "+ gastoDto.getCajaId());
-                if(gastoDto.getUsuario().getPersona().getNombre().length() > 23){
+                if (local != null) {
+                    escpos.writeLF(center, "Local: " + local);
+                }
+                escpos.writeLF(center.setBold(true), "Gasto: " + gastoDto.getId());
+                escpos.writeLF(center.setBold(true), "Caja: " + gastoDto.getCajaId());
+                if (gastoDto.getUsuario().getPersona().getNombre().length() > 23) {
                     escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre().substring(0, 23));
                 } else {
                     escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre());
                 }
-                escpos.writeLF("Fecha "+ gastoDto.getFecha().format(formatter));
-                escpos.writeLF(new Style().setBold(true) ,"Tipo "+ gastoDto.getTipoGasto().getId() +" - "+ gastoDto.getTipoGasto().getDescripcion().toUpperCase());
-                if(gastoDto.getObservacion()!=null){
+                escpos.writeLF("Fecha " + gastoDto.getFecha().format(formatter));
+                escpos.writeLF(new Style().setBold(true), "Tipo " + gastoDto.getTipoGasto().getId() + " - " + gastoDto.getTipoGasto().getDescripcion().toUpperCase());
+                if (gastoDto.getObservacion() != null) {
                     escpos.writeLF("Obs: " + gastoDto.getObservacion().toUpperCase());
                 }
                 escpos.writeLF("--------------------------------");
@@ -274,17 +281,17 @@ public class ImpresionService {
                 escpos.feed(4);
                 escpos.writeLF(center, ".......................");
                 escpos.writeLF(center, "FIRMA RESPONSABLE");
-                if(gastoDto.getResponsable().getPersona().getNombre().length() > 23){
+                if (gastoDto.getResponsable().getPersona().getNombre().length() > 23) {
                     escpos.writeLF(center, gastoDto.getResponsable().getPersona().getNombre().substring(0, 23));
                 } else {
                     escpos.writeLF(center, gastoDto.getResponsable().getPersona().getNombre());
                 }
-                if(gastoDto.getAutorizadoPor()!=null){
+                if (gastoDto.getAutorizadoPor() != null) {
                     escpos.writeLF("--------------------------------");
                     escpos.feed(4);
                     escpos.writeLF(center, ".......................");
                     escpos.writeLF(center, "AUTORIZACION");
-                    if(gastoDto.getAutorizadoPor().getPersona().getNombre().length() > 23){
+                    if (gastoDto.getAutorizadoPor().getPersona().getNombre().length() > 23) {
                         escpos.writeLF(center, gastoDto.getAutorizadoPor().getPersona().getNombre().substring(0, 23));
                     } else {
                         escpos.writeLF(center, gastoDto.getAutorizadoPor().getPersona().getNombre());
@@ -381,11 +388,11 @@ public class ImpresionService {
         }
     }
 
-    public void printRetiro(RetiroDto retiroDto){
+    public void printRetiro(RetiroDto retiroDto, String printerName, String local) {
         try {
-            printService = PrinterOutputStream.getPrintServiceByName("TICKET58");
-            if(printService!=null){
-                printerOutputStream  = new PrinterOutputStream(printService);
+            selectedPrintService = printingService.getPrintService(printerName);
+            if (selectedPrintService != null) {
+                printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
                 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
                 //Styles
@@ -401,16 +408,18 @@ public class ImpresionService {
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
                 escpos.write(imageWrapper, escposImage);
-                escpos.writeLF(center.setBold(true), "SUC. CENTRO");
-                escpos.writeLF(center, "Salto del Guairá");
-                escpos.writeLF(center.setBold(true), "Retiro: "+ retiroDto.getId());
-                escpos.writeLF(center.setBold(true), "Caja: "+ retiroDto.getCajaId());
-                if(retiroDto.getUsuario().getPersona().getNombre().length() > 23){
+
+                if (local != null) {
+                    escpos.writeLF(center, "Local: " + local);
+                }
+                escpos.writeLF(center.setBold(true), "Retiro: " + retiroDto.getId());
+                escpos.writeLF(center.setBold(true), "Caja: " + retiroDto.getCajaId());
+                if (retiroDto.getUsuario().getPersona().getNombre().length() > 23) {
                     escpos.writeLF("Cajero: " + retiroDto.getUsuario().getPersona().getNombre().substring(0, 23));
                 } else {
                     escpos.writeLF("Cajero: " + retiroDto.getUsuario().getPersona().getNombre());
                 }
-                escpos.writeLF("Fecha "+ retiroDto.getFecha().format(formatter));
+                escpos.writeLF("Fecha " + retiroDto.getFecha().format(formatter));
                 escpos.writeLF("--------------------------------");
                 escpos.writeLF(center, "VALORES DE RETIRO");
                 escpos.write("Guaranies G$: ");
@@ -435,7 +444,7 @@ public class ImpresionService {
                 escpos.feed(4);
                 escpos.writeLF(center, ".......................");
                 escpos.writeLF(center, "FIRMA RESPONSABLE");
-                if(retiroDto.getResponsable().getPersona().getNombre().length() > 23){
+                if (retiroDto.getResponsable().getPersona().getNombre().length() > 23) {
                     escpos.writeLF(center, retiroDto.getResponsable().getPersona().getNombre().substring(0, 23));
                 } else {
                     escpos.writeLF(center, retiroDto.getResponsable().getPersona().getNombre());
@@ -445,7 +454,7 @@ public class ImpresionService {
                 printerOutputStream.close();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+
         }
     }
 

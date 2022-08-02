@@ -5,7 +5,6 @@ import org.imgscalr.Scalr;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,13 +23,12 @@ import java.util.stream.Stream;
 public class ImageService {
 
     public final Logger log = LoggerFactory.getLogger(ImageService.class);
+    boolean isWindows = true;
+    boolean isMac = false;
     private String imagePresentaciones = "/FRC/images/productos/presentaciones";
     private String imagePresentacionesThumb = "/FRC/images/productos/presentaciones/thumbnails";
     private String storageDirectoryPathReports = "/FRC/reports";
     private String imagePath = "/FRC/images";
-    boolean isWindows = true;
-    boolean isMac = false;
-
     @Autowired
     private Environment env;
 
@@ -63,38 +61,6 @@ public class ImageService {
 //        }
 //    }
 
-    public String getStorageDirectoryPathReports(){
-        if(isWindows){
-            return "C:\\\\FRC\\reports\\";
-        } else {
-            return env.getProperty("homepath") + storageDirectoryPathReports + "/";
-        }
-    }
-
-    public String getImagePresentaciones(){
-        if(isWindows){
-            return "C:\\\\FRC\\images\\productos\\presentaciones\\";
-        } else {
-            return env.getProperty("homepath") + imagePresentaciones + "/";
-        }
-    }
-
-    public String getImagePresentacionesThumb(){
-        if(isWindows){
-            return "C:\\\\FRC\\images\\productos\\presentaciones\\thumbnails\\";
-        } else {
-            return env.getProperty("homepath") + imagePresentacionesThumb + "/";
-        }
-    }
-
-    public String getImagePath(){
-        if(isWindows){
-            return "C:\\\\FRC\\images\\";
-        } else {
-            return env.getProperty("homepath") + imagePath + "/";
-        }
-    }
-
     public static MultipartFile converter(String source) {
         String[] charArray = source.split(",");
         Base64.Decoder decoder = Base64.getDecoder();
@@ -108,22 +74,66 @@ public class ImageService {
         return Base64Decoder.multipartFile(bytes, charArray[0]);
     }
 
+    public String getResourcesPath() {
+        if (isWindows) {
+            return "C:\\\\FRC\\resources";
+        } else {
+            return env.getProperty("homepath") + "/FRC/resources";
+        }
+    }
+
+    public String getStorageDirectoryPathReports() {
+        if (isWindows) {
+            return "C:\\\\FRC\\reports\\";
+        } else {
+            return env.getProperty("homepath") + storageDirectoryPathReports + "/";
+        }
+    }
+
+    public String getImagePresentaciones() {
+        if (isWindows) {
+            return "C:\\\\FRC\\images\\productos\\presentaciones\\";
+        } else {
+            return env.getProperty("homepath") + imagePresentaciones + "/";
+        }
+    }
+
+    public String getImagePresentacionesThumb() {
+        if (isWindows) {
+            return "C:\\\\FRC\\images\\productos\\presentaciones\\thumbnails\\";
+        } else {
+            return env.getProperty("homepath") + imagePresentacionesThumb + "/";
+        }
+    }
+
+    public String getImagePath() {
+        if (isWindows) {
+            return "C:\\\\FRC\\images\\";
+        } else {
+            return env.getProperty("homepath") + imagePath + "/";
+        }
+    }
+
     public String getImageWithMediaType(String imagePath) {
+        String filePath;
+        filePath = imagePath;
+        return fileToBase64(new File(filePath));
+    }
+
+    public String fileToBase64(File file) {
         byte[] fileContent = new byte[0];
         try {
-            String filePath;
-            filePath = imagePath;
-            fileContent = FileUtils.readFileToByteArray(new File(filePath));
-            String image = Base64.getEncoder().encodeToString(fileContent);
-            return "data:image/jpg;base64," + image;
+            fileContent = FileUtils.readFileToByteArray(file);
+            return "data:image/jpg;base64," + Base64.getEncoder().encodeToString(fileContent);
         } catch (IOException e) {
-            return null;
+            e.printStackTrace();
         }
+        return null;
     }
 
     public Boolean saveImageToPath(String imageBase64, String fileName, String filePath, String thumbPath, Boolean thumbnail) throws IOException {
         Boolean res = false;
-        Path path = Paths.get(filePath+fileName);
+        Path path = Paths.get(filePath + fileName);
         log.warn("borrando " + path);
         deleteFile(path.toString());
         try {
@@ -150,7 +160,7 @@ public class ImageService {
     }
 
     public boolean saveScaledImage(String originalFilePath, String path, String fileNameToSave, int width) {
-        File input = new File(originalFilePath+fileNameToSave);
+        File input = new File(originalFilePath + fileNameToSave);
         try {
             BufferedImage image = ImageIO.read(input);
             BufferedImage resized = resize(image, 250, 250);

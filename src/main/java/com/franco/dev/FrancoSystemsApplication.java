@@ -2,6 +2,9 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.franco.dev.service.productos.PresentacionService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
+import com.franco.dev.service.utils.ImageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -18,6 +21,7 @@ import org.springframework.web.filter.CorsFilter;
 import javax.annotation.PostConstruct;
 import javax.servlet.Filter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Collections;
 
 @EnableRetry
@@ -31,15 +35,15 @@ public class FrancoSystemsApplication {
 //    TipoPrecioService tipoPrecioService;
 //    @Autowired
 //    PrecioPorSucursalService precioPorSucursalService;
-//    @Autowired
-//    private ImageService imageService;
+    @Autowired
+    private PropagacionService propagacionService;
 //    private Logger log = LoggerFactory.getLogger(FrancoSystemsApplication.class);
     @Autowired
     private ObjectMapper objectMapper;
 //    @Autowired
 //    private CodigoService codigoService;
-//    @Autowired
-//    private Environment env;
+    @Autowired
+    private ImageService imageService;
 
     public static void main(String[] args) throws IOException {
 
@@ -85,7 +89,7 @@ public class FrancoSystemsApplication {
 
 	@Bean
 	public void getHomePath(){
-//		imageService.setUserDirectory(env.getProperty("homepath"));
+
 	}
 
 }

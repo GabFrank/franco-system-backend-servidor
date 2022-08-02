@@ -26,11 +26,17 @@ import com.franco.dev.service.productos.pdv.PdvGrupoService;
 import com.franco.dev.service.productos.pdv.PdvGruposProductosService;
 import com.franco.dev.service.utils.ImageService;
 import com.rabbitmq.client.Channel;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.zeroturnaround.zip.ZipUtil;
 
+import javax.activation.MimetypesFileTypeMap;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -318,6 +324,7 @@ public class PropagacionService {
             case USUARIO_ROLE:
                 log.info("Propagando usuario role: ");
                 propagar(TipoEntidad.USUARIO_ROLE, sucId, usuarioRoleService);
+                propagarArchivo(imageService.getImagePath(), "", imageService.getImagePath(), "images.zip", sucId);
                 break;
 //            case TRANSFERENCIA:
 //                log.info("Propagando transferencia: ");
@@ -555,6 +562,32 @@ public class PropagacionService {
     public void propagarImagen(String image, String filename, TipoEntidad tipoEntidad) {
         log.info("Propagando imagen a todas las sucursales: " + tipoEntidad.name());
         sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename));
+    }
+
+    public void propagarImagen(String image, String filename, TipoEntidad tipoEntidad, Long sucId) {
+        log.info("Propagando imagen a todas las sucursales: " + tipoEntidad.name());
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename));
+    }
+
+    public void propagarArchivo(String path, String fileName, String finalFileName, String finalPath, Long sucId){
+        ZipUtil.pack(new File(path+fileName), new File(finalPath+finalFileName+".zip"));
+        File file = new File(finalPath+finalFileName+".zip");
+        if(file.isFile()){
+            byte[] fileContent = new byte[0];
+            try {
+                fileContent = FileUtils.readFileToByteArray(file);
+                sender.enviar(RabbitMQConection.FILIAL_KEY+ "." + sucId, new RabbitDto(TipoAccion.GUARDAR_ARCHIVO, TipoEntidad.ARCHIVO, path+fileName, sucId, fileContent));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("bad type");
+        }
+        try {
+            imageService.deleteFile(file.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public <T> void propagarEntidad(T entity, TipoEntidad tipoEntidad, Long sucId) {

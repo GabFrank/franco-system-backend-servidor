@@ -206,5 +206,6 @@
     <orderEntry type="library" name="Maven: org.springframework.retry:spring-retry:1.2.5.RELEASE" level="project" />
     <orderEntry type="library" name="Maven: org.imgscalr:imgscalr-lib:4.2" level="project" />
     <orderEntry type="library" name="Maven: org.update4j:update4j:1.5.9" level="project" />
+    <orderEntry type="library" name="Maven: org.zeroturnaround:zt-zip:1.15" level="project" />
   </component>
 </module>

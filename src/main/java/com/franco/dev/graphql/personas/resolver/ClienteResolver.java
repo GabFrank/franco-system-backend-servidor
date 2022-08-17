@@ -33,7 +33,7 @@ public class ClienteResolver implements GraphQLResolver<Cliente> {
     public String nombre(Cliente e){ return e.getPersona().getNombre(); }
 
     public Optional<Usuario> usuarioId(Cliente e){
-        return usuarioService.findById(e.getUsuarioId().getId());
+        return usuarioService.findById(e.getUsuario().getId());
     }
 
 }

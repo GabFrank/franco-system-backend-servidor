@@ -37,6 +37,17 @@ public class Receiver {
                 break;
             case GUARDAR:
                 propagacionService.crudEntidad(dto);
+                break;
+        }
+    }
+
+    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY+".reply.to")
+    public Object receiveAndReply(RabbitDto dto) {
+        switch (dto.getTipoAccion()) {
+            case GUARDAR:
+                return propagacionService.crudEntidad(dto);
+            default:
+                return null;
         }
     }
 }

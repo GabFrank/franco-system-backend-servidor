@@ -6,12 +6,14 @@ import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.graphql.financiero.input.PdvCajaInput;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.BancoService;
 import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -46,6 +48,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private ConteoMonedaGraphQL conteoMonedaGraphQL;
 
+    @Autowired
+    private PropagacionService propagacionService;
+
     public Optional<PdvCaja> pdvCaja(Long id) {return service.findById(id);}
 
     public List<PdvCaja> pdvCajas(int page, int size){
@@ -79,6 +84,19 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return pdvCaja;
     }
 
+    public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input, Long sucId){
+        ModelMapper m = new ModelMapper();
+        PdvCaja e = m.map(input, PdvCaja.class);
+        if(input.getUsuarioId()!=null){
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        if(input.getConteoAperturaId()!=null) e.setConteoApertura(conteoService.findById(input.getConteoAperturaId()).orElse(null));
+        if(input.getConteoCierreId()!=null) e.setConteoCierre(conteoService.findById(input.getConteoCierreId()).orElse(null));
+        if(input.getMaletinId()!=null) e.setMaletin(maletinService.findById(input.getMaletinId()).orElse(null));
+        e = propagacionService.propagarEntidadAndRecibir(e, TipoEntidad.PDV_CAJA, sucId);
+        return e;
+    }
+
     //    public List<PdvCaja> pdvCajasSearch(String texto){
     //        return service.findByAll(texto);
     //    }
@@ -93,6 +111,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public PdvCaja cajaAbiertoPorUsuarioId(Long id){
         return service.findByUsuarioIdAndAbierto(id);
+    }
+    public PdvCaja cajaAbiertoPorUsuarioIdPorSucursal(Long id, Long sucId){
+        return propagacionService.buscarCajaAbiertaPorSucursal(id, sucId);
     }
 
     public PdvCaja imprimirBalance(Long id){

@@ -38,11 +38,13 @@ extend type Query {
     countPdvCaja: Int
     cajasPorFecha(inicio:String, fin:String):[PdvCaja]
     cajaAbiertoPorUsuarioId(id:ID!):PdvCaja
+    cajaAbiertoPorUsuarioIdPorSucursal(id:ID!, sucId:Int!):PdvCaja
     imprimirBalance(id:ID!):PdvCaja
 }
 
 extend type Mutation {
     savePdvCaja(pdvCaja:PdvCajaInput!):PdvCaja!
+    savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!, sucId: Int!):PdvCaja!
     deletePdvCaja(id:ID!):Boolean!
 
 }

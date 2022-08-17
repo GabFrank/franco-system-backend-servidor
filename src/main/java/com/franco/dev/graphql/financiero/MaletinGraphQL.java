@@ -56,6 +56,10 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByDescripcion(texto);
     }
 
+    public Maletin maletinPorDescripcionPorSucursal(String texto, Long sucId){
+        return propagacionService.maletinPorDescripcionPorSucursal(texto, sucId);
+    }
+
     public Boolean deleteMaletin(Long id){
         Boolean ok = service.deleteById(id);
         if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.MALETIN);

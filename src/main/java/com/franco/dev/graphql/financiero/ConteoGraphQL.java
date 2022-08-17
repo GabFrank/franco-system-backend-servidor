@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
+import com.franco.dev.rabbit.dto.SaveConteoDto;
 import com.franco.dev.service.financiero.*;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -48,7 +49,11 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private MonedaService monedaService;
 
-    @Autowired CambioService cambioService;
+    @Autowired
+    private CambioService cambioService;
+
+    @Autowired
+    private PropagacionService propagacionService;
 
     private static final Logger log = LoggerFactory.getLogger(ConteoGraphQL.class);
 
@@ -60,64 +65,14 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
 
-    public Conteo saveConteo(ConteoInput input, List<ConteoMonedaInput> conteoMonedaInputList, Long cajaId, Boolean apertura){
-        ModelMapper m = new ModelMapper();
-        Conteo e = m.map(input, Conteo.class);
-        Conteo conteo = null;
-        PdvCaja pdvCaja = pdvCajaService.findById(cajaId).orElse(null);
-        if(pdvCaja!=null){
-            if(input.getUsuarioId()!=null){
-                e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-            }
-            conteo = service.save(e);
-            if(conteo!=null){
-                if(pdvCaja.getConteoApertura()==null){
-                    log.warn("entranndo enn apertura");
-                    pdvCaja.setConteoApertura(conteo);
-                    pdvCaja.setFechaApertura(LocalDateTime.now());
-                    pdvCajaService.save(pdvCaja);
-                    List<Moneda> monedaList = monedaService.findAll2();
-                    for(Moneda moneda: monedaList){
-                        MovimientoCaja movimientoCaja = new MovimientoCaja();
-                        if(moneda.getDenominacion().contains("GUARANI")) {
-                            movimientoCaja.setMoneda(moneda);
-                            movimientoCaja.setCambio(cambioService.findLastByMonedaId(moneda.getId()));
-                            movimientoCaja.setCantidad(input.getTotalGs());
-                        } else if(moneda.getDenominacion().contains("REAL")) {
-                            movimientoCaja.setMoneda(moneda);
-                            movimientoCaja.setCambio(cambioService.findLastByMonedaId(moneda.getId()));
-                            movimientoCaja.setCantidad(input.getTotalRs());
-                        } else if(moneda.getDenominacion().contains("DOLAR")) {
-                            movimientoCaja.setMoneda(moneda);
-                            movimientoCaja.setCambio(cambioService.findLastByMonedaId(moneda.getId()));
-                            movimientoCaja.setCantidad(input.getTotalDs());
-                        }
-                        if(movimientoCaja.getMoneda()!=null){
-                            movimientoCaja.setPdvCaja(pdvCaja);
-                            movimientoCaja.setReferencia(conteo.getId());
-                            movimientoCaja.setTipoMovimiento(PdvCajaTipoMovimiento.CAJA_INICIAL);
-                            movimientoCajaService.save(movimientoCaja);
-                        }
-                    }
-                } else {
-                    pdvCaja.setConteoCierre(conteo);
-                    pdvCaja.setFechaCierre(LocalDateTime.now());
-                    pdvCaja.setActivo(false);
-                    pdvCajaService.save(pdvCaja);
-                }
-                if(!conteoMonedaInputList.isEmpty()){
-                    for(ConteoMonedaInput conteoMonedaInput: conteoMonedaInputList){
-                        conteoMonedaInput.setConteoId(conteo.getId());
-                        conteoMonedaInput.setUsuarioId(input.getUsuarioId());
-                        conteoMonedaGraphQL.saveConteoMoneda(conteoMonedaInput);
-                    }
-                }
-            } else {
-                pdvCajaService.deleteById(pdvCaja.getId());
-            }
-        }
-        log.info("retornando conteo: "+ conteo.getId());
-        return conteo;
+    public Conteo saveConteo(ConteoInput input, List<ConteoMonedaInput> conteoMonedaInputList, Long cajaId, Boolean apertura, Long sucId){
+        SaveConteoDto saveConteoDto = new SaveConteoDto();
+        saveConteoDto.setConteoInput(input);
+        saveConteoDto.setConteoMonedaInputList(conteoMonedaInputList);
+        saveConteoDto.setApertura(apertura);
+        saveConteoDto.setCajaId(cajaId);
+        saveConteoDto.setSucId(sucId);
+        return propagacionService.saveConteo(saveConteoDto);
     }
 
     public Boolean deleteConteo(Long id){

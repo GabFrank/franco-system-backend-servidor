@@ -84,7 +84,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
         if (entity.getUsuarioId() != null) e.setUsuario(usuarioService.findById(entity.getUsuarioId()).orElse(null));
         if (entity.getSubfamiliaId() != null)
             e.setSubfamilia(subFamiliaService.findById(entity.getSubfamiliaId()).orElse(null));
-        if (e.getDescripcionFactura() != null) e.setDescripcionFactura(e.getDescripcion().toUpperCase());
+        if (e.getDescripcionFactura() != null) e.setDescripcionFactura(e.getDescripcionFactura().toUpperCase());
         if (e.getImagenes() == null) e.setImagenes("/productos");
         if (entity.getEnvaseId() != null) e.setEnvase(findById(entity.getEnvaseId()).orElse(null));
         e.setDescripcion(e.getDescripcion().toUpperCase());

@@ -1,0 +1,25 @@
+type ConfiguracionGeneral {
+    id:ID!
+    nombreEmpresa: String
+    razonSocial: String
+    ruc: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input ConfiguracionGeneralInput {
+    id:ID
+    nombreEmpresa: String
+    razonSocial: String
+    ruc: String
+    usuarioId: Int
+}
+
+extend type Query {
+    configuracionGeneral:ConfiguracionGeneral
+}
+
+extend type Mutation {
+    saveConfiguracionGeneral(configuracionGeneral:ConfiguracionGeneralInput!):ConfiguracionGeneral!
+}
+

@@ -11,6 +11,7 @@ type Sucursal {
     nroDelivery: String
     isConfigured: Boolean
     sectorList: [Sector]
+    codigoEstablecimientoFactura: String
 }
 
 input SucursalInput {
@@ -24,6 +25,7 @@ input SucursalInput {
     direccion: String
     nroDelivery: String
     isConfigured: Boolean
+    codigoEstablecimientoFactura: String
 
 }
 

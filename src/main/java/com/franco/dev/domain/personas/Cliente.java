@@ -25,13 +25,13 @@ public class Cliente implements Serializable {
 
     private Float credito;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "persona_id", nullable = true)
     private Persona persona;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuarioId;
+    private Usuario usuario;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

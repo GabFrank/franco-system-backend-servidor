@@ -13,5 +13,6 @@ public class SucursalInput {
     private Long usuarioId;
     private String direccion;
     private String nroDelivery;
+    private String codigoEstablecimientoFactura;
 
 }

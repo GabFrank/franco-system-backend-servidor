@@ -21,6 +21,7 @@ extend type Query {
     maletines(page:Int = 0, size:Int = 10):[Maletin]!
     countMaletin: Int
     maletinPorDescripcion(texto: String):Maletin
+    maletinPorDescripcionPorSucursal(texto: String, sucId: Int!):Maletin
     searchMaletin(texto: String):[Maletin]
 }
 

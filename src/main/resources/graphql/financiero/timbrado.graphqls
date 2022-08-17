@@ -1,0 +1,34 @@
+type Timbrado {
+    id:ID!
+    razonSocial: String
+    ruc: String
+    numero: String
+    fechaInicio: Date
+    fechaFin: Date
+    activo: Boolean
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input TimbradoInput {
+    id:ID
+    razonSocial: String
+    ruc: String
+    numero: String
+    fechaInicio: String
+    fechaFin: String
+    activo: Boolean
+    usuarioId: Int
+}
+
+extend type Query {
+    timbrado(id:ID!):Timbrado
+    timbrados(page:Int = 0, size:Int = 10):[Timbrado]!
+    countTimbrado: Int
+}
+
+extend type Mutation {
+    saveTimbrado(timbrado:TimbradoInput!):Timbrado!
+    deleteTimbrado(id:ID!):Boolean!
+}
+

@@ -50,10 +50,15 @@ public class RabbitMQConection {
     @PostConstruct
     private void add(){
         Queue filaProducto = this.fila(SERVIDOR_KEY);
+        Queue filaProductoReplyTo = this.fila(SERVIDOR_KEY+".reply.to");
         TopicExchange exchange = this.topicExchange();
+        DirectExchange exchangeDirect = this.directExchange();
         Binding binding = this.binding(filaProducto, exchange, SERVIDOR_KEY);
+        Binding binding3 = this.bindingDirect(filaProductoReplyTo, exchangeDirect, filaProductoReplyTo.getName());
         this.amqpAdmin.declareQueue(filaProducto);
+        this.amqpAdmin.declareQueue(filaProductoReplyTo);
         this.amqpAdmin.declareExchange(exchange);
         this.amqpAdmin.declareBinding(binding);
+        this.amqpAdmin.declareBinding(binding3);
     }
 }

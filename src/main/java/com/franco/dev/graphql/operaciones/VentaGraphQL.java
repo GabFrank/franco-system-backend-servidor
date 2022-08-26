@@ -104,8 +104,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 //        return service.findByAll(texto);
 //    }
 
-    public Boolean saveVenta(VentaInput ventaInput, List<VentaItemInput> ventaItemList, CobroInput cobroInput, List<CobroDetalleInput> cobroDetalleList, Boolean ticket, String printerName, String local) throws Exception {
-        Boolean ok = false;
+    public Venta saveVenta(VentaInput ventaInput, List<VentaItemInput> ventaItemList, CobroInput cobroInput, List<CobroDetalleInput> cobroDetalleList, Boolean ticket, String printerName, String local) throws Exception {
         Venta venta = null;
         Cobro cobro = cobroGraphQL.saveCobro(cobroInput, cobroDetalleList, ventaInput.getCajaId());
         List<VentaItem> ventaItemList1 = new ArrayList<>();
@@ -122,18 +121,17 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             if (venta != null) {
                 ventaItemList1 = ventaItemGraphQL.saveVentaItemList(ventaItemList, venta.getId());
             }
-            ok = venta.getId() != null;
         }
-        if (ok == false) {
+        if (venta.getId()==null) {
             deshacerVenta(venta, cobro);
         } else {
             try {
                 if (ticket) printTicket58mm(venta, cobro, ventaItemList1, cobroDetalleList, false, printerName, local);
             } catch (Exception e) {
-                return ok;
+                return venta;
             }
         }
-        return ok;
+        return venta;
     }
 
     public Boolean deleteVenta(Long id) {

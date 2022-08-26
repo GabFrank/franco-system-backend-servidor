@@ -1,0 +1,34 @@
+type VentaCreditoCuota {
+    id:ID!
+    ventaCredito: VentaCredito
+    cobro: Cobro
+    valor: Float
+    parcial: Boolean
+    activo: Boolean
+    vencimiento: Date
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input VentaCreditoCuotaInput {
+    id:ID
+    ventaCreditoId: Int
+    cobroId: Int
+    valor: Float
+    parcial: Boolean
+    activo: Boolean
+    vencimiento: String
+    usuarioId: Int
+}
+
+extend type Query {
+    ventaCreditoCuota(id:ID!):VentaCreditoCuota
+    ventaCreditoCuotas(page:Int = 0, size:Int = 10):[VentaCreditoCuota]!
+    countVentaCreditoCuota: Int
+}
+
+extend type Mutation {
+    saveVentaCreditoCuota(ventaCreditoCuota:VentaCreditoCuotaInput!):VentaCreditoCuota!
+    deleteVentaCreditoCuota(id:ID!):Boolean!
+}
+

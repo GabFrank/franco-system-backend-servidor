@@ -556,6 +556,17 @@ public class PropagacionService {
         }
     }
 
+    public Object enviarEntidad(RabbitDto dto){
+        switch (dto.getTipoEntidad()){
+            case CLIENTE:
+                if(dto.getEntidad()!=null && dto.getEntidad().getClass().getName().equals("Long")){
+                    return clienteService.findById((Long) dto.getEntidad()).orElse(null);
+                }
+            default:
+                return null;
+        }
+    }
+
     public <T> void propagar(TipoEntidad tipoEntidad, Long sucId, CrudService service) {
         List<T> list = service.findAll2();
         log.info("cantidad de itenes: " + list.size());

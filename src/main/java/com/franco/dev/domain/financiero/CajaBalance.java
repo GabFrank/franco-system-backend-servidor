@@ -29,6 +29,7 @@ public class CajaBalance {
     private Double totalVentaRs;
     private Double totalVentaDs;
     private Double totalTarjeta;
+    private Double totalCredito;
     private Double totalDescuento;
     private Double totalAumento;
     private Double totalRetiroGs;

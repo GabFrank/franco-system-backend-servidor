@@ -1,0 +1,50 @@
+type MovimientoPersonas {
+    id:ID!
+    observacion: String
+    persona: Persona
+    tipo: TipoMovimientoPersonas
+    referenciaId: Int
+    valorTotal: Float
+    activo: Boolean
+    vencimiento: Date
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input MovimientoPersonasInput {
+    id:ID
+    observacion: String
+    personaId: Int
+    tipo: TipoMovimientoPersonas
+    referenciaId: Int
+    valorTotal: Float
+    activo: Boolean
+    vencimiento: String
+    usuarioId: Int
+}
+
+extend type Query {
+    movimientoPersona(id:ID!):MovimientoPersonas
+    movimientoPersonas(page:Int = 0, size:Int = 10):[MovimientoPersonas]!
+    countMovimientoPersonas: Int
+}
+
+extend type Mutation {
+    saveMovimientoPersonas(movimientoPersonas:MovimientoPersonasInput!):MovimientoPersonas!
+    deleteMovimientoPersonas(id:ID!):Boolean!
+}
+
+enum TipoMovimientoPersonas {
+    ANTICIPO,
+    AGUINALDO,
+    BONO,
+    VENTA_CREDITO,
+    MULTA,
+    PRESTAMO,
+    VACACIONES,
+    NO_DEVOLVIDOS,
+    COBRO,
+    SALARIO,
+    PAGO_SALARIO
+}
+

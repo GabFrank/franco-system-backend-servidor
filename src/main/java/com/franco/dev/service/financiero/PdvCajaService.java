@@ -270,6 +270,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
             Double totalRetiroRs = 0.0;
             Double totalRetiroDs = 0.0;
             Double totalTarjeta = 0.0;
+            Double totalConvenio = 0.0;
             Double totalGastoGs = 0.0;
             Double totalGastoRs = 0.0;
             Double totalGastoDs = 0.0;
@@ -310,6 +311,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
                                         totalVentaGs += cobroDetalle.getValor();
                                     } else if (cobroDetalle.getFormaPago().getDescripcion().contains("TARJETA")) {
                                         totalTarjeta += cobroDetalle.getValor();
+                                    } else if (cobroDetalle.getFormaPago().getDescripcion().contains("CONVENIO")) {
+                                        totalConvenio += cobroDetalle.getValor();
                                     }
                                 } else if (cobroDetalle.getMoneda().getDenominacion().contains("REAL")) {
                                     if (cobroDetalle.getFormaPago().getDescripcion().contains("EFECTIVO")) {
@@ -342,6 +345,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
             balance.setTotalGastoRs(totalGastoRs);
             balance.setTotalGastoDs(totalGastoDs);
             balance.setTotalTarjeta(totalTarjeta);
+            balance.setTotalCredito(totalConvenio);
             balance.setTotalVentaGs(totalVentaGs);
             balance.setTotalVentaRs(totalVentaRs);
             balance.setTotalVentaDs(totalVentaDs);

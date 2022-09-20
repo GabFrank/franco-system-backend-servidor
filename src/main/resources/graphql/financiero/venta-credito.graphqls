@@ -1,7 +1,6 @@
 type VentaCredito {
     id:ID!
-    sucursal: Sucursal
-    ventaId: Int
+    venta: Venta
     cliente: Cliente
     tipoConfirmacion: TipoConfirmacion
     cantidadCuotas: Int

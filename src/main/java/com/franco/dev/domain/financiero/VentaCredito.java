@@ -1,6 +1,6 @@
 package com.franco.dev.domain.financiero;
 
-import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.domain.financiero.enums.TipoConfirmacion;
 import com.franco.dev.domain.operaciones.Venta;
@@ -10,10 +10,10 @@ import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -31,19 +31,23 @@ import java.time.LocalDateTime;
         name = "estado_venta_credito",
         typeClass = PostgreSQLEnumType.class
 )
+@IdClass(EmbebedPrimaryKey.class)
 public class VentaCredito implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "sucursal_id", nullable = true)
-    private Sucursal sucursal;
-
-    private Long ventaId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "venta_id", referencedColumnName = "id"))
+    })
+    private Venta venta;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "cliente_id", nullable = true)

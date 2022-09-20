@@ -20,6 +20,8 @@ public interface ConteoMonedaRepository extends HelperRepository<ConteoMoneda, L
 
     public List<ConteoMoneda> findByConteoId(Long id);
 
+    public ConteoMoneda findByIdAndSucursalId(Long id, Long sucId);
+
 //    Moneda findByPaisId(Long id);
 
 }

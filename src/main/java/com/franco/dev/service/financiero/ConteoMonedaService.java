@@ -1,11 +1,10 @@
 package com.franco.dev.service.financiero;
 
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.ConteoMoneda;
-import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.ConteoMonedaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,6 +14,8 @@ import java.util.List;
 public class ConteoMonedaService extends CrudService<ConteoMoneda, ConteoMonedaRepository> {
 
     private final ConteoMonedaRepository repository;
+    @Autowired
+    private ConteoService conteoService;
 
     @Override
     public ConteoMonedaRepository getRepository() {
@@ -26,7 +27,7 @@ public class ConteoMonedaService extends CrudService<ConteoMoneda, ConteoMonedaR
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
-    public List<ConteoMoneda> findByConteoId(Long id){
+    public List<ConteoMoneda> findByConteoId(Long id) {
         return repository.findByConteoId(id);
     }
 

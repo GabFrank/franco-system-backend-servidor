@@ -291,13 +291,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Boolean cancelarVenta(Long id) {
         Venta venta = service.findById(id).orElse(null);
         if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-            venta.setEstado(VentaEstado.CANCELADA);
-            venta = service.save(venta);
-            if (venta != null) {
-                return true;
-            } else {
-                return false;
-            }
+            return service.cancelarVenta(venta);
         }
         return false;
     }

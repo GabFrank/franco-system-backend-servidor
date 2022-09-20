@@ -1,5 +1,6 @@
 package com.franco.dev.service;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.repository.HelperRepository;
 import com.franco.dev.service.productos.ProductoService;
 import org.springframework.data.domain.Pageable;
@@ -45,9 +46,23 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, Long
         return (T) getRepository().save(entity);
     }
     @Transactional
+    public T saveAndSend(T entity, Boolean recibir){
+        return (T) getRepository().save(entity);
+    }
+    @Transactional
     public Boolean deleteById(Long id){
         try {
             getRepository().deleteById(id);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Transactional
+    public Boolean deleteById(EmbebedPrimaryKey primaryKey){
+        try {
+//            getRepository().deleteByIdAndSucursalId(primaryKey.getId(), primaryKey.getSucursal().getId());
             return true;
         } catch (Exception e) {
             return false;

@@ -44,8 +44,17 @@ public class RetiroDetalleService extends CrudService<RetiroDetalle, RetiroDetal
         return repository.findByRetiroId(id);
     }
 
+    public Double findByRetiroIdAndMonedaId(Long id, Long monedaId){
+        List<RetiroDetalle> retiroDetalles = repository.findByRetiroIdAndMonedaId(id, monedaId);
+        Double total = 0.0;
+        for(RetiroDetalle r:retiroDetalles){
+            total += r.getCantidad();
+        }
+        return total;
+    }
+
     public List<RetiroDetalle> findByCajId(Long id){
-        return repository.findByCajaSalidaId(id);
+        return repository.findByRetiroCajaSalidaId(id);
     }
 
     @Override

@@ -1,14 +1,10 @@
 package com.franco.dev.service.financiero;
 
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Conteo;
-import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.ConteoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -31,8 +27,12 @@ public class ConteoService extends CrudService<Conteo, ConteoRepository> {
 //        return repository.findByAll(texto);
 //    }
 
-    public Double getTotalPorMoneda(Long conteoId, Long monedaId){
+    public Double getTotalPorMoneda(Long conteoId, Long monedaId) {
         return repository.getTotalPorMoneda(conteoId, monedaId);
+    }
+
+    public Conteo findByIdAndSucursalId(long id, long sucId) {
+        return repository.findByIdAndSucursalId(id, sucId);
     }
 
     @Override

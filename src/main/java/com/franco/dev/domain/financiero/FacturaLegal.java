@@ -1,5 +1,7 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
@@ -7,6 +9,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JoinColumnOrFormula;
+import org.hibernate.annotations.JoinColumnsOrFormulas;
+import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -17,20 +22,27 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "factura_legal", schema = "financiero")
+@IdClass(EmbebedPrimaryKey.class)
 public class FacturaLegal implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "timbrado_detalle_id", nullable = true)
     private TimbradoDetalle timbradoDetalle;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "caja_id", nullable = true)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))
+    })
     private PdvCaja caja;
 
     private Boolean viaTributaria;
@@ -44,9 +56,7 @@ public class FacturaLegal implements Serializable {
     @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "venta_id", nullable = true)
-    private Venta venta;
+    private Long ventaId;
 
     private LocalDateTime fecha;
     private Boolean credito;

@@ -53,7 +53,6 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         ModelMapper m = new ModelMapper();
         MovimientoStock e = m.map(input, MovimientoStock.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
         return service.save(e);
     }

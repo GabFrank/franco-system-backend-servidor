@@ -36,5 +36,6 @@ public class GastoInput {
     private Double retiroRs;
     private Double retiroDs;
 
+    private Long sucursalVueltoId;
 
 }

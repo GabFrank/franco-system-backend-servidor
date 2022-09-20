@@ -1,6 +1,5 @@
 package com.franco.dev.repository;
 
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.NoRepositoryBean;
@@ -12,4 +11,5 @@ public interface HelperRepository<T, Long> extends JpaRepository<T, Long> {
     List<T> findAllByOrderByIdAsc();
 
     List<T> findAllByOrderByIdAsc(Pageable pageable);
+
 }

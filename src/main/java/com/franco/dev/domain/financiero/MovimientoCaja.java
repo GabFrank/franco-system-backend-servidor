@@ -1,15 +1,16 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -23,13 +24,16 @@ import java.time.LocalDateTime;
         name = "pdv_caja_tipo_movimiento",
         typeClass = PostgreSQLEnumType.class
 )
+@IdClass(EmbebedPrimaryKey.class)
 public class MovimientoCaja implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @Column(name = "referencia_id")
     private Long referencia;
@@ -44,7 +48,10 @@ public class MovimientoCaja implements Serializable {
     private Cambio cambio;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "caja_id", nullable = true)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))
+    })
     private PdvCaja pdvCaja;
 
     @Enumerated(EnumType.STRING)

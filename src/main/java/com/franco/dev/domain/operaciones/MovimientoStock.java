@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
@@ -25,13 +26,17 @@ import java.time.LocalDateTime;
         typeClass = PostgreSQLEnumType.class
 )
 @Table(name = "movimiento_stock", schema = "operaciones")
+@IdClass(EmbebedPrimaryKey.class)
 public class MovimientoStock implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "producto_id", nullable = true)
@@ -47,10 +52,6 @@ public class MovimientoStock implements Serializable {
     @Column(name = "tipo_movimiento")
     @Type(type = "tipo_movimiento")
     private TipoMovimiento tipoMovimiento;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sucursal_id", nullable = true)
-    private Sucursal sucursal;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

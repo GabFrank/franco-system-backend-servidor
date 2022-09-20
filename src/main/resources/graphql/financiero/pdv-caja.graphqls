@@ -34,12 +34,11 @@ input PdvCajaInput {
 extend type Query {
     pdvCaja(id:ID!):PdvCaja
     pdvCajas(page:Int = 0, size:Int = 10):[PdvCaja]!
-    pdvCajas(page:Int = 0, size:Int = 10):[PdvCaja]!
     countPdvCaja: Int
     cajasPorFecha(inicio:String, fin:String):[PdvCaja]
     cajaAbiertoPorUsuarioId(id:ID!):PdvCaja
     cajaAbiertoPorUsuarioIdPorSucursal(id:ID!, sucId:Int!):PdvCaja
-    imprimirBalance(id:ID!):PdvCaja
+    imprimirBalance(id:ID!, printerName: String, local: String):PdvCaja
 }
 
 extend type Mutation {

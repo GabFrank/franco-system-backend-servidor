@@ -1,18 +1,22 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.financiero.MovimientoCaja;
+import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.CobroDetalle;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -32,10 +36,15 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
     @Autowired
     private CobroDetalleService cobroDetalleService;
 
+    @Autowired
+    private PropagacionService propagacionService;
+
     @Override
     public VentaRepository getRepository() {
         return repository;
     }
+
+
 
 //    public List<Venta> findByAll(String texto){
 //        texto = texto.replace(' ', '%');
@@ -52,12 +61,14 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
 
     @Override
     public Venta save(Venta entity) {
-        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
-        if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         Venta e = super.save(entity);
-        MovimientoCaja movimientoCaja = new MovimientoCaja();
-//        movimientoCaja.setMoneda();
-//        personaPublisher.publish(p);
+        return e;
+    }
+
+    @Override
+    public Venta saveAndSend(Venta entity, Boolean recibir) {
+        Venta e = super.save(entity);
+        propagacionService.propagarEntidad(e, TipoEntidad.VENTA, entity.getSucursalId());
         return e;
     }
 
@@ -110,5 +121,17 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
             }
         }
         return ventaPorPeriodoList;
+    }
+
+    @Transactional
+    public Boolean cancelarVenta(Venta venta){
+        venta.setEstado(VentaEstado.CANCELADA);
+        saveAndSend(venta, false);
+        List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId());
+        for(MovimientoCaja mov : movimientoCajaList){
+            mov.setActivo(false);
+            movimientoCajaService.saveAndSend(mov, false);
+        }
+        return true;
     }
 }

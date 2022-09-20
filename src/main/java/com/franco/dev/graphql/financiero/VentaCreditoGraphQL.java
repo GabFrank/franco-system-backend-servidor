@@ -74,7 +74,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         VentaCredito e = m.map(input, VentaCredito.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getClienteId() != null) e.setCliente(clienteService.findById(input.getClienteId()).orElse(null));
-        if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        if (input.getSucursalId() != null) e.setSucursalId(input.getSucursalId());
         e = service.save(e);
         if (e.getId() != null) {
             for (VentaCreditoCuotaInput vc : ventaCreditoCuotaInputList) {

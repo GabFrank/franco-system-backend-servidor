@@ -1,5 +1,6 @@
 type Gasto {
     id:ID!
+    sucursalId: Int
     caja: PdvCaja
     responsable: Funcionario
     tipoGasto: TipoGasto
@@ -16,6 +17,7 @@ type Gasto {
     vueltoGs: Float
     vueltoRs: Float
     vueltoDs: Float
+    sucursalVuelto: Sucursal
 }
 
 input GastoInput {

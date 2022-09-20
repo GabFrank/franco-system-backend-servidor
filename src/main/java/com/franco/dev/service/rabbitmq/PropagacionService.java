@@ -175,7 +175,52 @@ public class PropagacionService {
     private ImageService imageService;
 
     @Autowired
+    private VentaService ventaService;
+
+    @Autowired
+    private VentaItemService ventaItemService;
+
+    @Autowired
     private FacturaLegalGraphQL facturaLegalGraphQL;
+
+    @Autowired
+    private ConteoService conteoService;
+
+    @Autowired
+    private ConteoMonedaService conteoMonedaService;
+
+    @Autowired
+    private PdvCajaService cajaService;
+
+    @Autowired
+    private CobroService cobroService;
+
+    @Autowired
+    private FacturaLegalService facturaLegalService;
+
+    @Autowired
+    private FacturaLegalItemService facturaLegalItemService;
+
+    @Autowired
+    private CobroDetalleService cobroDetalleService;
+
+    @Autowired
+    private MovimientoCajaService movimientoCajaService;
+
+    @Autowired
+    private MovimientoStockService movimientoStockService;
+
+    @Autowired
+    private GastoService gastoService;
+
+    @Autowired
+    private TimbradoDetalleService timbradoDetalleService;
+
+    @Autowired
+    private RetiroService retiroService;
+
+    @Autowired
+    private RetiroDetalleService retiroDetalleService;
 
     public void verficarConexion(Long sucId) {
         sucursalVerificar = sucId;
@@ -348,6 +393,7 @@ public class PropagacionService {
 
     public Object crudEntidad(RabbitDto dto) {
         log.info("recibiendo entidad para guardar");
+        dto.setRecibidoEnServidor(true);
         switch (dto.getTipoEntidad()) {
             case USUARIO:
                 log.info("cargando usuario: ");
@@ -525,7 +571,49 @@ public class PropagacionService {
                 return guardar(inventarioProductoItemService, dto);
             case FACTURA:
                 log.info("creando factura legal: ");
-                return guardarFacturas(dto);
+                return guardar(facturaLegalService, dto);
+            case FACTURA_ITEM:
+                log.info("creando factura legal item: ");
+                return guardar(facturaLegalItemService, dto);
+            case VENTA:
+                log.info("creando venta: ");
+                return guardar(ventaService, dto);
+            case VENTA_ITEM:
+                log.info("creando venta item: ");
+                return guardar(ventaItemService, dto);
+            case CONTEO:
+                log.info("creando conteo: ");
+                return guardar(conteoService, dto);
+            case CONTEO_ITEM:
+                log.info("creando conteo item: ");
+                return guardar(conteoMonedaService, dto);
+            case PDV_CAJA:
+                log.info("creando caja: ");
+                return guardar(cajaService, dto);
+            case COBRO:
+                log.info("creando cobro: ");
+                return guardar(cobroService, dto);
+            case COBRO_DETALLE:
+                log.info("creando cobro detalle: ");
+                return guardar(cobroDetalleService, dto);
+            case MOVIMIENTO_CAJA:
+                log.info("creando movimiento caja: ");
+                return guardar(movimientoCajaService, dto);
+            case MOVIMIENTO_STOCK:
+                log.info("creando movimiento stock: ");
+                return guardar(movimientoStockService, dto);
+            case GASTO:
+                log.info("creando gasto: ");
+                return guardar(gastoService, dto);
+            case TIMBRADO_DETALLE:
+                log.info("creando timbrado detalle: ");
+                return guardar(timbradoDetalleService, dto);
+            case RETIRO:
+                log.info("creando retiro: ");
+                return guardar(retiroService, dto);
+            case RETIRO_DETALLE:
+                log.info("creando retiro detalle: ");
+                return guardar(retiroDetalleService, dto);
             default:
                 return null;
         }
@@ -535,7 +623,7 @@ public class PropagacionService {
         switch (dto.getTipoAccion()) {
             case GUARDAR:
                 T nuevaEntidad = (T) service.save(dto.getEntidad());
-                if (nuevaEntidad != null) {
+                if (nuevaEntidad != null && dto.getRecibidoEnFilial() != true) {
                     log.info("guardado con exito");
                     propagarEntidad(nuevaEntidad, dto.getTipoEntidad(), dto.getIdSucursalOrigen());
                 }
@@ -556,10 +644,10 @@ public class PropagacionService {
         }
     }
 
-    public Object enviarEntidad(RabbitDto dto){
-        switch (dto.getTipoEntidad()){
+    public Object enviarEntidad(RabbitDto dto) {
+        switch (dto.getTipoEntidad()) {
             case CLIENTE:
-                if(dto.getEntidad()!=null && dto.getEntidad().getClass().getName().equals("Long")){
+                if (dto.getEntidad() != null && dto.getEntidad().getClass().getName().equals("Long")) {
                     return clienteService.findById((Long) dto.getEntidad()).orElse(null);
                 }
             default:
@@ -595,7 +683,7 @@ public class PropagacionService {
             byte[] fileContent = new byte[0];
             try {
                 fileContent = FileUtils.readFileToByteArray(file);
-                sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(TipoAccion.GUARDAR_ARCHIVO, TipoEntidad.ARCHIVO, path + fileName, sucId, fileContent));
+                sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(TipoAccion.GUARDAR_ARCHIVO, TipoEntidad.ARCHIVO, path + fileName, sucId, fileContent, null, null));
             } catch (IOException e) {
                 e.printStackTrace();
             }

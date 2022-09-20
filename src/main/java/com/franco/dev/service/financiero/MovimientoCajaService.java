@@ -48,13 +48,13 @@ public class MovimientoCajaService extends CrudService<MovimientoCaja, Movimient
         }
     }
 
-    public MovimientoCaja findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia){
+    public List<MovimientoCaja> findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia){
         return repository.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
     }
 
     public Double totalEnCajaPorCajaIdAndMonedaId(Long cajaId, Long monedaId){
-        return repository.totalEnCajaByCajaIdandMonedaId(cajaId, monedaId);
-    }
+        Double total = repository.totalEnCajaByCajaIdandMonedaId(cajaId, monedaId);
+        return total!=null ? total : 0.0;    }
 
     @Override
     public MovimientoCaja save(MovimientoCaja entity) {

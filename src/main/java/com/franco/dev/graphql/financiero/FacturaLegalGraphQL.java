@@ -102,14 +102,18 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
             }
         }
-        if (input.getVentaId() != null) e.setVenta(ventaService.findById(input.getVentaId()).orElse(null));
+//        if (input.getVentaId() != null) e.setVenta(ventaService.findById(input.getVentaId()).orElse(null));
         if (input.getTimbradoDetalleId() != null)
             e.setTimbradoDetalle(timbradoDetalleService.findById(input.getTimbradoDetalleId()).orElse(null));
         if(e.getTimbradoDetalle()!=null){
             timbradoDetalleService.save(e.getTimbradoDetalle());
             e = service.save(e);
+            if(e.getId()!=null){
+                input.setId(e.getId());
+                input.setClienteId(e.getCliente().getId());
+            }
             Long sucId = e.getTimbradoDetalle().getPuntoDeVenta().getSucursal().getId();
-            propagacionService.propagarEntidad(e, TipoEntidad.FACTURA, sucId);
+            propagacionService.propagarEntidad(input, TipoEntidad.FACTURA, sucId);
             for (FacturaLegalItemInput fi : facturaLegalItemInputList) {
                 fi.setFacturaLegalId(e.getId());
                 if (input.getUsuarioId() != null) fi.setUsuarioId(e.getUsuario().getId());

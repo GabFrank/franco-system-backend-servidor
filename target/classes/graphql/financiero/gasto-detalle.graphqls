@@ -1,5 +1,6 @@
 type GastoDetalle {
     id:ID!
+    sucursalId: Int
     gasto: Gasto
     moneda: Moneda
     cambio: Float

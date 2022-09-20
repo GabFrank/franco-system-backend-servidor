@@ -1,12 +1,7 @@
 package com.franco.dev.graphql.operaciones.resolver;
 
-import com.franco.dev.domain.operaciones.Venta;
-import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.operaciones.Vuelto;
 import com.franco.dev.domain.operaciones.VueltoItem;
-import com.franco.dev.domain.productos.enums.UnidadMedida;
-import com.franco.dev.service.operaciones.VentaItemService;
-import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.operaciones.VueltoItemService;
 import com.franco.dev.service.operaciones.VueltoService;
 import graphql.kickstart.tools.GraphQLResolver;
@@ -24,7 +19,7 @@ public class VueltoResolver implements GraphQLResolver<Vuelto> {
     @Autowired
     private VueltoItemService ventaItemService;
 
-    public List<VueltoItem> vueltoItemList(Vuelto v){
+    public List<VueltoItem> vueltoItemList(Vuelto v) {
         return ventaItemService.findByVueltoId(v.getId());
     }
 }

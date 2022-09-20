@@ -1,36 +1,46 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JoinColumnOrFormula;
+import org.hibernate.annotations.JoinColumnsOrFormulas;
+import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "gasto", schema = "financiero")
+@IdClass(EmbebedPrimaryKey.class)
 public class Gasto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "responsable_id", nullable = true)
     private Funcionario responsable;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "caja_id", nullable = true)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))
+    })
     private PdvCaja caja;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -60,6 +70,10 @@ public class Gasto implements Serializable {
     private Double vueltoGs;
     private Double vueltoRs;
     private Double vueltoDs;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_vuelto_id", nullable = true)
+    private Sucursal sucursalVuelto;
 }
 
 

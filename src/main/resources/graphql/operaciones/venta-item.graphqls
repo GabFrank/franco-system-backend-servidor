@@ -1,11 +1,12 @@
 type VentaItem {
     id:ID!
+    sucursalId: Int
     venta: Venta
     producto: Producto
     presentacion: Presentacion
     cantidad: Float
     precioCosto: Float
-    precioVenta: PrecioPorSucursal
+    precio: Float
     valorDescuento: Float
     unidadMedida: UnidadMedida
     creadoEn: Date

@@ -1,13 +1,8 @@
 package com.franco.dev.graphql.operaciones.input;
 
-import com.franco.dev.domain.financiero.PdvCaja;
-import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import lombok.Data;
 
-import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import java.time.LocalDateTime;
 
 @Data

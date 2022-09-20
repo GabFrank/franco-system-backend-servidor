@@ -1,6 +1,6 @@
 package com.franco.dev.domain.financiero;
 
-import com.franco.dev.domain.empresarial.Cargo;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -10,25 +10,27 @@ import org.hibernate.annotations.CreationTimestamp;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "retiro_detalle", schema = "financiero")
+@IdClass(EmbebedPrimaryKey.class)
 public class RetiroDetalle implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "sucursal_id")
+    private Long sucursalId;
 
     private Double cantidad;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "retiro_id", nullable = true)
+    @JoinColumn(name = "retiro_id", insertable = false, updatable = false)
+    @JoinColumn(name = "sucursal_id", insertable = false, updatable = false)
     private Retiro retiro;
 
     @ManyToOne(fetch = FetchType.EAGER)

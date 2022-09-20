@@ -1,7 +1,5 @@
 package com.franco.dev.repository.financiero;
 
-import com.franco.dev.domain.financiero.Banco;
-import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Query;

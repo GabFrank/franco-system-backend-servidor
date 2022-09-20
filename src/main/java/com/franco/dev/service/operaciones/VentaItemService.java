@@ -41,26 +41,6 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
     @Override
     public VentaItem save(VentaItem entity) {
         VentaItem e = super.save(entity);
-        if(entity.getActivo()==false && entity.getId()!=null){
-            MovimientoStock movimientoStock = movimientoStockService.findByTipoMovimientoAndReferencia(TipoMovimiento.VENTA, entity.getId());
-            if(movimientoStock!=null){
-                movimientoStock.setEstado(false);
-                movimientoStockService.save(movimientoStock);
-            }
-        } else {
-            MovimientoStock movimientoStock = new MovimientoStock();
-            movimientoStock.setCreadoEn(entity.getCreadoEn());
-            movimientoStock.setUsuario(entity.getUsuario());
-            movimientoStock.setTipoMovimiento(TipoMovimiento.VENTA);
-            movimientoStock.setReferencia(e.getId());
-            movimientoStock.setEstado(true);
-            movimientoStock.setProducto(e.getProducto());
-            movimientoStock.setCantidad(e.getCantidad() * e.getPresentacion().getCantidad() * -1);
-            movimientoStock.setCreadoEn(e.getCreadoEn());
-            movimientoStock.setUsuario(e.getUsuario());
-            movimientoStockService.save(movimientoStock);
-        }
-
 //        personaPublisher.publish(p);
         return e;
     }

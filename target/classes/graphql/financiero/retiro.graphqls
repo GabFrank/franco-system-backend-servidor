@@ -8,6 +8,9 @@ type Retiro {
     creadoEn: Date
     usuario: Usuario
     retiroDetalleList: [RetiroDetalle]
+    retiroGs: Float
+    retiroRs: Float
+    retiroDs: Float
 }
 
 input RetiroInput {

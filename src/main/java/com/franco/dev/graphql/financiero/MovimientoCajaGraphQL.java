@@ -65,11 +65,13 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
 //        return service.findByAll(texto);
 //    }
 
-    public void desactivarByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia){
-        MovimientoCaja movimientoCaja = service.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
-        if(movimientoCaja!=null){
-            movimientoCaja.setActivo(false);
-            service.save(movimientoCaja);
+    public void desactivarByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia) {
+        List<MovimientoCaja> movimientoCajaList = service.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
+        for(MovimientoCaja movimientoCaja: movimientoCajaList){
+            if (movimientoCaja != null) {
+                movimientoCaja.setActivo(false);
+                service.save(movimientoCaja);
+            }
         }
     }
 

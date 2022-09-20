@@ -1,20 +1,19 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
-import com.franco.dev.domain.operaciones.enums.TipoEntrada;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
@@ -25,13 +24,16 @@ import java.util.Date;
         name = "pdv_caja_estado",
         typeClass = PostgreSQLEnumType.class
 )
+@IdClass(EmbebedPrimaryKey.class)
 public class PdvCaja implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     private String descripcion;
     private String observacion;
@@ -46,19 +48,25 @@ public class PdvCaja implements Serializable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")
-    @Type( type = "pdv_caja_estado")
+    @Type(type = "pdv_caja_estado")
     private PdvCajaEstado estado;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "maletin_id", nullable = true)
     private Maletin maletin;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "conteo_apertura_id", nullable = true)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "conteo_apertura_id", referencedColumnName = "id"))
+    })
     private Conteo conteoApertura;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "conteo_cierre_id", nullable = true)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "conteo_cierre_id", referencedColumnName = "id"))
+    })
     private Conteo conteoCierre;
 
     @CreationTimestamp

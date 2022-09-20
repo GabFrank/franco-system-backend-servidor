@@ -1,22 +1,20 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.EstadoRetiro;
-import com.franco.dev.domain.general.Pais;
-import com.franco.dev.domain.operaciones.enums.TipoEntrada;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
@@ -27,19 +25,22 @@ import java.util.Date;
         name = "estado_retiro",
         typeClass = PostgreSQLEnumType.class
 )
+@IdClass(EmbebedPrimaryKey.class)
 public class Retiro implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     private String observacion;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")
-    @Type( type = "estado_retiro")
+    @Type(type = "estado_retiro")
     private EstadoRetiro estado;
 
 
@@ -48,11 +49,17 @@ public class Retiro implements Serializable {
     private Funcionario responsable;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "caja_salida_id", nullable = true)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_salida_id", referencedColumnName = "id"))
+    })
     private PdvCaja cajaSalida;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "caja_entrada_id", nullable = true)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_entrada_id", referencedColumnName = "id"))
+    })
     private PdvCaja cajaEntrada;
 
     @CreationTimestamp

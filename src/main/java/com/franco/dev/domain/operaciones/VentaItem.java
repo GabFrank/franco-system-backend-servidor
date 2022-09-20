@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Presentacion;
@@ -9,10 +10,11 @@ import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
 import javax.persistence.*;
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -25,16 +27,22 @@ import java.time.LocalDateTime;
         name = "unidad_medida",
         typeClass = PostgreSQLEnumType.class
 )
+@IdClass(EmbebedPrimaryKey.class)
 public class VentaItem implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "venta_id", nullable = true)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "venta_id", referencedColumnName = "id"))
+    })
     private Venta venta;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -42,7 +50,7 @@ public class VentaItem implements Serializable {
     private Producto producto;
 
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_id", nullable = true)
     private Presentacion presentacion;
 
@@ -57,6 +65,8 @@ public class VentaItem implements Serializable {
     @JoinColumn(name = "precio_id", nullable = true)
     private PrecioPorSucursal precioVenta;
 
+    private Double precio;
+
     @Column(name = "descuento_unitario")
     private Double valorDescuento;
 
@@ -65,7 +75,7 @@ public class VentaItem implements Serializable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "unidad_medida")
-    @Type( type = "unidad_medida")
+    @Type(type = "unidad_medida")
     private UnidadMedida unidadMedida;
 
 

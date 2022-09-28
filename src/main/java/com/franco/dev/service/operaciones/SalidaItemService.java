@@ -18,7 +18,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class SalidaItemService extends CrudService<SalidaItem, SalidaItemRepository> {
+public class SalidaItemService extends CrudService<SalidaItem, SalidaItemRepository, Long> {
     private final SalidaItemRepository repository;
 
     @Override

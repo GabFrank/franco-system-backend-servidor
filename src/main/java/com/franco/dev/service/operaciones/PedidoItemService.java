@@ -16,7 +16,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PedidoItemService extends CrudService<PedidoItem, PedidoItemRepository> {
+public class PedidoItemService extends CrudService<PedidoItem, PedidoItemRepository, Long> {
     private final PedidoItemRepository repository;
 
     @Override

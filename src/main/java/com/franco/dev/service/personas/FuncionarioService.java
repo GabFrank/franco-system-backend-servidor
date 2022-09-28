@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepository> {
+public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepository, Long> {
 
     private final FuncionarioRepository repository;
 

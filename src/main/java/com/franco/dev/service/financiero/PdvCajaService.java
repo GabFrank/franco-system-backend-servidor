@@ -1,5 +1,7 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.CobroDetalle;
@@ -19,10 +21,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.toDate;
 
 @Service
 @AllArgsConstructor
-public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
+public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, EmbebedPrimaryKey> {
 
     private final PdvCajaRepository repository;
     @Autowired
@@ -53,18 +58,13 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
         return repository;
     }
 
-//    public List<PdvCaja> findByDenominacion(String texto){
-//        texto = texto.replace(' ', '%');
-//        return  repository.findByDenominacionIgnoreCaseLike(texto);
-//    }
+    public Optional<PdvCaja> findById(Long id, Long sucId){
+        return repository.findById(new EmbebedPrimaryKey(id, sucId));
+    }
 
-//    public List<PdvCaja> findByAll(String texto){
-//        texto = texto.replace(' ', '%');
-//        return repository.findByAll(texto);
-//    }
-
-    public List<PdvCaja> findByDate(String inicio, String fin) {
-        return repository.findByDate(inicio, fin);
+    public List<PdvCaja> findByDate(String inicio, String fin, Long sucId) {
+        if(sucId==null) return repository.findByCreadoEnBetween(toDate(inicio), toDate(fin));
+        return repository.findBySucursalIdAndCreadoEnBetween(sucId, toDate(inicio), toDate(fin));
     }
 
     @Override
@@ -95,10 +95,10 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
     }
 
     @Override
-    public Boolean deleteById(Long id) {
+    public Boolean deleteById(EmbebedPrimaryKey id) {
         PdvCaja pdvCaja = findById(id).orElse(null);
         maletinService.cerrarMaletin(pdvCaja.getMaletin().getId());
-        return super.deleteById(pdvCaja.getId());
+        return super.deleteById(new EmbebedPrimaryKey(pdvCaja.getId(), pdvCaja.getSucursalId()));
     }
 
 //    public PdvCajaBalanceDto generarBalance(PdvCaja pdvCaja){
@@ -212,13 +212,13 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
 
     public PdvCajaBalanceDto generarBalance(PdvCaja pdvCaja) {
         PdvCajaBalanceDto balance = new PdvCajaBalanceDto();
-        if (pdvCaja != null && pdvCaja.getConteoApertura() != null && pdvCaja.getConteoCierre() != null) {
+        if (pdvCaja != null && pdvCaja.getConteoApertura() != null) {
             balance.setIdCaja(pdvCaja.getId());
-            List<ConteoMoneda> conteoMonedaAperList = conteoMonedaService.findByConteoId(pdvCaja.getConteoApertura().getId());
-            List<ConteoMoneda> conteoMonedaCierreList = conteoMonedaService.findByConteoId(pdvCaja.getConteoCierre().getId());
-            List<RetiroDetalle> retiroDetalleList = retiroDetalleService.findByCajId(pdvCaja.getId());
-            List<Gasto> gastoList = gastoService.findByCajaId(pdvCaja.getId());
-            List<Venta> ventaList = ventaService.findAllByCajaId(pdvCaja.getId());
+            List<ConteoMoneda> conteoMonedaAperList = conteoMonedaService.findByConteoId(pdvCaja.getConteoApertura().getId(), pdvCaja.getSucursalId());
+            List<ConteoMoneda> conteoMonedaCierreList = conteoMonedaService.findByConteoId(pdvCaja.getConteoCierre().getId(), pdvCaja.getSucursalId());
+            List<RetiroDetalle> retiroDetalleList = retiroDetalleService.findByCajId(pdvCaja.getId(), pdvCaja.getSucursalId());
+            List<Gasto> gastoList = gastoService.findByCajaId(pdvCaja.getId(), pdvCaja.getSucursalId());
+            List<Venta> ventaList = ventaService.findAllByCajaId(new EmbebedPrimaryKey(pdvCaja.getId(), pdvCaja.getSucursalId()));
             if (!conteoMonedaAperList.isEmpty() && !conteoMonedaCierreList.isEmpty()) {
                 Double totalGsAper = 0.0;
                 Double totalRsAper = 0.0;
@@ -290,9 +290,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
             }
 
             for (Venta venta : ventaList) {
-                Cobro cobro = cobroService.findById(venta.getCobro().getId()).orElse(null);
+                Cobro cobro = cobroService.findById(venta.getCobro().getId(), venta.getSucursalId());
                 if (cobro != null) {
-                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(cobro.getId());
+                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(cobro.getId(), cobro.getSucursalId());
                     if (venta.getEstado() == VentaEstado.CONCLUIDA || venta.getEstado() == VentaEstado.EN_VERIFICACION) {
                         for (CobroDetalle cobroDetalle : cobroDetalleList) {
                             if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
@@ -372,12 +372,12 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
             balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() + balance.getTotalRetiroGs() + balance.getTotalGastoGs() - balance.getTotalVentaGs() + balance.getTotalDescuento());
             balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() + balance.getTotalRetiroRs() + balance.getTotalGastoRs() - balance.getTotalVentaRs());
             balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() + balance.getTotalRetiroDs() + balance.getTotalGastoDs() - balance.getTotalVentaDs());
-            balance.setSucursal(sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
+            balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
         }
         return balance;
     }
 
-    public PdvCaja imprimirBalance(Long id, String printerName, String local) {
+    public PdvCaja imprimirBalance(EmbebedPrimaryKey id, String printerName, String local) {
         PdvCaja pdvCaja = findById(id).orElse(null);
         if (pdvCaja != null) {
             PdvCajaBalanceDto balanceDto = generarBalance(pdvCaja);
@@ -386,12 +386,12 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository> {
         return pdvCaja;
     }
 
-    public CajaBalance getBalance(Long id) {
+    public CajaBalance getBalance(EmbebedPrimaryKey id) {
         PdvCaja pdvCaja = findById(id).orElse(null);
         CajaBalance balance = new CajaBalance();
         if (pdvCaja != null) {
             PdvCajaBalanceDto balanceDto = generarBalance(pdvCaja);
-            balance.setCajaId(id);
+            balance.setCajaId(id.getId());
             balance.setVueltoGs(balanceDto.getVueltoGs());
             balance.setVueltoRs(balanceDto.getVueltoRs());
             balance.setVueltoDs(balanceDto.getVueltoDs());

@@ -14,7 +14,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class SectorService extends CrudService<Sector, SectorRepository> {
+public class SectorService extends CrudService<Sector, SectorRepository, Long> {
 
     @Autowired
     private Environment environment;

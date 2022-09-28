@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.CambioCaja;
 import com.franco.dev.graphql.financiero.input.BancoInput;
@@ -41,9 +42,9 @@ public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<CambioCaja> cambioCaja(Long id) {return service.findById(id);}
+    public Optional<CambioCaja> cambioCaja(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<CambioCaja> cambioCajas(int page, int size){
+    public List<CambioCaja> cambioCajas(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -65,8 +66,8 @@ public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 //        return service.findByAll(texto);
 //    }
 
-    public Boolean deleteCambioCaja(Long id){
-        Boolean ok = service.deleteById(id);
+    public Boolean deleteCambioCaja(Long id, Long sucId){
+        Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CAMBIO);
         return ok;
     }

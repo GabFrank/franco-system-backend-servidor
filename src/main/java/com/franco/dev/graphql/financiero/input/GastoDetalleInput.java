@@ -31,4 +31,7 @@ public class GastoDetalleInput {
     private LocalDateTime creadoEn;
 
     private Long usuarioId;
+
+    private Long sucursalId;
+
 }

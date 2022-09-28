@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.repository.financiero.FacturaLegalRepository;
 import com.franco.dev.service.CrudService;
@@ -11,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalRepository> {
+public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalRepository, EmbebedPrimaryKey> {
 
     private final FacturaLegalRepository repository;
 

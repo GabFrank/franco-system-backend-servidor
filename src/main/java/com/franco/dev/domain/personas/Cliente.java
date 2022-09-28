@@ -1,5 +1,6 @@
 package com.franco.dev.domain.personas;
 
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
@@ -41,6 +42,10 @@ public class Cliente implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "persona_id", nullable = true)
     private Persona persona;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_id", nullable = true)
+    private Sucursal sucursal;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)

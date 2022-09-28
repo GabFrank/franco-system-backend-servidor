@@ -14,7 +14,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository> {
+public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository, Long> {
 
     private final TipoGastoRepository repository;
 

@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepcionRepository> {
+public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepcionRepository, Long> {
     private final NotaRecepcionRepository repository;
 
     @Override

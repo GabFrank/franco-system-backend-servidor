@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.graphql.financiero.input.FacturaLegalItemInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -38,11 +39,11 @@ public class FacturaLegalItemGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<FacturaLegalItem> facturaLegalItem(Long id) {
-        return service.findById(id);
+    public Optional<FacturaLegalItem> facturaLegalItem(Long id, Long sucId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
-    public List<FacturaLegalItem> facturaLegalItens(int page, int size) {
+    public List<FacturaLegalItem> facturaLegalItens(int page, int size, Long sucId) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
@@ -53,16 +54,16 @@ public class FacturaLegalItemGraphQL implements GraphQLQueryResolver, GraphQLMut
         FacturaLegalItem e = m.map(input, FacturaLegalItem.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getFacturaLegalId() != null)
-            e.setFacturaLegal(facturaLegalService.findById(input.getFacturaLegalId()).orElse(null));
+            e.setFacturaLegal(facturaLegalService.findById(new EmbebedPrimaryKey(input.getFacturaLegalId(), sucId)).orElse(null));
         if (input.getVentaItemId() != null)
-            e.setVentaItem(ventaItemService.findById(input.getVentaItemId()).orElse(null));
+            e.setVentaItem(ventaItemService.findById(new EmbebedPrimaryKey(input.getVentaItemId(), sucId)).orElse(null));
         e = service.save(e);
         propagacionService.propagarEntidad(e, TipoEntidad.FACTURA_ITEM, sucId);
         return e;
     }
 
-    public Boolean deleteFacturaLegalItem(Long id) {
-        return service.deleteById(id);
+    public Boolean deleteFacturaLegalItem(Long id, Long sucId) {
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countFacturaLegalItem() {

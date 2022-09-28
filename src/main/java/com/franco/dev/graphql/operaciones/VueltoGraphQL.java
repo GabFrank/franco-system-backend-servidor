@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.Vuelto;
 import com.franco.dev.graphql.operaciones.input.NotaPedidoInput;
@@ -33,9 +34,9 @@ public class VueltoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private FuncionarioService funcionarioService;
 
-    public Optional<Vuelto> vuelto(Long id) {return service.findById(id);}
+    public Optional<Vuelto> vuelto(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<Vuelto> vueltos(int page, int size){
+    public List<Vuelto> vueltos(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -59,8 +60,8 @@ public class VueltoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.save(e);
     }
 
-    public Boolean deleteVuelto(Long id){
-        return service.deleteById(id);
+    public Boolean deleteVuelto(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countVuelto(){

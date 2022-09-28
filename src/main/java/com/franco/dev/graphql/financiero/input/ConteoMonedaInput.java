@@ -14,4 +14,5 @@ public class ConteoMonedaInput implements Serializable {
     private String observacion;
     private Date creadoEn;
     private Long usuarioId;
+    private Long sucursalId;
 }

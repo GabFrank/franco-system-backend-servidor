@@ -1,5 +1,6 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
@@ -18,13 +19,16 @@ import java.util.Date;
 @NoArgsConstructor
 @Entity
 @Table(name = "cambio_caja", schema = "financiero")
+@IdClass(EmbebedPrimaryKey.class)
 public class CambioCaja implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = true)

@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.EstadoRetiro;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -26,7 +27,7 @@ import java.time.LocalDateTime;
         typeClass = PostgreSQLEnumType.class
 )
 @IdClass(EmbebedPrimaryKey.class)
-public class Retiro implements Serializable {
+public class Retiro extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

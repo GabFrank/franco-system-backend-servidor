@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class CambioService extends CrudService<Cambio, CambioRepository> {
+public class CambioService extends CrudService<Cambio, CambioRepository, Long> {
 
     private final CambioRepository repository;
 

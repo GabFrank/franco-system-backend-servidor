@@ -609,11 +609,11 @@ public class PropagacionService {
                 log.info("creando timbrado detalle: ");
                 return guardar(timbradoDetalleService, dto);
             case RETIRO:
-                log.info("creando retiro: ");
-                return guardar(retiroService, dto);
+                log.info("creando gasto: ");
+                return guardar(gastoService, dto);
             case RETIRO_DETALLE:
-                log.info("creando retiro detalle: ");
-                return guardar(retiroDetalleService, dto);
+                log.info("creando timbrado detalle: ");
+                return guardar(timbradoDetalleService, dto);
             default:
                 return null;
         }

@@ -1,10 +1,11 @@
 package com.franco.dev.repository.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.Vuelto;
 import com.franco.dev.repository.HelperRepository;
 
-public interface VueltoRepository extends HelperRepository<Vuelto, Long> {
+public interface VueltoRepository extends HelperRepository<Vuelto, EmbebedPrimaryKey> {
     default Class<Vuelto> getEntityClass() {
         return Vuelto.class;
     }

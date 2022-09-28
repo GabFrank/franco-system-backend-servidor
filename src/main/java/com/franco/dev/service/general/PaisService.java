@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PaisService extends CrudService<Pais, PaisRepository> {
+public class PaisService extends CrudService<Pais, PaisRepository, Long> {
 
     private final PaisRepository repository;
 

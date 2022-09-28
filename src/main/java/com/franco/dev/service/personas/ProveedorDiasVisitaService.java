@@ -14,7 +14,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ProveedorDiasVisitaService extends CrudService<ProveedorDiasVisita, ProveedorDiasVisitaRepository> {
+public class ProveedorDiasVisitaService extends CrudService<ProveedorDiasVisita, ProveedorDiasVisitaRepository, Long> {
 
     private final ProveedorDiasVisitaRepository repository;
 

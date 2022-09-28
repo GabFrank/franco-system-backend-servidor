@@ -19,7 +19,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PedidoService extends CrudService<Pedido, PedidoRepository> {
+public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     private final PedidoRepository repository;
 
     @PersistenceContext

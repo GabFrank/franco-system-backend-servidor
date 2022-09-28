@@ -396,7 +396,7 @@ public class ImpresionService {
         }
     }
 
-    public void printRetiro(RetiroDto retiroDto, String printerName, String local) {
+    public void printRetiro(RetiroDto retiroDto, String printerName, String local, Boolean reimpresion) {
         try {
             selectedPrintService = printingService.getPrintService(printerName);
             if (selectedPrintService != null) {
@@ -416,7 +416,9 @@ public class ImpresionService {
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
                 escpos.write(imageWrapper, escposImage);
-
+                if (reimpresion == true) {
+                    escpos.writeLF(center, "REIMPRESION");
+                }
                 if (local != null) {
                     escpos.writeLF(center, "Local: " + local);
                 }

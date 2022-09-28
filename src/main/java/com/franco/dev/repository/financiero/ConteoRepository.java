@@ -1,10 +1,14 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Conteo;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Query;
 
-public interface ConteoRepository extends HelperRepository<Conteo, Long> {
+import java.util.List;
+import java.util.Optional;
+
+public interface ConteoRepository extends HelperRepository<Conteo, EmbebedPrimaryKey> {
 
     default Class<Conteo> getEntityClass() {
         return Conteo.class;
@@ -17,9 +21,10 @@ public interface ConteoRepository extends HelperRepository<Conteo, Long> {
     @Query(value = "SELECT sum(cm.cantidad * mb.valor) FROM financiero.conteo c " +
             "join financiero.conteo_moneda cm on c.id = cm.conteo_id " +
             "join financiero.moneda_billetes mb on mb.id = cm.moneda_billetes_id " +
-            "where c.id = ?1 and mb.moneda_id = ?2", nativeQuery = true)
-    public Double getTotalPorMoneda(Long conteoId, Long monedaId);
+            "where c.id = ?1 and mb.moneda_id = ?2 and c.sucursal_id = ?3", nativeQuery = true)
+    public Double getTotalPorMoneda(Long conteoId, Long monedaId, Long sucId);
 
-    public Conteo findByIdAndSucursalId(Long id, Long sucId);
+    Conteo findByIdAndSucursalId(Long id, Long sucId);
+
 
 }

@@ -2,6 +2,7 @@ package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +10,7 @@ import lombok.NoArgsConstructor;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Data
 @AllArgsConstructor
@@ -16,7 +18,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "cobro", schema = "operaciones")
 @IdClass(EmbebedPrimaryKey.class)
-public class Cobro implements Serializable {
+public class Cobro extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

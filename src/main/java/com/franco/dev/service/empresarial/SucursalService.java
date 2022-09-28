@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class SucursalService extends CrudService<Sucursal, SucursalRepository> {
+public class SucursalService extends CrudService<Sucursal, SucursalRepository, Long> {
     
     @Autowired
     private Environment environment;

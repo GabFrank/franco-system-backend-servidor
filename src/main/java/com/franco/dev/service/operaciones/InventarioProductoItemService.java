@@ -4,17 +4,15 @@ import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.repository.operaciones.InventarioProductoItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import sun.jvm.hotspot.debugger.Page;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class InventarioProductoItemService extends CrudService<InventarioProductoItem, InventarioProductoItemRepository> {
+public class InventarioProductoItemService extends CrudService<InventarioProductoItem, InventarioProductoItemRepository, Long> {
     private final InventarioProductoItemRepository repository;
 
     @Override

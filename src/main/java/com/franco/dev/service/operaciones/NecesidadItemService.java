@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class NecesidadItemService extends CrudService<NecesidadItem, NecesidadItemRepository> {
+public class NecesidadItemService extends CrudService<NecesidadItem, NecesidadItemRepository, Long> {
     private final NecesidadItemRepository repository;
 
     @Override

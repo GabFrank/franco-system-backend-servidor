@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PedidoItemIngredienteResService extends CrudService<PedidoItemIngredienteRes, PedidoItemIngredienteResRepository> {
+public class PedidoItemIngredienteResService extends CrudService<PedidoItemIngredienteRes, PedidoItemIngredienteResRepository, Long> {
 
     @Autowired
     private final PedidoItemIngredienteResRepository repository;

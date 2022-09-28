@@ -1,9 +1,12 @@
 package com.franco.dev.graphql.financiero.resolver;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.GastoDetalle;
 import com.franco.dev.domain.financiero.PdvCaja;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.GastoDetalleService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.operaciones.VentaService;
@@ -24,6 +27,9 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
     @Autowired
     private VentaService ventaService;
 
+    @Autowired
+    private SucursalService sucursalService;
+
     private final Logger log = LoggerFactory.getLogger(CajaResolver.class);
 
 //    @Autowired
@@ -43,7 +49,11 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
 //    totalGasto: Float
 
     public CajaBalance balance(PdvCaja e){
-        return pdvCajaService.getBalance(e.getId());
+        return pdvCajaService.getBalance(new EmbebedPrimaryKey(e.getId(), e.getSucursalId()));
+    }
+
+    public Sucursal sucursal(PdvCaja e){
+        return e.getSucursalId()!= null ? sucursalService.findById(e.getSucursalId()).orElse(null) : null;
     }
 
 }

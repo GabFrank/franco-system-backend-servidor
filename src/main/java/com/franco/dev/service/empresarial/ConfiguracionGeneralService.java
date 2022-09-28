@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class ConfiguracionGeneralService extends CrudService<ConfiguracionGeneral, ConfiguracionGeneralRepository> {
+public class ConfiguracionGeneralService extends CrudService<ConfiguracionGeneral, ConfiguracionGeneralRepository, Long> {
 
     private final ConfiguracionGeneralRepository repository;
 

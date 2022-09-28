@@ -14,7 +14,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class TransferenciaService extends CrudService<Transferencia, TransferenciaRepository> {
+public class TransferenciaService extends CrudService<Transferencia, TransferenciaRepository, Long> {
     private final TransferenciaRepository repository;
 
     @Override

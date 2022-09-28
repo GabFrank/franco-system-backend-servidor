@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class CostosPorSucursalService extends CrudService<CostoPorProducto, CostosPorSucursalRepository> {
+public class CostosPorSucursalService extends CrudService<CostoPorProducto, CostosPorSucursalRepository, Long> {
 
     @Autowired
     private final CostosPorSucursalRepository repository;

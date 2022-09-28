@@ -1,9 +1,10 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.repository.HelperRepository;
 
-public interface FacturaLegalItemRepository extends HelperRepository<FacturaLegalItem, Long> {
+public interface FacturaLegalItemRepository extends HelperRepository<FacturaLegalItem, EmbebedPrimaryKey> {
 
     default Class<FacturaLegalItem> getEntityClass() {
         return FacturaLegalItem.class;

@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Vuelto;
 import com.franco.dev.domain.operaciones.VueltoItem;
 import com.franco.dev.repository.operaciones.VueltoItemRepository;
@@ -12,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class VueltoItemService extends CrudService<VueltoItem, VueltoItemRepository> {
+public class VueltoItemService extends CrudService<VueltoItem, VueltoItemRepository, EmbebedPrimaryKey> {
     private final VueltoItemRepository repository;
 
     @Override

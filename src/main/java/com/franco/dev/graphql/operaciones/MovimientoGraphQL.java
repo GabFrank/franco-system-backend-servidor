@@ -1,26 +1,22 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStock;
-import com.franco.dev.domain.operaciones.Necesidad;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.graphql.operaciones.input.MovimientoStockInput;
-import com.franco.dev.graphql.operaciones.input.NecesidadInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
-import com.franco.dev.service.operaciones.NecesidadService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CodigoService;
 import com.franco.dev.service.productos.ProductoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.apache.tomcat.jni.Local;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,14 +38,16 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private CodigoService codigoService;
 
-    public Optional<MovimientoStock> movimientoStock(Long id) {return service.findById(id);}
+    public Optional<MovimientoStock> movimientoStock(Long id, Long sucId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
+    }
 
-    public List<MovimientoStock> movimientosStock(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<MovimientoStock> movimientosStock(int page, int size, Long sucId) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public MovimientoStock saveMovimientoStock(MovimientoStockInput input){
+    public MovimientoStock saveMovimientoStock(MovimientoStockInput input) {
         ModelMapper m = new ModelMapper();
         MovimientoStock e = m.map(input, MovimientoStock.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -57,26 +55,26 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.save(e);
     }
 
-    public Boolean deleteMovimientoStock(Long id){
-        return service.deleteById(id);
+    public Boolean deleteMovimientoStock(Long id, Long sucId) {
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
-    public Long countMovimientoStock(){
+    public Long countMovimientoStock() {
         return service.count();
     }
 
-    public List<MovimientoStock> movimientoStockByFecha(String inicio, String fin){
+    public List<MovimientoStock> movimientoStockByFecha(String inicio, String fin, Long sucId) {
         return service.findByDate(inicio, fin);
     }
 
-    public void findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia){
+    public void findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
         MovimientoStock movimientoStock = service.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
-        if(movimientoStock!=null){
-            deleteMovimientoStock(movimientoStock.getId());
+        if (movimientoStock != null) {
+            deleteMovimientoStock(movimientoStock.getId(), movimientoStock.getSucursalId());
         }
     }
 
-    public Float stockPorProducto(Long id){
+    public Float stockPorProducto(Long id, Long sucId) {
         return service.stockByProductoId(id);
     }
 

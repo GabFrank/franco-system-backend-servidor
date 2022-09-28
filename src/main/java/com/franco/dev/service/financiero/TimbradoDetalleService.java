@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class TimbradoDetalleService extends CrudService<TimbradoDetalle, TimbradoDetalleRepository> {
+public class TimbradoDetalleService extends CrudService<TimbradoDetalle, TimbradoDetalleRepository, Long> {
 
     private final TimbradoDetalleRepository repository;
 

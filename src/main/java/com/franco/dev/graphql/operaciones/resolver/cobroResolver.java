@@ -20,6 +20,6 @@ public class cobroResolver implements GraphQLResolver<Cobro> {
     private CobroDetalleService cobroDetalleService;
 
     public List<CobroDetalle> cobroDetalleList(Cobro c){
-        return cobroDetalleService.findByCobroId(c.getId());
+        return cobroDetalleService.findByCobroId(c.getId(), c.getSucursalId());
     }
 }

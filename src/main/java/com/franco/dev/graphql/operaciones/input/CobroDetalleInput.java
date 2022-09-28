@@ -1,13 +1,7 @@
 package com.franco.dev.graphql.operaciones.input;
 
-import com.franco.dev.domain.financiero.FormaPago;
-import com.franco.dev.domain.financiero.Moneda;
-import com.franco.dev.domain.operaciones.Cobro;
 import lombok.Data;
 
-import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import java.time.LocalDateTime;
 
 @Data
@@ -24,4 +18,5 @@ public class CobroDetalleInput {
     private Boolean vuelto;
     private LocalDateTime creadoEn;
     private Long usuarioId;
+    private Long sucursalId;
 }

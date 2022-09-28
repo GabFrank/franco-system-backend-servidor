@@ -1,5 +1,6 @@
 package com.franco.dev.repository.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
@@ -8,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
-public interface DeliveryRepository extends HelperRepository<Delivery, Long> {
+public interface DeliveryRepository extends HelperRepository<Delivery, EmbebedPrimaryKey> {
     default Class<Delivery> getEntityClass() {
         return Delivery.class;
     }

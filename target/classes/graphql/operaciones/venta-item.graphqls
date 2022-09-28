@@ -1,18 +1,18 @@
 type VentaItem {
     id:ID!
-    sucursalId: Int
     venta: Venta
     producto: Producto
     presentacion: Presentacion
     cantidad: Float
     precioCosto: Float
     precio: Float
+    precioVenta: PrecioPorSucursal
     valorDescuento: Float
     unidadMedida: UnidadMedida
     creadoEn: Date
     usuario: Usuario
     valorTotal: Float
-
+    sucursalId: Int
 }
 
 input VentaItemInput {
@@ -28,18 +28,19 @@ input VentaItemInput {
     precioVenta: Float
     valorDescuento: Float
     usuarioId: Int
+    sucursalId: Int
 }
 
 extend type Query {
-    ventaItem(id:ID!):VentaItem
-    ventaItems(page:Int = 0, size:Int = 10):[VentaItem]!
+    ventaItem(id:ID!, sucId: ID):VentaItem
+    ventaItems(page:Int = 0, size:Int = 10, sucId: ID):[VentaItem]!
     countVentaItem: Int
-    ventaItemListPorVentaId(id:ID!):[VentaItem]
+    ventaItemListPorVentaId(id:ID!, sucId: ID):[VentaItem]
 }
 
 extend type Mutation {
     saveVentaItem(ventaItem:VentaItemInput!):VentaItem!
-    deleteVentaItem(id:ID!):Boolean!
+    deleteVentaItem(id:ID!, sucId: ID):Boolean!
 }
 
 

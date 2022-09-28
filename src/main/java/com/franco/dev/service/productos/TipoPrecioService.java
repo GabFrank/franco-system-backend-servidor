@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class TipoPrecioService extends CrudService<TipoPrecio, TipoPrecioRepository> {
+public class TipoPrecioService extends CrudService<TipoPrecio, TipoPrecioRepository, Long> {
 
     private final TipoPrecioRepository repository;
 

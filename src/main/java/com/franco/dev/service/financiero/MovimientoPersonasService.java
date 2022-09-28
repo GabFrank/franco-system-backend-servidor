@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class MovimientoPersonasService extends CrudService<MovimientoPersonas, MovimientoPersonasRepository> {
+public class MovimientoPersonasService extends CrudService<MovimientoPersonas, MovimientoPersonasRepository, Long> {
 
     private final MovimientoPersonasRepository repository;
 

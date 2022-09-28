@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
@@ -15,7 +16,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class MovimientoCajaService extends CrudService<MovimientoCaja, MovimientoCajaRepository> {
+public class MovimientoCajaService extends CrudService<MovimientoCaja, MovimientoCajaRepository, EmbebedPrimaryKey> {
 
     private final MovimientoCajaRepository repository;
 
@@ -34,13 +35,13 @@ public class MovimientoCajaService extends CrudService<MovimientoCaja, Movimient
 //        return repository.findByAll(texto);
 //    }
 
-    public List<MovimientoCaja> findByPdvCajaId(Long id){
-        return repository.findByPdvCajaIdAndActivo(id, true);
+    public List<MovimientoCaja> findByPdvCajaId(Long id, Long sucId){
+        return repository.findByPdvCajaIdAndActivoAndSucursalId(id, true, sucId);
     }
 
-    public Double findTotalVentaByCajaIdAndMonedaId(Long id, Long monedaId){
+    public Double findTotalVentaByCajaIdAndMonedaId(Long id, Long monedaId, Long sucId){
         Double total = 0.0;
-        total = repository.findTotalVentaByCajaIdAndMonedaId(id, monedaId);
+        total = repository.findTotalVentaByCajaIdAndMonedaId(id, monedaId, sucId);
         if(total == null){
             return 0.0;
         } else {
@@ -48,12 +49,12 @@ public class MovimientoCajaService extends CrudService<MovimientoCaja, Movimient
         }
     }
 
-    public List<MovimientoCaja> findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia){
-        return repository.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
+    public List<MovimientoCaja> findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia, Long sucId){
+        return repository.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
     }
 
-    public Double totalEnCajaPorCajaIdAndMonedaId(Long cajaId, Long monedaId){
-        Double total = repository.totalEnCajaByCajaIdandMonedaId(cajaId, monedaId);
+    public Double totalEnCajaPorCajaIdAndMonedaId(Long cajaId, Long monedaId, Long sucId){
+        Double total = repository.totalEnCajaByCajaIdandMonedaId(cajaId, monedaId, sucId);
         return total!=null ? total : 0.0;    }
 
     @Override

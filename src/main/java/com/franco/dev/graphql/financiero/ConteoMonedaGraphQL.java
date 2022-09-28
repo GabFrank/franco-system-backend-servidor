@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.ConteoMoneda;
 import com.franco.dev.graphql.financiero.input.BancoInput;
@@ -31,9 +32,9 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private PaisService paisService;
 
-    public Optional<ConteoMoneda> conteoMoneda(Long id) {return service.findById(id);}
+    public Optional<ConteoMoneda> conteoMoneda(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<ConteoMoneda> conteoMonedas(int page, int size){
+    public List<ConteoMoneda> conteoMonedas(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -48,16 +49,16 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.save(e);
     }
 
-    public List<ConteoMoneda> conteoMonedasPorConteoId(Long id){
-        return service.findByConteoId(id);
+    public List<ConteoMoneda> conteoMonedasPorConteoId(Long id, Long sucId){
+        return service.findByConteoId(id, sucId);
     }
 
 //    public List<ConteoMoneda> conteoMonedasSearch(String texto){
 //        return service.findByAll(texto);
 //    }
 
-    public Boolean deleteConteoMoneda(Long id){
-        return service.deleteById(id);
+    public Boolean deleteConteoMoneda(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countConteoMoneda(){

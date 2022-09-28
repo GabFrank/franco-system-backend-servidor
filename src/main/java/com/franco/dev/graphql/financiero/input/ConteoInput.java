@@ -18,5 +18,5 @@ public class ConteoInput implements Serializable {
     private Double totalGs;
     private Double totalRs;
     private Double totalDs;
-
+    private Long sucursalId;
 }

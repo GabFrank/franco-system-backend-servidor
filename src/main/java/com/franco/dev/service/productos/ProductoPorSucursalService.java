@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ProductoPorSucursalService extends CrudService<ProductoPorSucursal, ProductoPorSucursalRepository> {
+public class ProductoPorSucursalService extends CrudService<ProductoPorSucursal, ProductoPorSucursalRepository, Long> {
 
     @Autowired
     private final ProductoPorSucursalRepository repository;

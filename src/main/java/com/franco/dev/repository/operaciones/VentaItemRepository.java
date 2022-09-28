@@ -1,12 +1,13 @@
 package com.franco.dev.repository.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.repository.HelperRepository;
 
 import java.util.List;
 
-public interface VentaItemRepository extends HelperRepository<VentaItem, Long> {
+public interface VentaItemRepository extends HelperRepository<VentaItem, EmbebedPrimaryKey> {
 
     default Class<VentaItem> getEntityClass() {
         return VentaItem.class;
@@ -20,7 +21,7 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Long> {
     //@Query("select p from Producto p where CAST(id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcionFactura) like %?1%")
     //public List<Producto> findbyAll(String texto);
 
-    public List<VentaItem> findByVentaId(Long id);
+    public List<VentaItem> findByVentaIdAndSucursalId(Long id, Long sucId);
 
 
 }

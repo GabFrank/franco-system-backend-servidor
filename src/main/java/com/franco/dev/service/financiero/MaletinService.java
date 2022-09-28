@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class MaletinService extends CrudService<Maletin, MaletinRepository> {
+public class MaletinService extends CrudService<Maletin, MaletinRepository, Long> {
 
     private final MaletinRepository repository;
 

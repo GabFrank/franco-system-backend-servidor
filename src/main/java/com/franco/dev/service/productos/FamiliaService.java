@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class FamiliaService extends CrudService<Familia, FamiliaRepository> {
+public class FamiliaService extends CrudService<Familia, FamiliaRepository, Long> {
 
     private final FamiliaRepository repository;
 

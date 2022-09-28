@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class TimbradoService extends CrudService<Timbrado, TimbradoRepository> {
+public class TimbradoService extends CrudService<Timbrado, TimbradoRepository, Long> {
 
     private final TimbradoRepository repository;
 

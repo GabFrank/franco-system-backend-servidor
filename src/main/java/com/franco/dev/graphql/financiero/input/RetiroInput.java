@@ -26,4 +26,11 @@ public class RetiroInput {
     private Double retiroRs;
 
     private Double retiroDs;
+
+    private Long sucursalEntradaId;
+
+    private Long sucursalSalidaId;
+
+    private Long sucursalId;
+
 }

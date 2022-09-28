@@ -9,6 +9,7 @@ type Cliente {
     usuarioId: Usuario
     saldo: Float
     codigo: String
+    sucursal: Sucursal
 }
 
 input ClienteInput {
@@ -19,7 +20,7 @@ input ClienteInput {
     creadoEn: Date
     codigo: String
     usuarioId: ID
-
+    sucursalId: Int
 }
 
 extend type Query {

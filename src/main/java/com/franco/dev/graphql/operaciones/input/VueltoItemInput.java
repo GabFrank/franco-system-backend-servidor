@@ -9,4 +9,5 @@ public class VueltoItemInput {
     private Long monedaId;
     private Double valor;
     private Long usuarioId;
+    private Long sucursalId;
 }

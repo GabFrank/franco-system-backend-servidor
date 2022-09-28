@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.*;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
@@ -57,9 +58,9 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     private static final Logger log = LoggerFactory.getLogger(ConteoGraphQL.class);
 
-    public Optional<Conteo> conteo(Long id) {return service.findById(id);}
+    public Optional<Conteo> conteo(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<Conteo> conteos(int page, int size){
+    public List<Conteo> conteos(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -75,8 +76,8 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return propagacionService.saveConteo(saveConteoDto);
     }
 
-    public Boolean deleteConteo(Long id){
-        return service.deleteById(id);
+    public Boolean deleteConteo(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countConteo(){

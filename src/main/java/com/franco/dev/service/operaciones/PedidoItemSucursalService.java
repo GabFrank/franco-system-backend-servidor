@@ -1,8 +1,6 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.PedidoItemSucursal;
-import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import com.franco.dev.repository.operaciones.PedidoItemSucursalRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -12,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PedidoItemSucursalService extends CrudService<PedidoItemSucursal, PedidoItemSucursalRepository> {
+public class PedidoItemSucursalService extends CrudService<PedidoItemSucursal, PedidoItemSucursalRepository, Long> {
     private final PedidoItemSucursalRepository repository;
 
     @Override
@@ -25,7 +23,9 @@ public class PedidoItemSucursalService extends CrudService<PedidoItemSucursal, P
     //    return  repository.findByAll(texto);
     //}
 
-    public List<PedidoItemSucursal> findByPedidoItemId(Long id) { return repository.findByPedidoItemId(id); }
+    public List<PedidoItemSucursal> findByPedidoItemId(Long id) {
+        return repository.findByPedidoItemId(id);
+    }
 //
 //    public List<PedidoItemSucursal> findByPedidoId(Long id) { return repository.findByPedidoId(id); }
 

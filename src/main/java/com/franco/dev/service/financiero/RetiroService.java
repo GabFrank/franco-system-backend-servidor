@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.repository.financiero.BancoRepository;
@@ -12,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class RetiroService extends CrudService<Retiro, RetiroRepository> {
+public class RetiroService extends CrudService<Retiro, RetiroRepository, EmbebedPrimaryKey> {
 
     private final RetiroRepository repository;
 

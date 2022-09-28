@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.PdvCaja;
@@ -17,7 +18,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class RetiroDetalleService extends CrudService<RetiroDetalle, RetiroDetalleRepository> {
+public class RetiroDetalleService extends CrudService<RetiroDetalle, RetiroDetalleRepository, EmbebedPrimaryKey> {
 
     private final RetiroDetalleRepository repository;
 
@@ -40,12 +41,12 @@ public class RetiroDetalleService extends CrudService<RetiroDetalle, RetiroDetal
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
-    public List<RetiroDetalle> findByRetiroId(Long id){
-        return repository.findByRetiroId(id);
+    public List<RetiroDetalle> findByRetiroId(Long id, Long sucId){
+        return repository.findByRetiroIdAndSucursalId(id, sucId);
     }
 
-    public Double findByRetiroIdAndMonedaId(Long id, Long monedaId){
-        List<RetiroDetalle> retiroDetalles = repository.findByRetiroIdAndMonedaId(id, monedaId);
+    public Double findByRetiroIdAndMonedaId(Long id, Long monedaId, Long sucId){
+        List<RetiroDetalle> retiroDetalles = repository.findByRetiroIdAndMonedaIdAndSucursalId(id, monedaId, sucId);
         Double total = 0.0;
         for(RetiroDetalle r:retiroDetalles){
             total += r.getCantidad();
@@ -53,17 +54,17 @@ public class RetiroDetalleService extends CrudService<RetiroDetalle, RetiroDetal
         return total;
     }
 
-    public List<RetiroDetalle> findByCajId(Long id){
-        return repository.findByRetiroCajaSalidaId(id);
+    public List<RetiroDetalle> findByCajId(Long id, Long sucId){
+        return repository.findByRetiroCajaSalidaIdAndSucursalId(id, sucId);
     }
 
     @Override
     public RetiroDetalle save(RetiroDetalle entity) throws GraphQLException{
         Long cajaId = entity.getRetiro().getCajaSalida().getId();
         Double total = entity.getCantidad();
-        Double totalEnCaja = movimientoCajaService.totalEnCajaPorCajaIdAndMonedaId(cajaId, entity.getMoneda().getId());
+        Double totalEnCaja = movimientoCajaService.totalEnCajaPorCajaIdAndMonedaId(cajaId, entity.getMoneda().getId(), entity.getRetiro().getCajaSalida().getSucursalId());
         if(total > totalEnCaja){
-            retiroService.deleteById(entity.getRetiro().getId());
+            retiroService.deleteById(entity.getRetiro().getEId());
             throw new GraphQLException("El valor de retiro es mayor al total en caja");
         } else {
             RetiroDetalle e = super.save(entity);

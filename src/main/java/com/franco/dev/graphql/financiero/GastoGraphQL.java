@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.graphql.financiero.input.GastoInput;
 import com.franco.dev.service.financiero.GastoService;
@@ -44,21 +45,21 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private TipoGastoService tipoGastoService;
 
-    public Optional<Gasto> gasto(Long id) {
-        return service.findById(id);
+    public Optional<Gasto> gasto(Long id, Long sucId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
-    public List<Gasto> gastos(int page, int size) {
+    public List<Gasto> gastos(int page, int size, Long sucId) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<Gasto> gastosPorCajaId(Long id) {
-        return service.findByCajaId(id);
+    public List<Gasto> gastosPorCajaId(Long id, Long sucId) {
+        return service.findByCajaId(id, sucId);
     }
 
-    public List<Gasto> gastosPorFecha(String inicio, String fin) {
-        return service.findByDate(inicio, fin);
+    public List<Gasto> gastosPorFecha(String inicio, String fin, Long sucId) {
+        return service.findByDate(inicio, fin, sucId);
     }
 
     public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
@@ -72,8 +73,8 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 //        return service.findByAll(texto);
 //    }
 
-    public Boolean deleteGasto(Long id) {
-        return service.deleteById(id);
+    public Boolean deleteGasto(Long id, Long sucId) {
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countGasto() {

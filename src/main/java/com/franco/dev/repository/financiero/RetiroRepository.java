@@ -1,5 +1,6 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.repository.HelperRepository;
@@ -7,7 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
-public interface RetiroRepository extends HelperRepository<Retiro, Long> {
+public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimaryKey> {
 
     default Class<Retiro> getEntityClass() {
         return Retiro.class;

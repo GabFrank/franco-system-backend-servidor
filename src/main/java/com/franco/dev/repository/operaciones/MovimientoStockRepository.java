@@ -1,5 +1,6 @@
 package com.franco.dev.repository.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Pedido;
@@ -9,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
-public interface MovimientoStockRepository extends HelperRepository<MovimientoStock, Long> {
+public interface MovimientoStockRepository extends HelperRepository<MovimientoStock, EmbebedPrimaryKey> {
     default Class<MovimientoStock> getEntityClass() {
         return MovimientoStock.class;
     }

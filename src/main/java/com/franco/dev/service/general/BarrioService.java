@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class BarrioService extends CrudService<Barrio, BarrioRepository> {
+public class BarrioService extends CrudService<Barrio, BarrioRepository, Long> {
 
     private final BarrioRepository repository;
 

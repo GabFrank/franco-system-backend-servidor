@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ClienteService extends CrudService<Cliente, ClienteRepository> {
+public class ClienteService extends CrudService<Cliente, ClienteRepository, Long> {
 
     private final ClienteRepository repository;
 

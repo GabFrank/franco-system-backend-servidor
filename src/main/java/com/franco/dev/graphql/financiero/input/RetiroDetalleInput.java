@@ -15,4 +15,5 @@ public class RetiroDetalleInput {
     private Double cambio;
     private LocalDateTime creadoEn;
     private Long usuarioId;
+    private Long sucursalId;
 }

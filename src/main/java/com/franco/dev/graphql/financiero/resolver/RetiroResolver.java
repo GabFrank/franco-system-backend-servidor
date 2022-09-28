@@ -20,19 +20,19 @@ public class RetiroResolver implements GraphQLResolver<Retiro> {
     private RetiroDetalleService retiroDetalleService;
 
     public List<RetiroDetalle> retiroDetalleList(Retiro e) {
-        return retiroDetalleService.findByRetiroId(e.getId());
+        return retiroDetalleService.findByRetiroId(e.getId(), e.getSucursalId());
     }
 
     public Double retiroGs(Retiro e) {
-        return retiroDetalleService.findByRetiroIdAndMonedaId(e.getId(), Long.valueOf(1));
+        return retiroDetalleService.findByRetiroIdAndMonedaId(e.getId(), Long.valueOf(1), e.getSucursalId());
     }
 
     public Double retiroRs(Retiro e) {
-        return retiroDetalleService.findByRetiroIdAndMonedaId(e.getId(), Long.valueOf(2));
+        return retiroDetalleService.findByRetiroIdAndMonedaId(e.getId(), Long.valueOf(2), e.getSucursalId());
     }
 
     public Double retiroDs(Retiro e) {
-        return retiroDetalleService.findByRetiroIdAndMonedaId(e.getId(), Long.valueOf(3));
+        return retiroDetalleService.findByRetiroIdAndMonedaId(e.getId(), Long.valueOf(3), e.getSucursalId());
     }
 
 }

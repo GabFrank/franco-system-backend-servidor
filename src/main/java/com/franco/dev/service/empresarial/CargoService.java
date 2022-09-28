@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class CargoService extends CrudService<Cargo, CargoRepository> {
+public class CargoService extends CrudService<Cargo, CargoRepository, Long> {
 
     private final CargoRepository repository;
 

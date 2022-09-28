@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -21,7 +22,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "cobro_detalle", schema = "operaciones")
 @IdClass(EmbebedPrimaryKey.class)
-public class CobroDetalle implements Serializable {
+public class CobroDetalle extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

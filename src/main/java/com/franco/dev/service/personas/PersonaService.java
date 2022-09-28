@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PersonaService extends CrudService<Persona, PersonaRepository> {
+public class PersonaService extends CrudService<Persona, PersonaRepository, Long> {
 
     private final PersonaRepository repository;
 //    private final PersonaPublisher personaPublisher;

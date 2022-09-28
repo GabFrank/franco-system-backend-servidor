@@ -1,6 +1,5 @@
 package com.franco.dev.domain;
 
-import com.franco.dev.domain.empresarial.Sucursal;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

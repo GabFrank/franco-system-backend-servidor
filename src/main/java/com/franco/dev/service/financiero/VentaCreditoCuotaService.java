@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class VentaCreditoCuotaService extends CrudService<VentaCreditoCuota, VentaCreditoCuotaRepository> {
+public class VentaCreditoCuotaService extends CrudService<VentaCreditoCuota, VentaCreditoCuotaRepository, Long> {
 
     private final VentaCreditoCuotaRepository repository;
 

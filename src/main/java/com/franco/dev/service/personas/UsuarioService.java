@@ -17,7 +17,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class UsuarioService extends CrudService<Usuario, UsuarioRepository> {
+public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long> {
 
     @Autowired
     private final UsuarioRepository repository;

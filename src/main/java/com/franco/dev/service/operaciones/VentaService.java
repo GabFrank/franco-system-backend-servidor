@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.CobroDetalle;
@@ -13,21 +14,20 @@ import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.AsyncResult;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Future;
 
 import static java.time.temporal.ChronoUnit.DAYS;
 
 @Service
 @AllArgsConstructor
-public class VentaService extends CrudService<Venta, VentaRepository> {
+public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPrimaryKey> {
     private final VentaRepository repository;
 
     @Autowired
@@ -45,18 +45,20 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
     }
 
 
-
 //    public List<Venta> findByAll(String texto){
 //        texto = texto.replace(' ', '%');
 //        return  repository.findByProveedor(texto.toLowerCase());
 //    }
 
-    public List<Venta> findByCajaId(Long id, Integer offset) {
-        return repository.findByCajaId(id, offset);
+    public List<Venta> findByCajaId(EmbebedPrimaryKey id, Integer offset, Long formaPago, VentaEstado estado) {
+        Pageable page = PageRequest.of((offset != null ? Math.floorDiv(offset + 1, 2) : 0), 2);
+        if(formaPago!=null || estado!=null) return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, page);
+        return repository.findAllByCajaIdAndSucursalId(id.getId(), id.getSucursalId(), page);
+
     }
 
-    public List<Venta> findAllByCajaId(Long id) {
-        return repository.findByCajaId(id);
+    public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
+        return repository.findByCajaIdAndCajaSucursalId(id.getId(), id.getSucursalId());
     }
 
     @Override
@@ -72,7 +74,7 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
         return e;
     }
 
-    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin){
+    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin) {
         List<VentaPorPeriodoV1Dto> ventaPorPeriodoList = new ArrayList<>();
         LocalDateTime fechaInicio = LocalDateTime.parse(inicio);
         LocalDateTime fechaFin = LocalDateTime.parse(fin);
@@ -87,7 +89,7 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
             ventaPorPeriodo.setCantVenta(ventaList.size());
             for (Venta venta : ventaList) {
                 if (venta.getEstado() != VentaEstado.CANCELADA || venta.getEstado() != VentaEstado.ABIERTA) {
-                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(venta.getCobro().getId());
+                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(venta.getCobro().getId(), venta.getSucursalId());
                     for (CobroDetalle cobroDetalle : cobroDetalleList) {
                         if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
                             if (cobroDetalle.getPago()) {
@@ -124,11 +126,11 @@ public class VentaService extends CrudService<Venta, VentaRepository> {
     }
 
     @Transactional
-    public Boolean cancelarVenta(Venta venta){
+    public Boolean cancelarVenta(Venta venta) {
         venta.setEstado(VentaEstado.CANCELADA);
         saveAndSend(venta, false);
-        List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId());
-        for(MovimientoCaja mov : movimientoCajaList){
+        List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId());
+        for (MovimientoCaja mov : movimientoCajaList) {
             mov.setActivo(false);
             movimientoCajaService.saveAndSend(mov, false);
         }

@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Conteo;
 import com.franco.dev.repository.financiero.ConteoRepository;
 import com.franco.dev.service.CrudService;
@@ -8,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class ConteoService extends CrudService<Conteo, ConteoRepository> {
+public class ConteoService extends CrudService<Conteo, ConteoRepository, EmbebedPrimaryKey> {
 
     private final ConteoRepository repository;
 
@@ -27,8 +28,8 @@ public class ConteoService extends CrudService<Conteo, ConteoRepository> {
 //        return repository.findByAll(texto);
 //    }
 
-    public Double getTotalPorMoneda(Long conteoId, Long monedaId) {
-        return repository.getTotalPorMoneda(conteoId, monedaId);
+    public Double getTotalPorMoneda(Long conteoId, Long monedaId, Long sucId) {
+        return repository.getTotalPorMoneda(conteoId, monedaId, sucId);
     }
 
     public Conteo findByIdAndSucursalId(long id, long sucId) {

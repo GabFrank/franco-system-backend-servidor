@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.VentaCreditoCuota;
 import com.franco.dev.graphql.financiero.input.VentaCreditoCuotaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -55,7 +56,7 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getVentaCreditoId() != null)
             e.setVentaCredito(ventaCreditoService.findById(input.getVentaCreditoId()).orElse(null));
-        if (input.getCobroId() != null) e.setCobro(cobroService.findById(input.getCobroId()).orElse(null));
+        if (input.getCobroId() != null) e.setCobro(cobroService.findById(new EmbebedPrimaryKey(input.getCobroId(), input.getSucursalId())).orElse(null));
         e = service.save(e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.BANCO);
         return e;

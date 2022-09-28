@@ -18,7 +18,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class SalidaService extends CrudService<Salida, SalidaRepository> {
+public class SalidaService extends CrudService<Salida, SalidaRepository, Long> {
     private final Logger log = LoggerFactory.getLogger(EntradaService.class);
 
     private final SalidaRepository repository;

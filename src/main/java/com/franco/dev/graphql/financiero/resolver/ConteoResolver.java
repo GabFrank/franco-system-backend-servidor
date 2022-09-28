@@ -22,18 +22,18 @@ public class ConteoResolver implements GraphQLResolver<Conteo> {
     private ConteoService conteoService;
 
     public List<ConteoMoneda> conteoMonedaList(Conteo e){
-        return conteoMonedaService.findByConteoId(e.getId());
+        return conteoMonedaService.findByConteoId(e.getId(), e.getSucursalId());
     }
 
     public Double totalGs(Conteo e){
-        return conteoService.getTotalPorMoneda(e.getId(), (long) 1);
+        return conteoService.getTotalPorMoneda(e.getId(), (long) 1, e.getSucursalId());
     }
 
     public Double totalRs(Conteo e){
-        return conteoService.getTotalPorMoneda(e.getId(), (long) 2);
+        return conteoService.getTotalPorMoneda(e.getId(), (long) 2, e.getSucursalId());
     }
 
     public Double totalDs(Conteo e){
-        return conteoService.getTotalPorMoneda(e.getId(), (long) 3);
+        return conteoService.getTotalPorMoneda(e.getId(), (long) 3, e.getSucursalId());
     }
 }

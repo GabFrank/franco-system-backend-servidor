@@ -3,6 +3,7 @@ package com.franco.dev.domain.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -25,7 +26,7 @@ import java.time.LocalDateTime;
         typeClass = PostgreSQLEnumType.class
 )
 @IdClass(EmbebedPrimaryKey.class)
-public class PdvCaja implements Serializable {
+public class PdvCaja extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -75,6 +76,13 @@ public class PdvCaja implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    private Boolean verificado;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verificado_por_id", nullable = true)
+    private Usuario verificadoPor;
+
 }
 
 

@@ -16,7 +16,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class InventarioService extends CrudService<Inventario, InventarioRepository> {
+public class InventarioService extends CrudService<Inventario, InventarioRepository, Long> {
 
     private final Logger log = LoggerFactory.getLogger(InventarioService.class);
 
@@ -24,31 +24,31 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
 
     @Autowired
     private MovimientoStockService movimientoStockService;
+    @Autowired
+    private MovimientoPrintService movimientoPrintService;
 
     @Override
     public InventarioRepository getRepository() {
         return repository;
     }
 
-    @Autowired
-    private MovimientoPrintService movimientoPrintService;
-
     @Override
     public Inventario save(Inventario entity) {
-        if(entity.getFechaInicio()==null) entity.setFechaInicio(LocalDateTime.now());
+        if (entity.getFechaInicio() == null) entity.setFechaInicio(LocalDateTime.now());
         Inventario e = super.save(entity);
 //        personaPublisher.publish(p);
         return e;
     }
 
-    public List<Inventario> findByDate(String inicio, String fin){
+    public List<Inventario> findByDate(String inicio, String fin) {
         return repository.findByDate(inicio, fin);
     }
-    public List<Inventario> findByUsuario(Long id){
+
+    public List<Inventario> findByUsuario(Long id) {
         return repository.findByUsuarioId(id);
     }
 
-    public List<Inventario> findInventarioAbiertoPorSucursal(Long id){
+    public List<Inventario> findInventarioAbiertoPorSucursal(Long id) {
         return repository.findBySucursalIdAndEstado(id, InventarioEstado.ABIERTO);
     }
 }

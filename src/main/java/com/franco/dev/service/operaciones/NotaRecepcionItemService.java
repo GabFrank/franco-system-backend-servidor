@@ -1,9 +1,7 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.repository.operaciones.NotaRecepcionItemRepository;
-import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class NotaRecepcionItemService extends CrudService<NotaRecepcionItem, NotaRecepcionItemRepository> {
+public class NotaRecepcionItemService extends CrudService<NotaRecepcionItem, NotaRecepcionItemRepository, Long> {
     private final NotaRecepcionItemRepository repository;
 
     @Override
@@ -20,11 +18,11 @@ public class NotaRecepcionItemService extends CrudService<NotaRecepcionItem, Not
         return repository;
     }
 
-    public List<NotaRecepcionItem> findByNotaRecepcionId(Long id){
-        return  repository.findByNotaRecepcionId(id);
+    public List<NotaRecepcionItem> findByNotaRecepcionId(Long id) {
+        return repository.findByNotaRecepcionId(id);
     }
 
-    public List<NotaRecepcionItem> findByPedidoIdAndPedidoItemIsNull(Long id){
+    public List<NotaRecepcionItem> findByPedidoIdAndPedidoItemIsNull(Long id) {
         return repository.findByPedidoIdAndPedidoItemIsNull(id);
     }
 

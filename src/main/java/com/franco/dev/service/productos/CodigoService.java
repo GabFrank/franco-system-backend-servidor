@@ -22,7 +22,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class CodigoService extends CrudService<Codigo, CodigoRepository> {
+public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
 
     @Autowired
     private final CodigoRepository repository;

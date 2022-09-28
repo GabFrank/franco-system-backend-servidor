@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
@@ -18,7 +19,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class VentaItemService extends CrudService<VentaItem, VentaItemRepository> {
+public class VentaItemService extends CrudService<VentaItem, VentaItemRepository, EmbebedPrimaryKey> {
     private final VentaItemRepository repository;
 
     @Override
@@ -34,8 +35,8 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 //        texto = texto.replace(' ', '%');
 //        return  repository.findByProveedor(texto.toLowerCase());
 //
-    public List<VentaItem> findByVentaId(Long id){
-        return repository.findByVentaId(id);
+    public List<VentaItem> findByVentaId(Long id, Long sucId){
+        return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
     @Override

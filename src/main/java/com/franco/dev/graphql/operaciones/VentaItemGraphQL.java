@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
@@ -46,9 +47,9 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PrecioPorSucursalService precioPorSucursalService;
 
-    public Optional<VentaItem> ventaItem(Long id) {return service.findById(id);}
+    public Optional<VentaItem> ventaItem(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<VentaItem> ventaItems(int page, int size){
+    public List<VentaItem> ventaItems(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -59,7 +60,7 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     public VentaItem saveVentaItem(VentaItemInput input){
         ModelMapper m = new ModelMapper();
-        Venta venta = ventaService.findById(input.getVentaId()).orElse(null);
+        Venta venta = ventaService.findById(new EmbebedPrimaryKey(input.getVentaId(), input.getSucursalId())).orElse(null);
         VentaItem e = m.map(input, VentaItem.class);
         if(e.getUsuario()!=null) e.setUsuario(venta.getUsuario());
         if(e.getProducto()!=null) e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
@@ -69,8 +70,8 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.save(e);
     }
 
-    public Boolean deleteVentaItem(Long id){
-        return service.deleteById(id);
+    public Boolean deleteVentaItem(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countVentaItem(){
@@ -90,8 +91,8 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return ventaItemList;
     }
 
-    public Boolean cancelarVentaItens(Long id){
-        List<VentaItem> ventaItemList = service.findByVentaId(id);
+    public Boolean cancelarVentaItens(Long id, Long sucId){
+        List<VentaItem> ventaItemList = service.findByVentaId(id, sucId);
         for(VentaItem vi: ventaItemList){
             vi.setActivo(false);
             service.save(vi);
@@ -99,8 +100,8 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return true;
     }
 
-    public List<VentaItem> ventaItemListPorVentaId(Long id){
-        return service.findByVentaId(id);
+    public List<VentaItem> ventaItemListPorVentaId(Long id, Long sucId){
+        return service.findByVentaId(id, sucId);
     }
 
 }

@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Sencillo;
 import com.franco.dev.graphql.financiero.input.BancoInput;
@@ -32,9 +33,9 @@ public class SencilloGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private FuncionarioService funcionarioService;
 
-    public Optional<Sencillo> sencillo(Long id) {return service.findById(id);}
+    public Optional<Sencillo> sencillo(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<Sencillo> sencillos(int page, int size){
+    public List<Sencillo> sencillos(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -54,8 +55,8 @@ public class SencilloGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 //        return service.findByAll(texto);
 //    }
 
-    public Boolean deleteSencillo(Long id){
-        return service.deleteById(id);
+    public Boolean deleteSencillo(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countSencillo(){

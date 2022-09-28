@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.graphql.operaciones.input.DeliveryInput;
@@ -45,22 +46,22 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private VueltoService vueltoService;
 
-    public Optional<Delivery> delivery(Long id) {return service.findById(id);}
+    public Optional<Delivery> delivery(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<Delivery> deliverys(int page, int size){
+    public List<Delivery> deliverys(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
 
-    public List<Delivery> deliverysByEstado(DeliveryEstado estado){
+    public List<Delivery> deliverysByEstado(DeliveryEstado estado, Long sucId){
         return service.findByEstado(estado);
     }
 
-    public List<Delivery> deliverysByEstadoNotIn(DeliveryEstado estado){
+    public List<Delivery> deliverysByEstadoNotIn(DeliveryEstado estado, Long sucId){
         return service.findByEstadoNotIn(estado);
     }
 
-    public List<Delivery> deliverysUltimos10(){
+    public List<Delivery> deliverysUltimos10(Long sucId){
         return service.findTop10();
     }
 
@@ -75,7 +76,7 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             e.setEntregador(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
         }
         if(input.getVentaId()!=null){
-            e.setVenta(ventaService.findById(input.getVentaId()).orElse(null));
+            e.setVenta(ventaService.findById(new EmbebedPrimaryKey(input.getVentaId(), input.getSucursalId())).orElse(null));
         }
         if(input.getPrecioId()!=null){
             e.setPrecio(deliveryPrecioService.findById(input.getPrecioId()).orElse(null));
@@ -85,13 +86,13 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
 
         if(input.getVueltoId()!=null){
-            e.setVuelto(vueltoService.findById(input.getVueltoId()).orElse(null));
+            e.setVuelto(vueltoService.findById(new EmbebedPrimaryKey(input.getVueltoId(), input.getSucursalId())).orElse(null));
         }
         return service.save(e);
     }
 
-    public Boolean deleteDelivery(Long id){
-        return service.deleteById(id);
+    public Boolean deleteDelivery(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countDelivery(){

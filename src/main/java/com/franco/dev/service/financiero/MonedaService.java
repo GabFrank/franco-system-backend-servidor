@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class MonedaService extends CrudService<Moneda, MonedaRepository> {
+public class MonedaService extends CrudService<Moneda, MonedaRepository, Long> {
 
     private final MonedaRepository repository;
 
@@ -24,12 +24,12 @@ public class MonedaService extends CrudService<Moneda, MonedaRepository> {
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
-    public List<Moneda> findByAll(String texto){
+    public List<Moneda> findByAll(String texto) {
         texto = texto.replace(' ', '%');
         return repository.findByAll(texto);
     }
 
-    public Moneda findByDescripcion(String descripcion){
+    public Moneda findByDescripcion(String descripcion) {
         return repository.findByDenominacion(descripcion);
     }
 

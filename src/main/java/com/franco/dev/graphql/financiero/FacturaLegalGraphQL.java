@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
@@ -7,6 +8,7 @@ import com.franco.dev.graphql.financiero.input.FacturaLegalInput;
 import com.franco.dev.graphql.financiero.input.FacturaLegalItemInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.security.Unsecured;
+import com.franco.dev.service.EmbeddedEntity;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
 import com.franco.dev.service.operaciones.VentaService;
@@ -53,11 +55,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private FacturaLegalItemGraphQL facturaLegalItemGraphQL;
 
-    public Optional<FacturaLegal> facturaLegal(Long id) {
-        return service.findById(id);
+    public Optional<FacturaLegal> facturaLegal(Long id, Long sucId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
-    public List<FacturaLegal> facturaLegales(int page, int size) {
+    public List<FacturaLegal> facturaLegales(int page, int size, Long sucId) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
@@ -123,8 +125,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return e;
     }
 
-    public Boolean deleteFacturaLegal(Long id) {
-        return service.deleteById(id);
+    public Boolean deleteFacturaLegal(Long id, Long sucId) {
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countFacturaLegal() {

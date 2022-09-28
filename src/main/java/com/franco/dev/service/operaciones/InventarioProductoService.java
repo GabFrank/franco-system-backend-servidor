@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class InventarioProductoService extends CrudService<InventarioProducto, InventarioProductoRepository> {
+public class InventarioProductoService extends CrudService<InventarioProducto, InventarioProductoRepository, Long> {
     private final InventarioProductoRepository repository;
 
     @Override

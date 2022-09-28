@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
@@ -13,7 +14,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository> {
+public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, EmbebedPrimaryKey> {
     private final MovimientoStockRepository repository;
 
     @Override

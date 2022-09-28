@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.repository.financiero.FacturaLegalItemRepository;
 import com.franco.dev.service.CrudService;
@@ -10,7 +11,7 @@ import java.time.LocalDateTime;
 
 @Service
 @AllArgsConstructor
-public class FacturaLegalItemService extends CrudService<FacturaLegalItem, FacturaLegalItemRepository> {
+public class FacturaLegalItemService extends CrudService<FacturaLegalItem, FacturaLegalItemRepository, EmbebedPrimaryKey> {
 
     private final FacturaLegalItemRepository repository;
 

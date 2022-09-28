@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @Service
-public abstract class CrudService<T, Repository extends HelperRepository<T, Long>> implements ICrudService<Repository> {
+public abstract class CrudService<T, Repository extends HelperRepository<T, S>, S> implements ICrudService<Repository> {
 
     public static final String GUARDAR = "0";
     public static final String ELIMINAR = "1";
@@ -31,7 +31,7 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, Long
         return (List<T>) getRepository().findAllByOrderByIdAsc();
     }
 
-    public Optional<T> findById(Long id){
+    public Optional<T> findById(S id){
         if(id==null){
             return null;
         }
@@ -39,7 +39,7 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, Long
         return (Optional<T>) obj;
     }
 
-    public T getOne(Long id){return getRepository().getOne(id);}
+    public T getOne(S id){return getRepository().getOne(id);}
 
     @Transactional
     public T save(T entity){
@@ -50,19 +50,9 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, Long
         return (T) getRepository().save(entity);
     }
     @Transactional
-    public Boolean deleteById(Long id){
+    public Boolean deleteById(S id){
         try {
             getRepository().deleteById(id);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    @Transactional
-    public Boolean deleteById(EmbebedPrimaryKey primaryKey){
-        try {
-//            getRepository().deleteByIdAndSucursalId(primaryKey.getId(), primaryKey.getSucursal().getId());
             return true;
         } catch (Exception e) {
             return false;

@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class NotaPedidoService extends CrudService<NotaPedido, NotaPedidoRepository> {
+public class NotaPedidoService extends CrudService<NotaPedido, NotaPedidoRepository, Long> {
     private final NotaPedidoRepository repository;
 
     @Override

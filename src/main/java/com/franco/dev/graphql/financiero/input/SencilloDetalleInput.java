@@ -26,4 +26,7 @@ public class SencilloDetalleInput {
     private Date creadoEn;
 
     private Long usuarioId;
+
+    private Long sucursalId;
+
 }

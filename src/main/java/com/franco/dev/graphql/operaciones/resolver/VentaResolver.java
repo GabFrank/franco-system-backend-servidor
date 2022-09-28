@@ -25,12 +25,12 @@ public class VentaResolver implements GraphQLResolver<Venta> {
     private VentaItemService ventaItemService;
 
     public List<VentaItem> ventaItemList(Venta v){
-        return ventaItemService.findByVentaId(v.getId());
+        return ventaItemService.findByVentaId(v.getId(), v.getSucursalId());
     }
 
     public Double valorDescuento(Venta v){
         Double descuento = 0.0;
-        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(v.getId());
+        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(v.getId(), v.getSucursalId());
         for (VentaItem vi : ventaItemList){
             if(vi.getValorDescuento()!=null){
                 descuento += vi.getValorDescuento() * vi.getCantidad();
@@ -42,7 +42,7 @@ public class VentaResolver implements GraphQLResolver<Venta> {
     public Double valorTotal(Venta v){
         Double precio = 0.0;
         Integer cantidad = 1;
-        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(v.getId());
+        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(v.getId(), v.getSucursalId());
         for (VentaItem vi : ventaItemList){
             if(vi.getUnidadMedida() == UnidadMedida.CAJA){
                 cantidad = vi.getProducto().getUnidadPorCaja();

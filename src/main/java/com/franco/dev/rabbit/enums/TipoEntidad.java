@@ -66,6 +66,7 @@ public enum TipoEntidad {
     COBRO_DETALLE,
     GASTO,
     RETIRO,
-    RETIRO_DETALLE
+    RETIRO_DETALLE,
+    CAMBIO_CAJA
 
 }

@@ -1,9 +1,7 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.repository.operaciones.TransferenciaItemRepository;
-import com.franco.dev.repository.operaciones.TransferenciaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -15,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class TransferenciaItemService extends CrudService<TransferenciaItem, TransferenciaItemRepository> {
+public class TransferenciaItemService extends CrudService<TransferenciaItem, TransferenciaItemRepository, Long> {
     private final TransferenciaItemRepository repository;
 
     @Override
@@ -23,21 +21,21 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
         return repository;
     }
 
-    public List<TransferenciaItem> findByTransferenciaItemId(Long id, Integer page, Integer size){
-        if(page==null && size == null){
-            return  repository.findByTransferenciaIdOrderByIdDesc(id);
+    public List<TransferenciaItem> findByTransferenciaItemId(Long id, Integer page, Integer size) {
+        if (page == null && size == null) {
+            return repository.findByTransferenciaIdOrderByIdDesc(id);
         }
         Pageable pageable = PageRequest.of(page, size);
-        return  repository.findByTransferenciaIdOrderByIdDesc(id, pageable);
+        return repository.findByTransferenciaIdOrderByIdDesc(id, pageable);
     }
 
-    public List<TransferenciaItem> findByTransferenciaItemId(Long id){
-        return  repository.findByTransferenciaIdOrderByIdDesc(id);
+    public List<TransferenciaItem> findByTransferenciaItemId(Long id) {
+        return repository.findByTransferenciaIdOrderByIdDesc(id);
     }
 
     @Override
     public TransferenciaItem save(TransferenciaItem entity) {
-        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         TransferenciaItem e = super.save(entity);
 //        personaPublisher.publish(p);
         return e;

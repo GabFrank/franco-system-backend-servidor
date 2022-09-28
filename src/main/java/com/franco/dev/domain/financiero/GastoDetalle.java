@@ -3,6 +3,7 @@ package com.franco.dev.domain.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,7 +23,7 @@ import java.util.Date;
 @Entity
 @Table(name = "gasto_detalle", schema = "financiero")
 @IdClass(EmbebedPrimaryKey.class)
-public class GastoDetalle implements Serializable {
+public class GastoDetalle extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

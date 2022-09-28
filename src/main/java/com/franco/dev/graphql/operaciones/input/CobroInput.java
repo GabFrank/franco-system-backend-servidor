@@ -1,6 +1,5 @@
 package com.franco.dev.graphql.operaciones.input;
 
-import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -11,4 +10,5 @@ public class CobroInput {
     private LocalDateTime creadoEn;
     private Long usuarioId;
     private Double totalGs;
+    private Long sucursalId;
 }

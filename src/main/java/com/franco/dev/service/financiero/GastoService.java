@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.Moneda;
@@ -14,9 +15,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import static com.franco.dev.utilitarios.DateUtils.toDate;
+
 @Service
 @AllArgsConstructor
-public class GastoService extends CrudService<Gasto, GastoRepository> {
+public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPrimaryKey> {
 
     private final GastoRepository repository;
 
@@ -39,12 +42,12 @@ public class GastoService extends CrudService<Gasto, GastoRepository> {
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
-    public List<Gasto> findByDate(String inicio, String fin){
-        return repository.findByDate(inicio, fin);
+    public List<Gasto> findByDate(String inicio, String fin, Long sucId){
+        return repository.findBySucursalIdAndCreadoEnBetween(sucId, toDate(inicio), toDate(fin));
     }
 
-    public List<Gasto> findByCajaId(Long id) {
-        return repository.findByCajaId(id);
+    public List<Gasto> findByCajaId(Long id, Long sucId) {
+        return repository.findByCajaIdAndSucursalId(id, sucId);
     }
 
     @Override

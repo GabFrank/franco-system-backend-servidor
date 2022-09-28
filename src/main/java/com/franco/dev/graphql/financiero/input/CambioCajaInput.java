@@ -23,4 +23,6 @@ public class CambioCajaInput {
     private Date creadoEn;
 
     private Long usuarioId;
+
+    private Long sucursalId;
 }

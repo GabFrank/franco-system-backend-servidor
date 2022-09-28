@@ -17,6 +17,8 @@ import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
 
 @Data
 @AllArgsConstructor
@@ -82,4 +84,5 @@ public class Venta implements Serializable {
     private Double totalRs;
     @Column(name = "total_ds")
     private Double totalDs;
+
 }

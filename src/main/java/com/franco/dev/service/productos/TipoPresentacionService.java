@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class TipoPresentacionService extends CrudService<TipoPresentacion, TipoPresentacionRepository> {
+public class TipoPresentacionService extends CrudService<TipoPresentacion, TipoPresentacionRepository, Long> {
 
     private final TipoPresentacionRepository repository;
 

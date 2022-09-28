@@ -35,7 +35,7 @@ import java.util.logging.Logger;
 
 @Service
 @AllArgsConstructor
-public class ProductoService extends CrudService<Producto, ProductoRepository> {
+public class ProductoService extends CrudService<Producto, ProductoRepository, Long> {
 
     private static final Logger log = Logger.getLogger(String.valueOf(ProductoService.class));
     @Autowired

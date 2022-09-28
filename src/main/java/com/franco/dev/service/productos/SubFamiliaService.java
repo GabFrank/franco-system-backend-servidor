@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class SubFamiliaService extends CrudService<Subfamilia, SubFamiliaRepository> {
+public class SubFamiliaService extends CrudService<Subfamilia, SubFamiliaRepository, Long> {
 
     @Autowired
     private final SubFamiliaRepository repository;

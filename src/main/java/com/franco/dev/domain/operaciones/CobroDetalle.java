@@ -65,4 +65,6 @@ public class CobroDetalle extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    private String identificadorTransaccion;
+
 }

@@ -68,7 +68,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public void findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
-        MovimientoStock movimientoStock = service.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
+        MovimientoStock movimientoStock = service.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
         if (movimientoStock != null) {
             deleteMovimientoStock(movimientoStock.getId(), movimientoStock.getSucursalId());
         }

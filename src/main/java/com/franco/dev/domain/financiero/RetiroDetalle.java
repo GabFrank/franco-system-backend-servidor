@@ -7,6 +7,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JoinColumnOrFormula;
+import org.hibernate.annotations.JoinColumnsOrFormulas;
+import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -24,14 +27,18 @@ public class RetiroDetalle extends EmbeddedEntity implements Serializable {
 
     @Id
     private Long id;
-    @Column(name = "sucursal_id")
+
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
     private Double cantidad;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "retiro_id", insertable = false, updatable = false)
-    @JoinColumn(name = "sucursal_id", insertable = false, updatable = false)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "retiro_id", referencedColumnName = "id"))
+    })
     private Retiro retiro;
 
     @ManyToOne(fetch = FetchType.EAGER)

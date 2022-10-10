@@ -19,4 +19,5 @@ public class CobroDetalleInput {
     private LocalDateTime creadoEn;
     private Long usuarioId;
     private Long sucursalId;
+    private String identificadorTransaccion;
 }

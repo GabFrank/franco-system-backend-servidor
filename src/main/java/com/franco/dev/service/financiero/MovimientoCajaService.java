@@ -1,11 +1,9 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
-import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
-import com.franco.dev.repository.financiero.BancoRepository;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.financiero.MovimientoCajaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -35,33 +33,42 @@ public class MovimientoCajaService extends CrudService<MovimientoCaja, Movimient
 //        return repository.findByAll(texto);
 //    }
 
-    public List<MovimientoCaja> findByPdvCajaId(Long id, Long sucId){
+    public List<MovimientoCaja> findByPdvCajaId(Long id, Long sucId) {
         return repository.findByPdvCajaIdAndActivoAndSucursalId(id, true, sucId);
     }
 
-    public Double findTotalVentaByCajaIdAndMonedaId(Long id, Long monedaId, Long sucId){
+    public Double findTotalVentaByCajaIdAndMonedaId(Long id, Long monedaId, Long sucId) {
         Double total = 0.0;
         total = repository.findTotalVentaByCajaIdAndMonedaId(id, monedaId, sucId);
-        if(total == null){
+        if (total == null) {
             return 0.0;
         } else {
             return total;
         }
     }
 
-    public List<MovimientoCaja> findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia, Long sucId){
+    public List<MovimientoCaja> findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
         return repository.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
     }
 
-    public Double totalEnCajaPorCajaIdAndMonedaId(Long cajaId, Long monedaId, Long sucId){
+    public Double totalEnCajaPorCajaIdAndMonedaId(Long cajaId, Long monedaId, Long sucId) {
         Double total = repository.totalEnCajaByCajaIdandMonedaId(cajaId, monedaId, sucId);
-        return total!=null ? total : 0.0;    }
+        return total != null ? total : 0.0;
+    }
 
     @Override
     public MovimientoCaja save(MovimientoCaja entity) {
-        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         MovimientoCaja e = super.save(entity);
 //        personaPublisher.publish(p);
+        return e;
+    }
+
+    @Override
+    public MovimientoCaja saveAndSend(MovimientoCaja entity, Boolean recibir) {
+        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
+        MovimientoCaja e = super.save(entity);
+        propagacionService.propagarEntidad(e, TipoEntidad.MOVIMIENTO_CAJA, e.getSucursalId());
         return e;
     }
 }

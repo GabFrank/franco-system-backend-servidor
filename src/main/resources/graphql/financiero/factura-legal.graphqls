@@ -5,7 +5,7 @@ type FacturaLegal {
     timbradoDetalle:TimbradoDetalle
     numeroFactura:String
     cliente: Cliente
-    ventaId: Int
+    venta: Venta
     fecha:Date
     credito:Boolean
     nombre:String

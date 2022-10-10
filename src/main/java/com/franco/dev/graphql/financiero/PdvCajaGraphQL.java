@@ -109,7 +109,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return pdvCaja;
     }
 
-    public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input, Long sucId) {
+    public PdvCaja savePdvCajaPorSucursal(PdvCajaInput input) {
         ModelMapper m = new ModelMapper();
         PdvCaja e = m.map(input, PdvCaja.class);
         if (input.getUsuarioId() != null) {
@@ -120,7 +120,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         if (input.getConteoCierreId() != null)
             e.setConteoCierre(conteoService.findById(new EmbebedPrimaryKey(input.getConteoCierreId(), input.getSucursalId())).orElse(null));
         if (input.getMaletinId() != null) e.setMaletin(maletinService.findById(input.getMaletinId()).orElse(null));
-        e = propagacionService.propagarEntidadAndRecibir(e, TipoEntidad.PDV_CAJA, sucId);
+        e = propagacionService.propagarEntidadAndRecibir(e, TipoEntidad.PDV_CAJA, input.getSucursalId());
         return e;
     }
 

@@ -1,9 +1,12 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.Maletin;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.financiero.MaletinRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -13,6 +16,9 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class MaletinService extends CrudService<Maletin, MaletinRepository, Long> {
+
+    @Autowired
+    private PropagacionService propagacionService;
 
     private final MaletinRepository repository;
 
@@ -41,6 +47,7 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
         if(entity.getCreadoEn()==null) entity.setCreadoEn(LocalDateTime.now()   );
         Maletin e = super.save(entity);
 //        personaPublisher.publish(p);
+        propagacionService.propagarEntidad(e, TipoEntidad.MALETIN);
         return e;
     }
 

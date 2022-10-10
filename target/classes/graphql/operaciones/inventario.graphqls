@@ -1,7 +1,5 @@
 type Inventario {
     id:ID!
-    idCentral: Int
-    idOrigen: Int
     sucursal: Sucursal
     fechaInicio: Date
     fechaFin: Date
@@ -15,8 +13,6 @@ type Inventario {
 
 input InventarioInput {
     id:Int
-    idCentral: Int
-    idOrigen: Int
     sucursalId: Int
     fechaInicio: String
     fechaFin: String

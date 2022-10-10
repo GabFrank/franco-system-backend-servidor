@@ -155,9 +155,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 //        else if(dto.getAccion().equals(ELIMINAR)) deleteByInput(input, dto.getIdSucursalOrigen());
 //    }
 
-    public Producto findByIdCentral(Long id) {
-        return repository.findByIdCentral(id);
-    }
+//    public Producto findByIdCentral(Long id) {
+//        return repository.findByIdCentral(id);
+//    }
 
     public List<Producto> findAllForPdv() {
         return repository.findAllForPdv();

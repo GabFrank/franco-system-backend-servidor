@@ -610,10 +610,10 @@ public class PropagacionService {
                 return guardar(timbradoDetalleService, dto);
             case RETIRO:
                 log.info("creando gasto: ");
-                return guardar(gastoService, dto);
+                return guardar(retiroService, dto);
             case RETIRO_DETALLE:
                 log.info("creando timbrado detalle: ");
-                return guardar(timbradoDetalleService, dto);
+                return guardar(retiroDetalleService, dto);
             default:
                 return null;
         }

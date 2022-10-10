@@ -1,7 +1,6 @@
 package com.franco.dev.domain.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
@@ -56,7 +55,12 @@ public class FacturaLegal implements Serializable {
     @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
-    private Long ventaId;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "venta_id", referencedColumnName = "id"))
+    })
+    private Venta venta;
 
     private LocalDateTime fecha;
     private Boolean credito;

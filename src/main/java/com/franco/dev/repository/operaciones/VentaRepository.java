@@ -23,7 +23,8 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
     //@Query("select p from Producto p where CAST(id as text) like %?1% or LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
     //public List<Producto> findbyAll(String texto);
 
-    public List<Venta> findAllByCajaIdAndSucursalId(Long id, Long sucId, Pageable pageable);
+    public List<Venta> findAllByCajaIdAndSucursalIdOrderByIdAsc(Long id, Long sucId, Pageable pageable);
+    public List<Venta> findAllByCajaIdAndSucursalIdOrderByIdDesc(Long id, Long sucId, Pageable pageable);
 
     public List<Venta> findByCajaIdAndCajaSucursalId(Long id, Long sucId);
 

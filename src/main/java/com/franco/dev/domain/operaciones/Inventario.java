@@ -36,10 +36,6 @@ public class Inventario implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long idCentral;
-
-    private Long idOrigen;
-
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "sucursal_id", nullable = true)
     private Sucursal sucursal;

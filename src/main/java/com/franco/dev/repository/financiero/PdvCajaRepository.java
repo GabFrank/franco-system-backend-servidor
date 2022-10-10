@@ -35,4 +35,6 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, EmbebedPrim
 
     Optional<PdvCaja> findByIdAndSucursalId(Long id, Long sucId);
 
+    Optional<PdvCaja> findFirstByMaletinIdOrderByCreadoEnDesc(Long id);
+
 }

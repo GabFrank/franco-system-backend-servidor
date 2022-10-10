@@ -58,12 +58,12 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
         return repository;
     }
 
-    public Optional<PdvCaja> findById(Long id, Long sucId){
+    public Optional<PdvCaja> findById(Long id, Long sucId) {
         return repository.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<PdvCaja> findByDate(String inicio, String fin, Long sucId) {
-        if(sucId==null) return repository.findByCreadoEnBetween(toDate(inicio), toDate(fin));
+        if (sucId == null) return repository.findByCreadoEnBetween(toDate(inicio), toDate(fin));
         return repository.findBySucursalIdAndCreadoEnBetween(sucId, toDate(inicio), toDate(fin));
     }
 
@@ -226,6 +226,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
                 Double totalGsCierre = 0.0;
                 Double totalRsCierre = 0.0;
                 Double totalDsCierre = 0.0;
+
+
                 for (ConteoMoneda c : conteoMonedaAperList) {
                     if (c.getMonedaBilletes().getMoneda().getDenominacion().contains("GUARANI")) {
                         totalGsAper += c.getCantidad() * c.getMonedaBilletes().getValor();
@@ -253,6 +255,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
 
             }
 //            List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByPdvCajaId(pdvCaja.getId());
+            Double totalGeneral = 0.0;
             Double totalVentaGs = 0.0;
             Double totalVentaRs = 0.0;
             Double totalVentaDs = 0.0;
@@ -290,6 +293,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             }
 
             for (Venta venta : ventaList) {
+                totalGeneral += venta.getTotalGs();
+
                 Cobro cobro = cobroService.findById(venta.getCobro().getId(), venta.getSucursalId());
                 if (cobro != null) {
                     List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(cobro.getId(), cobro.getSucursalId());
@@ -299,13 +304,12 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
                                 if (cobroDetalle.getFormaPago().getDescripcion().contains("EFECTIVO")) {
                                     if (cobroDetalle.getDescuento()) {
                                         totalDescuento += cobroDetalle.getValor();
-                                        totalVentaGs += cobroDetalle.getValor();
                                     } else if (cobroDetalle.getAumento()) {
                                         totalAumento += cobroDetalle.getValor();
-                                    } else if (!cobroDetalle.getVuelto()) {
-                                        totalVentaGs += cobroDetalle.getValor();
                                     } else if (cobroDetalle.getVuelto()) {
                                         vueltoGs += cobroDetalle.getValor();
+                                    } else if (cobroDetalle.getPago()) {
+                                        totalVentaGs += cobroDetalle.getValor();
                                     }
                                 } else if (cobroDetalle.getFormaPago().getDescripcion().contains("TARJETA")) {
                                     totalTarjeta += cobroDetalle.getValor();
@@ -316,20 +320,22 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
                                 if (cobroDetalle.getFormaPago().getDescripcion().contains("EFECTIVO")) {
                                     if (cobroDetalle.getAumento()) {
                                         totalAumento += cobroDetalle.getValor() * cobroDetalle.getCambio();
-                                    } else if (!cobroDetalle.getVuelto()) {
-                                        totalVentaRs += cobroDetalle.getValor();
                                     } else if (cobroDetalle.getVuelto()) {
                                         vueltoRs += cobroDetalle.getValor();
+                                    } else if (cobroDetalle.getPago()) {
+                                        totalVentaRs += cobroDetalle.getValor();
                                     }
                                 }
                             } else if (cobroDetalle.getMoneda().getDenominacion().contains("DOLAR")) {
                                 if (cobroDetalle.getFormaPago().getDescripcion().contains("EFECTIVO")) {
                                     if (cobroDetalle.getAumento()) {
                                         totalAumento += cobroDetalle.getValor() * cobroDetalle.getCambio();
-                                    } else if (!cobroDetalle.getVuelto()) {
-                                        totalVentaDs += cobroDetalle.getValor();
                                     } else if (cobroDetalle.getVuelto()) {
                                         vueltoDs += cobroDetalle.getValor();
+                                    } else if (cobroDetalle.getPago()) {
+                                        totalVentaDs += cobroDetalle.getValor();
+                                    } else if (cobroDetalle.getPago()) {
+                                        totalVentaDs += cobroDetalle.getValor();
                                     }
                                 }
                             }
@@ -337,16 +343,33 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
                     } else if (venta.getEstado() == VentaEstado.CANCELADA) {
                         for (CobroDetalle cobroDetalle : cobroDetalleList) {
                             if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
-                                totalCanceladasGs += cobroDetalle.getValor() * cobroDetalle.getCambio();
+                                if (cobroDetalle.getPago()) {
+                                    totalCanceladasGs += cobroDetalle.getValor();
+                                } else if (cobroDetalle.getVuelto()) {
+                                    vueltoGs -= cobroDetalle.getValor();
+                                } else if (cobroDetalle.getDescuento()) {
+                                    totalDescuento -= cobroDetalle.getValor();
+                                } else if (cobroDetalle.getAumento()) {
+                                    totalAumento -= cobroDetalle.getValor();
+                                }
                             } else if (cobroDetalle.getMoneda().getDenominacion().contains("REAL")) {
-                                totalCanceladasRs += cobroDetalle.getValor() * cobroDetalle.getCambio();
+                                if (cobroDetalle.getPago()) {
+                                    totalCanceladasRs += cobroDetalle.getValor();
+                                } else if (cobroDetalle.getVuelto()) {
+                                    vueltoRs -= cobroDetalle.getValor();
+                                }
                             } else if (cobroDetalle.getMoneda().getDenominacion().contains("DOLAR")) {
-                                totalCanceladasDs += cobroDetalle.getValor() * cobroDetalle.getCambio();
+                                if (cobroDetalle.getPago()) {
+                                    totalCanceladasDs += cobroDetalle.getValor();
+                                } else if (cobroDetalle.getVuelto()) {
+                                    vueltoDs -= cobroDetalle.getValor();
+                                }
                             }
                         }
                     }
                 }
             }
+            balance.setTotalGeneral(totalGeneral - totalDescuento);
             balance.setVueltoGs(vueltoGs);
             balance.setVueltoRs(vueltoRs);
             balance.setVueltoDs(vueltoDs);
@@ -369,9 +392,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             balance.setUsuario(pdvCaja.getUsuario());
             balance.setFechaApertura(pdvCaja.getFechaApertura());
             balance.setFechaCierre(pdvCaja.getFechaCierre());
-            balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() + balance.getTotalRetiroGs() + balance.getTotalGastoGs() - balance.getTotalVentaGs() + balance.getTotalDescuento());
-            balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() + balance.getTotalRetiroRs() + balance.getTotalGastoRs() - balance.getTotalVentaRs());
-            balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() + balance.getTotalRetiroDs() + balance.getTotalGastoDs() - balance.getTotalVentaDs());
+            balance.setDiferenciaGs(balance.getTotalGsAper() + totalVentaGs + vueltoGs - totalRetiroGs - totalGastoGs - totalCanceladasGs - balance.getTotalGsCierre());
+            balance.setDiferenciaRs(balance.getTotalRsAper() + totalVentaRs + vueltoRs - totalRetiroRs - totalGastoRs - totalCanceladasRs - balance.getTotalRsCierre());
+            balance.setDiferenciaDs(balance.getTotalDsAper() + totalVentaDs + vueltoDs - totalRetiroDs - totalGastoDs - totalCanceladasDs - balance.getTotalDsCierre());
             balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
         }
         return balance;
@@ -392,6 +415,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
         if (pdvCaja != null) {
             PdvCajaBalanceDto balanceDto = generarBalance(pdvCaja);
             balance.setCajaId(id.getId());
+            balance.setTotalGeneral(balanceDto.getTotalGeneral());
             balance.setVueltoGs(balanceDto.getVueltoGs());
             balance.setVueltoRs(balanceDto.getVueltoRs());
             balance.setVueltoDs(balanceDto.getVueltoDs());
@@ -417,8 +441,16 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             balance.setTotalCanceladasGs(balanceDto.getTotalCanceladasGs());
             balance.setTotalCanceladasRs(balanceDto.getTotalCanceladasRs());
             balance.setTotalCanceladasDs(balanceDto.getTotalCanceladasDs());
+            balance.setDiferenciaGs(balanceDto.getDiferenciaGs());
+            balance.setDiferenciaRs(balanceDto.getDiferenciaRs());
+            balance.setDiferenciaDs(balanceDto.getDiferenciaDs());
         }
         return balance;
+    }
+
+    public PdvCaja findLastByMaletinId(Long id) {
+        PdvCaja caja = repository.findFirstByMaletinIdOrderByCreadoEnDesc(id).orElse(null);
+        return caja;
     }
 }
 

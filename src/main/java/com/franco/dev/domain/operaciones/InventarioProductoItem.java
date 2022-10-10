@@ -32,10 +32,6 @@ public class InventarioProductoItem implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long idCentral;
-
-    private Long idOrigen;
-
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "inventario_producto_id", nullable = true)
     private InventarioProducto inventarioProducto;

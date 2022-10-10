@@ -4,8 +4,11 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.CobroDetalle;
+import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
+import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.operaciones.VentaRepository;
@@ -39,6 +42,12 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MovimientoStockService movimientoStockService;
+
+    @Autowired
+    private VentaItemService ventaItemService;
+
     @Override
     public VentaRepository getRepository() {
         return repository;
@@ -50,11 +59,15 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 //        return  repository.findByProveedor(texto.toLowerCase());
 //    }
 
-    public List<Venta> findByCajaId(EmbebedPrimaryKey id, Integer offset, Long formaPago, VentaEstado estado) {
-        Pageable page = PageRequest.of((offset != null ? Math.floorDiv(offset + 1, 2) : 0), 2);
-        if(formaPago!=null || estado!=null) return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, page);
-        return repository.findAllByCajaIdAndSucursalId(id.getId(), id.getSucursalId(), page);
-
+    public List<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado) {
+        Pageable pagina = PageRequest.of(page, size);
+        if (formaPago != null || estado != null)
+            return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina);
+        if (asc == true)
+            return repository.findAllByCajaIdAndSucursalIdOrderByIdAsc(id.getId(), id.getSucursalId(), pagina);
+        if (asc != true)
+            return repository.findAllByCajaIdAndSucursalIdOrderByIdDesc(id.getId(), id.getSucursalId(), pagina);
+        return null;
     }
 
     public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
@@ -133,6 +146,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         for (MovimientoCaja mov : movimientoCajaList) {
             mov.setActivo(false);
             movimientoCajaService.saveAndSend(mov, false);
+        }
+        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(venta.getId(), venta.getSucursalId());
+        for(VentaItem vi: ventaItemList){
+            MovimientoStock movStock = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId());
+            if(movStock!=null){
+                movStock.setEstado(false);
+                propagacionService.propagarEntidad(movStock, TipoEntidad.MOVIMIENTO_STOCK, movStock.getSucursalId());
+            }
         }
         return true;
     }

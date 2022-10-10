@@ -40,7 +40,7 @@ input PdvCajaInput {
 
 extend type Query {
     pdvCaja(id:ID!, sucId: ID):PdvCaja
-    pdvCajas(page:Int = 0, size:Int = 10, , sucId: ID):[PdvCaja]!
+    pdvCajas(page:Int = 0, size:Int = 10, sucId: ID):[PdvCaja]!
     countPdvCaja: Int
     cajasPorFecha(inicio:String, fin:String, sucId:ID):[PdvCaja]
     cajaAbiertoPorUsuarioId(id:ID!, sucId: ID):PdvCaja
@@ -51,6 +51,7 @@ extend type Query {
 
 extend type Mutation {
     savePdvCaja(pdvCaja:PdvCajaInput!):PdvCaja!
+    savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!):PdvCaja!
 }
 
 enum PdvCajaEstado {

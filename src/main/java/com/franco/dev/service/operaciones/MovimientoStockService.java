@@ -48,8 +48,8 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return repository.ultimosMovimientosPorProductoId(proId, tm.toString(), limit);
     }
 
-    public MovimientoStock findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia){
-        return repository.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
+    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId){
+        return repository.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
     }
 
     public List<MovimientoStock> findListByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia){

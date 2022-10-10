@@ -48,18 +48,18 @@ public class Venta implements Serializable {
     @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "forma_pago_id", nullable = true)
     private FormaPago formaPago;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "cobro_id", referencedColumnName = "id"))
     })
     private Cobro cobro;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))

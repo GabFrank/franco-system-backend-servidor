@@ -11,6 +11,7 @@ import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -48,12 +49,18 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findByVendedorId(id);
     }
 
-    public Proveedor saveProveedor(ProveedorInput input){
+    public Proveedor saveProveedor(ProveedorInput input) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Proveedor e = m.map(input, Proveedor.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
-        e = service.save(e);
+        try {
+            e = service.save(e);
+        } catch (Exception ex){
+            if(ex.getMessage().contains("proveedor_un")) {
+                throw new GraphQLException("Esta persona ya es un proveedor");
+            }
+        }
         propagacionService.propagarEntidad(e, TipoEntidad.PROVEEDOR);
         return e;
     }

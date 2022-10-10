@@ -42,7 +42,7 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "where ms.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp)", nativeQuery = true)
     public List<MovimientoStock> findByDate(String inicio, String fin);
 
-    public MovimientoStock findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia);
+    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId);
 
     public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndEstadoTrue(TipoMovimiento tipoMovimiento, Long referencia);
 

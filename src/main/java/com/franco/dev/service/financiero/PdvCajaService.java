@@ -17,6 +17,8 @@ import com.franco.dev.service.operaciones.CobroService;
 import com.franco.dev.service.operaciones.VentaService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -90,7 +92,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
         return e;
     }
 
-    public PdvCaja findByUsuarioIdAndAbierto(Long id) {
+    public List<PdvCaja> findByUsuarioIdAndAbierto(Long id) {
         return repository.findByUsuarioIdAndActivo(id, true);
     }
 
@@ -392,9 +394,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             balance.setUsuario(pdvCaja.getUsuario());
             balance.setFechaApertura(pdvCaja.getFechaApertura());
             balance.setFechaCierre(pdvCaja.getFechaCierre());
-            balance.setDiferenciaGs(balance.getTotalGsAper() + totalVentaGs + vueltoGs - totalRetiroGs - totalGastoGs - totalCanceladasGs - balance.getTotalGsCierre());
-            balance.setDiferenciaRs(balance.getTotalRsAper() + totalVentaRs + vueltoRs - totalRetiroRs - totalGastoRs - totalCanceladasRs - balance.getTotalRsCierre());
-            balance.setDiferenciaDs(balance.getTotalDsAper() + totalVentaDs + vueltoDs - totalRetiroDs - totalGastoDs - totalCanceladasDs - balance.getTotalDsCierre());
+            balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() + totalVentaGs + vueltoGs - totalRetiroGs - totalGastoGs);
+            balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() + totalVentaRs + vueltoRs - totalRetiroRs - totalGastoRs);
+            balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() + totalVentaDs + vueltoDs - totalRetiroDs - totalGastoDs);
             balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
         }
         return balance;
@@ -451,6 +453,11 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
     public PdvCaja findLastByMaletinId(Long id) {
         PdvCaja caja = repository.findFirstByMaletinIdOrderByCreadoEnDesc(id).orElse(null);
         return caja;
+    }
+
+    public List<PdvCaja> findByUsuarioId(Long id, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page, size);
+        return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
     }
 }
 

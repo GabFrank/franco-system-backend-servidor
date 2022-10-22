@@ -56,8 +56,9 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         Zona e = m.map(input, Zona.class);
         e.setSector(sectorService.findById(input.getSectorId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        e = service.save(e);
         propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
-        return service.save(e);
+        return e;
     }
 
     public Boolean deleteZona(Long id) {

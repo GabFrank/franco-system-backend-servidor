@@ -42,6 +42,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private TransferenciaItemService transferenciaItemService;
 
     public Optional<Transferencia> transferencia(Long id) {
+
         return service.findById(id);
     }
 

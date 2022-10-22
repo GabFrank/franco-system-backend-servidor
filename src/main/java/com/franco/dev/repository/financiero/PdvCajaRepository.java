@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.repository.HelperRepository;
 import com.franco.dev.repository.HelperRepositoryEmbeddedId;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
@@ -29,12 +30,14 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, EmbebedPrim
 //            "((:fecha_inicio is null and :fecha_fin is null) or pc.creado_en between cast(:fecha_inicio as timestamp) and cast(:fecha_fin as timestamp))\n")
 //    public List<PdvCaja> findByAll();
 
-    public PdvCaja findByUsuarioIdAndActivo(Long id, Boolean activo);
+    public List<PdvCaja> findByUsuarioIdAndActivo(Long id, Boolean activo);
 
     public PdvCaja findByUsuarioIdAndActivoAndSucursalId(Long id, Boolean activo, Long sucId);
 
     Optional<PdvCaja> findByIdAndSucursalId(Long id, Long sucId);
 
     Optional<PdvCaja> findFirstByMaletinIdOrderByCreadoEnDesc(Long id);
+
+    List<PdvCaja> findByUsuarioIdOrderByIdDesc(Long id, Pageable pageable);
 
 }

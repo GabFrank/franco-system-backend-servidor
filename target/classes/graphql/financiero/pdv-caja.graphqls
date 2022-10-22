@@ -43,10 +43,11 @@ extend type Query {
     pdvCajas(page:Int = 0, size:Int = 10, sucId: ID):[PdvCaja]!
     countPdvCaja: Int
     cajasPorFecha(inicio:String, fin:String, sucId:ID):[PdvCaja]
-    cajaAbiertoPorUsuarioId(id:ID!, sucId: ID):PdvCaja
+    cajaAbiertoPorUsuarioId(id:ID!):[PdvCaja]
     cajaAbiertoPorUsuarioIdPorSucursal(id:ID!, sucId: ID):PdvCaja
     imprimirBalance(id:ID!, printerName: String, local: String, sucId: ID):PdvCaja
     balancePorFecha(inicio: String, fin: String, sucId: ID): CajaBalance
+    cajasPorUsuarioId(id:ID!, page: Int, size: Int):[PdvCaja]
 }
 
 extend type Mutation {

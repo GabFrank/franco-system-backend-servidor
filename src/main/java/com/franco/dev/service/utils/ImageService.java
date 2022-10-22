@@ -1,5 +1,6 @@
 package com.franco.dev.service.utils;
 
+import graphql.GraphQLException;
 import org.apache.commons.io.FileUtils;
 import org.imgscalr.Scalr;
 import org.slf4j.Logger;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ResourceUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
@@ -117,18 +119,27 @@ public class ImageService {
     public String getImageWithMediaType(String imagePath) {
         String filePath;
         filePath = imagePath;
-        return fileToBase64(new File(filePath));
+        String image = fileToBase64(new File(filePath));
+        if (image == null) {
+            try {
+                return fileToBase64(ResourceUtils.getFile(
+                        "classpath:no-image.png"));
+            } catch (Exception e) {
+                return "";
+            }
+        } else {
+            return image;
+        }
     }
 
-    public String fileToBase64(File file) {
+    public String fileToBase64(File file) throws GraphQLException {
         byte[] fileContent = new byte[0];
         try {
             fileContent = FileUtils.readFileToByteArray(file);
             return "data:image/jpg;base64," + Base64.getEncoder().encodeToString(fileContent);
         } catch (IOException e) {
-            e.printStackTrace();
+            return null;
         }
-        return null;
     }
 
     public Boolean saveImageToPath(String imageBase64, String fileName, String filePath, String thumbPath, Boolean thumbnail) throws IOException {

@@ -68,25 +68,13 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public CajaBalance balancePorFecha(String inicio, String fin, Long sucId) {
         List<PdvCaja> pdvCajaList = service.findByDate(inicio, fin, sucId);
-        Double totalVentaGs = 0.0;
-        Double totalVentaRs = 0.0;
-        Double totalVentaDs = 0.0;
-        Double totalVentaTarjeta = 0.0;
-        Double totalVentaCredito = 0.0;
+        Double totalGeneral = 0.0;
         for (PdvCaja c : pdvCajaList) {
             CajaBalance cb = service.getBalance(new EmbebedPrimaryKey(c.getId(), sucId));
-            totalVentaGs = totalVentaGs + cb.getTotalVentaGs();
-            totalVentaRs = totalVentaRs + cb.getTotalVentaRs();
-            totalVentaDs = totalVentaDs + cb.getTotalVentaDs();
-            totalVentaTarjeta = totalVentaTarjeta + cb.getTotalTarjeta();
-            totalVentaTarjeta = totalVentaCredito + cb.getTotalCredito();
+            totalGeneral += cb.getTotalGeneral();
         }
         CajaBalance cajaBalance = new CajaBalance();
-        cajaBalance.setTotalVentaGs(totalVentaGs);
-        cajaBalance.setTotalVentaRs(totalVentaRs);
-        cajaBalance.setTotalVentaDs(totalVentaDs);
-        cajaBalance.setTotalTarjeta(totalVentaTarjeta);
-        cajaBalance.setTotalCredito(totalVentaCredito);
+        cajaBalance.setTotalGeneral(totalGeneral);
         return cajaBalance;
     }
 
@@ -132,7 +120,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.count();
     }
 
-    public PdvCaja cajaAbiertoPorUsuarioId(Long id, Long sucId) {
+    public List<PdvCaja> cajaAbiertoPorUsuarioId(Long id) {
         return service.findByUsuarioIdAndAbierto(id);
     }
 
@@ -142,6 +130,10 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
         return service.imprimirBalance(new EmbebedPrimaryKey(id, sucId), printerName, local);
+    }
+
+    public List<PdvCaja> cajasPorUsuarioId(Long id, Integer page, Integer size){
+        return service.findByUsuarioId(id, page, size);
     }
 
 }

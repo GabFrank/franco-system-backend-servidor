@@ -20,7 +20,7 @@ public class ProductoImagenResolver implements GraphQLResolver<ProductoImagen> {
     private ImageService imageService;
 
     public String imagen(ProductoImagen p) throws IOException {
-        return imageService.getImageWithMediaType(p.getRuta());
+        return "";
     }
 
 

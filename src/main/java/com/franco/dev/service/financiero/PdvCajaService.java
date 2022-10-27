@@ -394,9 +394,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             balance.setUsuario(pdvCaja.getUsuario());
             balance.setFechaApertura(pdvCaja.getFechaApertura());
             balance.setFechaCierre(pdvCaja.getFechaCierre());
-            balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() + totalVentaGs + vueltoGs - totalRetiroGs - totalGastoGs);
-            balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() + totalVentaRs + vueltoRs - totalRetiroRs - totalGastoRs);
-            balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() + totalVentaDs + vueltoDs - totalRetiroDs - totalGastoDs);
+            balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() - totalVentaGs - vueltoGs + totalRetiroGs + totalGastoGs);
+            balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() - totalVentaRs - vueltoRs + totalRetiroRs + totalGastoRs);
+            balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() - totalVentaDs - vueltoDs + totalRetiroDs + totalGastoDs);
             balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));
         }
         return balance;

@@ -37,6 +37,8 @@ public class Receiver {
                 break;
             case GUARDAR:
                 propagacionService.crudEntidad(dto);
+            case SOLICITAR_RESOURCES:
+                propagacionService.enviarResources(dto);
                 break;
         }
     }

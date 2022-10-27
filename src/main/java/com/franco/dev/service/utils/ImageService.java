@@ -116,17 +116,12 @@ public class ImageService {
         }
     }
 
-    public String getImageWithMediaType(String imagePath) {
+    public String getImageWithMediaType(String imageName, String imagePath) {
         String filePath;
-        filePath = imagePath;
+        filePath = imagePath+imageName;
         String image = fileToBase64(new File(filePath));
         if (image == null) {
-            try {
-                return fileToBase64(ResourceUtils.getFile(
-                        "classpath:no-image.png"));
-            } catch (Exception e) {
-                return "";
-            }
+            return "";
         } else {
             return image;
         }

@@ -779,6 +779,10 @@ public class PropagacionService {
         SaveFacturaDto saveFacturaDto = (SaveFacturaDto) dto.getEntidad();
         return facturaLegalGraphQL.saveFacturaLegal(saveFacturaDto.getFacturaLegalInput(), saveFacturaDto.getFacturaLegalItemInputList()) != null;
     }
+
+    public void enviarResources(RabbitDto dto){
+        presentacionService.enviarImagenes(dto.getIdSucursalOrigen());
+    }
 }
 
 

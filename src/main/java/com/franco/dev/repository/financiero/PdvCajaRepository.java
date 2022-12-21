@@ -19,7 +19,7 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, EmbebedPrim
 
 //    @Query(value = "select * from financiero.pdv_caja ms " +
 //            "where ms.sucursal_id = ?1 order by ms.id desc", nativeQuery = true)
-    public List<PdvCaja> findBySucursalIdAndCreadoEnBetween(Long id, LocalDateTime inicio, LocalDateTime fin);
+    public List<PdvCaja> findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(Long id, LocalDateTime inicio, LocalDateTime fin);
 
     public List<PdvCaja> findByCreadoEnBetween(LocalDateTime inicio, LocalDateTime fin);
 

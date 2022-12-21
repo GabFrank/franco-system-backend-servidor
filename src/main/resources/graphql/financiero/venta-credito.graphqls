@@ -1,5 +1,6 @@
 type VentaCredito {
     id:ID!
+    sucursalId: Int
     venta: Venta
     cliente: Cliente
     tipoConfirmacion: TipoConfirmacion
@@ -12,6 +13,7 @@ type VentaCredito {
     estado: EstadoVentaCredito
     creadoEn: Date
     usuario: Usuario
+    sucursal: Sucursal
 }
 
 input VentaCreditoInput {
@@ -30,16 +32,29 @@ input VentaCreditoInput {
     usuarioId: Int
 }
 
+type VentaCreditoQRAuthUpdate {
+    clienteId: Int
+    timestamp: String
+}
+
 extend type Query {
     ventaCredito(id:ID!):VentaCredito
     ventaCreditos(page:Int = 0, size:Int = 10):[VentaCredito]!
     countVentaCredito: Int
+    ventaCreditoPorCliente(id:ID!, estado: EstadoVentaCredito, page: Int, size: Int):[VentaCredito]
+    ventaCreditoQrAuth(id:ID!, timestamp: String): Boolean
 }
 
 extend type Mutation {
     saveVentaCredito(entity:VentaCreditoInput!, detalleList:[VentaCreditoCuotaInput]!):VentaCredito!
     deleteVentaCredito(id:ID!):Boolean!
 }
+
+extend type Subscription {
+    ventaCreditoAuthQrSub:VentaCreditoQRAuthUpdate
+}
+
+
 
 enum TipoConfirmacion {
     CONTRASENA,

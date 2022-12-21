@@ -5,7 +5,6 @@ type Cobro {
     usuario: Usuario,
     totalGs: Float
     cobroDetalleList: [CobroDetalle]
-    sucursalId: Int
 }
 
 input CobroInput {

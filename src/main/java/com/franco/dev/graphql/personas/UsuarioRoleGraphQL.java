@@ -44,6 +44,7 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public Boolean deleteUsuarioRole(Long id){
         Boolean ok = service.deleteById(id);
+        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.USUARIO_ROLE);
         return ok;
     }
 

@@ -1,9 +1,12 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.repository.financiero.VentaCreditoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +30,18 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
 
     public List<VentaCredito> findByClienteAndVencimiento(Long id, LocalDateTime inicio, LocalDateTime fin) {
         return repository.findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByIdAsc(id, inicio, fin);
+    }
+
+    public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
+        return repository.findAllByClienteIdAndEstadoOrderByIdDesc(id, estado, pageable);
+    }
+
+    public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado) {
+        return repository.findAllByClienteIdAndEstadoOrderByIdDesc(id, estado);
+    }
+
+    public Long countByClienteIdAndEstado(Long id, EstadoVentaCredito estado){
+        return repository.countByClienteIdAndEstado(id, estado);
     }
 
     @Override

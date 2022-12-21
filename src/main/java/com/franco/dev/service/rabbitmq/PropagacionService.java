@@ -222,6 +222,18 @@ public class PropagacionService {
     @Autowired
     private RetiroDetalleService retiroDetalleService;
 
+    @Autowired
+    private VentaCreditoService ventaCreditoService;
+
+
+    @Autowired
+    private VentaCreditoCuotaService ventaCreditoCuotaService;
+
+
+    @Autowired
+    private MovimientoPersonasService movimientoPersonasService;
+
+
     public void verficarConexion(Long sucId) {
         sucursalVerificar = sucId;
         RabbitDto dato = new RabbitDto();
@@ -614,6 +626,15 @@ public class PropagacionService {
             case RETIRO_DETALLE:
                 log.info("creando timbrado detalle: ");
                 return guardar(retiroDetalleService, dto);
+            case VENTA_CREDITO:
+                log.info("creando venta credito: ");
+                return guardar(ventaCreditoService, dto);
+            case VENTA_CREDITO_CUOTA:
+                log.info("creando venta credito cuota: ");
+                return guardar(ventaCreditoCuotaService, dto);
+            case MOVIMIENTO_PERSONA:
+                log.info("creando movimiento persona: ");
+                return guardar(movimientoPersonasService, dto);
             default:
                 return null;
         }

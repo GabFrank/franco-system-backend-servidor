@@ -36,6 +36,7 @@ public class Receiver {
                 }
                 break;
             case GUARDAR:
+            case DELETE:
                 propagacionService.crudEntidad(dto);
                 break;
             case SOLICITAR_RESOURCES:

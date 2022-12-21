@@ -66,7 +66,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
 
     public List<PdvCaja> findByDate(String inicio, String fin, Long sucId) {
         if (sucId == null) return repository.findByCreadoEnBetween(toDate(inicio), toDate(fin));
-        return repository.findBySucursalIdAndCreadoEnBetween(sucId, toDate(inicio), toDate(fin));
+        return repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, toDate(inicio), toDate(fin));
     }
 
     @Override

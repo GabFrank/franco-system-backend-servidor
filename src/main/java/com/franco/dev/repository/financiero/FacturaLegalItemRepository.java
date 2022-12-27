@@ -4,6 +4,8 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.repository.HelperRepository;
 
+import java.util.List;
+
 public interface FacturaLegalItemRepository extends HelperRepository<FacturaLegalItem, EmbebedPrimaryKey> {
 
     default Class<FacturaLegalItem> getEntityClass() {
@@ -15,5 +17,7 @@ public interface FacturaLegalItemRepository extends HelperRepository<FacturaLega
 //    public List<Moneda> findByAll(String texto);
 
 //    Moneda findByPaisId(Long id);
+
+    public List<FacturaLegalItem> findByFacturaLegalId(Long id);
 
 }

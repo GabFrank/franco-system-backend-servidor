@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static com.franco.dev.utilitarios.DateUtils.toDate;
+
 @Service
 @AllArgsConstructor
 public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalRepository, EmbebedPrimaryKey> {
@@ -23,6 +25,12 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     public List<FacturaLegal> findByCajaId(Long id){
         return repository.findByCajaId(id);
+    }
+
+    public List<FacturaLegal> findByAll(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10){
+        LocalDateTime inicio = toDate(fechaInicio);
+        LocalDateTime fin = toDate(fechaFin);
+        return repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucId, nombre, ruc);
     }
 
     @Override

@@ -133,4 +133,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.count();
     }
 
+    public List<FacturaLegal> facturaLegales(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10){
+        return service.findByAll(fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+    }
+
+
 }

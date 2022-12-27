@@ -21,6 +21,8 @@ type FacturaLegal {
     usuario: Usuario
     creadoEn: Date
     sucursalId: Int
+    facturaLegalItemList: [FacturaLegalItem]
+    sucursal:Sucursal
 }
 
 input FacturaLegalInput {
@@ -47,7 +49,7 @@ input FacturaLegalInput {
 
 extend type Query {
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
-    facturaLegales(page:Int = 0, size:Int = 10, sucId: ID):[FacturaLegal]!
+    facturaLegales(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):[FacturaLegal]!
     countFacturaLegal: Int
 }
 

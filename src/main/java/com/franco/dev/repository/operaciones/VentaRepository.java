@@ -2,6 +2,7 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Pageable;
@@ -47,5 +48,11 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "(:formaPagoId is null or fp.id = :formaPagoId) and " +
             "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
     public List<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable);
+
+//    @Query(value = "select s.id as sucId, s.nombre as nombre, sum(v.totalGs) as total from Venta v " +
+//            "join v.sucursalId s " +
+//            "where (fl.creadoEn between :inicio and :fin) " +
+//            "group by nombre order by total desc")
+//    public List<VentaPorSucursal> ventasPorSucursal(LocalDateTime inicio, LocalDateTime fin);
 
 }

@@ -1,6 +1,5 @@
 package com.franco.dev.security.jwt;
 
-import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.security.JwtUser;
 import com.franco.dev.service.personas.UsuarioService;
 import io.jsonwebtoken.Claims;
@@ -25,6 +24,7 @@ public class JwtGenerator {
 
         Claims claims = Jwts.claims()
                 .setSubject(jwtUser.getNickname());
+        claims.put("nickname", String.valueOf(jwtUser.getNickname()));
         claims.put("password", String.valueOf(jwtUser.getPassword()));
         claims.put("roles", jwtUser.getRoles());
 

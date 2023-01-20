@@ -2,12 +2,9 @@ package com.franco.dev.graphql.configuracion;
 
 import com.franco.dev.domain.configuracion.Actualizacion;
 import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
-import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.graphql.configuracion.input.ActualizacionInput;
-import com.franco.dev.graphql.empresarial.input.CargoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.configuracion.ActualizacionService;
-import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -33,34 +30,47 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<Actualizacion> actualizacion(Long id) {return service.findById(id);}
+    public Optional<Actualizacion> actualizacion(Long id) {
+        return service.findById(id);
+    }
 
-    public List<Actualizacion> actualizaciones(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Actualizacion> actualizaciones(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public Actualizacion ultimaActualizacion(TipoActualizacion tipo){
+    public Actualizacion ultimaActualizacion(TipoActualizacion tipo) {
         return service.findLast(tipo);
     }
 
 
-    public Actualizacion saveActualizacion(ActualizacionInput input){
+    public Actualizacion saveActualizacionForSucursales(ActualizacionInput input, List<Long> sucId) {
         ModelMapper m = new ModelMapper();
         Actualizacion e = m.map(input, Actualizacion.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CARGO);
+        for (Long id : sucId) {
+            propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION, id);
+        }
         return e;
     }
 
-    public Boolean deleteActualizacion(Long id){
+    public Actualizacion saveActualizacion(ActualizacionInput input) {
+        ModelMapper m = new ModelMapper();
+        Actualizacion e = m.map(input, Actualizacion.class);
+        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        e = service.save(e);
+        propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION);
+        return e;
+    }
+
+    public Boolean deleteActualizacion(Long id) {
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CARGO);
+        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CARGO);
         return ok;
     }
 
-    public Long countActualizacion(){
+    public Long countActualizacion() {
         return service.count();
     }
 

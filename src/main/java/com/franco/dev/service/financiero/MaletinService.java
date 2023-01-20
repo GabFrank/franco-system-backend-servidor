@@ -33,7 +33,8 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
 //    }
 
     public Maletin findByDescripcion(String texto){
-        return repository.findByDescripcionIgnoreCase(texto);
+        Maletin m = repository.findByDescripcionIgnoreCase(texto);
+        return m;
     }
 
     public List<Maletin> searchByAll(String texto){

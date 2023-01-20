@@ -4,6 +4,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Conteo;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.domain.financiero.PdvCaja;
+import com.franco.dev.domain.financiero.SolicitudAperturaCaja;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
@@ -803,6 +804,10 @@ public class PropagacionService {
 
     public void enviarResources(RabbitDto dto){
         presentacionService.enviarImagenes(dto.getIdSucursalOrigen());
+    }
+
+    public void solicitarAperturaCaja(SolicitudAperturaCaja solicitudAperturaCaja){
+        propagarEntidad(solicitudAperturaCaja, TipoEntidad.SOLICITUD_APERTURA_CAJA, solicitudAperturaCaja.getCajaInput().getSucursalId());
     }
 }
 

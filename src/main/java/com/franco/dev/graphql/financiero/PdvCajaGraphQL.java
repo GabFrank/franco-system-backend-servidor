@@ -2,7 +2,11 @@ package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.CajaBalance;
+import com.franco.dev.domain.financiero.ConteoMoneda;
 import com.franco.dev.domain.financiero.PdvCaja;
+import com.franco.dev.domain.financiero.SolicitudAperturaCaja;
+import com.franco.dev.graphql.financiero.input.ConteoInput;
+import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.graphql.financiero.input.PdvCajaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.ConteoService;
@@ -134,6 +138,19 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public List<PdvCaja> cajasPorUsuarioId(Long id, Integer page, Integer size){
         return service.findByUsuarioId(id, page, size);
+    }
+
+    public Boolean abrirCajaDesdeServidor(PdvCajaInput input, ConteoInput conteoInput, List<ConteoMonedaInput> conteoMonedaInputList){
+        try {
+            SolicitudAperturaCaja solicitudAperturaCaja = new SolicitudAperturaCaja();
+            solicitudAperturaCaja.setCajaInput(input);
+            solicitudAperturaCaja.setConteoInput(conteoInput);
+            solicitudAperturaCaja.setConteoMonedaInputList(conteoMonedaInputList);
+            propagacionService.propagarEntidad(solicitudAperturaCaja, TipoEntidad.SOLICITUD_APERTURA_CAJA, solicitudAperturaCaja.getCajaInput().getSucursalId());
+            return true;
+        } catch (Exception e){
+            return false;
+        }
     }
 
 }

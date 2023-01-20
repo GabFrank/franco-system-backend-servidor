@@ -37,6 +37,7 @@ extend type Query {
     countVenta: Int
     ventasPorCajaId(id:ID!, page: Int, size: Int, asc: Boolean, sucId: ID, formaPago: ID, estado: VentaEstado):[Venta]
     ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
+    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }
 
 extend type Mutation {
@@ -56,6 +57,12 @@ type VentaPorPeriodo {
     valorDs: Float
     valorTotalGs: Float
     creadoEn: Date
+}
+
+type VentaPorSucursal {
+    sucId: ID,
+    nombre: Float
+    total: Float
 }
 
 

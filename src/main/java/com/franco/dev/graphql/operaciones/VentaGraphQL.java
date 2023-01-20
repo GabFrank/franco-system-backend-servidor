@@ -5,6 +5,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
+import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
@@ -311,5 +312,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {
         return service.ventaPorPeriodo(inicio, fin);
+    }
+
+    public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin){
+        return service.ventaPorSucursal(inicio, fin);
     }
 }

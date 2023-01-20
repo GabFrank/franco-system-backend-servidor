@@ -3,10 +3,7 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
-import com.franco.dev.domain.operaciones.CobroDetalle;
-import com.franco.dev.domain.operaciones.MovimientoStock;
-import com.franco.dev.domain.operaciones.Venta;
-import com.franco.dev.domain.operaciones.VentaItem;
+import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
@@ -26,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.franco.dev.utilitarios.DateUtils.toDate;
 import static java.time.temporal.ChronoUnit.DAYS;
 
 @Service
@@ -156,5 +154,12 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             }
         }
         return true;
+    }
+
+    public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin){
+        LocalDateTime inicio = toDate(fechaInicio);
+        LocalDateTime fin = toDate(fechaFin);
+        return null;
+//        return repository.ventasPorSucursal(inicio, fin);
     }
 }

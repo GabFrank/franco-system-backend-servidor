@@ -13,7 +13,7 @@ input RoleInput {
 
 extend type Query {
     role(id:ID!):Role
-    roles(page:Int = 0, size:Int = 10):[Role]!
+    roles(page:Int, size:Int):[Role]!
     countRole:Int
 }
 

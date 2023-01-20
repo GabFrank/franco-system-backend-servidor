@@ -3,6 +3,7 @@ package com.franco.dev.service.configuracion;
 import com.franco.dev.domain.configuracion.Actualizacion;
 import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
 import com.franco.dev.domain.empresarial.Cargo;
+import com.franco.dev.graphql.configuracion.input.ActualizacionInput;
 import com.franco.dev.repository.configuracion.ActualizacionRepository;
 import com.franco.dev.repository.empresarial.CargoRepository;
 import com.franco.dev.service.CrudService;

@@ -37,8 +37,8 @@ public class RoleGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public Optional<Role> role(Long id) {return service.findById(id);}
 
-    public List<Role> roles(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Role> roles(Integer page, Integer size){
+        Pageable pageable = (page==null || size == null) ? null : PageRequest.of(page,size);
         return service.findAll(pageable);
     }
 

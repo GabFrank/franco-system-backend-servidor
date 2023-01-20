@@ -86,3 +86,4 @@ public class Venta implements Serializable {
     private Double totalDs;
 
 }
+

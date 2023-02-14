@@ -3,10 +3,13 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.operaciones.Necesidad;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
+import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
+import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.operaciones.NecesidadRepository;
 import com.franco.dev.repository.operaciones.TransferenciaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -36,6 +39,12 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
 
     public List<Transferencia> findByUsuario(Long id){
         return  repository.findByUsuario(id);
+    }
+
+    public List<Transferencia> findByFilter(Long sucursalOrigenId, Long sucursalDestinoId, TransferenciaEstado estado,
+                                            TipoTransferencia tipo, EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino, LocalDateTime creadoDesde,
+                                            LocalDateTime creadoHasta, Pageable pageable) {
+        return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, creadoDesde, creadoHasta);
     }
 
     @Override

@@ -34,15 +34,25 @@ import com.franco.dev.service.productos.pdv.PdvGruposProductosService;
 import com.franco.dev.service.utils.ImageService;
 import com.rabbitmq.client.Channel;
 import org.apache.commons.io.FileUtils;
+import org.hibernate.engine.jdbc.spi.SqlExceptionHelper;
+import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.jpa.JpaObjectRetrievalFailureException;
 import org.springframework.stereotype.Service;
 import org.zeroturnaround.zip.ZipUtil;
 
+import javax.persistence.EntityNotFoundException;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static com.franco.dev.utilitarios.EnumUtils.getTipoEntidadByClassFullName;
+import static org.hibernate.boot.model.source.internal.hbm.Helper.getValue;
 
 @Service
 public class PropagacionService {
@@ -233,6 +243,10 @@ public class PropagacionService {
 
     @Autowired
     private MovimientoPersonasService movimientoPersonasService;
+
+    String missingTable = "";
+    Long missingParentId = Long.valueOf(-1);
+    Long missingSucId = Long.valueOf(-1);
 
 
     public void verficarConexion(Long sucId) {
@@ -622,7 +636,7 @@ public class PropagacionService {
                 log.info("creando timbrado detalle: ");
                 return guardar(timbradoDetalleService, dto);
             case RETIRO:
-                log.info("creando gasto: ");
+                log.info("creando retiro: ");
                 return guardar(retiroService, dto);
             case RETIRO_DETALLE:
                 log.info("creando timbrado detalle: ");
@@ -644,12 +658,72 @@ public class PropagacionService {
     public <T> Object guardar(CrudService service, RabbitDto dto) {
         switch (dto.getTipoAccion()) {
             case GUARDAR:
-                T nuevaEntidad = (T) service.save(dto.getEntidad());
-                if (nuevaEntidad != null && dto.getRecibidoEnFilial() != true) {
-                    log.info("guardado con exito");
-                    propagarEntidad(nuevaEntidad, dto.getTipoEntidad(), dto.getIdSucursalOrigen());
+                try {
+                    T nuevaEntidad = (T) service.save(dto.getEntidad());
+                    if (nuevaEntidad != null && dto.getRecibidoEnFilial() != true) {
+                        log.info("guardado con exito");
+                        propagarEntidad(nuevaEntidad, dto.getTipoEntidad(), dto.getIdSucursalOrigen());
+                    }
+                    return nuevaEntidad;
+                } catch (Exception e) {
+                    String errorMessage = e.getMessage();
+                    log.warn(errorMessage);
+                    if (errorMessage.contains("constraint")) {
+                        DataIntegrityViolationException error = (DataIntegrityViolationException) e;
+                        errorMessage = error.getMostSpecificCause().getMessage();
+                        String tableNameRegex = "present in table \"([^\"]+)\"";
+                        String tableName = getValue(tableNameRegex, errorMessage);
+                        String regex = "Key \\(([a-zA-Z_]+), ([a-zA-Z_]+)\\)\\=\\((\\d+), (\\d+)\\)";
+                        Pattern pattern = Pattern.compile(regex);
+                        Matcher matcher = pattern.matcher(errorMessage);
+                        if (matcher.find()) {
+                            String var1 = matcher.group(1);
+                            String var2 = matcher.group(2);
+                            Long parentId = Long.valueOf(Integer.parseInt(matcher.group(3)));
+                            Long sucursalId = Long.valueOf(Integer.parseInt(matcher.group(4)));
+                            log.warn("Table: " + tableName);
+                            log.warn("parent: " + var1);
+                            log.warn("suc: " + var2);
+                            log.warn("parent_id: " + parentId);
+                            log.warn("sucursal_id: " + sucursalId);
+                            try {
+                                if(missingTable.equals(tableName) && missingParentId.equals(parentId) && missingSucId.equals(sucursalId)){
+
+                                } else {
+                                    missingSucId = sucursalId;
+                                    missingParentId = parentId;
+                                    missingTable = tableName;
+                                    solicitarEntidad(TipoEntidad.valueOf(tableName.toUpperCase()), parentId, sucursalId);
+                                }
+                            } catch (Exception ee){
+                                throw ee;
+                            }
+                        }
+                    } else if(errorMessage.contains("EmbebedPrimaryKey")){
+                        String pattern = "Unable to find (.*) with id EmbebedPrimaryKey\\(id=(\\d+), sucursalId=(\\d+)\\)";
+                        Pattern r = Pattern.compile(pattern);
+                        Matcher m = r.matcher(errorMessage);
+                        if (m.find()) {
+                            String entity = m.group(1);
+                            Long id = Long.valueOf(m.group(2));
+                            Long sucursalId = Long.valueOf(m.group(3));
+                            try {
+                                if(missingTable.equals(entity) && missingParentId.equals(id) && missingSucId.equals(sucursalId)){
+
+                                } else {
+                                    missingSucId = sucursalId;
+                                    missingParentId = id;
+                                    missingTable = entity;
+                                    TipoEntidad tipoEntidad = getTipoEntidadByClassFullName(entity);
+                                    solicitarEntidad(tipoEntidad, id, sucursalId);
+                                }
+                            } catch (Exception ee){
+                                throw ee;
+                            }
+                        }
+                    }
+                    throw e;
                 }
-                return nuevaEntidad;
             case DELETE:
                 Boolean ok = false;
                 if (dto.getEntidad() instanceof Long) {
@@ -661,6 +735,10 @@ public class PropagacionService {
                     log.info("eliminado con exito");
                 }
                 return ok;
+            case SOLICITAR_ENTIDAD:
+                T foundEntidad = (T) service.findById((Long) dto.getEntidad()).orElse(null);
+                propagarEntidad(foundEntidad, dto.getTipoEntidad(), dto.getIdSucursalOrigen());
+                return foundEntidad;
             default:
                 return null;
         }
@@ -802,12 +880,16 @@ public class PropagacionService {
         return facturaLegalGraphQL.saveFacturaLegal(saveFacturaDto.getFacturaLegalInput(), saveFacturaDto.getFacturaLegalItemInputList()) != null;
     }
 
-    public void enviarResources(RabbitDto dto){
+    public void enviarResources(RabbitDto dto) {
         presentacionService.enviarImagenes(dto.getIdSucursalOrigen());
     }
 
-    public void solicitarAperturaCaja(SolicitudAperturaCaja solicitudAperturaCaja){
+    public void solicitarAperturaCaja(SolicitudAperturaCaja solicitudAperturaCaja) {
         propagarEntidad(solicitudAperturaCaja, TipoEntidad.SOLICITUD_APERTURA_CAJA, solicitudAperturaCaja.getCajaInput().getSucursalId());
+    }
+
+    public Object solicitarEntidad(TipoEntidad tipoEntidad, Long idEntidad, Long sucursalId){
+        return sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucursalId.toString(), new RabbitDto(idEntidad, TipoAccion.SOLICITAR_ENTIDAD, tipoEntidad));
     }
 }
 

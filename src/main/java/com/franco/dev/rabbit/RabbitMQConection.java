@@ -1,8 +1,15 @@
 package com.franco.dev.rabbit;
 
 import com.franco.dev.service.empresarial.SucursalService;
+import com.rabbitmq.client.ShutdownSignalException;
 import net.sf.jasperreports.engine.xml.JRPenFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpConnectException;
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.connection.Connection;
+import org.springframework.amqp.rabbit.connection.ConnectionListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -13,11 +20,16 @@ import java.io.File;
 @Component
 public class RabbitMQConection {
 
+    private final Logger logger = LoggerFactory.getLogger(RabbitMQConection.class);
+
     @Autowired
     private Environment env;
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private CachingConnectionFactory cachingConnectionFactory;
 
     public static final String NOME_EXCHANGE = "amq.topic";
     public static final String NOME_EXCHANGE_DIRECT = "amq.direct";
@@ -55,10 +67,35 @@ public class RabbitMQConection {
         DirectExchange exchangeDirect = this.directExchange();
         Binding binding = this.binding(filaProducto, exchange, SERVIDOR_KEY);
         Binding binding3 = this.bindingDirect(filaProductoReplyTo, exchangeDirect, filaProductoReplyTo.getName());
-        this.amqpAdmin.declareQueue(filaProducto);
-        this.amqpAdmin.declareQueue(filaProductoReplyTo);
-        this.amqpAdmin.declareExchange(exchange);
-        this.amqpAdmin.declareBinding(binding);
-        this.amqpAdmin.declareBinding(binding3);
+        ConnectionListener connectionListener = new ConnectionListener() {
+            @Override
+            public void onCreate(Connection connection) {
+                logger.info("la conexcion con rabbit fue establecida");
+
+            }
+
+            @Override
+            public void onClose(Connection connection) {
+                logger.info("la conexcion con rabbit fue perdida");
+            }
+
+            @Override
+            public void onShutDown(ShutdownSignalException signal) {
+                logger.info("la conexcion con rabbit fue interrimpida");
+            }
+        };
+
+        cachingConnectionFactory.addConnectionListener(connectionListener);
+        cachingConnectionFactory.getRabbitConnectionFactory().setRequestedHeartbeat(1);
+        try {
+            this.amqpAdmin.declareQueue(filaProducto);
+            this.amqpAdmin.declareQueue(filaProductoReplyTo);
+            this.amqpAdmin.declareExchange(exchange);
+            this.amqpAdmin.declareBinding(binding);
+            this.amqpAdmin.declareBinding(binding3);
+        } catch (AmqpConnectException e){
+            e.printStackTrace();
+        }
+
     }
 }

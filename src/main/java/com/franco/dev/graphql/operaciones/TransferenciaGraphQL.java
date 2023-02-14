@@ -3,6 +3,7 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
+import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
@@ -20,8 +21,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.toDate;
 
 @Component
 public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -173,6 +177,16 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             ok = true;
         }
         return ok;
+    }
+
+    public List<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,
+                                                         TransferenciaEstado estado, TipoTransferencia tipo,
+                                                         EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
+                                                         String creadoDesde, String creadoHasta, Integer page, Integer size) {
+        if (page == null) page = 0;
+        if (size == null) size = 20;
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, toDate(creadoDesde), toDate(creadoHasta), pageable);
     }
 
 }

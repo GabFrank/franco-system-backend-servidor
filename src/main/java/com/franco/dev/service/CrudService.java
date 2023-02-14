@@ -4,6 +4,7 @@ import com.franco.dev.repository.HelperRepository;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 

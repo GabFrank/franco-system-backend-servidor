@@ -45,7 +45,9 @@ public class ClienteResolver implements GraphQLResolver<Cliente> {
     }
 
     public Double saldo(Cliente e) {
-        return e.getCredito() + movimientoPersonasService.getTotalCredito(e.getPersona().getId(), getLastDayOfMonth(0));
+        Double movimiento = movimientoPersonasService.getTotalCredito(e.getPersona().getId(), getLastDayOfMonth(0));
+        Double saldo = (e.getCredito() != null ? e.getCredito() : 0) + (movimiento != null ? movimiento : 0);
+        return saldo!=null ? saldo : 0;
     }
 
     public String password(Cliente e) throws GraphQLException {

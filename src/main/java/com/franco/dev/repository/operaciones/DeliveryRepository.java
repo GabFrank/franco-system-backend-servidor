@@ -24,6 +24,8 @@ public interface DeliveryRepository extends HelperRepository<Delivery, EmbebedPr
             "where cast(d.estado as text) != 'ABIERTO' and cast(d.estado as text) != 'EN_CAMINO' limit 10", nativeQuery = true)
     public List<Delivery> findUltimos10();
 
+    Delivery findByVentaIdAndSucursalId(Long id, Long sucId);
+
 //    @Query("select p from Delivery p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")
 //    public List<Delivery> findByProveedor(String texto);
 

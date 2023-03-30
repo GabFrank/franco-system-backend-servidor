@@ -1,27 +1,50 @@
 package com.franco.dev.service.impresion;
 
+import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.productos.Codigo;
+import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
 import com.franco.dev.service.impresion.dto.GastoDto;
 import com.franco.dev.service.impresion.dto.RetiroDto;
+import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.service.productos.PrecioPorSucursalService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
+import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
 import com.franco.dev.utilitarios.print.escpos.barcode.QRCode;
 import com.franco.dev.utilitarios.print.escpos.image.*;
 import com.franco.dev.utilitarios.print.output.PrinterOutputStream;
+import graphql.GraphQLException;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import net.sf.jasperreports.engine.export.JRPrintServiceExporter;
+import net.sf.jasperreports.export.SimpleExporterInput;
+import net.sf.jasperreports.export.SimplePrintServiceExporterConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.ResourceUtils;
 
 import javax.imageio.ImageIO;
 import javax.print.PrintService;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
+import javax.print.attribute.standard.MediaSizeName;
+import javax.print.attribute.standard.OrientationRequested;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Locale;
+import java.util.*;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 
@@ -35,6 +58,46 @@ public class ImpresionService {
     private PrintingService printingService;
     private PrintService printService;
     private PrinterOutputStream printerOutputStream;
+    @Autowired
+    private CodigoService codigoService;
+    @Autowired
+    private PrecioPorSucursalService precioPorSucursalService;
+
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+
+    public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent) throws GraphQLException {
+        if (silent == null) silent = false;
+        PrintRequestAttributeSet printRequestAttributeSet = new HashPrintRequestAttributeSet();
+        printRequestAttributeSet.add(MediaSizeName.ISO_A4);
+        if (jasperPrint.getOrientationValue() == net.sf.jasperreports.engine.type.OrientationEnum.LANDSCAPE) {
+            printRequestAttributeSet.add(OrientationRequested.LANDSCAPE);
+        } else {
+            printRequestAttributeSet.add(OrientationRequested.PORTRAIT);
+        }
+
+        JRPrintServiceExporter exporter = new JRPrintServiceExporter();
+        SimplePrintServiceExporterConfiguration configuration = new SimplePrintServiceExporterConfiguration();
+        configuration.setPrintRequestAttributeSet(printRequestAttributeSet);
+        configuration.setDisplayPageDialog(!silent);
+        configuration.setDisplayPrintDialog(!silent);
+
+        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+        exporter.setConfiguration(configuration);
+
+        printService = PrinterOutputStream.getPrintServiceByName(printerName);
+
+
+        if (printService != null) {
+            try {
+                JasperExportManager.exportReportToPdfFile(jasperPrint, imageService.getStorageDirectoryPathReports() + File.separator + filename);
+                exporter.exportReport();
+            } catch (JRException e) {
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("You did not set the printer!");
+        }
+    }
 
     public Boolean printBalance(PdvCajaBalanceDto balanceDto, String printerName, String local) {
         try {
@@ -42,7 +105,6 @@ public class ImpresionService {
             if (selectedPrintService != null) {
                 printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
                 //Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
 
@@ -236,7 +298,6 @@ public class ImpresionService {
             if (selectedPrintService != null) {
                 printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
                 //Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
 
@@ -320,7 +381,6 @@ public class ImpresionService {
             if (printService != null) {
                 printerOutputStream = new PrinterOutputStream(printService);
                 // creating the EscPosImage, need buffered image and algorithm.
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
                 //Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
 
@@ -402,7 +462,6 @@ public class ImpresionService {
             if (selectedPrintService != null) {
                 printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 // creating the EscPosImage, need buffered image and algorithm.
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
                 //Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
 
@@ -466,6 +525,117 @@ public class ImpresionService {
         } catch (IOException e) {
 
         }
+    }
+
+    public String imprimirTransferencia(Transferencia transferencia, List<TransferenciaItem> transferenciaItemList, Boolean ticket, String printerName) {
+        if(ticket!=null && ticket==true){
+            try {
+                selectedPrintService = printingService.getPrintService(printerName);
+                if (selectedPrintService != null) {
+                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                    // creating the EscPosImage, need buffered image and algorithm.
+                    //Styles
+                    Style center = new Style().setJustification(EscPosConst.Justification.Center);
+
+                    QRCode qrCode = new QRCode();
+
+                    BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
+                    imageBufferedImage = resize(imageBufferedImage, 200, 100);
+                    BitImageWrapper imageWrapper = new BitImageWrapper();
+                    EscPos escpos = new EscPos(printerOutputStream);
+                    Bitonal algorithm = new BitonalThreshold();
+                    EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
+                    imageWrapper.setJustification(EscPosConst.Justification.Center);
+                    escpos.writeLF("--------------------------------");
+                    escpos.write(imageWrapper, escposImage);
+                    String qrData = "frc-0-TRF-" + transferencia.getId() + "-" + transferencia.getId() + "undefined-undefined-undefined";
+                    escpos.write(qrCode.setSize(7).setJustification(EscPosConst.Justification.Center), qrData);
+                    escpos.feed(2);
+                    escpos.writeLF("Fecha: " + transferencia.getCreadoEn().format(formatter));
+                    escpos.writeLF("Suc. Origen: " + transferencia.getSucursalOrigen().getNombre());
+                    escpos.writeLF("Suc. Destino: " + transferencia.getSucursalDestino().getNombre());
+                    escpos.writeLF("Creado por: " + transferencia.getUsuarioPreTransferencia().getPersona().getNombre());
+                    escpos.feed(5);
+
+                    escpos.writeLF(center, "----------------------");
+                    escpos.writeLF(center, "Resp. Creacion");
+                    escpos.feed(5);
+
+                    escpos.writeLF(center, "----------------------");
+                    escpos.writeLF(center, "Resp. Preparacion");
+                    escpos.feed(5);
+
+                    escpos.writeLF(center, "----------------------");
+                    escpos.writeLF(center, "Resp. Transporte");
+                    escpos.feed(5);
+
+                    escpos.writeLF(center, "----------------------");
+                    escpos.writeLF(center, "Resp. Recepcion");
+                    escpos.feed(5);
+
+                    escpos.close();
+                    printerOutputStream.close();
+                }
+            } catch (IOException e) {
+
+            }
+            return null;
+        } else {
+            File file = null;
+            try {
+                List<TransferenciaItemDto> transferenciaItemDtoList = new ArrayList<>();
+                for (TransferenciaItem ti : transferenciaItemList) {
+                    TransferenciaItemDto tiDto = new TransferenciaItemDto();
+                    tiDto.setCantidad(ti.getCantidadPreTransferencia());
+                    Codigo codigo = codigoService.findPrincipalByPresentacionId(ti.getPresentacionPreTransferencia().getId());
+                    tiDto.setCodBarra(codigo != null ? codigo.getCodigo() : "");
+                    tiDto.setDescripcion(ti.getPresentacionPreTransferencia().getProducto().getDescripcion());
+                    PrecioPorSucursal precio = precioPorSucursalService.findPrincipalByPrecionacionId(ti.getPresentacionPreTransferencia().getId());
+                    tiDto.setPrecio(precio != null ? precio.getPrecio() : null);
+                    tiDto.setPresentacion(ti.getPresentacionPreTransferencia().getCantidad());
+                    if(ti.getVencimientoPreTransferencia()!=null){
+                        tiDto.setVencimiento(DateUtils.toStringOnlyDate(ti.getVencimientoPreTransferencia()));
+                    }
+                    transferenciaItemDtoList.add(tiDto);
+                }
+                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "transferencia-old.jrxml");
+                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(transferenciaItemDtoList);
+                Map<String, Object> parameters = new HashMap<>();
+                parameters.put("idTransferencia", transferencia.getId());
+                parameters.put("qr", "frc-" + transferencia.getSucursalOrigen().getId().toString() + "-TRF-" + transferencia.getId() + "-" + transferencia.getSucursalOrigen().getId().toString() + "-EditTransferenciaComponent-null-null");
+                parameters.put("sucursalOrigen", transferencia.getSucursalOrigen().getId() + " - " + transferencia.getSucursalOrigen().getNombre());
+                parameters.put("sucursalDestino", transferencia.getSucursalDestino().getId() + " - " + transferencia.getSucursalDestino().getNombre());
+                parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+                parameters.put("responsable", transferencia.getUsuarioPreTransferencia().getNickname());
+                parameters.put("usuario", transferencia.getUsuarioPreTransferencia().getNickname());
+                parameters.put("creadoEn", DateUtils.toString(transferencia.getCreadoEn()));
+                parameters.put("logo", imageService.getImagePath()+File.separator+"logo.png");
+                JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+                byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+                String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+                return base64String;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return null;
+            } catch (JRException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class TransferenciaItemDto {
+        private String descripcion;
+        private String codBarra;
+        private Double presentacion;
+        private Double cantidad;
+        private String vencimiento;
+        private Double precio;
     }
 
 //    public void printVueltoGasto(GastoDto gastoDto){

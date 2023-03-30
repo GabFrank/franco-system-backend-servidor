@@ -3,10 +3,7 @@ package com.franco.dev.graphql.operaciones.resolver;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.enums.UnidadMedida;
-import com.franco.dev.service.operaciones.PedidoItemService;
-import com.franco.dev.service.operaciones.PedidoItemSucursalService;
-import com.franco.dev.service.operaciones.VentaItemService;
-import com.franco.dev.service.operaciones.VentaService;
+import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLResolver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +17,9 @@ public class VentaResolver implements GraphQLResolver<Venta> {
 
     @Autowired
     private VentaService service;
+
+    @Autowired
+    private DeliveryService deliveryService;
 
     @Autowired
     private VentaItemService ventaItemService;
@@ -51,5 +51,9 @@ public class VentaResolver implements GraphQLResolver<Venta> {
             cantidad = 1;
         }
         return precio;
+    }
+
+    public Delivery delivery(Venta v){
+        return deliveryService.findByVentaId(v.getId(), v.getSucursalId());
     }
 }

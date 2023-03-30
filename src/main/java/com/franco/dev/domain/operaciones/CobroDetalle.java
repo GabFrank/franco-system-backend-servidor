@@ -33,7 +33,7 @@ public class CobroDetalle extends EmbeddedEntity implements Serializable {
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "cobro_id", referencedColumnName = "id"))
@@ -61,7 +61,7 @@ public class CobroDetalle extends EmbeddedEntity implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 

@@ -29,15 +29,15 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
 //    }
 
     public List<VentaCredito> findByClienteAndVencimiento(Long id, LocalDateTime inicio, LocalDateTime fin) {
-        return repository.findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByIdAsc(id, inicio, fin);
+        return repository.findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByCreadoEnDesc(id, inicio, fin);
     }
 
     public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
-        return repository.findAllByClienteIdAndEstadoOrderByIdDesc(id, estado, pageable);
+        return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(id, estado, pageable);
     }
 
     public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado) {
-        return repository.findAllByClienteIdAndEstadoOrderByIdDesc(id, estado);
+        return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(id, estado);
     }
 
     public Long countByClienteIdAndEstado(Long id, EstadoVentaCredito estado){

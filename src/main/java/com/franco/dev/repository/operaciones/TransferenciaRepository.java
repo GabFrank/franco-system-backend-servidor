@@ -28,7 +28,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
 
     @Query("select e from Transferencia e " +
             " where cast(e.creadoEn as date) = cast(?1 as date) and ?2 = ?1" +
-            "or cast(e.creadoEn as date) >= cast(?1 as date) AND cast(e.creadoEn as date) <= cast(?2 as date)")
+            "or cast(e.creadoEn as date) >= cast(?1 as date) AND cast(e.creadoEn as date) <= cast(?2 as date) order by e.id desc")
     public List<Transferencia> findByDate(String start, String end);
 
     @Query(value = "select * from operaciones.transferencia t " +
@@ -45,7 +45,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
             + "(:isOrigen IS NULL OR t.isOrigen = :isOrigen) AND "
             + "(:isDestino IS NULL OR t.isDestino = :isDestino) AND "
             + "(t.creadoEn >= :creadoEnDesde or cast(:creadoEnDesde as timestamp) IS NULL) AND "
-            + "(t.creadoEn <= :creadoEnHasta or cast(:creadoEnHasta as timestamp) IS NULL )")
+            + "(t.creadoEn <= :creadoEnHasta or cast(:creadoEnHasta as timestamp) IS NULL ) order by t.id desc")
     List<Transferencia> findByFilter(
             Long sucursalOrigenId,
             Long sucursalDestinoId,

@@ -14,11 +14,11 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, L
         return VentaCredito.class;
     }
 
-    public List<VentaCredito> findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByIdAsc(Long id, LocalDateTime start, LocalDateTime end);
+    public List<VentaCredito> findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByCreadoEnDesc(Long id, LocalDateTime start, LocalDateTime end);
 
-    public List<VentaCredito> findAllByClienteIdAndEstadoOrderByIdDesc(Long id, EstadoVentaCredito estado, Pageable pageable);
+    public List<VentaCredito> findAllByClienteIdAndEstadoOrderByCreadoEnDesc(Long id, EstadoVentaCredito estado, Pageable pageable);
 
-    public List<VentaCredito> findAllByClienteIdAndEstadoOrderByIdDesc(Long id, EstadoVentaCredito estado);
+    public List<VentaCredito> findAllByClienteIdAndEstadoOrderByCreadoEnDesc(Long id, EstadoVentaCredito estado);
 
     public long countByClienteIdAndEstado(Long id, EstadoVentaCredito estado);
 

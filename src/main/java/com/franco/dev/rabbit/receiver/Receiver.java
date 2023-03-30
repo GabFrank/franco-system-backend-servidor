@@ -1,12 +1,18 @@
 package com.franco.dev.rabbit.receiver;
 
+import com.franco.dev.rabbit.RabbitMQConection;
 import com.franco.dev.rabbit.dto.RabbitDto;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.rabbitmq.client.Channel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class Receiver {
@@ -16,7 +22,7 @@ public class Receiver {
     @Autowired
     private PropagacionService propagacionService;
 
-    //    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY)
+    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY)
     public void receive(RabbitDto dto, final Channel channel) {
         log.info("recibiendo");
         if (dto.getTipoAccion() != null) log.info(dto.getTipoAccion().name());
@@ -42,7 +48,7 @@ public class Receiver {
         }
     }
 
-    //    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY+".reply.to")
+    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY+".reply.to")
     public Object receiveAndReply(RabbitDto dto) {
         switch (dto.getTipoAccion()) {
             case GUARDAR:

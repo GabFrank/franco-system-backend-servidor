@@ -57,10 +57,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 //        return  repository.findByProveedor(texto.toLowerCase());
 //    }
 
-    public List<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado) {
+    public List<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado, Boolean isDelivery) {
         Pageable pagina = PageRequest.of(page, size);
-        if (formaPago != null || estado != null)
-            return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina);
+        if (formaPago != null || estado != null || isDelivery != null)
+            if (isDelivery == null) {
+                return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina);
+            } else {
+                return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery);
+            }
         if (asc == true)
             return repository.findAllByCajaIdAndSucursalIdOrderByIdAsc(id.getId(), id.getSucursalId(), pagina);
         if (asc != true)
@@ -146,9 +150,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             movimientoCajaService.saveAndSend(mov, false);
         }
         List<VentaItem> ventaItemList = ventaItemService.findByVentaId(venta.getId(), venta.getSucursalId());
-        for(VentaItem vi: ventaItemList){
+        for (VentaItem vi : ventaItemList) {
             MovimientoStock movStock = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId());
-            if(movStock!=null){
+            if (movStock != null) {
                 movStock.setEstado(false);
                 propagacionService.propagarEntidad(movStock, TipoEntidad.MOVIMIENTO_STOCK, movStock.getSucursalId());
             }
@@ -156,7 +160,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return true;
     }
 
-    public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin){
+    public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {
         LocalDateTime inicio = toDate(fechaInicio);
         LocalDateTime fin = toDate(fechaFin);
         return null;

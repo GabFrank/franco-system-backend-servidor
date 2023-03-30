@@ -2,9 +2,9 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
+import net.sf.jasperreports.engine.JRPropertiesMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,14 +21,13 @@ import org.springframework.web.filter.CorsFilter;
 import javax.annotation.PostConstruct;
 import javax.servlet.Filter;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Collections;
 
 @EnableRetry
 @SpringBootApplication
 public class FrancoSystemsApplication {
 
-//    public final static String SFG_MESSAGE_QUEUE = "test-queue";
+    //    public final static String SFG_MESSAGE_QUEUE = "test-queue";
 //    @Autowired
 //    ProductoService productoService;
 //    @Autowired
@@ -37,10 +36,10 @@ public class FrancoSystemsApplication {
 //    PrecioPorSucursalService precioPorSucursalService;
     @Autowired
     private PropagacionService propagacionService;
-//    private Logger log = LoggerFactory.getLogger(FrancoSystemsApplication.class);
+    //    private Logger log = LoggerFactory.getLogger(FrancoSystemsApplication.class);
     @Autowired
     private ObjectMapper objectMapper;
-//    @Autowired
+    //    @Autowired
 //    private CodigoService codigoService;
     @Autowired
     private ImageService imageService;
@@ -87,9 +86,9 @@ public class FrancoSystemsApplication {
         objectMapper.registerModule(new JavaTimeModule());
     }
 
-	@Bean
-	public void getHomePath(){
+    @Bean
+    public void getHomePath() {
 
-	}
+    }
 
 }

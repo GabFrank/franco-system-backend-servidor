@@ -35,6 +35,8 @@ input VentaCreditoInput {
 type VentaCreditoQRAuthUpdate {
     clienteId: Int
     timestamp: String
+    sucursalId: Int
+    secretKey: String
 }
 
 extend type Query {
@@ -42,7 +44,7 @@ extend type Query {
     ventaCreditos(page:Int = 0, size:Int = 10):[VentaCredito]!
     countVentaCredito: Int
     ventaCreditoPorCliente(id:ID!, estado: EstadoVentaCredito, page: Int, size: Int):[VentaCredito]
-    ventaCreditoQrAuth(id:ID!, timestamp: String): Boolean
+    ventaCreditoQrAuth(id:ID!, timestamp: String, sucursalId:Int, secretKey:String): Boolean
 }
 
 extend type Mutation {

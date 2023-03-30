@@ -44,7 +44,7 @@ public class TransferenciaItem implements Serializable {
     @JoinColumn(name = "transferencia_id", nullable = true)
     private Transferencia transferencia;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_pre_transferencia_id", nullable = true)
     private Presentacion presentacionPreTransferencia;
 

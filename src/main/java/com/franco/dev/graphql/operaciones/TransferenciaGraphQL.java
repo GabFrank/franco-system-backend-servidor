@@ -9,6 +9,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -21,7 +22,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,6 +41,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private PropagacionService propagacionService;
+
+    @Autowired
+    private ImpresionService impresionService;
 
     @Autowired
     private TransferenciaItemService transferenciaItemService;
@@ -87,7 +90,10 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             e.setUsuarioRecepcion(usuarioService.findById(input.getUsuarioRecepcionId()).orElse(null));
         e.setSucursalOrigen(sucursalService.findById(input.getSucursalOrigenId()).orElse(null));
         e.setSucursalDestino(sucursalService.findById(input.getSucursalDestinoId()).orElse(null));
-        return service.save(e);
+        e = service.save(e);
+        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalOrigen().getId());
+        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalDestino().getId());
+        return e;
     }
 
     public Boolean deleteTransferencia(Long id) {
@@ -131,28 +137,57 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 case PREPARACION_MERCADERIA:
                     transferencia.setUsuarioPreparacion(usuario);
                     transferencia.setEtapa(etapa);
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+                    for (TransferenciaItem ti : transferenciaItemList) {
+                        if (ti.getVencimientoPreTransferencia() != null)
+                            ti.setVencimientoPreparacion(ti.getVencimientoPreTransferencia());
+                        ti.setPresentacionPreparacion(ti.getPresentacionPreTransferencia());
+                        ti.setCantidadPreparacion(ti.getCantidadPreTransferencia());
+                    }
                     break;
                 case PREPARACION_MERCADERIA_CONCLUIDA:
                     transferencia.setEtapa(etapa);
                     propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
                     for (TransferenciaItem ti : transferenciaItemList) {
-                        propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
-                    }
+                        if (ti.getVencimientoPreparacion() != null) {
+                            ti.setVencimientoTransporte(ti.getVencimientoPreparacion());
+                        }
+                        if (ti.getMotivoRechazoPreparacion() != null) {
+                            ti.setMotivoRechazoTransporte(ti.getMotivoRechazoPreparacion());
+                        }
+                        if (ti.getMotivoModificacionPreparacion() != null) {
+                            ti.setMotivoModificacionTransporte(ti.getMotivoModificacionPreparacion());
+                        }
+                        ti.setPresentacionTransporte(ti.getPresentacionPreparacion());
+                        ti.setCantidadTransporte(ti.getCantidadPreparacion());
+                        }
                     break;
                 case TRANSPORTE_VERIFICACION:
                     transferencia.setUsuarioTransporte(usuario);
                     transferencia.setEtapa(etapa);
                     propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+                    for (TransferenciaItem ti : transferenciaItemList) {
+                        if (ti.getVencimientoTransporte() != null)
+                            ti.setVencimientoRecepcion(ti.getVencimientoTransporte());
+                        if (ti.getMotivoRechazoTransporte() != null)
+                            ti.setMotivoRechazoRecepcion(ti.getMotivoRechazoTransporte());
+                        if (ti.getMotivoModificacionTransporte() != null)
+                            ti.setMotivoModificacionRecepcion(ti.getMotivoModificacionTransporte());
+                        ti.setPresentacionRecepcion(ti.getPresentacionTransporte());
+                        ti.setCantidadRecepcion(ti.getCantidadTransporte());
+                        }
                     break;
                 case TRANSPORTE_EN_CAMINO:
                     transferencia.setEstado(TransferenciaEstado.EN_TRANSITO);
                     transferencia.setEtapa(etapa);
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
                     for (TransferenciaItem ti : transferenciaItemList) {
-                        propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
-                        propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalDestino().getId());
+                        if (ti.getVencimientoTransporte() != null)
+                            ti.setVencimientoRecepcion(ti.getVencimientoTransporte());
+                        if (ti.getMotivoRechazoTransporte() != null)
+                            ti.setMotivoRechazoRecepcion(ti.getMotivoRechazoTransporte());
+                        if (ti.getMotivoModificacionTransporte() != null)
+                            ti.setMotivoModificacionRecepcion(ti.getMotivoModificacionTransporte());
+                        ti.setPresentacionRecepcion(ti.getPresentacionTransporte());
+                        ti.setCantidadRecepcion(ti.getCantidadTransporte());
                     }
                     break;
                 case RECEPCION_EN_VERIFICACION:
@@ -165,15 +200,18 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 case RECEPCION_CONCLUIDA:
                     transferencia.setEstado(TransferenciaEstado.CONLCUIDA);
                     transferencia.setEtapa(etapa);
-                    for (TransferenciaItem ti : transferenciaItemList) {
-                        propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
-                        propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalDestino().getId());
-                    }
                     propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
                     propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
                     break;
             }
-            service.save(transferencia);
+            transferencia = service.save(transferencia);
+            propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+            propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+            for (TransferenciaItem ti : transferenciaItemList) {
+                ti = transferenciaItemService.save(ti);
+                propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
+                propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalDestino().getId());
+            }
             ok = true;
         }
         return ok;
@@ -187,6 +225,16 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (size == null) size = 20;
         Pageable pageable = PageRequest.of(page, size);
         return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, toDate(creadoDesde), toDate(creadoHasta), pageable);
+    }
+
+    public String imprimirTransferencia(Long id, Boolean ticket, String printerName) {
+        Transferencia transferencia = service.findById(id).orElse(null);
+        if (transferencia != null) {
+            List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(id);
+            return impresionService.imprimirTransferencia(transferencia, transferenciaItemList, ticket, printerName);
+        } else {
+            return "";
+        }
     }
 
 }

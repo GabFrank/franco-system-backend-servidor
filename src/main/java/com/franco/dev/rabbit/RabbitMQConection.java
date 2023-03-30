@@ -63,10 +63,12 @@ public class RabbitMQConection {
     private void add(){
         Queue filaProducto = this.fila(SERVIDOR_KEY);
         Queue filaProductoReplyTo = this.fila(SERVIDOR_KEY+".reply.to");
+        Queue replyQueue = this.fila("servidor.reply");
         TopicExchange exchange = this.topicExchange();
         DirectExchange exchangeDirect = this.directExchange();
         Binding binding = this.binding(filaProducto, exchange, SERVIDOR_KEY);
         Binding binding3 = this.bindingDirect(filaProductoReplyTo, exchangeDirect, filaProductoReplyTo.getName());
+        Binding binding4 = this.bindingDirect(replyQueue, exchangeDirect, replyQueue.getName());
         ConnectionListener connectionListener = new ConnectionListener() {
             @Override
             public void onCreate(Connection connection) {
@@ -90,9 +92,11 @@ public class RabbitMQConection {
         try {
             this.amqpAdmin.declareQueue(filaProducto);
             this.amqpAdmin.declareQueue(filaProductoReplyTo);
+            this.amqpAdmin.declareQueue(replyQueue);
             this.amqpAdmin.declareExchange(exchange);
             this.amqpAdmin.declareBinding(binding);
             this.amqpAdmin.declareBinding(binding3);
+            this.amqpAdmin.declareBinding(binding4);
         } catch (AmqpConnectException e){
             e.printStackTrace();
         }

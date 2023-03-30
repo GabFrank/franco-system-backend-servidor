@@ -140,11 +140,13 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     @Unsecured
-    public Boolean ventaCreditoQrAuth(Long id, String timestamp) {
+    public Boolean ventaCreditoQrAuth(Long id, String timestamp, Long sucursalId, String secretKey) {
         try {
             VentaCreditoQRAuthUpdate entity = new VentaCreditoQRAuthUpdate();
             entity.setClienteId(id);
             entity.setTimestamp(timestamp);
+            entity.setSucursalId(sucursalId);
+            entity.setSecretKey(secretKey);
             qrAuthPublisher.publish(entity);
             return true;
         } catch (Exception e) {

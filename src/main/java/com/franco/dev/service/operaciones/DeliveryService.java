@@ -42,4 +42,8 @@ public class DeliveryService extends CrudService<Delivery, DeliveryRepository, E
         deliveryPublisher.publish(e);
         return e;
     }
+
+    public Delivery findByVentaId(Long id, Long sucId) {
+        return repository.findByVentaIdAndSucursalId(id, sucId);
+    }
 }

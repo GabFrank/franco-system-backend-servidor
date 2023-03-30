@@ -1,5 +1,6 @@
 package com.franco.dev.service.rabbitmq;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Conteo;
 import com.franco.dev.domain.financiero.Maletin;
@@ -34,220 +35,148 @@ import com.franco.dev.service.productos.pdv.PdvGruposProductosService;
 import com.franco.dev.service.utils.ImageService;
 import com.rabbitmq.client.Channel;
 import org.apache.commons.io.FileUtils;
-import org.hibernate.engine.jdbc.spi.SqlExceptionHelper;
-import org.hibernate.exception.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.orm.jpa.JpaObjectRetrievalFailureException;
 import org.springframework.stereotype.Service;
 import org.zeroturnaround.zip.ZipUtil;
 
-import javax.persistence.EntityNotFoundException;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static com.franco.dev.utilitarios.EnumUtils.getTipoEntidadByClassFullName;
-import static org.hibernate.boot.model.source.internal.hbm.Helper.getValue;
 
 @Service
 public class PropagacionService {
 
     private final Logger log = LoggerFactory.getLogger(PropagacionService.class);
     Long sucursalVerificar = null;
-    @Autowired
-    private SucursalService sucursalService;
-
-    @Autowired
-    private Sender sender;
-
-    @Autowired
-    private PaisService paisService;
-
-    @Autowired
-    private CiudadService ciudadService;
-
-    @Autowired
-    private PersonaService personaService;
-
-    @Autowired
-    private UsuarioService usuarioService;
-
-    @Autowired
-    private CargoService cargoService;
-
-    @Autowired
-    private FamiliaService familiaService;
-
-    @Autowired
-    private SubFamiliaService subFamiliaService;
-
-    @Autowired
-    private ProductoService productoService;
-
-    @Autowired
-    private TipoPresentacionService tipoPresentacionService;
-
-    @Autowired
-    private PresentacionService presentacionService;
-
-    @Autowired
-    private PdvCategoriaService pdvCategoriaService;
-
-    @Autowired
-    private PdvGrupoService pdvGrupoService;
-
-    @Autowired
-    private PdvGruposProductosService pdvGruposProductosService;
-
-    @Autowired
-    private TipoPrecioService tipoPrecioService;
-
-    @Autowired
-    private PrecioPorSucursalService precioPorSucursalService;
-
-    @Autowired
-    private BancoService bancoService;
-
-    @Autowired
-    private CuentaBancariaService cuentaBancariaService;
-
-    @Autowired
-    private MonedaService monedaService;
-
-    @Autowired
-    private MonedaBilleteService monedaBilleteService;
-
-    @Autowired
-    private FormaPagoService formaPagoService;
-
-    @Autowired
-    private DocumentoService documentoService;
-
-    @Autowired
-    private MaletinService maletinService;
-
-    @Autowired
-    private TipoGastoService tipoGastoService;
-
-    @Autowired
-    private CodigoService codigoService;
-
-    @Autowired
-    private CambioService cambioService;
-
-    @Autowired
-    private BarrioService barrioService;
-
-    @Autowired
-    private ContactoService contactoService;
-
-    @Autowired
-    private ClienteService clienteService;
-
-    @Autowired
-    private FuncionarioService funcionarioService;
-
-    @Autowired
-    private ProveedorService proveedorService;
-
-    @Autowired
-    private VendedorService vendedorService;
-
-    @Autowired
-    private VendedorProveedorService vendedorProveedorService;
-
-    @Autowired
-    private RoleService roleService;
-
-    @Autowired
-    private TransferenciaService transferenciaService;
-
-    @Autowired
-    private TransferenciaItemService transferenciaItemService;
-
-    @Autowired
-    private UsuarioRoleService usuarioRoleService;
-
-    @Autowired
-    private InventarioService inventarioService;
-
-    @Autowired
-    private InventarioProductoService inventarioProductoService;
-
-    @Autowired
-    private InventarioProductoItemService inventarioProductoItemService;
-
-    @Autowired
-    private ImageService imageService;
-
-    @Autowired
-    private VentaService ventaService;
-
-    @Autowired
-    private VentaItemService ventaItemService;
-
-    @Autowired
-    private FacturaLegalGraphQL facturaLegalGraphQL;
-
-    @Autowired
-    private ConteoService conteoService;
-
-    @Autowired
-    private ConteoMonedaService conteoMonedaService;
-
-    @Autowired
-    private PdvCajaService cajaService;
-
-    @Autowired
-    private CobroService cobroService;
-
-    @Autowired
-    private FacturaLegalService facturaLegalService;
-
-    @Autowired
-    private FacturaLegalItemService facturaLegalItemService;
-
-    @Autowired
-    private CobroDetalleService cobroDetalleService;
-
-    @Autowired
-    private MovimientoCajaService movimientoCajaService;
-
-    @Autowired
-    private MovimientoStockService movimientoStockService;
-
-    @Autowired
-    private GastoService gastoService;
-
-    @Autowired
-    private TimbradoDetalleService timbradoDetalleService;
-
-    @Autowired
-    private RetiroService retiroService;
-
-    @Autowired
-    private RetiroDetalleService retiroDetalleService;
-
-    @Autowired
-    private VentaCreditoService ventaCreditoService;
-
-
-    @Autowired
-    private VentaCreditoCuotaService ventaCreditoCuotaService;
-
-
-    @Autowired
-    private MovimientoPersonasService movimientoPersonasService;
-
     String missingTable = "";
     Long missingParentId = Long.valueOf(-1);
     Long missingSucId = Long.valueOf(-1);
-
+    @Autowired
+    private SucursalService sucursalService;
+    @Autowired
+    private Sender sender;
+    @Autowired
+    private PaisService paisService;
+    @Autowired
+    private CiudadService ciudadService;
+    @Autowired
+    private PersonaService personaService;
+    @Autowired
+    private UsuarioService usuarioService;
+    @Autowired
+    private CargoService cargoService;
+    @Autowired
+    private FamiliaService familiaService;
+    @Autowired
+    private SubFamiliaService subFamiliaService;
+    @Autowired
+    private ProductoService productoService;
+    @Autowired
+    private TipoPresentacionService tipoPresentacionService;
+    @Autowired
+    private PresentacionService presentacionService;
+    @Autowired
+    private PdvCategoriaService pdvCategoriaService;
+    @Autowired
+    private PdvGrupoService pdvGrupoService;
+    @Autowired
+    private PdvGruposProductosService pdvGruposProductosService;
+    @Autowired
+    private TipoPrecioService tipoPrecioService;
+    @Autowired
+    private PrecioPorSucursalService precioPorSucursalService;
+    @Autowired
+    private BancoService bancoService;
+    @Autowired
+    private CuentaBancariaService cuentaBancariaService;
+    @Autowired
+    private MonedaService monedaService;
+    @Autowired
+    private MonedaBilleteService monedaBilleteService;
+    @Autowired
+    private FormaPagoService formaPagoService;
+    @Autowired
+    private DocumentoService documentoService;
+    @Autowired
+    private MaletinService maletinService;
+    @Autowired
+    private TipoGastoService tipoGastoService;
+    @Autowired
+    private CodigoService codigoService;
+    @Autowired
+    private CambioService cambioService;
+    @Autowired
+    private BarrioService barrioService;
+    @Autowired
+    private ContactoService contactoService;
+    @Autowired
+    private ClienteService clienteService;
+    @Autowired
+    private FuncionarioService funcionarioService;
+    @Autowired
+    private ProveedorService proveedorService;
+    @Autowired
+    private VendedorService vendedorService;
+    @Autowired
+    private VendedorProveedorService vendedorProveedorService;
+    @Autowired
+    private RoleService roleService;
+    @Autowired
+    private TransferenciaService transferenciaService;
+    @Autowired
+    private TransferenciaItemService transferenciaItemService;
+    @Autowired
+    private UsuarioRoleService usuarioRoleService;
+    @Autowired
+    private InventarioService inventarioService;
+    @Autowired
+    private InventarioProductoService inventarioProductoService;
+    @Autowired
+    private InventarioProductoItemService inventarioProductoItemService;
+    @Autowired
+    private ImageService imageService;
+    @Autowired
+    private VentaService ventaService;
+    @Autowired
+    private VentaItemService ventaItemService;
+    @Autowired
+    private FacturaLegalGraphQL facturaLegalGraphQL;
+    @Autowired
+    private ConteoService conteoService;
+    @Autowired
+    private ConteoMonedaService conteoMonedaService;
+    @Autowired
+    private PdvCajaService cajaService;
+    @Autowired
+    private CobroService cobroService;
+    @Autowired
+    private FacturaLegalService facturaLegalService;
+    @Autowired
+    private FacturaLegalItemService facturaLegalItemService;
+    @Autowired
+    private CobroDetalleService cobroDetalleService;
+    @Autowired
+    private MovimientoCajaService movimientoCajaService;
+    @Autowired
+    private MovimientoStockService movimientoStockService;
+    @Autowired
+    private GastoService gastoService;
+    @Autowired
+    private TimbradoDetalleService timbradoDetalleService;
+    @Autowired
+    private RetiroService retiroService;
+    @Autowired
+    private RetiroDetalleService retiroDetalleService;
+    @Autowired
+    private VentaCreditoService ventaCreditoService;
+    @Autowired
+    private VentaCreditoCuotaService ventaCreditoCuotaService;
+    @Autowired
+    private MovimientoPersonasService movimientoPersonasService;
+    @Autowired
+    private DeliveryService deliveryService;
 
     public void verficarConexion(Long sucId) {
         sucursalVerificar = sucId;
@@ -650,6 +579,9 @@ public class PropagacionService {
             case MOVIMIENTO_PERSONA:
                 log.info("creando movimiento persona: ");
                 return guardar(movimientoPersonasService, dto);
+            case DELIVERY:
+                log.info("creando delivery: ");
+                return guardar(deliveryService, dto);
             default:
                 return null;
         }
@@ -666,71 +598,20 @@ public class PropagacionService {
                     }
                     return nuevaEntidad;
                 } catch (Exception e) {
-                    String errorMessage = e.getMessage();
-                    log.warn(errorMessage);
-                    if (errorMessage.contains("constraint")) {
-                        DataIntegrityViolationException error = (DataIntegrityViolationException) e;
-                        errorMessage = error.getMostSpecificCause().getMessage();
-                        String tableNameRegex = "present in table \"([^\"]+)\"";
-                        String tableName = getValue(tableNameRegex, errorMessage);
-                        String regex = "Key \\(([a-zA-Z_]+), ([a-zA-Z_]+)\\)\\=\\((\\d+), (\\d+)\\)";
-                        Pattern pattern = Pattern.compile(regex);
-                        Matcher matcher = pattern.matcher(errorMessage);
-                        if (matcher.find()) {
-                            String var1 = matcher.group(1);
-                            String var2 = matcher.group(2);
-                            Long parentId = Long.valueOf(Integer.parseInt(matcher.group(3)));
-                            Long sucursalId = Long.valueOf(Integer.parseInt(matcher.group(4)));
-                            log.warn("Table: " + tableName);
-                            log.warn("parent: " + var1);
-                            log.warn("suc: " + var2);
-                            log.warn("parent_id: " + parentId);
-                            log.warn("sucursal_id: " + sucursalId);
-                            try {
-                                if(missingTable.equals(tableName) && missingParentId.equals(parentId) && missingSucId.equals(sucursalId)){
-
-                                } else {
-                                    missingSucId = sucursalId;
-                                    missingParentId = parentId;
-                                    missingTable = tableName;
-                                    solicitarEntidad(TipoEntidad.valueOf(tableName.toUpperCase()), parentId, sucursalId);
-                                }
-                            } catch (Exception ee){
-                                throw ee;
-                            }
-                        }
-                    } else if(errorMessage.contains("EmbebedPrimaryKey")){
-                        String pattern = "Unable to find (.*) with id EmbebedPrimaryKey\\(id=(\\d+), sucursalId=(\\d+)\\)";
-                        Pattern r = Pattern.compile(pattern);
-                        Matcher m = r.matcher(errorMessage);
-                        if (m.find()) {
-                            String entity = m.group(1);
-                            Long id = Long.valueOf(m.group(2));
-                            Long sucursalId = Long.valueOf(m.group(3));
-                            try {
-                                if(missingTable.equals(entity) && missingParentId.equals(id) && missingSucId.equals(sucursalId)){
-
-                                } else {
-                                    missingSucId = sucursalId;
-                                    missingParentId = id;
-                                    missingTable = entity;
-                                    TipoEntidad tipoEntidad = getTipoEntidadByClassFullName(entity);
-                                    solicitarEntidad(tipoEntidad, id, sucursalId);
-                                }
-                            } catch (Exception ee){
-                                throw ee;
-                            }
-                        }
-                    }
-                    throw e;
+                    e.printStackTrace();
                 }
             case DELETE:
                 Boolean ok = false;
-                if (dto.getEntidad() instanceof Long) {
-                    ok = service.deleteById((Long) dto.getEntidad());
-                } else {
-                    ok = service.delete(dto.getEntidad());
+                try {
+                    if (dto.getEntidad() instanceof Long) {
+                        ok = service.deleteById(new EmbebedPrimaryKey((Long) dto.getEntidad(), dto.getIdSucursalOrigen()));
+                    } else {
+                        ok = service.delete(dto.getEntidad());
+                    }
+                } catch (Exception e){
+                    e.printStackTrace();
                 }
+
                 if (ok) {
                     log.info("eliminado con exito");
                 }
@@ -850,7 +731,8 @@ public class PropagacionService {
 
     public Float solicitarStockByProducto(Long productoId, Long sucursalId) {
 //        return sender.enviar(RabbitMQConection.FILIAL_KEY + sucId, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad));
-        return (Float) sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucursalId.toString(), new RabbitDto(productoId, TipoAccion.SOLICITAR_STOCK_PRODUCTO, TipoEntidad.PRODUCTO));
+        Float stock = (Float) sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucursalId.toString(), new RabbitDto(productoId, TipoAccion.SOLICITAR_STOCK_PRODUCTO, TipoEntidad.PRODUCTO));
+        return stock;
     }
 
     public Inventario finalizarInventario(Inventario inventario, Long sucId) {
@@ -888,7 +770,7 @@ public class PropagacionService {
         propagarEntidad(solicitudAperturaCaja, TipoEntidad.SOLICITUD_APERTURA_CAJA, solicitudAperturaCaja.getCajaInput().getSucursalId());
     }
 
-    public Object solicitarEntidad(TipoEntidad tipoEntidad, Long idEntidad, Long sucursalId){
+    public Object solicitarEntidad(TipoEntidad tipoEntidad, Long idEntidad, Long sucursalId) {
         return sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucursalId.toString(), new RabbitDto(idEntidad, TipoAccion.SOLICITAR_ENTIDAD, tipoEntidad));
     }
 }

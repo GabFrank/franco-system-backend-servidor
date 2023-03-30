@@ -22,6 +22,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -217,11 +218,11 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
         if (pdvCaja != null && pdvCaja.getConteoApertura() != null) {
             balance.setIdCaja(pdvCaja.getId());
             List<ConteoMoneda> conteoMonedaAperList = conteoMonedaService.findByConteoId(pdvCaja.getConteoApertura().getId(), pdvCaja.getSucursalId());
-            List<ConteoMoneda> conteoMonedaCierreList = conteoMonedaService.findByConteoId(pdvCaja.getConteoCierre().getId(), pdvCaja.getSucursalId());
+            List<ConteoMoneda> conteoMonedaCierreList = pdvCaja.getConteoCierre()!= null ? conteoMonedaService.findByConteoId(pdvCaja.getConteoCierre().getId(), pdvCaja.getSucursalId()): new ArrayList<>();
             List<RetiroDetalle> retiroDetalleList = retiroDetalleService.findByCajId(pdvCaja.getId(), pdvCaja.getSucursalId());
             List<Gasto> gastoList = gastoService.findByCajaId(pdvCaja.getId(), pdvCaja.getSucursalId());
             List<Venta> ventaList = ventaService.findAllByCajaId(new EmbebedPrimaryKey(pdvCaja.getId(), pdvCaja.getSucursalId()));
-            if (!conteoMonedaAperList.isEmpty() && !conteoMonedaCierreList.isEmpty()) {
+            if (!conteoMonedaAperList.isEmpty()) {
                 Double totalGsAper = 0.0;
                 Double totalRsAper = 0.0;
                 Double totalDsAper = 0.0;
@@ -314,7 +315,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
                                         totalVentaGs += cobroDetalle.getValor();
                                     }
                                 } else if (cobroDetalle.getFormaPago().getDescripcion().contains("TARJETA")) {
-                                    totalTarjeta += cobroDetalle.getValor();
+                                    if(!cobroDetalle.getAumento()) totalTarjeta += cobroDetalle.getValor();
                                 } else if (cobroDetalle.getFormaPago().getDescripcion().contains("CONVENIO")) {
                                     totalConvenio += cobroDetalle.getValor();
                                 }
@@ -394,7 +395,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             balance.setUsuario(pdvCaja.getUsuario());
             balance.setFechaApertura(pdvCaja.getFechaApertura());
             balance.setFechaCierre(pdvCaja.getFechaCierre());
-            balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() - totalVentaGs - vueltoGs + totalRetiroGs + totalGastoGs + totalDescuento);
+            balance.setDiferenciaGs(balance.getTotalGsCierre() - balance.getTotalGsAper() - totalVentaGs - vueltoGs + totalRetiroGs + totalGastoGs);
             balance.setDiferenciaRs(balance.getTotalRsCierre() - balance.getTotalRsAper() - totalVentaRs - vueltoRs + totalRetiroRs + totalGastoRs);
             balance.setDiferenciaDs(balance.getTotalDsCierre() - balance.getTotalDsAper() - totalVentaDs - vueltoDs + totalRetiroDs + totalGastoDs);
             balance.setSucursal((Sucursal) sucursalService.findById(pdvCaja.getSucursalId()).orElse(null));

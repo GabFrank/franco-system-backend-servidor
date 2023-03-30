@@ -58,6 +58,12 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public List<Cliente> clientePorPersona(String texto){
+        if(texto==null){
+            texto="";
+        } else {
+            texto = texto.toUpperCase();
+        }
+
         return service.findByAll(texto);
     }
 

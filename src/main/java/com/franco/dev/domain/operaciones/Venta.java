@@ -12,6 +12,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.*;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Entity;
 import javax.persistence.Table;
 import javax.persistence.*;
@@ -40,6 +41,7 @@ public class Venta implements Serializable {
 
     @Id
     private Long id;
+
     @Id
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
@@ -52,7 +54,7 @@ public class Venta implements Serializable {
     @JoinColumn(name = "forma_pago_id", nullable = true)
     private FormaPago formaPago;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "cobro_id", referencedColumnName = "id"))

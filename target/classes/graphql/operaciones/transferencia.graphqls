@@ -41,6 +41,7 @@ extend type Query {
     transferenciasPorUsuario(id: ID!):[Transferencia]!
     countTransferencia: Int
     transferenciasWithFilters(sucursalOrigenId: Int, sucursalDestinoId: Int, estado: TransferenciaEstado, tipo: TipoTransferencia, etapa: EtapaTransferencia, isOrigen: Boolean, isDestino: Boolean, creadoDesde: String, creadoHasta: String, page: Int, size: Int): [Transferencia]
+    imprimirTransferencia(id:ID!, ticket: Boolean, printerName:String!):String
 }
 
 extend type Mutation {

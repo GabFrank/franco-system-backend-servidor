@@ -21,16 +21,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "costo_por_producto", schema = "productos")
-@IdClass(EmbebedPrimaryKey.class)
 public class CostoPorProducto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Id
-    @Column(name = "sucursal_id", insertable = false, updatable = false)
-    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "producto_id", nullable = true)

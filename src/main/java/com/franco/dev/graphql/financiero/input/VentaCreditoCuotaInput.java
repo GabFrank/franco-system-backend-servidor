@@ -13,4 +13,5 @@ public class VentaCreditoCuotaInput {
     private String vencimiento;
     private Long usuarioId;
     private Long sucursalId;
+//    private Long sucursalCobroId;
 }

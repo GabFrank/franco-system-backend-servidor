@@ -1,9 +1,12 @@
 package com.franco.dev.graphql.personas.resolver;
 
+import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.domain.general.Contacto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.financiero.MovimientoPersonasService;
+import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.general.ContactoService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -30,6 +33,9 @@ public class ClienteResolver implements GraphQLResolver<Cliente> {
     private ContactoService contactoService;
 
     @Autowired
+    private VentaCreditoService ventaCreditoService;
+
+    @Autowired
     private MovimientoPersonasService movimientoPersonasService;
 
     public List<Contacto> contactos(Cliente e) {
@@ -45,8 +51,13 @@ public class ClienteResolver implements GraphQLResolver<Cliente> {
     }
 
     public Double saldo(Cliente e) {
-        Double movimiento = movimientoPersonasService.getTotalCredito(e.getPersona().getId(), getLastDayOfMonth(0));
-        Double saldo = (e.getCredito() != null ? e.getCredito() : 0) + (movimiento != null ? movimiento : 0);
+//        Double movimiento = movimientoPersonasService.getTotalCredito(e.getPersona().getId(), getLastDayOfMonth(0));
+        List<VentaCredito> ventaCreditoList = ventaCreditoService.findByClienteId(e.getId(), EstadoVentaCredito.ABIERTO);
+        Double movimiento = 0.0;
+        for(VentaCredito vc : ventaCreditoList){
+                movimiento += vc.getValorTotal();
+        }
+        Double saldo = (e.getCredito() != null ? e.getCredito() : 0) - (movimiento != null ? movimiento : 0);
         return saldo!=null ? saldo : 0;
     }
 

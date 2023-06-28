@@ -704,7 +704,7 @@ public class PropagacionService {
 
     public void eliminarEntidad(Long id, TipoEntidad tipoEntidad, Long sucId) {
         log.info("Eliminando entidad en todas las sucursales");
-        sender.enviar(RabbitMQConection.FILIAL_KEY + sucId, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad));
+        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad));
     }
 
     public void propagarTransferencia(Transferencia t, Long id) {

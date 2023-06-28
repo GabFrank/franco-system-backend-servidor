@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.VentaCreditoCuota;
 import com.franco.dev.repository.financiero.VentaCreditoCuotaRepository;
 import com.franco.dev.service.CrudService;
@@ -10,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class VentaCreditoCuotaService extends CrudService<VentaCreditoCuota, VentaCreditoCuotaRepository, Long> {
+public class VentaCreditoCuotaService extends CrudService<VentaCreditoCuota, VentaCreditoCuotaRepository, EmbebedPrimaryKey> {
 
     private final VentaCreditoCuotaRepository repository;
 
@@ -24,8 +25,8 @@ public class VentaCreditoCuotaService extends CrudService<VentaCreditoCuota, Ven
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
-    public List<VentaCreditoCuota> findByVentaCreditoId(Long id) {
-        return repository.findAllByVentaCreditoId(id);
+    public List<VentaCreditoCuota> findByVentaCreditoId(Long id, Long sucId) {
+        return repository.findAllByVentaCreditoIdAndSucursalId(id, sucId);
     }
 
     @Override

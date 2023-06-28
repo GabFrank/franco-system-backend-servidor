@@ -8,6 +8,7 @@ type VentaCreditoCuota {
     vencimiento: Date
     creadoEn: Date
     usuario: Usuario
+#    sucursalCobroId: Int
 }
 
 input VentaCreditoCuotaInput {
@@ -19,16 +20,17 @@ input VentaCreditoCuotaInput {
     activo: Boolean
     vencimiento: String
     usuarioId: Int
+#    sucursalCobroId: Int
 }
 
 extend type Query {
-    ventaCreditoCuota(id:ID!):VentaCreditoCuota
+    ventaCreditoCuota(id:ID!, sucId:ID!):VentaCreditoCuota
     ventaCreditoCuotas(page:Int = 0, size:Int = 10):[VentaCreditoCuota]!
     countVentaCreditoCuota: Int
 }
 
 extend type Mutation {
     saveVentaCreditoCuota(ventaCreditoCuota:VentaCreditoCuotaInput!):VentaCreditoCuota!
-    deleteVentaCreditoCuota(id:ID!):Boolean!
+    deleteVentaCreditoCuota(id:ID!, sucId:ID!):Boolean!
 }
 

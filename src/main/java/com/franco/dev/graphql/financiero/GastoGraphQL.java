@@ -2,6 +2,7 @@ package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.graphql.financiero.input.GastoInput;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.financiero.PdvCajaService;
@@ -67,6 +68,11 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         Gasto e = m.map(input, Gasto.class);
         e = service.save(e);
         return e;
+    }
+
+    public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page, size);
+        return service.filterGastos(id, cajaId, sucId, responsableId, pageable);
     }
 
 //    public List<Gasto> gastosSearch(String texto){

@@ -18,6 +18,7 @@ type Gasto {
     vueltoRs: Float
     vueltoDs: Float
     sucursalVuelto: Sucursal
+    sucursal: Sucursal
 }
 
 input GastoInput {
@@ -46,6 +47,7 @@ extend type Query {
     countGasto: Int
     gastosPorFecha(inicio:String, fin:String, sucId: ID):[Gasto]
     gastosPorCajaId(id:ID!, sucId: ID):[Gasto]
+    filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, page:Int, size:Int):[Gasto]!
 }
 
 extend type Mutation {

@@ -1,9 +1,14 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.security.Unsecured;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.*;
@@ -21,6 +26,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Logger;
@@ -60,11 +66,17 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PresentacionService presentacionService;
 
+    @Autowired
+    private ImpresionService impresionService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
     @Unsecured
     public Optional<Producto> producto(Long id) {return service.findById(id);}
 
-    public List<Producto> productoSearch(String texto, int offset,  Boolean isEnvase) {
-        return service.findByAll(texto, offset, isEnvase);}
+    public List<Producto> productoSearch(String texto, int offset,  Boolean isEnvase, Boolean activo) {
+        return service.findByAll(texto, offset, isEnvase, activo);}
 
     public List<Producto> productos(int page, int size){
         Pageable pageable = PageRequest.of(page,size);
@@ -110,7 +122,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Boolean productoDescripcionExists(String descripcion){
         Pageable pageable = PageRequest.of(1,5);
-        return service.findByAll(descripcion, 0, false).isEmpty();
+        return service.findByAll(descripcion, 0, false, false).isEmpty();
     }
 
     public Producto printProducto(Long id) {
@@ -125,4 +137,26 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public List<Producto> findByPdvGrupoProducto(Long id){
         return service.findByGrupoProductoId(id);
     }
+
+    public String lucroPorProducto(String fechaInicio, String fechaFin, List<Long> sucursalIdList, Long usuarioId, List<Long> usuarioIdList, List<Long> productoIdList){
+        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+        StringBuilder filtro = new StringBuilder();
+        if(usuario!=null){
+            filtro.append("Cajero: ");
+            filtro.append(usuario.getId() + " - " + usuario.getNickname());
+        }
+        if(usuario!=null && sucursalIdList!=null && sucursalIdList.size() > 0){
+            filtro.append(" - ");
+        }
+        if(sucursalIdList!=null && sucursalIdList.size() > 0){
+            filtro.append("Sucursales: ");
+        }
+        for(Long sucId: sucursalIdList){
+            Sucursal suc = sucursalService.findById(sucId).orElse(null);
+            if(suc!=null) filtro.append(suc.getNombre() + " , ");
+        }
+        List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin, sucursalIdList, usuarioIdList, productoIdList);
+        return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "", filtro.toString(), usuario);
+    }
+
 }

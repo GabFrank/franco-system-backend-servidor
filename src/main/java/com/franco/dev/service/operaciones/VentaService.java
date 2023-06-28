@@ -1,6 +1,7 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.*;
@@ -87,6 +88,16 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         Venta e = super.save(entity);
         propagacionService.propagarEntidad(e, TipoEntidad.VENTA, entity.getSucursalId());
         return e;
+    }
+
+    public List<Venta> ventaPorPeriodoAndSucursal(String inicio, String fin, Long sucId) {
+        LocalDateTime fechaInicio = toDate(inicio);
+        LocalDateTime fechaFin = toDate(fin);
+        List<Venta> ventaList = null;
+        if (repository != null) {
+            ventaList = repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, fechaInicio, fechaFin);
+        }
+        return ventaList;
     }
 
     public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin) {

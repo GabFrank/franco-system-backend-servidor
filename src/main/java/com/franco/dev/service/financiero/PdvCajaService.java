@@ -296,12 +296,11 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
             }
 
             for (Venta venta : ventaList) {
-                totalGeneral += venta.getTotalGs();
-
                 Cobro cobro = cobroService.findById(venta.getCobro().getId(), venta.getSucursalId());
                 if (cobro != null) {
                     List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(cobro.getId(), cobro.getSucursalId());
                     if (venta.getEstado() == VentaEstado.CONCLUIDA || venta.getEstado() == VentaEstado.EN_VERIFICACION) {
+                        totalGeneral += venta.getTotalGs();
                         for (CobroDetalle cobroDetalle : cobroDetalleList) {
                             if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
                                 if (cobroDetalle.getFormaPago().getDescripcion().contains("EFECTIVO")) {
@@ -348,25 +347,28 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
                             if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
                                 if (cobroDetalle.getPago()) {
                                     totalCanceladasGs += cobroDetalle.getValor();
-                                } else if (cobroDetalle.getVuelto()) {
-                                    vueltoGs -= cobroDetalle.getValor();
-                                } else if (cobroDetalle.getDescuento()) {
-                                    totalDescuento -= cobroDetalle.getValor();
-                                } else if (cobroDetalle.getAumento()) {
-                                    totalAumento -= cobroDetalle.getValor();
                                 }
+//                                else if (cobroDetalle.getVuelto()) {
+//                                    vueltoGs -= Math.abs(cobroDetalle.getValor());
+//                                } else if (cobroDetalle.getDescuento()) {
+//                                    totalDescuento -= Math.abs(cobroDetalle.getValor());
+//                                } else if (cobroDetalle.getAumento()) {
+//                                    totalAumento -= Math.abs(cobroDetalle.getValor());
+//                                }
                             } else if (cobroDetalle.getMoneda().getDenominacion().contains("REAL")) {
                                 if (cobroDetalle.getPago()) {
                                     totalCanceladasRs += cobroDetalle.getValor();
-                                } else if (cobroDetalle.getVuelto()) {
-                                    vueltoRs -= cobroDetalle.getValor();
                                 }
+//                                else if (cobroDetalle.getVuelto()) {
+//                                    vueltoRs -= Math.abs(cobroDetalle.getValor());
+//                                }
                             } else if (cobroDetalle.getMoneda().getDenominacion().contains("DOLAR")) {
                                 if (cobroDetalle.getPago()) {
                                     totalCanceladasDs += cobroDetalle.getValor();
-                                } else if (cobroDetalle.getVuelto()) {
-                                    vueltoDs -= cobroDetalle.getValor();
                                 }
+//                                else if (cobroDetalle.getVuelto()) {
+//                                    vueltoDs -= Math.abs(cobroDetalle.getValor());
+//                                }
                             }
                         }
                     }

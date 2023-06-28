@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.repository.financiero.VentaCreditoRepository;
@@ -14,7 +15,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoRepository, Long> {
+public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoRepository, EmbebedPrimaryKey> {
 
     private final VentaCreditoRepository repository;
 

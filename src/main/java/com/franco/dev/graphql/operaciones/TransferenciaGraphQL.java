@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
+import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.personas.Usuario;
@@ -10,6 +12,7 @@ import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
+import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -22,6 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,6 +51,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private TransferenciaItemService transferenciaItemService;
+
+    @Autowired
+    private MovimientoStockService movimientoStockService;
 
     public Optional<Transferencia> transferencia(Long id) {
 
@@ -98,8 +105,19 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public Boolean deleteTransferencia(Long id) {
         Transferencia transferencia = service.findById(id).orElse(null);
+        List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaIdAndSucursalId(id);
+        List<MovimientoStock> movimientoStockList = new ArrayList<>();
+        for(TransferenciaItem ti: transferenciaItemList){
+            MovimientoStock ms = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, ti.getId(), transferencia.getSucursalOrigen().getId());
+            if(ms!=null){
+                movimientoStockList.add(ms);
+            }
+        }
         Boolean ok = service.deleteById(id);
         if (ok) {
+            for(MovimientoStock m: movimientoStockList){
+                movimientoStockService.delete(m);
+            }
             propagacionService.eliminarEntidad(transferencia.getId(), TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
             propagacionService.eliminarEntidad(transferencia.getId(), TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
         }

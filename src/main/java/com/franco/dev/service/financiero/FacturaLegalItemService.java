@@ -21,8 +21,8 @@ public class FacturaLegalItemService extends CrudService<FacturaLegalItem, Factu
         return repository;
     }
 
-    public List<FacturaLegalItem> findByFacturaLegalId(Long id){
-        return repository.findByFacturaLegalId(id);
+    public List<FacturaLegalItem> findByFacturaLegalId(Long id, Long sucId){
+        return repository.findByFacturaLegalIdAndSucursalId(id, sucId);
     }
 
     @Override

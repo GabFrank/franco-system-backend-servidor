@@ -39,6 +39,8 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "v.id", nativeQuery = true)
     public List<Venta> ventaPorPeriodo(LocalDateTime inicio, LocalDateTime fin);
 
+    public List<Venta> findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(Long sucId, LocalDateTime inicio, LocalDateTime fin);
+
     @Query(value = "select v from Venta v, CobroDetalle cd " +
             "join v.caja ca " +
             "join v.cobro c " +

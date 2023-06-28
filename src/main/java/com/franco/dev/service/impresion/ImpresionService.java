@@ -1,10 +1,16 @@
 package com.franco.dev.service.impresion;
 
+import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
+import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.dto.GastoDto;
 import com.franco.dev.service.impresion.dto.RetiroDto;
 import com.franco.dev.service.productos.CodigoService;
@@ -62,6 +68,11 @@ public class ImpresionService {
     private CodigoService codigoService;
     @Autowired
     private PrecioPorSucursalService precioPorSucursalService;
+    @Autowired
+    private SucursalService sucursalService;
+
+    public static DateTimeFormatter shortDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    public static DateTimeFormatter shortDateTime = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
@@ -598,7 +609,7 @@ public class ImpresionService {
                     }
                     transferenciaItemDtoList.add(tiDto);
                 }
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "transferencia-old.jrxml");
+                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "transferencia.jrxml");
                 JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(transferenciaItemDtoList);
                 Map<String, Object> parameters = new HashMap<>();
@@ -626,6 +637,150 @@ public class ImpresionService {
 
     }
 
+    public String imprimirReporteCobroVentaCredito(Cliente cliente, List<VentaCredito> ventaCreditoList, Double totalCobrado, Usuario usuario, Boolean ticket, String printerName) {
+        if(ticket!=null && ticket==true){
+//            try {
+//                selectedPrintService = printingService.getPrintService(printerName);
+//                if (selectedPrintService != null) {
+//                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+//                    // creating the EscPosImage, need buffered image and algorithm.
+//                    //Styles
+//                    Style center = new Style().setJustification(EscPosConst.Justification.Center);
+//
+//                    QRCode qrCode = new QRCode();
+//
+//                    BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
+//                    imageBufferedImage = resize(imageBufferedImage, 200, 100);
+//                    BitImageWrapper imageWrapper = new BitImageWrapper();
+//                    EscPos escpos = new EscPos(printerOutputStream);
+//                    Bitonal algorithm = new BitonalThreshold();
+//                    EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
+//                    imageWrapper.setJustification(EscPosConst.Justification.Center);
+//                    escpos.writeLF("--------------------------------");
+//                    escpos.write(imageWrapper, escposImage);
+//                    String qrData = "frc-0-TRF-" + transferencia.getId() + "-" + transferencia.getId() + "undefined-undefined-undefined";
+//                    escpos.write(qrCode.setSize(7).setJustification(EscPosConst.Justification.Center), qrData);
+//                    escpos.feed(2);
+//                    escpos.writeLF("Fecha: " + transferencia.getCreadoEn().format(formatter));
+//                    escpos.writeLF("Suc. Origen: " + transferencia.getSucursalOrigen().getNombre());
+//                    escpos.writeLF("Suc. Destino: " + transferencia.getSucursalDestino().getNombre());
+//                    escpos.writeLF("Creado por: " + transferencia.getUsuarioPreTransferencia().getPersona().getNombre());
+//                    escpos.feed(5);
+//
+//                    escpos.writeLF(center, "----------------------");
+//                    escpos.writeLF(center, "Resp. Creacion");
+//                    escpos.feed(5);
+//
+//                    escpos.writeLF(center, "----------------------");
+//                    escpos.writeLF(center, "Resp. Preparacion");
+//                    escpos.feed(5);
+//
+//                    escpos.writeLF(center, "----------------------");
+//                    escpos.writeLF(center, "Resp. Transporte");
+//                    escpos.feed(5);
+//
+//                    escpos.writeLF(center, "----------------------");
+//                    escpos.writeLF(center, "Resp. Recepcion");
+//                    escpos.feed(5);
+//
+//                    escpos.close();
+//                    printerOutputStream.close();
+//                }
+//            } catch (IOException e) {
+//
+//            }
+            return null;
+        } else {
+            File file = null;
+            try {
+                List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
+                for (VentaCredito ti : ventaCreditoList) {
+                    VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
+                    Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
+                    tiDto.setSucursal(sucursal.getNombre());
+                    tiDto.setTotalGs(ti.getValorTotal());
+                    tiDto.setVentaCreditoId(String.valueOf(ti.getId()));
+                    tiDto.setVentaId(String.valueOf(ti.getVenta().getId()));
+                    tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
+                    ventaCreditoItemDtoList.add(tiDto);
+                }
+                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "reporte-cobro-venta-credito.jrxml");
+                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(ventaCreditoItemDtoList);
+                Map<String, Object> parameters = new HashMap<>();
+                parameters.put("documento", cliente.getPersona().getDocumento());
+                parameters.put("totalCobrado", totalCobrado);
+                parameters.put("nombreCliente", cliente.getPersona().getNombre().toUpperCase());
+                parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+                parameters.put("usuario", usuario.getNickname());
+                parameters.put("logo", imageService.getImagePath()+File.separator+"logo.png");
+                JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+                byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+                String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+                return base64String;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return null;
+            } catch (JRException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+    }
+
+    public String imprimirReporteLucroPorProducto(List<LucroPorProductosDto> lucroPorProductosDtoList, String fechaInicio, String fechaFin, String sucursales, String filtro, Usuario usuario) {
+            File file = null;
+            Long cantProductos = Long.valueOf(0);
+            Double lucroTotalPorcentaje = 0.0;
+            Double lucroTotalGs = 0.0;
+            Double costoTotal = 0.0;
+            Double ventaTotal = 0.0;
+            List<LucroPorProductosDto> auxList = new ArrayList<>();
+            try {
+                for (LucroPorProductosDto dto : lucroPorProductosDtoList) {
+                    if(dto.getCostoUnitario() == 0){
+                        dto.setCostoUnitario((dto.getTotalVenta() / dto.getCantidad()) * 0.80);
+                        dto.setLucro(dto.getTotalVenta() - (dto.getCostoUnitario() * dto.getCantidad()));
+                        lucroTotalGs += (dto.getLucro());
+                        dto.setPercent((dto.getLucro() / dto.getTotalVenta() * 100));
+                    }
+                    lucroTotalGs += dto.getLucro();
+                    costoTotal += dto.getCostoUnitario() * dto.getCantidad();
+                    ventaTotal += dto.getTotalVenta();
+                    auxList.add(dto);
+                }
+                cantProductos = Long.valueOf(lucroPorProductosDtoList.size());
+                lucroTotalPorcentaje = ((ventaTotal-costoTotal) / ventaTotal);
+                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "lucro-por-producto.jrxml");
+                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);
+                Map<String, Object> parameters = new HashMap<>();
+                parameters.put("filtroFechaInicio", fechaInicio);
+                parameters.put("filtroFechaFin", fechaFin);
+                parameters.put("filtroTexto", filtro);
+                parameters.put("filtroSucursales", sucursales);
+                parameters.put("cantProductos", cantProductos);
+                parameters.put("lucroTotalPorcentaje", lucroTotalPorcentaje);
+                parameters.put("lucroTotalGs", lucroTotalGs);
+                parameters.put("costoTotal", costoTotal);
+                parameters.put("ventaTotal", ventaTotal);
+                parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+                parameters.put("usuario", usuario.getNickname());
+                parameters.put("logo", imageService.getImagePath()+File.separator+"logo.png");
+                JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+                byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+                String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+                return base64String;
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                return null;
+            } catch (JRException e) {
+                e.printStackTrace();
+                return null;
+            }
+    }
+
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
@@ -636,6 +791,17 @@ public class ImpresionService {
         private Double cantidad;
         private String vencimiento;
         private Double precio;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class VentaCreditoItemDto {
+        private String ventaId;
+        private String sucursal;
+        private String ventaCreditoId;
+        private Double totalGs;
+        private String creadoEn;
     }
 
 //    public void printVueltoGasto(GastoDto gastoDto){

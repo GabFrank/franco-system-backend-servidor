@@ -3,6 +3,7 @@ package com.franco.dev.graphql.personas;
 import com.franco.dev.domain.general.Contacto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -22,6 +23,8 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+
+import static com.franco.dev.utilitarios.StringUtils.isValidLong;
 
 @Component
 public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -65,6 +68,18 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
 
         return service.findByAll(texto);
+    }
+
+    public List<Cliente> onSearchWithFilters(String texto, TipoCliente tipoCliente, Integer page, Integer size){
+        List<Cliente> lista = new ArrayList<>();
+        if(isValidLong(texto)){
+            lista.add(service.findById(Long.parseLong(texto)).orElse(null));
+            return lista;
+        } else if(texto == null && tipoCliente == null){
+            return null;
+        } else {
+            return service.findByAll2(texto, tipoCliente, page, size);
+        }
     }
 
     public Cliente saveCliente(ClienteInput input){

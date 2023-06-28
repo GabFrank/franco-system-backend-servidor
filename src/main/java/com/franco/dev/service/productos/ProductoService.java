@@ -1,17 +1,16 @@
 package com.franco.dev.service.productos;
 
+import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
+import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.ProductoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
-import com.franco.dev.rabbit.sender.Sender;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.RabbitCrudService;
 import com.franco.dev.service.utils.ImageService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -19,7 +18,6 @@ import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
@@ -32,6 +30,8 @@ import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.util.*;
 import java.util.logging.Logger;
+
+import static com.franco.dev.utilitarios.DateUtils.toDate;
 
 @Service
 @AllArgsConstructor
@@ -54,13 +54,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final ImageService imageService;
     @Autowired
     private Environment env;
+
     @Override
     public ProductoRepository getRepository() {
         return repository;
     }
 
 
-    public List<Producto> findByAll(String texto, Integer offset, Boolean isEnvase) {
+    public List<Producto> findByAll(String texto, Integer offset, Boolean isEnvase, Boolean activo) {
         if (texto.length() > 0) {
             texto = texto.replace(' ', '%').toUpperCase();
             if (offset == null) {
@@ -164,7 +165,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public String exportarReporte(String texto) throws FileNotFoundException {
-        List<Producto> productoList = findByAll(texto, 0, false);
+        List<Producto> productoList = findByAll(texto, 0, false, true);
         List<ProductoReportDto> productosDtoList = new ArrayList<>();
         PrecioPorSucursal precioVenta = null;
         PrecioPorSucursal precioCosto = null;
@@ -215,4 +216,13 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return repository.findByPdvGrupoProductoId(id);
     }
 
+    public List<ProductoIdAndCantidadDto> findProductosAndCantidadVendidaPorPeriodoAndSucursal(String inicio, String fin, Long sucId) {
+        List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository.findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, toDate(inicio), toDate(fin));
+        return productoIdAndCantidadDtoList;
+    }
+
+    public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList, List<Long> usuarioIdList, List<Long> productoIdList) {
+        List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucIdList, toDate(inicio), toDate(fin), usuarioIdList, productoIdList);
+        return lucroPorProductosDtoList;
+    }
 }

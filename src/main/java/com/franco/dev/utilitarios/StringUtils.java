@@ -50,4 +50,13 @@ public class StringUtils {
         return "";
     }
 
+    public static boolean isValidLong(String str) {
+        try {
+            Long.parseLong(str);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
 }

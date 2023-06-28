@@ -23,5 +23,4 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
 
     public List<VentaItem> findByVentaIdAndSucursalId(Long id, Long sucId);
 
-
 }

@@ -2,6 +2,9 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.franco.dev.graphql.operaciones.VentaGraphQL;
+import com.franco.dev.graphql.productos.ProductoGraphQL;
+import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
 import net.sf.jasperreports.engine.JRPropertiesMap;
@@ -42,7 +45,7 @@ public class FrancoSystemsApplication {
     //    @Autowired
 //    private CodigoService codigoService;
     @Autowired
-    private ImageService imageService;
+    private ProductoGraphQL productoGraphQL;
 
     public static void main(String[] args) throws IOException {
 

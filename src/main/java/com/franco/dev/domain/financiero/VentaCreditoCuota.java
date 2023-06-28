@@ -31,6 +31,8 @@ public class VentaCreditoCuota implements Serializable {
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
+//    private Long sucursalCobroId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),

@@ -1,16 +1,14 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.financiero.Banco;
-import com.franco.dev.domain.financiero.Gasto;
-import com.franco.dev.domain.financiero.Moneda;
-import com.franco.dev.domain.financiero.MovimientoCaja;
+import com.franco.dev.domain.financiero.*;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -44,6 +42,10 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
 
     public List<Gasto> findByDate(String inicio, String fin, Long sucId){
         return repository.findBySucursalIdAndCreadoEnBetween(sucId, toDate(inicio), toDate(fin));
+    }
+
+    public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, Pageable pageable){
+        return repository.findByAll(id, cajaId, sucId, responsableId, pageable);
     }
 
     public List<Gasto> findByCajaId(Long id, Long sucId) {

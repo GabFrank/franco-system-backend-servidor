@@ -62,12 +62,13 @@ extend type Query {
     producto(id:ID!):Producto
     productos(page:Int = 0, size:Int = 10):[Producto]!
     countProducto: Int
-    productoSearch(texto:String, offset:Int, isEnvase: Boolean):[Producto]
+    productoSearch(texto:String, offset:Int, isEnvase: Boolean, activo: Boolean):[Producto]
     productoPorProveedorId(id: ID!, texto: String): [Producto]
     productoPorSucursalStock(proId: ID!, sucId: ID!): Float
     productoPorCodigo(texto:String):Producto
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String
+    lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
 }
 
 extend type Mutation {
@@ -88,6 +89,16 @@ enum UnidadMedida {
     CAJA,
     KILO,
     LITRO
+}
+
+type LucroPorProducto {
+    productoId: ID!
+    descripcion: String
+    costoUnitario: Float
+    cantidad: Float
+    totalVenta: Float
+    lucro: Float
+    percent: Float
 }
 
 

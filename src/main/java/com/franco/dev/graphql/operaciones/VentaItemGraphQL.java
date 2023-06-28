@@ -104,4 +104,5 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findByVentaId(id, sucId);
     }
 
+
 }

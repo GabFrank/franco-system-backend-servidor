@@ -41,6 +41,10 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return repository.findByCajaId(id);
     }
 
+    public FacturaLegal findByVentaIdAndSucursalId(Long id, Long sucId){
+        return repository.findByVentaIdAndSucursalId(id, sucId);
+    }
+
     public List<FacturaLegal> findByAll(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
         LocalDateTime inicio = toDate(fechaInicio);
         LocalDateTime fin = toDate(fechaFin);

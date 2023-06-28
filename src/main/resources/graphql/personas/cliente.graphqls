@@ -28,6 +28,7 @@ extend type Query {
     clientePorPersonaId(id:ID): Cliente
     clientePorPersona(texto:String): [Cliente]
     clientePorTelefono(texto:String): [Cliente]
+    onSearchWithFilters(texto:String, tipo: TipoCliente, page: Int, size: Int): [Cliente]
     clientes(page:Int = 0, size:Int = 10):[Cliente]!
     countCliente: Int
 }

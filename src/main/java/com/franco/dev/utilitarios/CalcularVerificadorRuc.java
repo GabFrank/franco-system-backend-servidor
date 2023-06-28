@@ -6,8 +6,16 @@ public class CalcularVerificadorRuc {
         return getDigitoVerificador(ruc, 11);
     }
 
-    public static int getDigitoVerificador(String ruc, int base) {
+    public static String getDigitoVerificadorString(String ruc){
+        Integer digito = getDigitoVerificador(ruc, 11);
+        if(digito!=null){
+            return "-" + digito;
+        }
+        return "";
+    }
 
+    public static Integer getDigitoVerificador(String ruc, int base) {
+        if(ruc.length() < 6) return null;
         int k = 2;
         int total = 0;
 

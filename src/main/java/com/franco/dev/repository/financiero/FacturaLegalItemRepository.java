@@ -18,6 +18,6 @@ public interface FacturaLegalItemRepository extends HelperRepository<FacturaLega
 
 //    Moneda findByPaisId(Long id);
 
-    public List<FacturaLegalItem> findByFacturaLegalId(Long id);
+    public List<FacturaLegalItem> findByFacturaLegalIdAndSucursalId(Long id, Long sucId);
 
 }

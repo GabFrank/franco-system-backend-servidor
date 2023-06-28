@@ -57,10 +57,18 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Optional<Retiro> retiro(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<Retiro> retiros(int page, int size, Long sucId){
+    public List<Retiro> retiros(Integer page, Integer size, Long sucId){
+        if(page==null) page = 0;
+        if(size==null) size = 20;
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
+
+    public List<Retiro> filterRetiros(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page, size);
+        return service.filterRetiros(id, cajaId, sucId, responsableId, cajeroId, pageable);
+    }
+
     public Retiro saveRetiro(RetiroInput input, List<RetiroDetalleInput> retiroDetalleInputList, String printerName, String local) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Retiro e = m.map(input, Retiro.class);

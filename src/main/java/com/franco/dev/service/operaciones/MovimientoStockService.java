@@ -2,7 +2,9 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -36,6 +38,15 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         MovimientoStock e = super.save(entity);
 //        personaPublisher.publish(p);
         return e;
+    }
+
+    @Override
+    public Boolean delete(MovimientoStock entity) {
+        Boolean ok = super.delete(entity);
+        if(ok){
+            propagacionService.eliminarEntidad(entity.getId(), TipoEntidad.MOVIMIENTO_STOCK, entity.getSucursalId());
+        }
+        return ok;
     }
 
     public List<MovimientoStock> ultimosMovimientos(Long proId, TipoMovimiento tm, Integer limit){

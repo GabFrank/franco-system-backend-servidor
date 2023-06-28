@@ -1,26 +1,35 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.operaciones.Cobro;
-import com.franco.dev.domain.operaciones.Venta;
-import com.franco.dev.domain.operaciones.VentaItem;
-import com.franco.dev.domain.operaciones.VentaPorSucursal;
+import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
+import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.domain.productos.CostoPorProducto;
+import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
 import com.franco.dev.graphql.operaciones.input.CobroInput;
 import com.franco.dev.graphql.operaciones.input.VentaInput;
 import com.franco.dev.graphql.operaciones.input.VentaItemInput;
+import com.franco.dev.rabbit.enums.TipoEntidad;
+import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.operaciones.DeliveryService;
 import com.franco.dev.service.operaciones.VentaItemService;
 import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.ProductoService;
+import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
@@ -87,6 +96,15 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private ProductoService productoService;
     @Autowired
     private PrintingService printingService;
+    @Autowired
+    private DeliveryService deliveryService;
+    @Autowired
+    private PropagacionService propagacionService;
+    @Autowired
+    private CostosPorProductoService costosPorProductoService;
+
+    @Autowired
+    private FacturaLegalGraphQL facturaLegalGraphQL;
 
     private Sucursal sucursal;
 
@@ -235,7 +253,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             escpos.writeLF("--------------------------------");
             for (VentaItem vi : ventaItemList) {
                 String cantidad = vi.getCantidad().intValue() + " (" + vi.getPresentacion().getCantidad() + ")";
-                log.info(vi.getProducto().getDescripcion());
                 escpos.writeLF(vi.getProducto().getDescripcion());
                 escpos.write(new Style().setBold(true), cantidad);
                 String valorUnitario = NumberFormat.getNumberInstance(Locale.GERMAN).format(vi.getPrecioVenta().getPrecio().intValue());
@@ -291,7 +308,15 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Boolean cancelarVenta(Long id, Long sucId) {
         Venta venta = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-            return service.cancelarVenta(venta);
+            if(service.cancelarVenta(venta)){
+                Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
+                if(delivery!=null){
+                    delivery.setEstado(DeliveryEstado.CANCELADO);
+                    deliveryService.save(delivery);
+                    propagacionService.propagarEntidad(delivery, TipoEntidad.DELIVERY, venta.getSucursalId());
+                }
+            }
+            return true;
         }
         return false;
     }
@@ -303,7 +328,12 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             List<VentaItem> ventaItemList = ventaItemGraphQL.ventaItemListPorVentaId(venta.getId(), sucId);
             if (cobro != null) {
                 List<CobroDetalleInput> cobroDetalleList = new ArrayList<>();
-                printTicket58mm(venta, cobro, ventaItemList, cobroDetalleList, true, printerName, local);
+                FacturaLegal facturaLegal = facturaLegalGraphQL.facturaLegalPorVenta(venta.getId(), venta.getSucursalId());
+                if (facturaLegal != null) {
+                    facturaLegalGraphQL.reimprimirFacturaLegal(facturaLegal.getId(), venta.getSucursalId(), printerName);
+                } else {
+                    printTicket58mm(venta, cobro, ventaItemList, cobroDetalleList, true, printerName, local);
+                }
                 return true;
             }
         }
@@ -314,7 +344,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return service.ventaPorPeriodo(inicio, fin);
     }
 
-    public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin){
+    public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin) {
         return service.ventaPorSucursal(inicio, fin);
     }
 }

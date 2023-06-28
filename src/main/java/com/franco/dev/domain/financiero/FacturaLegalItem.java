@@ -45,7 +45,7 @@ public class FacturaLegalItem implements Serializable {
             @JoinColumnOrFormula(column = @JoinColumn(name = "venta_item_id", referencedColumnName = "id"))
     })
     private VentaItem ventaItem;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_id", nullable = true)
     private Presentacion presentacion;
     private Float cantidad;

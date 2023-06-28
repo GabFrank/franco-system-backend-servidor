@@ -23,6 +23,8 @@ public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, E
 
     public List<FacturaLegal> findByCajaId(Long id);
 
+    public FacturaLegal findByVentaIdAndSucursalId(Long id, Long sucId);
+
     @Query(value =  "select fl from FacturaLegal fl where " +
             "(fl.creadoEn between :inicio and :fin) " +
             "and (fl.sucursalId in :sucId) " +

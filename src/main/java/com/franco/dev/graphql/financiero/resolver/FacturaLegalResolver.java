@@ -21,7 +21,7 @@ public class FacturaLegalResolver implements GraphQLResolver<FacturaLegal> {
     private SucursalService sucursalService;
 
     public List<FacturaLegalItem> facturaLegalItemList(FacturaLegal e) {
-        return facturaLegalItemService.findByFacturaLegalId(e.getId());
+        return facturaLegalItemService.findByFacturaLegalId(e.getId(), e.getSucursalId());
     }
     public Sucursal sucursal(FacturaLegal e){
         return sucursalService.findById(e.getSucursalId()).orElse(null);

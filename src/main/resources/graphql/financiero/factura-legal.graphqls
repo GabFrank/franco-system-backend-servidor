@@ -51,6 +51,7 @@ extend type Query {
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
     facturaLegales(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):[FacturaLegal]!
     countFacturaLegal: Int
+    reimprimirFacturaLegal(id:ID!, sucId:ID!, printerName: String):Boolean
 }
 
 extend type Mutation {

@@ -40,8 +40,8 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<VentaCreditoCuota> ventaCreditoCuota(Long id) {
-        return service.findById(id);
+    public Optional<VentaCreditoCuota> ventaCreditoCuota(Long id, Long sucId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<VentaCreditoCuota> ventaCreditoCuotas(int page, int size) {
@@ -55,19 +55,19 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
         if(input.getVencimiento()!=null) e.setVencimiento(toDate(input.getVencimiento()));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getVentaCreditoId() != null)
-            e.setVentaCredito(ventaCreditoService.findById(input.getVentaCreditoId()).orElse(null));
+            e.setVentaCredito(ventaCreditoService.findById(new EmbebedPrimaryKey(input.getVentaCreditoId(), input.getSucursalId())).orElse(null));
         if (input.getCobroId() != null) e.setCobro(cobroService.findById(new EmbebedPrimaryKey(input.getCobroId(), input.getSucursalId())).orElse(null));
         e = service.save(e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.BANCO);
         return e;
     }
 
-    public List<VentaCreditoCuota> ventaCreditoCuotaPorVentaCredito(Long id) {
-        return service.findByVentaCreditoId(id);
+    public List<VentaCreditoCuota> ventaCreditoCuotaPorVentaCredito(Long id, Long sucId) {
+        return service.findByVentaCreditoId(id, sucId);
     }
 
-    public Boolean deleteVentaCreditoCuota(Long id) {
-        Boolean ok = service.deleteById(id);
+    public Boolean deleteVentaCreditoCuota(Long id, Long sucId) {
+        Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.BANCO);
         return ok;
     }

@@ -100,6 +100,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                 }
             }
         }
+
         e = service.save(e);
         propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA_ITEM, e.getTransferencia().getSucursalOrigen().getId());
         propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA_ITEM, e.getTransferencia().getSucursalDestino().getId());

@@ -87,6 +87,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public Transferencia saveTransferencia(TransferenciaInput input) {
         ModelMapper m = new ModelMapper();
         Transferencia e = m.map(input, Transferencia.class);
+        Long auxSucursalOrigenId = null;
+        Long auxSucursalDestinoId = null;
+        Transferencia transferencia = null;
         if (input.getUsuarioPreTransferenciaId() != null)
             e.setUsuarioPreTransferencia(usuarioService.findById(input.getUsuarioPreTransferenciaId()).orElse(null));
         if (input.getUsuarioPreparacionId() != null)
@@ -97,9 +100,30 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             e.setUsuarioRecepcion(usuarioService.findById(input.getUsuarioRecepcionId()).orElse(null));
         e.setSucursalOrigen(sucursalService.findById(input.getSucursalOrigenId()).orElse(null));
         e.setSucursalDestino(sucursalService.findById(input.getSucursalDestinoId()).orElse(null));
+        if(input.getId()!=null){
+            transferencia = service.findById(input.getId()).orElse(null);
+            auxSucursalOrigenId = transferencia.getSucursalOrigen().getId();
+            auxSucursalDestinoId = transferencia.getSucursalDestino().getId();
+        }
         e = service.save(e);
         propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalOrigen().getId());
         propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalDestino().getId());
+        System.out.println(transferencia != null);
+        System.out.println(input.getSucursalOrigenId() != auxSucursalOrigenId);
+        System.out.println(input.getSucursalDestinoId() != auxSucursalDestinoId);
+        if(transferencia != null && (!input.getSucursalOrigenId().equals(auxSucursalOrigenId) || !input.getSucursalDestinoId().equals(auxSucursalDestinoId))){
+            List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(transferencia.getId());
+            if(input.getSucursalOrigenId() != auxSucursalOrigenId){
+                for (TransferenciaItem ti : transferenciaItemList) {
+                    propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, e.getSucursalOrigen().getId());
+                }
+            }
+            if(input.getSucursalDestinoId() != auxSucursalDestinoId){
+                for (TransferenciaItem ti : transferenciaItemList) {
+                    propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, e.getSucursalDestino().getId());
+                }
+            }
+        }
         return e;
     }
 

@@ -2,13 +2,16 @@ package com.franco.dev.graphql.personas;
 
 import com.franco.dev.domain.general.Contacto;
 import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.general.ContactoService;
 import com.franco.dev.service.personas.ClienteService;
+import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
@@ -21,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,6 +47,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private PropagacionService propagacionService;
+
+    @Autowired
+    private FuncionarioService funcionarioService;
 
     public Optional<Cliente> cliente(Long id) {return service.findById(id);}
 
@@ -89,6 +96,12 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
         propagacionService.propagarEntidad(e, TipoEntidad.CLIENTE);
+        Funcionario funcionario = funcionarioService.findByPersonaId(e.getPersona().getId());
+        if(funcionario != null && e.getCredito() != funcionario.getCredito()){
+            funcionario.setCredito(e.getCredito());
+            funcionario = funcionarioService.save(funcionario);
+            propagacionService.propagarEntidad(funcionario, TipoEntidad.FUNCIONARIO);
+        }
         return e;
     }
 

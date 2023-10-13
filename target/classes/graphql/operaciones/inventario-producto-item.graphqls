@@ -23,10 +23,28 @@ input InventarioProductoItemInput {
     usuarioId: Int
 }
 
+type InventarioProductoItemPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [InventarioProductoItem]
+    getPageable: Pageable
+}
+
 extend type Query {
     inventarioProductoItem(id:ID!):InventarioProductoItem
     inventarioProductosItem(page:Int = 0, size:Int = 10):[InventarioProductoItem]!
     inventarioProductosItemPorInventarioProducto(id:ID!, page:Int = 0, size:Int = 10):[InventarioProductoItem]!
+    inventarioProductoItemWithFilter(
+        startDate: String, endDate: String, sucursalIdList: [Int], usuarioIdList:[ID], productoIdList:[ID],
+        page: Int, size: Int, orderBy: String, tipoOrder: String): InventarioProductoItemPage
+    reporteInventario(
+        startDate: String, endDate: String, sucursalIdList: [Int], usuarioIdList:[ID], productoIdList:[ID],
+        page: Int, size: Int, orderBy: String, tipoOrder: String, nickname: String): String
 }
 
 extend type Mutation {

@@ -1,0 +1,34 @@
+type ProductoProveedor {
+    id: ID!
+    producto: Producto
+    proveedor: Proveedor
+    pedido: Pedido
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input ProductoProveedorInput {
+    id: ID
+    productoId: Int
+    proveedorId: Int
+    pedidoId: Int
+    usuarioId: Int
+}
+
+type ProductoProveedorPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ProductoProveedor]
+    getPageable: Pageable
+}
+
+extend type Query {
+    productoProveedorPorProveedorId(id: ID!, page: Int, size: Int): ProductoProveedorPage
+}
+
+

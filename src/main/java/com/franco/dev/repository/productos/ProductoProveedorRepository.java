@@ -1,11 +1,9 @@
 package com.franco.dev.repository.productos;
 
-import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.repository.HelperRepository;
-import org.springframework.data.jpa.repository.Query;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface ProductoProveedorRepository extends HelperRepository<ProductoProveedor, Long> {
 
@@ -13,5 +11,6 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
         return ProductoProveedor.class;
     }
 
-
+    Page<ProductoProveedor> findByProveedorId(Long id, Pageable pageable);
+    Page<ProductoProveedor> findByProductoId(Long id, Pageable pageable);
 }

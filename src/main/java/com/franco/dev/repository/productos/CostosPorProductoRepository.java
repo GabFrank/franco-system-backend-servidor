@@ -2,7 +2,11 @@ package com.franco.dev.repository.productos;
 
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
 
 public interface CostosPorProductoRepository extends HelperRepository<CostoPorProducto, Long> {
 
@@ -25,6 +29,8 @@ public interface CostosPorProductoRepository extends HelperRepository<CostoPorPr
             "where cps.movimiento_stock_id = ?1",
            nativeQuery = true)
     public CostoPorProducto findByMovimientoStockId(Long id);
+
+    public Page<CostoPorProducto> findByProductoId(Long id, Pageable page);
 
 
 //    @Query("select c from CostosPorSucursal c " +

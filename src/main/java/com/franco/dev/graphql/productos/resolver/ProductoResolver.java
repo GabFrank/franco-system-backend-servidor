@@ -212,7 +212,8 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
     }
 
     public CostoPorProducto costo(Producto p){
-        return costosPorProductoService.findLastByProductoId(p.getId());
+        CostoPorProducto costo = costosPorProductoService.findLastByProductoId(p.getId());
+        return costo;
     }
 
 }

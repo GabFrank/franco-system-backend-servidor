@@ -5,7 +5,12 @@ import com.franco.dev.repository.productos.CostosPorProductoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -25,9 +30,17 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         return repository.findLastByProductoId(prdoId);
     }
 
+    public Page<CostoPorProducto> findByProductoId(Long id, Pageable page){
+        return repository.findByProductoId(id, page);
+    }
+
     public CostoPorProducto findByMovimientoStockId(Long id) {
         return repository.findByMovimientoStockId(id);
     }
 
-
+    @Override
+    public CostoPorProducto save(CostoPorProducto entity) {
+        if(entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
+        return super.save(entity);
+    }
 }

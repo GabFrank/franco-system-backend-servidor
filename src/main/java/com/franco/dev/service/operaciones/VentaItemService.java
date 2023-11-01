@@ -46,9 +46,11 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
     @Override
     public VentaItem save(VentaItem entity) {
-        CostoPorProducto costoPorProducto = costosPorProductoService.findLastByProductoId(entity.getProducto().getId());
-        if(costoPorProducto!=null){
-            entity.setPrecioCosto(costoPorProducto.getUltimoPrecioCompra());
+        if(entity.getPrecioCosto()==null){
+            CostoPorProducto costoPorProducto = costosPorProductoService.findLastByProductoId(entity.getProducto().getId());
+            if(costoPorProducto!=null){
+                entity.setPrecioCosto(costoPorProducto.getUltimoPrecioCompra());
+            }
         }
         VentaItem e = super.save(entity);
 //        personaPublisher.publish(p);

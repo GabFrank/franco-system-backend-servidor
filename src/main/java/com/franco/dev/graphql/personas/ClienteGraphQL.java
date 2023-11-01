@@ -19,6 +19,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -77,11 +78,11 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByAll(texto);
     }
 
-    public List<Cliente> onSearchWithFilters(String texto, TipoCliente tipoCliente, Integer page, Integer size){
+    public Page<Cliente> onSearchWithFilters(String texto, TipoCliente tipoCliente, Integer page, Integer size){
         List<Cliente> lista = new ArrayList<>();
         if(isValidLong(texto)){
             lista.add(service.findById(Long.parseLong(texto)).orElse(null));
-            return lista;
+            return (Page<Cliente>) lista;
         } else if(texto == null && tipoCliente == null){
             return null;
         } else {

@@ -20,6 +20,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -65,8 +66,14 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.findAll(pageable);
     }
 
-    public List<TransferenciaItem> transferenciaItensPorTransferenciaId(Long id, Integer page, Integer size) {
-        return service.findByTransferenciaItemId(id, page, size);
+    public Page<TransferenciaItem> transferenciaItensPorTransferenciaId(Long id, Integer page, Integer size) {
+        Page<TransferenciaItem> res = service.findByTransferenciaItemId(id, page, size);
+        return res;
+    }
+
+    public Page<TransferenciaItem> transferenciaItensPorTransferenciaIdWithFilter(Long id, String name, Integer page, Integer size) {
+        Page<TransferenciaItem> res = service.findByTransferenciaItemIdWithFilter(id, name, page, size);
+        return res;
     }
 
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input, Double precioCosto) {

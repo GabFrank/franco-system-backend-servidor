@@ -4,8 +4,10 @@ import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.repository.operaciones.TransferenciaItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,16 +28,22 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
         return repository.findByTransferenciaId(id);
     }
 
-    public List<TransferenciaItem> findByTransferenciaItemId(Long id, Integer page, Integer size) {
-        if (page == null && size == null) {
-            return repository.findByTransferenciaIdOrderByIdDesc(id);
-        }
+    public Page<TransferenciaItem> findByTransferenciaItemId(Long id, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         return repository.findByTransferenciaIdOrderByIdDesc(id, pageable);
     }
 
+    public Page<TransferenciaItem> findByTransferenciaItemIdWithFilter(Long id, String name, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return repository.findByTransferenciaIdWithFilters(id, name != null ? "%"+name.toUpperCase()+"%" : null, pageable);
+    }
+
     public List<TransferenciaItem> findByTransferenciaItemId(Long id) {
         return repository.findByTransferenciaIdOrderByIdDesc(id);
+    }
+
+    public List<TransferenciaItem> findByTransferenciaItemIdAsc(Long id) {
+        return repository.findByTransferenciaIdOrderByIdAsc(id);
     }
 
     @Override

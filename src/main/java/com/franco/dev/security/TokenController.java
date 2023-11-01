@@ -1,7 +1,9 @@
 package com.franco.dev.security;
 
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.security.jwt.JwtGenerator;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -18,6 +20,9 @@ public class TokenController {
 
     @Autowired
     private final UsuarioService service;
+
+    @Autowired
+    private SucursalService sucursalService;
 
     private JwtGenerator jwtGenerator;
 
@@ -63,7 +68,7 @@ public class TokenController {
         } else {
             throw new GraphQLException("Ups!! El usuario no existe");
         }
-        LoginResponse response = new LoginResponse(usuario.getId(),jwtGenerator.generate(jwtUser));
+        LoginResponse response = new LoginResponse(usuario.getId(),jwtGenerator.generate(jwtUser), sucursalService.sucursalActual());
         return ResponseEntity.ok(response);
     }
 }
@@ -74,4 +79,5 @@ public class TokenController {
 class LoginResponse {
     Long usuarioId;
     String token;
+    Sucursal sucursal;
 }

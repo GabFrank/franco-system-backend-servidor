@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
@@ -12,6 +13,7 @@ import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
+import com.franco.dev.graphql.financiero.VentaCreditoGraphQL;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
 import com.franco.dev.graphql.operaciones.input.CobroInput;
 import com.franco.dev.graphql.operaciones.input.VentaInput;
@@ -45,6 +47,7 @@ import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -102,6 +105,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private PropagacionService propagacionService;
     @Autowired
     private CostosPorProductoService costosPorProductoService;
+
+    @Autowired
+    private VentaCreditoGraphQL ventaCreditoGraphQL;
 
     @Autowired
     private FacturaLegalGraphQL facturaLegalGraphQL;
@@ -301,7 +307,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     }
 
-    public List<Venta> ventasPorCajaId(Long id, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery) {
+    public Page<Venta> ventasPorCajaId(Long id, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery) {
         return service.findByCajaId(new EmbebedPrimaryKey(id, sucId), page, size, asc, formaPago, estado, isDelivery);
     }
 
@@ -314,6 +320,10 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                     delivery.setEstado(DeliveryEstado.CANCELADO);
                     deliveryService.save(delivery);
                     propagacionService.propagarEntidad(delivery, TipoEntidad.DELIVERY, venta.getSucursalId());
+                }
+                VentaCredito ventaCredito = ventaCreditoGraphQL.findByVentaIdAndSucId(venta.getId(), sucId);
+                if(ventaCredito!=null){
+
                 }
             }
             return true;

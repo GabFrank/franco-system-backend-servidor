@@ -3,6 +3,7 @@ package com.franco.dev.graphql.empresarial;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.empresarial.input.SucursalInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
+import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;

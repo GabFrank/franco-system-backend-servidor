@@ -595,12 +595,13 @@ public class ImpresionService {
             File file = null;
             try {
                 List<TransferenciaItemDto> transferenciaItemDtoList = new ArrayList<>();
-                for (TransferenciaItem ti : transferenciaItemList) {
+                for (int i = 0; i < transferenciaItemList.size(); i++) {
+                    TransferenciaItem ti = transferenciaItemList.get(i);
                     TransferenciaItemDto tiDto = new TransferenciaItemDto();
                     tiDto.setCantidad(ti.getCantidadPreTransferencia());
                     Codigo codigo = codigoService.findPrincipalByPresentacionId(ti.getPresentacionPreTransferencia().getId());
                     tiDto.setCodBarra(codigo != null ? codigo.getCodigo() : "");
-                    tiDto.setDescripcion(ti.getPresentacionPreTransferencia().getProducto().getDescripcion());
+                    tiDto.setDescripcion(i + 1 + " - " + ti.getPresentacionPreTransferencia().getProducto().getDescripcion());
                     PrecioPorSucursal precio = precioPorSucursalService.findPrincipalByPrecionacionId(ti.getPresentacionPreTransferencia().getId());
                     tiDto.setPrecio(precio != null ? precio.getPrecio() : null);
                     tiDto.setPresentacion(ti.getPresentacionPreTransferencia().getCantidad());
@@ -741,10 +742,13 @@ public class ImpresionService {
                 for (LucroPorProductosDto dto : lucroPorProductosDtoList) {
                     if(dto.getCostoUnitario() == 0){
                         dto.setCostoUnitario((dto.getTotalVenta() / dto.getCantidad()) * 0.80);
-                        dto.setLucro(dto.getTotalVenta() - (dto.getCostoUnitario() * dto.getCantidad()));
-                        lucroTotalGs += (dto.getLucro());
-                        dto.setPercent((dto.getLucro() / dto.getTotalVenta() * 100));
+                    } else {
+                        dto.setCostoUnitario(dto.getCostoUnitario() / dto.getCantidad());
                     }
+                    dto.setLucro((dto.getTotalVenta() - (dto.getCostoUnitario() * dto.getCantidad())));
+                    dto.setVentaMedia(dto.getTotalVenta() / dto.getCantidad());
+                    dto.setPercent((dto.getLucro() * 100) / dto.getTotalVenta());
+                    dto.setMargen(((dto.getVentaMedia() * 100) / dto.getCostoUnitario()) - 100);
                     lucroTotalGs += dto.getLucro();
                     costoTotal += dto.getCostoUnitario() * dto.getCantidad();
                     ventaTotal += dto.getTotalVenta();

@@ -6,6 +6,7 @@ import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.personas.ClienteRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
         return  repository.findByPersona(texto);
     }
 
-    public List<Cliente> findByAll2(String texto, TipoCliente tipoCliente, Integer page, Integer size){
+    public Page<Cliente> findByAll2(String texto, TipoCliente tipoCliente, Integer page, Integer size){
         texto = texto != null ? texto.replace(' ', '%').toUpperCase(): "%";
         Pageable pagina = PageRequest.of(page, size);
         return  repository.findByAll(texto, tipoCliente, pagina);

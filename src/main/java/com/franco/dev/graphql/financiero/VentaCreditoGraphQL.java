@@ -127,6 +127,10 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
+    public VentaCredito findByVentaIdAndSucId(Long id, Long sucId) {
+        return service.findByVentaIdAndSucId(id, sucId);
+    }
+
     public List<VentaCredito> ventaCreditos(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
@@ -192,7 +196,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id,sucId)).orElse(null);
         if(ventaCredito!=null){
             Venta venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId)).orElse(null);
-            if(venta!=null){
+            if(venta!=null && venta.getEstado() != VentaEstado.CANCELADA){
                 venta.setEstado(VentaEstado.CANCELADA);
                 venta = ventaService.save(venta);
                 propagacionService.propagarEntidad(venta, TipoEntidad.VENTA, venta.getSucursalId());

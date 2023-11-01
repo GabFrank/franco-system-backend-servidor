@@ -70,11 +70,13 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "GROUP BY pro.id")
     public List<ProductoIdAndCantidadDto> findProductosAndCantidadVendidaPorPeriodoAndSucursal(@Param("sucId") Long sucId, @Param("inicio") LocalDateTime inicio, @Param("fin") LocalDateTime fin);
 
-    @Query("SELECT new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
-            "pro.id, pro.descripcion, COALESCE(cpp.ultimoPrecioCompra, 0), " +
-            "SUM(vi.cantidad * pre.cantidad), SUM(vi.precio * vi.cantidad), " +
-            "(SUM(vi.precio * vi.cantidad) - (SUM(vi.cantidad * pre.cantidad) * COALESCE(cpp.ultimoPrecioCompra, 0))), " +
-            "((SUM(vi.precio * vi.cantidad) - (SUM(vi.cantidad * pre.cantidad) * COALESCE(cpp.ultimoPrecioCompra, 0))) * 100) / SUM(vi.precio * vi.cantidad) " +
+    @Query("SELECT Distinct new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
+            "pro.id as id, " +
+            "pro.descripcion as descripcion, " +
+            "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, cpp.ultimoPrecioCompra, 0)) as costoUnitario, " +
+            "SUM(vi.cantidad * pre.cantidad) as cantidad, " +
+            "SUM(vi.precio * vi.cantidad) as totalVenta," +
+            "0.0, 0.0, 0.0, 0.0 " +
             ") " +
             "FROM VentaItem vi " +
             "JOIN vi.venta v " +
@@ -90,7 +92,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "((:sucursalIdList) is null or v.sucursalId IN (:sucursalIdList)) AND " +
             "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
             "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
-            "GROUP BY pro.id, cpp.ultimoPrecioCompra " +
+            "group by pro.id " +
             "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
     public List<LucroPorProductosDto> findLucroPorProducto(
             @Param("sucursalIdList") List<Long> sucursalIdList,

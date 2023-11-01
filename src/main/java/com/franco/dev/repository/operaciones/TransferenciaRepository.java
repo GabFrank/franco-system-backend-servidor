@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -46,7 +47,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
             + "(:isDestino IS NULL OR t.isDestino = :isDestino) AND "
             + "(t.creadoEn >= :creadoEnDesde or cast(:creadoEnDesde as timestamp) IS NULL) AND "
             + "(t.creadoEn <= :creadoEnHasta or cast(:creadoEnHasta as timestamp) IS NULL ) order by t.id desc")
-    List<Transferencia> findByFilter(
+    Page<Transferencia> findByFilter(
             Long sucursalOrigenId,
             Long sucursalDestinoId,
             TransferenciaEstado estado,
@@ -55,5 +56,6 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
             Boolean isOrigen,
             Boolean isDestino,
             LocalDateTime creadoEnDesde,
-            LocalDateTime creadoEnHasta);
+            LocalDateTime creadoEnHasta,
+            Pageable pageable);
 }

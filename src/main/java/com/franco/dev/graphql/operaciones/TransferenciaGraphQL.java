@@ -21,6 +21,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -259,7 +260,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return ok;
     }
 
-    public List<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,
+    public Page<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,
                                                          TransferenciaEstado estado, TipoTransferencia tipo,
                                                          EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
                                                          String creadoDesde, String creadoHasta, Integer page, Integer size) {
@@ -272,7 +273,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public String imprimirTransferencia(Long id, Boolean ticket, String printerName) {
         Transferencia transferencia = service.findById(id).orElse(null);
         if (transferencia != null) {
-            List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(id);
+            List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemIdAsc(id);
             return impresionService.imprimirTransferencia(transferencia, transferenciaItemList, ticket, printerName);
         } else {
             return "";

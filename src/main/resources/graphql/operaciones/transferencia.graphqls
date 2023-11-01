@@ -34,13 +34,25 @@ input TransferenciaInput {
     creadoEn: Date
 }
 
+type TransferenciaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Transferencia]
+    getPageable: Pageable
+}
+
 extend type Query {
     transferencia(id:ID!):Transferencia
     transferencias(page:Int = 0, size:Int = 10):[Transferencia]!
     transferenciaPorFecha(inicio:String, fin:String):[Transferencia]!
     transferenciasPorUsuario(id: ID!):[Transferencia]!
     countTransferencia: Int
-    transferenciasWithFilters(sucursalOrigenId: Int, sucursalDestinoId: Int, estado: TransferenciaEstado, tipo: TipoTransferencia, etapa: EtapaTransferencia, isOrigen: Boolean, isDestino: Boolean, creadoDesde: String, creadoHasta: String, page: Int, size: Int): [Transferencia]
+    transferenciasWithFilters(sucursalOrigenId: Int, sucursalDestinoId: Int, estado: TransferenciaEstado, tipo: TipoTransferencia, etapa: EtapaTransferencia, isOrigen: Boolean, isDestino: Boolean, creadoDesde: String, creadoHasta: String, page: Int, size: Int): TransferenciaPage
     imprimirTransferencia(id:ID!, ticket: Boolean, printerName:String!):String
 }
 

@@ -46,4 +46,8 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 //        personaPublisher.publish(p);
         return e;
     }
+
+    public Sucursal sucursalActual() {
+        return findById(Long.valueOf(environment.getProperty("sucursalId"))).orElse(null);
+    }
 }

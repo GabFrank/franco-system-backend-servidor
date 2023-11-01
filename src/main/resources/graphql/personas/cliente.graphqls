@@ -23,12 +23,24 @@ input ClienteInput {
     sucursalId: Int
 }
 
+type ClientePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Cliente]
+    getPageable: Pageable
+}
+
 extend type Query {
     cliente(id:ID!):Cliente
     clientePorPersonaId(id:ID): Cliente
     clientePorPersona(texto:String): [Cliente]
     clientePorTelefono(texto:String): [Cliente]
-    onSearchWithFilters(texto:String, tipo: TipoCliente, page: Int, size: Int): [Cliente]
+    onSearchWithFilters(texto:String, tipo: TipoCliente, page: Int, size: Int): ClientePage
     clientes(page:Int = 0, size:Int = 10):[Cliente]!
     countCliente: Int
 }

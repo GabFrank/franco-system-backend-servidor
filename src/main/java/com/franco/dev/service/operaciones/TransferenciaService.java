@@ -9,6 +9,7 @@ import com.franco.dev.repository.operaciones.NecesidadRepository;
 import com.franco.dev.repository.operaciones.TransferenciaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -41,10 +42,10 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         return  repository.findByUsuario(id);
     }
 
-    public List<Transferencia> findByFilter(Long sucursalOrigenId, Long sucursalDestinoId, TransferenciaEstado estado,
+    public Page<Transferencia> findByFilter(Long sucursalOrigenId, Long sucursalDestinoId, TransferenciaEstado estado,
                                             TipoTransferencia tipo, EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino, LocalDateTime creadoDesde,
                                             LocalDateTime creadoHasta, Pageable pageable) {
-        return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, creadoDesde, creadoHasta);
+        return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, creadoDesde, creadoHasta, pageable);
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.franco.dev.repository.personas;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
@@ -28,7 +29,8 @@ public interface ClienteRepository extends HelperRepository<Cliente, Long> {
             "UPPER(per.nombre) like %:texto% or " +
             "UPPER(per.apodo) like %:texto% or " +
             "UPPER(per.documento) like %:texto%)) and " +
-            "(c.tipo = :tipoCliente or cast(:tipoCliente as com.franco.dev.domain.personas.enums.TipoCliente) is null)" +
+            "(c.tipo = :tipoCliente or cast(:tipoCliente as com.franco.dev.domain.personas.enums.TipoCliente) is null) " +
+            "group by per.nombre, c.id " +
             "order by per.nombre asc")
-    List<Cliente> findByAll(String texto, TipoCliente tipoCliente, Pageable page);
+    Page<Cliente> findByAll(String texto, TipoCliente tipoCliente, Pageable page);
 }

@@ -23,6 +23,8 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
 
     public long countByClienteIdAndEstado(Long id, EstadoVentaCredito estado);
 
+    public VentaCredito findByVentaIdAndSucursalId(Long id, Long sucId);
+
 //    Moneda findByPaisId(Long id);
 
 }

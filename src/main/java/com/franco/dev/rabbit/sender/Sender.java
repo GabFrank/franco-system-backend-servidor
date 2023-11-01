@@ -30,8 +30,8 @@ public class Sender<T> {
 //        template.convertAndSend(MessagingConfig.EXCHANGE, key, p);
 //    }
 
-    public void enviar(String key, RabbitDto<T> p) {
-        log.info("Enviando a exchange: " + RabbitMQConection.NOME_EXCHANGE + " key: " + key);
+    public void enviar(String key, RabbitDto<T> p, Boolean direct) {
+        log.info("Enviando a exchange: " + (direct == true ? RabbitMQConection.NOME_EXCHANGE_DIRECT : RabbitMQConection.NOME_EXCHANGE) + " key: " + key);
         template.convertAndSend(RabbitMQConection.NOME_EXCHANGE, key, p);
     }
 

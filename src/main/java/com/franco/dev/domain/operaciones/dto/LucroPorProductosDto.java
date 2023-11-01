@@ -15,4 +15,6 @@ public class LucroPorProductosDto {
     private Double totalVenta;
     private Double lucro;
     private Double percent;
+    private Double ventaMedia;
+    private Double margen;
 }

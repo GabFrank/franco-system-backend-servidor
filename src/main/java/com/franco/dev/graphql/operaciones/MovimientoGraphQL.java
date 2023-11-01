@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.graphql.operaciones.input.MovimientoStockInput;
@@ -13,12 +14,15 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.toDate;
 
 @Component
 public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -37,6 +41,18 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private CodigoService codigoService;
+
+    public Page<MovimientoStock> findMovimientoStockByFilters(String inicio,
+                                               String fin,
+                                               List<Long> sucursalList,
+                                               Long productoId,
+                                               List<TipoMovimiento> tipoMovimientoList,
+                                               Long usuarioId,
+                                               Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        if(productoId==null || inicio == null || fin == null) return null;
+        return service.findMovimientoStockWithFilters(toDate(inicio), toDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId, pageable);
+    }
 
     public Optional<MovimientoStock> movimientoStock(Long id, Long sucId) {
         return service.findById(new EmbebedPrimaryKey(id, sucId));
@@ -76,6 +92,26 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Float stockPorProducto(Long id, Long sucId) {
         return service.stockByProductoId(id);
+    }
+
+    public Double findStockWithFilters(String inicio,
+                                  String fin,
+                                  List<Long> sucursalList,
+                                  Long productoId,
+                                  List<TipoMovimiento> tipoMovimientoList,
+                                  Long usuarioId){
+        if(productoId==null || inicio == null || fin == null) return null;
+        return service.findStockWithFilters(toDate(inicio), toDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId);
+    }
+
+    public List<StockPorTipoMovimientoDto> findStockPorTipoMovimiento(String inicio,
+                                                           String fin,
+                                                           List<Long> sucursalList,
+                                                           Long productoId,
+                                                           List<TipoMovimiento> tipoMovimientoList,
+                                                           Long usuarioId){
+        if(productoId==null || inicio == null || fin == null) return null;
+        return service.findStockPorTipoMovimiento(toDate(inicio), toDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId);
     }
 
 }

@@ -182,7 +182,7 @@ public class PropagacionService {
         sucursalVerificar = sucId;
         RabbitDto dato = new RabbitDto();
         dato.setTipoAccion(TipoAccion.VERIFICAR);
-        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, dato);
+        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, dato, true);
     }
 
     public void propagarDB(RabbitDto dto) {
@@ -639,22 +639,22 @@ public class PropagacionService {
     public <T> void propagar(TipoEntidad tipoEntidad, Long sucId, CrudService service) {
         List<T> list = service.findAll2();
         log.info("cantidad de itenes: " + list.size());
-        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(list, TipoAccion.SOLICITAR_DB, tipoEntidad));
+        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(list, TipoAccion.SOLICITAR_DB, tipoEntidad), sucId != null);
     }
 
     public <T> void propagarEntidad(T entity, TipoEntidad tipoEntidad) {
         log.info("Propagando entidad a todas las sucursales: " + tipoEntidad.name());
-        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad));
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad), false);
     }
 
     public void propagarImagen(String image, String filename, TipoEntidad tipoEntidad) {
         log.info("Propagando imagen a todas las sucursales: " + tipoEntidad.name());
-        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename));
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename), false);
     }
 
     public void propagarImagen(String image, String filename, TipoEntidad tipoEntidad, Long sucId) {
         log.info("Propagando imagen a todas las sucursales: " + tipoEntidad.name());
-        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename));
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(image, TipoAccion.GUARDAR_IMAGEN, tipoEntidad, filename), false);
     }
 
     public void propagarArchivo(String path, String fileName, String finalFileName, String finalPath, Long sucId) {
@@ -664,7 +664,7 @@ public class PropagacionService {
             byte[] fileContent = new byte[0];
             try {
                 fileContent = FileUtils.readFileToByteArray(file);
-                sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(TipoAccion.GUARDAR_ARCHIVO, TipoEntidad.ARCHIVO, path + fileName, sucId, fileContent, null, null));
+                sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(TipoAccion.GUARDAR_ARCHIVO, TipoEntidad.ARCHIVO, path + fileName, sucId, fileContent, null, null), sucId != null);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -681,9 +681,9 @@ public class PropagacionService {
     public <T> void propagarEntidad(T entity, TipoEntidad tipoEntidad, Long sucId) {
         log.info("Propagando entidad a sucursal: " + sucId + ", entidad:" + tipoEntidad.name());
         if (sucId != null) {
-            sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad));
+            sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad), true);
         } else {
-            sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad));
+            sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.GUARDAR, tipoEntidad), false);
         }
     }
 
@@ -694,17 +694,17 @@ public class PropagacionService {
 
     public void eliminarEntidad(Long id, TipoEntidad tipoEntidad) {
         log.info("Eliminando entidad en todas las sucursales");
-        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad));
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad), false);
     }
 
     public <T> void eliminarEntidad(T entity, TipoEntidad tipoEntidad, Long idSucursalOrigen) {
         log.info("Eliminando entidad en todas las sucursales");
-        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.DELETE, tipoEntidad));
+        sender.enviar(RabbitMQConection.FILIAL_KEY, new RabbitDto(entity, TipoAccion.DELETE, tipoEntidad), false);
     }
 
     public void eliminarEntidad(Long id, TipoEntidad tipoEntidad, Long sucId) {
         log.info("Eliminando entidad en todas las sucursales");
-        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad));
+        sender.enviar(RabbitMQConection.FILIAL_KEY + "." + sucId, new RabbitDto(id, TipoAccion.DELETE, tipoEntidad), false);
     }
 
     public void propagarTransferencia(Transferencia t, Long id) {
@@ -725,7 +725,7 @@ public class PropagacionService {
             sucursal.setIsConfigured(true);
             sucursal = sucursalService.save(sucursal);
             propagarEntidad(sucursal, TipoEntidad.SUCURSAL);
-            sender.enviar(RabbitMQConection.FILIAL_KEY + "." + id.toString(), new RabbitDto(sucursal, TipoAccion.GUARDAR, TipoEntidad.LOCAL));
+            sender.enviar(RabbitMQConection.FILIAL_KEY + "." + id.toString(), new RabbitDto(sucursal, TipoAccion.GUARDAR, TipoEntidad.LOCAL), true);
         }
     }
 

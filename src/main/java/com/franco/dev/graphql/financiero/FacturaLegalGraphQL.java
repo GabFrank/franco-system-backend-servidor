@@ -6,6 +6,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
+import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.Venta;
@@ -43,8 +44,10 @@ import com.franco.dev.utilitarios.print.escpos.image.*;
 import com.franco.dev.utilitarios.print.output.PrinterOutputStream;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -54,14 +57,14 @@ import javax.imageio.ImageIO;
 import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static com.franco.dev.service.impresion.ImpresionService.shortDateTime;
 import static com.franco.dev.service.utils.PrintingService.resize;
@@ -201,8 +204,14 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.count();
     }
 
-    public List<FacturaLegal> facturaLegales(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10){
-        return service.findByAll(fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+    public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10){
+        Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+        return response;
+    }
+
+    public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10){
+        ResumenFacturasDto response = service.findResumenFacturas(fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+        return response;
     }
 
     public Boolean reimprimirFacturaLegal(Long id, Long sucId, String printerName){
@@ -457,6 +466,73 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 ioe.printStackTrace();
             }
         }
+    }
+
+    public String generarExcelFacturas(String fechaInicio, String fechaFin, Long sucId){
+        Workbook res = service.createExcelWorkbook(fechaInicio, fechaFin, sucId);
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            res.write(outputStream);
+            String base64String = Base64.getEncoder().encodeToString(outputStream.toByteArray());
+            return base64String;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
+    }
+
+    public String generarExcelFacturasZip(String fechaInicio, String fechaFin, List<Long> sucIdList){
+        List<Workbook> workbookList = new ArrayList<>();
+        List<String> sucursalNames = new ArrayList<>();
+        for(Long id: sucIdList){
+            Workbook workbook = service.createExcelWorkbook(fechaInicio, fechaFin, id);
+            if(workbook!= null && workbook.getSheetAt(0) != null){
+                workbookList.add(workbook);
+                sucursalNames.add(workbook.getSheetName(0));
+            }
+        }
+        for (int i = 0; i < workbookList.size(); i++) {
+            try (FileOutputStream fileOut = new FileOutputStream(workbookList.get(i).getSheetName(0) + ".xlsx")) {
+                workbookList.get(i).write(fileOut);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try (FileOutputStream fos = new FileOutputStream("facturas-bodega-franco-"+fechaInicio.substring(0,10)+".zip");
+             ZipOutputStream zos = new ZipOutputStream(fos)) {
+
+            for (String fileName : sucursalNames) {
+                File fileToZip = new File(fileName+".xlsx");
+                FileInputStream fis = new FileInputStream(fileToZip);
+                ZipEntry zipEntry = new ZipEntry(fileToZip.getName());
+                zos.putNextEntry(zipEntry);
+
+                byte[] bytes = new byte[1024];
+                int length;
+                while ((length = fis.read(bytes)) >= 0) {
+                    zos.write(bytes, 0, length);
+                }
+                fis.close();
+                boolean deleted = fileToZip.delete();
+                if (!deleted) {
+                    // Log or handle the case where the file couldn't be deleted
+                    System.err.println("Could not delete file: " + fileToZip.getName());
+                }
+            }
+            zos.close();
+            fos.close();
+            File zipedFile = new File("facturas-bodega-franco-"+fechaInicio.substring(0,10)+".zip");
+            byte[] fileContent = Files.readAllBytes(zipedFile.toPath());
+            String res = Base64.getEncoder().encodeToString(fileContent);
+            boolean deleted = zipedFile.delete();
+            if (!deleted) {
+                // Log or handle the case where the file couldn't be deleted
+                System.err.println("Could not delete file: " + zipedFile.getName());
+            }
+            return res;
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return "";
     }
 
 

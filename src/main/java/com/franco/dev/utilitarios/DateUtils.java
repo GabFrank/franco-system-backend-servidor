@@ -34,4 +34,9 @@ public class DateUtils {
         return hoy.with(TemporalAdjusters.lastDayOfMonth());
     }
 
+    public static String dateToStringWithFormat(LocalDateTime date, String format){
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+        return formatter.format(date);
+    }
+
 }

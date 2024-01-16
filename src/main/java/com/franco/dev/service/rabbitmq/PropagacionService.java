@@ -19,6 +19,7 @@ import com.franco.dev.rabbit.enums.TipoAccion;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.rabbit.sender.Sender;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.*;
@@ -177,6 +178,9 @@ public class PropagacionService {
     private MovimientoPersonasService movimientoPersonasService;
     @Autowired
     private DeliveryService deliveryService;
+
+    @Autowired
+    private InicioSesionService inicioSesionService;
 
     public void verficarConexion(Long sucId) {
         sucursalVerificar = sucId;
@@ -582,6 +586,9 @@ public class PropagacionService {
             case DELIVERY:
                 log.info("creando delivery: ");
                 return guardar(deliveryService, dto);
+            case INICIO_SESION:
+                log.info("creando inicio sesion: ");
+                return guardar(inicioSesionService, dto);
             default:
                 return null;
         }

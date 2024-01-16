@@ -46,6 +46,7 @@ import graphql.kickstart.tools.GraphQLSubscriptionResolver;
 import org.modelmapper.ModelMapper;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -168,14 +169,15 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findByClienteAndVencimiento(id, toDate(inicio), toDate(fin));
     }
 
-    public List<VentaCredito> ventaCreditoPorCliente(Long id, EstadoVentaCredito estado, int page, int size) {
-        if (estado == EstadoVentaCredito.ABIERTO) {
-            return service.findByClienteId(id, estado);
-        } else {
-            Pageable pageable = PageRequest.of(page, size);
-            return service.findByClienteId(id, estado, pageable);
-        }
+    public Page<VentaCredito> ventaCreditoPorCliente(Long id, EstadoVentaCredito estado, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByClienteId(id, estado, pageable);
+    }
 
+    public Page<VentaCredito> findWithFilters(Long id, String fechaInicio, String fechaFin, EstadoVentaCredito estado, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page response = service.findWithFilters(id, toDate(fechaInicio), toDate(fechaFin), estado, pageable);
+        return response;
     }
 
     public Boolean deleteVentaCredito(Long id, Long sucId) {
@@ -193,10 +195,10 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean cancelarVentaCredito(Long id, Long sucId) {
-        VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id,sucId)).orElse(null);
-        if(ventaCredito!=null){
+        VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        if (ventaCredito != null) {
             Venta venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId)).orElse(null);
-            if(venta!=null && venta.getEstado() != VentaEstado.CANCELADA){
+            if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
                 venta.setEstado(VentaEstado.CANCELADA);
                 venta = ventaService.save(venta);
                 propagacionService.propagarEntidad(venta, TipoEntidad.VENTA, venta.getSucursalId());
@@ -207,8 +209,8 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean finalizarVentaCredito(Long id, Long sucId) {
-        VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id,sucId)).orElse(null);
-        if(ventaCredito!=null){
+        VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        if (ventaCredito != null) {
             ventaCredito.setEstado(EstadoVentaCredito.FINALIZADO);
             ventaCredito = service.save(ventaCredito);
             propagacionService.propagarEntidad(ventaCredito, TipoEntidad.VENTA_CREDITO, sucId);
@@ -421,15 +423,15 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return ok;
     }
 
-    public String imprimirRecibo(Long clienteId, List<VentaCreditoInput> ventaCreditoInputList, Long usuarioId) throws GraphQLException{
+    public String imprimirRecibo(Long clienteId, List<VentaCreditoInput> ventaCreditoInputList, Long usuarioId) throws GraphQLException {
         Cliente cliente = clienteService.findById(clienteId).orElse(null);
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         Double total = 0.0;
-        if(cliente!=null){
+        if (cliente != null) {
             List<VentaCredito> ventaCreditoList = new ArrayList<>();
-            for(VentaCreditoInput vci : ventaCreditoInputList){
+            for (VentaCreditoInput vci : ventaCreditoInputList) {
                 VentaCredito vi = service.findById(new EmbebedPrimaryKey(vci.getId(), vci.getSucursalId())).orElse(null);
-                if(vi!=null){
+                if (vi != null) {
                     ventaCreditoList.add(vi);
                     total += vi.getValorTotal();
                 }

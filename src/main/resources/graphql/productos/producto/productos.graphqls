@@ -69,6 +69,7 @@ extend type Query {
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String
     lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
+    imprimirCodigoBarra(codigoId: Int): Boolean
 }
 
 extend type Mutation {

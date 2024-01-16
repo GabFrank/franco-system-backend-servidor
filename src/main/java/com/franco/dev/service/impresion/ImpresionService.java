@@ -785,6 +785,90 @@ public class ImpresionService {
             }
     }
 
+    public void imprimirCodigoDeBarra(Codigo codigo) {
+        try {
+            selectedPrintService = printingService.getPrintService("adesivo");
+            if (selectedPrintService != null) {
+                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                // creating the EscPosImage, need buffered image and algorithm.
+                //Styles
+                Style center = new Style().setJustification(EscPosConst.Justification.Center);
+
+                QRCode qrCode = new QRCode();
+
+                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
+                imageBufferedImage = resize(imageBufferedImage, 200, 100);
+                RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
+                EscPos escpos = new EscPos(printerOutputStream);
+                Bitonal algorithm = new BitonalThreshold();
+                EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
+                imageWrapper.setJustification(EscPosConst.Justification.Center);
+                escpos.writeLF("Hola soy un codigo de barra");
+//                escpos.write(imageWrapper, escposImage);
+//                if (local != null) {
+//                    escpos.writeLF(center, "Local: " + local);
+//                }
+//                escpos.writeLF(center.setBold(true), "Gasto: " + gastoDto.getId());
+//                escpos.writeLF(center.setBold(true), "Caja: " + gastoDto.getCajaId());
+//                if (gastoDto.getUsuario().getPersona().getNombre().length() > 23) {
+//                    escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre().substring(0, 23));
+//                } else {
+//                    escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre());
+//                }
+//                escpos.writeLF("Fecha " + gastoDto.getFecha().format(formatter));
+//                escpos.writeLF(new Style().setBold(true), "Tipo " + gastoDto.getTipoGasto().getId() + " - " + gastoDto.getTipoGasto().getDescripcion().toUpperCase());
+//                if (gastoDto.getObservacion() != null) {
+//                    escpos.writeLF("Obs: " + gastoDto.getObservacion().toUpperCase());
+//                }
+//                escpos.writeLF("--------------------------------");
+//                escpos.writeLF(center, "VALORES DE GASTO");
+//                escpos.write("Guaranies G$: ");
+//                String valorGsAper = NumberFormat.getNumberInstance(Locale.GERMAN).format(gastoDto.getRetiroGs().intValue());
+//                for (int i = 18; i > valorGsAper.length(); i--) {
+//                    escpos.write(" ");
+//                }
+//                escpos.writeLF(valorGsAper);
+//                escpos.write("Reales R$: ");
+//                String valorRsAper = String.format("%.2f", gastoDto.getRetiroRs());
+//                for (int i = 21; i > valorRsAper.length(); i--) {
+//                    escpos.write(" ");
+//                }
+//                escpos.writeLF(valorRsAper);
+//                escpos.write("Dolares D$: ");
+//                String valorDsAper = String.format("%.2f", gastoDto.getRetiroDs());
+//                for (int i = 20; i > valorDsAper.length(); i--) {
+//                    escpos.write(" ");
+//                }
+//                escpos.writeLF(valorDsAper);
+//                escpos.writeLF("--------------------------------");
+//                escpos.feed(4);
+//                escpos.writeLF(center, ".......................");
+//                escpos.writeLF(center, "FIRMA RESPONSABLE");
+//                if (gastoDto.getResponsable().getPersona().getNombre().length() > 23) {
+//                    escpos.writeLF(center, gastoDto.getResponsable().getPersona().getNombre().substring(0, 23));
+//                } else {
+//                    escpos.writeLF(center, gastoDto.getResponsable().getPersona().getNombre());
+//                }
+//                if (gastoDto.getAutorizadoPor() != null) {
+//                    escpos.writeLF("--------------------------------");
+//                    escpos.feed(4);
+//                    escpos.writeLF(center, ".......................");
+//                    escpos.writeLF(center, "AUTORIZACION");
+//                    if (gastoDto.getAutorizadoPor().getPersona().getNombre().length() > 23) {
+//                        escpos.writeLF(center, gastoDto.getAutorizadoPor().getPersona().getNombre().substring(0, 23));
+//                    } else {
+//                        escpos.writeLF(center, gastoDto.getAutorizadoPor().getPersona().getNombre());
+//                    }
+//                }
+                escpos.feed(5);
+                escpos.close();
+                printerOutputStream.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     @Data
     @AllArgsConstructor
     @NoArgsConstructor

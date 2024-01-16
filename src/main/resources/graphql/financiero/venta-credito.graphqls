@@ -39,11 +39,24 @@ type VentaCreditoQRAuthUpdate {
     secretKey: String
 }
 
+type VentaCreditoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [VentaCredito]
+    getPageable: Pageable
+}
+
 extend type Query {
     ventaCredito(id:ID!, sucId:ID!):VentaCredito
     ventaCreditos(page:Int = 0, size:Int = 10):[VentaCredito]!
     countVentaCredito: Int
-    ventaCreditoPorCliente(id:ID!, estado: EstadoVentaCredito, page: Int, size: Int):[VentaCredito]
+    ventaCreditoPorCliente(id:ID!, estado: EstadoVentaCredito, page: Int, size: Int):VentaCreditoPage
+    findWithFilters(id:ID!, fechaInicio: String, fechaFin: String, estado: EstadoVentaCredito, page: Int, size: Int):VentaCreditoPage
     ventaCreditoQrAuth(id:ID!, timestamp: String, sucursalId:Int, secretKey:String): Boolean
     imprimirVentaCredito(id:ID!, sucId:ID!, printerName:String):Boolean
     imprimirRecibo(clienteId:ID!, ventaCreditoInputList: [VentaCreditoInput]!, usuarioId:ID!):String

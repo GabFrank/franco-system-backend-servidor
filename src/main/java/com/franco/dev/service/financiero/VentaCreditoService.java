@@ -58,8 +58,16 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         return repository.findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByCreadoEnDesc(id, inicio, fin);
     }
 
-    public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
+    public Page<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
         return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(id, estado, pageable);
+    }
+
+    public Page<VentaCredito> findWithFilters(Long id, LocalDateTime fechaInicio, LocalDateTime fechaFin, EstadoVentaCredito estado, Pageable pageable) {
+        if(fechaInicio != null && fechaFin != null){
+            return repository.findAllWithDateAndFilters(id, fechaInicio, fechaFin, estado, pageable);
+        } else {
+            return repository.findAllWithFilters(id, estado, pageable);
+        }
     }
 
     public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado) {
@@ -77,23 +85,24 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     @Override
     public VentaCredito save(VentaCredito entity) {
         Usuario usuario = usuarioService.findByPersonaId(entity.getCliente().getPersona().getId());
-        Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), Long.valueOf(0), PageRequest.of(0, 1));
-        if(inicioSesionPage.getContent().size() == 1){
-            InicioSesion inicioSesion = inicioSesionPage.getContent().get(0);
-            if(inicioSesion.getToken() != null){
-                PushNotificationRequest pNr = new PushNotificationRequest();
-                Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
-                pNr.setTitle("Venta a crédito realizada");
-                StringBuilder stb = new StringBuilder();
-                stb.append("Se ha detectado una venta a crédito en la sucursal ");
-                stb.append(sucursal.getNombre());
-                stb.append(" por el valor de ");
-                stb.append(df.format(entity.getValorTotal()));
-                stb.append(" Gs. ");
-                pNr.setMessage(stb.toString());
-                pNr.setToken(inicioSesion.getToken());
-                pNr.setData("/mis-finanzas/list-convenio/" + entity.getId() + "/" + entity.getSucursalId());
-                pushNotificationService.sendPushNotificationToToken(pNr);
+        if(usuario!=null){
+            Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), Long.valueOf(0), PageRequest.of(0, 1));
+            for(InicioSesion inicioSesion : inicioSesionPage.getContent()){
+                if(inicioSesion.getToken() != null){
+                    PushNotificationRequest pNr = new PushNotificationRequest();
+                    Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
+                    pNr.setTitle("Venta a crédito realizada");
+                    StringBuilder stb = new StringBuilder();
+                    stb.append("Se ha detectado una venta a crédito en la sucursal ");
+                    stb.append(sucursal.getNombre());
+                    stb.append(" por el valor de ");
+                    stb.append(df.format(entity.getValorTotal()));
+                    stb.append(" Gs. ");
+                    pNr.setMessage(stb.toString());
+                    pNr.setToken(inicioSesion.getToken());
+                    pNr.setData("/mis-finanzas/list-convenio/" + entity.getId() + "/" + entity.getSucursalId());
+                    pushNotificationService.sendPushNotificationToToken(pNr);
+                }
             }
         }
         VentaCredito e = super.save(entity);

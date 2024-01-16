@@ -9,6 +9,7 @@ type MovimientoStock {
     estado: Boolean
     proveedor: Proveedor
     sucursalId: Int
+    sucursal: Sucursal
 }
 
 input MovimientoStockInput {

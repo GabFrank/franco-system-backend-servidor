@@ -3,6 +3,7 @@ package com.franco.dev.graphql.productos;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -71,6 +72,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private CodigoService codigoService;
 
     @Unsecured
     public Optional<Producto> producto(Long id) {return service.findById(id);}
@@ -159,4 +163,13 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "", filtro.toString(), usuario);
     }
 
+    public Boolean imprimirCodigoBarra(Long codigoId){
+        Codigo codigo = codigoService.findById(codigoId).orElse(null);
+        if(codigo!=null){
+            impresionService.imprimirCodigoDeBarra(codigo);
+            return true;
+        } else {
+            return false;
+        }
+    }
 }

@@ -1,12 +1,9 @@
 package com.franco.dev.graphql.operaciones;
 
-import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
-import com.franco.dev.graphql.operaciones.input.NotaPedidoInput;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionInput;
 import com.franco.dev.service.financiero.DocumentoService;
 import com.franco.dev.service.operaciones.CompraService;
-import com.franco.dev.service.operaciones.NotaPedidoService;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -20,6 +17,8 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -55,6 +54,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if(input.getDocumentoId()!=null) e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
         if(input.getPedidoId()!=null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if(input.getFecha()!=null) e.setFecha(stringToDate(input.getFecha()));
+        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         return service.save(e);
     }
 

@@ -1,5 +1,6 @@
 package com.franco.dev.service.rabbitmq;
 
+import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Conteo;
@@ -44,7 +45,9 @@ import org.zeroturnaround.zip.ZipUtil;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 @Service
 public class PropagacionService {
@@ -178,9 +181,10 @@ public class PropagacionService {
     private MovimientoPersonasService movimientoPersonasService;
     @Autowired
     private DeliveryService deliveryService;
-
     @Autowired
     private InicioSesionService inicioSesionService;
+
+    private TenantContext tenantContext;
 
     public void verficarConexion(Long sucId) {
         sucursalVerificar = sucId;
@@ -615,7 +619,7 @@ public class PropagacionService {
                     } else {
                         ok = service.delete(dto.getEntidad());
                     }
-                } catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
 
@@ -780,6 +784,30 @@ public class PropagacionService {
     public Object solicitarEntidad(TipoEntidad tipoEntidad, Long idEntidad, Long sucursalId) {
         return sender.enviarAndRecibir(RabbitMQConection.FILIAL_KEY + "." + sucursalId.toString(), new RabbitDto(idEntidad, TipoAccion.SOLICITAR_ENTIDAD, tipoEntidad));
     }
+
+    public <T> void compartirEntidad(T obj, String key, Function<T, T> customFunc) {
+        if (key != null) {
+            tenantContext.setCurrentTenant(key);
+            try {
+                customFunc.apply(obj);
+            } finally {
+                tenantContext.clear();
+            }
+        } else {
+//            List<Sucursal> sucursalList = sucursalService.findAll2();
+//            Object result = null;
+//            for (Sucursal sucursal : sucursalList) {
+                tenantContext.setCurrentTenant("filial4_bkp");
+                try {
+                    customFunc.apply(obj);
+                } finally {
+                    tenantContext.clear();
+                }
+//            }
+        }
+
+    }
+
 }
 
 

@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -52,7 +52,7 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
     public VentaCreditoCuota saveVentaCreditoCuota(VentaCreditoCuotaInput input) {
         ModelMapper m = new ModelMapper();
         VentaCreditoCuota e = m.map(input, VentaCreditoCuota.class);
-        if(input.getVencimiento()!=null) e.setVencimiento(toDate(input.getVencimiento()));
+        if(input.getVencimiento()!=null) e.setVencimiento(stringToDate(input.getVencimiento()));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getVentaCreditoId() != null)
             e.setVentaCredito(ventaCreditoService.findById(new EmbebedPrimaryKey(input.getVentaCreditoId(), input.getSucursalId())).orElse(null));

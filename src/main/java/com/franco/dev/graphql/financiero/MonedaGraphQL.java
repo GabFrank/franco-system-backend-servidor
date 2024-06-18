@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MonedaBilletes;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.MonedaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.MonedaService;
@@ -34,6 +36,9 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Moneda> moneda(Long id) {return service.findById(id);}
 
     public List<Moneda> monedas(int page, int size){
@@ -47,7 +52,7 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 //        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
 //        e.setPais(paisService.findById(input.getPaisId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.MONEDA);
+        multiTenantService.compartir(null, (Moneda s) -> service.save(s), e);
         return e;    }
 
     public List<Moneda> monedasSearch(String texto){
@@ -56,7 +61,7 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Boolean deleteMoneda(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.MONEDA);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

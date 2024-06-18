@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.MovimientoPersonas;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.MovimientoPersonasInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.MovimientoPersonasService;
@@ -19,7 +21,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -39,6 +41,9 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<MovimientoPersonas> movimientoPersona(Long id) {
         return service.findById(id);
     }
@@ -51,21 +56,22 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
     public MovimientoPersonas saveMovimientoPersonas(MovimientoPersonasInput input) {
         ModelMapper m = new ModelMapper();
         MovimientoPersonas e = m.map(input, MovimientoPersonas.class);
-        if(input.getVencimiento()!=null) e.setVencimiento(toDate(input.getVencimiento()));
+        if(input.getVencimiento()!=null) e.setVencimiento(stringToDate(input.getVencimiento()));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getPersonaId() != null) e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.BANCO);
+        multiTenantService.compartir(null, (MovimientoPersonas s) -> service.save(s), e);
         return e;
     }
 
     public List<MovimientoPersonas> movimientoPersonasPorPersonaAndVencimiento(Long id, String inicio, String fin) {
-        return service.findByPersonaAndVencimiento(id, toDate(inicio), toDate(fin), null);
+        return service.findByPersonaAndVencimiento(id, stringToDate(inicio), stringToDate(fin), null);
     }
 
     public Boolean deleteMovimientoPersonas(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.BANCO);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

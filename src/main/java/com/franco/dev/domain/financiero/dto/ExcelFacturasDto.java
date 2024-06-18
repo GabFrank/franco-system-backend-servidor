@@ -14,10 +14,10 @@ public class ExcelFacturasDto {
     private String venTipimp;
     private Double venGra05;
     private Double venIva05;
-    private String venDisg05 = "";
+    private String venDisg05 = "A";
     private String ctaIva05 = "";
-    private String venRubgra = "";
-    private String venRubg05 = "";
+    private String venRubgra = "1";
+    private String venRubg05 = "1";
     private String venDisexe = "";
     private String venNumero;
     private String venImputa = "";
@@ -52,7 +52,7 @@ public class ExcelFacturasDto {
     private String tkdesde = "";
     private String tkhasta = "";
     private String caja = "";
-    private String venDisgra = "";
+    private String venDisgra = "A";
     private String formaDevo = "";
     private String venCuense = "";
     private String anular = "";
@@ -64,7 +64,7 @@ public class ExcelFacturasDto {
     private String ventirptip = "";
     private String ventirpgra = "";
     private String ventirpexe = "";
-    private String irpc = "";
+    private String irpc = "1";
     private String ivasimplificado = "";
     private String venirprygc = "";
     private String venbconom = "";

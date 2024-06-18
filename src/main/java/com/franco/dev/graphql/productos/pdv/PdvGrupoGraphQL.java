@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.productos.pdv;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.pdv.PdvCategoria;
 import com.franco.dev.domain.productos.pdv.PdvGrupo;
 import com.franco.dev.graphql.productos.input.pdv.PdvCategoriaInput;
@@ -30,6 +32,9 @@ public class PdvGrupoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PdvCategoriaService pdvCategoriaService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<PdvGrupo> pdvGrupo(Long id) {return service.findById(id);}
 
     public List<PdvGrupo> pdvGrupoSearch(String texto) {return service.findByAll(texto);}
@@ -44,12 +49,15 @@ public class PdvGrupoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         PdvGrupo e = m.map(input, PdvGrupo.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPdvCategoria(pdvCategoriaService.findById(input.getCategoriaId()).orElse(null));
-        return service.save(e);
+        e = service.save(e);
+        multiTenantService.compartir(null, (PdvGrupo s) -> service.save(s), e);
+        return e;
     }
 
     public Boolean deletePdvGrupo(Long id){
-        return service.deleteById(id);
-    }
+        Boolean ok = service.deleteById(id);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
+        return ok;    }
 
     public Long countPdvGrupo(){
         return service.count();

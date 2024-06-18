@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class PreRegistroFuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -58,8 +58,8 @@ public class PreRegistroFuncionarioGraphQL implements GraphQLQueryResolver, Grap
     public PreRegistroFuncionario savePreRegistroFuncionario(PreRegistroFuncionarioInput input) {
         ModelMapper m = new ModelMapper();
         PreRegistroFuncionario e = m.map(input, PreRegistroFuncionario.class);
-        if(input.getFechaIngreso()!=null) e.setFechaIngreso(toDate(input.getFechaIngreso()));
-        if(input.getFechaNacimiento()!=null) e.setFechaNacimiento(toDate(input.getFechaNacimiento()));
+        if(input.getFechaIngreso()!=null) e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
+        if(input.getFechaNacimiento()!=null) e.setFechaNacimiento(stringToDate(input.getFechaNacimiento()));
         if(input.getFuncionarioId()!=null) {
             e.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
             e.setVerificado(true);

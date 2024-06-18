@@ -1,9 +1,9 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.CuentaBancaria;
-import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.CuentaBancariaInput;
-import com.franco.dev.graphql.financiero.input.MonedaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.BancoService;
 import com.franco.dev.service.financiero.CuentaBancariaService;
@@ -47,43 +47,51 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<CuentaBancaria> cuentaBancaria(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<CuentaBancaria> cuentasBancarias(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Optional<CuentaBancaria> cuentaBancaria(Long id) {
+        return service.findById(id);
+    }
+
+    public List<CuentaBancaria> cuentasBancarias(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
 
-    public CuentaBancaria saveCuentaBancaria(CuentaBancariaInput input){
+    public CuentaBancaria saveCuentaBancaria(CuentaBancariaInput input) {
         ModelMapper m = new ModelMapper();
         CuentaBancaria e = m.map(input, CuentaBancaria.class);
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if(input.getBancoId()!=null){
+        if (input.getBancoId() != null) {
             e.setBanco(bancoService.findById(input.getBancoId()).orElse(null));
         }
-        if(input.getMonedaId()!=null){
+        if (input.getMonedaId() != null) {
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }
-        if(input.getPersonaId()!=null){
+        if (input.getPersonaId() != null) {
             e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CUENTA_BANCARIA);
-        return e;    }
+//        propagacionService.propagarEntidad(e, TipoEntidad.CUENTA_BANCARIA);
+        multiTenantService.compartir(null, (CuentaBancaria s) -> service.save(s), e);
+        return e;
+    }
 
-    public List<CuentaBancaria> cuentaBancariasSearch(String texto){
+    public List<CuentaBancaria> cuentaBancariasSearch(String texto) {
         return service.findByAll(texto);
     }
 
-    public Boolean deleteCuentaBancaria(Long id){
+    public Boolean deleteCuentaBancaria(Long id) {
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CUENTA_BANCARIA);
-        return ok;    }
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
+        return ok;
+    }
 
-    public Long countCuentaBancaria(){
+    public Long countCuentaBancaria() {
         return service.count();
     }
 

@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Timbrado;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.TimbradoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.TimbradoService;
@@ -29,6 +31,9 @@ public class TimbradoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Timbrado> timbrado(Long id) {
         return service.findById(id);
     }
@@ -45,13 +50,14 @@ public class TimbradoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.TIMBRADO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.TIMBRADO);
+        multiTenantService.compartir(null, (Timbrado s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteTimbrado(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.TIMBRADO);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

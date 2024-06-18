@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.FamiliaInput;
@@ -28,6 +29,9 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Familia> familia(Long id) {return service.findById(id);}
 
     public List<Familia> familiaSearch(String texto) {return service.findByAll(texto);}
@@ -41,7 +45,8 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         ModelMapper m = new ModelMapper();
         Familia e = m.map(input, Familia.class);
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.FAMILIA);
+//        propagacionService.propagarEntidad(e, TipoEntidad.FAMILIA);
+        multiTenantService.compartir(null, (Familia s) -> service.save(s), e);
         return e;
     }
 
@@ -54,7 +59,7 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public Boolean deleteFamilia(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.FAMILIA);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
 
     }

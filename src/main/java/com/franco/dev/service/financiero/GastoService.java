@@ -4,11 +4,9 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
-import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.PushNotificationService;
-import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.configuracion.InicioSesionService;
@@ -24,7 +22,7 @@ import org.springframework.stereotype.Service;
 import java.text.DecimalFormat;
 import java.util.List;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @AllArgsConstructor
@@ -66,7 +64,7 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
 //    }
 
     public List<Gasto> findByDate(String inicio, String fin, Long sucId){
-        return repository.findBySucursalIdAndCreadoEnBetween(sucId, toDate(inicio), toDate(fin));
+        return repository.findBySucursalIdAndCreadoEnBetween(sucId, stringToDate(inicio), stringToDate(fin));
     }
 
     public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, Pageable pageable){

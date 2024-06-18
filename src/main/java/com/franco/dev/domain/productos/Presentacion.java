@@ -36,7 +36,7 @@ public class Presentacion implements Serializable {
 //    @OnDelete(action = OnDeleteAction.CASCADE)
     private Producto producto;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "tipo_presentacion_id", nullable = true)
     private TipoPresentacion tipoPresentacion;
 

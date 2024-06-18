@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.ZonaService;
@@ -44,6 +46,8 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<InventarioProducto> inventarioProducto(Long id) {
         return service.findById(id);
@@ -66,7 +70,8 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
             throw new GraphQLException("Ya tenes una zona abierta.");
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO_PRODUCTO, e.getInventario().getSucursal().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO_PRODUCTO, e.getInventario().getSucursal().getId());
+        multiTenantService.compartir("filial"+e.getInventario().getSucursal().getId()+"_bkp", (InventarioProducto s) -> service.save(s), e);
         return e;
     }
 
@@ -79,7 +84,7 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
         InventarioProducto i = service.findById(id).orElse(null);
         if(i!=null) {
             ok = service.deleteById(id);
-            propagacionService.eliminarEntidad(i, TipoEntidad.INVENTARIO_PRODUCTO, i.getInventario().getSucursal().getId());
+            multiTenantService.compartir("filial"+i.getInventario().getSucursal().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }
@@ -87,6 +92,5 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
     public Long countInventarioProducto() {
         return service.count();
     }
-
 
 }

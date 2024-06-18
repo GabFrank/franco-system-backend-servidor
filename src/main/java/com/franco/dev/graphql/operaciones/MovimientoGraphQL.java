@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -51,7 +51,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                                                Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         if(productoId==null || inicio == null || fin == null) return null;
-        return service.findMovimientoStockWithFilters(toDate(inicio), toDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId, pageable);
+        return service.findMovimientoStockWithFilters(stringToDate(inicio), stringToDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId, pageable);
     }
 
     public Optional<MovimientoStock> movimientoStock(Long id, Long sucId) {
@@ -101,7 +101,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                                   List<TipoMovimiento> tipoMovimientoList,
                                   Long usuarioId){
         if(productoId==null || inicio == null || fin == null) return null;
-        return service.findStockWithFilters(toDate(inicio), toDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId);
+        return service.findStockWithFilters(stringToDate(inicio), stringToDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId);
     }
 
     public List<StockPorTipoMovimientoDto> findStockPorTipoMovimiento(String inicio,
@@ -111,7 +111,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                                                            List<TipoMovimiento> tipoMovimientoList,
                                                            Long usuarioId){
         if(productoId==null || inicio == null || fin == null) return null;
-        return service.findStockPorTipoMovimiento(toDate(inicio), toDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId);
+        return service.findStockPorTipoMovimiento(stringToDate(inicio), stringToDate(fin), sucursalList, productoId, tipoMovimientoList, usuarioId);
     }
 
 }

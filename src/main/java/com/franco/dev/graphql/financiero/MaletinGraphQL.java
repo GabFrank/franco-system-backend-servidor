@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Maletin;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.MaletinInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.MaletinService;
@@ -33,6 +35,9 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Maletin> maletin(Long id) {return service.findById(id);}
 
     public List<Maletin> searchMaletin(String texto){ return service.searchByAll(texto);}
@@ -49,7 +54,9 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         if(input.getUsuarioId()!=null){
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        return service.save(e);
+        e = service.save(e);
+        multiTenantService.compartir(null, (Maletin s) -> service.save(s), e);
+        return e;
     }
 
     public Maletin maletinPorDescripcion(String texto){
@@ -62,7 +69,7 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public Boolean deleteMaletin(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.MALETIN);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

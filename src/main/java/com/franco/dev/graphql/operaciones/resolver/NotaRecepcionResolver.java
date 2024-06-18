@@ -35,15 +35,17 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
     @Autowired
     private CompraItemService compraItemService;
 
-    public List<PedidoItem> pedidoItemList(NotaRecepcion e) { return pedidoItemService.findByNotaRecepcionId(e.getId());}
-
     public Double valor(NotaRecepcion e){
         Double valor = 0.0;
-        List<CompraItem> compraItemList = compraItemService.findByNotaRecepcionId(e.getId());
-        for(CompraItem item: compraItemList){
-            valor += item.getPrecioUnitario() * item.getCantidad();
+        List<PedidoItem> pedidoItemList = pedidoItemService.findByNotaRecepcionId(e.getId());
+        for(PedidoItem item: pedidoItemList){
+            valor += (item.getPrecioUnitario() - (item.getDescuentoUnitario() != null ? item.getDescuentoUnitario() : 0.0)) * item.getCantidad() * item.getPresentacion().getCantidad();
         }
         return valor;
+    }
+
+    public Integer cantidadItens(NotaRecepcion p){
+        return pedidoItemService.countByNotaRecepcionId(p.getId());
     }
 
     public Double descuento(NotaRecepcion e){

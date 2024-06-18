@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.empresarial;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.PuntoDeVenta;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.PuntoDeVentaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.PuntoDeVentaService;
@@ -33,6 +35,9 @@ public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<PuntoDeVenta> puntoDeVenta(Long id) {
         return service.findById(id);
     }
@@ -53,13 +58,14 @@ public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.PUNTO_DE_VENTA);
+//        propagacionService.propagarEntidad(e, TipoEntidad.PUNTO_DE_VENTA);
+        multiTenantService.compartir(null, (PuntoDeVenta s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deletePuntoDeVenta(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.PUNTO_DE_VENTA);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

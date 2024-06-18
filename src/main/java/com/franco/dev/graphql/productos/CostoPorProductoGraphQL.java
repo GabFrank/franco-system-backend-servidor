@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.CostoPorProducto;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.CostoPorProductoInput;
 import com.franco.dev.service.productos.CostosPorProductoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -21,6 +23,9 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private CostosPorProductoService service;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
 //    public CostosPorSucursal costoPorProductoLastPorProductoId(Long proId, Long sucId) {return service.findLastByProductoIdAndSucursalId(proId, sucId);}
     public Page<CostoPorProducto> costosPorProductoId(Long id, int page, int size) {
         Pageable pageable = PageRequest.of(page,size);
@@ -31,7 +36,9 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
         if(input.getId()==null) input.setCreadoEn(LocalDateTime.now());
         ModelMapper m = new ModelMapper();
         CostoPorProducto e = m.map(input, CostoPorProducto.class);
-        return service.save(e);
+        e = service.save(e);
+        multiTenantService.compartir(null, (CostoPorProducto s) -> service.save(s), e);
+        return e;
     }
 
     public Boolean deleteCostoPorProducto(Long id){

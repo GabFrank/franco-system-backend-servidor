@@ -1,5 +1,6 @@
 package com.franco.dev.service.productos;
 
+import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
@@ -31,7 +32,7 @@ import java.text.NumberFormat;
 import java.util.*;
 import java.util.logging.Logger;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @AllArgsConstructor
@@ -93,22 +94,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return p;
     }
 
-//    public Boolean deleteByInput(ProductoInput input, Long sucId) {
-//        if(sucId == null || sucId != Long.valueOf(env.getProperty("sucursalId"))){
-//            Long idProd = findByIdCentral(input.getIdCentral()).getId();
-//            if(idProd!=null){
-//                if(super.deleteById(idProd)){
-//                    propagarDelete(input.getIdCentral());
-//                    return true;
-//                } else {
-//                    throw new GraphQLException("No se pudo eliminar este producto");
-//                }
-//            }
-//        }
-//
-//        return false;
-//    }
-
     public List<Producto> findByProveedorId(Long id, String text) {
         return repository.findByProveedorId(id, text);
     }
@@ -120,45 +105,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     public Producto findByCodigo(String texto) {
         return repository.findByCodigo(texto);
     }
-
-    ;
-
-//    public String propagar(ProductoInput input){
-//        log.info("enviando producto a central");
-//        log.info(input.toString());
-//        RabbitDto<ProductoInput> dto = new RabbitDto();
-//        dto.setAccion(GUARDAR);
-//        dto.setTipo(Receiver.PRODUCTO);
-//        dto.setEntidad(input);
-////        sender.send(dto, "central");
-//        return "Success";
-//    }
-//
-//    public String propagarDelete(Long idCentral){
-//        log.info("propagando delete a central");
-//        RabbitDto<ProductoInput> dto = new RabbitDto();
-//        dto.setAccion(ELIMINAR);
-//        dto.setTipo(Receiver.PRODUCTO);
-//        dto.setIdSucursalOrigen(Long.valueOf(env.getProperty("sucursalId")));
-//        ProductoInput input = new ProductoInput();
-//        input.setIdCentral(idCentral);
-//        dto.setEntidad(input);
-////        sender.send(dto, "central");
-//        return "Success";
-//    }
-
-//    public void receive(RabbitDto dto) {
-//        log.info("recibiendo producto");
-//        log.info("accion: " + dto.getAccion());
-//        ProductoInput input = new ProductoInput();
-//        input = input.converHashMapToInput(dto.getEntidad());
-//        if(dto.getAccion().equals(GUARDAR)) this.save(input);
-//        else if(dto.getAccion().equals(ELIMINAR)) deleteByInput(input, dto.getIdSucursalOrigen());
-//    }
-
-//    public Producto findByIdCentral(Long id) {
-//        return repository.findByIdCentral(id);
-//    }
 
     public List<Producto> findAllForPdv() {
         return repository.findAllForPdv();
@@ -217,12 +163,30 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public List<ProductoIdAndCantidadDto> findProductosAndCantidadVendidaPorPeriodoAndSucursal(String inicio, String fin, Long sucId) {
-        List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository.findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, toDate(inicio), toDate(fin));
+        List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository.findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, stringToDate(inicio), stringToDate(fin));
         return productoIdAndCantidadDtoList;
     }
 
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList, List<Long> usuarioIdList, List<Long> productoIdList) {
-        List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucIdList, toDate(inicio), toDate(fin), usuarioIdList, productoIdList);
-        return lucroPorProductosDtoList;
+        List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
+        for (Long sucId : sucIdList) {
+            if (TenantContext.getAllTenantKeys().contains("filial" + sucId + "_bkp")) {
+                setTenant("filial" + sucId + "_bkp");
+                List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+                aggregatedResult.addAll(lucroPorProductosDtoList);
+            } else {
+                throw new GraphQLException("Alguna sucursal no esta configurada como tenant");
+            }
+        }
+        Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
+        for (LucroPorProductosDto dto : aggregatedResult) {
+            combinedResults.merge(dto.getProductoId(), dto, (oldDto, newDto) -> {
+                oldDto.aggregate(newDto);
+                return oldDto;
+            });
+        }
+        List<LucroPorProductosDto> result = new ArrayList<>(combinedResults.values());
+        result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
+        return result;
     }
 }

@@ -1,11 +1,14 @@
 package com.franco.dev.graphql.financiero.resolver;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.GastoDetalle;
 import com.franco.dev.domain.financiero.PdvCaja;
+import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.GastoDetalleService;
 import com.franco.dev.service.financiero.PdvCajaService;
@@ -14,9 +17,11 @@ import graphql.kickstart.tools.GraphQLResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.function.Function;
 
 @Component
 public class CajaResolver implements GraphQLResolver<PdvCaja> {
@@ -29,6 +34,9 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     private final Logger log = LoggerFactory.getLogger(CajaResolver.class);
 
@@ -49,7 +57,7 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
 //    totalGasto: Float
 
     public CajaBalance balance(PdvCaja e){
-        return pdvCajaService.getBalance(new EmbebedPrimaryKey(e.getId(), e.getSucursalId()));
+        return multiTenantService.compartir("filial"+e.getSucursalId()+"_bkp", (EmbebedPrimaryKey s) -> pdvCajaService.getBalance(s), new EmbebedPrimaryKey(e.getId(), e.getSucursalId()));
     }
 
     public Sucursal sucursal(PdvCaja e){

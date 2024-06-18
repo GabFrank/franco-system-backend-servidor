@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.dto.ReporteInventarioDto;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoItemInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
@@ -30,7 +32,7 @@ import java.io.FileNotFoundException;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -53,6 +55,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     @Autowired
     private ImageService imageService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<InventarioProductoItem> inventarioProductoItem(Long id) {
         return service.findById(id);
@@ -74,14 +78,15 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 .setMatchingStrategy(MatchingStrategies.STRICT);
         m.getConfiguration().setAmbiguityIgnored(true);
         InventarioProductoItem e = m.map(input, InventarioProductoItem.class);
-        if (input.getVencimiento() != null) e.setVencimiento(toDate(input.getVencimiento()));
+        if (input.getVencimiento() != null) e.setVencimiento(stringToDate(input.getVencimiento()));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getPresentacionId() != null)
             e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
         if (input.getInventarioProductoId() != null)
             e.setInventarioProducto(inventarioProductoService.findById(input.getInventarioProductoId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO_PRODUCTO_ITEM, e.getInventarioProducto().getInventario().getSucursal().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO_PRODUCTO_ITEM, e.getInventarioProducto().getInventario().getSucursal().getId());
+        multiTenantService.compartir("filial"+e.getInventarioProducto().getInventario().getSucursal().getId()+"_bkp", (InventarioProductoItem s) -> service.save(s), e);
         return e;
     }
 
@@ -90,7 +95,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         InventarioProductoItem i = service.findById(id).orElse(null);
         if (i != null) {
             ok = service.deleteById(id);
-            propagacionService.eliminarEntidad(i, TipoEntidad.INVENTARIO_PRODUCTO_ITEM, i.getInventarioProducto().getInventario().getSucursal().getId());
+//            propagacionService.eliminarEntidad(i, TipoEntidad.INVENTARIO_PRODUCTO_ITEM, i.getInventarioProducto().getInventario().getSucursal().getId());
+            multiTenantService.compartir("filial"+i.getInventarioProducto().getInventario().getSucursal().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }
@@ -108,8 +114,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             Integer page, Integer size, String orderBy, String tipoOrder) {
         Pageable pageable = PageRequest.of(page, size, tipoOrder != null ? Sort.Direction.valueOf(tipoOrder) : Sort.Direction.valueOf("ASC"), orderBy != null ? orderBy : "id");
         return service.findAllWithFilters(sucursalIdList,
-                toDate(startDate),
-                toDate(endDate),
+                stringToDate(startDate),
+                stringToDate(endDate),
                 usuarioIdList,
                 productoIdList,
                 pageable);
@@ -129,8 +135,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     ) {
         File file = null;
         Page<InventarioProductoItem> inventarioProductoItemPage = service.findAllWithFilters(sucursalIdList,
-                toDate(startDate),
-                toDate(endDate),
+                stringToDate(startDate),
+                stringToDate(endDate),
                 usuarioIdList,
                 productoIdList,
                 null);

@@ -29,7 +29,7 @@ public class MonedaBilletes implements Serializable {
     private Double valor;
     private Boolean activo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;
 

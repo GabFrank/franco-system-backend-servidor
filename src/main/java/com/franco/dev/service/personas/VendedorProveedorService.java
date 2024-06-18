@@ -9,6 +9,7 @@ import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,5 +39,23 @@ public class VendedorProveedorService extends CrudService<VendedorProveedor, Ven
             v.add(e.getProveedor());
         }
         return v;
+    }
+
+    @Override
+    public VendedorProveedor save(VendedorProveedor entity) {
+        VendedorProveedor vendedorProveedor = getRepository().findByProveedorIdAndVendedorId(entity.getProveedor().getId(), entity.getVendedor().getId());
+        if(vendedorProveedor!=null) return vendedorProveedor;
+        return super.save(entity);
+    }
+
+    public VendedorProveedor save(Vendedor vendedor, Proveedor proveedor) {
+        VendedorProveedor vendedorProveedor = getRepository().findByProveedorIdAndVendedorId(proveedor.getId(), vendedor.getId());
+        if(vendedorProveedor!=null) return vendedorProveedor;
+        vendedorProveedor = new VendedorProveedor();
+        vendedorProveedor.setActivo(true);
+        vendedorProveedor.setCreadoEn(LocalDateTime.now());
+        vendedorProveedor.setProveedor(proveedor);
+        vendedorProveedor.setVendedor(vendedor);
+        return super.save(vendedorProveedor);
     }
 }

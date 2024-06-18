@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.MovimientoPersonas;
@@ -66,7 +67,7 @@ import java.util.Optional;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 import static com.franco.dev.utilitarios.CalcularVerificadorRuc.getDigitoVerificadorString;
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver, GraphQLSubscriptionResolver {
@@ -119,6 +120,9 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private ImpresionService impresionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     @Unsecured
     public Publisher<VentaCreditoQRAuthUpdate> ventaCreditoAuthQrSub() {
         return qrAuthPublisher.getPublisher();
@@ -166,7 +170,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public List<VentaCredito> ventaCreditoPorClienteAndVencimiento(Long id, String inicio, String fin) {
-        return service.findByClienteAndVencimiento(id, toDate(inicio), toDate(fin));
+        return service.findByClienteAndVencimiento(id, stringToDate(inicio), stringToDate(fin));
     }
 
     public Page<VentaCredito> ventaCreditoPorCliente(Long id, EstadoVentaCredito estado, int page, int size) {
@@ -176,7 +180,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Page<VentaCredito> findWithFilters(Long id, String fechaInicio, String fechaFin, EstadoVentaCredito estado, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page response = service.findWithFilters(id, toDate(fechaInicio), toDate(fechaFin), estado, pageable);
+        Page response = service.findWithFilters(id, stringToDate(fechaInicio), stringToDate(fechaFin), estado, pageable);
         return response;
     }
 

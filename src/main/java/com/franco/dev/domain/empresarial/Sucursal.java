@@ -36,11 +36,13 @@ public class Sucursal implements Serializable {
 
     private Boolean deposito;
 
+    @Column(name = "is_configured")
     private Boolean isConfigured;
 
-    @Column
+    @Column(name = "deposito_predeterminado")
     private Boolean depositoPredeterminado;
 
+    @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -50,8 +52,10 @@ public class Sucursal implements Serializable {
 
     private String direccion;
 
+    @Column(name = "nro_delivery")
     private String nroDelivery;
 
+    @Column(name = "codigo_establecimiento_factura", nullable = true)
     private String codigoEstablecimientoFactura;
 
     private String ip;

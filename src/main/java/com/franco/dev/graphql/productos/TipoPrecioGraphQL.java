@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Familia;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.graphql.productos.input.FamiliaInput;
 import com.franco.dev.graphql.productos.input.TipoPrecioInput;
@@ -28,6 +30,9 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<TipoPrecio> tipoPrecio(Long id) {return service.findById(id);}
 
     public List<TipoPrecio> tipoPrecioSearch(String texto) {return service.findByAll(texto);}
@@ -41,7 +46,7 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         ModelMapper m = new ModelMapper();
         TipoPrecio e = m.map(input, TipoPrecio.class);
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.TIPO_PRECIO);
+        multiTenantService.compartir(null, (TipoPrecio s) -> service.save(s), e);
         return e;
     }
 
@@ -53,7 +58,9 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteTipoPrecio(Long id){
-        return service.deleteById(id);
+        Boolean ok = service.deleteById(id);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
+        return ok;
     }
 
     public Long countTipoPrecio(){

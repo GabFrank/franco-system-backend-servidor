@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.Retiro;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.GastoInput;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.financiero.PdvCajaService;
@@ -46,6 +48,9 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private TipoGastoService tipoGastoService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Gasto> gasto(Long id, Long sucId) {
         return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
@@ -67,6 +72,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
         e = service.save(e);
+        multiTenantService.compartir(null, (Gasto s) -> service.save(s), e);
         return e;
     }
 
@@ -80,7 +86,9 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 //    }
 
     public Boolean deleteGasto(Long id, Long sucId) {
-        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        Gasto gasto = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        multiTenantService.compartir("filial"+sucId+"_bkp", (Gasto s) -> service.delete(s), gasto);
+        return service.delete(gasto);
     }
 
     public Long countGasto() {

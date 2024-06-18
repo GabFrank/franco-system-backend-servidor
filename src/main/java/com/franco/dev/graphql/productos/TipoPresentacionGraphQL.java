@@ -1,11 +1,10 @@
 package com.franco.dev.graphql.productos;
 
-import com.franco.dev.domain.productos.TipoPrecio;
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPresentacion;
-import com.franco.dev.graphql.productos.input.TipoPrecioInput;
 import com.franco.dev.graphql.productos.input.TipoPresentacionInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
-import com.franco.dev.service.productos.TipoPrecioService;
 import com.franco.dev.service.productos.TipoPresentacionService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -28,37 +27,45 @@ public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<TipoPresentacion> tipoPresentacion(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<TipoPresentacion> tipoPresentacionSearch(String texto) {return service.findByAll(texto);}
+    public Optional<TipoPresentacion> tipoPresentacion(Long id) {
+        return service.findById(id);
+    }
 
-    public List<TipoPresentacion> tiposPresentacion(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<TipoPresentacion> tipoPresentacionSearch(String texto) {
+        return service.findByAll(texto);
+    }
+
+    public List<TipoPresentacion> tiposPresentacion(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public TipoPresentacion saveTipoPresentacion(TipoPresentacionInput input){
+    public TipoPresentacion saveTipoPresentacion(TipoPresentacionInput input) {
         ModelMapper m = new ModelMapper();
         TipoPresentacion e = m.map(input, TipoPresentacion.class);
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.TIPO_PRESENTACION);
+//        propagacionService.propagarEntidad(e, TipoEntidad.TIPO_PRESENTACION);
+        multiTenantService.compartir(null, (TipoPresentacion s) -> service.save(s), e);
         return e;
     }
 
-    public TipoPresentacion updateTipoPresentacion(Long id, TipoPresentacionInput input){
+    public TipoPresentacion updateTipoPresentacion(Long id, TipoPresentacionInput input) {
         ModelMapper m = new ModelMapper();
         TipoPresentacion p = service.getOne(id);
         p = m.map(input, TipoPresentacion.class);
         return service.save(p);
     }
 
-    public Boolean deleteTipoPresentacion(Long id){
+    public Boolean deleteTipoPresentacion(Long id) {
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.TIPO_PRESENTACION);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 
-    public Long countTipoPresentacion(){
+    public Long countTipoPresentacion() {
         return service.count();
     }
 }

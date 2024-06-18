@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.CobroDetalle;
@@ -45,6 +46,9 @@ public class ProgramarPrecioGraphQL implements GraphQLQueryResolver, GraphQLMuta
     @Autowired
     private MovimientoCajaGraphQL movimientoCajaGraphQL;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<ProgramarPrecio> programarPrecio(Long id) {return service.findById(id);}
 
     public List<ProgramarPrecio> programarPrecios(int page, int size){
@@ -57,8 +61,8 @@ public class ProgramarPrecioGraphQL implements GraphQLQueryResolver, GraphQLMuta
         ProgramarPrecio e = m.map(input, ProgramarPrecio.class);
         if(e.getUsuario()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(e.getPrecio()!=null) e.setPrecio(precioPorSucursalService.findById(input.getPrecioId()).orElse(null));
-        ProgramarPrecio programarPrecio = service.save(e);
-        return programarPrecio;
+        e = service.save(e);
+        return e;
     }
 
     public Boolean deleteProgramarPrecio(Long id){

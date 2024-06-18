@@ -19,29 +19,25 @@ import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.utils.ImageService;
 import lombok.AllArgsConstructor;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.xssf.usermodel.XSSFFont;
-import org.apache.poi.xssf.usermodel.XSSFSheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-
-import java.io.*;
-import java.nio.file.Path;
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.dateToStringWithFormat;
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @AllArgsConstructor
@@ -75,15 +71,15 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     }
 
     public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        LocalDateTime inicio = toDate(fechaInicio);
-        LocalDateTime fin = toDate(fechaFin);
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = stringToDate(fechaFin);
         Pageable pageable = PageRequest.of(page, size);
         return repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucId, nombre, ruc, pageable);
     }
 
     public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        LocalDateTime inicio = toDate(fechaInicio);
-        LocalDateTime fin = toDate(fechaFin);
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = stringToDate(fechaFin);
         return repository.findResumenFacturas(inicio, fin, sucId, nombre, ruc);
     }
 
@@ -124,8 +120,8 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     }
 
     public String createExcelReport(String fechaInicio, String fechaFin, Long sucId) {
-        LocalDateTime inicio = toDate(fechaInicio);
-        LocalDateTime fin = toDate(fechaFin);
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = stringToDate(fechaFin);
         Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
@@ -248,9 +244,9 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         }
     }
 
-    public Workbook createExcelWorkbook(String fechaInicio, String fechaFin, Long sucId){
-        LocalDateTime inicio = toDate(fechaInicio);
-        LocalDateTime fin = toDate(fechaFin);
+    public Workbook createExcelWorkbook(String fechaInicio, String fechaFin, Long sucId) {
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = stringToDate(fechaFin);
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
         XSSFSheet sheet;
@@ -263,20 +259,73 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
             // Create the header row
             Row headerRow = sheet.createRow(0);
             String[] columnHeaders = {
-                    "ven_tipimp", "ven_gra05", "ven_iva05", "ven_disg05", "cta_iva05",
-                    "ven_rubgra", "ven_rubg05", "ven_disexe", "ven_numero", "ven_imputa",
-                    "ven_sucurs", "generar", "form_pag", "ven_centro", "ven_provee",
-                    "ven_cuenta", "ven_prvnom", "ven_tipofa", "ven_fecha", "ven_totfac",
-                    "ven_exenta", "ven_gravad", "ven_iva", "ven_retenc", "ven_aux",
-                    "ven_ctrl", "ven_con", "ven_cuota", "ven_fecven", "cant_dias",
-                    "origen", "cambio", "valor", "moneda", "exen_dolar",
-                    "concepto", "cta_iva", "cta_caja", "tkdesde", "tkhasta",
-                    "caja", "ven_disgra", "forma_devo", "ven_cuense", "anular",
-                    "reproceso", "cuenta_exe", "usu_ide", "rucvennrotim", "clieasi",
-                    "ventirptip", "ventirpgra", "ventirpexe", "irpc", "ivasimplificado",
-                    "venirprygc", "venbconom", "venbcoctacte", "nofacnotcre", "notimbfacnotcre",
-                    "ventipodoc", "ventanoiva", "identifclie", "gdcbienid", "gdctipobien",
-                    "gdcimpcosto", "gdcimpventagrav"
+                    "ven_tipimp",
+                    "ven_gra05",
+                    "ven_iva05",
+                    "ven_disg05",
+                    "cta_iva05",
+                    "ven_rubgra",
+                    "ven_rubg05",
+                    "ven_disexe",
+                    "ven_numero",
+                    "ven_imputa",
+                    "ven_sucurs",
+                    "generar",
+                    "form_pag",
+                    "ven_centro",
+                    "ven_provee",
+                    "ven_cuenta",
+                    "ven_prvnom",
+                    "ven_tipofa",
+                    "ven_fecha",
+                    "ven_totfac",
+                    "ven_exenta",
+                    "ven_gravad",
+                    "ven_iva",
+                    "ven_retenc",
+                    "ven_aux",
+                    "ven_ctrl",
+                    "ven_con",
+                    "ven_cuota",
+                    "ven_fecven",
+                    "cant_dias",
+                    "origen",
+                    "cambio",
+                    "valor",
+                    "moneda",
+                    "exen_dolar",
+                    "concepto",
+                    "cta_iva",
+                    "cta_caja",
+                    "tkdesde",
+                    "tkhasta",
+                    "caja",
+                    "ven_disgra",
+                    "forma_devo",
+                    "ven_cuense",
+                    "anular",
+                    "reproceso",
+                    "cuenta_exe",
+                    "usu_ide",
+                    "rucvennrotim",
+                    "clieasi",
+                    "ventirptip",
+                    "ventirpgra",
+                    "ventirpexe",
+                    "irpc",
+                    "ivasimplificado",
+                    "venIRPrygc",
+                    "VenBcoNom",
+                    "VenBcoCtaCte",
+                    "nofacnotcre",
+                    "notimbfacnotcre",
+                    "ventipodoc",
+                    "VentaNoIva",
+                    "IdentifClie",
+                    "GDCBIENID",
+                    "GDCTIPOBIEN",
+                    "GDCIMPCOSTO",
+                    "GDCIMPVENTAGRAV"
             };
 
             for (int i = 0; i < columnHeaders.length; i++) {
@@ -351,7 +400,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 row.createCell(59).setCellValue(data.getNotimbfacnotcre());
                 row.createCell(60).setCellValue(data.getVentipodoc());
                 row.createCell(61).setCellValue(data.getVentanoiva());
-                row.createCell(62).setCellValue(data.getIdentifclie());
+                row.createCell(62).setCellValue(data.getVenProvee().equals("X") ? "15" : "11");
                 row.createCell(63).setCellValue(data.getGdcbienid());
                 row.createCell(64).setCellValue(data.getGdctipobien());
                 row.createCell(65).setCellValue(data.getGdcimpcosto());
@@ -414,7 +463,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 buildNumeroFactura.append("0");
                 break;
         }
-        dto.setVenNumero(buildNumeroFactura.toString()+f.getNumeroFactura());
+        dto.setVenNumero(buildNumeroFactura.toString() + f.getNumeroFactura());
         dto.setVenSucurs(Long.valueOf(sucursal.getCodigoEstablecimientoFactura()));
         dto.setFormPag(f.getCredito() == true ? "CREDITO" : "CONTADO");
         dto.setVenProvee(f.getRuc());

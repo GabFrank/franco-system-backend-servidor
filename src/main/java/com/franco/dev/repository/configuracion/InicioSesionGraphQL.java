@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -30,6 +30,7 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private SucursalService sucursalService;
+
 
     public Optional<InicioSesion> inicioSesion(Long id) {
         return service.findById(id);
@@ -50,9 +51,9 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         InicioSesion e = m.map(input, InicioSesion.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
-        if (input.getHoraInicio() != null) e.setHoraInicio(toDate(input.getHoraInicio()));
-        if (input.getHoraFin() != null) e.setHoraFin(toDate(input.getHoraFin()));
-        if (input.getCreadoEn() != null) e.setCreadoEn(toDate(input.getCreadoEn()));
+        if (input.getHoraInicio() != null) e.setHoraInicio(stringToDate(input.getHoraInicio()));
+        if (input.getHoraFin() != null) e.setHoraFin(stringToDate(input.getHoraFin()));
+        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         return service.save(e);
     }
 

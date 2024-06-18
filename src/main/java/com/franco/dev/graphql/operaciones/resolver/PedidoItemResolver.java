@@ -37,7 +37,7 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
 
     public Double valorTotal(PedidoItem e) {
         Double parcial = 0.0;
-        return parcial + ((e.getPrecioUnitario() - e.getDescuentoUnitario()) * e.getCantidad());
+        return parcial + ((((e.getPrecioUnitario() != null ? e.getPrecioUnitario() : 0.0) - (e.getDescuentoUnitario() != null ? e.getDescuentoUnitario() : 0.0)) * (e.getCantidad() != null ? e.getCantidad() : 0.0) * e.getPresentacion().getCantidad()));
     }
 
     public CompraItem compraItem(PedidoItem e){

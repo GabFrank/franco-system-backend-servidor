@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.FormaPago;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.FormaPagoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.CuentaBancariaService;
@@ -37,6 +39,9 @@ public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<FormaPago> formaPago(Long id) {
         return service.findById(id);
     }
@@ -57,14 +62,15 @@ public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.FORMA_DE_PAGO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.FORMA_DE_PAGO);
+        multiTenantService.compartir(null, (FormaPago s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteFormaPago(Long id) {
 
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.FORMA_DE_PAGO);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

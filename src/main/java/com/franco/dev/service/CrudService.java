@@ -1,11 +1,12 @@
 package com.franco.dev.service;
 
+import com.franco.dev.config.multitenant.DatabaseSessionManager;
+import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.repository.HelperRepository;
+import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,12 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
     @Autowired
     public Environment env;
     public PropagacionService propagacionService;
+
+    @Autowired
+    private TenantContext tenantContext;
+
+    @Autowired
+    private DatabaseSessionManager databaseSessionManager;
 
     @Autowired
     public void setpropagacionService(PropagacionService propagacionService) {
@@ -61,6 +68,11 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
     }
 
     @Transactional
+    public T saveAndSend(T entity, Long sucId) {
+        return (T) getRepository().save(entity);
+    }
+
+    @Transactional
     public Boolean deleteById(S id) {
         try {
             getRepository().deleteById(id);
@@ -89,5 +101,17 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
         return getRepository().count();
     }
 
+    public <T> T setTenant(String tenantKey) {
+        databaseSessionManager.unbindSession();  // Unbind the current session
+        tenantContext.setCurrentTenant(tenantKey);  // Set the tenant context
+        databaseSessionManager.bindSession();  // Bind a new session for the current tenant
+        return (T) this;
+    }
 
+    // Add a method to clear the tenant context, if needed
+    public void clearTenant() {
+        tenantContext.clear();  // Clear the tenant context
+        // Optionally rebind the previous session if needed
+        // databaseSessionManager.rebindPreviousSession();
+    }
 }

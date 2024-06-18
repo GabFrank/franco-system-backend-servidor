@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Role;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.UsuarioRole;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.UsuarioInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.PersonaService;
@@ -18,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +42,9 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Usuario> usuario(Long id) {return service.findById(id);}
 
     public Usuario usuarioPorPersonaId(Long id) {return service.findByPersonaId(id);}
@@ -56,13 +62,14 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         if(input.getUsuarioId()!=null) e.setUsuario(service.findById(input.getUsuarioId()).orElse(null));
         if(input.getPersonaId()!=null) e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.USUARIO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.USUARIO);
+        multiTenantService.compartir(null, (Usuario s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteUsuario(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.USUARIO);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 
@@ -73,5 +80,21 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     public Boolean verificarUsuario(String nickname) {
         Boolean res = service.existsByNickname(nickname);
         return res;
+    }
+
+    public Boolean saveUsuarioImage(Long id, String type, String image) throws IOException {
+        return service.saveUserImage(id, type, image);
+    }
+
+    public List<String> getUsuarioImages(Long id, String type){
+        return service.getUserImages(id, type);
+    }
+
+    public Integer isUserFaceAuth(Long id){
+        return service.isUserFaceAuth(id);
+    }
+
+    public Boolean deleteUserImage(){
+        return false;
     }
 }

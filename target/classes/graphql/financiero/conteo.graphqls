@@ -29,7 +29,7 @@ extend type Query {
 }
 
 extend type Mutation {
-    saveConteo(conteo:ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: Int!, apertura: Boolean, sucId:Int!):Conteo!
+    saveConteo(conteo:ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: Int!, apertura: Boolean):Conteo!
     deleteConteo(id:ID!, sucId: ID):Boolean!
 }
 

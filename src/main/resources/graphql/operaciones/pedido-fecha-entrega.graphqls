@@ -1,0 +1,27 @@
+type PedidoFechaEntrega {
+    id: ID!
+    pedido: Pedido!
+    fechaEntrega: Date!
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input PedidoFechaEntregaInput {
+    id: ID!
+    pedidoId: Int!
+    fechaEntrega: String!
+    creadoEn: String
+    usuarioId: Int
+}
+
+extend type Query {
+    pedidoFechaEntrega(id:ID!):PedidoFechaEntrega
+    countPedidoFechaEntrega: Int
+}
+
+extend type Mutation {
+    savePedidoFechaEntrega(pedidoFechaEntrega:PedidoFechaEntregaInput!):PedidoFechaEntrega!
+    deletePedidoFechaEntrega(id:ID!):Boolean!
+}
+
+

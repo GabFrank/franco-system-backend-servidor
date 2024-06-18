@@ -1,10 +1,12 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.MovimientoCajaInput;
 import com.franco.dev.service.financiero.BancoService;
@@ -39,6 +41,9 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     @Autowired
     private MonedaService monedaService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<MovimientoCaja> movimientoCaja(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
     public List<MovimientoCaja> movimientoCajas(int page, int size, Long sucId){
@@ -59,6 +64,7 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
             e.setCambio(cambioService.findLastByMonedaId(input.getMonedaId()));
         }
         MovimientoCaja movimientoCaja = service.save(e);
+        multiTenantService.compartir("filial"+movimientoCaja.getSucursalId()+"_bkp", (MovimientoCaja s) -> service.save(s), movimientoCaja);
         return movimientoCaja;
     }
 

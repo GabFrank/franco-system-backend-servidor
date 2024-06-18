@@ -29,7 +29,7 @@ public class Subfamilia implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "familia_id", nullable = false)
     private Familia familia;
 

@@ -3,6 +3,8 @@ package com.franco.dev.repository.operaciones;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -12,6 +14,7 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
         return PedidoItem.class;
     }
 
+    public Page<PedidoItem> findByPedidoIdOrderByIdDesc(Long id, Pageable page);
     public List<PedidoItem> findByPedidoId(Long id);
 
     public List<PedidoItem> findByProductoId(Long id);
@@ -23,6 +26,16 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
             "where pi2.pedido_id = ?1 and pi2.nota_recepcion_id isnull", nativeQuery = true)
     public List<PedidoItem> findByPedidoIdSobrantes(Long id);
 
+    public Page<PedidoItem> findByNotaRecepcionId(Long id,  Pageable page);
+
 
     public List<PedidoItem> findByNotaRecepcionId(Long id);
+
+    public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNull(Long id, Pageable page);
+
+    public Integer countByNotaRecepcionId(Long id);
+    public Integer countByPedidoId(Long id);
+
+    public List<PedidoItem> findByIdIn(List<Long> idList);
+
 }

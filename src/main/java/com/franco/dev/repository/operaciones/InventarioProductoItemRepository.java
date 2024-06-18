@@ -19,6 +19,8 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
 
     public List<InventarioProductoItem> findByInventarioProductoIdOrderByIdDesc(Long id, Pageable pageable);
 
+    public List<InventarioProductoItem> findByInventarioProductoId(Long id);
+
     @Query(value = "Select i from InventarioProductoItem i " +
             "join i.presentacion pre " +
             "join pre.producto pro " +

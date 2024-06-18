@@ -1,11 +1,13 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Contacto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.enums.TipoCliente;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -52,6 +54,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private FuncionarioService funcionarioService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Cliente> cliente(Long id) {return service.findById(id);}
 
     public List<Cliente> clientePorTelefono(String texto){
@@ -96,19 +101,21 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CLIENTE);
+//        propagacionService.propagarEntidad(e, TipoEntidad.CLIENTE);
+        multiTenantService.compartir(null, (Cliente s) -> service.save(s), e);
         Funcionario funcionario = funcionarioService.findByPersonaId(e.getPersona().getId());
         if(funcionario != null && e.getCredito() != funcionario.getCredito()){
             funcionario.setCredito(e.getCredito());
             funcionario = funcionarioService.save(funcionario);
-            propagacionService.propagarEntidad(funcionario, TipoEntidad.FUNCIONARIO);
+//            propagacionService.propagarEntidad(funcionario, TipoEntidad.FUNCIONARIO);
+            multiTenantService.compartir(null, (Funcionario s) -> funcionarioService.save(s), funcionario);
         }
         return e;
     }
 
     public Boolean deleteCliente(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CLIENTE);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

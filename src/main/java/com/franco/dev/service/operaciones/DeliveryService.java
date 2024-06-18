@@ -46,4 +46,9 @@ public class DeliveryService extends CrudService<Delivery, DeliveryRepository, E
     public Delivery findByVentaId(Long id, Long sucId) {
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
+
+    public List<Delivery> findByVentaCajaIdAndEstadoIn(Long id, List<DeliveryEstado> estado, Long sucId){
+        return repository.findByVentaCajaIdAndEstadoInAndSucursalId(id,estado, sucId);
+    }
+
 }

@@ -5,12 +5,14 @@ type NotaRecepcion {
     documento: Documento,
     valor: Float,
     descuento: Float,
+    tipoBoleta: String
     pagado: Boolean,
     numero: Int,
     timbrado: Int,
     creadoEn: Date,
-    usuario: Usuario
-    pedidoItemList: [PedidoItem]
+    usuario: Usuario,
+    cantidadItens: Int
+    fecha: Date
 }
 
 input NotaRecepcionInput {
@@ -18,13 +20,15 @@ input NotaRecepcionInput {
     pedidoId: Int,
     compraId: Int,
     documentoId: Int,
+    tipoBoleta: String
     valor: Float,
     descuento: Float,
     pagado: Boolean,
     numero: Int,
     timbrado: Int,
-    creadoEn: Date,
+    creadoEn: String,
     usuarioId: Int
+    fecha: String
 }
 
 extend type Query {

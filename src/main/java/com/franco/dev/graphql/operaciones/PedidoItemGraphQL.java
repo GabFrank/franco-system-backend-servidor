@@ -16,6 +16,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -49,15 +50,14 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Optional<PedidoItem> pedidoItem(Long id) {return service.findById(id);}
 
-    public List<PedidoItem> pedidoItens(int page, int size){
+    public Page<PedidoItem> pedidoItemPorPedidoPage(Long id, int page, int size){
         Pageable pageable = PageRequest.of(page,size);
-        return service.findAll(pageable);
+        return service.findByPedidoId(id, pageable);
     }
 
-    public List<PedidoItem> pedidoItensPorPedido(Long pedidoId){
-        return service.findByPedidoId(pedidoId);
+    public List<PedidoItem> pedidoItemPorPedido(Long id){
+        return service.findByPedidoId(id);
     }
-
 
     public PedidoItem savePedidoItem(PedidoItemInput input){
         ModelMapper m = new ModelMapper();
@@ -67,12 +67,13 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         if(input.getPedidoId()!=null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
         if(input.getPresentacionId()!=null) e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
         if(input.getNotaRecepcionId()!=null) e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
-        if(input.getId()!=null){
-            PedidoItem aux = service.findById(input.getId()).orElse(null);
-            if(aux!=null && aux.getNotaRecepcion()!=null){
-                e.setNotaRecepcion(aux.getNotaRecepcion());
-            }
-        }
+//        if(input.getId()!=null){
+//            PedidoItem aux = service.findById(input.getId()).orElse(null);
+//            if(aux!=null && aux.getNotaRecepcion()!=null){
+//                e.setNotaRecepcion(aux.getNotaRecepcion());
+//            }
+//        }
+
         return service.save(e);
     }
 
@@ -84,8 +85,14 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.count();
     }
 
-    public List<PedidoItem> pedidoItemPorPedidoIdSobrante(Long id){
-        return service.findByPedidoIdSobrantes(id);
+    public Page<PedidoItem> pedidoItemPorPedidoIdSobrante(Long id, int page, int size){
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByPedidoIdSobrantes(id, pageable);
+    }
+
+    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size){
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByNotaRecepcionId(id, pageable);
     }
 
     public PedidoItem updateNotaRecepcion(Long pedidoItemId, Long notaRecepcionId){
@@ -107,6 +114,27 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             pedidoItem = service.save(pedidoItem);
         }
         return pedidoItem;
+    }
+
+    public Boolean addPedidoItemListToNotaRecepcion(Long notaRecepcionId, List<Long> pedidoItemIdList){
+        NotaRecepcion notaRecepcion = notaRecepcionId != null ? notaRecepcionService.findById(notaRecepcionId).orElse(null) : null;
+        List<PedidoItem> pedidoItemList = service.getRepository().findByIdIn(pedidoItemIdList);
+        if(notaRecepcion != null && pedidoItemIdList.size() > 0){
+            for(PedidoItem pi : pedidoItemList){
+                pi.setNotaRecepcion(notaRecepcion);
+                service.save(pi);
+            }
+            return true;
+        } else if(notaRecepcionId == null && pedidoItemIdList.size() > 0) {
+            for(PedidoItem pi : pedidoItemList){
+                pi.setNotaRecepcion(null);
+                service.save(pi);
+            }
+            return true;
+        } else {
+            return false;
+        }
+
     }
 
 

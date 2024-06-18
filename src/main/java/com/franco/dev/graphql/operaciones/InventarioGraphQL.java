@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
@@ -31,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -60,6 +61,8 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private InventarioProductoItemService inventarioProductoItemService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
@@ -82,12 +85,13 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Inventario saveInventario(InventarioInput input) {
         ModelMapper m = new ModelMapper();
         Inventario e = m.map(input, Inventario.class);
-        if (input.getFechaInicio() != null) e.setFechaInicio(toDate(input.getFechaInicio()));
-        if (input.getFechaFin() != null) e.setFechaFin(toDate(input.getFechaFin()));
+        if (input.getFechaInicio() != null) e.setFechaInicio(stringToDate(input.getFechaInicio()));
+        if (input.getFechaFin() != null) e.setFechaFin(stringToDate(input.getFechaFin()));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO, e.getSucursal().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO, e.getSucursal().getId());
+        multiTenantService.compartir("filial"+e.getSucursal().getId()+"_bkp", (Inventario s) -> service.save(s), e);
         return e;
     }
 
@@ -96,7 +100,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         Inventario i = service.findById(id).orElse(null);
         if (i != null) {
             ok = service.deleteById(id);
-            propagacionService.eliminarEntidad(i, TipoEntidad.INVENTARIO, i.getSucursal().getId());
+            multiTenantService.compartir("filial"+i.getSucursal().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }
@@ -104,7 +108,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Inventario finalizarInventario(Long id) throws GraphQLException {
         Inventario inventario = service.findById(id).orElse(null);
         if (inventario.getId() != null && inventario.getEstado() != InventarioEstado.CONCLUIDO) {
-            inventario = propagacionService.finalizarInventario(inventario, inventario.getSucursal().getId());
+            inventario = multiTenantService.compartir("filial"+inventario.getSucursal().getId()+"_bkp", (Long s) -> finalizarInventarioEnSucursal(s), id);
             if(inventario!=null){
                 return service.save(inventario);
             }
@@ -136,6 +140,52 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public List<Inventario> inventarioAbiertoPorSucursal(Long sucId){
         return service.findInventarioAbiertoPorSucursal(sucId);
+    }
+
+    public Inventario finalizarInventarioEnSucursal(Long id) throws GraphQLException {
+        Inventario inventario = service.findById(id).orElse(null);
+        try {
+            if (inventario.getId() != null) {
+                inventario.setEstado(InventarioEstado.CONCLUIDO);
+                inventario.setFechaFin(LocalDateTime.now());
+                inventario = service.save(inventario);
+                List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
+                List<MovimientoStock> movimientoStockList = new ArrayList<>();
+                for (InventarioProducto ip : inventarioProductoList) {
+                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
+                    for (InventarioProductoItem ipi : inventarioProductoItemList) {
+                        MovimientoStock movimientoStockEncontrado = null;
+                        for (MovimientoStock ms : movimientoStockList) {
+                            if (ipi.getPresentacion().getProducto().getId() == ms.getProducto().getId()) {
+                                ms.setCantidad(ms.getCantidad() + (ipi.getPresentacion().getCantidad() * ipi.getCantidad()));
+                                movimientoStockEncontrado = ms;
+                            }
+                        }
+                        if (movimientoStockEncontrado == null) {
+                            movimientoStockEncontrado = new MovimientoStock();
+                            movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
+                            movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
+                            movimientoStockEncontrado.setReferencia(ipi.getId());
+                            movimientoStockEncontrado.setProducto(ipi.getPresentacion().getProducto());
+                            movimientoStockEncontrado.setEstado(true);
+                            movimientoStockList.add(movimientoStockEncontrado);
+                        }
+                    }
+                }
+                for (MovimientoStock ms : movimientoStockList) {
+                    Double stockSistema = Double.valueOf(movimientoStockService.stockByProductoId(ms.getProducto().getId()));
+                    Double stockFisico = ms.getCantidad();
+                    Double diferencia = stockFisico - stockSistema; //9 - 10 = -1, 11 - 10 = 1
+                    ms.setCantidad(diferencia);
+                    movimientoStockService.saveAndSend(ms, false);
+                }
+            }
+            return inventario;
+        } catch (Exception e){
+            e.printStackTrace();
+            throw e;
+        }
+
     }
 
 }

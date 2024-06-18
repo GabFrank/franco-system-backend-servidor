@@ -1,0 +1,82 @@
+Lista de entidades que se necesitan modificar la propagacion
+- Producto - ok
+- Familia - ok
+- Subfamilia - ok
+- usuario - ok
+- presentacion - ok
+- producto por sucursal - ok
+- pdv grupos productos - ok
+- pdv grupos - ok
+- salida_item
+- entrada_item
+- costo por producto - ok
+- movimiento stock - ok
+- producto proveedor - ok
+- compra
+- compra item
+- pedido item
+- venta item
+- inventario - ok
+- inventario producto - ok
+- producto imagen
+- codigo - ok
+- codigo tipo precio - ok
+- tipo precio - ok
+- moneda - ok
+- pdv categoria - ok
+- precio por sucursla - ok
+- programar precio - ok
+- transferencia - ok
+- transferencia item - ok
+- inventario producto item - ok
+- tipo presentacion - ok
+- factura legal - ok
+- factura legal item - ok
+- cargo - ok
+- tipo gasto - ok
+- gasto - ok
+- punto de venta - ok
+- timbrado - ok
+- timbrado detalle - ok
+- sector - ok
+- zona - ok
+- local - ok
+- autorizacion
+- inicio sesion
+- ciudad - ok
+- funcionario - ok
+- pdv caja -
+- banco
+- cuenta bancaria
+- cambio
+- sencillo detalle
+- movimiento caja
+- cliente
+- cambio caja
+- conteo
+- conteo moneda
+- moneda billetes
+- documento
+- nota recepcion
+- venta
+- forma pago
+- cobro
+- cobro detalle
+- maletin
+- movimiento personas
+- retiro
+- retiro detalle
+- venta credito
+- venta credito cuota
+- barrio
+- contacto
+- pais
+- proveedor
+- vendedor
+- movimiento stock
+- grupo role
+- persona
+- role
+- usuario grupo
+- usuario role
+-

@@ -50,12 +50,11 @@ public class Pedido implements Serializable {
     @JoinColumn(name = "vendedor_id", nullable = true)
     private Vendedor vendedor;
 
-    @Column(name = "fecha_de_entrega")
-    private LocalDateTime fechaDeEntrega;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "forma_pago_id", nullable = true)
     private FormaPago formaPago;
+
+    private String tipoBoleta;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id", nullable = true)
@@ -63,9 +62,6 @@ public class Pedido implements Serializable {
 
     @Column(name = "plazo_credito")
     private Integer plazoCredito;
-
-    @Column(name = "descuento")
-    private Double descuento;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")

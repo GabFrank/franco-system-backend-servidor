@@ -9,6 +9,8 @@ import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -34,14 +36,24 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
 
     public List<PedidoItem> findByProductoId(Long id) { return repository.findByProductoId(id); }
 
+    public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { return repository.findByPedidoIdOrderByIdDesc(id, page); }
+
     public List<PedidoItem> findByPedidoId(Long id) { return repository.findByPedidoId(id); }
 
-    public List<PedidoItem> findByPedidoIdSobrantes(Long id){
-        return repository.findByPedidoIdSobrantes(id);
+    public Page<PedidoItem> findByPedidoIdSobrantes(Long id, Pageable page){
+        return repository.findByPedidoIdAndNotaRecepcionIdIsNull(id, page);
+    }
+
+    public Page<PedidoItem> findByNotaRecepcionId(Long id, Pageable page) {
+        return repository.findByNotaRecepcionId(id, page);
     }
 
     public List<PedidoItem> findByNotaRecepcionId(Long id) {
         return repository.findByNotaRecepcionId(id);
+    }
+
+    public Integer countByNotaRecepcionId(Long id) {
+        return repository.countByNotaRecepcionId(id);
     }
 
     @Override
@@ -49,22 +61,6 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         PedidoItem e = null;
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
             e = super.save(entity);
-            if(e!=null){
-                CompraItem compraItem = compraItemService.findByPedidoItemId(e.getId());
-                if(compraItem==null){
-                    compraItem = new CompraItem();
-                    compraItem.setPedidoItem(e);
-                    compraItem.setPresentacion(e.getPresentacion());
-                    compraItem.setProducto(e.getProducto());
-                    compraItem.setBonificacion(e.getBonificacion());
-                    compraItem.setCantidad(e.getCantidad());
-                    compraItem.setDescuentoUnitario(e.getDescuentoUnitario());
-                    compraItem.setEstado(CompraItemEstado.SIN_MODIFICACION);
-                    compraItem.setPrecioUnitario(e.getPrecioUnitario());
-                    compraItem.setCreadoEn(e.getCreadoEn());
-                    compraItemService.save(compraItem);
-                }
-            }
         return e;
     }
 }

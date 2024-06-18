@@ -55,7 +55,6 @@ public class PedidoItem implements Serializable {
     @JoinColumn(name = "nota_recepcion_id", nullable = true)
     private NotaRecepcion notaRecepcion;
 
-
     @Column(name = "precio_unitario")
     private Double precioUnitario;
 

@@ -16,11 +16,13 @@ public class NotaRecepcionInput {
     private Long pedidoId;
     private Long compraId;
     private Long documentoId;
+    private String tipoBoleta;
     private Double valor;
     private Double descuento;
     private Integer numero;
     private Integer timbrado;
     private Boolean pagado;
-    private LocalDateTime creadoEn;
+    private String creadoEn;
     private Long usuarioId;
+    private String fecha;
 }

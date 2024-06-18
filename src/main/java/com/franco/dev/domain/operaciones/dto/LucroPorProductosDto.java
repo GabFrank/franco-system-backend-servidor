@@ -17,4 +17,10 @@ public class LucroPorProductosDto {
     private Double percent;
     private Double ventaMedia;
     private Double margen;
+
+    public void aggregate(LucroPorProductosDto other) {
+        this.cantidad += other.cantidad;
+        this.totalVenta += other.totalVenta;
+        this.lucro += other.lucro;
+    }
 }

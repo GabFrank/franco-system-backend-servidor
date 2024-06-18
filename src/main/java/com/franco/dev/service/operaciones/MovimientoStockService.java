@@ -1,14 +1,17 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.MovimientoStockResumenDto;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,9 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, EmbebedPrimaryKey> {
     private final MovimientoStockRepository repository;
+
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     @Override
     public MovimientoStockRepository getRepository() {
@@ -58,6 +64,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     public MovimientoStock save(MovimientoStock entity) {
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         MovimientoStock e = super.save(entity);
+        multiTenantService.compartir("filial"+entity.getSucursalId()+"_bkp", (MovimientoStock s) -> super.save(s), e);
 //        personaPublisher.publish(p);
         return e;
     }
@@ -66,7 +73,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     public Boolean delete(MovimientoStock entity) {
         Boolean ok = super.delete(entity);
         if (ok) {
-            propagacionService.eliminarEntidad(entity.getId(), TipoEntidad.MOVIMIENTO_STOCK, entity.getSucursalId());
+            multiTenantService.compartir(null, (MovimientoStock s) -> super.delete(s), entity);
         }
         return ok;
     }

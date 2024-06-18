@@ -20,7 +20,7 @@ public class DateUtils {
         return formatter2.format(d);
     }
 
-    public static LocalDateTime toDate(String s) {
+    public static LocalDateTime stringToDate(String s) {
         return LocalDateTime.parse(s, formatter);
     }
 

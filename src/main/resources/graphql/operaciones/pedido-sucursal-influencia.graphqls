@@ -1,0 +1,27 @@
+type PedidoSucursalInfluencia {
+    id: ID!
+    pedido: Pedido!
+    sucursal: Sucursal!
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input PedidoSucursalInfluenciaInput {
+    id: ID!
+    pedidoId: Int!
+    sucursalId: Int!
+    creadoEn: String
+    usuarioId: Int
+}
+
+extend type Query {
+    pedidoSucursalInfluencia(id:ID!):PedidoSucursalInfluencia
+    countPedidoSucursalInfluencia: Int
+}
+
+extend type Mutation {
+    savePedidoSucursalInfluencia(pedidoSucursalInfluencia:PedidoSucursalInfluenciaInput!):PedidoSucursalInfluencia!
+    deletePedidoSucursalInfluencia(id:ID!):Boolean!
+}
+
+

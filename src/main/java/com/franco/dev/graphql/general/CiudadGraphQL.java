@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.general;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.domain.general.Pais;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.general.input.CiudadInput;
 import com.franco.dev.graphql.general.input.PaisInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -35,6 +37,9 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Ciudad> ciudad(Long id) {return service.findById(id);}
 
     public List<Ciudad> ciudades(int page, int size){
@@ -53,12 +58,13 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPais(ciudadService.findById(input.getPaisId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CIUDAD);
+//        propagacionService.propagarEntidad(e, TipoEntidad.CIUDAD);
+        multiTenantService.compartir(null, (Ciudad s) -> service.save(s), e);
         return e;    }
 
     public Boolean deleteCiudad(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CIUDAD);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

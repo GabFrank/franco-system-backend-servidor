@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.productos.pdv;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Familia;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.pdv.PdvCategoria;
 import com.franco.dev.graphql.productos.input.FamiliaInput;
 import com.franco.dev.graphql.productos.input.pdv.PdvCategoriaInput;
@@ -27,6 +29,9 @@ public class PdvCategoriaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<PdvCategoria> pdvCategoria(Long id) {return service.findById(id);}
 
     public List<PdvCategoria> pdvCategoriaSearch(String texto) {return service.findByAll(texto);}
@@ -40,11 +45,15 @@ public class PdvCategoriaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         ModelMapper m = new ModelMapper();
         PdvCategoria e = m.map(input, PdvCategoria.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        return service.save(e);
+        e = service.save(e);
+        multiTenantService.compartir(null, (PdvCategoria s) -> service.save(s), e);
+        return e;
     }
 
     public Boolean deletePdvCategoria(Long id){
-        return service.deleteById(id);
+        Boolean ok = service.deleteById(id);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
+        return ok;
     }
 
     public Long countPdvCategoria(){

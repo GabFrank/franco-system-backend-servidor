@@ -71,6 +71,7 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
     private Conteo conteoCierre;
 
     @CreationTimestamp
+    @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.LAZY)

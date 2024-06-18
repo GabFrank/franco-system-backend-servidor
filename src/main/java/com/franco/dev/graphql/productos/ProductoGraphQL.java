@@ -1,5 +1,8 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.DatabaseSessionManager;
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Usuario;
@@ -24,6 +27,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -76,6 +80,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private CodigoService codigoService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     @Unsecured
     public Optional<Producto> producto(Long id) {return service.findById(id);}
 
@@ -87,10 +94,10 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findAllForPdv();
     }
 
-    public Producto saveProducto(ProductoInput input){
-        Producto p = service.save(input);
-        propagacionService.propagarEntidad(p, TipoEntidad.PRODUCTO);
-        return p;
+    public Producto saveProducto(ProductoInput input) {
+        Producto e = service.save(input);
+        multiTenantService.compartir(null, (Producto s) -> service.save(s), e);
+        return e;
     }
 
     public Producto updateProducto(Long id, ProductoInput input){
@@ -106,7 +113,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Boolean deleteProducto(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PRODUCTO);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

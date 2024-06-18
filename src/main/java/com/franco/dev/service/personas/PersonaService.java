@@ -14,8 +14,6 @@ import java.util.List;
 public class PersonaService extends CrudService<Persona, PersonaRepository, Long> {
 
     private final PersonaRepository repository;
-//    private final PersonaPublisher personaPublisher;
-
 
     @Override
     public PersonaRepository getRepository() {

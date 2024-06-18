@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.graphql.productos.input.SubfamiliaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -33,6 +35,9 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Subfamilia> subfamilia(Long id) {return service.findById(id);}
 
     public List<Subfamilia> subfamiliaSearch(String texto) {return service.findByDescripcion(texto);}
@@ -56,7 +61,8 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setSubfamilia(service.findById((input.getSubfamiliaId())).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.SUBFAMILIA);
+//        propagacionService.propagarEntidad(e, TipoEntidad.SUBFAMILIA);
+        multiTenantService.compartir(null, (Subfamilia s) -> service.save(s), e);
         return e;
     }
 
@@ -69,7 +75,7 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Boolean deleteSubfamilia(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUBFAMILIA);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

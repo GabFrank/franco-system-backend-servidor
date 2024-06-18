@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.PersonaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.PersonaService;
@@ -17,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -30,6 +32,9 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private PropagacionService propagacionService;
+
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<Persona> persona(Long id) {return service.findById(id);}
 
@@ -44,9 +49,10 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         ModelMapper m = new ModelMapper();
         Persona e = m.map(input, Persona.class);
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getNacimiento()!=null) e.setNacimiento(toDate(input.getNacimiento()));
+        if(input.getNacimiento()!=null) e.setNacimiento(stringToDate(input.getNacimiento()));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.PERSONA);
+//        propagacionService.propagarEntidad(e, TipoEntidad.PERSONA);
+        multiTenantService.compartir(null, (Persona s) -> service.getRepository().save(s), e);
         return e;
     }
 
@@ -59,7 +65,7 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public Boolean deletePersona(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PERSONA);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

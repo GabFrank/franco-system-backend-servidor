@@ -4,8 +4,10 @@ import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.operaciones.PedidoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.personas.VendedorProveedorService;
 import lombok.AllArgsConstructor;
 import org.hibernate.Session;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +26,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private VendedorProveedorService vendedorProveedorService;
 
     @Override
     public PedidoRepository getRepository() {
@@ -90,7 +95,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
             entity.setEstado(PedidoEstado.ABIERTO);
         }
         Pedido e = super.save(entity);
-//        personaPublisher.publish(p);
+        if(entity.getVendedor()!=null && entity.getProveedor()!=null){
+            vendedorProveedorService.save(entity.getVendedor(), entity.getProveedor());
+        }
         return e;
     }
 }

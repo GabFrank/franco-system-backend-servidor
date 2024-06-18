@@ -11,6 +11,7 @@ import java.util.Optional;
 
 @NoRepositoryBean
 public interface HelperRepository<T, S> extends JpaRepository<T, S>, PagingAndSortingRepository<T, S> {
+
     List<T> findAllByOrderByIdAsc();
 
     List<T> findAllByOrderByIdAsc(Pageable pageable);

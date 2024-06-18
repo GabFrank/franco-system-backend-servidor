@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @AllArgsConstructor
@@ -66,8 +66,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
     }
 
     public List<PdvCaja> findByDate(String inicio, String fin, Long sucId) {
-        if (sucId == null) return repository.findByCreadoEnBetween(toDate(inicio), toDate(fin));
-        return repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, toDate(inicio), toDate(fin));
+        if (sucId == null) return repository.findByCreadoEnBetween(stringToDate(inicio), stringToDate(fin));
+        return repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, stringToDate(inicio), stringToDate(fin));
     }
 
     @Override

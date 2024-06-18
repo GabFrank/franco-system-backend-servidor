@@ -1,8 +1,8 @@
 package com.franco.dev.graphql.personas;
 
-import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Vendedor;
-import com.franco.dev.graphql.personas.input.ProveedorInput;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.VendedorInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.PersonaService;
@@ -39,38 +39,44 @@ public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<Vendedor> vendedor(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<Vendedor> vendedores(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Optional<Vendedor> vendedor(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Vendedor> vendedores(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<Vendedor> vendedoresSearchByPersona(String texto){
+    public List<Vendedor> vendedoresSearchByPersona(String texto) {
         return service.findByPersonaNombre(texto);
     }
 
-    public Vendedor saveVendedor(VendedorInput input){
+    public Vendedor saveVendedor(VendedorInput input) {
         ModelMapper m = new ModelMapper();
         Vendedor e = m.map(input, Vendedor.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.VENDEDOR);
+//        propagacionService.propagarEntidad(e, TipoEntidad.VENDEDOR);
+        multiTenantService.compartir(null, (Vendedor s) -> service.save(s), e);
         return e;
     }
 
-    public Boolean deleteVendedor(Long id){
+    public Boolean deleteVendedor(Long id) {
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.VENDEDOR);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 
-    public Long countVendedor(){
+    public Long countVendedor() {
         return service.count();
     }
 
-    public Vendedor vendedorPorPersona(Long id){
+    public Vendedor vendedorPorPersona(Long id) {
         return service.findByPersonaId(id);
     }
 

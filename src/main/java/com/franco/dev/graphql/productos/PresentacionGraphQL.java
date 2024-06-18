@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.graphql.productos.input.PresentacionInput;
 import com.franco.dev.graphql.productos.input.TipoPrecioInput;
@@ -40,6 +42,9 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Presentacion> presentacion(Long id) {return service.findById(id);}
 
     public List<Presentacion> presentacionSearch(String texto) {return service.findByAll(texto);}
@@ -65,7 +70,8 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
         Presentacion e = m.map(input, Presentacion.class);
         e =  service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.PRESENTACION);
+//        propagacionService.propagarEntidad(e, TipoEntidad.PRESENTACION);
+        multiTenantService.compartir(null, (Presentacion s) -> service.save(s), e);
         return e;
     }
 
@@ -82,7 +88,7 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Boolean deletePresentacion(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PRESENTACION);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

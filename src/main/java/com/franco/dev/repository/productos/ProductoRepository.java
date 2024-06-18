@@ -89,13 +89,13 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "WHERE " +
             "v.estado = 'CONCLUIDA' AND " +
             "v.creadoEn BETWEEN :startDate AND :endDate AND " +
-            "((:sucursalIdList) is null or v.sucursalId IN (:sucursalIdList)) AND " +
+            "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
             "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
             "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
             "group by pro.id " +
             "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
     public List<LucroPorProductosDto> findLucroPorProducto(
-            @Param("sucursalIdList") List<Long> sucursalIdList,
+            @Param("sucursalId") Long sucursalId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
             @Param("usuarioIdList") List<Long> usuarioIdList,

@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.empresarial;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.general.Ciudad;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.CargoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.CargoService;
@@ -32,6 +34,9 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Cargo> cargo(Long id) {return service.findById(id);}
 
     public List<Cargo> cargos(int page, int size){
@@ -50,13 +55,13 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setSupervisadoPor(service.findById(input.getSupervisadoPorId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CARGO);
+        multiTenantService.compartir(null, (Cargo s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteCargo(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CARGO);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.ProductoPorSucursal;
 import com.franco.dev.graphql.productos.input.PrecioPorSucursalInput;
 import com.franco.dev.graphql.productos.input.ProductoPorSucursalInput;
@@ -36,6 +38,9 @@ public class ProductoPorSucursalGraphQL implements GraphQLQueryResolver, GraphQL
     @Autowired
     private SucursalService sucursalService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<ProductoPorSucursal> productoPorSucursal(Long id) {return service.findById(id);}
 
     public List<ProductoPorSucursal> productoPorSucursalPorProductoId(Long id){ return service.findByProductoId(id);}
@@ -57,7 +62,9 @@ public class ProductoPorSucursalGraphQL implements GraphQLQueryResolver, GraphQL
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
-        return service.save(e);
+        e = service.save(e);
+        multiTenantService.compartir(null, (ProductoPorSucursal s) -> service.save(s), e);
+        return e;
     }
 
     public Boolean deleteProductoPorSucursal(Long id){

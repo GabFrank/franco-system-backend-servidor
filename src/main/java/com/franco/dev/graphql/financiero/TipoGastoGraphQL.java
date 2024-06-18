@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.TipoGastoInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -37,6 +39,9 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<TipoGasto> tipoGasto(Long id) {return service.findById(id);}
 
     public List<TipoGasto> tipoGastos(int page, int size){
@@ -58,7 +63,8 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         if(input.getClasificacionGastoId()!=null) e.setClasificacionGasto(service.findById(input.getClasificacionGastoId()).orElse(null));
         if(input.getCargoId()!=null) e.setCargo(cargoService.findById(input.getCargoId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.TIPO_GASTO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.TIPO_GASTO);
+        multiTenantService.compartir(null, (TipoGasto s) -> service.save(s), e);
         return e;    }
 
     public List<TipoGasto> tipoGastosSearch(String texto){
@@ -67,7 +73,7 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     public Boolean deleteTipoGasto(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.TIPO_GASTO);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

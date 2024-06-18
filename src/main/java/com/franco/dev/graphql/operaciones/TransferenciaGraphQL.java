@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
@@ -8,6 +9,7 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -30,7 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -55,6 +57,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private MovimientoStockService movimientoStockService;
+
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<Transferencia> transferencia(Long id) {
 
@@ -107,8 +112,10 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             auxSucursalDestinoId = transferencia.getSucursalDestino().getId();
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalOrigen().getId());
-        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalDestino().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalOrigen().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA, e.getSucursalDestino().getId());
+        multiTenantService.compartir("filial"+e.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), e);
+        multiTenantService.compartir("filial"+e.getSucursalDestino().getId()+"_bkp", (Transferencia s) -> service.save(s), e);
         System.out.println(transferencia != null);
         System.out.println(input.getSucursalOrigenId() != auxSucursalOrigenId);
         System.out.println(input.getSucursalDestinoId() != auxSucursalDestinoId);
@@ -116,12 +123,15 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(transferencia.getId());
             if(input.getSucursalOrigenId() != auxSucursalOrigenId){
                 for (TransferenciaItem ti : transferenciaItemList) {
-                    propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, e.getSucursalOrigen().getId());
+//                    propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, e.getSucursalOrigen().getId());
+                    multiTenantService.compartir("filial"+e.getSucursalOrigen().getId()+"_bkp", (TransferenciaItem s) -> transferenciaItemService.save(s), ti);
+
                 }
             }
             if(input.getSucursalDestinoId() != auxSucursalDestinoId){
                 for (TransferenciaItem ti : transferenciaItemList) {
-                    propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, e.getSucursalDestino().getId());
+//                    propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, e.getSucursalDestino().getId());
+                    multiTenantService.compartir("filial"+e.getSucursalDestino().getId()+"_bkp", (TransferenciaItem s) -> transferenciaItemService.save(s), ti);
                 }
             }
         }
@@ -141,10 +151,15 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Boolean ok = service.deleteById(id);
         if (ok) {
             for(MovimientoStock m: movimientoStockList){
-                movimientoStockService.delete(m);
+//                movimientoStockService.delete(m);
+                multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (MovimientoStock s) -> movimientoStockService.delete(s), m);
+                multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (MovimientoStock s) -> movimientoStockService.delete(s), m);
+
             }
-            propagacionService.eliminarEntidad(transferencia.getId(), TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
-            propagacionService.eliminarEntidad(transferencia.getId(), TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+//            propagacionService.eliminarEntidad(transferencia.getId(), TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+//            propagacionService.eliminarEntidad(transferencia.getId(), TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+            multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.delete(s), transferencia);
+            multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (Transferencia s) -> service.delete(s), transferencia);
         }
         return ok;
     }
@@ -163,7 +178,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             transferencia = service.save(transferencia);
             transferencia.setIsDestino(false);
             transferencia.setIsOrigen(true);
-            propagacionService.propagarTransferencia(transferencia, transferencia.getSucursalOrigen().getId());
+//            propagacionService.propagarTransferencia(transferencia, transferencia.getSucursalOrigen().getId());
+            multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
+            multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
             return true;
         } else {
             return false;
@@ -189,7 +206,8 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     break;
                 case PREPARACION_MERCADERIA_CONCLUIDA:
                     transferencia.setEtapa(etapa);
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+//                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+                    multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
                     for (TransferenciaItem ti : transferenciaItemList) {
                         if (ti.getVencimientoPreparacion() != null) {
                             ti.setVencimientoTransporte(ti.getVencimientoPreparacion());
@@ -207,7 +225,8 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 case TRANSPORTE_VERIFICACION:
                     transferencia.setUsuarioTransporte(usuario);
                     transferencia.setEtapa(etapa);
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+//                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+                    multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
                     for (TransferenciaItem ti : transferenciaItemList) {
                         if (ti.getVencimientoTransporte() != null)
                             ti.setVencimientoRecepcion(ti.getVencimientoTransporte());
@@ -237,23 +256,31 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     transferencia.setUsuarioRecepcion(usuario);
                     transferencia.setEstado(TransferenciaEstado.EN_DESTINO);
                     transferencia.setEtapa(etapa);
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+//                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+//                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+                    multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
+                    multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
                     break;
                 case RECEPCION_CONCLUIDA:
                     transferencia.setEstado(TransferenciaEstado.CONLCUIDA);
                     transferencia.setEtapa(etapa);
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
-                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+//                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+//                    propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+                    multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
+                    multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
                     break;
             }
             transferencia = service.save(transferencia);
-            propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
-            propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+//            propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
+//            propagacionService.propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
+            multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
+            multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (Transferencia s) -> service.save(s), transferencia);
             for (TransferenciaItem ti : transferenciaItemList) {
                 ti = transferenciaItemService.save(ti);
-                propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
-                propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalDestino().getId());
+//                propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
+//                propagacionService.propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalDestino().getId());
+                multiTenantService.compartir("filial"+transferencia.getSucursalOrigen().getId()+"_bkp", (TransferenciaItem s) -> transferenciaItemService.save(s), ti);
+                multiTenantService.compartir("filial"+transferencia.getSucursalDestino().getId()+"_bkp", (TransferenciaItem s) -> transferenciaItemService.save(s), ti);
             }
             ok = true;
         }
@@ -267,7 +294,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (page == null) page = 0;
         if (size == null) size = 20;
         Pageable pageable = PageRequest.of(page, size);
-        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, toDate(creadoDesde), toDate(creadoHasta), pageable);
+        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, stringToDate(creadoDesde), stringToDate(creadoHasta), pageable);
     }
 
     public String imprimirTransferencia(Long id, Boolean ticket, String printerName) {

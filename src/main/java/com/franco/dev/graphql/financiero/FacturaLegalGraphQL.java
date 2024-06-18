@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.PuntoDeVenta;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -14,6 +15,7 @@ import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.FacturaLegalInput;
 import com.franco.dev.graphql.financiero.input.FacturaLegalItemInput;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
@@ -122,6 +124,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private DeliveryService deliveryService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<FacturaLegal> facturaLegal(Long id, Long sucId) {
         return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
@@ -157,7 +162,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     nuevaPersona = personaService.save(nuevaPersona);
                 }
                 if(nuevaPersona!=null){
-                    propagacionService.propagarEntidad(nuevaPersona, TipoEntidad.PERSONA);
+//                    propagacionService.propagarEntidad(nuevaPersona, TipoEntidad.PERSONA);
+                    multiTenantService.compartir(null, (Persona s) -> personaService.save(s), nuevaPersona);
                     Cliente cli = clienteService.findByPersonaId(nuevaPersona.getId());
                     if(cli==null){
                         cli = new Cliente();
@@ -167,7 +173,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                         cli = clienteService.save(cli);
                     }
                     if(cli!=null){
-                        propagacionService.propagarEntidad(cli, TipoEntidad.CLIENTE);
+//                        propagacionService.propagarEntidad(cli, TipoEntidad.CLIENTE);
+                        multiTenantService.compartir(null, (Cliente s) -> clienteService.save(s), cli);
                         e.setCliente(cli);
                     }
                 }
@@ -186,7 +193,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 input.setClienteId(e.getCliente().getId());
             }
             Long sucId = e.getTimbradoDetalle().getPuntoDeVenta().getSucursal().getId();
-            propagacionService.propagarEntidad(input, TipoEntidad.FACTURA, sucId);
+//            propagacionService.propagarEntidad(input, TipoEntidad.FACTURA, sucId);
+            multiTenantService.compartir("filial"+sucId+"_bkp", (FacturaLegal s) -> service.save(s), e);
             for (FacturaLegalItemInput fi : facturaLegalItemInputList) {
                 fi.setFacturaLegalId(e.getId());
                 if (input.getUsuarioId() != null) fi.setUsuarioId(e.getUsuario().getId());
@@ -197,7 +205,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteFacturaLegal(Long id, Long sucId) {
-        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        if(ok){
+            multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.deleteById(s), new EmbebedPrimaryKey(id, sucId));
+        }
+        return ok;
     }
 
     public Long countFacturaLegal() {

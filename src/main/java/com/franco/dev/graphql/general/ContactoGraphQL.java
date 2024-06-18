@@ -1,12 +1,9 @@
 package com.franco.dev.graphql.general;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Contacto;
-import com.franco.dev.domain.general.Pais;
 import com.franco.dev.graphql.general.input.ContactoInput;
-import com.franco.dev.graphql.general.input.PaisInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.general.ContactoService;
-import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -32,33 +29,40 @@ public class ContactoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<Contacto> contacto(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<Contacto> contactos(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Optional<Contacto> contacto(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Contacto> contactos(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<Contacto> contactoPorTelefonoONombre(String texto){
+    public List<Contacto> contactoPorTelefonoONombre(String texto) {
         return service.findByTelefonoOrNombre(texto);
     }
 
-    public Contacto saveContacto(ContactoInput input){
+    public Contacto saveContacto(ContactoInput input) {
         ModelMapper m = new ModelMapper();
         Contacto e = m.map(input, Contacto.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CONTACTO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.CONTACTO);
+        multiTenantService.compartir(null, (Contacto s) -> service.save(s), e);
         return e;
     }
 
-    public Boolean deleteContacto(Long id){
+    public Boolean deleteContacto(Long id) {
 
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CONTACTO);
-        return ok;     }
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
+        return ok;
+    }
 
-    public Long countContacto(){
+    public Long countContacto() {
         return service.count();
     }
 

@@ -58,6 +58,7 @@ extend type Query {
     deliverysByEstadoNotIn(estado: DeliveryEstado, sucId: ID):[Delivery]
     deliverysUltimos10(sucId: ID):[Delivery]
     countDelivery: Int
+    deliveryPorCajaIdAndEstados(id: ID!, estadoList: [DeliveryEstado]!, sucId: Int):[Delivery]
 }
 
 extend type Mutation {

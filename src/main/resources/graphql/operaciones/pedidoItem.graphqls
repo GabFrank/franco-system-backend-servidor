@@ -41,18 +41,32 @@ input PedidoItemInput {
     notaRecepcionId: Int
 }
 
+type PedidoItemPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PedidoItem]
+    getPageable: Pageable
+}
+
 extend type Query {
     pedidoItem(id:ID!):PedidoItem
-    pedidoItens(page:Int = 0, size:Int = 10):[PedidoItem]!
-    pedidoItensPorPedido(id:Int!):[PedidoItem]!
+    pedidoItemPorPedidoPage(id:ID!, page:Int = 0, size:Int = 10):PedidoItemPage!
+    pedidoItemPorPedido(id:ID!):[PedidoItem]!
     countPedidoItem: Int
-    pedidoItemPorPedidoIdSobrante(id:ID): [PedidoItem]
+    pedidoItemPorPedidoIdSobrante(id:ID, page:Int = 0, size:Int = 10): PedidoItemPage!
+    pedidoItemPorNotaRecepcion(id:ID, page:Int = 0, size:Int = 10): PedidoItemPage!
 }
 
 extend type Mutation {
     savePedidoItem(pedidoItem:PedidoItemInput!):PedidoItem!
     deletePedidoItem(id:ID!):Boolean!
     updateNotaRecepcion(pedidoItemId: ID!, notaRecepcionId: ID): PedidoItem
+    addPedidoItemListToNotaRecepcion(notaRecepcion: ID, pedidoItemIdList: [ID]): Boolean
 }
 
 enum PedidoItemEstado {

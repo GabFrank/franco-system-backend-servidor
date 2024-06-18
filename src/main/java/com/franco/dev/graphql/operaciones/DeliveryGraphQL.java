@@ -99,5 +99,8 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.count();
     }
 
+    public List<Delivery> deliveryPorCajaIdAndEstados(Long id, List<DeliveryEstado> estadoList, Long sucId){
+        return service.findByVentaCajaIdAndEstadoIn(id, estadoList, sucId);
+    }
 
 }

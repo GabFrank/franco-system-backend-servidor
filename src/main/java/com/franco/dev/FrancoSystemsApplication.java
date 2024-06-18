@@ -2,12 +2,6 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.franco.dev.graphql.operaciones.VentaGraphQL;
-import com.franco.dev.graphql.productos.ProductoGraphQL;
-import com.franco.dev.service.operaciones.VentaService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
-import com.franco.dev.service.utils.ImageService;
-import net.sf.jasperreports.engine.JRPropertiesMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -30,22 +24,8 @@ import java.util.Collections;
 @SpringBootApplication
 public class FrancoSystemsApplication {
 
-    //    public final static String SFG_MESSAGE_QUEUE = "test-queue";
-//    @Autowired
-//    ProductoService productoService;
-//    @Autowired
-//    TipoPrecioService tipoPrecioService;
-//    @Autowired
-//    PrecioPorSucursalService precioPorSucursalService;
-    @Autowired
-    private PropagacionService propagacionService;
-    //    private Logger log = LoggerFactory.getLogger(FrancoSystemsApplication.class);
     @Autowired
     private ObjectMapper objectMapper;
-    //    @Autowired
-//    private CodigoService codigoService;
-    @Autowired
-    private ProductoGraphQL productoGraphQL;
 
     public static void main(String[] args) throws IOException {
 
@@ -91,7 +71,7 @@ public class FrancoSystemsApplication {
 
     @Bean
     public void getHomePath() {
-
+        System.out.println("Iniciando test database change");
     }
 
 }

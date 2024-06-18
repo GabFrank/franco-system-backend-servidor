@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.ConteoMoneda;
@@ -32,11 +33,16 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private PaisService paisService;
 
-    public Optional<ConteoMoneda> conteoMoneda(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
+    @Autowired
+    private MultiTenantService multiTenantService;
+
+    public Optional<ConteoMoneda> conteoMoneda(Long id, Long sucId) {
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findById(new EmbebedPrimaryKey(id, sucId)), new EmbebedPrimaryKey(id, sucId));
+    }
 
     public List<ConteoMoneda> conteoMonedas(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
-        return service.findAll(pageable);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  service.findAll(pageable), pageable);
     }
 
 
@@ -46,11 +52,11 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if(input.getUsuarioId()!=null){
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        return service.save(e);
+        return multiTenantService.compartir("filial"+e.getSucursalId()+"_bkp", (params) ->  service.save(e), e);
     }
 
     public List<ConteoMoneda> conteoMonedasPorConteoId(Long id, Long sucId){
-        return service.findByConteoId(id, sucId);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  service.findByConteoId(id, sucId), id, sucId);
     }
 
 //    public List<ConteoMoneda> conteoMonedasSearch(String texto){
@@ -58,12 +64,11 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 //    }
 
     public Boolean deleteConteoMoneda(Long id, Long sucId){
-        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  service.deleteById(new EmbebedPrimaryKey(id, sucId)), new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countConteoMoneda(){
         return service.count();
     }
-
 
 }

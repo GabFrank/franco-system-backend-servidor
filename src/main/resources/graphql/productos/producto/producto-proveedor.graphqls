@@ -28,7 +28,7 @@ type ProductoProveedorPage {
 }
 
 extend type Query {
-    productoProveedorPorProveedorId(id: ID!, page: Int, size: Int): ProductoProveedorPage
+    productoProveedorPorProveedorId(id: ID!, texto: String, page: Int, size: Int): ProductoProveedorPage
 }
 
 

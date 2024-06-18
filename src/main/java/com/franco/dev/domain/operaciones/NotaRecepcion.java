@@ -24,14 +24,6 @@ import java.time.LocalDateTime;
         name = "necesidad_estado",
         typeClass = PostgreSQLEnumType.class
 )
-//pedido: Pedido,
-//        compra: Compra,
-//        documento: Documento,
-//        valor: Float,
-//        descuento: Float,
-//        pagado: Boolean,
-//        numero: Int,
-//        timbrado: Int,
 public class NotaRecepcion implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -53,11 +45,14 @@ public class NotaRecepcion implements Serializable {
     private Documento documento;
 
     private Integer numero;
+    private String tipoBoleta;
     private Integer timbrado;
     private Boolean pagado;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    private LocalDateTime fecha;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)

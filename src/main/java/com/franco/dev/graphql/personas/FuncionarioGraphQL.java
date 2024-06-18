@@ -1,13 +1,12 @@
 package com.franco.dev.graphql.personas;
 
-import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.domain.personas.Vendedor;
 import com.franco.dev.domain.personas.enums.TipoCliente;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.FuncionarioInput;
-import com.franco.dev.graphql.personas.input.VendedorInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -21,11 +20,10 @@ import org.springframework.data.domain.*;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -51,6 +49,9 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private ClienteService clienteService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Funcionario> funcionario(Long id) {return service.findById(id);}
 
     public List<Funcionario> funcionarios(int page, int size){
@@ -74,19 +75,21 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public Funcionario saveFuncionario(FuncionarioInput input){
         ModelMapper m = new ModelMapper();
         Funcionario e = m.map(input, Funcionario.class);
-        if(input.getFechaIngreso()!=null) e.setFechaIngreso(toDate(input.getFechaIngreso()));
+        if(input.getFechaIngreso()!=null) e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getPersonaId()!=null)e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         if(input.getCargoId()!=null)e.setCargo(cargoService.findById(input.getCargoId()).orElse(null));
         if(input.getSucursalId()!=null)e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.FUNCIONARIO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.FUNCIONARIO);
+        multiTenantService.compartir(null, (Funcionario s) -> service.save(s), e);
         Cliente cliente = clienteService.findByPersonaId(e.getPersona().getId());
         if(cliente!=null){
             if(!cliente.getCredito().equals(e.getCredito())){
                 cliente.setCredito(e.getCredito());
                 cliente = clienteService.save(cliente);
-                propagacionService.propagarEntidad(cliente, TipoEntidad.CLIENTE);
+//                propagacionService.propagarEntidad(cliente, TipoEntidad.CLIENTE);
+                multiTenantService.compartir(null, (Cliente s) -> clienteService.save(s), cliente);
             }
         } else {
             cliente = new Cliente();
@@ -97,7 +100,8 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             cliente.setSucursal(e.getSucursal());
             cliente.setUsuario(e.getUsuario());
             cliente = clienteService.save(cliente);
-            propagacionService.propagarEntidad(cliente, TipoEntidad.CLIENTE);
+//            propagacionService.propagarEntidad(cliente, TipoEntidad.CLIENTE);
+            multiTenantService.compartir(null, (Cliente s) -> clienteService.save(s), cliente);
         }
         Usuario usuario = usuarioService.findByPersonaId(e.getPersona().getId());
         if(usuario==null){
@@ -116,14 +120,16 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             }
             usuario.setActivo(true);
             usuario = usuarioService.save(usuario);
-            propagacionService.propagarEntidad(usuario, TipoEntidad.USUARIO);
+//            propagacionService.propagarEntidad(usuario, TipoEntidad.USUARIO);
+            multiTenantService.compartir(null, (Usuario s) -> usuarioService.save(s), usuario);
+
         }
         return e;
     }
 
     public Boolean deleteFuncionario(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.FUNCIONARIO);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

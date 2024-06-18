@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.empresarial.resolver;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Zona;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.ZonaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SectorService;
@@ -37,6 +39,9 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Zona> zona(Long id) {
         return service.findById(id);
     }
@@ -57,11 +62,16 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         e.setSector(sectorService.findById(input.getSectorId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
+        multiTenantService.compartir("filial"+e.getSector().getSucursal().getId()+"_bkp", (Zona s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteZona(Long id) {
+        Zona e = service.findById(id).orElse(null);
+        if(e!=null){
+            multiTenantService.compartir("filial"+e.getSector().getSucursal().getId()+"_bkp", (Zona s) -> service.delete(s), e);
+        }
         return service.deleteById(id);
     }
 

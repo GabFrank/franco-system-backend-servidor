@@ -1,9 +1,11 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
@@ -62,6 +64,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 
@@ -112,15 +115,21 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private FacturaLegalGraphQL facturaLegalGraphQL;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     private Sucursal sucursal;
 
     public Optional<Venta> venta(Long id, Long sucId) {
-        return service.findById(new EmbebedPrimaryKey(id, sucId));
+//        return multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.findById(s), new EmbebedPrimaryKey(id, sucId));
+        Optional<Venta> res = service.<VentaService>setTenant("filial"+sucId+"_bkp").findById(new EmbebedPrimaryKey(id, sucId));
+        service.clearTenant();
+        return res;
     }
 
     public List<Venta> ventas(int page, int size, Long sucId) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findAll(pageable);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (Pageable s) -> service.findAll(s), pageable);
     }
 
 //    public List<Venta> ventaSearch(String texto){
@@ -159,7 +168,11 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean deleteVenta(Long id, Long sucId) {
-        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        if(ok){
+            multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.deleteById(s), new EmbebedPrimaryKey(id, sucId));
+        }
+        return ok;
     }
 
     public Long countVenta() {
@@ -312,7 +325,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean cancelarVenta(Long id, Long sucId) {
-        Venta venta = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        Venta venta = service.<VentaService>setTenant("filial"+sucId+"_bkp").findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+//        Venta venta = multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.findById(s), new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
             if(service.cancelarVenta(venta)){
                 Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
@@ -328,6 +342,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             }
             return true;
         }
+        service.clearTenant();
         return false;
     }
 
@@ -350,11 +365,11 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return false;
     }
 
-    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {
-        return service.ventaPorPeriodo(inicio, fin);
-    }
+//    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {
+//        return service.ventaPorPeriodo(inicio, fin);
+//    }
 
-    public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin) {
-        return service.ventaPorSucursal(inicio, fin);
-    }
+//    public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin) {
+//        return service.ventaPorSucursal(inicio, fin);
+//    }
 }

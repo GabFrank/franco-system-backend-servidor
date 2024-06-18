@@ -49,8 +49,8 @@ extend type Query {
     ventas(page:Int = 0, size:Int = 10, sucId: ID):[Venta]!
     countVenta: Int
     ventasPorCajaId(id:ID!, page: Int, size: Int, asc: Boolean, sucId: ID, formaPago: ID, estado: VentaEstado, isDelivery: Boolean):VentaPage
-    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
-    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
+#    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
+#    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }
 
 extend type Mutation {

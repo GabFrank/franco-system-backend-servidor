@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.general;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Barrio;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.general.input.BarrioInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.general.BarrioService;
@@ -37,6 +39,9 @@ public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Barrio> barrio(Long id) {
         return service.findById(id);
     }
@@ -62,13 +67,13 @@ public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setCiudad(ciudadService.findById(input.getCiudadId()).orElse(null));
         e.setPrecioDelivery(precioDeliveryService.findById(input.getPrecioDeliveryId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.BARRIO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.BARRIO);
+        multiTenantService.compartir(null, (Barrio s) -> service.save(s), e);
         return e;    }
 
     public Boolean deleteBarrio(Long id) {
-
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.BARRIO);
+        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

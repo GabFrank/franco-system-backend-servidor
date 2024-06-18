@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoProveedorService;
@@ -37,9 +38,10 @@ public class ProductoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.findAll(pageable);
     }
 
-    public Page<ProductoProveedor> productoProveedorPorProveedorId(Long id, int page, int size){
+    public Page<ProductoProveedor> productoProveedorPorProveedorId(Long id, String texto, int page, int size){
         Pageable pageable = PageRequest.of(page,size);
-        return service.findByProveedorId(id, pageable);
+        Page<ProductoProveedor> result = service.findByProveedorId(id, texto, pageable);
+        return result;
     }
 
 }

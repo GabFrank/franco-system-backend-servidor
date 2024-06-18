@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.graphql.personas.input.ProveedorInput;
@@ -38,6 +40,9 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Proveedor> proveedor(Long id) {return service.findById(id);}
 
     public List<Proveedor> proveedores(int page, int size){
@@ -61,13 +66,14 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                 throw new GraphQLException("Esta persona ya es un proveedor");
             }
         }
-        propagacionService.propagarEntidad(e, TipoEntidad.PROVEEDOR);
+//        propagacionService.propagarEntidad(e, TipoEntidad.PROVEEDOR);
+        multiTenantService.compartir(null, (Proveedor s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteProveedor(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PROVEEDOR);
+        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

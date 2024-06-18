@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
@@ -7,7 +8,6 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.toDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -57,6 +57,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private MovimientoStockService movimientoStockService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
     }
@@ -82,12 +85,13 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setTransferencia(transferenciaService.findById(input.getTransferenciaId()).orElse(null));
         if (input.getVencimientoPreTransferencia() != null)
-            e.setVencimientoPreTransferencia(toDate(input.getVencimientoPreTransferencia()));
+            e.setVencimientoPreTransferencia(stringToDate(input.getVencimientoPreTransferencia()));
         if (input.getVencimientoPreparacion() != null)
-            e.setVencimientoPreparacion(toDate(input.getVencimientoPreparacion()));
+            e.setVencimientoPreparacion(stringToDate(input.getVencimientoPreparacion()));
         if (input.getVencimientoTransporte() != null)
-            e.setVencimientoTransporte(toDate(input.getVencimientoTransporte()));
-        if (input.getVencimientoRecepcion() != null) e.setVencimientoRecepcion(toDate(input.getVencimientoRecepcion()));
+            e.setVencimientoTransporte(stringToDate(input.getVencimientoTransporte()));
+        if (input.getVencimientoRecepcion() != null)
+            e.setVencimientoRecepcion(stringToDate(input.getVencimientoRecepcion()));
         if (input.getPresentacionPreTransferenciaId() != null)
             e.setPresentacionPreTransferencia(presentacionService.findById(input.getPresentacionPreTransferenciaId()).orElse(null));
         if (input.getPresentacionPreparacionId() != null)
@@ -115,33 +119,41 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         }
 
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA_ITEM, e.getTransferencia().getSucursalOrigen().getId());
-        propagacionService.propagarEntidad(e, TipoEntidad.TRANSFERENCIA_ITEM, e.getTransferencia().getSucursalDestino().getId());
-
+        multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (TransferenciaItem s) -> service.save(s), e);
+        multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (TransferenciaItem s) -> service.save(s), e);
         if (e != null && precioCosto != null) {
             Producto producto = e.getPresentacionPreTransferencia().getProducto();
             CostoPorProducto costoPorProducto = new CostoPorProducto();
             CostoPorProducto lastCostoPorProducto = costosPorProductoService.findLastByProductoId(producto.getId());
-            if (lastCostoPorProducto != null && lastCostoPorProducto.getCostoMedio() == null) {
-                costoPorProducto.setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);
-            } else {
-                costoPorProducto.setCostoMedio(precioCosto);
+            if (lastCostoPorProducto.getUltimoPrecioCompra() != precioCosto) {
+                if (lastCostoPorProducto != null && lastCostoPorProducto.getCostoMedio() == null) {
+                    costoPorProducto.setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);
+                } else {
+                    costoPorProducto.setCostoMedio(precioCosto);
+                }
+                costoPorProducto.setProducto(producto);
+                costoPorProducto.setCotizacion(1.0);
+                costoPorProducto.setUltimoPrecioCompra(precioCosto);
+                costoPorProducto.setUsuario(e.getUsuario());
+                costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
+                costoPorProducto.setCreadoEn(e.getCreadoEn());
+                costoPorProducto = costosPorProductoService.save(costoPorProducto);
+                if (costoPorProducto != null)
+                    multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen() + "_bkp", (CostoPorProducto s) -> costosPorProductoService.save(s), costoPorProducto);
             }
-            costoPorProducto.setProducto(producto);
-            costoPorProducto.setCotizacion(1.0);
-            costoPorProducto.setUltimoPrecioCompra(precioCosto);
-            costoPorProducto.setUsuario(e.getUsuario());
-            costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
-            costoPorProducto.setCreadoEn(e.getCreadoEn());
-            costoPorProducto = costosPorProductoService.save(costoPorProducto);
-            if (costoPorProducto != null)
-                propagacionService.propagarEntidad(costoPorProducto, TipoEntidad.COSTO_POR_PRODUCTO);
+
         }
         return e;
     }
 
     public Boolean deleteTransferenciaItem(Long id) {
-        return service.deleteById(id);
+        TransferenciaItem ti = service.findById(id).orElse(null);
+        Boolean ok = service.deleteById(id);
+        if(ok && ti!=null) {
+            multiTenantService.compartir("filial"+ti.getTransferencia().getSucursalOrigen().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
+            multiTenantService.compartir("filial"+ti.getTransferencia().getSucursalDestino().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
+        }
+        return ok;
     }
 }
 

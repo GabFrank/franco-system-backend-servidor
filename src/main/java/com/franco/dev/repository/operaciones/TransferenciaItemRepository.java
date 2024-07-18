@@ -38,7 +38,7 @@ public interface TransferenciaItemRepository extends HelperRepository<Transferen
             "((:name) is null or pro3.descripcion like (:name) ) or " +
             "((:name) is null or pro4.descripcion like (:name) ) " +
             ") and " +
-            "trans.id = :id " +
+            "((:id) is null or trans.id = :id) " +
             "order by t.id asc")
     public Page<TransferenciaItem> findByTransferenciaIdWithFilters(
             @Param("id") Long id,

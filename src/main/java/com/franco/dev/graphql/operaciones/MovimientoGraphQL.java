@@ -55,7 +55,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Optional<MovimientoStock> movimientoStock(Long id, Long sucId) {
-        return service.findById(new EmbebedPrimaryKey(id, sucId));
+        return service.findById(id);
     }
 
     public List<MovimientoStock> movimientosStock(int page, int size, Long sucId) {
@@ -72,7 +72,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteMovimientoStock(Long id, Long sucId) {
-        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        return service.deleteById(id);
     }
 
     public Long countMovimientoStock() {

@@ -1,13 +1,9 @@
 package com.franco.dev.domain.operaciones;
 
-import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
-import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoModificacion;
 import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Presentacion;
-import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -48,7 +44,7 @@ public class TransferenciaItem implements Serializable {
     )
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "transferencia_id", nullable = true)
     private Transferencia transferencia;
 
@@ -56,17 +52,17 @@ public class TransferenciaItem implements Serializable {
     @JoinColumn(name = "presentacion_pre_transferencia_id", nullable = true)
     private Presentacion presentacionPreTransferencia;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_preparacion_id", nullable = true)
     private Presentacion presentacionPreparacion;
 
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_transporte_id", nullable = true)
     private Presentacion presentacionTransporte;
 
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_recepcion_id", nullable = true)
     private Presentacion presentacionRecepcion;
 
@@ -115,46 +111,46 @@ public class TransferenciaItem implements Serializable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_rechazo_pre_transferencia")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoRechazo motivoRechazoPreTransferencia;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_rechazo_preparacion")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoRechazo motivoRechazoPreparacion;
 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_rechazo_transporte")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoRechazo motivoRechazoTransporte;
 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_rechazo_recepcion")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoRechazo motivoRechazoRecepcion;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_modificacion_pre_transferencia")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoModificacion motivoModificacionPreTransferencia;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_modificacion_preparacion")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoModificacion motivoModificacionPreparacion;
 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_modificacion_transporte")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoModificacion motivoModificacionTransporte;
 
 
     @Enumerated(EnumType.STRING)
     @Column(name = "motivo_modificacion_recepcion")
-    @Type( type = "transferencia_item_motivo_rechazo")
+    @Type(type = "transferencia_item_motivo_rechazo")
     private TransferenciaItemMotivoModificacion motivoModificacionRecepcion;
 
     @Column(name = "creado_en")

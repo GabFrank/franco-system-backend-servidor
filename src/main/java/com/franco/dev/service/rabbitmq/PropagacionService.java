@@ -504,7 +504,7 @@ public class PropagacionService {
                 Transferencia transferencia = (Transferencia) dto.getEntidad();
                 if (transferencia != null && transferencia.getEtapa() == EtapaTransferencia.TRANSPORTE_EN_CAMINO) {
                     propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalDestino().getId());
-                    List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(transferencia.getId());
+                    List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaId(transferencia.getId());
                     for (TransferenciaItem ti : transferenciaItemList) {
                         propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalDestino().getId());
                     }
@@ -512,7 +512,7 @@ public class PropagacionService {
                     propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
                 } else if (transferencia != null && transferencia.getEtapa() == EtapaTransferencia.RECEPCION_CONCLUIDA) {
                     propagarEntidad(transferencia, TipoEntidad.TRANSFERENCIA, transferencia.getSucursalOrigen().getId());
-                    List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(transferencia.getId());
+                    List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaId(transferencia.getId());
                     for (TransferenciaItem ti : transferenciaItemList) {
                         propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, transferencia.getSucursalOrigen().getId());
                     }
@@ -720,7 +720,7 @@ public class PropagacionService {
 
     public void propagarTransferencia(Transferencia t, Long id) {
         propagarEntidad(t, TipoEntidad.TRANSFERENCIA, id);
-        List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemId(t.getId());
+        List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaId(t.getId());
         for (TransferenciaItem ti : transferenciaItemList) {
             propagarEntidad(ti, TipoEntidad.TRANSFERENCIA_ITEM, id);
         }

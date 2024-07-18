@@ -177,7 +177,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                     Double stockFisico = ms.getCantidad();
                     Double diferencia = stockFisico - stockSistema; //9 - 10 = -1, 11 - 10 = 1
                     ms.setCantidad(diferencia);
-                    movimientoStockService.saveAndSend(ms, false);
+                    multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock s) -> movimientoStockService.save(s), ms);
                 }
             }
             return inventario;

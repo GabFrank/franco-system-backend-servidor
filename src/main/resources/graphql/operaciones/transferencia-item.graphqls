@@ -80,7 +80,7 @@ extend type Query {
     transferenciaItem(id:ID!):TransferenciaItem
     transferenciaItems(page:Int = 0, size:Int = 10):[TransferenciaItem]!
     transferenciaItensPorTransferenciaId(id: ID!, page:Int = 0, size:Int = 10):TransferenciaItemPage!
-    transferenciaItensPorTransferenciaIdWithFilter(id: ID!, name: String, page:Int = 0, size:Int = 10):TransferenciaItemPage!
+    transferenciaItensPorTransferenciaIdWithFilter(id: ID, name: String, page:Int = 0, size:Int = 10):TransferenciaItemPage!
 }
 
 extend type Mutation {

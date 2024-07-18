@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -26,8 +27,8 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         return repository;
     }
 
-    public CostoPorProducto findLastByProductoId(Long prdoId){
-        return repository.findLastByProductoId(prdoId);
+    public Optional<CostoPorProducto> findLastByProductoId(Long prdoId){
+        return Optional.ofNullable(repository.findLastByProductoId(prdoId));
     }
 
     public Page<CostoPorProducto> findByProductoId(Long id, Pageable page){

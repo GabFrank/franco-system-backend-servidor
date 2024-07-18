@@ -1,8 +1,9 @@
 package com.franco.dev.config.multitenant;
 
-import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.service.empresarial.SucursalService;
+import graphql.GraphQLException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.Entity;
@@ -26,14 +27,14 @@ public class MultiTenantService {
     private SucursalService sucursalService;
 
     // Method that accepts a Function with parameters
-    public <T, R> R compartir(String key, Function<T, R> someFuncWithParameters, T parameter) {
+    public <T, R> R compartir(String key, Function<T, R> someFuncWithParameters, T parameter, @Nullable Boolean error) throws GraphQLException {
         try {
 
-            if(key!=null){
+            if (key != null) {
                 databaseSessionManager.unbindSession();  // Unbind the current session
                 tenantContext.setCurrentTenant(key);     // Set the tenant context
                 databaseSessionManager.bindSession();    // Bind a new session for the current tenant
-                if(isEntity(parameter)){
+                if (isEntity(parameter)) {
                     T copy = copyEntityWithId(parameter);
                     return someFuncWithParameters.apply(copy);
                 } else {
@@ -47,21 +48,100 @@ public class MultiTenantService {
                     databaseSessionManager.unbindSession();
                     try {
                         tenantContext.setCurrentTenant(s);     // Set the tenant context
-                    } catch (Exception e){
+                    } catch (Exception e) {
                         System.out.println("Sucursal " + s + " no tiene backup configurado");
                         continue;
                     }
                     databaseSessionManager.bindSession();    // Bind a new session for the current tenant
-                    if(isEntity(parameter)){
+                    if (isEntity(parameter)) {
                         T copy = copyEntityWithId(parameter);
-                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(copy));
+                        Object result = someFuncWithParameters.apply(copy);
+                        if (result instanceof Collection) {
+                            resultList.addAll((Collection<? extends R>) result);
+                        } else {
+                            resultList.add((R) result);
+                        }
+//                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(copy));
                     } else {
-                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(parameter));
+                        Object result = someFuncWithParameters.apply(parameter);
+                        if (result instanceof Collection) {
+                            resultList.addAll((Collection<? extends R>) result);
+                        } else {
+                            resultList.add((R) result);
+                        }
+//                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(parameter));
                     }
 
                 }
                 return (R) parameter;
             }
+        } catch (Exception e) {
+            if (error) {
+                throw new GraphQLException("Problema al realizar la operacion");
+            } else {
+                e.printStackTrace();
+            }
+            return null;
+        } finally {
+            // Perform operations after executing the function
+            tenantContext.clear();  // Clear the tenant context
+
+            // Optionally rebind the previous session if needed
+            // databaseSessionManager.rebindPreviousSession();
+        }
+    }
+
+    public <T, R> R compartir(String key, Function<T, R> someFuncWithParameters, T parameter) {
+        try {
+
+            if (key != null) {
+                databaseSessionManager.unbindSession();  // Unbind the current session
+                tenantContext.setCurrentTenant(key);     // Set the tenant context
+                databaseSessionManager.bindSession();    // Bind a new session for the current tenant
+                if (isEntity(parameter)) {
+                    T copy = copyEntityWithId(parameter);
+                    return someFuncWithParameters.apply(copy);
+                } else {
+                    return someFuncWithParameters.apply(parameter);
+                }
+
+            } else {
+                Set<String> tenantKeys = tenantContext.getAllTenantKeys();
+                List<R> resultList = new ArrayList<>();
+                for (String s : tenantKeys) {
+                    databaseSessionManager.unbindSession();
+                    try {
+                        tenantContext.setCurrentTenant(s);     // Set the tenant context
+                    } catch (Exception e) {
+                        System.out.println("Sucursal " + s + " no tiene backup configurado");
+                        continue;
+                    }
+                    databaseSessionManager.bindSession();    // Bind a new session for the current tenant
+                    if (isEntity(parameter)) {
+                        T copy = copyEntityWithId(parameter);
+                        Object result = someFuncWithParameters.apply(copy);
+                        if (result instanceof Collection) {
+                            resultList.addAll((Collection<? extends R>) result);
+                        } else {
+                            resultList.add((R) result);
+                        }
+//                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(copy));
+                    } else {
+                        Object result = someFuncWithParameters.apply(parameter);
+                        if (result instanceof Collection) {
+                            resultList.addAll((Collection<? extends R>) result);
+                        } else {
+                            resultList.add((R) result);
+                        }
+//                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(parameter));
+                    }
+
+                }
+                return (R) resultList;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         } finally {
             // Perform operations after executing the function
             tenantContext.clear();  // Clear the tenant context
@@ -94,6 +174,48 @@ public class MultiTenantService {
                 }
                 return null;  // Adjust this if you need to return something else
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        } finally {
+            // Perform operations after executing the function
+            tenantContext.clear();  // Clear the tenant context
+
+            // Optionally rebind the previous session if needed
+            // databaseSessionManager.rebindPreviousSession();
+        }
+    }
+
+    public <R> R compartir(String key, @Nullable Boolean getError, Function<Object[], R> someFuncWithParameters, Object... parameters) {
+        try {
+            if (key != null) {
+                databaseSessionManager.unbindSession();  // Unbind the current session
+                tenantContext.setCurrentTenant(key);     // Set the tenant context
+                databaseSessionManager.bindSession();    // Bind a new session for the current tenant
+                Object[] copiedParameters = copyParametersWithId(parameters);
+                return someFuncWithParameters.apply(copiedParameters);
+            } else {
+                Set<String> tenantKeys = tenantContext.getAllTenantKeys();
+                for (String s : tenantKeys) {
+                    databaseSessionManager.unbindSession();
+                    try {
+                        tenantContext.setCurrentTenant(s);  // Set the tenant context
+                    } catch (Exception e) {
+                        System.out.println("Sucursal " + s + " no tiene backup configurado");
+                    }
+                    databaseSessionManager.bindSession();  // Bind a new session for the current tenant
+                    Object[] copiedParameters = copyParametersWithId(parameters);
+                    someFuncWithParameters.apply(copiedParameters);
+                }
+                return null;  // Adjust this if you need to return something else
+            }
+        } catch (Exception e) {
+            if (getError) {
+                throw new GraphQLException("Problema al realizar la operacion");
+            } else {
+                e.printStackTrace();
+            }
+            return null;
         } finally {
             // Perform operations after executing the function
             tenantContext.clear();  // Clear the tenant context
@@ -152,6 +274,21 @@ public class MultiTenantService {
         }
     }
 
+    public Boolean checkConnection(Boolean throwError, String... parameters){
+        Boolean res = true;
+        try {
+            for(String tenantKey: parameters){
+                Object obj = compartir(tenantKey, (Long id) -> sucursalService.findById(id), Long.valueOf(1), true);
+            }
+        } catch (NullPointerException e){
+            if(throwError){
+                throw new GraphQLException("Alguna filial no esta configurada");
+            } else {
+                e.printStackTrace();
+            }
+            res = false;
+        }
+        return res;
+    }
 
 }
-

@@ -1,13 +1,11 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
-import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.dto.MovimientoStockResumenDto;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
-import com.franco.dev.domain.productos.Producto;
-import com.franco.dev.rabbit.enums.TipoEntidad;
+import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -17,12 +15,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
-public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, EmbebedPrimaryKey> {
+public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, Long> {
     private final MovimientoStockRepository repository;
 
     @Autowired
@@ -64,7 +63,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     public MovimientoStock save(MovimientoStock entity) {
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         MovimientoStock e = super.save(entity);
-        multiTenantService.compartir("filial"+entity.getSucursalId()+"_bkp", (MovimientoStock s) -> super.save(s), e);
+        multiTenantService.compartir("filial" + entity.getSucursalId() + "_bkp", (MovimientoStock s) -> super.save(s), e);
 //        personaPublisher.publish(p);
         return e;
     }
@@ -105,7 +104,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                                        List<Long> sucursalList,
                                        Long productoId,
                                        List<TipoMovimiento> tipoMovimientoList,
-                                       Long usuarioId){
+                                       Long usuarioId) {
         List<String> stringEnum = null;
         if (tipoMovimientoList != null) {
             stringEnum = tipoMovimientoList.stream()
@@ -121,7 +120,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                                                                       List<Long> sucursalList,
                                                                       Long productoId,
                                                                       List<TipoMovimiento> tipoMovimientoList,
-                                                                      Long usuarioId){
+                                                                      Long usuarioId) {
         List<String> stringEnum = null;
         if (tipoMovimientoList != null) {
             stringEnum = tipoMovimientoList.stream()
@@ -129,6 +128,69 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                     .collect(Collectors.toList());
         }
         return repository.findStockPorTipoMovimiento(inicio, fin, sucursalList, productoId, stringEnum, usuarioId);
+    }
+
+    public List<MovimientoStock> createMovimientoFromTransferenciaItem(TransferenciaItem e) {
+        TransferenciaItem finalE = e;
+        MovimientoStock movimientoStockSalida = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (params) -> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalOrigen().getId()), TipoMovimiento.TRANSFERENCIA, e.getId(), e.getTransferencia().getSucursalOrigen().getId());
+        MovimientoStock movimientoStockEntrada = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (params) -> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalDestino().getId()), TipoMovimiento.TRANSFERENCIA, e.getId(), e.getTransferencia().getSucursalDestino().getId());
+        Boolean esRechazado = false;
+        Boolean esModificado = false;
+        esRechazado = e.getMotivoRechazoPreparacion() != null || e.getMotivoRechazoPreTransferencia() != null || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;
+        esModificado = e.getMotivoModificacionPreparacion() != null || e.getMotivoModificacionPreTransferencia() != null || e.getMotivoModificacionRecepcion() != null || e.getMotivoModificacionTransporte() != null;
+        MovimientoStock ms = null;
+
+        switch (e.getTransferencia().getEtapa()) {
+            case PREPARACION_MERCADERIA:
+                ms = movimientoStockSalida != null ? movimientoStockSalida : new MovimientoStock();
+                ms.setEstado(!esRechazado);
+                ms.setSucursalId(e.getTransferencia().getSucursalOrigen().getId());
+                ms.setCantidad(e.getCantidadPreparacion() * e.getPresentacionPreparacion().getCantidad());
+                ms.setProducto(e.getPresentacionPreparacion().getProducto());
+                ms.setReferencia(e.getId());
+                ms.setTipoMovimiento(TipoMovimiento.TRANSFERENCIA);
+                ms.setCreadoEn(LocalDateTime.now());
+                ms.setUsuario(e.getUsuario());
+                movimientoStockSalida = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (MovimientoStock s) -> save(s), ms);
+                break;
+            case RECEPCION_EN_VERIFICACION:
+                ms = movimientoStockEntrada != null ? movimientoStockEntrada : new MovimientoStock();
+                ms.setEstado(!esRechazado);
+                ms.setSucursalId(e.getTransferencia().getSucursalDestino().getId());
+                ms.setCantidad(e.getCantidadRecepcion() * e.getPresentacionRecepcion().getCantidad());
+                ms.setProducto(e.getPresentacionRecepcion().getProducto());
+                ms.setReferencia(e.getId());
+                ms.setTipoMovimiento(TipoMovimiento.TRANSFERENCIA);
+                ms.setCreadoEn(LocalDateTime.now());
+                ms.setUsuario(e.getUsuario());
+                movimientoStockEntrada = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (MovimientoStock s) -> save(s), ms);
+                ms = movimientoStockSalida;
+                ms.setEstado(!esRechazado);
+                movimientoStockSalida = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (MovimientoStock s) -> save(s), ms);
+                break;
+            case TRANSPORTE_VERIFICACION:
+                if (movimientoStockSalida != null) {
+                    ms = movimientoStockSalida;
+                    ms.setEstado(!esRechazado);
+                    movimientoStockSalida = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (MovimientoStock s) -> save(s), ms);
+                }
+                break;
+        }
+
+        if (e.getTransferencia().getEstado() == TransferenciaEstado.CANCELADA) {
+            if (movimientoStockSalida != null) {
+                movimientoStockSalida.setEstado(false);
+                multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (MovimientoStock s) -> save(s), movimientoStockSalida);
+            }
+            if (movimientoStockEntrada != null) {
+                movimientoStockEntrada.setEstado(false);
+                multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (MovimientoStock s) -> save(s), movimientoStockEntrada);
+            }
+        }
+        List<MovimientoStock> res = new ArrayList<>();
+        res.add(movimientoStockSalida);
+        res.add(movimientoStockEntrada);
+        return res;
     }
 
 }

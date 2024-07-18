@@ -1,9 +1,14 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.operaciones.TransferenciaItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +21,13 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class TransferenciaItemService extends CrudService<TransferenciaItem, TransferenciaItemRepository, Long> {
+
+    @Autowired
+    private MultiTenantService multiTenantService;
+
+    @Autowired
+    private MovimientoStockService movimientoStockService;
+
     private final TransferenciaItemRepository repository;
 
     @Override
@@ -38,7 +50,7 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
         return repository.findByTransferenciaIdWithFilters(id, name != null ? "%"+name.toUpperCase()+"%" : null, pageable);
     }
 
-    public List<TransferenciaItem> findByTransferenciaItemId(Long id) {
+    public List<TransferenciaItem> findByTransferenciaId(Long id) {
         return repository.findByTransferenciaIdOrderByIdDesc(id);
     }
 
@@ -53,4 +65,6 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
 //        personaPublisher.publish(p);
         return e;
     }
+
+
 }

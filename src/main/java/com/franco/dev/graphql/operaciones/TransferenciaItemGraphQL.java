@@ -1,10 +1,12 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
@@ -25,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -100,31 +103,18 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setPresentacionTransporte(presentacionService.findById(input.getPresentacionTransporteId()).orElse(null));
         if (input.getPresentacionRecepcionId() != null)
             e.setPresentacionRecepcion(presentacionService.findById(input.getPresentacionRecepcionId()).orElse(null));
-        if (input.getId() != null) {
-            TransferenciaItem transferenciaItem = service.findById(input.getId()).orElse(null);
-            if (transferenciaItem != null) {
-                Transferencia transferencia = transferenciaService.findById(transferenciaItem.getTransferencia().getId()).orElse(null);
-                MovimientoStock movimientoStockSalida = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, transferenciaItem.getId(), transferencia.getSucursalOrigen().getId());
-                MovimientoStock movimientoStockEntrada = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, transferenciaItem.getId(), transferencia.getSucursalDestino().getId());
-                if (transferencia != null) {
-                    switch (transferencia.getEtapa()) {
-                        case PREPARACION_MERCADERIA:
-                            if (transferenciaItem.getMotivoRechazoPreparacion() != null) {
-                                movimientoStockSalida.setEstado(false);
-                            } else if (transferenciaItem.getMotivoModificacionPreparacion() != null)
-                                break;
-                    }
-                }
-            }
-        }
 
         e = service.save(e);
+
         multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (TransferenciaItem s) -> service.save(s), e);
         multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (TransferenciaItem s) -> service.save(s), e);
+
+        movimientoStockService.createMovimientoFromTransferenciaItem(e);
+
         if (e != null && precioCosto != null) {
             Producto producto = e.getPresentacionPreTransferencia().getProducto();
             CostoPorProducto costoPorProducto = new CostoPorProducto();
-            CostoPorProducto lastCostoPorProducto = costosPorProductoService.findLastByProductoId(producto.getId());
+            CostoPorProducto lastCostoPorProducto = costosPorProductoService.findLastByProductoId(producto.getId()).orElse(null);
             if (lastCostoPorProducto.getUltimoPrecioCompra() != precioCosto) {
                 if (lastCostoPorProducto != null && lastCostoPorProducto.getCostoMedio() == null) {
                     costoPorProducto.setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);

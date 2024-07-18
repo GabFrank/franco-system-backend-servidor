@@ -103,7 +103,7 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
             ExistenciaCostoPorSucursal eps = new ExistenciaCostoPorSucursal();
             eps.setExistencia(movimientoStockService.stockByProductoIdAndSucursalId(p.getId(), s.getId()));
             eps.setSucursal(s);
-            CostoPorProducto cps = costosPorProductoService.findLastByProductoId(p.getId());
+            CostoPorProducto cps = costosPorProductoService.findLastByProductoId(p.getId()).orElse(null);
             MovimientoStock ms = null;
             if(cps!=null){
                 if(cps.getMovimientoStock()!=null){
@@ -212,8 +212,7 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
     }
 
     public CostoPorProducto costo(Producto p){
-        CostoPorProducto costo = costosPorProductoService.findLastByProductoId(p.getId());
-        return costo;
+        return costosPorProductoService.findLastByProductoId(p.getId()).orElse(null);
     }
 
 }

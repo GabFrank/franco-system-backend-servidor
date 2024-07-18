@@ -1,8 +1,11 @@
 package com.franco.dev.config.multitenant;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.orm.jpa.EntityManagerFactoryUtils;
 import org.springframework.orm.jpa.EntityManagerHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.persistence.EntityManager;
@@ -14,8 +17,9 @@ public class DatabaseSessionManager {
 
     @PersistenceUnit
     private EntityManagerFactory entityManagerFactory;
+    private static final Logger logger = LoggerFactory.getLogger(DatabaseSessionManager.class);
 
-    private static ThreadLocal<EntityManagerHolder> threadLocalEntityManager = new ThreadLocal<>();
+    private static final ThreadLocal<EntityManagerHolder> threadLocalEntityManager = new ThreadLocal<>();
 
     public void bindSession() {
         if (!TransactionSynchronizationManager.hasResource(entityManagerFactory)) {
@@ -23,6 +27,7 @@ public class DatabaseSessionManager {
             EntityManagerHolder entityManagerHolder = new EntityManagerHolder(entityManager);
             threadLocalEntityManager.set(entityManagerHolder);
             TransactionSynchronizationManager.bindResource(entityManagerFactory, entityManagerHolder);
+            logger.info("Session bound for entity manager: " + entityManager);
         }
     }
 
@@ -30,9 +35,12 @@ public class DatabaseSessionManager {
         if (TransactionSynchronizationManager.hasResource(entityManagerFactory)) {
             EntityManagerHolder entityManagerHolder = (EntityManagerHolder) TransactionSynchronizationManager.unbindResource(entityManagerFactory);
             if (entityManagerHolder != null) {
-                EntityManagerFactoryUtils.closeEntityManager(entityManagerHolder.getEntityManager());
+                EntityManager entityManager = entityManagerHolder.getEntityManager();
+                EntityManagerFactoryUtils.closeEntityManager(entityManager);
                 threadLocalEntityManager.remove();
+                logger.info("Session unbound and closed for entity manager: " + entityManager);
             }
         }
     }
 }
+

@@ -1,5 +1,6 @@
 package com.franco.dev.config.multitenant;
 
+import graphql.GraphQLException;
 import org.hibernate.engine.jdbc.connections.internal.DriverManagerConnectionProviderImpl;
 import org.hibernate.engine.jdbc.connections.spi.AbstractMultiTenantConnectionProvider;
 import org.hibernate.engine.jdbc.connections.spi.ConnectionProvider;
@@ -27,29 +28,29 @@ public class SchemaMultiTenantConnectionProvider extends AbstractMultiTenantConn
     }
 
     @Override
-    protected ConnectionProvider getAnyConnectionProvider() {
+    protected ConnectionProvider getAnyConnectionProvider() throws GraphQLException {
         return getConnectionProvider(TenantContext.DEFAULT_TENANT_ID);
     }
 
     @Override
-    protected ConnectionProvider selectConnectionProvider(String tenantIdentifier) {
+    protected ConnectionProvider selectConnectionProvider(String tenantIdentifier) throws GraphQLException {
         return getConnectionProvider(tenantIdentifier);
     }
 
-    private ConnectionProvider getConnectionProvider(String tenantIdentifier) {
+    private ConnectionProvider getConnectionProvider(String tenantIdentifier) throws GraphQLException {
         return Optional.ofNullable(tenantIdentifier)
                 .map(connectionProviderMap::get)
                 .orElseGet(() -> createNewConnectionProvider(tenantIdentifier));
     }
 
-    private ConnectionProvider createNewConnectionProvider(String tenantIdentifier) {
+    private ConnectionProvider createNewConnectionProvider(String tenantIdentifier) throws GraphQLException {
         return Optional.ofNullable(tenantIdentifier)
                 .map(this::createConnectionProvider)
                 .map(connectionProvider -> {
                     connectionProviderMap.put(tenantIdentifier, connectionProvider);
                     return connectionProvider;
                 })
-                .orElseThrow(() -> new ConnectionProviderException(String.format("Cannot create new connection provider for tenant: %s", tenantIdentifier)));
+                .orElseThrow(() -> new ConnectionProviderException(String.format("No se pudo establecer conexion con: %s", tenantIdentifier)));
     }
 
     private ConnectionProvider createConnectionProvider(String tenantIdentifier) {
@@ -64,8 +65,9 @@ public class SchemaMultiTenantConnectionProvider extends AbstractMultiTenantConn
             Properties properties = new Properties();
             properties.load(getClass().getResourceAsStream(String.format(HIBERNATE_PROPERTIES_PATH, tenantId)));
             return properties;
-        } catch (IOException e) {
-            throw new RuntimeException(String.format("Cannot open hibernate properties: %s", HIBERNATE_PROPERTIES_PATH));
+        } catch (NullPointerException | IOException e) {
+            e.printStackTrace();
+            return null;
         }
     }
 

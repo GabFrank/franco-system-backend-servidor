@@ -23,33 +23,21 @@ import java.util.stream.Collectors;
 public class TenantContext {
     public static final String DEFAULT_TENANT_ID = "default";
     private static final Logger logger = LoggerFactory.getLogger(TenantContext.class);
-    @Autowired
-    private static DatabaseSessionManager databaseSessionManager;
-    private static ThreadLocal<String> currentTenant = ThreadLocal.withInitial(() -> DEFAULT_TENANT_ID);
-    private static Set<String> tenantKeys = Collections.synchronizedSet(new HashSet<>());
-    private static ThreadLocal<EntityManagerHolder> threadLocalEntityManager = new ThreadLocal<>();
+    private static final ThreadLocal<String> currentTenant = ThreadLocal.withInitial(() -> DEFAULT_TENANT_ID);
+    private static final Set<String> tenantKeys = Collections.synchronizedSet(new HashSet<>());
 
     public static String getCurrentTenant() {
         return currentTenant.get();
     }
 
-    public void setCurrentTenant(String tenant) {
+    public static void setCurrentTenant(String tenant) {
         logger.info("Setting current tenant to: {}", tenant);
-
-        // Unbind any existing session
-//        databaseSessionManager.unbindSession();
-
-        // Set the tenant context
         currentTenant.set(tenant);
         logger.info("Current tenant is now: {}", currentTenant.get());
-
-        // Bind a new session with the current tenant context
-//        databaseSessionManager.bindSession();
     }
 
-    public void clear() {
+    public static void clear() {
         logger.info("Clearing current tenant");
-//        databaseSessionManager.unbindSession();
         currentTenant.remove();
     }
 

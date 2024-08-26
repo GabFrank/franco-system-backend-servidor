@@ -57,12 +57,12 @@ public class FacturaLegalItemGraphQL implements GraphQLQueryResolver, GraphQLMut
     public FacturaLegalItem saveFacturaLegalItem(FacturaLegalItemInput input, Long sucId) {
         ModelMapper m = new ModelMapper();
         FacturaLegalItem e = m.map(input, FacturaLegalItem.class);
-        if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getUsuarioId() != null) e.setUsuario(multiTenantService.compartir("default", (params) -> usuarioService.findById(input.getUsuarioId()).orElse(null), input.getUsuarioId()));
         if (input.getFacturaLegalId() != null)
-            e.setFacturaLegal(facturaLegalService.findById(new EmbebedPrimaryKey(input.getFacturaLegalId(), sucId)).orElse(null));
+            e.setFacturaLegal(multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> facturaLegalService.findByIdAndSucursalId(input.getFacturaLegalId(), sucId), input.getFacturaLegalId(), sucId));
         if (input.getVentaItemId() != null)
-            e.setVentaItem(ventaItemService.findById(new EmbebedPrimaryKey(input.getVentaItemId(), sucId)).orElse(null));
-        e = service.save(e);
+            e.setVentaItem(multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> ventaItemService.findByIdAndSucursalId(input.getVentaItemId(), sucId), input.getVentaItemId(), sucId));
+//        e = service.save(e);
         multiTenantService.compartir("filial"+sucId+"_bkp", (FacturaLegalItem s) -> service.save(s), e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.FACTURA_ITEM, sucId);
         return e;

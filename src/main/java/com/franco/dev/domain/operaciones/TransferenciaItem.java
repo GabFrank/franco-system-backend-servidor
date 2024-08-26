@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoModificacion;
 import com.franco.dev.domain.operaciones.enums.TransferenciaItemMotivoRechazo;
 import com.franco.dev.domain.personas.Usuario;
@@ -29,18 +30,18 @@ import java.time.LocalDateTime;
         name = "transferencia_item_motivo_modificacion",
         typeClass = PostgreSQLEnumType.class
 )
-public class TransferenciaItem implements Serializable {
+public class TransferenciaItem implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(generator = "tenant_aware_seq")
     @GenericGenerator(
-            name = "tenant_aware_seq",
-            strategy = "com.franco.dev.config.multitenant.TenantAwareSequenceGenerator",
-            parameters = {
-                    @org.hibernate.annotations.Parameter(name = "sequence_name", value = "operaciones.transferencia_item_id_seq")
-            }
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
     )
     private Long id;
 

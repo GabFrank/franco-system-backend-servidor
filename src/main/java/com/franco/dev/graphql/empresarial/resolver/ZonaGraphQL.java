@@ -21,6 +21,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Component
 public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -61,6 +63,9 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         Zona e = m.map(input, Zona.class);
         e.setSector(sectorService.findById(input.getSectorId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if(input.getCreadoEn()!=null){
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        }
         e = service.save(e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
         multiTenantService.compartir("filial"+e.getSector().getSucursal().getId()+"_bkp", (Zona s) -> service.save(s), e);
@@ -69,10 +74,11 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public Boolean deleteZona(Long id) {
         Zona e = service.findById(id).orElse(null);
-        if(e!=null){
+        Boolean ok = service.deleteById(id);
+        if(ok){
             multiTenantService.compartir("filial"+e.getSector().getSucursal().getId()+"_bkp", (Zona s) -> service.delete(s), e);
         }
-        return service.deleteById(id);
+        return ok;
     }
 
     public Long countZona() {

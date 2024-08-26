@@ -148,7 +148,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             if (e.getFormaPago() != null)
                 e.setFormaPago(formaPagoService.findById(ventaInput.getFormaPagoId()).orElse(null));
             if (e.getCaja() != null)
-                e.setCaja(pdvCajaService.findById(new EmbebedPrimaryKey(e.getCaja().getId(), e.getCaja().getSucursalId())).orElse(null));
+                e.setCaja(pdvCajaService.findById(e.getCaja().getId(), e.getCaja().getSucursalId()));
             e.setCobro(cobro);
             venta = service.save(e);
             if (venta != null) {
@@ -320,30 +320,32 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     }
 
-    public Page<Venta> ventasPorCajaId(Long id, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery) {
-        return service.findByCajaId(new EmbebedPrimaryKey(id, sucId), page, size, asc, formaPago, estado, isDelivery);
+    public Page<Venta> ventasPorCajaId(Long id, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
+        return service.findByCajaId(new EmbebedPrimaryKey(id, sucId), page, size, asc, formaPago, estado, isDelivery, monedaId);
     }
 
     public Boolean cancelarVenta(Long id, Long sucId) {
-        Venta venta = service.<VentaService>setTenant("filial"+sucId+"_bkp").findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        Venta venta = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null), new EmbebedPrimaryKey(id, sucId));
 //        Venta venta = multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.findById(s), new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-            if(service.cancelarVenta(venta)){
-                Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
-                if(delivery!=null){
-                    delivery.setEstado(DeliveryEstado.CANCELADO);
-                    deliveryService.save(delivery);
-                    propagacionService.propagarEntidad(delivery, TipoEntidad.DELIVERY, venta.getSucursalId());
-                }
-                VentaCredito ventaCredito = ventaCreditoGraphQL.findByVentaIdAndSucId(venta.getId(), sucId);
-                if(ventaCredito!=null){
-
-                }
-            }
-            return true;
+            Boolean ok = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.cancelarVenta(venta), venta);
+            return ok;
+//            if(ok){
+//                Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
+//                if(delivery!=null){
+//                    delivery.setEstado(DeliveryEstado.CANCELADO);
+//                    deliveryService.save(delivery);
+//                    propagacionService.propagarEntidad(delivery, TipoEntidad.DELIVERY, venta.getSucursalId());
+//                }
+//                VentaCredito ventaCredito = ventaCreditoGraphQL.findByVentaIdAndSucId(venta.getId(), sucId);
+//                if(ventaCredito!=null){
+//
+//                }
+//            }
+//            return true;
+        } else {
+            return false;
         }
-        service.clearTenant();
-        return false;
     }
 
     public Boolean reimprimirVenta(Long id, String printerName, String local, Long sucId) throws Exception {

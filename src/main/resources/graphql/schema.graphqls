@@ -22,3 +22,22 @@ type Pageable {
     getPageNumber: Int
     getPageSize: Int
 }
+
+type MultiPage {
+    tenantId: String
+    page: Int
+    offset: Int
+    totalElements: Int
+    lastOffset: Int
+    lastTotalElement: Int
+}
+
+input MultiPageInput {
+    tenantId: String
+    page: Int
+    offset: Int
+    totalElements: Int
+    lastOffset: Int
+    lastTotalElement: Int
+    __typename: String
+}

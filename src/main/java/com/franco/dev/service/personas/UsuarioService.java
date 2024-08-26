@@ -48,8 +48,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
 
     public List<Usuario> findbyIdOrPersona(String texto) {
-        texto = texto.replace(' ', '%');
+        texto = texto != null ? texto.replace(' ', '%') : "";
         return repository.findbyIdOrPersona(texto.toUpperCase());
+
     }
 
     public List<Role> getRoles(Long id) {

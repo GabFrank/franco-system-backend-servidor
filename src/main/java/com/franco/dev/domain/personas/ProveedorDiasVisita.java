@@ -1,10 +1,12 @@
 package com.franco.dev.domain.personas;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.general.enums.DiasSemana;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
@@ -22,12 +24,19 @@ import java.util.List;
         typeClass = PostgreSQLEnumType.class
 )
 @Table(name = "proveedor_dias_visita", schema = "personas")
-public class ProveedorDiasVisita implements Serializable {
+public class ProveedorDiasVisita implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

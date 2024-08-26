@@ -24,38 +24,39 @@ public class Receiver {
 
     @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY)
     public void receive(RabbitDto dto, final Channel channel) {
-        log.info("recibiendo");
-        if (dto.getTipoAccion() != null) log.info(dto.getTipoAccion().name());
-        if (dto.getTipoEntidad() != null) log.info(dto.getTipoEntidad().name());
-        switch (dto.getTipoAccion()) {
-            case SOLICITAR_DB:
-                if (dto.getIdSucursalOrigen() != null) {
-                    if (dto.getTipoEntidad() != null) {
-                        propagacionService.propagarDB(dto);
-                    } else {
-                        log.info("transferencia de base de datos completa");
-                        propagacionService.setSucursalConfigured(dto.getIdSucursalOrigen());
-                    }
-                }
-                break;
-            case GUARDAR:
-            case DELETE:
-                propagacionService.crudEntidad(dto);
-                break;
-            case SOLICITAR_RESOURCES:
-                propagacionService.enviarResources(dto);
-                break;
-        }
+//        log.info("recibiendo");
+//        if (dto.getTipoAccion() != null) log.info(dto.getTipoAccion().name());
+//        if (dto.getTipoEntidad() != null) log.info(dto.getTipoEntidad().name());
+//        switch (dto.getTipoAccion()) {
+//            case SOLICITAR_DB:
+//                if (dto.getIdSucursalOrigen() != null) {
+//                    if (dto.getTipoEntidad() != null) {
+//                        propagacionService.propagarDB(dto);
+//                    } else {
+//                        log.info("transferencia de base de datos completa");
+//                        propagacionService.setSucursalConfigured(dto.getIdSucursalOrigen());
+//                    }
+//                }
+//                break;
+//            case GUARDAR:
+//            case DELETE:
+//                propagacionService.crudEntidad(dto);
+//                break;
+//            case SOLICITAR_RESOURCES:
+//                propagacionService.enviarResources(dto);
+//                break;
+//        }
     }
 
     @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY+".reply.to")
     public Object receiveAndReply(RabbitDto dto) {
-        switch (dto.getTipoAccion()) {
-            case GUARDAR:
-            case SOLICITAR_ENTIDAD:
-                return propagacionService.crudEntidad(dto);
-            default:
-                return null;
-        }
+//        switch (dto.getTipoAccion()) {
+//            case GUARDAR:
+//            case SOLICITAR_ENTIDAD:
+//                return propagacionService.crudEntidad(dto);
+//            default:
+//                return null;
+//        }
+        return null;
     }
 }

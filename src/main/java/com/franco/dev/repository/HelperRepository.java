@@ -16,4 +16,8 @@ public interface HelperRepository<T, S> extends JpaRepository<T, S>, PagingAndSo
 
     List<T> findAllByOrderByIdAsc(Pageable pageable);
 
+//    T findByIdAndSucursalId(Long id, Long sucId);
+
+//    Boolean deleteByIdAndSucursalId(Long id, Long sucId);
+
 }

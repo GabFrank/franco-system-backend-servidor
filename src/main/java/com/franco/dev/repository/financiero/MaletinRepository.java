@@ -2,6 +2,8 @@ package com.franco.dev.repository.financiero;
 
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -17,5 +19,7 @@ public interface MaletinRepository extends HelperRepository<Maletin, Long> {
     public List<Maletin> findByAll(String texto);
 
     Maletin findByDescripcionIgnoreCase(String descripcion);
+
+    Page<Maletin> findAll(Pageable pageable);
 
 }

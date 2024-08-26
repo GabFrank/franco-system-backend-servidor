@@ -27,7 +27,7 @@ public class CobroService extends CrudService<Cobro, CobroRepository, EmbebedPri
     }
 
     public Cobro findById(Long id, Long sucId){
-        return repository.findByIdAndSucursalId(id, sucId).orElse(null);
+        return repository.findByIdAndSucursalId(id, sucId);
     }
 
     @Override

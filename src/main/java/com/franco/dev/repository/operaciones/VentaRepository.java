@@ -47,10 +47,12 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "join v.cobro c " +
             "join cd.cobro c2 " +
             "join cd.formaPago fp " +
+            "join cd.moneda m " +
             "where ca.id = :id and v.sucursalId = :sucId and c = c2 and " +
             "(:formaPagoId is null or fp.id = :formaPagoId) and " +
+            "(:monedaId is null or m.id = :monedaId) and " +
             "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
-    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable);
+    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Long monedaId);
 
     @Query(value = "select v from Venta v, CobroDetalle cd, Delivery d " +
             "join v.caja ca " +
@@ -58,11 +60,13 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "join cd.cobro c2 " +
             "join cd.formaPago fp " +
             "join d.venta v2 " +
+            "join cd.moneda m " +
             "where ca.id = :id and v.sucursalId = :sucId and c = c2 and " +
             "(:isDelivery = true and v2.id = v.id) and " +
             "(:formaPagoId is null or fp.id = :formaPagoId) and " +
+            "(:monedaId is null or m.id = :monedaId) and " +
             "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
-    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery);
+    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
 
 
 //    @Query(value = "select s.id as sucId, s.nombre as nombre, sum(v.totalGs) as total from Venta v " +

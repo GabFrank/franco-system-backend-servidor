@@ -48,13 +48,13 @@ public class DocumentoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.DOCUMENTO);
+//        propagacionService.propagarEntidad(e, TipoEntidad.DOCUMENTO);
         return e;    }
 
     public Boolean deleteDocumento(Long id){
 
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.DOCUMENTO);
+//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.DOCUMENTO);
         return ok;    }
 
     public Long countDocumento(){

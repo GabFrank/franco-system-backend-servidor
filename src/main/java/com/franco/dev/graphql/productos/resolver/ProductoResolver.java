@@ -151,7 +151,7 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
         return epsList;
     }
 
-    public Float existenciaTotal(Producto p){
+    public Double existenciaTotal(Producto p){
         return movimientoStockService.stockByProductoId(p.getId());
     }
 

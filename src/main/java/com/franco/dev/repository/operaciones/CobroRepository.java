@@ -1,6 +1,7 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.repository.HelperRepository;
@@ -14,7 +15,8 @@ public interface CobroRepository extends HelperRepository<Cobro, EmbebedPrimaryK
         return Cobro.class;
     }
 
-    public Optional<Cobro> findByIdAndSucursalId(Long id, Long sucId);
+    Cobro findByIdAndSucursalId(Long id, Long sucId);
 
+    Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 }
 

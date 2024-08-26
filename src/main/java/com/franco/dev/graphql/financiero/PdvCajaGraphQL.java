@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.ConteoMoneda;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.SolicitudAperturaCaja;
+import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
@@ -21,6 +22,7 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.apache.poi.ss.formula.functions.T;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -56,8 +58,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Optional<PdvCaja> pdvCaja(Long id, Long sucId) {
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findById(id, sucId), id, sucId);
+    public PdvCaja pdvCaja(Long id, Long sucId) {
+        PdvCaja aux = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findById(id, sucId), id, sucId);
+        return aux;
     }
 
     public List<PdvCaja> pdvCajas(int page, int size, Long sucId) {
@@ -68,6 +71,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     public List<PdvCaja> cajasPorFecha(String inicio, String fin, Long sucId) {
         Function<Object[], Object> findByDate = (params) -> service.findByDate((String) params[0], (String) params[1], (Long) params[2]);
         return (List<PdvCaja>) multiTenantService.compartir("filial"+sucId+"_bkp", findByDate, inicio, fin, sucId);
+    }
+
+    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, int page, int size){
+        Pageable pageable = PageRequest.of(page, size);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, pageable), cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, pageable);
     }
 
 //    public List<PdvCaja> searchCajaFilter(Long id, String fechaInicio, String fechaFin, Long maletinId, Long cajeroId){
@@ -144,7 +152,8 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja cajaAbiertoPorUsuarioIdPorSucursal(Long id, Long sucId) {
-        return propagacionService.buscarCajaAbiertaPorSucursal(id, sucId);
+//        return propagacionService.buscarCajaAbiertaPorSucursal(id, sucId);
+        return null;
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
@@ -161,7 +170,7 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             solicitudAperturaCaja.setCajaInput(input);
             solicitudAperturaCaja.setConteoInput(conteoInput);
             solicitudAperturaCaja.setConteoMonedaInputList(conteoMonedaInputList);
-            propagacionService.propagarEntidad(solicitudAperturaCaja, TipoEntidad.SOLICITUD_APERTURA_CAJA, solicitudAperturaCaja.getCajaInput().getSucursalId());
+//            propagacionService.propagarEntidad(solicitudAperturaCaja, TipoEntidad.SOLICITUD_APERTURA_CAJA, solicitudAperturaCaja.getCajaInput().getSucursalId());
             return true;
         } catch (Exception e){
             return false;

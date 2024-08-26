@@ -37,9 +37,14 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return stock != null ? stock : 0;
     }
 
-    public Float stockByProductoId(Long proId) {
+    public Double stockByProductoId(Long proId) {
         Float stock = repository.stockByProductoId(proId);
-        return stock != null ? stock : 0;
+        return Double.valueOf(stock != null ? stock : 0);
+    }
+
+    public Double stockByProductoIdExecptMovStockId(Long proId, Long movId) {
+        Float stock = repository.stockByProductoIdExeptMovimientoId(proId, movId);
+        return Double.valueOf(stock != null ? stock : 0);
     }
 
     public Page<MovimientoStock> findMovimientoStockWithFilters(LocalDateTime inicio,
@@ -64,7 +69,6 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         MovimientoStock e = super.save(entity);
         multiTenantService.compartir("filial" + entity.getSucursalId() + "_bkp", (MovimientoStock s) -> super.save(s), e);
-//        personaPublisher.publish(p);
         return e;
     }
 
@@ -87,11 +91,15 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return repository.ultimosMovimientosPorProductoId(proId, tm.toString(), limit);
     }
 
-    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
+    public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
         return repository.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
     }
 
-    public List<MovimientoStock> findListByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia) {
+    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId, Long proId) {
+        return repository.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(tipoMovimiento, referencia, sucId, proId);
+    }
+
+    public List<MovimientoStock> findListByTipoMovimientoAndReferenciaEstadoTrue(TipoMovimiento tipoMovimiento, Long referencia) {
         return repository.findByTipoMovimientoAndReferenciaAndEstadoTrue(tipoMovimiento, referencia);
     }
 
@@ -132,8 +140,8 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     public List<MovimientoStock> createMovimientoFromTransferenciaItem(TransferenciaItem e) {
         TransferenciaItem finalE = e;
-        MovimientoStock movimientoStockSalida = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (params) -> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalOrigen().getId()), TipoMovimiento.TRANSFERENCIA, e.getId(), e.getTransferencia().getSucursalOrigen().getId());
-        MovimientoStock movimientoStockEntrada = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (params) -> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalDestino().getId()), TipoMovimiento.TRANSFERENCIA, e.getId(), e.getTransferencia().getSucursalDestino().getId());
+        MovimientoStock movimientoStockSalida = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (params) -> findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalOrigen().getId(), finalE.getPresentacionPreTransferencia().getProducto().getId()), TipoMovimiento.TRANSFERENCIA, e.getId(), e.getTransferencia().getSucursalOrigen().getId(), finalE.getPresentacionPreTransferencia().getProducto().getId());
+        MovimientoStock movimientoStockEntrada = multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (params) -> findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalDestino().getId(), finalE.getPresentacionPreTransferencia().getProducto().getId()), TipoMovimiento.TRANSFERENCIA, e.getId(), e.getTransferencia().getSucursalDestino().getId(), finalE.getPresentacionPreTransferencia().getProducto().getId());
         Boolean esRechazado = false;
         Boolean esModificado = false;
         esRechazado = e.getMotivoRechazoPreparacion() != null || e.getMotivoRechazoPreTransferencia() != null || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;

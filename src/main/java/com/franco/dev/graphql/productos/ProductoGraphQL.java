@@ -107,8 +107,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.save(p);
     }
 
-    public Float productoPorSucursalStock(Long proId, Long sucId){
-        return propagacionService.solicitarStockByProducto(proId, sucId);
+    public Double productoPorSucursalStock(Long proId, Long sucId){
+        Double stock = multiTenantService.compartir("filial"+sucId+"_bkp", (p) -> movimientoStockService.stockByProductoId(p), proId);
+        return stock != null ? stock : 0.0;
     }
 
     public Boolean deleteProducto(Long id){
@@ -137,7 +138,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Producto printProducto(Long id) {
-        propagacionService.verficarConexion((long) 1);
+//        propagacionService.verficarConexion((long) 1);
         return null;
     }
 

@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
@@ -57,6 +58,9 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     @Autowired
     private ImageService imageService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     @Override
     public FacturaLegalRepository getRepository() {
         return repository;
@@ -64,6 +68,10 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     public List<FacturaLegal> findByCajaId(Long id) {
         return repository.findByCajaId(id);
+    }
+
+    public FacturaLegal findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
     }
 
     public FacturaLegal findByVentaIdAndSucursalId(Long id, Long sucId) {
@@ -105,14 +113,14 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 foundPersona.setDireccion(direccion);
                 foundPersona.setUsuario(usuario);
                 foundPersona = personaService.save(foundPersona);
-                propagacionService.propagarEntidad(foundPersona, TipoEntidad.PERSONA);
+//                propagacionService.propagarEntidad(foundPersona, TipoEntidad.PERSONA);
             }
             Cliente newCliente = new Cliente();
             newCliente.setUsuario(usuario);
             newCliente.setPersona(foundPersona);
             newCliente.setTipo(TipoCliente.NORMAL);
             newCliente = clienteService.save(newCliente);
-            propagacionService.propagarEntidad(newCliente, TipoEntidad.CLIENTE);
+//            propagacionService.propagarEntidad(newCliente, TipoEntidad.CLIENTE);
             return newCliente;
         } else {
             return null;
@@ -122,7 +130,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public String createExcelReport(String fechaInicio, String fechaFin, Long sucId) {
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
-        Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
+        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(sucId).orElse(null), sucId);
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
         XSSFSheet sheet;
@@ -250,7 +258,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
         XSSFSheet sheet;
-        Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
+        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(sucId).orElse(null), sucId);
 
         if (dataList == null || dataList.size() == 0) return null;
         try {
@@ -416,7 +424,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     }
 
     public List<ExcelFacturasDto> getExcelFacturas(LocalDateTime inicio, LocalDateTime fin, Long sucursalId) {
-        List<FacturaLegal> facturaLegalList = repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucursalId);
+        List<FacturaLegal> facturaLegalList = multiTenantService.compartir("filial"+sucursalId+"_bkp", (params) -> repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucursalId), inicio, fin, sucursalId);
         return facturaLegalList.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -424,7 +432,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     private ExcelFacturasDto convertToDto(FacturaLegal f) {
         ExcelFacturasDto dto = new ExcelFacturasDto();
-        Sucursal sucursal = sucursalService.findById(f.getSucursalId()).orElse(null);
+        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(f.getSucursalId()).orElse(null), f.getSucursalId());
         TimbradoDetalle timbradoDetalle = f.getTimbradoDetalle();
         Timbrado timbrado = timbradoDetalle.getTimbrado();
         dto.setVenTipimp("I");
@@ -485,5 +493,9 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         dto.setVenFecven(dateToStringWithFormat(f.getFecha(), "dd-MM-yyy"));
         dto.setRucvennrotim(Long.valueOf(timbrado.getNumero()));
         return dto;
+    }
+
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
+        return repository.deleteByIdAndSucursalId(id, sucId);
     }
 }

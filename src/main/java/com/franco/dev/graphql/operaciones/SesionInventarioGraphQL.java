@@ -58,7 +58,7 @@ public class SesionInventarioGraphQL implements GraphQLQueryResolver, GraphQLMut
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.SESION_INVENTARIO, e.getSucursal().getId());
+//        propagacionService.propagarEntidad(e, TipoEntidad.SESION_INVENTARIO, e.getSucursal().getId());
         return e;
     }
 
@@ -67,7 +67,7 @@ public class SesionInventarioGraphQL implements GraphQLQueryResolver, GraphQLMut
         SesionInventario i = service.findById(id).orElse(null);
         if (i != null) {
             ok = service.deleteById(id);
-            propagacionService.eliminarEntidad(i, TipoEntidad.SESION_INVENTARIO, i.getSucursal().getId());
+//            propagacionService.eliminarEntidad(i, TipoEntidad.SESION_INVENTARIO, i.getSucursal().getId());
         }
         return ok;
     }

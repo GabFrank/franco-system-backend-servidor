@@ -28,6 +28,8 @@ public interface DeliveryRepository extends HelperRepository<Delivery, EmbebedPr
 
     public List<Delivery> findByVentaCajaIdAndEstadoInAndSucursalId(Long id, List<DeliveryEstado> estado, Long sucId);
 
+    Delivery findByIdAndSucursalId(Long id, Long sucId);
+
 //    @Query("select p from Delivery p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")
 //    public List<Delivery> findByProveedor(String texto);
 

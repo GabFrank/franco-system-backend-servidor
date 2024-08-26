@@ -1,5 +1,6 @@
 package com.franco.dev.service.impresion;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Transferencia;
@@ -70,6 +71,9 @@ public class ImpresionService {
     private PrecioPorSucursalService precioPorSucursalService;
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public static DateTimeFormatter shortDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     public static DateTimeFormatter shortDateTime = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
@@ -697,7 +701,7 @@ public class ImpresionService {
                 List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
                 for (VentaCredito ti : ventaCreditoList) {
                     VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
-                    Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
+                    Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(ti.getSucursalId()).orElse(null), ti.getSucursalId());
                     tiDto.setSucursal(sucursal.getNombre());
                     tiDto.setTotalGs(ti.getValorTotal());
                     tiDto.setVentaCreditoId(String.valueOf(ti.getId()));

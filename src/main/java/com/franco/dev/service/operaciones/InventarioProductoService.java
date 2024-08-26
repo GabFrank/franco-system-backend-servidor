@@ -29,7 +29,7 @@ public class InventarioProductoService extends CrudService<InventarioProducto, I
 
     @Override
     public InventarioProducto save(InventarioProducto entity) {
-        if(entity.getProducto().getId()==null) entity.setProducto(null);
-        return super.save(entity);
+        entity = super.save(entity);
+        return entity;
     }
 }

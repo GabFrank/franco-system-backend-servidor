@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero.resolver;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -17,8 +18,12 @@ public class MaletinResolver implements GraphQLResolver<Maletin> {
     @Autowired
     private SucursalService sucursalService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public PdvCaja cajaActual(Maletin e) {
-        return pdvCajaService.findLastByMaletinId(e.getId());
+        PdvCaja aux = multiTenantService.compartir("filial" + e.getSucursal().getId() + "_bkp", (params) -> pdvCajaService.findLastByMaletinId(e.getId()), e.getId());
+        return aux;
     }
 
 }

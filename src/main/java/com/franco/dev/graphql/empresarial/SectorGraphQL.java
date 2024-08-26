@@ -59,7 +59,7 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.SECTOR, input.getSucursalId());
-        multiTenantService.compartir(null, (Sector s) -> service.save(s), e, false);
+        multiTenantService.compartir("filial"+input.getSucursalId()+"_bkp", (Sector s) -> service.save(s), e, false);
         return e;
     }
 
@@ -75,5 +75,4 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Long countSector(){
         return service.count();
     }
-
 }

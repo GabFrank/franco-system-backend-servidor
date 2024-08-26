@@ -46,13 +46,13 @@ public class ClienteAdicionalGraphQL implements GraphQLQueryResolver, GraphQLMut
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e.setCliente(clienteService.findById(input.getClienteId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CLIENTE_ADICIONAL);
+//        propagacionService.propagarEntidad(e, TipoEntidad.CLIENTE_ADICIONAL);
         return e;
     }
 
     public Boolean deleteClienteAdicional(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CLIENTE_ADICIONAL);
+//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CLIENTE_ADICIONAL);
         return ok;
     }
 

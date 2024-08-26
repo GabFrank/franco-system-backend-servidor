@@ -53,7 +53,7 @@ public class MonedaBilletesGraphQL implements GraphQLQueryResolver, GraphQLMutat
         }
         if(input.getMonedaId()!=null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.MONEDAS_BILLETES);
+//        propagacionService.propagarEntidad(e, TipoEntidad.MONEDAS_BILLETES);
         return e;    }
 
     public List<MonedaBilletes> monedaBilletePorMonedaId(Long id){
@@ -62,7 +62,7 @@ public class MonedaBilletesGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     public Boolean deleteMonedaBillete(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.MONEDAS_BILLETES);
+//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.MONEDAS_BILLETES);
         return ok;    }
 
     public Long countMonedaBillete(){

@@ -1,7 +1,10 @@
 package com.franco.dev.config.multitenant;
 
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.operaciones.InventarioService;
 import graphql.GraphQLException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
@@ -12,10 +15,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 @Service
 public class MultiTenantService {
+
+    private final Logger log = LoggerFactory.getLogger(MultiTenantService.class);
 
     @Autowired
     private TenantContext tenantContext;
@@ -36,11 +45,21 @@ public class MultiTenantService {
                 databaseSessionManager.bindSession();    // Bind a new session for the current tenant
                 if (isEntity(parameter)) {
                     T copy = copyEntityWithId(parameter);
-                    return someFuncWithParameters.apply(copy);
+                    Object result = someFuncWithParameters.apply(copy);
+                    if (result instanceof Collection) {
+                        return (R) result;
+                    } else {
+                        return (R) result;
+                    }
                 } else {
-                    return someFuncWithParameters.apply(parameter);
+                    Object result = someFuncWithParameters.apply(parameter);
+                    if (result instanceof Collection) {
+                        return (R) result;
+                    } else {
+                        return (R) result;
+                    }
+//                        resultList.addAll((Collection<? extends R>) someFuncWithParameters.apply(parameter));
                 }
-
             } else {
                 Set<String> tenantKeys = tenantContext.getAllTenantKeys();
                 List<R> resultList = new ArrayList<>();
@@ -73,7 +92,7 @@ public class MultiTenantService {
                     }
 
                 }
-                return (R) parameter;
+                return (R) resultList;
             }
         } catch (Exception e) {
             if (error) {
@@ -98,7 +117,7 @@ public class MultiTenantService {
                 databaseSessionManager.unbindSession();  // Unbind the current session
                 tenantContext.setCurrentTenant(key);     // Set the tenant context
                 databaseSessionManager.bindSession();    // Bind a new session for the current tenant
-                if (isEntity(parameter)) {
+                if (parameter != null && isEntity(parameter)) {
                     T copy = copyEntityWithId(parameter);
                     return someFuncWithParameters.apply(copy);
                 } else {
@@ -152,6 +171,7 @@ public class MultiTenantService {
     }
 
     public <R> R compartir(String key, Function<Object[], R> someFuncWithParameters, Object... parameters) {
+        ExecutorService executorService = null;
         try {
             if (key != null) {
                 databaseSessionManager.unbindSession();  // Unbind the current session
@@ -161,28 +181,53 @@ public class MultiTenantService {
                 return someFuncWithParameters.apply(copiedParameters);
             } else {
                 Set<String> tenantKeys = tenantContext.getAllTenantKeys();
-                for (String s : tenantKeys) {
-                    databaseSessionManager.unbindSession();
-                    try {
-                        tenantContext.setCurrentTenant(s);  // Set the tenant context
-                    } catch (Exception e) {
-                        System.out.println("Sucursal " + s + " no tiene backup configurado");
-                    }
-                    databaseSessionManager.bindSession();  // Bind a new session for the current tenant
-                    Object[] copiedParameters = copyParametersWithId(parameters);
-                    someFuncWithParameters.apply(copiedParameters);
+                executorService = Executors.newFixedThreadPool(tenantKeys.size());
+                List<Future<R>> futures = new ArrayList<>();
+
+                for (String tenantKey : tenantKeys) {
+                    Future<R> future = executorService.submit(() -> {
+                        databaseSessionManager.unbindSession();
+                        try {
+                            tenantContext.setCurrentTenant(tenantKey);  // Set the tenant context
+                            databaseSessionManager.bindSession();       // Bind a new session for the current tenant
+                            Object[] copiedParameters = copyParametersWithId(parameters);
+                            return someFuncWithParameters.apply(copiedParameters);
+                        } catch (Exception e) {
+                            System.out.println("Sucursal " + tenantKey + " no tiene backup configurado");
+                            return null;
+                        } finally {
+                            tenantContext.clear();  // Clear the tenant context after each execution
+                        }
+                    });
+                    futures.add(future);
                 }
-                return null;  // Adjust this if you need to return something else
+
+                // Gather all the results
+                List<R> results = new ArrayList<>();
+                for (Future<R> future : futures) {
+                    try {
+                        R result = future.get(); // Blocks until the thread is done
+                        if (result != null) {
+                            results.add(result);
+                        }
+                    } catch (InterruptedException | ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                // Combine or return the results as needed
+                // Assuming you need to combine them into a list or similar, otherwise, modify the return type and logic accordingly.
+                return (R) results;
+
             }
         } catch (Exception e) {
             e.printStackTrace();
             return null;
         } finally {
-            // Perform operations after executing the function
+            if (executorService != null) {
+                executorService.shutdown();
+            }
             tenantContext.clear();  // Clear the tenant context
-
-            // Optionally rebind the previous session if needed
-            // databaseSessionManager.rebindPreviousSession();
         }
     }
 
@@ -213,7 +258,7 @@ public class MultiTenantService {
             if (getError) {
                 throw new GraphQLException("Problema al realizar la operacion");
             } else {
-                e.printStackTrace();
+                log.info("No se pudo establecer conexion con la sucursal: " + key);
             }
             return null;
         } finally {
@@ -240,6 +285,7 @@ public class MultiTenantService {
 
     private boolean isEntity(Object obj) {
         // Check if the object is an instance of an entity
+        if(obj==null) return false;
         return obj.getClass().isAnnotationPresent(Entity.class);
     }
 

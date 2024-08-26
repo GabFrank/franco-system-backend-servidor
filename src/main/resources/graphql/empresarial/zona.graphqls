@@ -4,6 +4,7 @@ type Zona {
     descripcion: String
     activo: Boolean
     usuario: Usuario
+    creadoEn: Date
 }
 
 input ZonaInput {
@@ -12,6 +13,7 @@ input ZonaInput {
     descripcion: String
     activo: Boolean
     usuarioId: Int
+    creadoEn: String
 }
 
 extend type Query {

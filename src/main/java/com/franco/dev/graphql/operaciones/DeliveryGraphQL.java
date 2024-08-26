@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
@@ -46,23 +47,28 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private VueltoService vueltoService;
 
-    public Optional<Delivery> delivery(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
+    @Autowired
+    private MultiTenantService multiTenantService;
+
+    public Delivery delivery(Long id, Long sucId) {
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);
+    }
 
     public List<Delivery> deliverys(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
-        return service.findAll(pageable);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findAll(pageable), pageable);
     }
 
     public List<Delivery> deliverysByEstado(DeliveryEstado estado, Long sucId){
-        return service.findByEstado(estado);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByEstado(estado), estado);
     }
 
     public List<Delivery> deliverysByEstadoNotIn(DeliveryEstado estado, Long sucId){
-        return service.findByEstadoNotIn(estado);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByEstadoNotIn(estado), estado);
     }
 
     public List<Delivery> deliverysUltimos10(Long sucId){
-        return service.findTop10();
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findTop10());
     }
 
 
@@ -100,7 +106,7 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public List<Delivery> deliveryPorCajaIdAndEstados(Long id, List<DeliveryEstado> estadoList, Long sucId){
-        return service.findByVentaCajaIdAndEstadoIn(id, estadoList, sucId);
+        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByVentaCajaIdAndEstadoIn(id, estadoList, sucId), id, estadoList, sucId);
     }
 
 }

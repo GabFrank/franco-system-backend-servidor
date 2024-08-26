@@ -42,7 +42,7 @@ public class VentaCredito implements Serializable {
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "venta_id", referencedColumnName = "id"))
@@ -81,6 +81,8 @@ public class VentaCredito implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    private LocalDateTime fechaCobro;
 }
 
 

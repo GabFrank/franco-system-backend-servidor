@@ -3,6 +3,7 @@ package com.franco.dev.repository.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.Local;
 import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.dto.ExcelFacturasDto;
 import com.franco.dev.domain.financiero.dto.ExcelFacturasDtoProjection;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
@@ -28,6 +29,10 @@ public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, E
 //    Moneda findByPaisId(Long id);
 
     public List<FacturaLegal> findByCajaId(Long id);
+
+    FacturaLegal findByIdAndSucursalId(Long id, Long sucId);
+
+    Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 
     public FacturaLegal findByVentaIdAndSucursalId(Long id, Long sucId);
 

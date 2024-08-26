@@ -29,6 +29,10 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
         return repository.findByInventarioProductoId(id);
     }
 
+    public List<InventarioProductoItem> findByInventarioIdAndProductoId(Long invId, Long proId){
+        return repository.findByInventarioIdAndProductoId(invId, proId);
+    }
+
     public Page<InventarioProductoItem> findAllWithFilters(
             List<Long> sucursalIdList,
             LocalDateTime startDate,

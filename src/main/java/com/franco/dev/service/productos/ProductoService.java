@@ -116,7 +116,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         PrecioPorSucursal precioVenta = null;
         PrecioPorSucursal precioCosto = null;
         for (Producto p : productoList) {
-            Float stock = movimientoStockService.stockByProductoId(p.getId());
+            Double stock = movimientoStockService.stockByProductoId(p.getId());
             Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
             if (presentacion != null) {
                 precioVenta = precioPorSucursalService.findPrincipalByPrecionacionId(presentacion.getId());

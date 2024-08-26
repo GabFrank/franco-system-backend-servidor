@@ -32,7 +32,7 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
 
     @Id
     private Long id;
-    @Id
+
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
@@ -74,7 +74,7 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 

@@ -6,6 +6,7 @@ type Maletin {
     creadoEn: Date
     usuario: Usuario
     cajaActual: PdvCaja
+    sucursal: Sucursal
 }
 
 input MaletinInput {
@@ -15,19 +16,20 @@ input MaletinInput {
     abierto: Boolean
     creadoEn: Date
     usuarioId: Int
+    sucursalId: Int
 }
 
 extend type Query {
-    maletin(id:ID!):Maletin
+    maletin(id:ID!, sucursalId:ID!):Maletin
     maletines(page:Int = 0, size:Int = 10):[Maletin]!
     countMaletin: Int
     maletinPorDescripcion(texto: String):Maletin
     maletinPorDescripcionPorSucursal(texto: String, sucId: Int!):Maletin
-    searchMaletin(texto: String):[Maletin]
+    searchMaletin(texto: String, sucId:ID):[Maletin]
 }
 
 extend type Mutation {
     saveMaletin(maletin:MaletinInput!):Maletin!
-    deleteMaletin(id:ID!):Boolean!
+    deleteMaletin(id:ID!, sucursalId:ID!):Boolean!
 }
 

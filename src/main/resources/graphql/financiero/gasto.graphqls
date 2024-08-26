@@ -47,7 +47,7 @@ extend type Query {
     countGasto: Int
     gastosPorFecha(inicio:String, fin:String, sucId: ID):[Gasto]
     gastosPorCajaId(id:ID!, sucId: ID):[Gasto]
-    filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, page:Int, size:Int):[Gasto]!
+    filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, descripcion:String, page:Int, size:Int):[Gasto]!
 }
 
 extend type Mutation {

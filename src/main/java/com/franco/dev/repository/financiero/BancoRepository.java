@@ -19,4 +19,8 @@ public interface BancoRepository extends HelperRepository<Banco, Long> {
 
 //    Moneda findByPaisId(Long id);
 
+    public List<Banco> findAllByCodigo(String codigo);
+
+
+
 }

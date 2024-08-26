@@ -59,7 +59,7 @@ public class PaisGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public Boolean deletePais(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.PAIS);
+//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.PAIS);
         return ok;
     }
 

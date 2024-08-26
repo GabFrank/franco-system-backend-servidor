@@ -67,13 +67,18 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         return repository.findBySucursalIdAndCreadoEnBetween(sucId, stringToDate(inicio), stringToDate(fin));
     }
 
-    public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, Pageable pageable){
-        return repository.findByAll(id, cajaId, sucId, responsableId, pageable);
+    public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable){
+        return repository.findByAll(id, cajaId, sucId, responsableId, descripcion, pageable);
     }
 
     public List<Gasto> findByCajaId(Long id, Long sucId) {
         return repository.findByCajaIdAndSucursalId(id, sucId);
     }
+
+    public Gasto findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
 
     @Override
     public Gasto save(Gasto entity) {

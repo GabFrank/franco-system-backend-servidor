@@ -21,6 +21,7 @@ public class DateUtils {
     }
 
     public static LocalDateTime stringToDate(String s) {
+        if(s == null) return null;
         return LocalDateTime.parse(s, formatter);
     }
 

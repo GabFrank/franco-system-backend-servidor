@@ -53,6 +53,10 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
         return (Optional<T>) obj;
     }
 
+//    public T findByIdAndSucursalId(Long id, Long sucId){
+//        return getRepository().findByIdAndSucursalId(id, sucId);
+//    }
+
     public T getOne(S id) {
         return getRepository().getOne(id);
     }
@@ -91,6 +95,16 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
             return false;
         }
     }
+
+//    @Transactional
+//    public Boolean deleteByIdAndSucursalId(Long id, Long sucId) {
+//        try {
+//            getRepository().deleteByIdAndSucursalId(id, sucId);
+//            return true;
+//        } catch (Exception e) {
+//            return false;
+//        }
+//    }
 
     @Transactional
     public List<T> saveAll(List<T> entityList) {

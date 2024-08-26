@@ -68,7 +68,7 @@ public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Boolean deleteCambioCaja(Long id, Long sucId){
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CAMBIO);
+//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CAMBIO);
         return ok;
     }
 

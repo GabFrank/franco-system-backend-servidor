@@ -35,8 +35,11 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
     @Override
     public Inventario save(Inventario entity) {
         if (entity.getFechaInicio() == null) entity.setFechaInicio(LocalDateTime.now());
+        if(entity.getId()!=null){
+            Long id = entity.getId();
+            entity.setId(id);
+        }
         Inventario e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
     }
 

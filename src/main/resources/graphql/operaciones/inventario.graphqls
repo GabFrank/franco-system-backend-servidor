@@ -37,6 +37,7 @@ extend type Mutation {
     deleteInventario(id:ID!):Boolean!
     finalizarInventario(id: ID!):Inventario
     cancelarInventario(id: ID!):Boolean
+    reabrirInventario(id: ID!):Boolean
 }
 
 enum InventarioEstado {

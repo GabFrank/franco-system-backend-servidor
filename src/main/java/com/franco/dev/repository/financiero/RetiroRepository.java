@@ -23,6 +23,8 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
 
 //    Moneda findByPaisId(Long id);
 
+    public Retiro findByIdAndSucursalId(Long id, Long sucId);
+
     public List<Retiro> findByCajaSalidaId(Long id);
 
     @Query("select r from Retiro r " +

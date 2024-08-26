@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
@@ -34,18 +35,18 @@ import java.time.LocalDateTime;
         name = "etapa_transferencia",
         typeClass = PostgreSQLEnumType.class
 )
-public class Transferencia implements Serializable {
+public class Transferencia implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(generator = "tenant_aware_seq")
     @GenericGenerator(
-            name = "tenant_aware_seq",
-            strategy = "com.franco.dev.config.multitenant.TenantAwareSequenceGenerator",
-            parameters = {
-                    @org.hibernate.annotations.Parameter(name = "sequence_name", value = "operaciones.transferencia_id_seq")
-            }
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
     )
     private Long id;
 

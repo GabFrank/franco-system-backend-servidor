@@ -83,14 +83,14 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findByDate(inicio, fin);
     }
 
-    public void findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
-        MovimientoStock movimientoStock = service.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
-        if (movimientoStock != null) {
-            deleteMovimientoStock(movimientoStock.getId(), movimientoStock.getSucursalId());
-        }
-    }
+//    public void findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
+//        MovimientoStock movimientoStock = service.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
+//        if (movimientoStock != null) {
+//            deleteMovimientoStock(movimientoStock.getId(), movimientoStock.getSucursalId());
+//        }
+//    }
 
-    public Float stockPorProducto(Long id, Long sucId) {
+    public Double stockPorProducto(Long id, Long sucId) {
         return service.stockByProductoId(id);
     }
 

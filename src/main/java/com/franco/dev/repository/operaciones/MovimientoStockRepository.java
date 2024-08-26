@@ -48,6 +48,11 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "where p.estado = true and pro.id = ?1")
     public Float stockByProductoId(Long proId);
 
+    @Query("select SUM(p.cantidad) from MovimientoStock p " +
+            "left outer join p.producto as pro " +
+            "where p.estado = true and pro.id = ?1 and p.id != ?2")
+    public Float stockByProductoIdExeptMovimientoId(Long proId, Long movId);
+
     @Query(value = "select * from operaciones.movimiento_stock p " +
             "left join productos.producto as pro on p.producto_id = pro.id " +
             "where pro.id = ?1 " +
@@ -63,7 +68,9 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "where ms.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp)", nativeQuery = true)
     public List<MovimientoStock> findByDate(String inicio, String fin);
 
-    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId);
+    public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId);
+
+    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId, Long prodId);
 
     public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndEstadoTrue(TipoMovimiento tipoMovimiento, Long referencia);
 

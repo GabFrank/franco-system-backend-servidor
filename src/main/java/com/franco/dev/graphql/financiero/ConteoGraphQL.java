@@ -82,7 +82,7 @@ public class ConteoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         ModelMapper m = new ModelMapper();
         Conteo e = m.map(input, Conteo.class);
         Conteo conteo = null;
-        PdvCaja pdvCaja = pdvCajaService.findById(new EmbebedPrimaryKey(cajaId , input.getSucursalId())).orElse(null);
+        PdvCaja pdvCaja = pdvCajaService.findById(cajaId , input.getSucursalId());
         if (pdvCaja != null) {
             if (input.getUsuarioId() != null) {
                 e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

@@ -7,7 +7,6 @@ import org.hibernate.engine.jdbc.connections.spi.ConnectionProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -19,6 +18,8 @@ public class SchemaMultiTenantConnectionProvider extends AbstractMultiTenantConn
 
     public static final String HIBERNATE_PROPERTIES_PATH = "/hibernate-%s.properties";
     private final Map<String, ConnectionProvider> connectionProviderMap;
+    private final Logger log = LoggerFactory.getLogger(SchemaMultiTenantConnectionProvider.class);
+
 
     @Autowired
     private TenantContext tenantContext;
@@ -43,14 +44,19 @@ public class SchemaMultiTenantConnectionProvider extends AbstractMultiTenantConn
                 .orElseGet(() -> createNewConnectionProvider(tenantIdentifier));
     }
 
-    private ConnectionProvider createNewConnectionProvider(String tenantIdentifier) throws GraphQLException {
-        return Optional.ofNullable(tenantIdentifier)
-                .map(this::createConnectionProvider)
-                .map(connectionProvider -> {
-                    connectionProviderMap.put(tenantIdentifier, connectionProvider);
-                    return connectionProvider;
-                })
-                .orElseThrow(() -> new ConnectionProviderException(String.format("No se pudo establecer conexion con: %s", tenantIdentifier)));
+    private ConnectionProvider createNewConnectionProvider(String tenantIdentifier) {
+        try {
+            return Optional.ofNullable(tenantIdentifier)
+                    .map(this::createConnectionProvider)
+                    .map(connectionProvider -> {
+                        connectionProviderMap.put(tenantIdentifier, connectionProvider);
+                        return connectionProvider;
+                    }).orElse(null);
+        } catch (Exception e){
+            log.info("No se pudo crear una nueva conexion: " + tenantIdentifier);
+            e.printStackTrace();
+            return null;
+        }
     }
 
     private ConnectionProvider createConnectionProvider(String tenantIdentifier) {
@@ -66,7 +72,7 @@ public class SchemaMultiTenantConnectionProvider extends AbstractMultiTenantConn
             properties.load(getClass().getResourceAsStream(String.format(HIBERNATE_PROPERTIES_PATH, tenantId)));
             return properties;
         } catch (NullPointerException | IOException e) {
-            e.printStackTrace();
+            log.info("Problema en schema multi tenant connection: " + tenantId);
             return null;
         }
     }

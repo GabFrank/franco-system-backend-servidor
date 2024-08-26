@@ -3,6 +3,7 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
+import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.CobroDetalle;
 import com.franco.dev.domain.operaciones.Venta;
@@ -17,6 +18,7 @@ import com.franco.dev.service.operaciones.CobroService;
 import com.franco.dev.service.operaciones.VentaService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,7 +32,7 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @AllArgsConstructor
-public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, EmbebedPrimaryKey> {
+public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long> {
 
     private final PdvCajaRepository repository;
     @Autowired
@@ -61,8 +63,8 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
         return repository;
     }
 
-    public Optional<PdvCaja> findById(Long id, Long sucId) {
-        return repository.findById(new EmbebedPrimaryKey(id, sucId));
+    public PdvCaja findById(Long id, Long sucId) {
+        return repository.findByIdAndSucursalId(id, sucId);
     }
 
     public List<PdvCaja> findByDate(String inicio, String fin, Long sucId) {
@@ -97,11 +99,10 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
         return repository.findByUsuarioIdAndActivo(id, true);
     }
 
-    @Override
     public Boolean deleteById(EmbebedPrimaryKey id) {
-        PdvCaja pdvCaja = findById(id).orElse(null);
+        PdvCaja pdvCaja = repository.findByIdAndSucursalId(id.getId(), id.getSucursalId());
         maletinService.cerrarMaletin(pdvCaja.getMaletin().getId());
-        return super.deleteById(new EmbebedPrimaryKey(pdvCaja.getId(), pdvCaja.getSucursalId()));
+        return repository.deleteByIdAndSucursalId(id.getId(), id.getSucursalId());
     }
 
 //    public PdvCajaBalanceDto generarBalance(PdvCaja pdvCaja){
@@ -406,7 +407,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
     }
 
     public PdvCaja imprimirBalance(EmbebedPrimaryKey id, String printerName, String local) {
-        PdvCaja pdvCaja = findById(id).orElse(null);
+        PdvCaja pdvCaja = repository.findByIdAndSucursalId(id.getId(), id.getSucursalId());
         if (pdvCaja != null) {
             PdvCajaBalanceDto balanceDto = generarBalance(pdvCaja);
             impresionService.printBalance(balanceDto, printerName, local);
@@ -415,7 +416,7 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
     }
 
     public CajaBalance getBalance(EmbebedPrimaryKey id) {
-        PdvCaja pdvCaja = findById(id).orElse(null);
+        PdvCaja pdvCaja = repository.findByIdAndSucursalId(id.getId(), id.getSucursalId());
         CajaBalance balance = new CajaBalance();
         if (pdvCaja != null) {
             PdvCajaBalanceDto balanceDto = generarBalance(pdvCaja);
@@ -461,6 +462,11 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Embe
     public List<PdvCaja> findByUsuarioId(Long id, Integer page, Integer size){
         Pageable pageable = PageRequest.of(page, size);
         return repository.findByUsuarioIdOrderByIdDesc(id, pageable);
+    }
+
+    public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Pageable pageable) {
+        Page<PdvCaja> aux = repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, stringToDate(fechaInicio), stringToDate(fechaFin), sucId, pageable);
+        return aux;
     }
 }
 

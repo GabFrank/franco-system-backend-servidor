@@ -9,7 +9,6 @@ import com.franco.dev.domain.operaciones.enums.InventarioEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
@@ -28,9 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -91,7 +88,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
 //        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO, e.getSucursal().getId());
-        multiTenantService.compartir("filial"+e.getSucursal().getId()+"_bkp", (Inventario s) -> service.save(s), e);
+        multiTenantService.compartir("filial" + e.getSucursal().getId() + "_bkp", (Inventario s) -> service.save(s), e, false);
         return e;
     }
 
@@ -100,7 +97,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         Inventario i = service.findById(id).orElse(null);
         if (i != null) {
             ok = service.deleteById(id);
-            multiTenantService.compartir("filial"+i.getSucursal().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
+            multiTenantService.compartir("filial" + i.getSucursal().getId() + "_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }
@@ -108,26 +105,83 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Inventario finalizarInventario(Long id) throws GraphQLException {
         Inventario inventario = service.findById(id).orElse(null);
         if (inventario.getId() != null && inventario.getEstado() != InventarioEstado.CONCLUIDO) {
-            inventario = multiTenantService.compartir("filial"+inventario.getSucursal().getId()+"_bkp", (Long s) -> finalizarInventarioEnSucursal(s), id);
-            if(inventario!=null){
-                return service.save(inventario);
+            inventario = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Long s) -> finalizarInventarioEnSucursal(s), id);
+            if (inventario != null) {
+                multiTenantService.compartir("default", (Inventario i) -> service.save(i), inventario);
+                multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Inventario i) -> service.save(i), inventario);
+                return inventario;
             }
         }
         return null;
     }
 
-    public Boolean cancelarInventario(Long id) throws GraphQLException {
-        Inventario inventario = service.findById(id).orElse(null);
-        if (inventario.getId() != null) {
-            inventario.setEstado(InventarioEstado.CANCELADO);
-            service.save(inventario);
-            List<MovimientoStock> movimientoStockList = movimientoStockService.findListByTipoMovimientoAndReferencia(TipoMovimiento.AJUSTE, id);
-            for (MovimientoStock ms : movimientoStockList) {
-                ms.setEstado(false);
-                movimientoStockService.save(ms);
+    public Boolean cancelarInventario(Long id) {
+        try {
+            Inventario inventario = service.findById(id).orElse(null);
+            if (inventario.getId() != null) {
+                inventario.setEstado(InventarioEstado.CANCELADO);
+                List<MovimientoStock> movimientoStockList = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) ->  movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
+                for(MovimientoStock ms : movimientoStockList) {
+                    if (ms != null) {
+                        ms.setEstado(false);
+                    }
+                    multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), ms);
+
+                }
+//                List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
+//                for (InventarioProducto ip : inventarioProductoList) {
+//                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
+//                    for (InventarioProductoItem ipi : inventarioProductoItemList) {
+//                        MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, ipi.getId(), inventario.getSucursal().getId());
+//                        if (movimientoStockEncontrado != null) {
+//                            movimientoStockEncontrado.setEstado(false);
+//                        }
+//                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), movimientoStockEncontrado);
+//                    }
+//                }
+                multiTenantService.compartir("default", (Inventario i) -> service.save(i), inventario);
+                multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Inventario i) -> service.save(i), inventario);
             }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new GraphQLException("No se pudo reabrir el inventario. Comunicarse con RRHH");
         }
-        return true;
+    }
+
+    public Boolean reabrirInventario(Long id) {
+        try {
+            Inventario inventario = service.findById(id).orElse(null);
+            if (inventario.getId() != null) {
+                inventario.setEstado(InventarioEstado.ABIERTO);
+                inventario.setAbierto(true);
+                List<MovimientoStock> movimientoStockList = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) ->  movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
+                for(MovimientoStock ms : movimientoStockList) {
+                    if (ms != null) {
+                        ms.setEstado(true);
+                    }
+                    multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), ms);
+
+                }
+//                List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
+//                for (InventarioProducto ip : inventarioProductoList) {
+//                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
+//                    for (InventarioProductoItem ipi : inventarioProductoItemList) {
+//                        MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, ipi.getId(), inventario.getSucursal().getId());
+//                        if (movimientoStockEncontrado != null) {
+//                            movimientoStockEncontrado.setEstado(true);
+//                        }
+//                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), movimientoStockEncontrado);
+//                    }
+//                }
+                multiTenantService.compartir("default", (Inventario i) -> service.save(i), inventario);
+                multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Inventario i) -> service.save(i), inventario);
+            }
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new GraphQLException("No se pudo reabrir el inventario. Comunicarse con RRHH");
+        }
     }
 
     public Long countInventario() {
@@ -138,54 +192,96 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findByDate(inicio, fin);
     }
 
-    public List<Inventario> inventarioAbiertoPorSucursal(Long sucId){
+    public List<Inventario> inventarioAbiertoPorSucursal(Long sucId) {
         return service.findInventarioAbiertoPorSucursal(sucId);
     }
 
     public Inventario finalizarInventarioEnSucursal(Long id) throws GraphQLException {
         Inventario inventario = service.findById(id).orElse(null);
+        Map<Long, Double> cantidadesPorProducto = new HashMap<>();
+        Producto selectedProducto = null;
         try {
             if (inventario.getId() != null) {
                 inventario.setEstado(InventarioEstado.CONCLUIDO);
+                inventario.setAbierto(false);
                 inventario.setFechaFin(LocalDateTime.now());
-                inventario = service.save(inventario);
                 List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
                 List<MovimientoStock> movimientoStockList = new ArrayList<>();
                 for (InventarioProducto ip : inventarioProductoList) {
                     List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
                     for (InventarioProductoItem ipi : inventarioProductoItemList) {
-                        MovimientoStock movimientoStockEncontrado = null;
-                        for (MovimientoStock ms : movimientoStockList) {
-                            if (ipi.getPresentacion().getProducto().getId() == ms.getProducto().getId()) {
-                                ms.setCantidad(ms.getCantidad() + (ipi.getPresentacion().getCantidad() * ipi.getCantidad()));
-                                movimientoStockEncontrado = ms;
-                            }
+                        selectedProducto = ipi.getPresentacion().getProducto();
+                        cantidadesPorProducto.merge(
+                                ipi.getPresentacion().getProducto().getId(),
+                                ipi.getCantidad() * ipi.getPresentacion().getCantidad(),
+                                Double::sum
+                        );
+                    }
+
+                    for (Map.Entry<Long, Double> entry : cantidadesPorProducto.entrySet()) {
+                        Long productoId = entry.getKey();
+                        Double cantidadTotal = entry.getValue();
+                        Double stockSistema = 0.0;
+                        MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2], (Long) params[3]), TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId(), productoId);
+                        if (movimientoStockEncontrado != null) {
+                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.stockByProductoIdExecptMovStockId((Long) params[0], (Long) params[1]), movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId());
+                        } else {
+                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Long proId) -> movimientoStockService.stockByProductoId(proId), productoId);
                         }
                         if (movimientoStockEncontrado == null) {
                             movimientoStockEncontrado = new MovimientoStock();
-                            movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
                             movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
-                            movimientoStockEncontrado.setReferencia(ipi.getId());
-                            movimientoStockEncontrado.setProducto(ipi.getPresentacion().getProducto());
+                            movimientoStockEncontrado.setSucursalId(inventario.getSucursal().getId());
+                            movimientoStockEncontrado.setReferencia(inventario.getId());
+                            movimientoStockEncontrado.setProducto(selectedProducto);
+                            movimientoStockEncontrado.setUsuario(inventario.getUsuario());
                             movimientoStockEncontrado.setEstado(true);
-                            movimientoStockList.add(movimientoStockEncontrado);
                         }
+                        Double diferencia = cantidadTotal - stockSistema; //9 - 10 = -1, 11 - 10 = 1
+                        movimientoStockEncontrado.setCantidad(diferencia);
+                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock s) -> movimientoStockService.save(s), movimientoStockEncontrado);
                     }
                 }
-                for (MovimientoStock ms : movimientoStockList) {
-                    Double stockSistema = Double.valueOf(movimientoStockService.stockByProductoId(ms.getProducto().getId()));
-                    Double stockFisico = ms.getCantidad();
-                    Double diferencia = stockFisico - stockSistema; //9 - 10 = -1, 11 - 10 = 1
-                    ms.setCantidad(diferencia);
-                    multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock s) -> movimientoStockService.save(s), ms);
-                }
+//                    for (InventarioProducto ip : inventarioProductoList) {
+//                        List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
+//                        for (InventarioProductoItem ipi : inventarioProductoItemList) {
+//                            MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, ipi.getId(), inventario.getSucursal().getId());
+//                            List<InventarioProductoItem> foundIpiProductos = inventarioProductoItemService.findByInventarioIdAndProductoId(inventario.getId(), ipi.getPresentacion().getProducto().getId());
+//
+//                            if (movimientoStockEncontrado == null) {
+//                                movimientoStockEncontrado = new MovimientoStock();
+//                                movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
+//                                movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
+//                                movimientoStockEncontrado.setSucursalId(inventario.getSucursal().getId());
+//                                movimientoStockEncontrado.setReferencia(ipi.getId());
+//                                movimientoStockEncontrado.setProducto(ipi.getPresentacion().getProducto());
+//                                movimientoStockEncontrado.setEstado(true);
+//                            } else {
+//                                movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
+//                            }
+//                            movimientoStockList.add(movimientoStockEncontrado);
+//                        }
+//                    }
+//                    for (MovimientoStock ms : movimientoStockList) {
+//                        Double stockSistema = 0.0;
+//                        if(ms.getId()!=null){
+//                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.stockByProductoIdExecptMovStockId((Long) params[0], (Long) params[1]), ms.getProducto().getId(), ms.getId());
+//                        } else {
+//                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Long proId) -> movimientoStockService.stockByProductoId(proId), ms.getProducto().getId());
+//                        }
+//                        Double stockFisico = ms.getCantidad();
+//                        Double diferencia = stockFisico - stockSistema; //9 - 10 = -1, 11 - 10 = 1
+//                        ms.setCantidad(diferencia);
+//                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock s) -> movimientoStockService.save(s), ms);
+//                    }
             }
             return inventario;
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             throw e;
         }
 
     }
+
 
 }

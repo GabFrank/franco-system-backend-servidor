@@ -25,24 +25,32 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
     @Query(value = "SELECT vc FROM VentaCredito vc " +
             "WHERE vc.cliente.id = (:clienteId) " +
             "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL) " +
-            "AND vc.creadoEn between cast(:fechaInicio as timestamp) and cast(:fechaFin as timestamp) " +
+            "AND (:cobro = true or (vc.creadoEn between cast(:fechaInicio as timestamp) and cast(:fechaFin as timestamp))) " +
+            "AND (:cobro = false or (vc.fechaCobro between cast(:fechaInicio as timestamp) and cast(:fechaFin as timestamp))) " +
             "ORDER BY vc.creadoEn DESC")
-    Page<VentaCredito> findAllWithDateAndFilters(
+    List<VentaCredito> findAllWithDateAndFilters(
             @Param("clienteId") Long clienteId,
             @Param("fechaInicio") LocalDateTime fechaInicio,
             @Param("fechaFin") LocalDateTime fechaFin,
             @Param("estado") EstadoVentaCredito estado,
-            Pageable pageable
+            @Param("cobro") Boolean cobro
     );
 
     @Query(value = "SELECT vc FROM VentaCredito vc " +
             "WHERE vc.cliente.id = (:clienteId) " +
             "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL) " +
             "ORDER BY vc.creadoEn DESC")
-    Page<VentaCredito> findAllWithFilters(
+    List<VentaCredito> findAllWithFilters(
             @Param("clienteId") Long clienteId,
-            @Param("estado") EstadoVentaCredito estado,
-            Pageable pageable
+            @Param("estado") EstadoVentaCredito estado
+    );
+
+    @Query(value = "SELECT sum(vc.id) FROM VentaCredito vc " +
+            "WHERE vc.cliente.id = (:clienteId) " +
+            "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL)")
+    Long countWithFilters(
+            @Param("clienteId") Long clienteId,
+            @Param("estado") EstadoVentaCredito estado
     );
 
     public List<VentaCredito> findAllByClienteIdAndEstadoOrderByCreadoEnDesc(Long id, EstadoVentaCredito estado);
@@ -50,6 +58,8 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
     public long countByClienteIdAndEstado(Long id, EstadoVentaCredito estado);
 
     public VentaCredito findByVentaIdAndSucursalId(Long id, Long sucId);
+
+    public VentaCredito findByIdAndSucursalId(Long id, Long sucId);
 
 //    Moneda findByPaisId(Long id);
 

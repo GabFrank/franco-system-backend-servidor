@@ -46,37 +46,20 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
 
     private Sender sender;
 
+    //funcion para buscar un Codigo por su codigo de barra
     public List<Codigo> findByCodigo(String texto){
         texto = texto.replace(' ', '%');
         return repository.findByCodigo(texto.toUpperCase());
     }
 
     public Codigo save(CodigoInput input) throws GraphQLException {
-
         Codigo p = null;
         ModelMapper m = new ModelMapper();
         Codigo e = m.map(input, Codigo.class);
         if(e.getCodigo()!=null) e.setCodigo(e.getCodigo().toUpperCase());
         if(input.getUsuarioId()!=null)e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getPresentacionId()!=null) e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
-
-//        if(input.getIdCentral()!=null){
-//            p = repository.findByIdCentral(input.getIdCentral());
-//            log.info("id central no es null");
-//        }
-//
-//        if(p==null) {
-//            p = repository.findByCodigo(input.getCodigo());
-//        }
-//
-//        if(p!=null) {
-//            e.setId(p.getId());
-//        }
         p = repository.save(e);
-//        if(!input.getPropagado() && p!=null){
-//            input.setIdSucursalOrigen(Long.valueOf(env.getProperty("sucursalId")));
-//            propagar(input);
-//        }
         return p;
     }
 

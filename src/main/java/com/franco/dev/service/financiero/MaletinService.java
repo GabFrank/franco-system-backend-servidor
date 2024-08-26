@@ -1,5 +1,7 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.financiero.MaletinRepository;
@@ -7,6 +9,8 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,6 +26,9 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
 
     private final MaletinRepository repository;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     @Override
     public MaletinRepository getRepository() {
         return repository;
@@ -32,13 +39,23 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
+//    public Page<Maletin> findAllWithPage(Pageable pageable){
+//        Page<Maletin> maletinList = repository.findAll(pageable);
+//        for(String key : TenantContext.getAllTenantKeys()){
+//            for(Maletin maletin : maletinList){
+//                Maletin foundMaletin = multiTenantService.compartir(key, (params) -> findById(maletin.getId()).orElse(null), maletin.getId());
+//                if(foundMaletin.get)
+//            }
+//        }
+//    }
+
     public Maletin findByDescripcion(String texto){
         Maletin m = repository.findByDescripcionIgnoreCase(texto);
         return m;
     }
 
     public List<Maletin> searchByAll(String texto){
-        texto = texto.toUpperCase();
+        texto = texto!=null ? texto.toUpperCase() : "";
         return repository.findByAll(texto);
     }
 
@@ -48,7 +65,7 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
         if(entity.getCreadoEn()==null) entity.setCreadoEn(LocalDateTime.now()   );
         Maletin e = super.save(entity);
 //        personaPublisher.publish(p);
-        propagacionService.propagarEntidad(e, TipoEntidad.MALETIN);
+//        propagacionService.propagarEntidad(e, TipoEntidad.MALETIN);
         return e;
     }
 

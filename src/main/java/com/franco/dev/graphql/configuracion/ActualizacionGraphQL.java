@@ -50,7 +50,7 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
         for (Long id : sucId) {
-            propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION, id);
+//            propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION, id);
         }
         return e;
     }
@@ -60,13 +60,13 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Actualizacion e = m.map(input, Actualizacion.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION);
+//        propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION);
         return e;
     }
 
     public Boolean deleteActualizacion(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CARGO);
+//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CARGO);
         return ok;
     }
 

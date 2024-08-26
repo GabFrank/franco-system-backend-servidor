@@ -56,7 +56,7 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
             String image = imageService.getImageWithMediaType(p.getId()+".jpg", imageService.getImagePresentaciones());
             if(image!="") {
                 log.info("Imagen encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
-                propagacionService.propagarImagen(image, p.getId() + ".jpg", TipoEntidad.PRESENTACION, sucId);
+//                propagacionService.propagarImagen(image, p.getId() + ".jpg", TipoEntidad.PRESENTACION, sucId);
             } else {
 //                log.info("Imagen no encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
             }

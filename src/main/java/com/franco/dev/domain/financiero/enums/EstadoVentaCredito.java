@@ -4,5 +4,6 @@ public enum EstadoVentaCredito {
     ABIERTO,
     FINALIZADO,
     EN_MORA,
-    INCOBRABLE
+    INCOBRABLE,
+    CANCELADO
 }

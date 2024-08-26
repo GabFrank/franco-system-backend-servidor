@@ -37,7 +37,7 @@ public class ConfiguracionGeneralGraphQL implements GraphQLQueryResolver, GraphQ
         ConfiguracionGeneral e = m.map(input, ConfiguracionGeneral.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CONFIGURACION_GENERAL);
+//        propagacionService.propagarEntidad(e, TipoEntidad.CONFIGURACION_GENERAL);
         return e;
     }
 

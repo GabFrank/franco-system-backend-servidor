@@ -29,9 +29,10 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
             "(r.id = :id or :id is null) and " +
             "(ca.id = :cajaId or :cajaId is null) and " +
             "(r.sucursalId = :sucId or :sucId is null) and " +
-            "(res.id = :responsableId or :responsableId is null) " +
+            "(res.id = :responsableId or :responsableId is null) and " +
+            "(r.observacion like :descripcion or :descripcion is null) " +
             "order by r.id desc")
-    List<Gasto> findByAll(Long id, Long cajaId, Long sucId, Long responsableId, Pageable pageable);
+    List<Gasto> findByAll(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable);
 
-
+    public Gasto findByIdAndSucursalId(Long id, Long sucId);
 }

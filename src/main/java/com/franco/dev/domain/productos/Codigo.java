@@ -1,10 +1,12 @@
 package com.franco.dev.domain.productos;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.rabbit.RabbitEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
 
@@ -17,12 +19,19 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "codigo", schema = "productos")
-public class Codigo implements Serializable {
+public class Codigo implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     private String codigo;
@@ -36,7 +45,6 @@ public class Codigo implements Serializable {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "presentacion_id", nullable = true)
-//    @OnDelete(action = OnDeleteAction.CASCADE)
     private Presentacion presentacion;
 
     @ManyToOne(fetch = FetchType.LAZY)

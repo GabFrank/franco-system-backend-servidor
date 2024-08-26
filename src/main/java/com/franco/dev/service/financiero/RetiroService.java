@@ -42,6 +42,10 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
         return repository.findByAll(id, cajaId, sucId, responsableId, cajeroId, pageable);
     }
 
+    public Retiro findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
     @Override
     public Retiro save(Retiro entity) {
         Retiro e = super.save(entity);

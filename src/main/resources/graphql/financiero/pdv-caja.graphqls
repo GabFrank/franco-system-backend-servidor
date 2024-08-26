@@ -38,6 +38,18 @@ input PdvCajaInput {
     verificadoPorId: Int
 }
 
+type PdvCajaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PdvCaja]
+    getPageable: Pageable
+}
+
 extend type Query {
     pdvCaja(id:ID!, sucId: ID):PdvCaja
     pdvCajas(page:Int = 0, size:Int = 10, sucId: ID):[PdvCaja]!
@@ -48,6 +60,7 @@ extend type Query {
     imprimirBalance(id:ID!, printerName: String, local: String, sucId: ID):PdvCaja
     balancePorFecha(inicio: String, fin: String, sucId: ID): CajaBalance
     cajasPorUsuarioId(id:ID!, page: Int, size: Int):[PdvCaja]
+    cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, page:Int, size:Int):PdvCajaPage
 }
 
 extend type Mutation {

@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.MultiPage;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -11,7 +13,6 @@ import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
-import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.VentaCreditoCuotaInput;
@@ -47,7 +48,6 @@ import graphql.kickstart.tools.GraphQLSubscriptionResolver;
 import org.modelmapper.ModelMapper;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -59,6 +59,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.text.NumberFormat;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -148,6 +149,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getClienteId() != null) e.setCliente(clienteService.findById(input.getClienteId()).orElse(null));
         if (input.getSucursalId() != null) e.setSucursalId(input.getSucursalId());
+        if (input.getFechaCobro() != null) e.setFechaCobro(stringToDate(input.getFechaCobro()));
         e = service.save(e);
         if (e.getId() != null) {
             for (VentaCreditoCuotaInput vc : ventaCreditoCuotaInputList) {
@@ -173,20 +175,24 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findByClienteAndVencimiento(id, stringToDate(inicio), stringToDate(fin));
     }
 
-    public Page<VentaCredito> ventaCreditoPorCliente(Long id, EstadoVentaCredito estado, int page, int size) {
+    public CustomPage<VentaCredito> ventaCreditoPorClientePage(Long id, EstadoVentaCredito estado, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findByClienteId(id, estado, pageable);
+        return (CustomPage<VentaCredito>) service.findByClienteId(id, estado, pageable);
     }
 
-    public Page<VentaCredito> findWithFilters(Long id, String fechaInicio, String fechaFin, EstadoVentaCredito estado, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        Page response = service.findWithFilters(id, stringToDate(fechaInicio), stringToDate(fechaFin), estado, pageable);
+    public List<VentaCredito> ventaCreditoPorCliente(Long id, EstadoVentaCredito estado) {
+        return service.findByClienteId(id, estado);
+    }
+
+    public List<VentaCredito> findWithFilters(Long id, String fechaInicio, String fechaFin, EstadoVentaCredito estado, Boolean cobro) {
+//        Pageable pageable = PageRequest.of(page, size);
+        List<VentaCredito> response = service.findWithFilters(id, stringToDate(fechaInicio), stringToDate(fechaFin), estado, cobro);
         return response;
     }
 
     public Boolean deleteVentaCredito(Long id, Long sucId) {
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.VENTA_CREDITO, sucId);
+//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.VENTA_CREDITO, sucId);
         return ok;
     }
 
@@ -199,28 +205,24 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean cancelarVentaCredito(Long id, Long sucId) {
-        VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
-        if (ventaCredito != null) {
-            Venta venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId)).orElse(null);
-            if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-                venta.setEstado(VentaEstado.CANCELADA);
-                venta = ventaService.save(venta);
-                propagacionService.propagarEntidad(venta, TipoEntidad.VENTA, venta.getSucursalId());
-                return deleteVentaCredito(id, sucId);
-            }
-        }
-        return false;
+        return service.cancelarVentaCredito(id, sucId);
     }
 
     public Boolean finalizarVentaCredito(Long id, Long sucId) {
-        VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
-        if (ventaCredito != null) {
-            ventaCredito.setEstado(EstadoVentaCredito.FINALIZADO);
-            ventaCredito = service.save(ventaCredito);
-            propagacionService.propagarEntidad(ventaCredito, TipoEntidad.VENTA_CREDITO, sucId);
-            return true;
+        VentaCredito ventaCredito = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);
+        try {
+            if (ventaCredito != null) {
+                ventaCredito.setEstado(EstadoVentaCredito.FINALIZADO);
+                ventaCredito.setFechaCobro(LocalDateTime.now());
+                ventaCredito = multiTenantService.compartir("filial"+sucId+"_bkp", (VentaCredito vc) -> service.save(vc), ventaCredito);
+                return true;
+            } else {
+                throw new GraphQLException("Venta credito no encontrada");
+            }
+        } catch (Exception e){
+            throw new GraphQLException("No se pudo finalizar las ventas");
         }
-        return false;
+
     }
 
     @Unsecured
@@ -428,13 +430,13 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String imprimirRecibo(Long clienteId, List<VentaCreditoInput> ventaCreditoInputList, Long usuarioId) throws GraphQLException {
-        Cliente cliente = clienteService.findById(clienteId).orElse(null);
-        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+        Cliente cliente = multiTenantService.compartir("default", (params) -> clienteService.findById(clienteId).orElse(null), clienteId);
+        Usuario usuario = multiTenantService.compartir("default", (params) -> usuarioService.findById(usuarioId).orElse(null), usuarioId);
         Double total = 0.0;
         if (cliente != null) {
             List<VentaCredito> ventaCreditoList = new ArrayList<>();
             for (VentaCreditoInput vci : ventaCreditoInputList) {
-                VentaCredito vi = service.findById(new EmbebedPrimaryKey(vci.getId(), vci.getSucursalId())).orElse(null);
+                VentaCredito vi = multiTenantService.compartir("filial"+vci.getSucursalId()+"_bkp", (params) -> service.findById(new EmbebedPrimaryKey(vci.getId(), vci.getSucursalId())).orElse(null), vci.getId(), vci.getSucursalId());
                 if (vi != null) {
                     ventaCreditoList.add(vi);
                     total += vi.getValorTotal();

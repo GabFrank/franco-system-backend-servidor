@@ -54,13 +54,13 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         ModelMapper m = new ModelMapper();
         Sucursal e = m.map(input, Sucursal.class);
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.SUCURSAL);
+//        propagacionService.propagarEntidad(e, TipoEntidad.SUCURSAL);
         return e;
     }
 
     public Boolean deleteSucursal(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
+//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
         return ok;
     }
 

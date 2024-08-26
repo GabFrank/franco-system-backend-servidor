@@ -56,4 +56,12 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 //        personaPublisher.publish(p);
         return e;
     }
+
+    public VentaItem findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
+        return repository.deleteByIdAndSucursalId(id, sucId);
+    }
 }

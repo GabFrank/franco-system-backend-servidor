@@ -10,6 +10,6 @@ public class ZonaInput {
     private String descripcion;
     private Long sectorId;
     private Boolean activo;
-    private LocalDateTime creadoEn;
+    private String creadoEn;
     private Long usuarioId;
 }

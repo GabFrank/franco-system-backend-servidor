@@ -14,6 +14,7 @@ type VentaCredito {
     creadoEn: Date
     usuario: Usuario
     sucursal: Sucursal
+    fechaCobro: Date
 }
 
 input VentaCreditoInput {
@@ -30,6 +31,7 @@ input VentaCreditoInput {
     interesMoraDia: Float
     estado: EstadoVentaCredito
     usuarioId: Int
+    fechaCobro: String
 }
 
 type VentaCreditoQRAuthUpdate {
@@ -49,14 +51,16 @@ type VentaCreditoPage {
     hasPrevious: Boolean
     getContent: [VentaCredito]
     getPageable: Pageable
+    getMultiPageableList: [MultiPage]
 }
 
 extend type Query {
     ventaCredito(id:ID!, sucId:ID!):VentaCredito
     ventaCreditos(page:Int = 0, size:Int = 10):[VentaCredito]!
     countVentaCredito: Int
-    ventaCreditoPorCliente(id:ID!, estado: EstadoVentaCredito, page: Int, size: Int):VentaCreditoPage
-    findWithFilters(id:ID!, fechaInicio: String, fechaFin: String, estado: EstadoVentaCredito, page: Int, size: Int):VentaCreditoPage
+    ventaCreditoPorCliente(id:ID!, estado: EstadoVentaCredito):[VentaCredito]
+    ventaCreditoPorClientePage(id:ID!, estado: EstadoVentaCredito, page: Int, size: Int):VentaCreditoPage
+    findWithFilters(id:ID!, fechaInicio: String, fechaFin: String, estado: EstadoVentaCredito, cobro: Boolean):[VentaCredito]
     ventaCreditoQrAuth(id:ID!, timestamp: String, sucursalId:Int, secretKey:String): Boolean
     imprimirVentaCredito(id:ID!, sucId:ID!, printerName:String):Boolean
     imprimirRecibo(clienteId:ID!, ventaCreditoInputList: [VentaCreditoInput]!, usuarioId:ID!):String
@@ -88,6 +92,7 @@ enum EstadoVentaCredito {
     ABIERTO,
     FINALIZADO,
     EN_MORA,
-    INCOBRABLE
+    INCOBRABLE,
+    CANCELADO
 }
 

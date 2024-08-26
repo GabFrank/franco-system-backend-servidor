@@ -1,10 +1,12 @@
 package com.franco.dev.domain.productos;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -16,12 +18,19 @@ import java.util.Date;
 @NoArgsConstructor
 @Entity
 @Table(name = "familia", schema = "productos")
-public class Familia implements Serializable {
+public class Familia implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
     private String nombre;
     private String descripcion;

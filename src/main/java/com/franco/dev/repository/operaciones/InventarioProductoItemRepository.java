@@ -21,6 +21,8 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
 
     public List<InventarioProductoItem> findByInventarioProductoId(Long id);
 
+    public List<InventarioProductoItem> findByInventarioProductoInventarioIdAndPresentacionProductoId(Long ipiProId, Long proId);
+
     @Query(value = "Select i from InventarioProductoItem i " +
             "join i.presentacion pre " +
             "join pre.producto pro " +
@@ -41,5 +43,13 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
             @Param("usuarioIdList") List<Long> usuarioIdList,
             @Param("productoIdList") List<Long> productoIdList,
             Pageable pageable);
+
+    @Query(value = "select ipi.* from operaciones.inventario_producto_item ipi " +
+            "left join operaciones.inventario_producto ip on ip.id = ipi.inventario_producto_id " +
+            "left join operaciones.inventario i on i.id = ip.inventario_id " +
+            "left join productos.presentacion p on p.id = ipi.presentacion_id " +
+            "left join productos.producto p2 on p2.id = p.producto_id " +
+            "where i.id = ?1 and p2.id = ?2", nativeQuery = true)
+    public List<InventarioProductoItem> findByInventarioIdAndProductoId(Long inventarioId, Long productoId);
 
 }

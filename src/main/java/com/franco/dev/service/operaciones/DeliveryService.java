@@ -36,6 +36,10 @@ public class DeliveryService extends CrudService<Delivery, DeliveryRepository, E
         return repository.findUltimos10();
     }
 
+    public Delivery findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
     @Override
     public Delivery save(Delivery entity) {
         Delivery e = super.save(entity);

@@ -68,7 +68,7 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
 
     public Boolean deleteVentaCreditoCuota(Long id, Long sucId) {
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
-        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.BANCO);
+//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.BANCO);
         return ok;
     }
 

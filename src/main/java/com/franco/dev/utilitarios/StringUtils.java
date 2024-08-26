@@ -59,4 +59,20 @@ public class StringUtils {
         }
     }
 
+    public static String convertToCustomFormat(String input) {
+        if (input == null || input.isEmpty()) {
+            return null;
+        }
+
+        StringBuilder result = new StringBuilder();
+        String upperInput = input.toUpperCase(); // Convert to uppercase first
+        for (char c : upperInput.toCharArray()) {
+            if (c != ' ') { // Ignore spaces
+                result.append("%").append(c);
+            }
+        }
+        result.append("%"); // Add trailing '%'
+        return result.toString();
+    }
+
 }

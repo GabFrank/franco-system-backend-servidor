@@ -1,6 +1,7 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.repository.HelperRepository;
@@ -22,5 +23,9 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
     //public List<Producto> findbyAll(String texto);
 
     public List<VentaItem> findByVentaIdAndSucursalId(Long id, Long sucId);
+
+    VentaItem findByIdAndSucursalId(Long id, Long sucId);
+
+    Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 
 }

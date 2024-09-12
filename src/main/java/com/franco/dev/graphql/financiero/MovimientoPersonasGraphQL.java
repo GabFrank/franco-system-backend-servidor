@@ -60,8 +60,6 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getPersonaId() != null) e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.BANCO);
-        multiTenantService.compartir(null, (MovimientoPersonas s) -> service.save(s), e);
         return e;
     }
 
@@ -71,7 +69,6 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
 
     public Boolean deleteMovimientoPersonas(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

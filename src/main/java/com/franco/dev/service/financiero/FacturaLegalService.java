@@ -130,7 +130,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public String createExcelReport(String fechaInicio, String fechaFin, Long sucId) {
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
-        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(sucId).orElse(null), sucId);
+        Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
         XSSFSheet sheet;
@@ -258,7 +258,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         List<ExcelFacturasDto> dataList = getExcelFacturas(inicio, fin, sucId);
         XSSFWorkbook workbook;
         XSSFSheet sheet;
-        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(sucId).orElse(null), sucId);
+        Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
 
         if (dataList == null || dataList.size() == 0) return null;
         try {
@@ -322,18 +322,18 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                     "ventirpexe",
                     "irpc",
                     "ivasimplificado",
-                    "venIRPrygc",
-                    "VenBcoNom",
-                    "VenBcoCtaCte",
+                    "venirprygc",
+                    "venbconom",
+                    "venbcoctacte",
                     "nofacnotcre",
                     "notimbfacnotcre",
                     "ventipodoc",
-                    "VentaNoIva",
-                    "IdentifClie",
-                    "GDCBIENID",
-                    "GDCTIPOBIEN",
-                    "GDCIMPCOSTO",
-                    "GDCIMPVENTAGRAV"
+                    "ventanoiva",
+                    "identifclie",
+                    "gdcbienid",
+                    "gdctipobien",
+                    "gdcimpcosto",
+                    "gdcimpventagrav"
             };
 
             for (int i = 0; i < columnHeaders.length; i++) {
@@ -408,7 +408,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 row.createCell(59).setCellValue(data.getNotimbfacnotcre());
                 row.createCell(60).setCellValue(data.getVentipodoc());
                 row.createCell(61).setCellValue(data.getVentanoiva());
-                row.createCell(62).setCellValue(data.getVenProvee().equals("X") ? "15" : "11");
+                row.createCell(62).setCellValue(data.getVenProvee().equals("X") ? "15" : data.getVenProvee().contains("-") ? "11" : "12");
                 row.createCell(63).setCellValue(data.getGdcbienid());
                 row.createCell(64).setCellValue(data.getGdctipobien());
                 row.createCell(65).setCellValue(data.getGdcimpcosto());
@@ -424,7 +424,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     }
 
     public List<ExcelFacturasDto> getExcelFacturas(LocalDateTime inicio, LocalDateTime fin, Long sucursalId) {
-        List<FacturaLegal> facturaLegalList = multiTenantService.compartir("filial"+sucursalId+"_bkp", (params) -> repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucursalId), inicio, fin, sucursalId);
+        List<FacturaLegal> facturaLegalList = repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucursalId);
         return facturaLegalList.stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
@@ -432,17 +432,26 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     private ExcelFacturasDto convertToDto(FacturaLegal f) {
         ExcelFacturasDto dto = new ExcelFacturasDto();
-        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(f.getSucursalId()).orElse(null), f.getSucursalId());
+        Sucursal sucursal = sucursalService.findById(f.getSucursalId()).orElse(null);
         TimbradoDetalle timbradoDetalle = f.getTimbradoDetalle();
         Timbrado timbrado = timbradoDetalle.getTimbrado();
+        Double porcentrajeDesc = f.getDescuento() != null ? f.getDescuento() / f.getTotalFinal() : null;
         dto.setVenTipimp("I");
         if (f.getTotalParcial5() != null) {
-            dto.setVenGra05(f.getTotalParcial5() - f.getTotalParcial5() / 21);
+            Double totalParcial5 = f.getTotalParcial5();
+            if(porcentrajeDesc!=null){
+                totalParcial5 = totalParcial5 - (totalParcial5 * porcentrajeDesc);
+            }
+            dto.setVenGra05(totalParcial5 - totalParcial5 / 21);
         } else {
             dto.setVenGra05(0.0);
         }
         if (f.getTotalParcial5() != null) {
-            dto.setVenIva05(f.getTotalParcial5() / 21);
+            Double totalParcial5 = f.getTotalParcial5();
+            if(porcentrajeDesc!=null){
+                totalParcial5 = totalParcial5 - (totalParcial5 * porcentrajeDesc);
+            }
+            dto.setVenIva05(totalParcial5 / 21);
         } else {
             dto.setVenIva05(0.0);
         }
@@ -471,6 +480,9 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 buildNumeroFactura.append("0");
                 break;
         }
+        dto.setVenDisg05("A");
+        dto.setVenCuota(Long.valueOf(0));
+        dto.setVenDisgra("A");
         dto.setVenNumero(buildNumeroFactura.toString() + f.getNumeroFactura());
         dto.setVenSucurs(Long.valueOf(sucursal.getCodigoEstablecimientoFactura()));
         dto.setFormPag(f.getCredito() == true ? "CREDITO" : "CONTADO");
@@ -481,12 +493,20 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         dto.setVenTotfac(f.getTotalFinal());
         dto.setVenExenta(0.0);
         if (f.getTotalParcial10() != null) {
-            dto.setVenGravad(f.getTotalParcial10() - f.getTotalParcial10() / 11);
+            Double totalParcial10 = f.getTotalParcial10();
+            if(porcentrajeDesc!=null){
+                totalParcial10 = totalParcial10 - (totalParcial10 * porcentrajeDesc);
+            }
+            dto.setVenGravad(totalParcial10 - totalParcial10 / 11);
         } else {
             dto.setVenGravad(0.0);
         }
         if (f.getTotalParcial10() != null) {
-            dto.setVenIva(f.getTotalParcial10() / 11);
+            Double totalParcial10 = f.getTotalParcial10();
+            if(porcentrajeDesc!=null){
+                totalParcial10 = totalParcial10 - (totalParcial10 * porcentrajeDesc);
+            }
+            dto.setVenIva(totalParcial10 / 11);
         } else {
             dto.setVenIva(0.0);
         }

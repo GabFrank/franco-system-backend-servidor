@@ -61,14 +61,11 @@ public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.VENDEDOR);
-        multiTenantService.compartir(null, (Vendedor s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteVendedor(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

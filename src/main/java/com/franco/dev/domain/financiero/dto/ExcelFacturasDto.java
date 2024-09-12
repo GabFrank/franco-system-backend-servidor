@@ -16,8 +16,8 @@ public class ExcelFacturasDto {
     private Double venIva05;
     private String venDisg05 = "A";
     private String ctaIva05 = "";
-    private String venRubgra = "1";
-    private String venRubg05 = "1";
+    private int venRubgra = 1;
+    private int venRubg05 = 1;
     private String venDisexe = "";
     private String venNumero;
     private String venImputa = "";
@@ -64,7 +64,7 @@ public class ExcelFacturasDto {
     private String ventirptip = "";
     private String ventirpgra = "";
     private String ventirpexe = "";
-    private String irpc = "1";
+    private int irpc = 1;
     private String ivasimplificado = "";
     private String venirprygc = "";
     private String venbconom = "";
@@ -73,7 +73,7 @@ public class ExcelFacturasDto {
     private String notimbfacnotcre = "";
     private String ventipodoc = "";
     private String ventanoiva = "";
-    private String identifclie = "";
+    private int identifclie = 15;
     private String gdcbienid = "";
     private String gdctipobien = "";
     private String gdcimpcosto = "";

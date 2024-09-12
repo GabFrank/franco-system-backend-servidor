@@ -22,7 +22,7 @@ public class Receiver {
     @Autowired
     private PropagacionService propagacionService;
 
-    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY)
+//    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY)
     public void receive(RabbitDto dto, final Channel channel) {
 //        log.info("recibiendo");
 //        if (dto.getTipoAccion() != null) log.info(dto.getTipoAccion().name());
@@ -48,7 +48,7 @@ public class Receiver {
 //        }
     }
 
-    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY+".reply.to")
+//    @RabbitListener(queues = RabbitMQConection.SERVIDOR_KEY+".reply.to")
     public Object receiveAndReply(RabbitDto dto) {
 //        switch (dto.getTipoAccion()) {
 //            case GUARDAR:

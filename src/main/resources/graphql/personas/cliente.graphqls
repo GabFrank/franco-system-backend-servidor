@@ -6,21 +6,29 @@ type Cliente {
     credito: Float
     creadoEn: Date
     contactos: [Contacto]
-    usuarioId: Usuario
+    usuario: Usuario
     saldo: Float
     codigo: String
     sucursal: Sucursal
+    tributa: Boolean
+    verificadoSet: Boolean
 }
 
 input ClienteInput {
     id:ID
     tipo: TipoCliente
-    personaId: ID!
-    credito: Float!
+    personaId: Int
+    nombre: String
+    credito: Float
     creadoEn: Date
+    direccion: String
+    usuarioId: Int
+    documento: String
+    saldo: Float
     codigo: String
-    usuarioId: ID
     sucursalId: Int
+    tributa: Boolean
+    verificadoSet: Boolean
 }
 
 type ClientePage {

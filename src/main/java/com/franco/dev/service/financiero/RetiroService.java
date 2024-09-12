@@ -8,6 +8,7 @@ import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.RetiroRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +41,10 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
 
     public List<Retiro> filterRetiros(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable){
         return repository.findByAll(id, cajaId, sucId, responsableId, cajeroId, pageable);
+    }
+
+    public Page<Retiro> filterRetirosPage(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable){
+        return repository.findByAllPage(id, cajaId, sucId, responsableId, cajeroId, pageable);
     }
 
     public Retiro findByIdAndSucursalId(Long id, Long sucId){

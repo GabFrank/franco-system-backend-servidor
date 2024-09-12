@@ -96,7 +96,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Producto saveProducto(ProductoInput input) {
         Producto e = service.save(input);
-        multiTenantService.compartir(null, (Producto s) -> service.save(s), e);
+//        multiTenantService.compartir(null, (Producto s) -> service.save(s), e);
         return e;
     }
 
@@ -108,13 +108,12 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Double productoPorSucursalStock(Long proId, Long sucId){
-        Double stock = multiTenantService.compartir("filial"+sucId+"_bkp", (p) -> movimientoStockService.stockByProductoId(p), proId);
+        Double stock = movimientoStockService.stockByProductoIdAndSucursalId(proId, sucId);
         return stock != null ? stock : 0.0;
     }
 
     public Boolean deleteProducto(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

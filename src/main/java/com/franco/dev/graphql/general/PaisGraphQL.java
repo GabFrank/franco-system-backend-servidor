@@ -52,14 +52,11 @@ public class PaisGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         Pais e = m.map(input, Pais.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.PAIS);
-        multiTenantService.compartir(null, (Pais s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deletePais(Long id) {
         Boolean ok = service.deleteById(id);
-//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.PAIS);
         return ok;
     }
 

@@ -47,8 +47,6 @@ public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMut
         ModelMapper m = new ModelMapper();
         TipoPresentacion e = m.map(input, TipoPresentacion.class);
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.TIPO_PRESENTACION);
-        multiTenantService.compartir(null, (TipoPresentacion s) -> service.save(s), e);
         return e;
     }
 
@@ -61,7 +59,6 @@ public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     public Boolean deleteTipoPresentacion(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

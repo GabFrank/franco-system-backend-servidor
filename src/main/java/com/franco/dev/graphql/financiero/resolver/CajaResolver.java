@@ -57,7 +57,7 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
 //    totalGasto: Float
 
     public CajaBalance balance(PdvCaja e){
-        return multiTenantService.compartir("filial"+e.getSucursalId()+"_bkp", (EmbebedPrimaryKey s) -> pdvCajaService.getBalance(s), new EmbebedPrimaryKey(e.getId(), e.getSucursalId()));
+        return pdvCajaService.getBalance(new EmbebedPrimaryKey(e.getId(), e.getSucursalId()));
     }
 
     public Sucursal sucursal(PdvCaja e){

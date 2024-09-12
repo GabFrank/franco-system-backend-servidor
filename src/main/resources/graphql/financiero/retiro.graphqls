@@ -30,12 +30,24 @@ input RetiroInput {
     sucursalId: Int
 }
 
+type RetiroPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Retiro]
+    getPageable: Pageable
+}
+
 extend type Query {
     retiro(id:ID!, sucId: ID):Retiro
     retiros(page:Int = 0, size:Int = 10, sucId: ID):[Retiro]!
     retiroListPorCajaSalidaId(id:ID!, sucId: ID):[Retiro]!
     countRetiro: Int
-    filterRetiros(id:ID, cajaId:ID, sucId:ID, responsableId:ID, cajeroId:ID, page:Int, size:Int):[Retiro]!
+    filterRetiros(id:ID, cajaId:ID, sucId:ID, responsableId:ID, cajeroId:ID, page:Int, size:Int):RetiroPage
 }
 
 extend type Mutation {

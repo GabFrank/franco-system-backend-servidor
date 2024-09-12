@@ -49,10 +49,9 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Moneda saveMoneda(MonedaInput input){
         ModelMapper m = new ModelMapper();
         Moneda e = m.map(input, Moneda.class);
-//        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-//        e.setPais(paisService.findById(input.getPaisId()).orElse(null));
+        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        e.setPais(paisService.findById(input.getPaisId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (Moneda s) -> service.save(s), e);
         return e;    }
 
     public List<Moneda> monedasSearch(String texto){
@@ -61,7 +60,6 @@ public class MonedaGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Boolean deleteMoneda(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

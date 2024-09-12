@@ -70,8 +70,6 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
         Presentacion e = m.map(input, Presentacion.class);
         e =  service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.PRESENTACION);
-        multiTenantService.compartir(null, (Presentacion s) -> service.save(s), e);
         return e;
     }
 
@@ -88,7 +86,6 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Boolean deletePresentacion(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

@@ -22,6 +22,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -59,18 +60,18 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Retiro retiro(Long id, Long sucId) {return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);}
+    public Retiro retiro(Long id, Long sucId) {return service.findByIdAndSucursalId(id, sucId);}
 
     public List<Retiro> retiros(Integer page, Integer size, Long sucId){
         if(page==null) page = 0;
         if(size==null) size = 20;
         Pageable pageable = PageRequest.of(page,size);
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findAll(pageable), pageable);
+        return service.findAll(pageable);
     }
 
-    public List<Retiro> filterRetiros(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Integer page, Integer size){
+    public Page<Retiro> filterRetiros(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Integer page, Integer size){
         Pageable pageable = PageRequest.of(page, size);
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.filterRetiros(id, cajaId, sucId, responsableId, cajeroId, pageable), id, cajaId, sucId, responsableId, cajeroId, pageable);
+        return service.filterRetirosPage(id, cajaId, sucId, responsableId, cajeroId, pageable);
     }
 
     public Retiro saveRetiro(RetiroInput input, List<RetiroDetalleInput> retiroDetalleInputList, String printerName, String local) throws GraphQLException {
@@ -110,7 +111,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public List<Retiro> retiroListPorCajaSalidaId(Long id, Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByCajaSalidaId(id), id);
+        return service.findByCajaSalidaId(id);
     }
 
 //    public List<Retiro> retirosSearch(String texto){
@@ -120,7 +121,7 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Boolean deleteRetiro(Long id, Long sucId){
         Retiro retiro = retiro(id, sucId);
         if(retiro!=null){
-            return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.delete(retiro), retiro);
+            return service.delete(retiro);
         } else {
             throw new GraphQLException("No se pudo eliminar el retiro");
         }

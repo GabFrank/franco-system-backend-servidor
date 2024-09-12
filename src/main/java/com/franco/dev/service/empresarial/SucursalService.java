@@ -16,16 +16,14 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class SucursalService extends CrudService<Sucursal, SucursalRepository, Long> {
-    
-    @Autowired
-    private Environment environment;
 
     private final SucursalRepository repository;
-
+    @Autowired
+    private Environment environment;
     private MultiTenantService multiTenantService;
 
     @Autowired
-    public SucursalService(@Lazy MultiTenantService multiTenantService, SucursalRepository repository){
+    public SucursalService(@Lazy MultiTenantService multiTenantService, SucursalRepository repository) {
         this.multiTenantService = multiTenantService;
         this.repository = repository;
     }
@@ -35,28 +33,24 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
         return repository;
     }
 
-    public List<Sucursal> findByAll(String texto){
-        if(texto!=null){
-            texto = texto.replace(' ', '%').toUpperCase();
-            return  multiTenantService.compartir("default", (String t) -> repository.findByAll(t), texto);
-        } else {
-            return  multiTenantService.compartir("default", (String t) -> repository.findByAll(t), "");
-        }
+    public List<Sucursal> findByAll(String texto) {
+        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
+        return repository.findByAll(texto);
+
     }
 
     @Override
     public List<Sucursal> findAll(Pageable pageable) {
-        return multiTenantService.compartir("default", (params) -> repository.findAllByOrderByIdAsc());
+        return repository.findAllByOrderByIdAsc();
     }
 
-    public List<Sucursal> findAllNotConfigured(){
-        return multiTenantService.compartir("default", (params) -> repository.findByIsConfiguredFalse());
+    public List<Sucursal> findAllNotConfigured() {
+        return repository.findByIsConfiguredFalse();
     }
 
     @Override
     public Sucursal save(Sucursal entity) {
-        Sucursal e = multiTenantService.compartir("default", (params) -> super.save(entity), entity);
-        multiTenantService.compartir(null, (params) -> super.save(entity), entity);
+        Sucursal e = super.save(entity);
         return e;
     }
 

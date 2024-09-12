@@ -62,6 +62,9 @@ public class Cliente implements Identifiable<Long> {
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    private Boolean tributa;
+    private Boolean verificadoSet;
 }
 
 

@@ -54,9 +54,9 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
         return m;
     }
 
-    public List<Maletin> searchByAll(String texto){
+    public List<Maletin> searchByAll(String texto, Long sucId){
         texto = texto!=null ? texto.toUpperCase() : "";
-        return repository.findByAll(texto);
+        return repository.findByAll(texto, sucId);
     }
 
     @Override
@@ -64,8 +64,6 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
         if(entity.getCreadoEn()==null) entity.setCreadoEn(LocalDateTime.now()   );
         Maletin e = super.save(entity);
-//        personaPublisher.publish(p);
-//        propagacionService.propagarEntidad(e, TipoEntidad.MALETIN);
         return e;
     }
 

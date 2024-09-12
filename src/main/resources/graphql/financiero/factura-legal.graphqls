@@ -18,6 +18,7 @@ type FacturaLegal {
     totalParcial5:Float
     totalParcial10:Float
     totalFinal:Float
+    descuento:Float
     usuario: Usuario
     creadoEn: Date
     sucursalId: Int
@@ -43,6 +44,7 @@ input FacturaLegalInput {
     totalParcial5:Float
     totalParcial10:Float
     totalFinal:Float
+    descuento:Float
     usuarioId: Int
     sucursalId: Int
 }

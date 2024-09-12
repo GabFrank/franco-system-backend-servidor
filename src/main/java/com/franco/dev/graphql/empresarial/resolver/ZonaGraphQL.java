@@ -67,17 +67,12 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
         }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
-        multiTenantService.compartir("filial"+e.getSector().getSucursal().getId()+"_bkp", (Zona s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteZona(Long id) {
         Zona e = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
-        if(ok){
-            multiTenantService.compartir("filial"+e.getSector().getSucursal().getId()+"_bkp", (Zona s) -> service.delete(s), e);
-        }
         return ok;
     }
 

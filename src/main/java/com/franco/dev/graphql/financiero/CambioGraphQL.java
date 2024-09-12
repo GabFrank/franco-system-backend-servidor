@@ -64,14 +64,6 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-        if(sucursalesIdList==null){
-//            propagacionService.propagarEntidad(e, TipoEntidad.CAMBIO);
-            multiTenantService.compartir(null, (Cambio s) -> service.save(s), e);
-        } else {
-            for(Long id: sucursalesIdList){
-                multiTenantService.compartir("filial"+id+"_bkp", (Cambio s) -> service.save(s), e);
-            }
-        }
         return e;
     }
 
@@ -84,7 +76,6 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Boolean deleteCambio(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;        }
 
     public Long countCambio(){

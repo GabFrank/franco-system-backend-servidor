@@ -78,14 +78,11 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
         input.setSucursalId(Long.valueOf(env.getProperty("sucursalId")));
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (PrecioPorSucursal s) -> service.save(s), e);
-        //        propagacionService.propagarEntidad(e, TipoEntidad.PRECIO_POR_SUCURSAL);
         return e;
     }
 
     public Boolean deletePrecioPorSucursal(Long id){
         Boolean ok = service.deleteById(id);
-//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PRECIO_POR_SUCURSAL);
         return ok;
     }
 

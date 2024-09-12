@@ -701,7 +701,7 @@ public class ImpresionService {
                 List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
                 for (VentaCredito ti : ventaCreditoList) {
                     VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
-                    Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(ti.getSucursalId()).orElse(null), ti.getSucursalId());
+                    Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
                     tiDto.setSucursal(sucursal.getNombre());
                     tiDto.setTotalGs(ti.getValorTotal());
                     tiDto.setVentaCreditoId(String.valueOf(ti.getId()));

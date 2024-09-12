@@ -58,13 +58,10 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPais(ciudadService.findById(input.getPaisId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.CIUDAD);
-        multiTenantService.compartir(null, (Ciudad s) -> service.save(s), e);
         return e;    }
 
     public Boolean deleteCiudad(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

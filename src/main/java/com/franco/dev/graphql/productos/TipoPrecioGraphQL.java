@@ -46,7 +46,6 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         ModelMapper m = new ModelMapper();
         TipoPrecio e = m.map(input, TipoPrecio.class);
         e = service.save(e);
-        multiTenantService.compartir(null, (TipoPrecio s) -> service.save(s), e);
         return e;
     }
 
@@ -59,7 +58,6 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Boolean deleteTipoPrecio(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

@@ -71,6 +71,10 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         return repository.findByAll(id, cajaId, sucId, responsableId, descripcion, pageable);
     }
 
+    public Page<Gasto> filterGastosPage(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable){
+        return repository.findByAllPage(id, cajaId, sucId, responsableId, descripcion, pageable);
+    }
+
     public List<Gasto> findByCajaId(Long id, Long sucId) {
         return repository.findByCajaIdAndSucursalId(id, sucId);
     }

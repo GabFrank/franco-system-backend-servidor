@@ -121,15 +121,12 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private Sucursal sucursal;
 
     public Optional<Venta> venta(Long id, Long sucId) {
-//        return multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.findById(s), new EmbebedPrimaryKey(id, sucId));
-        Optional<Venta> res = service.<VentaService>setTenant("filial"+sucId+"_bkp").findById(new EmbebedPrimaryKey(id, sucId));
-        service.clearTenant();
-        return res;
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<Venta> ventas(int page, int size, Long sucId) {
         Pageable pageable = PageRequest.of(page, size);
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (Pageable s) -> service.findAll(s), pageable);
+        return service.findAll(pageable);
     }
 
 //    public List<Venta> ventaSearch(String texto){
@@ -169,9 +166,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public Boolean deleteVenta(Long id, Long sucId) {
         Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
-        if(ok){
-            multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.deleteById(s), new EmbebedPrimaryKey(id, sucId));
-        }
         return ok;
     }
 
@@ -325,24 +319,10 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Boolean cancelarVenta(Long id, Long sucId) {
-        Venta venta = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null), new EmbebedPrimaryKey(id, sucId));
-//        Venta venta = multiTenantService.compartir("filial"+sucId+"_bkp", (EmbebedPrimaryKey s) -> service.findById(s), new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        Venta venta = service.findByIdAndSucursalId(id, sucId);
         if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-            Boolean ok = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.cancelarVenta(venta), venta);
+            Boolean ok = service.cancelarVenta(venta);
             return ok;
-//            if(ok){
-//                Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
-//                if(delivery!=null){
-//                    delivery.setEstado(DeliveryEstado.CANCELADO);
-//                    deliveryService.save(delivery);
-//                    propagacionService.propagarEntidad(delivery, TipoEntidad.DELIVERY, venta.getSucursalId());
-//                }
-//                VentaCredito ventaCredito = ventaCreditoGraphQL.findByVentaIdAndSucId(venta.getId(), sucId);
-//                if(ventaCredito!=null){
-//
-//                }
-//            }
-//            return true;
         } else {
             return false;
         }

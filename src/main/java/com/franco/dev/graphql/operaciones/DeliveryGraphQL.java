@@ -51,24 +51,24 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private MultiTenantService multiTenantService;
 
     public Delivery delivery(Long id, Long sucId) {
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);
+        return service.findByIdAndSucursalId(id, sucId);
     }
 
     public List<Delivery> deliverys(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findAll(pageable), pageable);
+        return service.findAll(pageable);
     }
 
     public List<Delivery> deliverysByEstado(DeliveryEstado estado, Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByEstado(estado), estado);
+        return service.findByEstado(estado);
     }
 
     public List<Delivery> deliverysByEstadoNotIn(DeliveryEstado estado, Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByEstadoNotIn(estado), estado);
+        return service.findByEstadoNotIn(estado);
     }
 
     public List<Delivery> deliverysUltimos10(Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findTop10());
+        return service.findTop10();
     }
 
 
@@ -106,7 +106,7 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public List<Delivery> deliveryPorCajaIdAndEstados(Long id, List<DeliveryEstado> estadoList, Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByVentaCajaIdAndEstadoIn(id, estadoList, sucId), id, estadoList, sucId);
+        return service.findByVentaCajaIdAndEstadoIn(id, estadoList, sucId);
     }
 
 }

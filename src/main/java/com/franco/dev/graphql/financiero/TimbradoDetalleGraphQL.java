@@ -65,14 +65,11 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
             e.setTimbrado(timbradoService.findById(input.getTimbradoId()).orElse(null));
         }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.TIMBRADO_DETALLE);
-        multiTenantService.compartir(null, (TimbradoDetalle s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteTimbradoDetalle(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

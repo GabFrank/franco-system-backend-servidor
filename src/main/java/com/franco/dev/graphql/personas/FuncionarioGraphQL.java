@@ -81,15 +81,11 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         if(input.getCargoId()!=null)e.setCargo(cargoService.findById(input.getCargoId()).orElse(null));
         if(input.getSucursalId()!=null)e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.FUNCIONARIO);
-        multiTenantService.compartir(null, (Funcionario s) -> service.save(s), e);
         Cliente cliente = clienteService.findByPersonaId(e.getPersona().getId());
         if(cliente!=null){
             if(!cliente.getCredito().equals(e.getCredito())){
                 cliente.setCredito(e.getCredito());
                 cliente = clienteService.save(cliente);
-//                propagacionService.propagarEntidad(cliente, TipoEntidad.CLIENTE);
-                multiTenantService.compartir(null, (Cliente s) -> clienteService.save(s), cliente);
             }
         } else {
             cliente = new Cliente();
@@ -100,8 +96,6 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             cliente.setSucursal(e.getSucursal());
             cliente.setUsuario(e.getUsuario());
             cliente = clienteService.save(cliente);
-//            propagacionService.propagarEntidad(cliente, TipoEntidad.CLIENTE);
-            multiTenantService.compartir(null, (Cliente s) -> clienteService.save(s), cliente);
         }
         Usuario usuario = usuarioService.findByPersonaId(e.getPersona().getId());
         if(usuario==null){
@@ -120,8 +114,6 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             }
             usuario.setActivo(true);
             usuario = usuarioService.save(usuario);
-//            propagacionService.propagarEntidad(usuario, TipoEntidad.USUARIO);
-            multiTenantService.compartir(null, (Usuario s) -> usuarioService.save(s), usuario);
 
         }
         return e;
@@ -129,7 +121,6 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public Boolean deleteFuncionario(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

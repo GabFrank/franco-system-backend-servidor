@@ -63,7 +63,6 @@ public class ProductoPorSucursalGraphQL implements GraphQLQueryResolver, GraphQL
         e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (ProductoPorSucursal s) -> service.save(s), e);
         return e;
     }
 

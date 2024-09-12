@@ -103,12 +103,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setPresentacionTransporte(presentacionService.findById(input.getPresentacionTransporteId()).orElse(null));
         if (input.getPresentacionRecepcionId() != null)
             e.setPresentacionRecepcion(presentacionService.findById(input.getPresentacionRecepcionId()).orElse(null));
-
         e = service.save(e);
-
-        multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen().getId() + "_bkp", (TransferenciaItem s) -> service.save(s), e);
-        multiTenantService.compartir("filial" + e.getTransferencia().getSucursalDestino().getId() + "_bkp", (TransferenciaItem s) -> service.save(s), e);
-
         movimientoStockService.createMovimientoFromTransferenciaItem(e);
 
         if (e != null && precioCosto != null) {
@@ -129,7 +124,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                 costoPorProducto.setCreadoEn(e.getCreadoEn());
                 costoPorProducto = costosPorProductoService.save(costoPorProducto);
                 if (costoPorProducto != null)
-                    multiTenantService.compartir("filial" + e.getTransferencia().getSucursalOrigen() + "_bkp", (CostoPorProducto s) -> costosPorProductoService.save(s), costoPorProducto);
+                    costosPorProductoService.save(costoPorProducto);
             }
 
         }
@@ -139,10 +134,6 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     public Boolean deleteTransferenciaItem(Long id) {
         TransferenciaItem ti = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
-        if(ok && ti!=null) {
-            multiTenantService.compartir("filial"+ti.getTransferencia().getSucursalOrigen().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
-            multiTenantService.compartir("filial"+ti.getTransferencia().getSucursalDestino().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
-        }
         return ok;
     }
 }

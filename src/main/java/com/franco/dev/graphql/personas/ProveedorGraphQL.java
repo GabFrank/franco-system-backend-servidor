@@ -66,14 +66,11 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                 throw new GraphQLException("Esta persona ya es un proveedor");
             }
         }
-//        propagacionService.propagarEntidad(e, TipoEntidad.PROVEEDOR);
-        multiTenantService.compartir(null, (Proveedor s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteProveedor(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

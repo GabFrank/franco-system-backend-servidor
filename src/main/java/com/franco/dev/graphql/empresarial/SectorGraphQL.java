@@ -58,17 +58,12 @@ public class SectorGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.SECTOR, input.getSucursalId());
-        multiTenantService.compartir("filial"+input.getSucursalId()+"_bkp", (Sector s) -> service.save(s), e, false);
         return e;
     }
 
     public Boolean deleteSector(Long id){
         Sector sector = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
-        if(ok){
-            multiTenantService.compartir("filial"+sector.getSucursal().getId()+"_bkp", (Sector s) -> service.delete(sector), sector, false);
-        }
         return ok;
     }
 

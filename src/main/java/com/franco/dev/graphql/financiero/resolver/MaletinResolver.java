@@ -22,7 +22,7 @@ public class MaletinResolver implements GraphQLResolver<Maletin> {
     private MultiTenantService multiTenantService;
 
     public PdvCaja cajaActual(Maletin e) {
-        PdvCaja aux = multiTenantService.compartir("filial" + e.getSucursal().getId() + "_bkp", (params) -> pdvCajaService.findLastByMaletinId(e.getId()), e.getId());
+        PdvCaja aux = pdvCajaService.findLastByMaletinId(e.getId());
         return aux;
     }
 

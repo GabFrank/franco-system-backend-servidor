@@ -50,13 +50,11 @@ public class PdvGrupoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPdvCategoria(pdvCategoriaService.findById(input.getCategoriaId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (PdvGrupo s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deletePdvGrupo(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;    }
 
     public Long countPdvGrupo(){

@@ -51,8 +51,6 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getNacimiento()!=null) e.setNacimiento(stringToDate(input.getNacimiento()));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.PERSONA);
-        multiTenantService.compartir(null, (Persona s) -> service.getRepository().save(s), e);
         return e;
     }
 
@@ -65,7 +63,6 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public Boolean deletePersona(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

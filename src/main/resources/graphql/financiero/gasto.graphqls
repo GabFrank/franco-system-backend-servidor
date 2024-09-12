@@ -41,13 +41,25 @@ input GastoInput {
     sucursalId: Int
 }
 
+type GastoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Gasto]
+    getPageable: Pageable
+}
+
 extend type Query {
     gasto(id:ID!, sucId: ID):Gasto
     gastos(page:Int = 0, size:Int = 10, sucId: ID):[Gasto]!
     countGasto: Int
     gastosPorFecha(inicio:String, fin:String, sucId: ID):[Gasto]
     gastosPorCajaId(id:ID!, sucId: ID):[Gasto]
-    filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, descripcion:String, page:Int, size:Int):[Gasto]!
+    filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, descripcion:String, page:Int, size:Int):GastoPage
 }
 
 extend type Mutation {

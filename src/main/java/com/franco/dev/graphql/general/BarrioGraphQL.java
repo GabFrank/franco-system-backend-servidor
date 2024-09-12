@@ -67,13 +67,10 @@ public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setCiudad(ciudadService.findById(input.getCiudadId()).orElse(null));
         e.setPrecioDelivery(precioDeliveryService.findById(input.getPrecioDeliveryId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.BARRIO);
-        multiTenantService.compartir(null, (Barrio s) -> service.save(s), e);
         return e;    }
 
     public Boolean deleteBarrio(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

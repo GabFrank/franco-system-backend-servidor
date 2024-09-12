@@ -61,8 +61,6 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setSubfamilia(service.findById((input.getSubfamiliaId())).orElse(null));
         }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.SUBFAMILIA);
-        multiTenantService.compartir(null, (Subfamilia s) -> service.save(s), e);
         return e;
     }
 
@@ -75,7 +73,6 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Boolean deleteSubfamilia(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

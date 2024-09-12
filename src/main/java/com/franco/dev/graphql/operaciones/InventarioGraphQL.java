@@ -87,8 +87,6 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO, e.getSucursal().getId());
-        multiTenantService.compartir("filial" + e.getSucursal().getId() + "_bkp", (Inventario s) -> service.save(s), e, false);
         return e;
     }
 
@@ -97,7 +95,6 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         Inventario i = service.findById(id).orElse(null);
         if (i != null) {
             ok = service.deleteById(id);
-            multiTenantService.compartir("filial" + i.getSucursal().getId() + "_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }
@@ -105,11 +102,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Inventario finalizarInventario(Long id) throws GraphQLException {
         Inventario inventario = service.findById(id).orElse(null);
         if (inventario.getId() != null && inventario.getEstado() != InventarioEstado.CONCLUIDO) {
-            inventario = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Long s) -> finalizarInventarioEnSucursal(s), id);
+            inventario = finalizarInventarioEnSucursal(id);
             if (inventario != null) {
-                multiTenantService.compartir("default", (Inventario i) -> service.save(i), inventario);
-                multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Inventario i) -> service.save(i), inventario);
-                return inventario;
+                return service.save(inventario);
             }
         }
         return null;
@@ -120,27 +115,15 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             Inventario inventario = service.findById(id).orElse(null);
             if (inventario.getId() != null) {
                 inventario.setEstado(InventarioEstado.CANCELADO);
-                List<MovimientoStock> movimientoStockList = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) ->  movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
-                for(MovimientoStock ms : movimientoStockList) {
+                List<MovimientoStock> movimientoStockList = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
+                for (MovimientoStock ms : movimientoStockList) {
                     if (ms != null) {
                         ms.setEstado(false);
                     }
-                    multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), ms);
+                    movimientoStockService.save(ms);
 
                 }
-//                List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
-//                for (InventarioProducto ip : inventarioProductoList) {
-//                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
-//                    for (InventarioProductoItem ipi : inventarioProductoItemList) {
-//                        MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, ipi.getId(), inventario.getSucursal().getId());
-//                        if (movimientoStockEncontrado != null) {
-//                            movimientoStockEncontrado.setEstado(false);
-//                        }
-//                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), movimientoStockEncontrado);
-//                    }
-//                }
-                multiTenantService.compartir("default", (Inventario i) -> service.save(i), inventario);
-                multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Inventario i) -> service.save(i), inventario);
+                service.save(inventario);
             }
             return true;
         } catch (Exception e) {
@@ -155,27 +138,15 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             if (inventario.getId() != null) {
                 inventario.setEstado(InventarioEstado.ABIERTO);
                 inventario.setAbierto(true);
-                List<MovimientoStock> movimientoStockList = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) ->  movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
-                for(MovimientoStock ms : movimientoStockList) {
+                List<MovimientoStock> movimientoStockList = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
+                for (MovimientoStock ms : movimientoStockList) {
                     if (ms != null) {
                         ms.setEstado(true);
                     }
-                    multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), ms);
+                    movimientoStockService.save(ms);
 
                 }
-//                List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
-//                for (InventarioProducto ip : inventarioProductoList) {
-//                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
-//                    for (InventarioProductoItem ipi : inventarioProductoItemList) {
-//                        MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, ipi.getId(), inventario.getSucursal().getId());
-//                        if (movimientoStockEncontrado != null) {
-//                            movimientoStockEncontrado.setEstado(true);
-//                        }
-//                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock i) -> movimientoStockService.save(i), movimientoStockEncontrado);
-//                    }
-//                }
-                multiTenantService.compartir("default", (Inventario i) -> service.save(i), inventario);
-                multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Inventario i) -> service.save(i), inventario);
+                inventario = service.save(inventario);
             }
             return true;
         } catch (Exception e) {
@@ -222,11 +193,11 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                         Long productoId = entry.getKey();
                         Double cantidadTotal = entry.getValue();
                         Double stockSistema = 0.0;
-                        MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2], (Long) params[3]), TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId(), productoId);
+                        MovimientoStock movimientoStockEncontrado = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId(), productoId);
                         if (movimientoStockEncontrado != null) {
-                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.stockByProductoIdExecptMovStockId((Long) params[0], (Long) params[1]), movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId());
+                            stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId());
                         } else {
-                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Long proId) -> movimientoStockService.stockByProductoId(proId), productoId);
+                            stockSistema = movimientoStockService.stockByProductoId(productoId);
                         }
                         if (movimientoStockEncontrado == null) {
                             movimientoStockEncontrado = new MovimientoStock();
@@ -239,41 +210,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                         }
                         Double diferencia = cantidadTotal - stockSistema; //9 - 10 = -1, 11 - 10 = 1
                         movimientoStockEncontrado.setCantidad(diferencia);
-                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock s) -> movimientoStockService.save(s), movimientoStockEncontrado);
+                        movimientoStockEncontrado = movimientoStockService.save(movimientoStockEncontrado);
                     }
                 }
-//                    for (InventarioProducto ip : inventarioProductoList) {
-//                        List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
-//                        for (InventarioProductoItem ipi : inventarioProductoItemList) {
-//                            MovimientoStock movimientoStockEncontrado = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId((TipoMovimiento) params[0], (Long) params[1], (Long) params[2]), TipoMovimiento.AJUSTE, ipi.getId(), inventario.getSucursal().getId());
-//                            List<InventarioProductoItem> foundIpiProductos = inventarioProductoItemService.findByInventarioIdAndProductoId(inventario.getId(), ipi.getPresentacion().getProducto().getId());
-//
-//                            if (movimientoStockEncontrado == null) {
-//                                movimientoStockEncontrado = new MovimientoStock();
-//                                movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
-//                                movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
-//                                movimientoStockEncontrado.setSucursalId(inventario.getSucursal().getId());
-//                                movimientoStockEncontrado.setReferencia(ipi.getId());
-//                                movimientoStockEncontrado.setProducto(ipi.getPresentacion().getProducto());
-//                                movimientoStockEncontrado.setEstado(true);
-//                            } else {
-//                                movimientoStockEncontrado.setCantidad(ipi.getCantidad() * ipi.getPresentacion().getCantidad());
-//                            }
-//                            movimientoStockList.add(movimientoStockEncontrado);
-//                        }
-//                    }
-//                    for (MovimientoStock ms : movimientoStockList) {
-//                        Double stockSistema = 0.0;
-//                        if(ms.getId()!=null){
-//                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (params) -> movimientoStockService.stockByProductoIdExecptMovStockId((Long) params[0], (Long) params[1]), ms.getProducto().getId(), ms.getId());
-//                        } else {
-//                            stockSistema = multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (Long proId) -> movimientoStockService.stockByProductoId(proId), ms.getProducto().getId());
-//                        }
-//                        Double stockFisico = ms.getCantidad();
-//                        Double diferencia = stockFisico - stockSistema; //9 - 10 = -1, 11 - 10 = 1
-//                        ms.setCantidad(diferencia);
-//                        multiTenantService.compartir("filial" + inventario.getSucursal().getId() + "_bkp", (MovimientoStock s) -> movimientoStockService.save(s), ms);
-//                    }
             }
             return inventario;
         } catch (Exception e) {
@@ -282,6 +221,4 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
 
     }
-
-
 }

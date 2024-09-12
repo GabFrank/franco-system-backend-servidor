@@ -62,15 +62,11 @@ public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
         }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.FORMA_DE_PAGO);
-        multiTenantService.compartir(null, (FormaPago s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteFormaPago(Long id) {
-
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

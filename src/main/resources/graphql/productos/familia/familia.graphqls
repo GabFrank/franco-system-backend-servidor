@@ -22,11 +22,23 @@ input FamiliaInput {
 
 }
 
+type FamiliaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Familia]
+    getPageable: Pageable
+}
+
 extend type Query {
     familia(id:ID!):Familia
     familias(page:Int = 0, size:Int = 10):[Familia]!
     countFamilia: Int
-    familiaSearch(texto:String):[Familia]
+    familiaSearch(texto:String, page:Int, size:Int):FamiliaPage
 }
 
 extend type Mutation {

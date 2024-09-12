@@ -44,7 +44,6 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Codigo saveCodigo(CodigoInput input) {
         Codigo e = service.save(input);
-        multiTenantService.compartir(null, (Codigo s) -> service.save(s), e);
         return e;
     }
 
@@ -55,7 +54,6 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Boolean deleteCodigo(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

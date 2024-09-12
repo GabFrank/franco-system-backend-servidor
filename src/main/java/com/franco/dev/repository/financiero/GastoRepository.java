@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
@@ -33,6 +34,18 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
             "(r.observacion like :descripcion or :descripcion is null) " +
             "order by r.id desc")
     List<Gasto> findByAll(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable);
+
+    @Query("select r from Gasto r " +
+            "left join r.caja ca " +
+            "left join r.responsable res " +
+            "where " +
+            "(r.id = :id or :id is null) and " +
+            "(ca.id = :cajaId or :cajaId is null) and " +
+            "(r.sucursalId = :sucId or :sucId is null) and " +
+            "(res.id = :responsableId or :responsableId is null) and " +
+            "(r.observacion like :descripcion or :descripcion is null) " +
+            "order by r.id desc")
+    Page<Gasto> findByAllPage(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable);
 
     public Gasto findByIdAndSucursalId(Long id, Long sucId);
 }

@@ -46,13 +46,11 @@ public class PdvCategoriaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         PdvCategoria e = m.map(input, PdvCategoria.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (PdvCategoria s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deletePdvCategoria(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

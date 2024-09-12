@@ -54,8 +54,6 @@ public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.BANCO);
-        multiTenantService.compartir(null, (Banco s) -> service.save(s), e);
         return e;
     }
 
@@ -65,7 +63,6 @@ public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public Boolean deleteBanco(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

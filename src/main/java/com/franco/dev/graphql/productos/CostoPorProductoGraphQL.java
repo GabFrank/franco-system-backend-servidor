@@ -37,7 +37,6 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
         ModelMapper m = new ModelMapper();
         CostoPorProducto e = m.map(input, CostoPorProducto.class);
         e = service.save(e);
-        multiTenantService.compartir(null, (CostoPorProducto s) -> service.save(s), e);
         return e;
     }
 

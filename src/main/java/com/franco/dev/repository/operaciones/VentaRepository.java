@@ -17,6 +17,8 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         return Venta.class;
     }
 
+    public Venta findByIdAndSucursalId(Long id, Long sucId);
+
 //    public List<Venta> findByProveedorPersonaNombreContainingIgnoreCase(String texto);
 
 //    @Query("select p from Venta p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")

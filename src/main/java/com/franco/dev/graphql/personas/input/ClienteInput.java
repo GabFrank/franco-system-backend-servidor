@@ -12,4 +12,9 @@ public class ClienteInput {
     private Long sucursalId;
     private Long personaId;
     private Long usuarioId;
+    private String direccion;
+    private String nombre;
+    private Boolean tributa;
+    private Boolean verificadoSet;
+    private String documento;
 }

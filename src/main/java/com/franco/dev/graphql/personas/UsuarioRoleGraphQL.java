@@ -43,14 +43,11 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setRole(roleService.findById(input.getRoleId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.USUARIO_ROLE);
-        multiTenantService.compartir(null, (UsuarioRole s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteUsuarioRole(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

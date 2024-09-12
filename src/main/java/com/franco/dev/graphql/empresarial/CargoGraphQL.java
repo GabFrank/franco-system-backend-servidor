@@ -55,13 +55,11 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setSupervisadoPor(service.findById(input.getSupervisadoPorId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (Cargo s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteCargo(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

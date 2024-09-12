@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.MovimientoStockResumenDto;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,13 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2")
     public Float stockByProductoIdAndSucursalId(Long proId, Long sucId);
 
+    @Query("select new com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto(COALESCE(SUM(p.cantidad), 0), MAX(p.id), count(p.id)) " +
+            "from MovimientoStock p " +
+            "left join p.producto pro " +
+            "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2 and p.id > ?3")
+    public MovimientoStockCantidadAndIdDto stockByProductoIdAndSucursalIdAndLastId(Long proId, Long sucId, Long lastId);
+
+
     @Query(value = "select sum(ms.cantidad) from MovimientoStock ms " +
             "join ms.producto p " +
             "left join ms.usuario u " +
@@ -47,6 +55,7 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "left outer join p.producto as pro " +
             "where p.estado = true and pro.id = ?1")
     public Float stockByProductoId(Long proId);
+
 
     @Query("select SUM(p.cantidad) from MovimientoStock p " +
             "left outer join p.producto as pro " +

@@ -10,7 +10,7 @@ import javax.persistence.EntityManagerFactory;
 @Configuration
 public class TransactionConfig {
 
-    @Bean
+    @Bean(name = "transactionManager")
     public PlatformTransactionManager transactionManager(EntityManagerFactory emf) {
         return new JpaTransactionManager(emf);
     }

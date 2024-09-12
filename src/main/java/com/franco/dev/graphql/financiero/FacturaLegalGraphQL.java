@@ -50,6 +50,7 @@ import javax.print.PrintService;
 import java.awt.image.BufferedImage;
 import java.io.*;
 import java.nio.file.Files;
+import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -117,17 +118,19 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private MultiTenantService multiTenantService;
 
+    public DecimalFormat df = new DecimalFormat("#,###.##");
+
     public FacturaLegal facturaLegal(Long id, Long sucId) {
-        return multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);
+        return service.findByIdAndSucursalId(id, sucId);
     }
 
     public List<FacturaLegal> facturaLegales(int page, int size, Long sucId) {
         Pageable pageable = PageRequest.of(page, size);
-        return multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.findAll(pageable), pageable);
+        return service.findAll(pageable);
     }
 
     public FacturaLegal facturaLegalPorVenta(Long id, Long sucId) {
-        return multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.findByVentaIdAndSucursalId(id, sucId), id, sucId);
+        return service.findByVentaIdAndSucursalId(id, sucId);
     }
 
     @Unsecured
@@ -152,8 +155,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     nuevaPersona = personaService.save(nuevaPersona);
                 }
                 if (nuevaPersona != null) {
-//                    propagacionService.propagarEntidad(nuevaPersona, TipoEntidad.PERSONA);
-                    multiTenantService.compartir(null, (Persona s) -> personaService.save(s), nuevaPersona);
+                    nuevaPersona = personaService.save(nuevaPersona);
                     Cliente cli = clienteService.findByPersonaId(nuevaPersona.getId());
                     if (cli == null) {
                         cli = new Cliente();
@@ -163,8 +165,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                         cli = clienteService.save(cli);
                     }
                     if (cli != null) {
-//                        propagacionService.propagarEntidad(cli, TipoEntidad.CLIENTE);
-                        multiTenantService.compartir(null, (Cliente s) -> clienteService.save(s), cli);
+                        cli = clienteService.save(cli);
                         e.setCliente(cli);
                     }
                 }
@@ -172,7 +173,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
             }
         }
-//        if (input.getVentaId() != null) e.setVenta(ventaService.findById(input.getVentaId()).orElse(null));
         if (input.getTimbradoDetalleId() != null)
             e.setTimbradoDetalle(timbradoDetalleService.findById(input.getTimbradoDetalleId()).orElse(null));
         if (e.getTimbradoDetalle() != null) {
@@ -183,8 +183,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 input.setClienteId(e.getCliente().getId());
             }
             Long sucId = e.getTimbradoDetalle().getPuntoDeVenta().getSucursal().getId();
-//            propagacionService.propagarEntidad(input, TipoEntidad.FACTURA, sucId);
-            multiTenantService.compartir("filial" + sucId + "_bkp", (FacturaLegal s) -> service.save(s), e);
+            e = service.save(e);
             for (FacturaLegalItemInput fi : facturaLegalItemInputList) {
                 fi.setFacturaLegalId(e.getId());
                 if (input.getUsuarioId() != null) fi.setUsuarioId(e.getUsuario().getId());
@@ -195,7 +194,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean deleteFacturaLegal(Long id, Long sucId) {
-        return multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.deleteByIdAndSucursalId(id, sucId), id, sucId);
+        return service.deleteByIdAndSucursalId(id, sucId);
     }
 
 
@@ -204,18 +203,18 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        Page<FacturaLegal> response = multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10), page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+        Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
         return response;
     }
 
     public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        ResumenFacturasDto response = multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.findResumenFacturas(fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10), fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+        ResumenFacturasDto response = service.findResumenFacturas(fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
         return response;
     }
 
     public Boolean reimprimirFacturaLegal(Long id, Long sucId, String printerName) {
-        FacturaLegal facturaLegal = multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);
-        List<FacturaLegalItem> facturaLegalItemList = multiTenantService.compartir("filial" + sucId + "_bkp", (params) -> facturaLegalItemService.findByFacturaLegalId(id, sucId), id, sucId);
+        FacturaLegal facturaLegal = service.findByIdAndSucursalId(id, sucId);
+        List<FacturaLegalItem> facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(id, sucId);
         try {
             printTicket58mmFactura(facturaLegal.getVenta(), facturaLegal, facturaLegalItemList, printerName);
             return true;
@@ -228,10 +227,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal, List<FacturaLegalItem> facturaLegalItemList, String printerName) throws Exception {
         SaveFacturaDto saveFacturaDto = new SaveFacturaDto();
         printService = PrinterOutputStream.getPrintServiceByName(printerName);
-        Sucursal sucursal = multiTenantService.compartir("default", (params) -> sucursalService.findById(facturaLegal.getSucursalId()).orElse(null), facturaLegal.getSucursalId());
+        Sucursal sucursal = sucursalService.findById(facturaLegal.getSucursalId()).orElse(null);
         Delivery delivery = null;
-        if (venta != null) delivery = multiTenantService.compartir("filial"+facturaLegal.getSucursalId()+"_bkp", (params) -> deliveryService.findByVentaId(venta.getId(), venta.getSucursalId()), venta.getId(), venta.getSucursalId());
-        Double descuento = 0.0;
+        if (venta != null) delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
         Double aumento = 0.0;
         Double vueltoGs = 0.0;
         Double vueltoRs = 0.0;
@@ -249,8 +247,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         Double precioDeliveryGs = 0.0;
         Double precioDeliveryRs = 0.0;
         Double precioDeliveryDs = 0.0;
-        Double cambioRs = multiTenantService.compartir("default", (params) -> cambioService.findLastByMonedaId(Long.valueOf(2)), Long.valueOf(2)).getValorEnGs();
-        Double cambioDs = multiTenantService.compartir("default", (params) -> cambioService.findLastByMonedaId(Long.valueOf(3)), Long.valueOf(3)).getValorEnGs();
+        Double cambioRs = cambioService.findLastByMonedaId(Long.valueOf(2)).getValorEnGs();
+        Double cambioDs = cambioService.findLastByMonedaId(Long.valueOf(3)).getValorEnGs();
 
         if (delivery != null) {
             precioDeliveryGs = delivery.getPrecio().getValor();
@@ -376,21 +374,45 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 escpos.writeLF(valorTotal);
             }
             escpos.writeLF("--------------------------------");
-            escpos.write("Total Gs: ");
-            String valorGs = NumberFormat.getNumberInstance(Locale.GERMAN).format(totalFinal);
-            for (int i = 22; i > valorGs.length(); i--) {
-                escpos.write(" ");
+            String valorGs = df.format(totalFinal);
+            if(facturaLegal.getDescuento()!=null && facturaLegal.getDescuento().compareTo(0.0) > 0){
+                String descuento = df.format(facturaLegal.getDescuento());
+                escpos.write("Total parcial: ");
+                for (int i = 17; i > valorGs.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(valorGs);
+                escpos.write("Total descuento: ");
+                for (int i = 15; i > descuento.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(descuento);
+                String totalFinalConDesc = df.format(totalFinal - facturaLegal.getDescuento());
+                escpos.write("Total final: ");
+                for (int i = 19; i > totalFinalConDesc.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(new Style().setBold(true), totalFinalConDesc);
+            } else {
+                escpos.write("Total Gs: ");
+                for (int i = 22; i > valorGs.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(new Style().setBold(true), valorGs);
             }
-            escpos.writeLF(new Style().setBold(true), valorGs);
+
             escpos.writeLF("--------Liquidación IVA---------");
+            Double porcentajeDescuento = (facturaLegal.getDescuento() != null && facturaLegal.getDescuento().compareTo(0.0) != 0) ? (facturaLegal.getDescuento() / totalFinal) : null;
             escpos.write("Gravadas 10%:");
-            String totalIva10S = NumberFormat.getNumberInstance(Locale.GERMAN).format(totalIva10.intValue());
+            Double desc10 = porcentajeDescuento != null ? (totalIva10 - (totalIva10 * porcentajeDescuento)) : null;
+            String totalIva10S = df.format(desc10 == null ? totalIva10.intValue() : desc10.intValue());
             for (int i = 19; i > totalIva10S.length(); i--) {
                 escpos.write(" ");
             }
             escpos.writeLF(totalIva10S);
             escpos.write("Gravadas 5%: ");
-            String totalIva5S = NumberFormat.getNumberInstance(Locale.GERMAN).format(totalIva5.intValue());
+            Double desc5 = porcentajeDescuento != null ? (totalIva5 - (totalIva5 * porcentajeDescuento)) : null;
+            String totalIva5S = df.format(desc5 == null ? totalIva5.intValue() : desc5.intValue());
             for (int i = 19; i > totalIva5S.length(); i--) {
                 escpos.write(" ");
             }
@@ -401,7 +423,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
             escpos.writeLF("0");
             Double totalFinalIva = totalIva10 + totalIva5;
-            String totalFinalIvaS = NumberFormat.getNumberInstance(Locale.GERMAN).format(totalFinalIva.intValue());
+            Double descFinal = porcentajeDescuento != null ? (totalFinalIva - (totalFinalIva * porcentajeDescuento)) : null;
+            String totalFinalIvaS = df.format(descFinal == null ? totalFinalIva.intValue() : descFinal.intValue());
             escpos.write("Total IVA:   ");
             for (int i = 19; i > totalFinalIvaS.length(); i--) {
                 escpos.write(" ");

@@ -74,7 +74,6 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
             throw new GraphQLException("Ya tenes una zona abierta.");
         }
         e = service.save(e);
-        multiTenantService.compartir("filial"+e.getInventario().getSucursal().getId()+"_bkp", (InventarioProducto s) -> service.save(s), e);
         return e;
     }
 
@@ -87,7 +86,6 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
         InventarioProducto i = service.findById(id).orElse(null);
         if(i!=null) {
             ok = service.deleteById(id);
-            multiTenantService.compartir("filial"+i.getInventario().getSucursal().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }

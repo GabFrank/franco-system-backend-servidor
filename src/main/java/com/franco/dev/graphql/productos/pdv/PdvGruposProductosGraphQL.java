@@ -60,13 +60,11 @@ public class PdvGruposProductosGraphQL implements GraphQLQueryResolver, GraphQLM
         e.setPdvGrupo(pdvGrupoService.findById(input.getGrupoId()).orElse(null));
         e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
         e = service.save(e);
-        multiTenantService.compartir(null, (PdvGruposProductos s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deletePdvGruposProductos(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

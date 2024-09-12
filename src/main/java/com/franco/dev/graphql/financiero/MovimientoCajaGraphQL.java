@@ -64,7 +64,6 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
             e.setCambio(cambioService.findLastByMonedaId(input.getMonedaId()));
         }
         MovimientoCaja movimientoCaja = service.save(e);
-        multiTenantService.compartir("filial"+movimientoCaja.getSucursalId()+"_bkp", (MovimientoCaja s) -> service.save(s), movimientoCaja);
         return movimientoCaja;
     }
 

@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
@@ -39,5 +40,18 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "(u.id = :cajeroId or :cajeroId is null) " +
             "order by r.id desc")
     List<Retiro> findByAll(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable);
+
+    @Query("select r from Retiro r " +
+            "left join r.cajaSalida ca " +
+            "left join r.responsable res " +
+            "left join r.usuario u " +
+            "where " +
+            "(r.id = :id or :id is null) and " +
+            "(ca.id = :cajaId or :cajaId is null) and " +
+            "(r.sucursalId = :sucId or :sucId is null) and " +
+            "(res.id = :responsableId or :responsableId is null) and " +
+            "(u.id = :cajeroId or :cajeroId is null) " +
+            "order by r.id desc")
+    Page<Retiro> findByAllPage(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable);
 
 }

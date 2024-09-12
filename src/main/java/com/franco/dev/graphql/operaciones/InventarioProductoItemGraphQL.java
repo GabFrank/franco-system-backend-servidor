@@ -85,8 +85,6 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         if (input.getInventarioProductoId() != null)
             e.setInventarioProducto(inventarioProductoService.findById(input.getInventarioProductoId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.INVENTARIO_PRODUCTO_ITEM, e.getInventarioProducto().getInventario().getSucursal().getId());
-        multiTenantService.compartir("filial"+e.getInventarioProducto().getInventario().getSucursal().getId()+"_bkp", (InventarioProductoItem s) -> service.save(s), e);
         return e;
     }
 
@@ -95,8 +93,6 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         InventarioProductoItem i = service.findById(id).orElse(null);
         if (i != null) {
             ok = service.deleteById(id);
-//            propagacionService.eliminarEntidad(i, TipoEntidad.INVENTARIO_PRODUCTO_ITEM, i.getInventarioProducto().getInventario().getSucursal().getId());
-            multiTenantService.compartir("filial"+i.getInventarioProducto().getInventario().getSucursal().getId()+"_bkp", (Long s) -> service.deleteById(s), id);
         }
         return ok;
     }

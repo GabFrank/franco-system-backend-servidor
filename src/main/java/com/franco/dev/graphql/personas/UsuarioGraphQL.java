@@ -62,14 +62,11 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         if(input.getUsuarioId()!=null) e.setUsuario(service.findById(input.getUsuarioId()).orElse(null));
         if(input.getPersonaId()!=null) e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.USUARIO);
-        multiTenantService.compartir(null, (Usuario s) -> service.save(s), e);
         return e;
     }
 
     public Boolean deleteUsuario(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

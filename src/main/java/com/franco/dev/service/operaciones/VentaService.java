@@ -73,53 +73,45 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 //        return  repository.findByProveedor(texto.toLowerCase());
 //    }
 
+    public Venta findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
     public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
         Pageable pagina = PageRequest.of(page, size);
         if (formaPago != null || estado != null || isDelivery != null || monedaId != null)
             if (isDelivery == null || isDelivery == false) {
-                return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, monedaId), id.getId(), id.getSucursalId(), formaPago, estado, pagina, monedaId);
-//                return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina), id.getId(), id.getSucursalId(), formaPago, estado, pagina);
+                return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, monedaId);
             } else {
-                return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId), id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId);
-//                return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery), id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery);
-
+                return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId);
             }
         if (asc == true)
-            return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) ->  repository.findAllByCajaIdAndSucursalIdOrderByIdAsc(id.getId(), id.getSucursalId(), pagina), id.getId(), id.getSucursalId(), pagina);
-//        return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findAllByCajaIdAndSucursalIdOrderByIdAsc(id.getId(), id.getSucursalId(), pagina), id.getId(), id.getSucursalId(), pagina);
-
+            return repository.findAllByCajaIdAndSucursalIdOrderByIdAsc(id.getId(), id.getSucursalId(), pagina);
         if (asc != true)
-            return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) ->  repository.findAllByCajaIdAndSucursalIdOrderByIdDesc(id.getId(), id.getSucursalId(), pagina), id.getId(), id.getSucursalId(), pagina);
-//        return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findAllByCajaIdAndSucursalIdOrderByIdDesc(id.getId(), id.getSucursalId(), pagina), id.getId(), id.getSucursalId(), pagina);
+            return repository.findAllByCajaIdAndSucursalIdOrderByIdDesc(id.getId(), id.getSucursalId(), pagina);
         return null;
     }
 
     public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
-        List<Venta> aux = multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) ->  repository.findByCajaIdAndCajaSucursalId(id.getId(), id.getSucursalId()), id.getId(), id.getSucursalId());
+        List<Venta> aux = repository.findByCajaIdAndCajaSucursalId(id.getId(), id.getSucursalId());
         return aux;
-//        return multiTenantService.compartir("filial"+id.getSucursalId()+"_bkp", (params) -> repository.findByCajaIdAndCajaSucursalId(id.getId(), id.getSucursalId()), id.getId(), id.getSucursalId());
     }
 
     @Override
     public Venta save(Venta entity) {
-        Venta e = multiTenantService.compartir("filial"+entity.getSucursalId()+"_bkp", (params) ->  super.save(entity), entity);
+        Venta e = super.save(entity);
         return e;
     }
 
     @Override
     public Venta saveAndSend(Venta entity, Boolean recibir) {
         Venta e = super.save(entity);
-//        propagacionService.propagarEntidad(e, TipoEntidad.VENTA, entity.getSucursalId());
         return e;
     }
 
     @Override
     public Venta saveAndSend(Venta entity, Long sucId) {
         Venta e = super.save(entity);
-        super.<VentaService>setTenant("filial"+sucId+"_bkp").save(entity);
-        super.clearTenant();
-//        propagacionService.propagarEntidad(e, TipoEntidad.VENTA, entity.getSucursalId());
-//        multiTenantService.compartir("filial"+sucId+"_bkp", (Venta s) -> super.save(s), e);
         return e;
     }
 
@@ -127,7 +119,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         LocalDateTime fechaInicio = stringToDate(inicio);
         LocalDateTime fechaFin = stringToDate(fin);
         List<Venta> ventaList = null;
-            ventaList = multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, fechaInicio, fechaFin), sucId, fechaInicio, fechaFin);
+            ventaList = repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, fechaInicio, fechaFin);
         return ventaList;
     }
 
@@ -144,7 +136,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         for (VentaPorPeriodoV1Dto ventaPorPeriodo : ventaPorPeriodoList) {
             List<Venta> ventaList = new ArrayList<>();
             for(String key: TenantContext.getAllTenantKeys()){
-                List<Venta> aux = multiTenantService.compartir("filial"+key+"_bkp", (params) -> repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1)), ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
+                List<Venta> aux = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
                 ventaList.addAll(aux);
             }
 //            List<Venta> ventaList = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
@@ -153,7 +145,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 if (venta.getEstado() != VentaEstado.CANCELADA || venta.getEstado() != VentaEstado.ABIERTA) {
                     List<CobroDetalle> cobroDetalleList = new ArrayList<>();
                     for(String key: TenantContext.getAllTenantKeys()){
-                        List<CobroDetalle> aux = multiTenantService.compartir("filial"+key+"_bkp", (params) -> cobroDetalleService.findByCobroId(venta.getCobro().getId(), venta.getSucursalId()), venta.getCobro().getId(), venta.getSucursalId());
+                        List<CobroDetalle> aux = cobroDetalleService.findByCobroId(venta.getCobro().getId(), venta.getSucursalId());
                         cobroDetalleList.addAll(aux);
                     }
                     for (CobroDetalle cobroDetalle : cobroDetalleList) {
@@ -191,36 +183,36 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return ventaPorPeriodoList;
     }
 
-    @Transactional
+    @Transactional()
     public Boolean cancelarVenta(Venta venta) {
         try {
             venta.setEstado(VentaEstado.CANCELADA);
-            multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> this.save(venta), venta);
-            List<MovimientoCaja> movimientoCajaList = multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId()), PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId());
+            venta = this.save(venta);
+            List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId());
             for (MovimientoCaja mov : movimientoCajaList) {
                 mov.setActivo(false);
-                multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> movimientoCajaService.save(mov), mov);
+                movimientoCajaService.save(mov);
             }
-            List<VentaItem> ventaItemList = multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> ventaItemService.findByVentaId(venta.getId(), venta.getSucursalId()), venta.getId(), venta.getSucursalId());
+            List<VentaItem> ventaItemList = ventaItemService.findByVentaId(venta.getId(), venta.getSucursalId());
             for (VentaItem vi : ventaItemList) {
-                MovimientoStock movStock = multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId(), vi.getProducto().getId()), TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId(), vi.getProducto().getId());
+                MovimientoStock movStock = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId(), vi.getProducto().getId());
                 if (movStock != null) {
                     movStock.setEstado(false);
-                    movStock = multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (MovimientoStock ms) -> movimientoStockService.save(ms), movStock);
+                    movStock = movimientoStockService.save(movStock);
                 }
             }
-            Delivery delivery = multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> deliveryService.findByVentaId(venta.getId(), venta.getSucursalId()), venta.getId(), venta.getSucursalId());
+            Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
             if (delivery != null) {
                 delivery.setEstado(DeliveryEstado.CANCELADO);
-                multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> deliveryService.save(delivery), delivery);
-//            propagacionService.propagarEntidad(delivery, TipoEntidad.DELIVERY, venta.getSucursalId());
+                deliveryService.save(delivery);
             }
-            VentaCredito ventaCredito = multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> ventaCreditoService.findByVentaIdAndSucId(venta.getId(), venta.getSucursalId()), venta.getId(), venta.getSucursalId());
+            VentaCredito ventaCredito = ventaCreditoService.findByVentaIdAndSucId(venta.getId(), venta.getSucursalId());
             if (ventaCredito != null) {
-                multiTenantService.compartir("filial"+venta.getSucursalId()+"_bkp", (params) -> ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId()), ventaCredito.getId(), ventaCredito.getSucursalId());
+                ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId());
             }
             return true;
         } catch (Exception e){
+            e.printStackTrace();
             throw new GraphQLException("No se pudo cancelar la venta");
         }
     }
@@ -229,6 +221,5 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
         return null;
-//        return repository.ventasPorSucursal(inicio, fin);
     }
 }

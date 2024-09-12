@@ -37,12 +37,12 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private MultiTenantService multiTenantService;
 
     public Optional<ConteoMoneda> conteoMoneda(Long id, Long sucId) {
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findById(new EmbebedPrimaryKey(id, sucId)), new EmbebedPrimaryKey(id, sucId));
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<ConteoMoneda> conteoMonedas(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  service.findAll(pageable), pageable);
+        return service.findAll(pageable);
     }
 
 
@@ -52,19 +52,15 @@ public class ConteoMonedaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if(input.getUsuarioId()!=null){
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        return multiTenantService.compartir("filial"+e.getSucursalId()+"_bkp", (params) ->  service.save(e), e);
+        return service.save(e);
     }
 
     public List<ConteoMoneda> conteoMonedasPorConteoId(Long id, Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  service.findByConteoId(id, sucId), id, sucId);
+        return service.findByConteoId(id, sucId);
     }
 
-//    public List<ConteoMoneda> conteoMonedasSearch(String texto){
-//        return service.findByAll(texto);
-//    }
-
     public Boolean deleteConteoMoneda(Long id, Long sucId){
-        return multiTenantService.compartir("filial"+sucId+"_bkp", (params) ->  service.deleteById(new EmbebedPrimaryKey(id, sucId)), new EmbebedPrimaryKey(id, sucId));
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countConteoMoneda(){

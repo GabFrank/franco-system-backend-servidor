@@ -209,12 +209,12 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean finalizarVentaCredito(Long id, Long sucId) {
-        VentaCredito ventaCredito = multiTenantService.compartir("filial"+sucId+"_bkp", (params) -> service.findByIdAndSucursalId(id, sucId), id, sucId);
+        VentaCredito ventaCredito = service.findByIdAndSucursalId(id, sucId);
         try {
             if (ventaCredito != null) {
                 ventaCredito.setEstado(EstadoVentaCredito.FINALIZADO);
                 ventaCredito.setFechaCobro(LocalDateTime.now());
-                ventaCredito = multiTenantService.compartir("filial"+sucId+"_bkp", (VentaCredito vc) -> service.save(vc), ventaCredito);
+                ventaCredito = service.save(ventaCredito);
                 return true;
             } else {
                 throw new GraphQLException("Venta credito no encontrada");
@@ -430,13 +430,13 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public String imprimirRecibo(Long clienteId, List<VentaCreditoInput> ventaCreditoInputList, Long usuarioId) throws GraphQLException {
-        Cliente cliente = multiTenantService.compartir("default", (params) -> clienteService.findById(clienteId).orElse(null), clienteId);
-        Usuario usuario = multiTenantService.compartir("default", (params) -> usuarioService.findById(usuarioId).orElse(null), usuarioId);
+        Cliente cliente = clienteService.findById(clienteId).orElse(null);
+        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         Double total = 0.0;
         if (cliente != null) {
             List<VentaCredito> ventaCreditoList = new ArrayList<>();
             for (VentaCreditoInput vci : ventaCreditoInputList) {
-                VentaCredito vi = multiTenantService.compartir("filial"+vci.getSucursalId()+"_bkp", (params) -> service.findById(new EmbebedPrimaryKey(vci.getId(), vci.getSucursalId())).orElse(null), vci.getId(), vci.getSucursalId());
+                VentaCredito vi = service.findById(new EmbebedPrimaryKey(vci.getId(), vci.getSucursalId())).orElse(null);
                 if (vi != null) {
                     ventaCreditoList.add(vi);
                     total += vi.getValorTotal();

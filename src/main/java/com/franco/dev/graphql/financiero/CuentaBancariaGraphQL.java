@@ -76,8 +76,6 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
             e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.CUENTA_BANCARIA);
-        multiTenantService.compartir(null, (CuentaBancaria s) -> service.save(s), e);
         return e;
     }
 
@@ -87,7 +85,6 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     public Boolean deleteCuentaBancaria(Long id) {
         Boolean ok = service.deleteById(id);
-        if (ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

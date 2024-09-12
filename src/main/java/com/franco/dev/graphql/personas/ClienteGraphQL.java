@@ -11,6 +11,7 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.general.ContactoService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -26,6 +27,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,6 +58,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private MultiTenantService multiTenantService;
+
+    @Autowired
+    private SucursalService sucursalService;
 
     public Optional<Cliente> cliente(Long id) {return service.findById(id);}
 
@@ -96,26 +101,45 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Cliente saveCliente(ClienteInput input){
+        Boolean modifPersona = false;
         ModelMapper m = new ModelMapper();
         Cliente e = m.map(input, Cliente.class);
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
+        if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        if (input.getPersonaId() != null) e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
+        if (e.getPersona() == null) {
+            Persona newPersona = new Persona();
+            newPersona.setNombre(input.getNombre());
+            newPersona.setDireccion(input.getDireccion());
+            newPersona.setDocumento(input.getDocumento());
+            if (e.getUsuario() != null) newPersona.setUsuario(e.getUsuario());
+            newPersona.setCreadoEn(LocalDateTime.now());
+            newPersona = personaService.save(newPersona);
+            e.setPersona(newPersona);
+        }
+
+        if (input.getDireccion() != null && !input.getDireccion().equals(e.getPersona().getDireccion())) {
+            e.getPersona().setDireccion(input.getDireccion());
+            modifPersona = true;
+        }
+        if (input.getNombre() != null && !input.getNombre().equals(e.getPersona().getNombre())) {
+            e.getPersona().setNombre(input.getNombre());
+            modifPersona = true;
+        }
+        if (modifPersona) {
+            personaService.save(e.getPersona());
+        }
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.CLIENTE);
-        multiTenantService.compartir(null, (Cliente s) -> service.save(s), e);
         Funcionario funcionario = funcionarioService.findByPersonaId(e.getPersona().getId());
         if(funcionario != null && e.getCredito() != funcionario.getCredito()){
             funcionario.setCredito(e.getCredito());
             funcionario = funcionarioService.save(funcionario);
-//            propagacionService.propagarEntidad(funcionario, TipoEntidad.FUNCIONARIO);
-            multiTenantService.compartir(null, (Funcionario s) -> funcionarioService.save(s), funcionario);
         }
         return e;
     }
 
     public Boolean deleteCliente(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) multiTenantService.compartir(null, (Long s) -> service.deleteById(s), id);
         return ok;
     }
 

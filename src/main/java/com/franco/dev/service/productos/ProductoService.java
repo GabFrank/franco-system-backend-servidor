@@ -1,6 +1,5 @@
 package com.franco.dev.service.productos;
 
-import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
@@ -170,13 +169,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList, List<Long> usuarioIdList, List<Long> productoIdList) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
         for (Long sucId : sucIdList) {
-            if (TenantContext.getAllTenantKeys().contains("filial" + sucId + "_bkp")) {
-                setTenant("filial" + sucId + "_bkp");
-                List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
-                aggregatedResult.addAll(lucroPorProductosDtoList);
-            } else {
-                throw new GraphQLException("Alguna sucursal no esta configurada como tenant");
-            }
+            List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+            aggregatedResult.addAll(lucroPorProductosDtoList);
         }
         Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
         for (LucroPorProductosDto dto : aggregatedResult) {

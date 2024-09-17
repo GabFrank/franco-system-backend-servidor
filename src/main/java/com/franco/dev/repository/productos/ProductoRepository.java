@@ -4,6 +4,8 @@ import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,17 +20,17 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
 
     public Producto findByDescripcion(String texto);
 
-    @Query(value = "select distinct on (p.id, p.descripcion) p.id, p.descripcion, p.balanza , p.cambiable , p.combo , p.creado_en , p.descripcion_factura , p.dias_vencimiento, p.es_alcoholico , p.garantia, p.imagenes , p.ingrediente , p.iva, p.observacion , p.promocion , p.propagado , p.stock , p.sub_familia_id , p.tiempo_garantia , p.tipo_conservacion , p.unidad_por_caja , p.unidad_por_caja_secundaria , p.usuario_id , p.vencimiento, p.is_envase, p.envase_id   " +
+    @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
-            "where CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcion_factura) like %?1% or c.codigo like %?1% " +
+            "where (CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcion_factura) like %?1% or c.codigo like %?1%) and p.activo = true " +
             "ORDER BY p.descripcion asc  " +
             "limit 10 " +
             "offset ?2", nativeQuery = true)
     public List<Producto> findbyAll(String texto, int offset);
 
-    @Query(value = "select distinct on (p.id, p.descripcion) p.id, p.descripcion, p.balanza , p.cambiable , p.combo , p.creado_en , p.descripcion_factura , p.dias_vencimiento, p.es_alcoholico , p.garantia, p.imagenes , p.ingrediente , p.iva, p.observacion , p.promocion , p.propagado , p.stock , p.sub_familia_id , p.tiempo_garantia , p.tipo_conservacion , p.unidad_por_caja , p.unidad_por_caja_secundaria , p.usuario_id , p.vencimiento,p.is_envase, p.envase_id   " +
+    @Query(value = "select distinct on (p.id, p.descripcion) p.*   " +
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
@@ -100,4 +102,23 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             @Param("endDate") LocalDateTime endDate,
             @Param("usuarioIdList") List<Long> usuarioIdList,
             @Param("productoIdList") List<Long> productoIdList);
+
+    @Query("select p from Producto p " +
+            "join p.subfamilia sub " +
+            "where  (CAST(p.id as text) like %:texto% or UPPER(p.descripcion) like %:texto% or UPPER(p.descripcionFactura) like %:texto%) " +
+            "and ((:activo) is null or p.activo = :activo) " +
+            "and ((:stock) is null or p.stock = :stock) " +
+            "and ((:balanza) is null or p.balanza = :balanza) " +
+            "and ((:vencimiento) is null or p.vencimiento = :vencimiento) " +
+            "and ((:subfamiliaId) is null or sub.id = :subfamiliaId) " +
+            "order by p.id asc")
+    public Page<Producto> searchWithFilters(
+            @Param("texto") String texto,
+            @Param("activo") Boolean activo,
+            @Param("stock") Boolean stock,
+            @Param("balanza") Boolean balanza,
+            @Param("subfamiliaId") Long subfamiliaId,
+            @Param("vencimiento") Boolean vencimiento,
+            Pageable pageable
+    );
 }

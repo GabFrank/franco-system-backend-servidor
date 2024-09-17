@@ -15,6 +15,9 @@ public class DateUtils {
     public static String toString(LocalDateTime d) {
         return formatter.format(d);
     }
+    public static String dateToString(LocalDateTime d) {
+        return formatter.format(d);
+    }
 
     public static String toStringOnlyDate(LocalDateTime d) {
         return formatter2.format(d);

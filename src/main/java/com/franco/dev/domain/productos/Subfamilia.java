@@ -48,7 +48,7 @@ public class Subfamilia implements Identifiable<Long> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuarioId;
+    private Usuario usuario;
 
     private Integer posicion;
 }

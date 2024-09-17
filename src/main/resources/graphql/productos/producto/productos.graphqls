@@ -30,6 +30,8 @@ type Producto {
     costo: CostoPorProducto
     isEnvase: Boolean
     envase: Producto
+    activo: Boolean
+    creadoEn: Date
 }
 
 input ProductoInput {
@@ -56,6 +58,20 @@ input ProductoInput {
     tipoConservacion: TipoConservacion
     isEnvase: Boolean
     envaseId: Int
+    activo: Boolean
+    creadoEn: String
+}
+
+type ProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Producto]
+    getPageable: Pageable
 }
 
 extend type Query {
@@ -70,6 +86,7 @@ extend type Query {
     exportarReporte(texto: String): String
     lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
     imprimirCodigoBarra(codigoId: Int): Boolean
+    searchProductoWithFilters(texto: String, codigo: String, activo: Boolean, stock: Boolean, balanza: Boolean, subfamilia: Int, vencimiento: Boolean page: Int, size: Int):ProductoPage
 }
 
 extend type Mutation {

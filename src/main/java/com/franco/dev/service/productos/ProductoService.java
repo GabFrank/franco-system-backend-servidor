@@ -20,6 +20,8 @@ import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ResourceUtils;
 
@@ -75,6 +77,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             }
         }
         return new ArrayList<>();
+    }
+
+    public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza, Long subfamiliaId, Boolean vencimiento, Pageable page) {
+        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, page);
     }
 
     public Producto save(ProductoInput entity) throws GraphQLException {

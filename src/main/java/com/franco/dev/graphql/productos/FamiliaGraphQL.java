@@ -10,6 +10,7 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.FamiliaService;
 import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -56,7 +57,16 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         Familia e = m.map(input, Familia.class);
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
-        e = service.save(e);
+        try {
+            e = service.save(e);
+        } catch (Exception err){
+            err.printStackTrace();
+            if(err.getMessage().contains("familia_unique")){
+                throw new GraphQLException("Ya existe una familia con ese nombre");
+            } else {
+                throw new GraphQLException("No se pudo guardar");
+            }
+        }
         return e;
     }
 

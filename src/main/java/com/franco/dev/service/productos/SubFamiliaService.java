@@ -5,8 +5,12 @@ import com.franco.dev.repository.productos.SubFamiliaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -24,32 +28,39 @@ public class SubFamiliaService extends CrudService<Subfamilia, SubFamiliaReposit
         return repository;
     }
 
-    public List<Subfamilia> findByDescripcion(String texto){
-        texto = texto.replace(' ', '%');
-        return  repository.findByDescripcion(texto);
+    public Page<Subfamilia> findByDescripcion(Long familiaId, String texto, int page, int size) {
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        Pageable pageable = PageRequest.of(page, size);
+        return repository.findByDescripcion(familiaId, texto, pageable);
     }
 
-    public List<Subfamilia> findByFamiliaDescripcion(String texto){
-        texto = texto.replace(' ', '%');
-        return  repository.findByFamiliaDescripcion(texto);
+    public Page<Subfamilia> findByDescripcionSinFamilia(String texto, int page, int size) {
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        Pageable pageable = PageRequest.of(page, size);
+        return repository.findByDescripcionSinFamilia(texto, pageable);
     }
 
-    public List<Subfamilia> findByFamiliaId(Long id){
+    public List<Subfamilia> findByFamiliaDescripcion(String texto) {
+        texto = texto.replace(' ', '%');
+        return repository.findByFamiliaDescripcion(texto);
+    }
+
+    public List<Subfamilia> findByFamiliaId(Long id) {
         return repository.findByFamiliaId(id);
     }
 
-    public List<Subfamilia> findBySubFamilia(Long id){
+    public List<Subfamilia> findBySubFamilia(Long id) {
         return repository.findBySubfamiliaId(id);
     }
 
     @Override
     public Subfamilia save(Subfamilia entity) {
+        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         Subfamilia e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
     }
 
-    public List<Subfamilia> findBySubfamiliaIsNull(){
+    public List<Subfamilia> findBySubfamiliaIsNull() {
         return repository.findBySubfamiliaIsNull();
     }
 

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -81,9 +82,6 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if(input.getFuncionarioId()!=null){
             e.setEntregador(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
         }
-        if(input.getVentaId()!=null){
-            e.setVenta(ventaService.findById(new EmbebedPrimaryKey(input.getVentaId(), input.getSucursalId())).orElse(null));
-        }
         if(input.getPrecioId()!=null){
             e.setPrecio(deliveryPrecioService.findById(input.getPrecioId()).orElse(null));
         }
@@ -106,7 +104,8 @@ public class DeliveryGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public List<Delivery> deliveryPorCajaIdAndEstados(Long id, List<DeliveryEstado> estadoList, Long sucId){
-        return service.findByVentaCajaIdAndEstadoIn(id, estadoList, sucId);
+        List<Delivery> deliveryList = ventaService.getRepository().findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(id, sucId, estadoList).stream().map(v -> v.getDelivery()).collect(Collectors.toList());
+        return deliveryList;
     }
 
 }

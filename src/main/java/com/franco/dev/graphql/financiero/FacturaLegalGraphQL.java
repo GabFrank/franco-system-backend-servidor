@@ -229,7 +229,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         printService = PrinterOutputStream.getPrintServiceByName(printerName);
         Sucursal sucursal = sucursalService.findById(facturaLegal.getSucursalId()).orElse(null);
         Delivery delivery = null;
-        if (venta != null) delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
+        if (venta != null) delivery = venta.getDelivery();
         Double aumento = 0.0;
         Double vueltoGs = 0.0;
         Double vueltoRs = 0.0;

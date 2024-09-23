@@ -7,11 +7,11 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.persistence.EntityManagerFactory;
 
-@Configuration
-public class TransactionConfig {
-
-    @Bean(name = "transactionManager")
-    public PlatformTransactionManager transactionManager(EntityManagerFactory emf) {
-        return new JpaTransactionManager(emf);
-    }
-}
+//@Configuration
+//public class TransactionConfig {
+//
+//    @Bean(name = "transactionManager")
+//    public PlatformTransactionManager transactionManager(EntityManagerFactory emf) {
+//        return new JpaTransactionManager(emf);
+//    }
+//}

@@ -1,6 +1,5 @@
 package com.franco.dev.service.rabbitmq;
 
-import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Conteo;

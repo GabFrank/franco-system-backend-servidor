@@ -18,7 +18,6 @@ public class DeliveryService extends CrudService<Delivery, DeliveryRepository, E
     private final DeliveryRepository repository;
     private final DeliveryPublisher deliveryPublisher;
 
-
     @Override
     public DeliveryRepository getRepository() {
         return repository;
@@ -45,14 +44,6 @@ public class DeliveryService extends CrudService<Delivery, DeliveryRepository, E
         Delivery e = super.save(entity);
         deliveryPublisher.publish(e);
         return e;
-    }
-
-    public Delivery findByVentaId(Long id, Long sucId) {
-        return repository.findByVentaIdAndSucursalId(id, sucId);
-    }
-
-    public List<Delivery> findByVentaCajaIdAndEstadoIn(Long id, List<DeliveryEstado> estado, Long sucId){
-        return repository.findByVentaCajaIdAndEstadoInAndSucursalId(id,estado, sucId);
     }
 
 }

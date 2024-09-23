@@ -244,7 +244,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         VentaCredito ventaCredito = service.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (ventaCredito == null) throw new GraphQLException("Venta credito no encontrada");
         List<VentaCreditoCuota> ventaCreditoCuotaList = ventaCreditoCuotaService.findByVentaCreditoId(ventaCredito.getId(), ventaCredito.getSucursalId());
-        Delivery delivery = deliveryService.findByVentaId(ventaCredito.getVenta().getId(), ventaCredito.getVenta().getSucursalId());
+        Delivery delivery = ventaCredito.getVenta().getDelivery();
         try {
             printTicket58mm(ventaCredito, ventaCredito.getVenta(), null, printerName, ventaCreditoCuotaList, delivery);
             return true;

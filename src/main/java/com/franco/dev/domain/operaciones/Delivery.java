@@ -41,13 +41,6 @@ public class Delivery implements Serializable {
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
-    @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.PERSIST)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "venta_id", referencedColumnName = "id"))
-    })
-    private Venta venta;
-
     @Column(name = "valor_en_gs")
     private Double valor;
 

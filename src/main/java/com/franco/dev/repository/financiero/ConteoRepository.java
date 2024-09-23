@@ -19,7 +19,7 @@ public interface ConteoRepository extends HelperRepository<Conteo, EmbebedPrimar
 //    public List<Conteo> findByAll(String texto);
 
     @Query(value = "SELECT sum(cm.cantidad * mb.valor) FROM financiero.conteo c " +
-            "join financiero.conteo_moneda cm on c.id = cm.conteo_id " +
+            "join financiero.conteo_moneda cm on c.id = cm.conteo_id and c.sucursal_id = cm.sucursal_id " +
             "join financiero.moneda_billetes mb on mb.id = cm.moneda_billetes_id " +
             "where c.id = ?1 and mb.moneda_id = ?2 and c.sucursal_id = ?3", nativeQuery = true)
     public Double getTotalPorMoneda(Long conteoId, Long monedaId, Long sucId);

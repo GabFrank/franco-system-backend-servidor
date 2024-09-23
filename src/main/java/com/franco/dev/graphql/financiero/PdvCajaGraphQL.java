@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.CajaBalance;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.SolicitudAperturaCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.graphql.financiero.input.PdvCajaInput;
@@ -14,6 +15,7 @@ import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -66,9 +68,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByDate(inicio, fin, sucId);
     }
 
-    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, int page, int size) {
+    public Page<PdvCaja> cajasWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, pageable);
+        return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, pageable);
     }
 
     public CajaBalance balancePorFecha(String inicio, String fin, Long sucId) {
@@ -80,6 +82,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
         CajaBalance cajaBalance = new CajaBalance();
         cajaBalance.setTotalGeneral(totalGeneral);
+        return cajaBalance;
+    }
+
+    public CajaBalance balancePorCajaIdAndSucursalId(Long id, Long sucId){
+        CajaBalance cajaBalance = service.getBalance(new EmbebedPrimaryKey(id, sucId));
         return cajaBalance;
     }
 
@@ -152,6 +159,19 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             return true;
         } catch (Exception e) {
             return false;
+        }
+    }
+
+    public Boolean verificarCaja(Long cajaId, Long sucursalId, Long usuarioId, Boolean verificado){
+        try {
+            PdvCaja caja = service.findById(cajaId, sucursalId);
+            Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+            caja.setVerificado(verificado);
+            caja.setVerificadoPor(usuario);
+            service.save(caja);
+            return true;
+        } catch (Exception e){
+            throw new GraphQLException("No se pudo verificar la caja");
         }
     }
 

@@ -109,7 +109,7 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (e != null && precioCosto != null) {
             Producto producto = e.getPresentacionPreTransferencia().getProducto();
             CostoPorProducto costoPorProducto = new CostoPorProducto();
-            CostoPorProducto lastCostoPorProducto = costosPorProductoService.findLastByProductoId(producto.getId()).orElse(null);
+            CostoPorProducto lastCostoPorProducto = costosPorProductoService.findLastByProductoId(producto.getId());
             if (lastCostoPorProducto != null && lastCostoPorProducto.getUltimoPrecioCompra() != null && lastCostoPorProducto.getUltimoPrecioCompra() != precioCosto) {
                 if (lastCostoPorProducto != null && lastCostoPorProducto.getCostoMedio() == null) {
                     costoPorProducto.setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);

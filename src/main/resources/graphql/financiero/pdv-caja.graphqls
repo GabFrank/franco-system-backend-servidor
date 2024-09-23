@@ -59,8 +59,10 @@ extend type Query {
     cajaAbiertoPorUsuarioIdPorSucursal(id:ID!, sucId: ID):PdvCaja
     imprimirBalance(id:ID!, printerName: String, local: String, sucId: ID):PdvCaja
     balancePorFecha(inicio: String, fin: String, sucId: ID): CajaBalance
+    balancePorCajaIdAndSucursalId(id: ID!, sucId: ID): CajaBalance
     cajasPorUsuarioId(id:ID!, page: Int, size: Int):[PdvCaja]
-    cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, page:Int, size:Int):PdvCajaPage
+    cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, page:Int, size:Int):PdvCajaPage
+    verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
 }
 
 extend type Mutation {

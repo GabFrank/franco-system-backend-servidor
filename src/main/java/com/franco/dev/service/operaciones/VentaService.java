@@ -1,9 +1,9 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
-import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.MovimientoCaja;
+import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.*;
@@ -11,7 +11,6 @@ import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
@@ -23,9 +22,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.criteria.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,23 +74,13 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 //        return  repository.findByProveedor(texto.toLowerCase());
 //    }
 
-    public Venta findByIdAndSucursalId(Long id, Long sucId){
+    public Venta findByIdAndSucursalId(Long id, Long sucId) {
         return repository.findByIdAndSucursalId(id, sucId);
     }
 
     public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
         Pageable pagina = PageRequest.of(page, size);
-        if (formaPago != null || estado != null || isDelivery != null || monedaId != null)
-            if (isDelivery == null || isDelivery == false) {
-                return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, monedaId);
-            } else {
-                return repository.findWithFilters(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId);
-            }
-        if (asc == true)
-            return repository.findAllByCajaIdAndSucursalIdOrderByIdAsc(id.getId(), id.getSucursalId(), pagina);
-        if (asc != true)
-            return repository.findAllByCajaIdAndSucursalIdOrderByIdDesc(id.getId(), id.getSucursalId(), pagina);
-        return null;
+        return findWithFiltersCriteria(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId, asc);
     }
 
     public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
@@ -119,7 +110,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         LocalDateTime fechaInicio = stringToDate(inicio);
         LocalDateTime fechaFin = stringToDate(fin);
         List<Venta> ventaList = null;
-            ventaList = repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, fechaInicio, fechaFin);
+        ventaList = repository.findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(sucId, fechaInicio, fechaFin);
         return ventaList;
     }
 
@@ -134,20 +125,11 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             ventaPorPeriodoList.add(ventaPorPeriodoV1Dto);
         }
         for (VentaPorPeriodoV1Dto ventaPorPeriodo : ventaPorPeriodoList) {
-            List<Venta> ventaList = new ArrayList<>();
-            for(String key: TenantContext.getAllTenantKeys()){
-                List<Venta> aux = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
-                ventaList.addAll(aux);
-            }
-//            List<Venta> ventaList = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
+            List<Venta> ventaList = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
             ventaPorPeriodo.setCantVenta(ventaList.size());
             for (Venta venta : ventaList) {
                 if (venta.getEstado() != VentaEstado.CANCELADA || venta.getEstado() != VentaEstado.ABIERTA) {
-                    List<CobroDetalle> cobroDetalleList = new ArrayList<>();
-                    for(String key: TenantContext.getAllTenantKeys()){
-                        List<CobroDetalle> aux = cobroDetalleService.findByCobroId(venta.getCobro().getId(), venta.getSucursalId());
-                        cobroDetalleList.addAll(aux);
-                    }
+                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(venta.getCobro().getId(), venta.getSucursalId());
                     for (CobroDetalle cobroDetalle : cobroDetalleList) {
                         if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
                             if (cobroDetalle.getPago()) {
@@ -201,7 +183,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                     movStock = movimientoStockService.save(movStock);
                 }
             }
-            Delivery delivery = deliveryService.findByVentaId(venta.getId(), venta.getSucursalId());
+            Delivery delivery = venta.getDelivery();
             if (delivery != null) {
                 delivery.setEstado(DeliveryEstado.CANCELADO);
                 deliveryService.save(delivery);
@@ -211,7 +193,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId());
             }
             return true;
-        } catch (Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             throw new GraphQLException("No se pudo cancelar la venta");
         }
@@ -222,4 +204,59 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         LocalDateTime fin = stringToDate(fechaFin);
         return null;
     }
+
+    public Page<Venta> findWithFiltersCriteria(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc) {
+        Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
+        Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        return this.repository.findAll((root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            Join<Venta, PdvCaja> cajaJoin = root.join("caja", JoinType.INNER);
+
+            // Add the predicates
+            predicates.add(cb.equal(cajaJoin.get("id"), id));
+            predicates.add(cb.equal(root.get("sucursalId"), sucId));
+
+            if (formaPagoId != null || monedaId != null) {
+                Subquery<Long> cobroDetalleSubquery = query.subquery(Long.class);
+                Root<CobroDetalle> cobroDetalleRoot = cobroDetalleSubquery.from(CobroDetalle.class);
+
+                List<Predicate> subqueryPredicates = new ArrayList<>();
+
+                subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("cobro"), root.get("cobro")));
+                subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("sucursalId"), root.get("sucursalId")));
+
+                if (formaPagoId != null) {
+                    subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("formaPago").get("id"), formaPagoId));
+                }
+
+                if (monedaId != null) {
+                    subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("moneda").get("id"), monedaId));
+                }
+
+                cobroDetalleSubquery.select(cobroDetalleRoot.get("id"))
+                        .where(subqueryPredicates.toArray(new Predicate[0]));
+
+                predicates.add(cb.exists(cobroDetalleSubquery));
+            }
+
+            if (estado != null) {
+                predicates.add(cb.equal(root.get("estado"), estado));
+            }
+
+            if (isDelivery != null) {
+                Join<Venta, Delivery> deliveryJoin = root.join("delivery", JoinType.LEFT);
+                if (isDelivery == true) {
+                    predicates.add(cb.isNotNull(deliveryJoin.get("id")));
+                } else {
+                    predicates.add(cb.isNull(deliveryJoin.get("id")));
+                }
+            }
+
+            // Combine predicates with AND
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, newPageable);
+    }
 }
+
+// dropdown de moneda no aparece (revisar porque)

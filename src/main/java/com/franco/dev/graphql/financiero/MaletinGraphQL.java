@@ -52,7 +52,8 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        return multiTenantService.compartir("filial"+input.getSucursalId(), (params) -> service.save(e), e);
+//        return multiTenantService.compartir("filial"+input.getSucursalId(), (params) -> service.save(e), e);
+        return service.save(e);
     }
 
     public Maletin maletinPorDescripcion(String texto) {

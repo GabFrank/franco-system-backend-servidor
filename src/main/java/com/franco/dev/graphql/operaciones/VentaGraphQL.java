@@ -50,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -60,10 +61,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
@@ -140,12 +138,13 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         if (cobro != null) {
             ModelMapper m = new ModelMapper();
             Venta e = m.map(ventaInput, Venta.class);
-            if (e.getUsuario() != null) e.setUsuario(usuarioService.findById(ventaInput.getUsuarioId()).orElse(null));
-            if (e.getCliente() != null) e.setCliente(clienteService.findById(ventaInput.getClienteId()).orElse(null));
-            if (e.getFormaPago() != null)
+            if (ventaInput.getUsuarioId() != null) e.setUsuario(usuarioService.findById(ventaInput.getUsuarioId()).orElse(null));
+            if (ventaInput.getClienteId() != null) e.setCliente(clienteService.findById(ventaInput.getClienteId()).orElse(null));
+            if (ventaInput.getFormaPagoId() != null)
                 e.setFormaPago(formaPagoService.findById(ventaInput.getFormaPagoId()).orElse(null));
-            if (e.getCaja() != null)
+            if (ventaInput.getCajaId() != null)
                 e.setCaja(pdvCajaService.findById(e.getCaja().getId(), e.getCaja().getSucursalId()));
+            if(ventaInput.getDeliveryId()!=null) e.setDelivery(deliveryService.findById(new EmbebedPrimaryKey(ventaInput.getDeliveryId(), ventaInput.getSucursalId())).orElse(null));
             e.setCobro(cobro);
             venta = service.save(e);
             if (venta != null) {
@@ -314,8 +313,12 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     }
 
-    public Page<Venta> ventasPorCajaId(Long id, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
-        return service.findByCajaId(new EmbebedPrimaryKey(id, sucId), page, size, asc, formaPago, estado, isDelivery, monedaId);
+    public Page<Venta> ventasPorCajaId(Long idVenta, Long idCaja, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
+        if(idVenta!=null){
+            Venta venta = service.findById(new EmbebedPrimaryKey(idVenta, sucId)).orElse(null);
+            return new PageImpl<>(Arrays.asList(venta), PageRequest.of(0, 1), 1);
+        }
+        return service.findByCajaId(new EmbebedPrimaryKey(idCaja, sucId), page, size, asc, formaPago, estado, isDelivery, monedaId);
     }
 
     public Boolean cancelarVenta(Long id, Long sucId) {

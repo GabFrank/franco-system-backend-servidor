@@ -56,14 +56,14 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "maletin_id", nullable = true)
     private Maletin maletin;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "conteo_apertura_id", referencedColumnName = "id"))
     })
     private Conteo conteoApertura;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
             @JoinColumnOrFormula(column = @JoinColumn(name = "conteo_cierre_id", referencedColumnName = "id"))
@@ -74,7 +74,7 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 

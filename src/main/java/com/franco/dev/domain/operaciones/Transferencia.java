@@ -50,11 +50,11 @@ public class Transferencia implements Identifiable<Long> {
     )
     private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_origen_id", nullable = true)
     private Sucursal sucursalOrigen;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_destino_id", nullable = true)
     private Sucursal sucursalDestino;
 

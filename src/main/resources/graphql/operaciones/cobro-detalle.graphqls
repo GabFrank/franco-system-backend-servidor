@@ -11,6 +11,7 @@ type CobroDetalle {
     pago: Boolean
     creadoEn: Date
     usuario: Usuario
+    sucursal: Sucursal
     sucursalId: Int
     identificadorTransaccion: String
 }

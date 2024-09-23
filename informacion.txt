@@ -1,0 +1,2 @@
+-- comando para exportar archivo jar a produccion
+./mvnw clean package -Dspring.profiles.active=prod

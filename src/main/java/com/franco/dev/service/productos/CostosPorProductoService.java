@@ -6,6 +6,7 @@ import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -27,8 +28,9 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         return repository;
     }
 
-    public Optional<CostoPorProducto> findLastByProductoId(Long prdoId){
-        return Optional.ofNullable(repository.findLastByProductoId(prdoId));
+    public CostoPorProducto findLastByProductoId(Long prdoId){
+        List<CostoPorProducto> c = repository.findLastByProductoId(prdoId, PageRequest.of(0,1));
+        return c.size() > 0 ? c.get(0) : null;
     }
 
     public Page<CostoPorProducto> findByProductoId(Long id, Pageable page){

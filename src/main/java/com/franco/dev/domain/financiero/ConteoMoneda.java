@@ -38,7 +38,7 @@ public class ConteoMoneda extends EmbeddedEntity implements Serializable {
     })
     private Conteo conteo;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_billetes_id", nullable = true)
     private MonedaBilletes monedaBilletes;
 

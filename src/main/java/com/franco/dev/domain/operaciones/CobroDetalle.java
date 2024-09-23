@@ -1,6 +1,7 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.personas.Usuario;
@@ -32,6 +33,10 @@ public class CobroDetalle extends EmbeddedEntity implements Serializable {
     @Id
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sucursal_id", nullable = true)
+    private Sucursal sucursal;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {

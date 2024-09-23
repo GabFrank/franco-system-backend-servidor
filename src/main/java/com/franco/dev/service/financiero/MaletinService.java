@@ -1,19 +1,14 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
-import com.franco.dev.config.multitenant.TenantContext;
 import com.franco.dev.domain.financiero.Maletin;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.financiero.MaletinRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,11 +16,9 @@ import java.util.List;
 @AllArgsConstructor
 public class MaletinService extends CrudService<Maletin, MaletinRepository, Long> {
 
+    private final MaletinRepository repository;
     @Autowired
     private PropagacionService propagacionService;
-
-    private final MaletinRepository repository;
-
     @Autowired
     private MultiTenantService multiTenantService;
 
@@ -49,36 +42,36 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
 //        }
 //    }
 
-    public Maletin findByDescripcion(String texto){
+    public Maletin findByDescripcion(String texto) {
         Maletin m = repository.findByDescripcionIgnoreCase(texto);
         return m;
     }
 
-    public List<Maletin> searchByAll(String texto, Long sucId){
-        texto = texto!=null ? texto.toUpperCase() : "";
+    public List<Maletin> searchByAll(String texto, Long sucId) {
+        texto = texto != null ? texto.toUpperCase() : "";
         return repository.findByAll(texto, sucId);
     }
 
     @Override
     public Maletin save(Maletin entity) {
-        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
-        if(entity.getCreadoEn()==null) entity.setCreadoEn(LocalDateTime.now()   );
+        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         Maletin e = super.save(entity);
         return e;
     }
 
-    public Maletin abrirMaletin(Long id){
+    public Maletin abrirMaletin(Long id) {
         Maletin m = findById(id).orElse(null);
-        if(m!=null){
+        if (m != null) {
             m.setAbierto(true);
             return save(m);
         }
         return null;
     }
 
-    public Maletin cerrarMaletin(Long id){
+    public Maletin cerrarMaletin(Long id) {
         Maletin m = findById(id).orElse(null);
-        if(m!=null){
+        if (m != null) {
             m.setAbierto(false);
             return save(m);
         }

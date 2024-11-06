@@ -124,6 +124,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 oldSucursalDestinoId = transferencia.getSucursalDestino().getId();
             }
         }
+        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         e = service.save(e);
         if (newSucursalOrigenId != null) {
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaId(transferencia.getId());

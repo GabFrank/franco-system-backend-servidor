@@ -25,4 +25,12 @@ public class PushNotificationService {
         }
     }
 
+    public void sendPushNotificationToTopic(PushNotificationRequest request) {
+        try {
+            fcmService.sendMessageToTopic(request);
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+        }
+    }
+
 }

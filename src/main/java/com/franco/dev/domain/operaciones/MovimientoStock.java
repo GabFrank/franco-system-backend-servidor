@@ -26,15 +26,15 @@ import java.time.LocalDateTime;
         typeClass = PostgreSQLEnumType.class
 )
 @Table(name = "movimiento_stock", schema = "operaciones")
-//@IdClass(EmbebedPrimaryKey.class)
+@IdClass(EmbebedPrimaryKey.class)
 public class MovimientoStock implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Id
     @Column(name = "sucursal_id")
     private Long sucursalId;
 

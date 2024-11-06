@@ -93,25 +93,28 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
 
     public List<Venta> findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(Long id, Long sucId,  List<DeliveryEstado> estadoList);
 
-    @Query(value = "SELECT " +
-            "SUM(CASE WHEN m.denominacion = 'GUARANI' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaGs, " +
-            "SUM(CASE WHEN m.denominacion = 'REAL' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaRs, " +
-            "SUM(CASE WHEN m.denominacion = 'DOLAR' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaDs, " +
-            "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN cd.valor ELSE 0 END) AS totalTarjeta, " +
-            "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, " +
-            "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, " +
-            "SUM(CASE WHEN cd.aumento THEN cd.valor ELSE 0 END) AS totalAumento, " +
-            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS vueltoGs, " +
-            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS vueltoRs, " +
-            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS vueltoDs, " +
-            "(SELECT SUM(v2.total_gs) FROM operaciones.venta v2 WHERE v2.caja_id = :cajaId AND v2.sucursal_id = :sucursalId AND v2.estado IN ('CONCLUIDA', 'EN_VERIFICACION')) AS totalGeneral " +
-            "FROM operaciones.venta v " +
-            "JOIN operaciones.cobro c ON v.cobro_id = c.id AND v.sucursal_id = c.sucursal_id " +
-            "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = c.id AND cd.sucursal_id = c.sucursal_id " +
-            "JOIN financiero.moneda m ON cd.moneda_id = m.id " +
-            "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id " +
-            "WHERE v.caja_id = :cajaId " +
-            "AND v.sucursal_id = :sucursalId " +
+    @Query(value = "SELECT \n" +
+            "SUM(CASE WHEN m.denominacion = 'GUARANI' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaGs, \n" +
+            "SUM(CASE WHEN m.denominacion = 'REAL' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaRs, \n" +
+            "SUM(CASE WHEN m.denominacion = 'DOLAR' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaDs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, \n" +
+            "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, \n" +
+            "SUM(CASE WHEN cd.aumento THEN cd.valor ELSE 0 END) AS totalAumento, \n" +
+            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS vueltoGs, \n" +
+            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS vueltoRs, \n" +
+            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS vueltoDs, \n" +
+            "(SELECT SUM(v2.total_gs + coalesce(pd.valor, 0)) FROM operaciones.venta v2 \n" +
+            "\tleft join operaciones.delivery d on v2.delivery_id = d.id and v2.sucursal_id = d.sucursal_id \n" +
+            "\tleft join operaciones.precio_delivery pd on d.precio_delivery_id = pd.id\n" +
+            "\tWHERE v2.caja_id = :cajaId AND v2.sucursal_id = :sucursalId AND v2.estado IN ('CONCLUIDA', 'EN_VERIFICACION')) AS totalGeneral \n" +
+            "FROM operaciones.venta v \n" +
+            "JOIN operaciones.cobro c ON v.cobro_id = c.id AND v.sucursal_id = c.sucursal_id \n" +
+            "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = c.id AND cd.sucursal_id = c.sucursal_id \n" +
+            "JOIN financiero.moneda m ON cd.moneda_id = m.id \n" +
+            "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id \n" +
+            "WHERE v.caja_id = :cajaId \n" +
+            "AND v.sucursal_id = :sucursalId \n" +
             "AND v.estado IN ('CONCLUIDA', 'EN_VERIFICACION')", nativeQuery = true)
     List<Object[]> sumarioVentasPorCajaAndSurusal(@Param("cajaId") Long cajaId, @Param("sucursalId") Long sucursalId);
 

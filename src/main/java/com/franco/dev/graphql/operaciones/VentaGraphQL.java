@@ -2,26 +2,18 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
-import com.franco.dev.domain.financiero.PdvCaja;
-import com.franco.dev.domain.financiero.VentaCredito;
-import com.franco.dev.domain.operaciones.*;
-import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
-import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
-import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
+import com.franco.dev.domain.operaciones.Cobro;
+import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
-import com.franco.dev.domain.productos.CostoPorProducto;
-import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
 import com.franco.dev.graphql.financiero.VentaCreditoGraphQL;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
 import com.franco.dev.graphql.operaciones.input.CobroInput;
 import com.franco.dev.graphql.operaciones.input.VentaInput;
 import com.franco.dev.graphql.operaciones.input.VentaItemInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
-import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
@@ -62,7 +54,6 @@ import java.io.File;
 import java.text.NumberFormat;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.Function;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 
@@ -138,13 +129,16 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         if (cobro != null) {
             ModelMapper m = new ModelMapper();
             Venta e = m.map(ventaInput, Venta.class);
-            if (ventaInput.getUsuarioId() != null) e.setUsuario(usuarioService.findById(ventaInput.getUsuarioId()).orElse(null));
-            if (ventaInput.getClienteId() != null) e.setCliente(clienteService.findById(ventaInput.getClienteId()).orElse(null));
+            if (ventaInput.getUsuarioId() != null)
+                e.setUsuario(usuarioService.findById(ventaInput.getUsuarioId()).orElse(null));
+            if (ventaInput.getClienteId() != null)
+                e.setCliente(clienteService.findById(ventaInput.getClienteId()).orElse(null));
             if (ventaInput.getFormaPagoId() != null)
                 e.setFormaPago(formaPagoService.findById(ventaInput.getFormaPagoId()).orElse(null));
             if (ventaInput.getCajaId() != null)
                 e.setCaja(pdvCajaService.findById(e.getCaja().getId(), e.getCaja().getSucursalId()));
-            if(ventaInput.getDeliveryId()!=null) e.setDelivery(deliveryService.findById(new EmbebedPrimaryKey(ventaInput.getDeliveryId(), ventaInput.getSucursalId())).orElse(null));
+            if (ventaInput.getDeliveryId() != null)
+                e.setDelivery(deliveryService.findById(new EmbebedPrimaryKey(ventaInput.getDeliveryId(), ventaInput.getSucursalId())).orElse(null));
             e.setCobro(cobro);
             venta = service.save(e);
             if (venta != null) {
@@ -314,7 +308,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Page<Venta> ventasPorCajaId(Long idVenta, Long idCaja, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
-        if(idVenta!=null){
+        if (idVenta != null) {
             Venta venta = service.findById(new EmbebedPrimaryKey(idVenta, sucId)).orElse(null);
             return new PageImpl<>(Arrays.asList(venta), PageRequest.of(0, 1), 1);
         }
@@ -323,12 +317,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public Boolean cancelarVenta(Long id, Long sucId) {
         Venta venta = service.findByIdAndSucursalId(id, sucId);
-        if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-            Boolean ok = service.cancelarVenta(venta);
-            return ok;
-        } else {
-            return false;
-        }
+        return service.cancelarVenta(venta);
     }
 
     public Boolean reimprimirVenta(Long id, String printerName, String local, Long sucId) throws Exception {

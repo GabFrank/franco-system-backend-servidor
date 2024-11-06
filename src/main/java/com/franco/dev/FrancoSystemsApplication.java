@@ -75,7 +75,6 @@ public class FrancoSystemsApplication {
 
     @Bean
     public void getHomePath() {
-        System.out.println("Iniciando test database change");
     }
 
     @Bean

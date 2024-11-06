@@ -205,7 +205,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean cancelarVentaCredito(Long id, Long sucId) {
-        return service.cancelarVentaCredito(id, sucId);
+        return service.cancelarVentaCredito(id, sucId, null);
     }
 
     public Boolean finalizarVentaCredito(Long id, Long sucId) {

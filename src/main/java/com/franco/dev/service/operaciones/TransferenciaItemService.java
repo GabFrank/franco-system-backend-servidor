@@ -14,6 +14,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -59,6 +61,7 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
     }
 
     @Override
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public TransferenciaItem save(TransferenciaItem entity) {
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         TransferenciaItem e = super.save(entity);

@@ -15,6 +15,7 @@ import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.InventarioService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import graphql.GraphQLException;
@@ -57,6 +58,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private InventarioProductoItemService inventarioProductoItemService;
+
+    @Autowired
+    private ProductoService productoService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -191,20 +195,21 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
                     for (Map.Entry<Long, Double> entry : cantidadesPorProducto.entrySet()) {
                         Long productoId = entry.getKey();
+                        Producto foundProducto = productoService.findById(productoId).orElse(null);
                         Double cantidadTotal = entry.getValue();
                         Double stockSistema = 0.0;
                         MovimientoStock movimientoStockEncontrado = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId(), productoId);
                         if (movimientoStockEncontrado != null) {
-                            stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId());
+                            stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId(), inventario.getSucursal().getId());
                         } else {
-                            stockSistema = movimientoStockService.stockByProductoId(productoId);
+                            stockSistema = movimientoStockService.stockByProductoIdAndSucursalId(productoId, inventario.getSucursal().getId());
                         }
                         if (movimientoStockEncontrado == null) {
                             movimientoStockEncontrado = new MovimientoStock();
                             movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
                             movimientoStockEncontrado.setSucursalId(inventario.getSucursal().getId());
                             movimientoStockEncontrado.setReferencia(inventario.getId());
-                            movimientoStockEncontrado.setProducto(selectedProducto);
+                            movimientoStockEncontrado.setProducto(foundProducto);
                             movimientoStockEncontrado.setUsuario(inventario.getUsuario());
                             movimientoStockEncontrado.setEstado(true);
                         }

@@ -219,14 +219,11 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             List<ConteoMoneda> conteoMonedaCierreList = pdvCaja.getConteoCierre() != null ? conteoMonedaService.findByConteoId(pdvCaja.getConteoCierre().getId(), pdvCaja.getSucursalId()) : new ArrayList<>();
             List<RetiroDetalle> retiroDetalleList = retiroDetalleService.findByCajId(pdvCaja.getId(), pdvCaja.getSucursalId());
             List<Gasto> gastoList = gastoService.findByCajaId(pdvCaja.getId(), pdvCaja.getSucursalId());
-            List<Venta> ventaList = ventaService.findAllByCajaId(new EmbebedPrimaryKey(pdvCaja.getId(), pdvCaja.getSucursalId()));
+//            List<Venta> ventaList = ventaService.findAllByCajaId(new EmbebedPrimaryKey(pdvCaja.getId(), pdvCaja.getSucursalId()));
             if (!conteoMonedaAperList.isEmpty()) {
                 Double totalGsAper = 0.0;
                 Double totalRsAper = 0.0;
                 Double totalDsAper = 0.0;
-                Double totalGsCierre = 0.0;
-                Double totalRsCierre = 0.0;
-                Double totalDsCierre = 0.0;
 
 
                 for (ConteoMoneda c : conteoMonedaAperList) {
@@ -238,6 +235,16 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                         totalDsAper += c.getCantidad() * c.getMonedaBilletes().getValor();
                     }
                 }
+                balance.setTotalGsAper(totalGsAper);
+                balance.setTotalRsAper(totalRsAper);
+                balance.setTotalDsAper(totalDsAper);
+
+            }
+
+            if (!conteoMonedaCierreList.isEmpty()) {
+                Double totalGsCierre = 0.0;
+                Double totalRsCierre = 0.0;
+                Double totalDsCierre = 0.0;
                 for (ConteoMoneda c : conteoMonedaCierreList) {
                     if (c.getMonedaBilletes().getMoneda().getDenominacion().contains("GUARANI")) {
                         totalGsCierre += c.getCantidad() * c.getMonedaBilletes().getValor();
@@ -247,9 +254,6 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                         totalDsCierre += c.getCantidad() * c.getMonedaBilletes().getValor();
                     }
                 }
-                balance.setTotalGsAper(totalGsAper);
-                balance.setTotalRsAper(totalRsAper);
-                balance.setTotalDsAper(totalDsAper);
                 balance.setTotalGsCierre(totalGsCierre);
                 balance.setTotalRsCierre(totalRsCierre);
                 balance.setTotalDsCierre(totalDsCierre);

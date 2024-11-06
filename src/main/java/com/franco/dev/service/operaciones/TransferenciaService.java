@@ -12,6 +12,8 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -49,6 +51,7 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
     }
 
     @Override
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public Transferencia save(Transferencia entity) {
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
         if(entity.getEtapa()==null) entity.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_CREACION);

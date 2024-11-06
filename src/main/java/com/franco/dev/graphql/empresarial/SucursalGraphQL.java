@@ -49,7 +49,6 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findById(Long.valueOf(env.getProperty("sucursalId"))).orElse(null);
     }
 
-
     public Sucursal saveSucursal(SucursalInput input){
         ModelMapper m = new ModelMapper();
         Sucursal e = m.map(input, Sucursal.class);

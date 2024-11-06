@@ -168,29 +168,45 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     @Transactional()
     public Boolean cancelarVenta(Venta venta) {
         try {
-            venta.setEstado(VentaEstado.CANCELADA);
+            if (venta.getEstado() == VentaEstado.CANCELADA) {
+                venta.setEstado(VentaEstado.CONCLUIDA);
+            } else {
+                venta.setEstado(VentaEstado.CANCELADA);
+            }
             venta = this.save(venta);
             List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId());
             for (MovimientoCaja mov : movimientoCajaList) {
-                mov.setActivo(false);
+                if (venta.getEstado() == VentaEstado.CANCELADA) {
+                    mov.setActivo(false);
+                } else {
+                    mov.setActivo(true);
+                }
                 movimientoCajaService.save(mov);
             }
             List<VentaItem> ventaItemList = ventaItemService.findByVentaId(venta.getId(), venta.getSucursalId());
             for (VentaItem vi : ventaItemList) {
                 MovimientoStock movStock = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId(), vi.getProducto().getId());
                 if (movStock != null) {
-                    movStock.setEstado(false);
+                    if (venta.getEstado() == VentaEstado.CANCELADA) {
+                        movStock.setEstado(false);
+                    } else {
+                        movStock.setEstado(true);
+                    }
                     movStock = movimientoStockService.save(movStock);
                 }
             }
             Delivery delivery = venta.getDelivery();
             if (delivery != null) {
-                delivery.setEstado(DeliveryEstado.CANCELADO);
+                if (venta.getEstado() == VentaEstado.CANCELADA) {
+                    delivery.setEstado(DeliveryEstado.CANCELADO);
+                } else {
+                    delivery.setEstado(DeliveryEstado.CONCLUIDO);
+                }
                 deliveryService.save(delivery);
             }
             VentaCredito ventaCredito = ventaCreditoService.findByVentaIdAndSucId(venta.getId(), venta.getSucursalId());
             if (ventaCredito != null) {
-                ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId());
+                ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
             return true;
         } catch (Exception e) {

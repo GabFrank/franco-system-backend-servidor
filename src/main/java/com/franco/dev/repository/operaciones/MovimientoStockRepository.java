@@ -1,7 +1,5 @@
 package com.franco.dev.repository.operaciones;
 
-import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.dto.MovimientoStockResumenDto;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
@@ -59,8 +57,8 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
 
     @Query("select SUM(p.cantidad) from MovimientoStock p " +
             "left outer join p.producto as pro " +
-            "where p.estado = true and pro.id = ?1 and p.id != ?2")
-    public Float stockByProductoIdExeptMovimientoId(Long proId, Long movId);
+            "where p.estado = true and pro.id = ?1 and p.id != ?2 and p.sucursalId = ?3")
+    public Float stockByProductoIdExeptMovimientoId(Long proId, Long movId, Long sucId);
 
     @Query(value = "select * from operaciones.movimiento_stock p " +
             "left join productos.producto as pro on p.producto_id = pro.id " +
@@ -114,11 +112,17 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp) and ms.estado = true " +
             "group by ms.tipoMovimiento")
     public List<StockPorTipoMovimientoDto> findStockPorTipoMovimiento(@Param("inicio") LocalDateTime inicio,
-                                                               @Param("fin") LocalDateTime fin,
-                                                               @Param("sucursalList") List<Long> sucursalList,
-                                                               @Param("productoId") Long productoId,
-                                                               @Param("tipoMovimientoList") List<String> tipoMovimientoList,
-                                                               @Param("usuarioId") Long usuarioId);
+                                                                      @Param("fin") LocalDateTime fin,
+                                                                      @Param("sucursalList") List<Long> sucursalList,
+                                                                      @Param("productoId") Long productoId,
+                                                                      @Param("tipoMovimientoList") List<String> tipoMovimientoList,
+                                                                      @Param("usuarioId") Long usuarioId);
+
+    @Query("SELECT MAX(m.id) FROM MovimientoStock m WHERE m.sucursalId = :sucursalId AND m.id % 2 = 1")
+    Long findMaxOddIdByProductoIdAndSucursalId(@Param("sucursalId") Long sucursalId);
+
+    @Query("SELECT MAX(e.id) FROM MovimientoStock e WHERE e.sucursalId = :sucursalId")
+    Long findMaxId(@Param("sucursalId") Long sucursalId);
 
 }
 

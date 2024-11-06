@@ -1,6 +1,6 @@
 package com.franco.dev.service.financiero;
 
-import com.franco.dev.config.multitenant.*;
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -16,10 +16,8 @@ import com.franco.dev.repository.financiero.VentaCreditoRepositoryImpl;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.operaciones.InventarioService;
 import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
@@ -33,20 +31,14 @@ import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoRepository, EmbebedPrimaryKey> {
 
-    private final Logger log = LoggerFactory.getLogger(VentaCreditoService.class);
-
-
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
-
+    private final Logger log = LoggerFactory.getLogger(VentaCreditoService.class);
     private VentaCreditoRepository repository = null;
 
     @Autowired
@@ -94,11 +86,11 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     }
 
     public List<VentaCredito> findWithFilters(Long id, LocalDateTime fechaInicio, LocalDateTime fechaFin, EstadoVentaCredito estado, Boolean cobro) {
-            if (fechaInicio != null && fechaFin != null) {
-                return repository.findAllWithDateAndFilters(id, fechaInicio, fechaFin, estado, cobro);
-            } else {
-                return repository.findAllWithFilters(id, estado);
-            }
+        if (fechaInicio != null && fechaFin != null) {
+            return repository.findAllWithDateAndFilters(id, fechaInicio, fechaFin, estado, cobro);
+        } else {
+            return repository.findAllWithFilters(id, estado);
+        }
     }
 
     public List<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado) {
@@ -140,16 +132,28 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         return e;
     }
 
-    public Boolean cancelarVentaCredito(Long id, Long sucId) {
+    public Boolean cancelarVentaCredito(Long id, Long sucId, Venta venta) {
         VentaCredito ventaCredito = findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
         if (ventaCredito != null) {
             try {
-                Venta venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId)).orElse(null);
-                if (venta != null && venta.getEstado() != VentaEstado.CANCELADA) {
-                    venta.setEstado(VentaEstado.CANCELADA);
-                    venta = ventaService.save(venta);
+                if (venta == null) {
+                    venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId)).orElse(null);
+                    if (venta.getEstado() != VentaEstado.CANCELADA) {
+                        venta.setEstado(VentaEstado.CANCELADA);
+                        venta = ventaService.save(venta);
+                        ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
+                    } else {
+                        venta.setEstado(VentaEstado.CONCLUIDA);
+                        venta = ventaService.save(venta);
+                        ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
+                    }
+                } else {
+                    if(venta.getEstado() == VentaEstado.CANCELADA){
+                        ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
+                    } else {
+                        ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
+                    }
                 }
-                ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
                 this.save(ventaCredito);
                 return true;
             } catch (Exception e) {
@@ -158,10 +162,9 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         } else {
             throw new GraphQLException("Venta credito no encontrada");
         }
-
     }
 
-    public VentaCredito findByIdAndSucursalId(Long id, Long sucId){
+    public VentaCredito findByIdAndSucursalId(Long id, Long sucId) {
         return repository.findByIdAndSucursalId(id, sucId);
     }
 

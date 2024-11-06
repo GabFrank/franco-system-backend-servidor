@@ -11,7 +11,7 @@ public class TransferenciaInput {
     private Long id;
     private Long sucursalOrigenId;
     private Long sucursalDestinoId;
-    private LocalDateTime creadoEn;
+    private String creadoEn;
     private TransferenciaEstado estado;
     private TipoTransferencia tipo;
     private EtapaTransferencia etapa;

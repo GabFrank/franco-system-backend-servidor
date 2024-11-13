@@ -1,0 +1,1 @@
+ALTER TABLE operaciones.pedido ADD tipo_boleta varchar NULL;

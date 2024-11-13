@@ -43,6 +43,7 @@ extend type Query {
     persona(id:ID!):Persona
     personaSearch(texto:String):[Persona]
     personas(page:Int = 0, size:Int = 10):[Persona]!
+    personaPorDocumento(texto:String):Persona
     countPersona:Int
 }
 

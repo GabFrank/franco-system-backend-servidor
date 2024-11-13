@@ -26,7 +26,8 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
     }
 
     public Persona findByDocumento(String texto) {
-        return repository.findByDocumento(texto);
+        Persona res = repository.findByDocumento(texto);
+        return res;
     }
 
     @Override

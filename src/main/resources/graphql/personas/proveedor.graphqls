@@ -24,7 +24,7 @@ input ProveedorInput {
 
 extend type Query {
     proveedor(id:ID!):Proveedor
-    proveedorPorPersona(personaId:ID!): Proveedor
+    proveedorPorPersona(personaId:ID): Proveedor
     proveedorSearchByPersona(texto: String): [Proveedor]
     proveedorPorVendedor(id:ID): [Proveedor]
     proveedores(page:Int = 0, size:Int = 10):[Proveedor]!

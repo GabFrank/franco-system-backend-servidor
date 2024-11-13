@@ -5,3 +5,5 @@
 -- iniciar base de datos
 pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile start
 pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile start
+
+-- cambios

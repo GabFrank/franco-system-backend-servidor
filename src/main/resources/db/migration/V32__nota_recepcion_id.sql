@@ -1,1 +1,0 @@
-ALTER TABLE operaciones.pedido_item ADD nota_recepcion_id int8 NULL;

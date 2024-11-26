@@ -7,6 +7,7 @@ import com.franco.dev.service.operaciones.CompraService;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.personas.UsuarioService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -36,36 +37,38 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private PedidoService pedidoService;
 
-    public Optional<NotaRecepcion> notaRecepcion(Long id) {return service.findById(id);}
+    public Optional<NotaRecepcion> notaRecepcion(Long id) {
+        return service.findById(id);
+    }
 
-    public List<NotaRecepcion> notaRecepcions(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<NotaRecepcion> notaRecepcions(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<NotaRecepcion> notaRecepcionPorPedidoId(Long id){
+    public List<NotaRecepcion> notaRecepcionPorPedidoId(Long id) {
         return service.findByPedidoId(id);
     }
 
-    public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input){
+    public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input) {
         ModelMapper m = new ModelMapper();
         NotaRecepcion e = m.map(input, NotaRecepcion.class);
-        if(input.getCompraId()!=null) e.setCompra(compraService.findById(input.getCompraId()).orElse(null));
-        if(input.getDocumentoId()!=null) e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
-        if(input.getPedidoId()!=null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
-        if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getFecha()!=null) e.setFecha(stringToDate(input.getFecha()));
-        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getCompraId() != null) e.setCompra(compraService.findById(input.getCompraId()).orElse(null));
+        if (input.getDocumentoId() != null)
+            e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
+        if (input.getPedidoId() != null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
+        if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getFecha() != null) e.setFecha(stringToDate(input.getFecha()));
+        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         return service.save(e);
+
     }
 
-    public Boolean deleteNotaRecepcion(Long id){
+    public Boolean deleteNotaRecepcion(Long id) {
         return service.deleteById(id);
     }
 
-    public Long countNotaRecepcion(){
+    public Long countNotaRecepcion() {
         return service.count();
     }
-
-
 }

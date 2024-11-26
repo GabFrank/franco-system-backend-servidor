@@ -44,15 +44,22 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
     @Autowired
     private PedidoSucursalInfluenciaService pedidoSucursalInfluenciaService;
 
-    public Optional<Usuario> usuario(Pedido e){
+    public Optional<Usuario> usuario(Pedido e) {
         return usuarioService.findById(e.getUsuario().getId());
     }
 
     public Double valorTotal(Pedido e) {
         List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(e.getId());
         Double total = 0.0;
-        for(PedidoItem p: pedidoItemList){
-            total += (p.getPresentacion().getCantidad() != null ? p.getPresentacion().getCantidad() : 0.0) * (p.getCantidad() != null ? p.getCantidad() : 0.0) * ((p.getPrecioUnitario() != null ? p.getPrecioUnitario() : 0.0));
+        for (PedidoItem p : pedidoItemList) {
+            if(p.getCancelado() != null && p.getCancelado()) continue;
+            if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+                total += (p.getPresentacionRecepcionProducto().getCantidad() != null ? p.getPresentacionRecepcionProducto().getCantidad() : 0.0) * (p.getCantidadRecepcionProducto() != null ? p.getCantidadRecepcionProducto() : 0.0) * ((p.getPrecioUnitarioRecepcionProducto() != null ? p.getPrecioUnitarioRecepcionProducto() : 0.0));
+            } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+                total += (p.getPresentacionRecepcionNota().getCantidad() != null ? p.getPresentacionRecepcionNota().getCantidad() : 0.0) * (p.getCantidadRecepcionNota() != null ? p.getCantidadRecepcionNota() : 0.0) * ((p.getPrecioUnitarioRecepcionNota() != null ? p.getPrecioUnitarioRecepcionNota() : 0.0));
+            } else {
+                total += (p.getPresentacionCreacion().getCantidad() != null ? p.getPresentacionCreacion().getCantidad() : 0.0) * (p.getCantidadCreacion() != null ? p.getCantidadCreacion() : 0.0) * ((p.getPrecioUnitarioCreacion() != null ? p.getPrecioUnitarioCreacion() : 0.0));
+            }
         }
         return total != null ? total : 0.0;
     }
@@ -60,17 +67,24 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
     public Double descuento(Pedido e) {
         List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(e.getId());
         Double total = 0.0;
-        for(PedidoItem p: pedidoItemList){
-            total += (p.getPresentacion().getCantidad() != null ? p.getPresentacion().getCantidad() : 0.0) * (p.getCantidad() != null ? p.getCantidad() : 0.0) * ((p.getDescuentoUnitario() != null ? p.getDescuentoUnitario() : 0.0));
+        for (PedidoItem p : pedidoItemList) {
+            if(p.getCancelado() != null && p.getCancelado()) continue;
+            if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+                total += (p.getPresentacionRecepcionProducto().getCantidad() != null ? p.getPresentacionRecepcionProducto().getCantidad() : 0.0) * (p.getCantidadRecepcionProducto() != null ? p.getCantidadRecepcionProducto() : 0.0) * ((p.getDescuentoUnitarioRecepcionProducto() != null ? p.getDescuentoUnitarioRecepcionProducto() : 0.0));
+            } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+                total += (p.getPresentacionRecepcionNota().getCantidad() != null ? p.getPresentacionRecepcionNota().getCantidad() : 0.0) * (p.getCantidadRecepcionNota() != null ? p.getCantidadRecepcionNota() : 0.0) * ((p.getDescuentoUnitarioRecepcionNota() != null ? p.getDescuentoUnitarioRecepcionNota() : 0.0));
+            } else {
+                total += (p.getPresentacionCreacion().getCantidad() != null ? p.getPresentacionCreacion().getCantidad() : 0.0) * (p.getCantidadCreacion() != null ? p.getCantidadCreacion() : 0.0) * ((p.getDescuentoUnitarioCreacion() != null ? p.getDescuentoUnitarioCreacion() : 0.0));
+            }
         }
         return total != null ? total : 0.0;
     }
 
-    public String nombreProveedor(Pedido e){
+    public String nombreProveedor(Pedido e) {
         return e.getProveedor().getPersona().getNombre();
     }
 
-    public String nombreUsuario(Pedido e){
+    public String nombreUsuario(Pedido e) {
         return e.getUsuario().getPersona().getNombre();
     }
 
@@ -79,27 +93,31 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
 //        return subFamiliaService.findById(e.getSubFamilia().getId());
 //    }
 
-    public List<NotaRecepcion> notaRecepcionList(Pedido e){
+    public List<NotaRecepcion> notaRecepcionList(Pedido e) {
         return notaRecepcionService.findByPedidoId(e.getId());
     }
 
-    public Compra compra(Pedido e){
+    public Compra compra(Pedido e) {
         return compraService.findByPedidoId(e.getId());
     }
 
-    public List<PedidoFechaEntrega> fechaEntregaList(Pedido pedido){
+    public List<PedidoFechaEntrega> fechaEntregaList(Pedido pedido) {
         return pedidoFechaEntregaService.findByPedido(pedido.getId());
     }
 
-    public List<PedidoSucursalEntrega> sucursalEntregaList(Pedido pedido){
+    public List<PedidoSucursalEntrega> sucursalEntregaList(Pedido pedido) {
         return pedidoSucursalEntregaService.findByPedidoId(pedido.getId());
     }
 
-    public List<PedidoSucursalInfluencia> sucursalInfluenciaList(Pedido pedido){
+    public List<PedidoSucursalInfluencia> sucursalInfluenciaList(Pedido pedido) {
         return pedidoSucursalInfluenciaService.findByPedidoId(pedido.getId());
     }
 
-    public Integer cantPedidoItem(Pedido e){
+    public Integer cantPedidoItem(Pedido e) {
         return pedidoItemService.getRepository().countByPedidoId(e.getId());
+    }
+
+    public Long cantPedidoItemSinNota(Pedido e) {
+        return pedidoItemService.getRepository().countByPedidoIdAndNotaRecepcionIdIsNull(e.getId());
     }
 }

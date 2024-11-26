@@ -7,9 +7,11 @@ import java.time.temporal.TemporalAdjusters;
 public class DateUtils {
 
     private static final String PATTERN = "yyyy-MM-dd HH:mm";
+    private static final String PATTERN_ISO = "yyyy-MM-dd'T'HH:mm:ss";
     private static final String PATTERN_ONLY_DATE = "yyyy-MM-dd";
 
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(PATTERN);
+    private static final DateTimeFormatter formatter_iso = DateTimeFormatter.ofPattern(PATTERN_ISO);
     private static final DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern(PATTERN_ONLY_DATE);
 
     public static String toString(LocalDateTime d) {
@@ -25,6 +27,7 @@ public class DateUtils {
 
     public static LocalDateTime stringToDate(String s) {
         if(s == null) return null;
+        if(s.contains("T")) return LocalDateTime.parse(s, formatter_iso);
         return LocalDateTime.parse(s, formatter);
     }
 

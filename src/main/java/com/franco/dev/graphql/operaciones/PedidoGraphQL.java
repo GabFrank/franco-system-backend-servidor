@@ -14,6 +14,8 @@ import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.personas.VendedorService;
+import graphql.GraphQLException;
+import graphql.GraphqlErrorException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -236,6 +238,15 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Long countPedido(){
         return service.count();
+    }
+
+    public Boolean finalizarPedido(Long id){
+        Pedido pedido = service.findById(id).orElse(null);
+        if(pedido == null){
+            throw new GraphQLException("No se puedo encontrar el pedido");
+        }
+
+        return true;
     }
 
 }

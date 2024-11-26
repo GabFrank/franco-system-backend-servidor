@@ -2,22 +2,51 @@ type PedidoItem {
     id:ID!
     pedido: Pedido
     producto: Producto
-    precioUnitario: Float
+    precioUnitarioCreacion: Float
     notaPedido: NotaPedido
-    descuentoUnitario: Float
+    descuentoUnitarioCreacion: Float
     bonificacion: Boolean
     bonificacionDetalle: String
     observacion: String
     frio: Boolean
     estado: PedidoItemEstado
-    vencimiento: Date
+    vencimientoCreacion: Date
     creadoEn: Date
-    usuario: Usuario
-    presentacion: Presentacion
-    cantidad: Float
+    usuarioCreacion: Usuario
+    presentacionCreacion: Presentacion
+    cantidadCreacion: Float
     valorTotal: Float
     notaRecepcion: NotaRecepcion
     compraItem: CompraItem
+    precioUnitarioRecepcionNota: Float
+    descuentoUnitarioRecepcionNota: Float
+    vencimientoRecepcionNota: Date
+    presentacionRecepcionNota: Presentacion
+    cantidadRecepcionNota: Float
+    precioUnitarioRecepcionProducto: Float
+    descuentoUnitarioRecepcionProducto: Float
+    vencimientoRecepcionProducto: Date
+    presentacionRecepcionProducto: Presentacion
+    cantidadRecepcionProducto: Float
+    usuarioRecepcionNota: Usuario
+    usuarioRecepcionProducto: Usuario
+    obsCreacion: String
+    obsRecepcionNota: String
+    obsRecepcionProducto: String
+    autorizacionRecepcionNota: Boolean
+    autorizacionRecepcionProducto: Boolean
+    autorizadoPorRecepcionNota: Usuario
+    autorizadoPorRecepcionProducto: Usuario
+    motivoModificacionRecepcionNota: String
+    motivoModificacionRecepcionProducto: String
+    cancelado: Boolean
+    verificadoRecepcionNota: Boolean
+    verificadoRecepcionProducto: Boolean
+    precioUnitario: Float
+    cantidad: Float
+    presentacion: Presentacion
+    motivoRechazoRecepcionNota: String
+    motivoRechazoRecepcionProducto: String
 }
 
 input PedidoItemInput {
@@ -25,20 +54,46 @@ input PedidoItemInput {
     pedidoId: Int
     productoId: Int
     notaPedidoId: Int
-    cantidad: Float
-    precioUnitario: Float
-    descuentoUnitario: Float
+    cantidadCreacion: Float
+    precioUnitarioCreacion: Float
+    descuentoUnitarioCreacion: Float
     bonificacion: Boolean
     bonificacionDetalle: String
     observacion: String
     frio: Boolean
-    vencimiento: Date
+    vencimientoCreacion: String
     estado: PedidoItemEstado
-    usuarioId: Int
-    presentacionId: Int
+    usuarioCreacionId: Int
+    usuarioRecepcionNotaId: Int
+    usuarioRecepcionProductoId: Int
+    presentacionCreacionId: Int
     creadoEn: Date
     valorTotal: Float
     notaRecepcionId: Int
+    precioUnitarioRecepcionNota: Float
+    descuentoUnitarioRecepcionNota: Float
+    vencimientoRecepcionNota: String
+    presentacionRecepcionNotaId: Int
+    cantidadRecepcionNota: Float
+    precioUnitarioRecepcionProducto: Float
+    descuentoUnitarioRecepcionProducto: Float
+    vencimientoRecepcionProducto: String
+    presentacionRecepcionProductoId: Int
+    cantidadRecepcionProducto: Float
+    obsCreacion: String
+    obsRecepcionNota: String
+    obsRecepcionProducto: String
+    autorizacionRecepcionNota: Boolean
+    autorizacionRecepcionProducto: Boolean
+    autorizadoPorRecepcionNotaId: Int
+    autorizadoPorRecepcionProductoId: Int
+    motivoModificacionRecepcionNota: String
+    motivoModificacionRecepcionProducto: String
+    cancelado: Boolean
+    verificadoRecepcionNota: Boolean
+    verificadoRecepcionProducto: Boolean
+    motivoRechazoRecepcionNota: String
+    motivoRechazoRecepcionProducto: String
 }
 
 type PedidoItemPage {

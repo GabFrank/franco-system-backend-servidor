@@ -33,7 +33,11 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNull(Long id, Pageable page);
 
+
+    public Long countByPedidoIdAndNotaRecepcionIdIsNull(Long id);
+
     public Integer countByNotaRecepcionId(Long id);
+
     public Integer countByPedidoId(Long id);
 
     public List<PedidoItem> findByIdIn(List<Long> idList);

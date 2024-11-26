@@ -17,6 +17,7 @@ type Pedido {
     sucursalEntregaList: [PedidoSucursalEntrega]
     sucursalInfluenciaList: [PedidoSucursalInfluencia]
     cantPedidoItem: Int
+    cantPedidoItemSinNota: Int
 }
 
 input PedidoInput {

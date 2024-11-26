@@ -24,6 +24,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Component
 public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -62,17 +64,22 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public PedidoItem savePedidoItem(PedidoItemInput input){
         ModelMapper m = new ModelMapper();
         PedidoItem e = m.map(input, PedidoItem.class);
-        if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if(input.getUsuarioCreacionId()!=null) e.setUsuarioCreacion(usuarioService.findById(input.getUsuarioCreacionId()).orElse(null));
+        if(input.getUsuarioRecepcionNotaId()!=null) e.setUsuarioRecepcionNota(usuarioService.findById(input.getUsuarioRecepcionNotaId()).orElse(null));
+        if(input.getUsuarioRecepcionProductoId()!=null) e.setUsuarioRecepcionProducto(usuarioService.findById(input.getUsuarioRecepcionProductoId()).orElse(null));
         if(input.getProductoId()!=null) e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
         if(input.getPedidoId()!=null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
-        if(input.getPresentacionId()!=null) e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
+        if(input.getPresentacionCreacionId()!=null) e.setPresentacionCreacion(presentacionService.findById(input.getPresentacionCreacionId()).orElse(null));
+        if(input.getPresentacionRecepcionNotaId()!=null) e.setPresentacionRecepcionNota(presentacionService.findById(input.getPresentacionRecepcionNotaId()).orElse(null));
+        if(input.getPresentacionRecepcionProductoId()!=null) e.setPresentacionRecepcionProducto(presentacionService.findById(input.getPresentacionRecepcionProductoId()).orElse(null));
+        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if(input.getVencimientoCreacion()!=null) e.setVencimientoCreacion(stringToDate(input.getVencimientoCreacion()));
+        if(input.getVencimientoRecepcionNota()!=null) e.setVencimientoRecepcionNota(stringToDate(input.getVencimientoRecepcionNota()));
+        if(input.getVencimientoRecepcionProducto()!=null) e.setVencimientoRecepcionProducto(stringToDate(input.getVencimientoRecepcionProducto()));
+        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         if(input.getNotaRecepcionId()!=null) e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
-//        if(input.getId()!=null){
-//            PedidoItem aux = service.findById(input.getId()).orElse(null);
-//            if(aux!=null && aux.getNotaRecepcion()!=null){
-//                e.setNotaRecepcion(aux.getNotaRecepcion());
-//            }
-//        }
+        if(input.getAutorizadoPorRecepcionNotaId()!=null) e.setAutorizadoPorRecepcionNota(usuarioService.findById(input.getAutorizadoPorRecepcionNotaId()).orElse(null));
+        if(input.getAutorizadoPorRecepcionProductoId()!=null) e.setAutorizadoPorRecepcionProducto(usuarioService.findById(input.getAutorizadoPorRecepcionProductoId()).orElse(null));
 
         return service.save(e);
     }
@@ -134,7 +141,6 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         } else {
             return false;
         }
-
     }
 
 

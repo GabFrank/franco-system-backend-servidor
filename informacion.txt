@@ -6,4 +6,5 @@
 pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile start
 pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile start
 
--- cambios
+-- donde me quede
+modifica, rechazar y reabrir itens ya funciona, proximo paso sera hacer la recepcion de productos

@@ -18,6 +18,7 @@ type Pedido {
     sucursalInfluenciaList: [PedidoSucursalInfluencia]
     cantPedidoItem: Int
     cantPedidoItemSinNota: Int
+    cantPedidoItemCancelados: Int
 }
 
 input PedidoInput {
@@ -47,6 +48,7 @@ extend type Mutation {
     savePedido(entity:PedidoInput!):Pedido!
     savePedidoFull(entity:PedidoInput!, fechaEntregaList: [String], sucursalEntregaList: [Int], sucursalInfluenciaList: [Int], usuarioId: Int):Pedido!
     deletePedido(id:ID!):Boolean!
+    finalizarPedido(id:ID, estado:PedidoEstado): Pedido
 }
 
 enum PedidoEstado {

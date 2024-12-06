@@ -129,11 +129,23 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         if(notaRecepcion != null && pedidoItemIdList.size() > 0){
             for(PedidoItem pi : pedidoItemList){
                 pi.setNotaRecepcion(notaRecepcion);
+                pi.setPresentacionRecepcionNota(pi.getPresentacionCreacion());
+                pi.setCantidadRecepcionNota(pi.getCantidadRecepcionNota());
+                pi.setDescuentoUnitarioRecepcionNota(pi.getDescuentoUnitarioCreacion());
+                pi.setVencimientoRecepcionNota(pi.getVencimientoCreacion());
+                pi.setPrecioUnitarioRecepcionNota(pi.getPrecioUnitarioCreacion());
+                pi.setVerificadoRecepcionNota(true);
                 service.save(pi);
             }
             return true;
         } else if(notaRecepcionId == null && pedidoItemIdList.size() > 0) {
             for(PedidoItem pi : pedidoItemList){
+                pi.setPresentacionRecepcionNota(null);
+                pi.setCantidadRecepcionNota(null);
+                pi.setDescuentoUnitarioRecepcionNota(null);
+                pi.setVencimientoRecepcionNota(null);
+                pi.setPrecioUnitarioRecepcionNota(null);
+                pi.setVerificadoRecepcionNota(false);
                 pi.setNotaRecepcion(null);
                 service.save(pi);
             }

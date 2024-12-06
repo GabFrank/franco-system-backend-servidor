@@ -40,9 +40,9 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
         List<PedidoItem> pedidoItemList = pedidoItemService.findByNotaRecepcionId(e.getId());
         for (PedidoItem p : pedidoItemList) {
             if(p.getCancelado() != null && p.getCancelado()) continue;
-            if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+            if (p.getPresentacionRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
                 valor += (p.getPresentacionRecepcionProducto().getCantidad() != null ? p.getPresentacionRecepcionProducto().getCantidad() : 0.0) * (p.getCantidadRecepcionProducto() != null ? p.getCantidadRecepcionProducto() : 0.0) * ((p.getPrecioUnitarioRecepcionProducto() != null ? p.getPrecioUnitarioRecepcionProducto() : 0.0));
-            } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+            } else if (p.getPresentacionRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
                 valor += (p.getPresentacionRecepcionNota().getCantidad() != null ? p.getPresentacionRecepcionNota().getCantidad() : 0.0) * (p.getCantidadRecepcionNota() != null ? p.getCantidadRecepcionNota() : 0.0) * ((p.getPrecioUnitarioRecepcionNota() != null ? p.getPrecioUnitarioRecepcionNota() : 0.0));
             } else {
                 valor += (p.getPresentacionCreacion().getCantidad() != null ? p.getPresentacionCreacion().getCantidad() : 0.0) * (p.getCantidadCreacion() != null ? p.getCantidadCreacion() : 0.0) * ((p.getPrecioUnitarioCreacion() != null ? p.getPrecioUnitarioCreacion() : 0.0));

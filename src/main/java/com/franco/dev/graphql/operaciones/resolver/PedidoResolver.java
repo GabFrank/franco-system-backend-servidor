@@ -53,9 +53,9 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
         Double total = 0.0;
         for (PedidoItem p : pedidoItemList) {
             if(p.getCancelado() != null && p.getCancelado()) continue;
-            if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+            if (p.getPresentacionRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
                 total += (p.getPresentacionRecepcionProducto().getCantidad() != null ? p.getPresentacionRecepcionProducto().getCantidad() : 0.0) * (p.getCantidadRecepcionProducto() != null ? p.getCantidadRecepcionProducto() : 0.0) * ((p.getPrecioUnitarioRecepcionProducto() != null ? p.getPrecioUnitarioRecepcionProducto() : 0.0));
-            } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+            } else if (p.getPresentacionRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
                 total += (p.getPresentacionRecepcionNota().getCantidad() != null ? p.getPresentacionRecepcionNota().getCantidad() : 0.0) * (p.getCantidadRecepcionNota() != null ? p.getCantidadRecepcionNota() : 0.0) * ((p.getPrecioUnitarioRecepcionNota() != null ? p.getPrecioUnitarioRecepcionNota() : 0.0));
             } else {
                 total += (p.getPresentacionCreacion().getCantidad() != null ? p.getPresentacionCreacion().getCantidad() : 0.0) * (p.getCantidadCreacion() != null ? p.getCantidadCreacion() : 0.0) * ((p.getPrecioUnitarioCreacion() != null ? p.getPrecioUnitarioCreacion() : 0.0));
@@ -69,9 +69,9 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
         Double total = 0.0;
         for (PedidoItem p : pedidoItemList) {
             if(p.getCancelado() != null && p.getCancelado()) continue;
-            if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+            if (p.getPresentacionRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
                 total += (p.getPresentacionRecepcionProducto().getCantidad() != null ? p.getPresentacionRecepcionProducto().getCantidad() : 0.0) * (p.getCantidadRecepcionProducto() != null ? p.getCantidadRecepcionProducto() : 0.0) * ((p.getDescuentoUnitarioRecepcionProducto() != null ? p.getDescuentoUnitarioRecepcionProducto() : 0.0));
-            } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+            } else if (p.getPresentacionRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
                 total += (p.getPresentacionRecepcionNota().getCantidad() != null ? p.getPresentacionRecepcionNota().getCantidad() : 0.0) * (p.getCantidadRecepcionNota() != null ? p.getCantidadRecepcionNota() : 0.0) * ((p.getDescuentoUnitarioRecepcionNota() != null ? p.getDescuentoUnitarioRecepcionNota() : 0.0));
             } else {
                 total += (p.getPresentacionCreacion().getCantidad() != null ? p.getPresentacionCreacion().getCantidad() : 0.0) * (p.getCantidadCreacion() != null ? p.getCantidadCreacion() : 0.0) * ((p.getDescuentoUnitarioCreacion() != null ? p.getDescuentoUnitarioCreacion() : 0.0));
@@ -119,5 +119,9 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
 
     public Long cantPedidoItemSinNota(Pedido e) {
         return pedidoItemService.getRepository().countByPedidoIdAndNotaRecepcionIdIsNull(e.getId());
+    }
+
+    public Long cantPedidoItemCancelados(Pedido e) {
+        return pedidoItemService.getRepository().countByPedidoIdAndCancelado(e.getId(), true);
     }
 }

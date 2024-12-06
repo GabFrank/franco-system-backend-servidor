@@ -80,7 +80,7 @@ public class FrancoSystemsApplication {
     @Bean
     public FlywayMigrationStrategy cleanMigrateStrategy() {
         return flyway -> {
-            flyway.repair();
+//            flyway.repair();
             flyway.migrate();
         };
     }

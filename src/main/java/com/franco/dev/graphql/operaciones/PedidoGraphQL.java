@@ -240,13 +240,13 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.count();
     }
 
-    public Boolean finalizarPedido(Long id){
+    public Pedido finalizarPedido(Long id, PedidoEstado estado){
         Pedido pedido = service.findById(id).orElse(null);
         if(pedido == null){
             throw new GraphQLException("No se puedo encontrar el pedido");
         }
-
-        return true;
+        pedido.setEstado(estado);
+        return service.save(pedido);
     }
 
 }

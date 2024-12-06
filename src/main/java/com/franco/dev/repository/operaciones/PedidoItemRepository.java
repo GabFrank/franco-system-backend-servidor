@@ -36,6 +36,8 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Long countByPedidoIdAndNotaRecepcionIdIsNull(Long id);
 
+    public Long countByPedidoIdAndCancelado(Long id, Boolean cancelado);
+
     public Integer countByNotaRecepcionId(Long id);
 
     public Integer countByPedidoId(Long id);

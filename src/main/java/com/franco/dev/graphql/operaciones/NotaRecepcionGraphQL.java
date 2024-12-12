@@ -12,6 +12,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -48,6 +49,16 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public List<NotaRecepcion> notaRecepcionPorPedidoId(Long id) {
         return service.findByPedidoId(id);
+    }
+
+    public Page<NotaRecepcion> notaRecepcionPorPedidoIdAndNumero(Long id, Integer numero, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        if(numero!=null){
+            String texto = "%"+numero.toString()+"%";
+            return service.getRepository().findByPedidoIdAndNumero(id, texto, pageable);
+        } else {
+            return service.getRepository().findByPedidoId(id, pageable);
+        }
     }
 
     public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input) {

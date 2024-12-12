@@ -37,10 +37,22 @@ input PedidoInput {
     pedidoItemInputList: [PedidoItemInput]
 }
 
+type PedidoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Pedido]
+    getPageable: Pageable
+}
+
 extend type Query {
     pedido(id:ID!):Pedido
     pedidos(page:Int = 0, size:Int = 10):[Pedido]!
-    filterPedidos(estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int):[Pedido]
+    filterPedidos(estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
 }
 

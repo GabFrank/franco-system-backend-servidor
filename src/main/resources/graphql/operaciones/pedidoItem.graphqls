@@ -110,18 +110,18 @@ type PedidoItemPage {
 
 extend type Query {
     pedidoItem(id:ID!):PedidoItem
-    pedidoItemPorPedidoPage(id:ID!, page:Int = 0, size:Int = 10):PedidoItemPage!
+    pedidoItemPorPedidoPage(id:ID!, page:Int = 0, size:Int = 10, texto: String):PedidoItemPage!
     pedidoItemPorPedido(id:ID!):[PedidoItem]!
     countPedidoItem: Int
-    pedidoItemPorPedidoIdSobrante(id:ID, page:Int = 0, size:Int = 10): PedidoItemPage!
-    pedidoItemPorNotaRecepcion(id:ID, page:Int = 0, size:Int = 10): PedidoItemPage!
+    pedidoItemPorPedidoIdSobrante(id:ID, page:Int = 0, size:Int = 10, texto: String): PedidoItemPage!
+    pedidoItemPorNotaRecepcion(id:ID, page:Int = 0, size:Int = 10, texto: String): PedidoItemPage!
 }
 
 extend type Mutation {
     savePedidoItem(pedidoItem:PedidoItemInput!):PedidoItem!
     deletePedidoItem(id:ID!):Boolean!
     updateNotaRecepcion(pedidoItemId: ID!, notaRecepcionId: ID): PedidoItem
-    addPedidoItemListToNotaRecepcion(notaRecepcion: ID, pedidoItemIdList: [ID]): Boolean
+    addPedidoItemToNotaRecepcion(notaRecepcion: ID, pedidoItemId: ID!): PedidoItem
 }
 
 enum PedidoItemEstado {

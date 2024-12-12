@@ -31,11 +31,24 @@ input NotaRecepcionInput {
     fecha: String
 }
 
+type NotaRecepcionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [NotaRecepcion]
+    getPageable: Pageable
+}
+
 extend type Query {
     notaRecepcion(id:ID!):NotaRecepcion
     notaRecepcions(page:Int = 0, size:Int = 10):[NotaRecepcion]!
     countNotaRecepcion: Int
     notaRecepcionPorPedidoId(id:ID!):[NotaRecepcion]
+    notaRecepcionPorPedidoIdAndNumero(id:ID!, numero: Int, page: Int, size: Int):NotaRecepcionPage
 }
 
 extend type Mutation {

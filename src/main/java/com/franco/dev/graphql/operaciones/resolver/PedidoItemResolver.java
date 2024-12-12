@@ -39,9 +39,9 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
     public Double valorTotal(PedidoItem p) {
         Double parcial = 0.0;
         if(p.getCancelado() != null && p.getCancelado()) return parcial;
-        if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+        if (p.getPresentacionRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
             parcial += (p.getPresentacionRecepcionProducto().getCantidad() != null ? p.getPresentacionRecepcionProducto().getCantidad() : 0.0) * (p.getCantidadRecepcionProducto() != null ? p.getCantidadRecepcionProducto() : 0.0) * ((p.getPrecioUnitarioRecepcionProducto() != null ? p.getPrecioUnitarioRecepcionProducto() : 0.0));
-        } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+        } else if (p.getPresentacionRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
             parcial += (p.getPresentacionRecepcionNota().getCantidad() != null ? p.getPresentacionRecepcionNota().getCantidad() : 0.0) * (p.getCantidadRecepcionNota() != null ? p.getCantidadRecepcionNota() : 0.0) * ((p.getPrecioUnitarioRecepcionNota() != null ? p.getPrecioUnitarioRecepcionNota() : 0.0));
         } else {
             parcial += (p.getPresentacionCreacion().getCantidad() != null ? p.getPresentacionCreacion().getCantidad() : 0.0) * (p.getCantidadCreacion() != null ? p.getCantidadCreacion() : 0.0) * ((p.getPrecioUnitarioCreacion() != null ? p.getPrecioUnitarioCreacion() : 0.0));
@@ -59,9 +59,9 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
 //    }
 
     public Presentacion presentacion(PedidoItem p){
-        if (p.getPresentacionRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+        if (p.getPresentacionRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
             return p.getPresentacionRecepcionProducto();
-        } else if (p.getPresentacionRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+        } else if (p.getPresentacionRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
             return p.getPresentacionRecepcionNota();
         } else {
             return p.getPresentacionCreacion();
@@ -69,9 +69,9 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
     }
 
     public Double cantidad(PedidoItem p){
-        if (p.getCantidadRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+        if (p.getCantidadRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
             return p.getCantidadRecepcionProducto();
-        } else if (p.getCantidadRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+        } else if (p.getCantidadRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
             return p.getCantidadRecepcionNota();
         } else {
             return p.getCantidadCreacion();
@@ -79,9 +79,9 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
     }
 
     public Double precioUnitario(PedidoItem p){
-        if (p.getPrecioUnitarioRecepcionProducto() != null && p.getAutorizacionRecepcionProducto()) {
+        if (p.getPrecioUnitarioRecepcionProducto() != null && (p.getAutorizacionRecepcionProducto() == null || p.getAutorizacionRecepcionProducto())) {
             return p.getPrecioUnitarioRecepcionProducto();
-        } else if (p.getPrecioUnitarioRecepcionNota() != null && p.getAutorizacionRecepcionNota()) {
+        } else if (p.getPrecioUnitarioRecepcionNota() != null && (p.getAutorizacionRecepcionNota() == null || p.getAutorizacionRecepcionNota())) {
             return p.getPrecioUnitarioRecepcionNota();
         } else {
             return p.getPrecioUnitarioCreacion();

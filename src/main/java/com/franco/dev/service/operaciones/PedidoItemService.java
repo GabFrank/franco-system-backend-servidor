@@ -38,14 +38,24 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
 
     public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { return repository.findByPedidoIdOrderByIdDesc(id, page); }
 
+    public Page<PedidoItem> findByPedidoIdAndTexto(Long id, String texto, Pageable page) { return repository.findByIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page); }
+
     public List<PedidoItem> findByPedidoId(Long id) { return repository.findByPedidoId(id); }
 
     public Page<PedidoItem> findByPedidoIdSobrantes(Long id, Pageable page){
         return repository.findByPedidoIdAndNotaRecepcionIdIsNull(id, page);
     }
 
+    public Page<PedidoItem> findByPedidoIdAndDescripcionSobrantes(Long id, String texto, Pageable page){
+        return repository.findByPedidoIdAndNotaRecepcionIdIsNullAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
+    }
+
     public Page<PedidoItem> findByNotaRecepcionId(Long id, Pageable page) {
         return repository.findByNotaRecepcionId(id, page);
+    }
+
+    public Page<PedidoItem> findByNotaRecepcionIdAndDescripcion(Long id, String texto, Pageable page) {
+        return repository.findByNotaRecepcionIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
     }
 
     public List<PedidoItem> findByNotaRecepcionId(Long id) {

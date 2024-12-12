@@ -8,16 +8,23 @@ import com.franco.dev.service.personas.VendedorProveedorService;
 import lombok.AllArgsConstructor;
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.franco.dev.utilitarios.DateUtils.dateToString;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @AllArgsConstructor
@@ -35,14 +42,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         return repository;
     }
 
-    public List<Pedido> filterPedidos(String estado,Long sucursalId,String inicio,String fin,Long proveedorId,Long vendedorId,String formaPago,Long productoId){
-        if(inicio==null){
-            inicio = "2000-01-01";
-        }
-        if(fin==null){
-            fin = "2050-01-01";
-        }
-        return repository.filterPedidos(estado, sucursalId, inicio, fin, proveedorId, vendedorId, formaPago, productoId);
+    public Page<Pedido> filterPedidos(PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPago, Long productoId, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page,size);
+        return repository.filterPedidos(estado, sucursalId, stringToDate(inicio), stringToDate(fin), proveedorId, vendedorId, formaPago, productoId, pageable);
     }
 
 //    public List<Pedido> filterPedidos(@Param("estado") String estado,@Param("sucursal_id") Long sucursalId,@Param("inicio") String inicio,@Param("fin") String fin,@Param("proveedor_id") Long proveedorId,@Param("vendedor_d") Long vendedorId,@Param("forma_pago") String formaPago,@Param("producto_id") Long productoId){

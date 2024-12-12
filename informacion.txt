@@ -7,4 +7,4 @@ pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile start
 pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile start
 
 -- donde me quede
-modifica, rechazar y reabrir itens ya funciona, proximo paso sera hacer la recepcion de productos
+agregando filtro a las listas de pedido item, backend terminado ahora falta agregar los campos de filtro

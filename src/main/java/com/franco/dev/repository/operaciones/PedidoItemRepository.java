@@ -28,10 +28,13 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Page<PedidoItem> findByNotaRecepcionId(Long id,  Pageable page);
 
+    public Page<PedidoItem> findByNotaRecepcionIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id,  String texto, Pageable page);
+
 
     public List<PedidoItem> findByNotaRecepcionId(Long id);
 
     public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNull(Long id, Pageable page);
+    public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNullAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);
 
 
     public Long countByPedidoIdAndNotaRecepcionIdIsNull(Long id);
@@ -43,5 +46,7 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
     public Integer countByPedidoId(Long id);
 
     public List<PedidoItem> findByIdIn(List<Long> idList);
+
+    public Page<PedidoItem> findByIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);
 
 }

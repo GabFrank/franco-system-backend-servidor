@@ -12,6 +12,7 @@ import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.productos.ProductoService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -50,62 +51,91 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private CompraItemService compraItemService;
 
-    public Optional<PedidoItem> pedidoItem(Long id) {return service.findById(id);}
-
-    public Page<PedidoItem> pedidoItemPorPedidoPage(Long id, int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
-        return service.findByPedidoId(id, pageable);
+    public Optional<PedidoItem> pedidoItem(Long id) {
+        return service.findById(id);
     }
 
-    public List<PedidoItem> pedidoItemPorPedido(Long id){
+    public Page<PedidoItem> pedidoItemPorPedidoPage(Long id, int page, int size, String texto) {
+        Pageable pageable = PageRequest.of(page, size);
+        if (texto != null) {
+            texto = "%"+texto.replace(" ", "%").toUpperCase()+"%";
+            return service.findByPedidoIdAndTexto(id, texto, pageable);
+        } else {
+            return service.findByPedidoId(id, pageable);
+        }
+    }
+
+    public List<PedidoItem> pedidoItemPorPedido(Long id) {
         return service.findByPedidoId(id);
     }
 
-    public PedidoItem savePedidoItem(PedidoItemInput input){
+    public PedidoItem savePedidoItem(PedidoItemInput input) {
         ModelMapper m = new ModelMapper();
         PedidoItem e = m.map(input, PedidoItem.class);
-        if(input.getUsuarioCreacionId()!=null) e.setUsuarioCreacion(usuarioService.findById(input.getUsuarioCreacionId()).orElse(null));
-        if(input.getUsuarioRecepcionNotaId()!=null) e.setUsuarioRecepcionNota(usuarioService.findById(input.getUsuarioRecepcionNotaId()).orElse(null));
-        if(input.getUsuarioRecepcionProductoId()!=null) e.setUsuarioRecepcionProducto(usuarioService.findById(input.getUsuarioRecepcionProductoId()).orElse(null));
-        if(input.getProductoId()!=null) e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
-        if(input.getPedidoId()!=null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
-        if(input.getPresentacionCreacionId()!=null) e.setPresentacionCreacion(presentacionService.findById(input.getPresentacionCreacionId()).orElse(null));
-        if(input.getPresentacionRecepcionNotaId()!=null) e.setPresentacionRecepcionNota(presentacionService.findById(input.getPresentacionRecepcionNotaId()).orElse(null));
-        if(input.getPresentacionRecepcionProductoId()!=null) e.setPresentacionRecepcionProducto(presentacionService.findById(input.getPresentacionRecepcionProductoId()).orElse(null));
-        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
-        if(input.getVencimientoCreacion()!=null) e.setVencimientoCreacion(stringToDate(input.getVencimientoCreacion()));
-        if(input.getVencimientoRecepcionNota()!=null) e.setVencimientoRecepcionNota(stringToDate(input.getVencimientoRecepcionNota()));
-        if(input.getVencimientoRecepcionProducto()!=null) e.setVencimientoRecepcionProducto(stringToDate(input.getVencimientoRecepcionProducto()));
-        if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
-        if(input.getNotaRecepcionId()!=null) e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
-        if(input.getAutorizadoPorRecepcionNotaId()!=null) e.setAutorizadoPorRecepcionNota(usuarioService.findById(input.getAutorizadoPorRecepcionNotaId()).orElse(null));
-        if(input.getAutorizadoPorRecepcionProductoId()!=null) e.setAutorizadoPorRecepcionProducto(usuarioService.findById(input.getAutorizadoPorRecepcionProductoId()).orElse(null));
+        if (input.getUsuarioCreacionId() != null)
+            e.setUsuarioCreacion(usuarioService.findById(input.getUsuarioCreacionId()).orElse(null));
+        if (input.getUsuarioRecepcionNotaId() != null)
+            e.setUsuarioRecepcionNota(usuarioService.findById(input.getUsuarioRecepcionNotaId()).orElse(null));
+        if (input.getUsuarioRecepcionProductoId() != null)
+            e.setUsuarioRecepcionProducto(usuarioService.findById(input.getUsuarioRecepcionProductoId()).orElse(null));
+        if (input.getProductoId() != null) e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
+        if (input.getPedidoId() != null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
+        if (input.getPresentacionCreacionId() != null)
+            e.setPresentacionCreacion(presentacionService.findById(input.getPresentacionCreacionId()).orElse(null));
+        if (input.getPresentacionRecepcionNotaId() != null)
+            e.setPresentacionRecepcionNota(presentacionService.findById(input.getPresentacionRecepcionNotaId()).orElse(null));
+        if (input.getPresentacionRecepcionProductoId() != null)
+            e.setPresentacionRecepcionProducto(presentacionService.findById(input.getPresentacionRecepcionProductoId()).orElse(null));
+        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getVencimientoCreacion() != null)
+            e.setVencimientoCreacion(stringToDate(input.getVencimientoCreacion()));
+        if (input.getVencimientoRecepcionNota() != null)
+            e.setVencimientoRecepcionNota(stringToDate(input.getVencimientoRecepcionNota()));
+        if (input.getVencimientoRecepcionProducto() != null)
+            e.setVencimientoRecepcionProducto(stringToDate(input.getVencimientoRecepcionProducto()));
+        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getNotaRecepcionId() != null)
+            e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
+        if (input.getAutorizadoPorRecepcionNotaId() != null)
+            e.setAutorizadoPorRecepcionNota(usuarioService.findById(input.getAutorizadoPorRecepcionNotaId()).orElse(null));
+        if (input.getAutorizadoPorRecepcionProductoId() != null)
+            e.setAutorizadoPorRecepcionProducto(usuarioService.findById(input.getAutorizadoPorRecepcionProductoId()).orElse(null));
 
         return service.save(e);
     }
 
-    public Boolean deletePedidoItem(Long id){
+    public Boolean deletePedidoItem(Long id) {
         return service.deleteById(id);
     }
 
-    public Long countPedidoItem(){
+    public Long countPedidoItem() {
         return service.count();
     }
 
-    public Page<PedidoItem> pedidoItemPorPedidoIdSobrante(Long id, int page, int size){
+    public Page<PedidoItem> pedidoItemPorPedidoIdSobrante(Long id, int page, int size, String texto) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findByPedidoIdSobrantes(id, pageable);
+        if (texto != null) {
+            texto = "%"+texto.replace(" ", "%").toUpperCase()+"%";
+            return service.findByPedidoIdAndDescripcionSobrantes(id, texto, pageable);
+        } else {
+            return service.findByPedidoIdSobrantes(id, pageable);
+        }
     }
 
-    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size){
+    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size, String texto) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findByNotaRecepcionId(id, pageable);
+        if (texto != null) {
+            texto = "%"+texto.replace(" ", "%").toUpperCase()+"%";
+            return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
+        } else {
+            return service.findByNotaRecepcionId(id, pageable);
+        }
     }
 
-    public PedidoItem updateNotaRecepcion(Long pedidoItemId, Long notaRecepcionId){
+    public PedidoItem updateNotaRecepcion(Long pedidoItemId, Long notaRecepcionId) {
         PedidoItem pedidoItem = service.findById(pedidoItemId).orElse(null);
-        if(pedidoItem!=null){
-            if(notaRecepcionId!=null){
+        if (pedidoItem != null) {
+            if (notaRecepcionId != null) {
                 pedidoItem.setNotaRecepcion(notaRecepcionService.findById(notaRecepcionId).orElse(null));
             } else {
                 pedidoItem.setNotaRecepcion(null);
@@ -123,23 +153,20 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return pedidoItem;
     }
 
-    public Boolean addPedidoItemListToNotaRecepcion(Long notaRecepcionId, List<Long> pedidoItemIdList){
+    public PedidoItem addPedidoItemToNotaRecepcion(Long notaRecepcionId, Long pedidoItemId) {
         NotaRecepcion notaRecepcion = notaRecepcionId != null ? notaRecepcionService.findById(notaRecepcionId).orElse(null) : null;
-        List<PedidoItem> pedidoItemList = service.getRepository().findByIdIn(pedidoItemIdList);
-        if(notaRecepcion != null && pedidoItemIdList.size() > 0){
-            for(PedidoItem pi : pedidoItemList){
+        PedidoItem pi = service.getRepository().findById(pedidoItemId).orElse(null);
+        try {
+            if (notaRecepcion != null) {
                 pi.setNotaRecepcion(notaRecepcion);
                 pi.setPresentacionRecepcionNota(pi.getPresentacionCreacion());
-                pi.setCantidadRecepcionNota(pi.getCantidadRecepcionNota());
+                pi.setCantidadRecepcionNota(pi.getCantidadCreacion());
                 pi.setDescuentoUnitarioRecepcionNota(pi.getDescuentoUnitarioCreacion());
                 pi.setVencimientoRecepcionNota(pi.getVencimientoCreacion());
                 pi.setPrecioUnitarioRecepcionNota(pi.getPrecioUnitarioCreacion());
                 pi.setVerificadoRecepcionNota(true);
-                service.save(pi);
-            }
-            return true;
-        } else if(notaRecepcionId == null && pedidoItemIdList.size() > 0) {
-            for(PedidoItem pi : pedidoItemList){
+                return service.save(pi);
+            } else {
                 pi.setPresentacionRecepcionNota(null);
                 pi.setCantidadRecepcionNota(null);
                 pi.setDescuentoUnitarioRecepcionNota(null);
@@ -147,12 +174,12 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 pi.setPrecioUnitarioRecepcionNota(null);
                 pi.setVerificadoRecepcionNota(false);
                 pi.setNotaRecepcion(null);
-                service.save(pi);
+                return service.save(pi);
             }
-            return true;
-        } else {
-            return false;
+        } catch (Exception e) {
+            throw new GraphQLException("Ocurrio un problema");
         }
+
     }
 
 

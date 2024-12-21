@@ -54,10 +54,10 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public Page<NotaRecepcion> notaRecepcionPorPedidoIdAndNumero(Long id, Integer numero, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         if(numero!=null){
-            String texto = "%"+numero.toString()+"%";
-            return service.getRepository().findByPedidoIdAndNumero(id, texto, pageable);
+            String texto = "%"+numero+"%";
+            return service.findByPedidoIdAndNumero(id, texto, pageable);
         } else {
-            return service.getRepository().findByPedidoId(id, pageable);
+            return service.findByPedidoId(id, pageable);
         }
     }
 

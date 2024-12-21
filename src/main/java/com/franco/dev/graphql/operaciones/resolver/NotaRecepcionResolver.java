@@ -57,5 +57,9 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
         return valor;
     }
 
+    public Integer cantidadItensVerificadoRecepcionMercaderia(NotaRecepcion p){
+        return pedidoItemService.getRepository().countByNotaRecepcionIdAndVerificadoRecepcionProducto(p.getId(), true);
+    }
+
 
 }

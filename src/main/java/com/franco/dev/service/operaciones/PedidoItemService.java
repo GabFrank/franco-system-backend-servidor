@@ -38,7 +38,9 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
 
     public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { return repository.findByPedidoIdOrderByIdDesc(id, page); }
 
-    public Page<PedidoItem> findByPedidoIdAndTexto(Long id, String texto, Pageable page) { return repository.findByIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page); }
+    public Page<PedidoItem> findByPedidoIdAndTexto(Long id, String texto, Pageable page) {
+        return repository.findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
+    }
 
     public List<PedidoItem> findByPedidoId(Long id) { return repository.findByPedidoId(id); }
 

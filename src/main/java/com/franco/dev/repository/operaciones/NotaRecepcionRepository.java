@@ -18,10 +18,10 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
 
     public Page<NotaRecepcion> findByPedidoId(Long id, Pageable page);
 
-    @Query(
+    @Query( value =
             "SELECT nr FROM NotaRecepcion nr " +
                     "WHERE nr.pedido.id = :id " +
-                    "AND (nr.numero IS NULL OR FUNCTION('CAST', nr.numero AS CHAR) LIKE :text) order by nr.id desc"
+                    "AND (nr.numero IS NULL OR cast(nr.numero AS text) LIKE :text) order by nr.id desc"
     )
     Page<NotaRecepcion> findByPedidoIdAndNumero(
             Long id,
@@ -40,4 +40,5 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
 //
 //    //@Query("select p from Producto p where CAST(id as text) like %?1% or LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
 //    //public List<Producto> findbyAll(String texto);
+
 }

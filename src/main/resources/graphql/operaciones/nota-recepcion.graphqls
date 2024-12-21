@@ -13,6 +13,7 @@ type NotaRecepcion {
     usuario: Usuario,
     cantidadItens: Int
     fecha: Date
+    cantidadItensVerificadoRecepcionMercaderia: Int
 }
 
 input NotaRecepcionInput {

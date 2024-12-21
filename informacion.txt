@@ -7,4 +7,4 @@ pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile start
 pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile start
 
 -- donde me quede
-agregando filtro a las listas de pedido item, backend terminado ahora falta agregar los campos de filtro
+funcion de verificar en recepcion de productos funcionando, ahora falta verificar si modificar y rechazar producto estan funcionando y luego habilitar el boton para finalizar

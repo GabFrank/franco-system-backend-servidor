@@ -58,7 +58,7 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Page<PedidoItem> pedidoItemPorPedidoPage(Long id, int page, int size, String texto) {
         Pageable pageable = PageRequest.of(page, size);
         if (texto != null) {
-            texto = "%"+texto.replace(" ", "%").toUpperCase()+"%";
+            texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
             return service.findByPedidoIdAndTexto(id, texto, pageable);
         } else {
             return service.findByPedidoId(id, pageable);
@@ -115,20 +115,28 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Page<PedidoItem> pedidoItemPorPedidoIdSobrante(Long id, int page, int size, String texto) {
         Pageable pageable = PageRequest.of(page, size);
         if (texto != null) {
-            texto = "%"+texto.replace(" ", "%").toUpperCase()+"%";
+            texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
             return service.findByPedidoIdAndDescripcionSobrantes(id, texto, pageable);
         } else {
             return service.findByPedidoIdSobrantes(id, pageable);
         }
     }
 
-    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size, String texto) {
+    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size, String texto, Boolean verificado) {
         Pageable pageable = PageRequest.of(page, size);
         if (texto != null) {
-            texto = "%"+texto.replace(" ", "%").toUpperCase()+"%";
-            return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
+            texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
+            if (verificado != null) {
+                return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(id, texto, verificado, pageable);
+            } else {
+                return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
+            }
         } else {
-            return service.findByNotaRecepcionId(id, pageable);
+            if (verificado != null) {
+                return service.getRepository().findByNotaRecepcionIdAndVerificadoRecepcionProducto(id, verificado, pageable);
+            } else {
+                return service.findByNotaRecepcionId(id, pageable);
+            }
         }
     }
 
@@ -180,6 +188,28 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             throw new GraphQLException("Ocurrio un problema");
         }
 
+    }
+
+    public PedidoItem verificarRecepcionProducto(Long pedidoItemId, Boolean verificar) {
+        PedidoItem pi = service.findById(pedidoItemId).orElse(null);
+        if (pi == null) throw new GraphQLException("Ocurrio un problema!!");
+        if (verificar) {
+            pi.setPresentacionRecepcionProducto(pi.getPresentacionRecepcionNota());
+            pi.setCantidadRecepcionProducto(pi.getCantidadRecepcionNota());
+            pi.setDescuentoUnitarioRecepcionProducto(pi.getDescuentoUnitarioRecepcionNota());
+            pi.setVencimientoRecepcionProducto(pi.getVencimientoRecepcionNota());
+            pi.setPrecioUnitarioRecepcionProducto(pi.getPrecioUnitarioRecepcionNota());
+            pi.setVerificadoRecepcionProducto(true);
+            return service.save(pi);
+        } else {
+            pi.setPresentacionRecepcionProducto(null);
+            pi.setCantidadRecepcionProducto(null);
+            pi.setDescuentoUnitarioRecepcionProducto(null);
+            pi.setVencimientoRecepcionProducto(null);
+            pi.setPrecioUnitarioRecepcionProducto(null);
+            pi.setVerificadoRecepcionProducto(false);
+            return service.save(pi);
+        }
     }
 
 

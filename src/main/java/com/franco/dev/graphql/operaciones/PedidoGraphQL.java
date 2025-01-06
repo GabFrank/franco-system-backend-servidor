@@ -242,7 +242,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if(estado == PedidoEstado.CONCLUIDO){
             List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
             for(PedidoItem pi: pedidoItemList){
-                MovimientoStock foundMov = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.COMPRA, pi.getId(), pedido.get)
+//                MovimientoStock foundMov = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.COMPRA, pi.getId(), pedido.get)
             }
         }
         pedido.setEstado(estado);

@@ -1,11 +1,9 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.operaciones.Pedido;
-import com.franco.dev.domain.operaciones.PedidoFechaEntrega;
-import com.franco.dev.domain.operaciones.PedidoSucursalEntrega;
-import com.franco.dev.domain.operaciones.PedidoSucursalInfluencia;
+import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.PedidoInput;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -66,6 +64,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private PedidoSucursalInfluenciaService pedidoSucursalInfluenciaService;
+
+    @Autowired
+    private MovimientoStockService movimientoStockService;
 
     @Autowired
     private SucursalService sucursalService;
@@ -237,6 +238,12 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         Pedido pedido = service.findById(id).orElse(null);
         if(pedido == null){
             throw new GraphQLException("No se puedo encontrar el pedido");
+        }
+        if(estado == PedidoEstado.CONCLUIDO){
+            List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
+            for(PedidoItem pi: pedidoItemList){
+                MovimientoStock foundMov = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.COMPRA, pi.getId(), pedido.get)
+            }
         }
         pedido.setEstado(estado);
         return service.save(pedido);

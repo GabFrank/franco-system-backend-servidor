@@ -49,33 +49,36 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public Double stockByProductoIdAndSucursalId(Long proId, Long sucId) {
-        StockPorProductoSucursal sps = stockPorProductoSucursalService.getRepository().findByIdAndSucursalId(proId, sucId);
-        if (sps != null) {
-            MovimientoStockCantidadAndIdDto dto = repository.stockByProductoIdAndSucursalIdAndLastId(proId, sucId, sps.getLastMovimientoStockId());
-            if (dto != null && dto.getCantidad() != null && dto.getCantidad() != 0) {
-                Double cantidadParcial = dto.getCantidad();
-                sps.sumarCantidad(Double.valueOf(cantidadParcial));
-                sps.setLastMovimientoStockId(dto.getLastId());
-                if(dto.getCantItens() > env.getProperty("calculoStockLimite", Long.class)){
-                    stockPorProductoSucursalService.save(sps);
-                }
-            }
-            return sps.getCantidad();
-        } else {
-            MovimientoStockCantidadAndIdDto dto = repository.stockByProductoIdAndSucursalIdAndLastId(proId, sucId, Long.valueOf(0));
-            if (dto != null && dto.getLastId() != null) {
-                Double cantidadParcial = dto.getCantidad() != null ? dto.getCantidad() : 0.0;
-                sps = new StockPorProductoSucursal();
-                sps.setId(proId);
-                sps.setSucursalId(sucId);
-                sps.setCantidad(cantidadParcial);
-                sps.setLastMovimientoStockId(dto.getLastId());
-                stockPorProductoSucursalService.save(sps);
-                return sps.getCantidad();
-            } else {
-                return 0.0;
-            }
-        }
+//        StockPorProductoSucursal sps = stockPorProductoSucursalService.getRepository().findByIdAndSucursalId(proId, sucId);
+//        if (sps != null) {
+//            MovimientoStockCantidadAndIdDto dto = repository.stockByProductoIdAndSucursalIdAndLastId(proId, sucId, sps.getLastMovimientoStockId());
+//            if (dto != null && dto.getCantidad() != null && dto.getCantidad() != 0) {
+//                Double cantidadParcial = dto.getCantidad();
+//                sps.sumarCantidad(Double.valueOf(cantidadParcial));
+//                sps.setLastMovimientoStockId(dto.getLastId());
+//                if(dto.getCantItens() > env.getProperty("calculoStockLimite", Long.class)){
+//                    stockPorProductoSucursalService.save(sps);
+//                }
+//            }
+//            return sps.getCantidad();
+//        } else {
+//            MovimientoStockCantidadAndIdDto dto = repository.stockByProductoIdAndSucursalIdAndLastId(proId, sucId, Long.valueOf(0));
+//            if (dto != null && dto.getLastId() != null) {
+//                Double cantidadParcial = dto.getCantidad() != null ? dto.getCantidad() : 0.0;
+//                sps = new StockPorProductoSucursal();
+//                sps.setId(proId);
+//                sps.setSucursalId(sucId);
+//                sps.setCantidad(cantidadParcial);
+//                sps.setLastMovimientoStockId(dto.getLastId());
+//                stockPorProductoSucursalService.save(sps);
+//                return sps.getCantidad();
+//            } else {
+//                return 0.0;
+//            }
+//        }
+        Float stock = repository.stockByProductoIdAndSucursalId(proId, sucId);
+        if(stock == null) stock = Float.valueOf(0);
+        return Double.valueOf(stock);
     }
 
     public Double stockByProductoId(Long proId) {
@@ -116,6 +119,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             entity.setCreadoEn(LocalDateTime.now());
             Long newId = Long.valueOf(1);
             Long lastId = repository.findMaxId(entity.getSucursalId());
+            if(lastId == null) lastId = Long.valueOf(0);
             if(lastId % 2 != 0){
                 newId = lastId + 2;
             } else {

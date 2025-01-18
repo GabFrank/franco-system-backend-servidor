@@ -50,6 +50,7 @@ extend type Query {
     countNotaRecepcion: Int
     notaRecepcionPorPedidoId(id:ID!):[NotaRecepcion]
     notaRecepcionPorPedidoIdAndNumero(id:ID!, numero: Int, page: Int, size: Int):NotaRecepcionPage
+    countNotaRecepcionPorPedidoId(id:ID!):Int
 }
 
 extend type Mutation {

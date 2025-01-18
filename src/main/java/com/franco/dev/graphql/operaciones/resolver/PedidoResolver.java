@@ -124,4 +124,20 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
     public Long cantPedidoItemCancelados(Pedido e) {
         return pedidoItemService.getRepository().countByPedidoIdAndCancelado(e.getId(), true);
     }
+
+    public Integer cantNotas(Pedido p){
+        return notaRecepcionService.getRepository().countByPedidoId(p.getId());
+    }
+
+    public Integer cantNotasPagadas(Pedido p){
+        return notaRecepcionService.getRepository().countByPedidoIdAndPagadoTrue(p.getId());
+    }
+
+    public Integer cantNotasCanceladas(Pedido p){
+        return 0;
+    }
+
+    public Boolean pagado(Pedido p){
+        return notaRecepcionService.getRepository().areAllNotasPagadasTrue(p.getId());
+    }
 }

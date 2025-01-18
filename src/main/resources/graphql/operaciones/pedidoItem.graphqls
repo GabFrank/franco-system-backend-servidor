@@ -115,6 +115,8 @@ extend type Query {
     countPedidoItem: Int
     pedidoItemPorPedidoIdSobrante(id:ID, page:Int = 0, size:Int = 10, texto: String): PedidoItemPage!
     pedidoItemPorNotaRecepcion(id:ID, page:Int = 0, size:Int = 10, texto: String, verificado: Boolean): PedidoItemPage!
+    cantidadItensFaltaVerificarNota(id:ID!):Int
+    cantidadItensFaltaVerificarProducto(id:ID!):Int
 }
 
 extend type Mutation {

@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.graphql.operaciones.input.PedidoInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.MonedaService;
@@ -12,6 +13,7 @@ import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.personas.VendedorService;
+import com.franco.dev.service.productos.ProductoProveedorService;
 import graphql.GraphQLException;
 import graphql.GraphqlErrorException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -71,47 +73,56 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private SucursalService sucursalService;
 
-    public Optional<Pedido> pedido(Long id) {return service.findById(id);}
+    @Autowired
+    private ProductoProveedorService productoProveedorService;
 
-    public List<Pedido> pedidos(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Optional<Pedido> pedido(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Pedido> pedidos(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public Page<Pedido> filterPedidos(PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPagoId, Long productoId, Integer page, Integer size){
-        return service.filterPedidos(estado, sucursalId, inicio, fin, proveedorId, vendedorId, formaPagoId, productoId, page, size);
+    public Page<Pedido> filterPedidos(Long idPedido,
+                                      Integer numeroNotaRecepcion, PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPagoId, Long productoId, Integer page, Integer size) {
+        return service.filterPedidos(idPedido,
+                numeroNotaRecepcion, estado, sucursalId, inicio, fin, proveedorId, vendedorId, formaPagoId, productoId, page, size);
     }
 
-    public Pedido savePedido(PedidoInput input){
+    public Pedido savePedido(PedidoInput input) {
         ModelMapper m = new ModelMapper();
         Pedido e = m.map(input, Pedido.class);
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if(input.getMonedaId()!=null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        if(input.getProveedorId()!=null) e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
-        if(input.getVendedorId()!=null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        if (input.getProveedorId() != null)
+            e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
+        if (input.getVendedorId() != null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
         Pedido pedido = service.save(e);
         return pedido;
     }
 
-    public Pedido savePedidoFull(PedidoInput input, List<String> fechaEntregaList, List<Long> sucursalEntregaList, List<Long> sucursalInfluenciaList, Long usuarioId){
+    public Pedido savePedidoFull(PedidoInput input, List<String> fechaEntregaList, List<Long> sucursalEntregaList, List<Long> sucursalInfluenciaList, Long usuarioId) {
         ModelMapper m = new ModelMapper();
         Pedido e = m.map(input, Pedido.class);
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if(input.getMonedaId()!=null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        if(input.getProveedorId()!=null) e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
-        if(input.getVendedorId()!=null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        if (input.getProveedorId() != null)
+            e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
+        if (input.getVendedorId() != null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
         Pedido pedido = service.save(e);
-        if(fechaEntregaList != null){
+        if (fechaEntregaList != null) {
             updatePedidoFechaEntrega(pedido, fechaEntregaList, usuarioId);
         }
-        if(sucursalEntregaList != null){
+        if (sucursalEntregaList != null) {
             updatePedidoSucursalEntrega(pedido, sucursalEntregaList, usuarioId);
         }
-        if(sucursalEntregaList != null){
+        if (sucursalEntregaList != null) {
             updatePedidoSucursalInfluencia(pedido, sucursalInfluenciaList, usuarioId);
         }
         return pedido;
@@ -226,23 +237,34 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         });
     }
 
-    public Boolean deletePedido(Long id){
+    public Boolean deletePedido(Long id) {
         return service.deleteById(id);
     }
 
-    public Long countPedido(){
+    public Long countPedido() {
         return service.count();
     }
 
-    public Pedido finalizarPedido(Long id, PedidoEstado estado){
+    public Pedido finalizarPedido(Long id, PedidoEstado estado) {
         Pedido pedido = service.findById(id).orElse(null);
-        if(pedido == null){
+        if (pedido == null) {
             throw new GraphQLException("No se puedo encontrar el pedido");
         }
-        if(estado == PedidoEstado.CONCLUIDO){
+        if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
             List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
-            for(PedidoItem pi: pedidoItemList){
-//                MovimientoStock foundMov = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.COMPRA, pi.getId(), pedido.get)
+            for (PedidoItem pi : pedidoItemList) {
+                ProductoProveedor productoProveedor = new ProductoProveedor();
+                productoProveedor.setProveedor(pedido.getProveedor());
+                productoProveedor.setPedido(pedido);
+                productoProveedor.setUsuario(pedido.getUsuario());
+                productoProveedor.setProducto(pi.getProducto());
+                productoProveedor.setCreadoEn(LocalDateTime.now());
+                productoProveedorService.save(productoProveedor);
+            }
+        } else if (estado == PedidoEstado.CONCLUIDO) {
+            List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
+            for (PedidoItem pi : pedidoItemList) {
+
             }
         }
         pedido.setEstado(estado);

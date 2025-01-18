@@ -1,0 +1,33 @@
+type PuntoDeVenta {
+    id:ID!
+    sucursal: Sucursal
+    nombre: String
+    nombreImpresoraTicket: String
+    tamanhoImpresoraTicket: String
+    nombreImpresoraReportes: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input PuntoDeVentaInput {
+    id:ID
+    sucursalId: Int
+    nombre: String
+    nombreImpresoraTicket: String
+    tamanhoImpresoraTicket: String
+    nombreImpresoraReportes: String
+    usuarioId: Int
+}
+
+extend type Query {
+    puntoDeVenta(id:ID!):PuntoDeVenta
+    puntoDeVentas(page:Int = 0, size:Int = 10):[PuntoDeVenta]!
+    countPuntoDeVenta: Int
+    puntoDeVentaPorSucursalId(id:Int):[PuntoDeVenta]
+}
+
+extend type Mutation {
+    savePuntoDeVenta(puntoDeVenta:PuntoDeVentaInput!):PuntoDeVenta!
+    deletePuntoDeVenta(id:ID!):Boolean!
+}
+

@@ -52,5 +52,6 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Page<PedidoItem> findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);
 
-
+    public Integer countByPedidoIdAndVerificadoRecepcionProductoFalse(Long id);
+    public Integer countByPedidoIdAndVerificadoRecepcionNotaFalse(Long id);
 }

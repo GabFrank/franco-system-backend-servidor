@@ -82,4 +82,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public Long countNotaRecepcion() {
         return service.count();
     }
+
+    public Integer countNotaRecepcionPorPedidoId(Long id){
+        return service.getRepository().countByPedidoId(id);
+    }
 }

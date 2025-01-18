@@ -212,5 +212,11 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
     }
 
+    public Integer cantidadItensFaltaVerificarNota(Long id){
+        return service.getRepository().countByPedidoIdAndVerificadoRecepcionNotaFalse(id);
+    }
 
+    public Integer cantidadItensFaltaVerificarProducto(Long id){
+        return service.getRepository().countByPedidoIdAndVerificadoRecepcionProductoFalse(id);
+    }
 }

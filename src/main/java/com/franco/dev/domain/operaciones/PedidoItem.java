@@ -10,12 +10,11 @@ import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
 import javax.persistence.*;
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -24,6 +23,7 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@DynamicInsert //permite que los valores por default declarados en la base de datos sean utilizados
 @TypeDef(
         name = "pedido_item_estado",
         typeClass = PostgreSQLEnumType.class
@@ -70,14 +70,14 @@ public class PedidoItem implements Identifiable<Long> {
     @Column(name = "descuento_unitario_creacion")
     private Double descuentoUnitarioCreacion;
 
-    private Boolean bonificacion;
+    private Boolean bonificacion = false;
 
     @Column(name = "bonificacion_detalle")
     private String bonificacionDetalle;
 
     private String observacion;
 
-    private Boolean frio;
+    private Boolean frio = false;
 
     private Double cantidadCreacion;
 
@@ -143,9 +143,9 @@ public class PedidoItem implements Identifiable<Long> {
     private String motivoModificacionRecepcionProducto;
     private String motivoRechazoRecepcionNota;
     private String motivoRechazoRecepcionProducto;
-    private Boolean cancelado;
-    private Boolean verificadoRecepcionNota;
-    private Boolean verificadoRecepcionProducto;
+    private Boolean cancelado = false;
+    private Boolean verificadoRecepcionNota = false;
+    private Boolean verificadoRecepcionProducto = false;
 }
 
 

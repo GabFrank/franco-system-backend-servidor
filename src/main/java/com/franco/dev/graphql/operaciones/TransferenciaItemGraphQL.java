@@ -136,5 +136,11 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         Boolean ok = service.deleteById(id);
         return ok;
     }
+
+    public TransferenciaItem verificarProducto(Long id, Boolean vencimientoVerificado) {
+        System.out.println("Received request to verify product: ID=" + id + ", vencimientoVerificado=" + vencimientoVerificado);
+        return service.verificarProducto(id, vencimientoVerificado);
+    }
+
 }
 

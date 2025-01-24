@@ -2,6 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.Necesidad;
 import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.operaciones.dto.VencimientoProductoDto;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
@@ -48,6 +49,10 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
                                             TipoTransferencia tipo, EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino, LocalDateTime creadoDesde,
                                             LocalDateTime creadoHasta, Pageable pageable) {
         return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, creadoDesde, creadoHasta, pageable);
+    }
+
+    public List<VencimientoProductoDto> findProductosVencidos(Long sucId, LocalDateTime fechaInicio, LocalDateTime fechaFin) {
+        return repository.findProductoVencido(sucId, fechaInicio, fechaFin);
     }
 
     @Override

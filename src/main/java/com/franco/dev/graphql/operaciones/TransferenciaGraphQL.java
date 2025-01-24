@@ -4,6 +4,7 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.dto.VencimientoProductoDto;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
@@ -28,7 +29,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -340,4 +343,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
     }
 
+    public List<VencimientoProductoDto> findProductoVencido(Long sucId, String fechaInicio, String fechaFin) {
+        return service.findProductosVencidos(sucId, stringToDate(fechaInicio), stringToDate(fechaFin));
+    }
 }

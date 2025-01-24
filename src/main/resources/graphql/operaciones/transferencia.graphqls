@@ -46,6 +46,14 @@ type TransferenciaPage {
     getPageable: Pageable
 }
 
+type VencimientoProductoDto {
+    transferencia: Transferencia
+    presentacion: Presentacion
+    producto: Producto
+    sucursal: Sucursal
+    transferenciaItem: TransferenciaItem
+}
+
 extend type Query {
     transferencia(id:ID!):Transferencia
     transferencias(page:Int = 0, size:Int = 10):[Transferencia]!
@@ -54,6 +62,7 @@ extend type Query {
     countTransferencia: Int
     transferenciasWithFilters(sucursalOrigenId: Int, sucursalDestinoId: Int, estado: TransferenciaEstado, tipo: TipoTransferencia, etapa: EtapaTransferencia, isOrigen: Boolean, isDestino: Boolean, creadoDesde: String, creadoHasta: String, page: Int, size: Int): TransferenciaPage
     imprimirTransferencia(id:ID!, ticket: Boolean, printerName:String!):String
+    findProductoVencido(sucId: Int!, fechaInicio: String!, fechaFin: String!):[VencimientoProductoDto]
 }
 
 extend type Mutation {

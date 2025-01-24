@@ -29,6 +29,7 @@ type TransferenciaItem {
     poseeVencimiento: Boolean
     usuario: Usuario
     creadoEn: Date
+    vencimientoVerificado: Boolean!
 }
 
 input TransferenciaItemInput {
@@ -62,6 +63,7 @@ input TransferenciaItemInput {
     poseeVencimiento: Boolean
     usuarioId: Int
     creadoEn: Date
+    vencimientoVerificado: Boolean!
 }
 
 type TransferenciaItemPage {
@@ -86,6 +88,7 @@ extend type Query {
 extend type Mutation {
     saveTransferenciaItem(transferenciaItem:TransferenciaItemInput!, precioCosto: Float):TransferenciaItem!
     deleteTransferenciaItem(id:ID!):Boolean!
+    verificarProducto(id: ID!, vencimientoVerificado: Boolean!): TransferenciaItem!
 }
 
 enum TransferenciaItemMotivoRechazo {

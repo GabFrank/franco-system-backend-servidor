@@ -42,5 +42,6 @@ public class TransferenciaItemInput {
     private Boolean poseeVencimiento;
     private LocalDateTime creadoEn;
     private Long usuarioId;
+    private Boolean vencimientoVerificado;
 
 }

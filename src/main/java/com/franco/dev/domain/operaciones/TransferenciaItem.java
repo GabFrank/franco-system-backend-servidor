@@ -161,6 +161,9 @@ public class TransferenciaItem implements Identifiable<Long> {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    @Column(name = "vencimiento_verificado")
+    private Boolean vencimientoVerificado;
+
 //    etapa: EtapaTransferencia
 //    activo: Boolean
 //    poseeVencimiento: Date

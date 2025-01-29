@@ -3,7 +3,9 @@ package com.franco.dev.domain.operaciones;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Documento;
-import com.franco.dev.domain.operaciones.enums.NecesidadEstado;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionAgrupadaEstado;
+import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
@@ -14,15 +16,18 @@ import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "nota_recepcion", schema = "operaciones")
-public class NotaRecepcion implements Identifiable<Long> {
+@Table(name = "nota_recepcion_agrupada", schema = "operaciones")
+@TypeDef(
+        name = "nota_recepcion_agrupada_estado",
+        typeClass = PostgreSQLEnumType.class
+)
+public class NotaRecepcionAgrupada implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
@@ -38,32 +43,22 @@ public class NotaRecepcion implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_id", nullable = true)
-    private Pedido pedido;
+    @JoinColumn(name = "proveedor_id", nullable = false)
+    private Proveedor proveedor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nota_recepcion_agrupada_id", nullable = true)
-    private NotaRecepcionAgrupada notaRecepcionAgrupada;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "compra_id", nullable = true)
-    private Compra compra;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "documento_id", nullable = true)
-    private Documento documento;
-
-    private Integer numero;
-    private String tipoBoleta;
-    private Integer timbrado;
-    private Boolean pagado;
+    @JoinColumn(name = "sucursal_id", nullable = true)
+    private Sucursal sucursal;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    private LocalDateTime fecha;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado")
+    @Type(type = "nota_recepcion_agrupada_estado")
+    private NotaRecepcionAgrupadaEstado estado;
 }

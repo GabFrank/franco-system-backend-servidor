@@ -18,6 +18,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -83,5 +84,11 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public List<Proveedor> proveedorSearchByPersona(String texto) { return service.findByPersonaNombre(texto); }
+
+    public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? "%" + texto.replace(" ", "%") + "%": "";
+        return service.getRepository().findByPersonaNombreLike(texto, pageable);
+    }
 
 }

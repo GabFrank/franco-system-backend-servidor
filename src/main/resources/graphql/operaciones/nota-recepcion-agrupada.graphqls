@@ -1,0 +1,50 @@
+# Types
+type NotaRecepcionAgrupada {
+    id: ID!
+    proveedor: Proveedor
+    sucursal: Sucursal
+    creadoEn: Date
+    usuario: Usuario
+    cantNotas: Int
+    estado: NotaRecepcionAgrupadaEstado
+}
+
+# Inputs
+input NotaRecepcionAgrupadaInput {
+    id: ID
+    proveedorId: ID
+    sucursalId: ID
+    usuarioId: ID
+    creadoEn: String
+    estado: NotaRecepcionAgrupadaEstado
+}
+
+# Pagination Type (if needed)
+type NotaRecepcionAgrupadaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [NotaRecepcionAgrupada]
+    getPageable: Pageable
+}
+
+# Queries
+extend type Query {
+    notaRecepcionListPorUsuarioId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
+    notaRecepcionListPorProveedorId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
+}
+
+# Mutations
+extend type Mutation {
+    saveNotaRecepcionAgrupada(input: NotaRecepcionAgrupadaInput!): NotaRecepcionAgrupada!
+}
+
+enum NotaRecepcionAgrupadaEstado {
+    EN_RECEPCION,
+    CONCLUIDO,
+    CANCELADO
+}

@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class NotaRecepcionInput {
     private Long id;
     private Long pedidoId;
+    private Long notaRecepcionAgrupadaId;
     private Long compraId;
     private Long documentoId;
     private String tipoBoleta;

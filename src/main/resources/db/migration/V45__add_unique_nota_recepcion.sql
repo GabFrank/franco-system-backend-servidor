@@ -1,0 +1,1 @@
+ALTER TABLE operaciones.nota_recepcion_agrupada ADD CONSTRAINT nota_recepcion_agrupada_unique UNIQUE (nota_recepcion_id);

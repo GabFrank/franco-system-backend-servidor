@@ -1,9 +1,11 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
+import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionInput;
 import com.franco.dev.service.financiero.DocumentoService;
 import com.franco.dev.service.operaciones.CompraService;
+import com.franco.dev.service.operaciones.NotaRecepcionAgrupadaService;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -38,6 +40,9 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private PedidoService pedidoService;
 
+    @Autowired
+    private NotaRecepcionAgrupadaService notaRecepcionAgrupadaService;
+
     public Optional<NotaRecepcion> notaRecepcion(Long id) {
         return service.findById(id);
     }
@@ -69,6 +74,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
             e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
         if (input.getPedidoId() != null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getNotaRecepcionAgrupadaId() != null) e.setNotaRecepcionAgrupada(notaRecepcionAgrupadaService.findById(input.getNotaRecepcionAgrupadaId()).orElse(null));
         if (input.getFecha() != null) e.setFecha(stringToDate(input.getFecha()));
         if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         return service.save(e);
@@ -85,5 +91,9 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public Integer countNotaRecepcionPorPedidoId(Long id){
         return service.getRepository().countByPedidoId(id);
+    }
+
+    public List<NotaRecepcion> findByProveedorAndNumero(Long id, Integer numero){
+        return service.getRepository().findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(id, numero, PedidoEstado.CONCLUIDO);
     }
 }

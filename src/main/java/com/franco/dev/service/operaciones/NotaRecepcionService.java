@@ -35,6 +35,14 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         return repository.findByPedidoIdAndNumero(id, texto, page);
     }
 
+    public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id){
+        return repository.findByNotaRecepcionAgrupadaId(id);
+    }
+
+    public Long countByNotaRecepcionAgrupadaId(Long id){
+        return repository.countByNotaRecepcionAgrupadaId(id);
+    }
+
     @Override
     public NotaRecepcion save(NotaRecepcion entity) {
         NotaRecepcion e = super.save(entity);

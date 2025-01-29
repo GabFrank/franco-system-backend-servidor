@@ -2,6 +2,8 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
+import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
+import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -55,5 +57,11 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             "    WHERE pedido_id = :pedidoId "
             , nativeQuery = true)
     public Boolean areAllNotasPagadasTrue(@Param("pedidoId") Long pedidoId);
+
+    public List<NotaRecepcion> findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(Long id, Integer numero, PedidoEstado estado);
+
+    public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
+
+    public Long countByNotaRecepcionAgrupadaId(Long id);
 
 }

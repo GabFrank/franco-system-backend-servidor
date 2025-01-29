@@ -3,6 +3,8 @@ package com.franco.dev.repository.personas;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -25,5 +27,7 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
             "left outer JOIN v.proveedor as pro " +
             "where ven.id = ?1")
     public List<Proveedor> findByVendedorId(Long id);
+
+    public Page<Proveedor> findByPersonaNombreLike(String nombre, Pageable page);
 
 }

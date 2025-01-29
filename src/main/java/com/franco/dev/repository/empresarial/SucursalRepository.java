@@ -3,6 +3,8 @@ package com.franco.dev.repository.empresarial;
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -19,6 +21,8 @@ public interface SucursalRepository extends HelperRepository<Sucursal, Long> {
     public List<Sucursal> findByAll(String texto);
 
     public List<Sucursal> findByIsConfiguredFalse();
+
+    public Page<Sucursal> findByNombreLike(String nombre, Pageable page);
 
 //    public List<Pais> findBySubFamiliaId(Long id);
 

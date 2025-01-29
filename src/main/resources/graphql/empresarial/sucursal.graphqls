@@ -29,13 +29,25 @@ input SucursalInput {
 
 }
 
+type SucursalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Sucursal]
+    getPageable: Pageable
+}
+
 extend type Query {
     sucursal(id:ID!):Sucursal
     sucursales(page:Int = 0, size:Int = 10):[Sucursal]!
     countSucursal: Int
     sucursalesSearch(texto:String):[Sucursal]
     sucursalActual:Sucursal
-
+    findByNombre(nombre: String, page: Int, size: Int): SucursalPage
 }
 
 extend type Mutation {

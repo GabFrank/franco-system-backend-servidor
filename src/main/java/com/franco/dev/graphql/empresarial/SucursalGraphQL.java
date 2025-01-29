@@ -12,6 +12,7 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -65,6 +66,14 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Long countSucursal(){
         return service.count();
+    }
+
+    public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page, size);
+        if(nombre != null){
+            nombre = nombre.replace(' ', '%').toUpperCase();
+        }
+        return service.getRepository().findByNombreLike(nombre, pageable);
     }
 
 

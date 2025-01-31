@@ -35,7 +35,10 @@ type NotaRecepcionAgrupadaPage {
 # Queries
 extend type Query {
     notaRecepcionListPorUsuarioId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
+    notaRecepcionAgrupadaPorId(id: ID!): NotaRecepcionAgrupada
     notaRecepcionListPorProveedorId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
+    pedidoRecepcionProductoPorNotaRecepcionAgrupada( id: ID!,page: Int = 0,size: Int = 10 ): PedidoRecepcionProductoPage
+    pedidoRecepcionProductoPorNotaRecepcionAgrupadaAndProducto(notaRecepcionAgrupadaId: ID!, productoId: ID!): PedidoRecepcionProductoDto
 }
 
 # Mutations
@@ -47,4 +50,20 @@ enum NotaRecepcionAgrupadaEstado {
     EN_RECEPCION,
     CONCLUIDO,
     CANCELADO
+}
+
+type PedidoRecepcionProductoDto {
+    productoId: Int
+    totalCantidadARecibirPorUnidad: Float
+    totalCantidadRecibidaPorUnidad: Float
+}
+
+type PedidoRecepcionProductoPage {
+    content: [PedidoRecepcionProductoDto]
+    totalElements: Int
+    totalPages: Int
+    size: Int
+    number: Int
+    first: Boolean
+    last: Boolean
 }

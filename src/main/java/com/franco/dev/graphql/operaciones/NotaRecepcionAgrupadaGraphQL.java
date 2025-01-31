@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
+import com.franco.dev.domain.operaciones.dto.PedidoRecepcionProductoDto;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionAgrupadaInput;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionInput;
@@ -42,6 +43,10 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
     @Autowired
     private SucursalService sucursalService;
 
+    public NotaRecepcionAgrupada notaRecepcionAgrupadaPorId(Long id){
+        return service.getRepository().findById(id).orElse(null);
+    }
+
     public Page<NotaRecepcionAgrupada> notaRecepcionListPorUsuarioId(Long id, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         return service.getRepository().findByUsuarioIdOrderByIdDesc(id, pageable);
@@ -61,5 +66,13 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         return service.save(e);
+    }
+
+    public Page<PedidoRecepcionProductoDto> pedidoRecepcionProductoPorNotaRecepcionAgrupada(Long id, Integer page, Integer size){
+        return service.findRecepcionProductoByNotaRecepcionAgrupada(id, PageRequest.of(page, size));
+    }
+
+    public PedidoRecepcionProductoDto pedidoRecepcionProductoPorNotaRecepcionAgrupadaAndProducto(Long notaRecepcionAgrupadaId, Long productoId){
+        return service.findRecepcionProductoByNotaRecepcionAgrupadaAndProducto(notaRecepcionAgrupadaId, productoId);
     }
 }

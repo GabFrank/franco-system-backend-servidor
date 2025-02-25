@@ -488,5 +488,9 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
         Page<PdvCaja> aux = repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, stringToDate(fechaInicio), stringToDate(fechaFin), sucId, verificado, pageable);
         return aux;
     }
+
+    public List<PdvCaja> findCajasWithVentaObservaciones() {
+        return repository.findCajasWithVentaObservaciones();
+    }
 }
 

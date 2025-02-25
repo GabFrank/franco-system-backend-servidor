@@ -63,6 +63,7 @@ extend type Query {
     cajasPorUsuarioId(id:ID!, page: Int, size: Int):[PdvCaja]
     cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, page:Int, size:Int):PdvCajaPage
     verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
+    findCajasWithVentaObservaciones:[PdvCaja]!
 }
 
 extend type Mutation {

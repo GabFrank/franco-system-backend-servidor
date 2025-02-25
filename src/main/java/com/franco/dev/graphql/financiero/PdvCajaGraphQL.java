@@ -175,4 +175,8 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         }
     }
 
+    public List<PdvCaja> findCajasWithVentaObservaciones () {
+        return service.findCajasWithVentaObservaciones();
+    }
+
 }

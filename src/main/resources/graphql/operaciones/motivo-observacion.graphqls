@@ -1,0 +1,27 @@
+type MotivoObservacion {
+    id:ID!
+    descripcion: String
+    activo: Boolean
+    subcategoriaObservacion: SubcategoriaObservacion
+    creadoEn: Date
+    usuario: Usuario
+}
+input MotivoObservacionInput {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    subcategoriaObservacionId: Int
+    creadoEn: Date
+    usuarioId: Int
+}
+
+extend type Query {
+    motivoObservacion(id:ID!): MotivoObservacion
+    motivosObservaciones:[MotivoObservacion]!
+    findByMotivoIdOrDesc(id:ID, texto: String): [MotivoObservacion]
+}
+
+extend type Mutation {
+    saveMotivoObservacion(motivoObservacion:MotivoObservacionInput!):MotivoObservacion!
+    deleteMotivoObservacion(id:ID!): Boolean!
+}

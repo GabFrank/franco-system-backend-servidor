@@ -57,4 +57,9 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long> {
             "((:cajaId is not null) or (cast(:fechaInicio as timestamp) is null or cast(:fechaFin as timestamp) is null) or c.creadoEn between :fechaInicio and :fechaFin) and " +
             "(c.estado = :estado or cast(:estado as com.franco.dev.domain.financiero.enums.PdvCajaEstado) is null) order by c.id")
     public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Pageable pageable);
+
+    @Query("SELECT DISTINCT v.caja FROM VentaObservacion vo JOIN vo.venta v WHERE v.caja IS NOT NULL")
+    List<PdvCaja> findCajasWithVentaObservaciones();
+
+
 }

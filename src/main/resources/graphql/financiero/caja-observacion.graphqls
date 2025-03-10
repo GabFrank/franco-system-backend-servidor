@@ -1,0 +1,29 @@
+type CajaObservacion {
+    id: ID!
+    descripcion: String
+    cajaMotivoObservacion: CajaMotivoObservacion
+    creadoEn: Date
+    pdvCaja: PdvCaja
+    sucursal: Sucursal
+    usuario: Usuario
+}
+
+input CajaObservacionInput {
+    id: ID
+    descripcion: String
+    cajaMotivoObservacionId: ID
+    cajaId: Int
+    usuarioId: Int
+    sucursalId: Int
+}
+
+extend type Query {
+    cajaObservacion(id: ID!): CajaObservacion
+    cajaObservaciones: [CajaObservacion]
+    findByPdvCajaIdAndSucursalId(cajaId: Int!, sucursalId: Int!): [CajaObservacion]!
+}
+
+extend type Mutation {
+    saveCajaObservacion(cajaObservacion: CajaObservacionInput!): CajaObservacion!
+    deleteCajaObservacion(id: ID!): Boolean!
+}

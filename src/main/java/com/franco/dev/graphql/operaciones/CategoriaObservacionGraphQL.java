@@ -27,7 +27,7 @@ public class CategoriaObservacionGraphQL implements GraphQLQueryResolver, GraphQ
     public Optional<CategoriaObservacion> categoriaObservacion(Long id) { return service.findById(id);}
 
     public List<CategoriaObservacion> categoriaObservacionSearch(Long id, String texto) { return service.findByIdOrDesc(id, texto);}
-
+    
     public List<CategoriaObservacion> categoriasObservaciones() { return service.findAll2();}
 
 

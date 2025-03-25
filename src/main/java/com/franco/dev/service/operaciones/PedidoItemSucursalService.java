@@ -6,6 +6,7 @@ import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -31,8 +32,10 @@ public class PedidoItemSucursalService extends CrudService<PedidoItemSucursal, P
 
     @Override
     public PedidoItemSucursal save(PedidoItemSucursal entity) {
+        if(entity.getId() == null){
+            entity.setCreadoEn(LocalDateTime.now());
+        }
         PedidoItemSucursal e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
     }
 }

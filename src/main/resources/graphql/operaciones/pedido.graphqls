@@ -58,6 +58,7 @@ extend type Query {
     pedidos(page:Int = 0, size:Int = 10):[Pedido]!
     filterPedidos(idPedido:ID, numeroNotaRecepcion:Int ,estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
+    verificarDistribucionSucursales(id:ID!): Boolean
 }
 
 extend type Mutation {

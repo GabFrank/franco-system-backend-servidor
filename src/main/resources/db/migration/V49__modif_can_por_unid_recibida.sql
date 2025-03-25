@@ -1,0 +1,1 @@
+ALTER TABLE operaciones.pedido_item_sucursal RENAME COLUMN cant_por_unidad_recibida TO cantidad_por_unidad_recibida;

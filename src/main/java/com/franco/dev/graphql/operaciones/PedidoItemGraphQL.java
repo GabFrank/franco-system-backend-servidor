@@ -4,6 +4,7 @@ import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.enums.CompraItemEstado;
+import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.graphql.operaciones.input.PedidoItemInput;
 import com.franco.dev.service.operaciones.CompraItemService;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
@@ -218,5 +219,10 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Integer cantidadItensFaltaVerificarProducto(Long id){
         return service.getRepository().countByPedidoIdAndVerificadoRecepcionProductoFalse(id);
+    }
+
+    public Page<PedidoItem> findHistoricoCompras(Long productoId, int page, int size){
+        Pageable pageable = PageRequest.of(page, size);
+        return service.getRepository().findByProductoIdAndPedidoEstado(productoId, PedidoEstado.CONCLUIDO, pageable);
     }
 }

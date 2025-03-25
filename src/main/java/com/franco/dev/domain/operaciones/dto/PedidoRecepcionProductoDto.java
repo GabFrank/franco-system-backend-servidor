@@ -1,16 +1,22 @@
 package com.franco.dev.domain.operaciones.dto;
 
+import com.franco.dev.domain.productos.Producto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
 @NoArgsConstructor
-@AllArgsConstructor
 public class PedidoRecepcionProductoDto {
-    Long ProductoId;
+    Producto producto;
     Double totalCantidadARecibirPorUnidad;
     Double totalCantidadRecibidaPorUnidad;
+
+    public PedidoRecepcionProductoDto(Producto producto, Double totalCantidadARecibirPorUnidad, Double totalCantidadRecibidaPorUnidad) {
+        this.producto = producto;
+        this.totalCantidadARecibirPorUnidad = totalCantidadARecibirPorUnidad;
+        this.totalCantidadRecibidaPorUnidad = totalCantidadRecibidaPorUnidad;
+    }
 }
 
 

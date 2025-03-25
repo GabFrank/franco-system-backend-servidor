@@ -63,5 +63,4 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
     public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
 
     public Long countByNotaRecepcionAgrupadaId(Long id);
-
 }

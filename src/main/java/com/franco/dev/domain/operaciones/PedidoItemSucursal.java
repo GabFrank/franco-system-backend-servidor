@@ -52,7 +52,8 @@ public class PedidoItemSucursal implements Identifiable<Long> {
     @JoinColumn(name = "sucursal_entrega_id", nullable = true)
     private Sucursal sucursalEntrega;
 
-    private Double cantidad;
+    private Double cantidadPorUnidad;
+    private Double cantidadPorUnidadRecibida;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
@@ -61,6 +62,3 @@ public class PedidoItemSucursal implements Identifiable<Long> {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 }
-
-
-

@@ -1,30 +1,21 @@
 package com.franco.dev.graphql.operaciones.resolver;
 
-import com.franco.dev.domain.operaciones.CompraItem;
-import com.franco.dev.domain.operaciones.NotaRecepcion;
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
-import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.operaciones.*;
-import com.franco.dev.service.personas.PersonaService;
-import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.domain.operaciones.dto.PedidoRecepcionProductoDto;
+import com.franco.dev.domain.operaciones.enums.PedidoRecepcionProductoEstado;
 import graphql.kickstart.tools.GraphQLResolver;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
-public class NotaRecepcionAgrupadaResolver implements GraphQLResolver<NotaRecepcionAgrupada> {
+public class PedidoRecepcionProductoResolver implements GraphQLResolver<PedidoRecepcionProductoDto> {
 
-    @Autowired
-    private NotaRecepcionAgrupadaService service;
-
-    @Autowired
-    private NotaRecepcionService notaRecepcionService;
-
-    public Long cantNotas(NotaRecepcionAgrupada e){
-        return notaRecepcionService.countByNotaRecepcionAgrupadaId(e.getId());
+    public PedidoRecepcionProductoEstado estado(PedidoRecepcionProductoDto e) {
+        if (e.getTotalCantidadRecibidaPorUnidad() == null) {
+            return PedidoRecepcionProductoEstado.PENDIENTE;
+        } else if (e.getTotalCantidadRecibidaPorUnidad() >= e.getTotalCantidadARecibirPorUnidad()) {
+            return PedidoRecepcionProductoEstado.RECIBIDO;
+        } else {
+            return PedidoRecepcionProductoEstado.RECIBIDO_PARCIALMENTE;
+        }
     }
-
 
 }

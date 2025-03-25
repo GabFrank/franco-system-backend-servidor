@@ -32,7 +32,7 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
     @Autowired
     private CompraItemService compraItemService;
 
-    public List<PedidoItemSucursal> pedidoItemSucursales(PedidoItem e) {
+    public List<PedidoItemSucursal> pedidoItemSucursalList(PedidoItem e) {
         return pedidoItemSucursalService.findByPedidoItemId(e.getId());
     }
 
@@ -86,6 +86,14 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
         } else {
             return p.getPrecioUnitarioCreacion();
         }
+    }
+
+    public Boolean isDistribucionSucursalesCreacion(PedidoItem p){
+        return pedidoItemService.getRepository().findDistribucionSucursalCreacionByPedidoItemId(p.getId());
+    }
+
+    public Boolean isDistribucionSucursalesRecepcion(PedidoItem p){
+        return pedidoItemService.getRepository().findDistribucionSucursalRecepcionByPedidoItemId(p.getId());
     }
 
 }

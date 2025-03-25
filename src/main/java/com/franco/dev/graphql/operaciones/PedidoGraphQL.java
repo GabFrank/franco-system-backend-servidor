@@ -5,14 +5,17 @@ import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.graphql.operaciones.input.PedidoInput;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.personas.VendedorService;
+import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.ProductoProveedorService;
 import graphql.GraphQLException;
 import graphql.GraphqlErrorException;
@@ -23,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -75,6 +79,12 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private ProductoProveedorService productoProveedorService;
+
+    @Autowired
+    private CostosPorProductoService costosPorProductoService;
+
+    @Autowired
+    private CambioService cambioService;
 
     public Optional<Pedido> pedido(Long id) {
         return service.findById(id);
@@ -252,15 +262,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
             List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
-            for (PedidoItem pi : pedidoItemList) {
-                ProductoProveedor productoProveedor = new ProductoProveedor();
-                productoProveedor.setProveedor(pedido.getProveedor());
-                productoProveedor.setPedido(pedido);
-                productoProveedor.setUsuario(pedido.getUsuario());
-                productoProveedor.setProducto(pi.getProducto());
-                productoProveedor.setCreadoEn(LocalDateTime.now());
-                productoProveedorService.save(productoProveedor);
-            }
+            procesarPedidoItems(pedido, pedidoItemList);
         } else if (estado == PedidoEstado.CONCLUIDO) {
             List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
             for (PedidoItem pi : pedidoItemList) {
@@ -269,6 +271,43 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         pedido.setEstado(estado);
         return service.save(pedido);
+    }
+
+    @Async
+    public void procesarPedidoItems(Pedido pedido, List<PedidoItem> pedidoItemList) {
+        for (PedidoItem pi : pedidoItemList) {
+            // Crear producto proveedor
+            ProductoProveedor productoProveedor = new ProductoProveedor();
+            productoProveedor.setProveedor(pedido.getProveedor());
+            productoProveedor.setPedido(pedido);
+            productoProveedor.setUsuario(pedido.getUsuario());
+            productoProveedor.setProducto(pi.getProducto());
+            productoProveedor.setCreadoEn(LocalDateTime.now());
+            productoProveedorService.save(productoProveedor);
+
+            // Crear precio de costo
+            Double precioCosto = pi.getPrecioUnitarioRecepcionNota();
+            Double costoMedio = costosPorProductoService.calcularCostoMedio(
+                    pi.getProducto().getId(),
+                    pi.getCantidadRecepcionNota(),
+                    precioCosto);
+
+            CostoPorProducto costoPorProducto = new CostoPorProducto();
+            costoPorProducto.setProducto(pi.getProducto());
+            costoPorProducto.setUltimoPrecioCompra(precioCosto);
+            costoPorProducto.setCostoMedio(costoMedio);
+            costoPorProducto.setCreadoEn(LocalDateTime.now());
+            costoPorProducto.setMoneda(pi.getPedido().getMoneda());
+            costoPorProducto.setCotizacion(
+                    cambioService.findLastByMonedaId(costoPorProducto.getMoneda().getId()).getValorEnGs());
+            costoPorProducto.setUsuario(pedido.getUsuario());
+            costosPorProductoService.save(costoPorProducto);
+        }
+
+    }
+
+    public Boolean verificarDistribucionSucursales(Long id){
+        return pedidoItemService.getRepository().findDistribucionSucursalRecepcionByPedidoId(id);
     }
 
 }

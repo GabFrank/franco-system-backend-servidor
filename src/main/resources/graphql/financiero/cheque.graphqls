@@ -1,0 +1,56 @@
+type Cheque {
+    id: ID!
+    chequera: Chequera
+    pagoDetalleCuota: PagoDetalleCuota
+    numero: Float
+    fechaEntrega: Date
+    fechaPago: Date
+    orden: String
+    concepto: String
+    diferido: Boolean
+    total: Float
+    firmante: Persona
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input ChequeInput {
+    id: ID
+    chequeraId: Int
+    pagoDetalleCuotaId: Int
+    numero: Float
+    fechaEntrega: Date
+    fechaPago: Date
+    orden: String
+    concepto: String
+    diferido: Boolean
+    total: Float
+    firmanteId: Int
+    usuarioId: Int
+}
+
+type ChequePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Cheque]
+    getPageable: Pageable
+}
+
+extend type Query {
+    cheque(id: ID!): Cheque
+    cheques(page: Int = 0, size: Int = 10): [Cheque]!
+    chequesSearch(texto: String): [Cheque]
+    chequesPorChequeraId(chequeraId: ID!): [Cheque]
+    chequePorPagoDetalleCuotaId(pagoDetalleCuotaId: ID!): Cheque
+    countCheque: Int
+}
+
+extend type Mutation {
+    saveCheque(entity: ChequeInput!): Cheque!
+    deleteCheque(id: ID!): Boolean!
+} 

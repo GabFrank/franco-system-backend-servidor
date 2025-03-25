@@ -68,6 +68,10 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         return repository.countByNotaRecepcionId(id);
     }
 
+//    public Double cantidadSegunMovimiento(Long sucId, Long prodId, LocalDateTime inicio, LocalDateTime){
+//
+//    }
+
     @Override
     public PedidoItem save(PedidoItem entity) {
         PedidoItem e = null;

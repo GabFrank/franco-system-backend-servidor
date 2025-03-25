@@ -12,4 +12,6 @@ public interface PedidoSucursalInfluenciaRepository extends HelperRepository<Ped
 
     List<PedidoSucursalInfluencia> findByPedidoIdOrderBySucursalIdAsc(Long id);
 
+    PedidoSucursalInfluencia findByPedidoIdAndSucursalId(Long pedidoId, Long sucursalId);
+
 }

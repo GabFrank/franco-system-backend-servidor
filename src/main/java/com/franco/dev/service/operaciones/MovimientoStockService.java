@@ -259,4 +259,6 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return res;
     }
 
+
+
 }

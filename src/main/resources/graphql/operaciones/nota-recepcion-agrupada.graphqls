@@ -7,6 +7,7 @@ type NotaRecepcionAgrupada {
     usuario: Usuario
     cantNotas: Int
     estado: NotaRecepcionAgrupadaEstado
+    solicitudPago: SolicitudPago
 }
 
 # Inputs
@@ -37,13 +38,18 @@ extend type Query {
     notaRecepcionListPorUsuarioId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
     notaRecepcionAgrupadaPorId(id: ID!): NotaRecepcionAgrupada
     notaRecepcionListPorProveedorId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
-    pedidoRecepcionProductoPorNotaRecepcionAgrupada( id: ID!,page: Int = 0,size: Int = 10 ): PedidoRecepcionProductoPage
-    pedidoRecepcionProductoPorNotaRecepcionAgrupadaAndProducto(notaRecepcionAgrupadaId: ID!, productoId: ID!): PedidoRecepcionProductoDto
+    pedidoRecepcionProductoPorNotaRecepcionAgrupada( id: ID!, estado: PedidoRecepcionProductoEstado, page: Int = 0,size: Int = 10 ): PedidoRecepcionProductoPage
+    pedidoRecepcionProductoPorNotaRecepcionAgrupadaAndProducto(notaRecepcionAgrupadaId: ID!, productoId: ID!, estado: PedidoRecepcionProductoEstado): PedidoRecepcionProductoDto
+
 }
 
 # Mutations
 extend type Mutation {
-    saveNotaRecepcionAgrupada(input: NotaRecepcionAgrupadaInput!): NotaRecepcionAgrupada!
+    saveNotaRecepcionAgrupada(entity: NotaRecepcionAgrupadaInput!): NotaRecepcionAgrupada!
+    recepcionProductoNotaRecepcionAgrupada(notaRecepcionAgrupadaId: ID!, productoId: ID!, sucursalId: ID!, cantidad: Float!): Boolean
+    finalizarRecepcion(id: ID!): NotaRecepcionAgrupada
+    reabrirRecepcion(id: ID!): NotaRecepcionAgrupada
+    solicitarPagoNotaRecepcionAgrupada(id: ID!): SolicitudPago
 }
 
 enum NotaRecepcionAgrupadaEstado {
@@ -53,17 +59,26 @@ enum NotaRecepcionAgrupadaEstado {
 }
 
 type PedidoRecepcionProductoDto {
-    productoId: Int
+    producto: Producto
     totalCantidadARecibirPorUnidad: Float
     totalCantidadRecibidaPorUnidad: Float
+    estado: PedidoRecepcionProductoEstado
 }
 
 type PedidoRecepcionProductoPage {
-    content: [PedidoRecepcionProductoDto]
-    totalElements: Int
-    totalPages: Int
-    size: Int
-    number: Int
-    first: Boolean
-    last: Boolean
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PedidoRecepcionProductoDto]
+    getPageable: Pageable
+}
+
+enum PedidoRecepcionProductoEstado {
+    PENDIENTE
+    RECIBIDO
+    RECIBIDO_PARCIALMENTE
 }

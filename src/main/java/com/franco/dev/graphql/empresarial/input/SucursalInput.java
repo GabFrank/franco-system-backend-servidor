@@ -14,5 +14,8 @@ public class SucursalInput {
     private String direccion;
     private String nroDelivery;
     private String codigoEstablecimientoFactura;
+    private String creadoEn;
+    private String ip;
+    private Integer puerto;
 
 }

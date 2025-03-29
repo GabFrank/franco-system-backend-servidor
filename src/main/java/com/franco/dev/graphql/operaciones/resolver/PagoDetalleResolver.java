@@ -24,13 +24,26 @@ public class PagoDetalleResolver implements GraphQLResolver<PagoDetalle> {
     @Autowired
     private PagoDetalleCuotaService pagoDetalleCuotaService;
 
-    //here i need you to return sucursal form sucursal service usgin pagoDetalle.getCaja().getSucursalId()
     public Sucursal sucursal(PagoDetalle pagoDetalle) {
-        //if pagoDetalle.getCaja() is null, return null
-        if (pagoDetalle.getCaja() == null) {
-            return null;
+        // First check if pagoDetalle has a caja with sucursalId
+        if (pagoDetalle.getCaja() != null) {
+            return sucursalService.findById(pagoDetalle.getCaja().getSucursalId()).orElse(null);
         }
-        return sucursalService.findById(pagoDetalle.getCaja().getSucursalId()).orElse(null);
+        
+        // If caja is null, try to get the sucursal_id from the database
+        // We need to use a direct query since the relationship is not mapped in the entity
+        try {
+            // Use a native query to get the sucursal_id from the pago_detalle table
+            Long sucursalId = pagoDetalleService.getSucursalIdForPagoDetalle(pagoDetalle.getId());
+            if (sucursalId != null) {
+                return sucursalService.findById(sucursalId).orElse(null);
+            }
+        } catch (Exception e) {
+            // Log the error but continue
+            System.err.println("Error retrieving sucursal for pagoDetalle " + pagoDetalle.getId() + ": " + e.getMessage());
+        }
+        
+        return null;
     }
 
     public List<PagoDetalleCuota> cuotasList(PagoDetalle pagoDetalle) {

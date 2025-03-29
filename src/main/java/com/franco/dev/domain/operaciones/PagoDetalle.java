@@ -66,10 +66,6 @@ public class PagoDetalle implements Identifiable<Long> {
     @Column(name = "total", nullable = false)
     private Double total;
 
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "sucursal_id", nullable = true)
-//    private Sucursal sucursal;
-
     @ManyToOne
     @JoinColumns({
             @JoinColumn(name = "caja_id", referencedColumnName = "id"),

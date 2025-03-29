@@ -10,6 +10,7 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.PropertyMap;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -83,5 +84,36 @@ public class PagoDetalleCuotaGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     public Long countPagoDetalleCuota() {
         return service.count();
+    }
+
+    /**
+     * Query to filter PagoDetalleCuota by multiple criteria
+     * @param estado The estado to filter by (optional)
+     * @param sucursalId The sucursal ID to filter by (optional)
+     * @param fechaDesde The start date to filter by (optional)
+     * @param fechaHasta The end date to filter by (optional)
+     * @param filtrarPorCreacion Flag to indicate if filtering should be done by created date (true) or due date (false)
+     * @param page The page number (default: 0)
+     * @param size The page size (default: 10)
+     * @return A page of PagoDetalleCuota that match the filter criteria
+     */
+    public Page<PagoDetalleCuota> getPagoDetalleCuotasFiltrado(
+            String estado,
+            Long sucursalId,
+            String fechaDesde,
+            String fechaHasta,
+            Boolean filtrarPorCreacion,
+            Integer page,
+            Integer size) {
+        
+        return service.findByFiltro(
+                estado,
+                sucursalId,
+                fechaDesde,
+                fechaHasta,
+                filtrarPorCreacion,
+                page,
+                size
+        );
     }
 } 

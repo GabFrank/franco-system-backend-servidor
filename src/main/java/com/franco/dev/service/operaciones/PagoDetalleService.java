@@ -31,5 +31,10 @@ public class PagoDetalleService extends CrudService<PagoDetalle, PagoDetalleRepo
     public List<PagoDetalle> findByPagoId(Long pagoId) {
         return repository.findByPagoId(pagoId);
     }
+
+    public Long getSucursalIdForPagoDetalle(Long pagoDetalleId) {
+        // Using a native query to get the sucursal_id directly from the pago_detalle table
+        return repository.findSucursalIdByPagoDetalleId(pagoDetalleId);
+    }
 }
 

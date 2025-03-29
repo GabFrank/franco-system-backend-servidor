@@ -90,6 +90,14 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return cajaBalance;
     }
 
+    /**
+     * Get a list of balances for all active cajas in a specific sucursal
+     * @param sucursalId The ID of the sucursal
+     * @return A list of CajaBalance objects, one for each active caja
+     */
+    public List<CajaBalance> balanceActiveCajasBySucursalId(Long sucursalId) {
+        return service.getBalanceActiveCajasBySucursalId(sucursalId);
+    }
 
     public PdvCaja savePdvCaja(PdvCajaInput input) {
         ModelMapper m = new ModelMapper();
@@ -139,6 +147,15 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     public PdvCaja cajaAbiertoPorUsuarioIdPorSucursal(Long id, Long sucId) {
 //        return propagacionService.buscarCajaAbiertaPorSucursal(id, sucId);
         return null;
+    }
+
+    /**
+     * Find all active cajas for a specific sucursal
+     * @param sucursalId The ID of the sucursal
+     * @return A list of active PdvCaja objects for the specified sucursal
+     */
+    public List<PdvCaja> cajaAbiertoPorSucursal(Long sucursalId) {
+        return service.findActiveBySucursalId(sucursalId);
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {

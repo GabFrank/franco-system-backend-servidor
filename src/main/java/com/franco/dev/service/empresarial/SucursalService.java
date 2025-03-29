@@ -11,6 +11,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -51,6 +52,9 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
     @Override
     public Sucursal save(Sucursal entity) {
         Sucursal e = super.save(entity);
+        if(e.getId() == null){
+            e.setCreadoEn(LocalDateTime.now());
+        }
         return e;
     }
 

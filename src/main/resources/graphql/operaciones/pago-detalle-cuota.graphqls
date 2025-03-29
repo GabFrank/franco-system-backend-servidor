@@ -10,6 +10,7 @@ type PagoDetalleCuota {
     creadoEn: Date
     usuario: Usuario
     cheque: Cheque
+    proveedor: Proveedor
 }
 
 input PagoDetalleCuotaInput {
@@ -42,6 +43,15 @@ extend type Query {
     pagoDetalleCuotas(page: Int = 0, size: Int = 10): [PagoDetalleCuota]!
     pagoDetalleCuotasPorPagoDetalleId(pagoDetalleId: ID!): [PagoDetalleCuota]
     pagoDetalleCuotasSearch(texto: String): [PagoDetalleCuota]
+    getPagoDetalleCuotasFiltrado(
+        estado: String, 
+        sucursalId: Int, 
+        fechaDesde: String, 
+        fechaHasta: String,
+        filtrarPorCreacion: Boolean = false,
+        page: Int = 0,
+        size: Int = 10
+    ): PagoDetalleCuotaPage
     countPagoDetalleCuota: Int
 }
 

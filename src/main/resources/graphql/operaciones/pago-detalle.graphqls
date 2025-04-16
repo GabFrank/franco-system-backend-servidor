@@ -61,4 +61,5 @@ extend type Query {
 extend type Mutation {
     savePagoDetalle(entity: PagoDetalleInput!): PagoDetalle!
     deletePagoDetalle(id: ID!): Boolean!
+    updatePagoDetalleCajaySucursal(pagoDetalleId: ID!, sucursalId: ID!, cajaId: ID): PagoDetalle
 }

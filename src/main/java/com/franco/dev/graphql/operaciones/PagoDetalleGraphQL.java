@@ -87,5 +87,23 @@ public class PagoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public Boolean deletePagoDetalle(Long id) {
         return service.deleteById(id);
     }
+
+    public PagoDetalle updatePagoDetalleCajaySucursal(Long pagoDetalleId, Long sucursalId, Long cajaId) {
+        if(pagoDetalleId == null || sucursalId == null) {
+            return null;
+        }
+        PagoDetalle pagoDetalle = service.findById(pagoDetalleId).orElse(null);
+        if(pagoDetalle == null) {
+            return null;
+        }
+        
+        if(cajaId != null) {
+            pagoDetalle.setCaja(pdvCajaService.getRepository().findByIdAndSucursalId(cajaId, sucursalId));
+        } else {
+            pagoDetalle.setCaja(null);
+        }
+        
+        return service.save(pagoDetalle);
+    }
 }
 

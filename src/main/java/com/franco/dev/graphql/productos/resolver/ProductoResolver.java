@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.productos.resolver;
 
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.media.enums.TipoReferencia;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.PedidoItem;
@@ -10,6 +11,7 @@ import com.franco.dev.domain.productos.*;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
 import com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.media.ImagenMasterService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.PedidoItemService;
 import com.franco.dev.service.operaciones.PedidoService;
@@ -66,6 +68,9 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
 
     @Autowired
     private ImageService imageService;
+    
+    @Autowired
+    private ImagenMasterService imagenMasterService;
 
     @Autowired
     private PresentacionService presentacionService;
@@ -179,13 +184,18 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
     }
 
     public String imagenPrincipal(Producto p) {
-        String id = null;
+        // Get the principal presentation ID
+        String presentacionId = null;
         Presentacion presentacionPrincipal = presentacionService.findByPrincipalAndProductoId(true, p.getId());
-        if(presentacionPrincipal!=null) {
-            id = presentacionPrincipal.getId().toString();
+        if(presentacionPrincipal != null) {
+            presentacionId = presentacionPrincipal.getId().toString();
+            
+            // Try to get the image using the new ImagenMasterService with backward compatibility
+            return imagenMasterService.getOrMigrateImageAsBase64(TipoReferencia.PRESENTACION, presentacionPrincipal.getId());
+        } else {
+            // If no principal presentation, try to get image directly for the product
+            return imagenMasterService.getOrMigrateImageAsBase64(TipoReferencia.PRODUCTO, p.getId());
         }
-        String image =  imageService.getImageWithMediaType(id+".jpg", imageService.getImagePresentaciones());
-        return image;
     }
 
     public String codigoPrincipal(Producto p){

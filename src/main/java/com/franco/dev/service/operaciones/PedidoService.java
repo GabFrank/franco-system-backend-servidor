@@ -42,9 +42,13 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         return repository;
     }
 
-    public Page<Pedido> filterPedidos(PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPago, Long productoId, Integer page, Integer size){
-        Pageable pageable = PageRequest.of(page,size);
-        return repository.filterPedidos(estado, sucursalId, stringToDate(inicio), stringToDate(fin), proveedorId, vendedorId, formaPago, productoId, pageable);
+    public Page<Pedido> filterPedidos(Long idPedido,
+                                      Integer numeroNotaRecepcion, PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPago, Long productoId, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        if(idPedido!=null) return repository.findById(idPedido, pageable);
+        if(numeroNotaRecepcion != null) return repository.filterPedidosByNumeroNota(numeroNotaRecepcion, pageable);
+        return repository.filterPedidos(idPedido,
+                numeroNotaRecepcion, estado, sucursalId, stringToDate(inicio), stringToDate(fin), proveedorId, vendedorId, formaPago, productoId, pageable);
     }
 
 //    public List<Pedido> filterPedidos(@Param("estado") String estado,@Param("sucursal_id") Long sucursalId,@Param("inicio") String inicio,@Param("fin") String fin,@Param("proveedor_id") Long proveedorId,@Param("vendedor_d") Long vendedorId,@Param("forma_pago") String formaPago,@Param("producto_id") Long productoId){
@@ -92,12 +96,12 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
 
     @Override
     public Pedido save(Pedido entity) {
-        if(entity.getId()==null){
+        if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
             entity.setEstado(PedidoEstado.ABIERTO);
         }
         Pedido e = super.save(entity);
-        if(entity.getVendedor()!=null && entity.getProveedor()!=null){
+        if (entity.getVendedor() != null && entity.getProveedor() != null) {
             vendedorProveedorService.save(entity.getVendedor(), entity.getProveedor());
         }
         return e;

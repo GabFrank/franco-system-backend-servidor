@@ -9,6 +9,7 @@ public class PedidoItemSucursalInput {
     private Long pedidoItemId;
     private Long sucursalId;
     private Long sucursalEntregaId;
-    private Double cantidad;
+    private Double cantidadPorUnidadRecibida;
+    private Double cantidadPorUnidad;
     private Long usuarioId;
 }

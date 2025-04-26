@@ -1,0 +1,65 @@
+type PagoDetalleCuota {
+    id: ID!
+    pagoDetalle: PagoDetalle
+    referenciaId: Float
+    numeroCuota: Float
+    fechaVencimiento: Date
+    estado: PagoDetalleCuotaEstado
+    totalPagado: Float
+    totalFinal: Float
+    creadoEn: Date
+    usuario: Usuario
+    cheque: Cheque
+    proveedor: Proveedor
+}
+
+input PagoDetalleCuotaInput {
+    id: ID
+    pagoDetalleId: Int
+    referenciaId: Float
+    numeroCuota: Float
+    fechaVencimiento: Date
+    estado: PagoDetalleCuotaEstado
+    totalPagado: Float
+    totalFinal: Float
+    creadoEn: Date
+    usuarioId: Int
+}
+
+type PagoDetalleCuotaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PagoDetalleCuota]
+    getPageable: Pageable
+}
+
+extend type Query {
+    pagoDetalleCuota(id: ID!): PagoDetalleCuota
+    pagoDetalleCuotas(page: Int = 0, size: Int = 10): [PagoDetalleCuota]!
+    pagoDetalleCuotasPorPagoDetalleId(pagoDetalleId: ID!): [PagoDetalleCuota]
+    pagoDetalleCuotasSearch(texto: String): [PagoDetalleCuota]
+    getPagoDetalleCuotasFiltrado(
+        estado: String, 
+        sucursalId: Int, 
+        fechaDesde: String, 
+        fechaHasta: String,
+        filtrarPorCreacion: Boolean = false,
+        page: Int = 0,
+        size: Int = 10
+    ): PagoDetalleCuotaPage
+    countPagoDetalleCuota: Int
+}
+
+extend type Mutation {
+    savePagoDetalleCuota(entity: PagoDetalleCuotaInput!): PagoDetalleCuota!
+    deletePagoDetalleCuota(id: ID!): Boolean!
+}
+
+enum PagoDetalleCuotaEstado {
+    PENDIENTE, PAGO_PARCIAL, PAGADO, CANCELADO
+} 

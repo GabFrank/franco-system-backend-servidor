@@ -38,6 +38,8 @@ public class PedidoSucursalEntregaService extends CrudService<PedidoSucursalEntr
     }
 
     public void deleteAll(List<PedidoSucursalEntrega> toDelete) {
-        repository.deleteAll(toDelete);
+        for(PedidoSucursalEntrega pedidoSucursalEntrega: toDelete){
+            repository.deleteById(pedidoSucursalEntrega.getId());
+        }
     }
 }

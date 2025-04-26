@@ -22,10 +22,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "nota_recepcion", schema = "operaciones")
-@TypeDef(
-        name = "necesidad_estado",
-        typeClass = PostgreSQLEnumType.class
-)
 public class NotaRecepcion implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
@@ -44,6 +40,10 @@ public class NotaRecepcion implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pedido_id", nullable = true)
     private Pedido pedido;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "nota_recepcion_agrupada_id", nullable = true)
+    private NotaRecepcionAgrupada notaRecepcionAgrupada;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compra_id", nullable = true)

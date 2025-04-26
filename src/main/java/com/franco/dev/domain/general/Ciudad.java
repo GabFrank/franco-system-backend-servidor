@@ -10,6 +10,7 @@ import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -41,7 +42,7 @@ public class Ciudad implements Identifiable<Long> {
 
     private String codigo;
 
-    private Date creadoEn;
+    private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)

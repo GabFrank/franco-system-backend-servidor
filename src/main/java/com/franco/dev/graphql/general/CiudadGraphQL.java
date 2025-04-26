@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,6 +58,9 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         Ciudad e = m.map(input, Ciudad.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPais(ciudadService.findById(input.getPaisId()).orElse(null));
+        if(input.getCreadoEn() != null){
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        }
         e = service.save(e);
         return e;    }
 

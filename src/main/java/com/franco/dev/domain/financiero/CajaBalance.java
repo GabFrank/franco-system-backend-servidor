@@ -38,6 +38,7 @@ public class CajaBalance {
     private Double diferenciaGs;
     private Double diferenciaRs;
     private Double diferenciaDs;
+    private PdvCaja pdvCaja;
 }
 
 

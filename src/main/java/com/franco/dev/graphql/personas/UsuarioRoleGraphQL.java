@@ -34,24 +34,30 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {return service.findByUserId(id);}
+    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {
+        return service.findByUserId(id);
+    }
 
-    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input){
+    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input) {
         UsuarioRole e = new UsuarioRole();
-        if(input.getId()!=null) e.setId(input.getId());
+        if (input.getId() != null) e.setId(input.getId());
         e.setUser(usuarioService.findById(input.getUserId()).orElse(null));
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        } else {
+            e.setUsuario(usuarioService.findById(input.getUserId()).orElse(null));
+        }
         e.setRole(roleService.findById(input.getRoleId()).orElse(null));
         e = service.save(e);
         return e;
     }
 
-    public Boolean deleteUsuarioRole(Long id){
+    public Boolean deleteUsuarioRole(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
-    public Long countUsuarioRole(){
+    public Long countUsuarioRole() {
         return service.count();
     }
 

@@ -12,10 +12,13 @@ public interface PedidoItemSucursalRepository extends HelperRepository<PedidoIte
     }
 
     public List<PedidoItemSucursal> findByPedidoItemId(Long id);
+    public List<PedidoItemSucursal> findByPedidoItemIdAndSucursalEntregaId(Long pedidoItemId, Long sucursalEntregaId);
 
     public List<PedidoItemSucursal> findBySucursalId(Long id);
 
     public List<PedidoItemSucursal> findBySucursalEntregaId(Long id);
+
+
 
     //@Query("select p from Producto p where CAST(id as text) like %?1% or LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
     //public List<Producto> findbyAll(String texto);

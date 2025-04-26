@@ -1,9 +1,10 @@
 type PedidoItemSucursal {
     id:ID!
-    PedidoItem: PedidoItem
+    pedidoItem: PedidoItem
     sucursal: Sucursal
     sucursalEntrega: Sucursal
-    cantidad: Float
+    cantidadPorUnidad: Float
+    cantidadPorUnidadRecibida: Float
     creadoEn: Date
     usuario: Usuario
     
@@ -14,7 +15,8 @@ input PedidoItemSucursalInput {
     pedidoItemId: Int
     sucursalId: Int
     sucursalEntregaId: Int
-    cantidad: Float
+    cantidadPorUnidad: Float
+    cantidadPorUnidadRecibida: Float
     usuarioId: Int
 }
 
@@ -22,10 +24,11 @@ extend type Query {
     pedidoItemSucursal(id:ID!):PedidoItemSucursal
     pedidoItensSucursal(page:Int = 0, size:Int = 10):[PedidoItemSucursal]!
     countPedidoItemSucursal: Int
+    pedidoItemSucursalPorPedidoItem(id: Int!):[PedidoItemSucursal]!
 }
 
 extend type Mutation {
-    savePedidoItemSucursal(pedidoItemSucursal:PedidoItemSucursalInput!):PedidoItemSucursal!
+    savePedidoItemSucursal(entity:PedidoItemSucursalInput!):PedidoItemSucursal!
     deletePedidoItemSucursal(id:ID!):Boolean!
 }
 

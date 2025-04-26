@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter;
 import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,6 +27,7 @@ import java.util.Collections;
 @EnableRetry
 @SpringBootApplication
 @EnableAutoConfiguration(exclude = {DataSourceTransactionManagerAutoConfiguration.class})
+@EnableAsync
 public class FrancoSystemsApplication {
 
     @Autowired
@@ -82,6 +84,7 @@ public class FrancoSystemsApplication {
         return flyway -> {
             flyway.repair();
             flyway.migrate();
+            
         };
     }
 

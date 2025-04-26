@@ -2,10 +2,13 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.PedidoItem;
+import com.franco.dev.domain.operaciones.dto.DistribucionSucursalResult;
+import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -52,5 +55,44 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Page<PedidoItem> findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);
 
+    public Integer countByPedidoIdAndVerificadoRecepcionProductoFalse(Long id);
+    public Integer countByPedidoIdAndVerificadoRecepcionNotaFalse(Long id);
+
+    public Page<PedidoItem> findByProductoIdAndPedidoEstado(Long productoId, PedidoEstado estado, Pageable pageable);
+
+    @Query("select " +
+            "   case when (pi.cantidadCreacion * pc.cantidad) = " +
+            "        (select sum(pis.cantidadPorUnidad) from PedidoItemSucursal pis where pis.pedidoItem = pi) " +
+            "        then true else false end " +
+            "from PedidoItem pi " +
+            "left join pi.presentacionCreacion pc " +
+            "left join pi.presentacionRecepcionNota prc " +
+            "where pi.id = :id")
+    Boolean findDistribucionSucursalCreacionByPedidoItemId(@Param("id") Long id);
+
+    @Query("select " +
+            "   case when (pi.cantidadCreacion * prc.cantidad) = " +
+            "        (select sum(pis2.cantidadPorUnidad) from PedidoItemSucursal pis2 where pis2.pedidoItem = pi) " +
+            "        then true else false end " +
+            "from PedidoItem pi " +
+            "left join pi.presentacionCreacion pc " +
+            "left join pi.presentacionRecepcionNota prc " +
+            "where pi.id = :id")
+    Boolean findDistribucionSucursalRecepcionByPedidoItemId(@Param("id") Long id);
+
+    @Query("select case when count(case when (pi.cantidadCreacion * prc.cantidad) = " +
+            "       (select sum(pis2.cantidadPorUnidad) " +
+            "        from PedidoItemSucursal pis2 " +
+            "        where pis2.pedidoItem = pi) then 1 end) = count(pi) " +
+            "then true else false end " +
+            "from PedidoItem pi " +
+            "left join pi.presentacionCreacion pc " +
+            "left join pi.presentacionRecepcionNota prc " +
+            "left join pi.pedido p " +
+            "where p.id = :id")
+    Boolean findDistribucionSucursalRecepcionByPedidoId(@Param("id") Long id);
+
+
 
 }
+

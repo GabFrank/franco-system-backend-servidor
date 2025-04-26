@@ -3,6 +3,7 @@ package com.franco.dev.service.productos;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.repository.productos.CostosPorProductoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.operaciones.MovimientoStockService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,9 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
 
     @Autowired
     private final CostosPorProductoRepository repository;
+
+    @Autowired
+    private MovimientoStockService movimientoStockService;
 //    private final PersonaPublisher personaPublisher;
 
 
@@ -45,5 +49,20 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     public CostoPorProducto save(CostoPorProducto entity) {
         if(entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         return super.save(entity);
+    }
+
+    public Double calcularCostoMedio(Long productoId, Double cantidad, Double precioCompra){
+        CostoPorProducto costo = findLastByProductoId(productoId);
+        if(costo != null){
+            Double ultimoCostoMedio = costo.getCostoMedio();
+            Double stockActual = movimientoStockService.stockByProductoId(productoId);
+            if(ultimoCostoMedio != null && stockActual != null && stockActual > 0){
+                return ((ultimoCostoMedio * stockActual) + (cantidad * precioCompra)) / (stockActual + cantidad);
+            } else {
+                return precioCompra;
+            }
+        } else {
+            return precioCompra;
+        }
     }
 }

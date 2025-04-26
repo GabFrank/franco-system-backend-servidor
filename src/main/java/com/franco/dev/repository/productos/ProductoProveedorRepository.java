@@ -5,6 +5,7 @@ import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface ProductoProveedorRepository extends HelperRepository<ProductoProveedor, Long> {
 
@@ -12,7 +13,15 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
         return ProductoProveedor.class;
     }
 
-    Page<ProductoProveedor> findByProveedorIdOrderByProductoDescripcionAsc(Long id, Pageable pageable);
+    @Query("SELECT pp FROM ProductoProveedor pp " +
+            "WHERE pp.id IN (" +
+            "    SELECT MIN(subpp.id) " +
+            "    FROM ProductoProveedor subpp " +
+            "    WHERE subpp.proveedor.id = :id " +
+            "    GROUP BY subpp.producto.id" +
+            ") " +
+            "ORDER BY pp.producto.descripcion ASC")
+    Page<ProductoProveedor> findByProveedorIdOrderByProductoDescripcionAsc(@Param("id") Long id, Pageable pageable);
 
     @Query(value =  "select pp from ProductoProveedor pp " +
             "join pp.proveedor prov " +

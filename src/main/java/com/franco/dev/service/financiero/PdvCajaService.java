@@ -485,8 +485,43 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     }
 
     public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Pageable pageable) {
-        Page<PdvCaja> aux = repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, stringToDate(fechaInicio), stringToDate(fechaFin), sucId, verificado, pageable);
-        return aux;
+        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, pageable);
+    }
+
+    /**
+     * Find all active cajas for a given sucursalId and return a list of their individual balances
+     * @param sucursalId the sucursalId to filter by
+     * @return List of CajaBalance containing the individual balances of all active cajas
+     */
+    public List<CajaBalance> getBalanceActiveCajasBySucursalId(Long sucursalId) {
+        List<PdvCaja> activeCajas = repository.findBySucursalIdAndActivo(sucursalId, true);
+        List<CajaBalance> balanceList = new ArrayList<>();
+        
+        // Return empty list if no active cajas are found
+        if (activeCajas.isEmpty()) {
+            return balanceList;
+        }
+        
+        // Collect balance for each active caja
+        for (PdvCaja caja : activeCajas) {
+            CajaBalance cajaBalance = getBalance(new EmbebedPrimaryKey(caja.getId(), sucursalId));
+            if (cajaBalance != null) {
+                // Set the pdvCaja reference for the balance
+                cajaBalance.setPdvCaja(caja);
+                balanceList.add(cajaBalance);
+            }
+        }
+        
+        return balanceList;
+    }
+
+    /**
+     * Find all active cajas for a given sucursalId
+     * @param sucursalId the sucursalId to filter by
+     * @return List of active PdvCaja
+     */
+    public List<PdvCaja> findActiveBySucursalId(Long sucursalId) {
+        return repository.findBySucursalIdAndActivo(sucursalId, true);
     }
 
     public List<PdvCaja> findCajasWithVentaObservaciones() {

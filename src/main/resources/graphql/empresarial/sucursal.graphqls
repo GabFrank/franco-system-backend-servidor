@@ -12,6 +12,8 @@ type Sucursal {
     isConfigured: Boolean
     sectorList: [Sector]
     codigoEstablecimientoFactura: String
+    ip: String
+    puerto: Int
 }
 
 input SucursalInput {
@@ -26,7 +28,21 @@ input SucursalInput {
     nroDelivery: String
     isConfigured: Boolean
     codigoEstablecimientoFactura: String
+    creadoEn: String
+    ip: String
+    puerto: Int
+}
 
+type SucursalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Sucursal]
+    getPageable: Pageable
 }
 
 extend type Query {
@@ -35,7 +51,7 @@ extend type Query {
     countSucursal: Int
     sucursalesSearch(texto:String):[Sucursal]
     sucursalActual:Sucursal
-
+    findByNombre(nombre: String, page: Int, size: Int): SucursalPage
 }
 
 extend type Mutation {

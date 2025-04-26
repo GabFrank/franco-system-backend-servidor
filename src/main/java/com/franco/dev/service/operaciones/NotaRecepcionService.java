@@ -6,13 +6,16 @@ import com.franco.dev.repository.operaciones.NotaPedidoRepository;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepcionRepository> {
+public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepcionRepository, Long> {
+
     private final NotaRecepcionRepository repository;
 
     @Override
@@ -24,10 +27,25 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         return  repository.findByPedidoId(id);
     }
 
+    public Page<NotaRecepcion> findByPedidoId(Long id, Pageable page){
+        return repository.findByPedidoId(id, page);
+    }
+
+    public Page<NotaRecepcion> findByPedidoIdAndNumero(Long id, String texto, Pageable page){
+        return repository.findByPedidoIdAndNumero(id, texto, page);
+    }
+
+    public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id){
+        return repository.findByNotaRecepcionAgrupadaId(id);
+    }
+
+    public Long countByNotaRecepcionAgrupadaId(Long id){
+        return repository.countByNotaRecepcionAgrupadaId(id);
+    }
+
     @Override
     public NotaRecepcion save(NotaRecepcion entity) {
         NotaRecepcion e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
     }
 }

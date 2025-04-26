@@ -9,4 +9,5 @@ public class VueltoInput {
     private Long autorizadoPorId;
     private Boolean activo;
     private Long usuarioId;
+    private Long sucursalId;
 }

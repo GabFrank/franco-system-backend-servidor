@@ -15,6 +15,9 @@ public interface CodigoRepository extends HelperRepository<Codigo, Long> {
 
     public List<Codigo> findByCodigo(String texto);
 
+
+    public List<Codigo> findByCodigoAndPrincipal(String codigo, Boolean principal);
+
     public List<Codigo> findByPresentacionId(Long id);
 
     @Query(value = "select * from productos.presentacion p " +

@@ -1,8 +1,6 @@
 package com.franco.dev.service.productos.pdv;
 
-import com.franco.dev.domain.productos.pdv.PdvCategoria;
 import com.franco.dev.domain.productos.pdv.PdvGrupo;
-import com.franco.dev.repository.productos.pdv.PdvCategoriaRepository;
 import com.franco.dev.repository.productos.pdv.PdvGrupoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -12,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PdvGrupoService extends CrudService<PdvGrupo, PdvGrupoRepository> {
+public class PdvGrupoService extends CrudService<PdvGrupo, PdvGrupoRepository, Long> {
 
     private final PdvGrupoRepository repository;
 
@@ -21,9 +19,9 @@ public class PdvGrupoService extends CrudService<PdvGrupo, PdvGrupoRepository> {
         return repository;
     }
 
-    public List<PdvGrupo> findByAll(String texto){
+    public List<PdvGrupo> findByAll(String texto) {
         texto = texto.replace(' ', '%');
-        return  repository.findByAll(texto);
+        return repository.findByAll(texto);
     }
 
     @Override

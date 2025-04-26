@@ -17,4 +17,6 @@ public interface VendedorProveedorRepository extends HelperRepository<VendedorPr
 
     public List<VendedorProveedor> findDistinctByVendedorId(Long id);
 
+    public VendedorProveedor findByProveedorIdAndVendedorId(Long proveedorId, Long vendedorId);
+
 }

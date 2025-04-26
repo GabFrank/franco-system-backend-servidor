@@ -1,12 +1,16 @@
 package com.franco.dev.repository.operaciones;
 
-import com.franco.dev.domain.financiero.MovimientoCaja;
+import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
-import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface MovimientoStockRepository extends HelperRepository<MovimientoStock, Long> {
@@ -18,14 +22,43 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
 
     @Query("select SUM(p.cantidad) from MovimientoStock p " +
             "left outer join p.producto as pro " +
-            "left outer join p.sucursal as suc " +
-            "where p.estado = true and pro.id = ?1 and suc.id = ?2")
+            "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2")
     public Float stockByProductoIdAndSucursalId(Long proId, Long sucId);
+
+    @Query("select new com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto(COALESCE(SUM(p.cantidad), 0), MAX(p.id), count(p.id)) " +
+            "from MovimientoStock p " +
+            "left join p.producto pro " +
+            "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2 and p.id > ?3")
+    public MovimientoStockCantidadAndIdDto stockByProductoIdAndSucursalIdAndLastId(Long proId, Long sucId, Long lastId);
+
+
+    @Query(value = "select sum(ms.cantidad) from MovimientoStock ms " +
+            "join ms.producto p " +
+            "left join ms.usuario u " +
+            "where " +
+            "((:usuarioId) is null or u.id = (:usuarioId) ) and " +
+            "((:sucursalList) is null or ms.sucursalId in (:sucursalList) ) and " +
+            "((:productoId) is null or p.id = (:productoId)) and " +
+            "((:tipoMovimientoList) IS NULL OR cast(ms.tipoMovimiento as text) IN :tipoMovimientoList) and " +
+            "(cast(:inicio as timestamp) IS NULL OR ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp))")
+    public Double findStockWithFilters(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("sucursalList") List<Long> sucursalList,
+            @Param("productoId") Long productoId,
+            @Param("tipoMovimientoList") List<String> tipoMovimientoList,
+            @Param("usuarioId") Long usuarioId);
 
     @Query("select SUM(p.cantidad) from MovimientoStock p " +
             "left outer join p.producto as pro " +
             "where p.estado = true and pro.id = ?1")
     public Float stockByProductoId(Long proId);
+
+
+    @Query("select SUM(p.cantidad) from MovimientoStock p " +
+            "left outer join p.producto as pro " +
+            "where p.estado = true and pro.id = ?1 and p.id != ?2 and p.sucursalId = ?3")
+    public Float stockByProductoIdExeptMovimientoId(Long proId, Long movId, Long sucId);
 
     @Query(value = "select * from operaciones.movimiento_stock p " +
             "left join productos.producto as pro on p.producto_id = pro.id " +
@@ -42,8 +75,62 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "where ms.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp)", nativeQuery = true)
     public List<MovimientoStock> findByDate(String inicio, String fin);
 
-    public MovimientoStock findByTipoMovimientoAndReferencia(TipoMovimiento tipoMovimiento, Long referencia);
+    public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId);
+
+    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId, Long prodId);
 
     public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndEstadoTrue(TipoMovimiento tipoMovimiento, Long referencia);
 
+    @Query(value = "select ms from MovimientoStock ms " +
+            "join ms.producto p " +
+            "left join ms.usuario u " +
+            "where " +
+            "((:usuarioId) is null or u.id = (:usuarioId) ) and " +
+            "((:sucursalList) is null or ms.sucursalId in (:sucursalList) ) and " +
+            "((:productoId) is null or p.id = (:productoId)) and " +
+            "((:tipoMovimientoList) IS NULL OR cast(ms.tipoMovimiento as text) IN :tipoMovimientoList) and " +
+            "ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp) " +
+            "order by ms.creadoEn")
+    public Page<MovimientoStock> findByFilters(
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            @Param("sucursalList") List<Long> sucursalList,
+            @Param("productoId") Long productoId,
+            @Param("tipoMovimientoList") List<String> tipoMovimientoList,
+            @Param("usuarioId") Long usuarioId,
+            Pageable pageable);
+
+    @Query(value = "SELECT new com.franco.dev.domain.dto.StockPorTipoMovimientoDto(ms.tipoMovimiento, SUM(ms.cantidad)) " +
+            "FROM MovimientoStock ms " +
+            "join ms.producto p " +
+            "left join ms.usuario u " +
+            "where " +
+            "((:usuarioId) is null or u.id = (:usuarioId) ) and " +
+            "((:sucursalList) is null or ms.sucursalId in (:sucursalList) ) and " +
+            "((:productoId) is null or p.id = (:productoId)) and " +
+            "((:tipoMovimientoList) IS NULL OR cast(ms.tipoMovimiento as text) IN :tipoMovimientoList) and " +
+            "ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp) and ms.estado = true " +
+            "group by ms.tipoMovimiento")
+    public List<StockPorTipoMovimientoDto> findStockPorTipoMovimiento(@Param("inicio") LocalDateTime inicio,
+                                                                      @Param("fin") LocalDateTime fin,
+                                                                      @Param("sucursalList") List<Long> sucursalList,
+                                                                      @Param("productoId") Long productoId,
+                                                                      @Param("tipoMovimientoList") List<String> tipoMovimientoList,
+                                                                      @Param("usuarioId") Long usuarioId);
+
+    @Query("SELECT MAX(m.id) FROM MovimientoStock m WHERE m.sucursalId = :sucursalId AND m.id % 2 = 1")
+    Long findMaxOddIdByProductoIdAndSucursalId(@Param("sucursalId") Long sucursalId);
+
+    @Query("SELECT MAX(e.id) FROM MovimientoStock e WHERE e.sucursalId = :sucursalId")
+    Long findMaxId(@Param("sucursalId") Long sucursalId);
+
 }
+
+//    private LocalDateTime fechaInicio;
+//    private LocalDateTime fechaFin;
+//    private Double stockPorRangoFecha;
+//    private List<StockPorTipoMovimientoDto> stockPorTipoMovimientoList;
+//    private Producto producto;
+//    private List<Long> sucursalId;
+//    private List<TipoMovimiento> tipoMovimientoList;
+//    private Usuario usuario;

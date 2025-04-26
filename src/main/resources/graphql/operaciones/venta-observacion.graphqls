@@ -1,0 +1,30 @@
+type VentaObservacion {
+    id:ID!
+    descripcion: String
+    creadoEn: Date
+    motivoObservacion: MotivoObservacion
+    venta: Venta
+    sucursal: Sucursal
+    usuario: Usuario
+}
+
+input VentaObservacionInput {
+    id:ID
+    descripcion: String
+    creadoEn: String
+    motivoObservacionId: Int
+    ventaId: Int
+    sucursalId: Int
+    usuarioId: Int
+}
+
+extend type Query {
+    ventaObservacion(id:ID!):VentaObservacion
+    findByVentaIdAndSucursalId(ventaId: Int!, sucId: Int!):[VentaObservacion]!
+    ventaObservaciones: [VentaObservacion]
+}
+
+extend type Mutation {
+    saveVentaObservacion(ventaObservacion:VentaObservacionInput!):VentaObservacion!
+    deleteVentaObservacion(id:ID!):Boolean!
+}

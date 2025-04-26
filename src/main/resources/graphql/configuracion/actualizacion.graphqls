@@ -31,7 +31,8 @@ extend type Query {
 }
 
 extend type Mutation {
-    saveActualizacion(actualizacion:ActualizacionInput!):Actualizacion!
+    saveActualizacionForSucursales(entity:ActualizacionInput!, sucId: [ID]):Actualizacion!
+    saveActualizacion(entity:ActualizacionInput!):Actualizacion!
     deleteActualizacion(id:ID!):Boolean!
 }
 

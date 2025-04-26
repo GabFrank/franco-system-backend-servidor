@@ -22,7 +22,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class EntradaService extends CrudService<Entrada, EntradaRepository> {
+public class EntradaService extends CrudService<Entrada, EntradaRepository, Long> {
 
     private final Logger log = LoggerFactory.getLogger(EntradaService.class);
 

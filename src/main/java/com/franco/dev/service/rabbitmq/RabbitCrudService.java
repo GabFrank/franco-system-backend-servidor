@@ -11,6 +11,6 @@ public class RabbitCrudService {
     private PropagacionService propagacionService;
 
     public <T> void guardar(T entidad, TipoEntidad tipoEntidad){
-        propagacionService.propagarEntidad(entidad, tipoEntidad);
+//        propagacionService.propagarEntidad(entidad, tipoEntidad);
     }
 }

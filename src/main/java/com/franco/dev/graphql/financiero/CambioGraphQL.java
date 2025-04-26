@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Cambio;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.CambioInput;
 import com.franco.dev.graphql.financiero.input.MonedaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -37,6 +39,8 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<Cambio> cambio(Long id) {return service.findById(id);}
 
@@ -60,13 +64,6 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-        if(sucursalesIdList==null){
-            propagacionService.propagarEntidad(e, TipoEntidad.CAMBIO);
-        } else {
-            for(Long id: sucursalesIdList){
-                propagacionService.propagarEntidad(e, TipoEntidad.CAMBIO, id);
-            }
-        }
         return e;
     }
 
@@ -79,7 +76,6 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Boolean deleteCambio(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CAMBIO);
         return ok;        }
 
     public Long countCambio(){

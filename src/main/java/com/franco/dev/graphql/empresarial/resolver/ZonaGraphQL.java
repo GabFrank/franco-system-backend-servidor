@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.empresarial.resolver;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Zona;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.ZonaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SectorService;
@@ -19,6 +21,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Component
 public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -36,6 +40,9 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     @Autowired
     private PropagacionService propagacionService;
+
+    @Autowired
+    private MultiTenantService multiTenantService;
 
     public Optional<Zona> zona(Long id) {
         return service.findById(id);
@@ -56,12 +63,17 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         Zona e = m.map(input, Zona.class);
         e.setSector(sectorService.findById(input.getSectorId()).orElse(null));
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        propagacionService.propagarEntidad(e, TipoEntidad.ZONA, e.getSector().getSucursal().getId());
-        return service.save(e);
+        if(input.getCreadoEn()!=null){
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        }
+        e = service.save(e);
+        return e;
     }
 
     public Boolean deleteZona(Long id) {
-        return service.deleteById(id);
+        Zona e = service.findById(id).orElse(null);
+        Boolean ok = service.deleteById(id);
+        return ok;
     }
 
     public Long countZona() {

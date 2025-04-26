@@ -10,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class MonedaBilleteService extends CrudService<MonedaBilletes, MonedaBilleteRepository> {
+public class MonedaBilleteService extends CrudService<MonedaBilletes, MonedaBilleteRepository, Long> {
 
     private final MonedaBilleteRepository repository;
 

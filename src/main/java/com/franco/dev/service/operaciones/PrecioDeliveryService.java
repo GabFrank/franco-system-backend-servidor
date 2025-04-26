@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class PrecioDeliveryService extends CrudService<PrecioDelivery, PrecioDeliveryRepository> {
+public class PrecioDeliveryService extends CrudService<PrecioDelivery, PrecioDeliveryRepository, Long> {
     private final PrecioDeliveryRepository repository;
 
     @Override

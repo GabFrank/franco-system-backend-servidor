@@ -1,0 +1,47 @@
+type PagoDetalle {
+    id: ID
+    pago: Pago
+    usuario: Usuario
+    creadoEn: Date
+    moneda: Moneda
+    formaPago: FormaPago
+    total: Float
+    sucursal: Sucursal
+    caja: PdvCaja
+    activo: Boolean
+    fechaProgramado: Date
+}
+
+input PagoDetalleInput {
+    id: ID
+    pagoId: Int
+    usuarioId: Int
+    creadoEn: Date
+    monedaId: Int
+    formaPagoId: Int
+    total: Float
+    sucursalId: Int
+    cajaId: Int
+    activo: Boolean
+    fechaProgramado: Date
+}
+
+type PagoDetallePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PagoDetalle]
+    getPageable: Pageable
+}
+
+extend type Query {
+    pagoDetalle(id: ID!): PagoDetalle
+}
+
+extend type Mutation {
+    savePagoDetalle(entity: PagoDetalleInput!): PagoDetalle!
+}

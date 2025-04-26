@@ -1,5 +1,6 @@
 type Gasto {
     id:ID!
+    sucursalId: Int
     caja: PdvCaja
     responsable: Funcionario
     tipoGasto: TipoGasto
@@ -16,6 +17,8 @@ type Gasto {
     vueltoGs: Float
     vueltoRs: Float
     vueltoDs: Float
+    sucursalVuelto: Sucursal
+    sucursal: Sucursal
 }
 
 input GastoInput {
@@ -35,18 +38,32 @@ input GastoInput {
     vueltoDs: Float
     activo: Boolean
     finalizado: Boolean
+    sucursalId: Int
+}
+
+type GastoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Gasto]
+    getPageable: Pageable
 }
 
 extend type Query {
-    gasto(id:ID!):Gasto
-    gastos(page:Int = 0, size:Int = 10):[Gasto]!
+    gasto(id:ID!, sucId: ID):Gasto
+    gastos(page:Int = 0, size:Int = 10, sucId: ID):[Gasto]!
     countGasto: Int
-    gastosPorFecha(inicio:String, fin:String):[Gasto]
-    gastosPorCajaId(id:ID!):[Gasto]
+    gastosPorFecha(inicio:String, fin:String, sucId: ID):[Gasto]
+    gastosPorCajaId(id:ID!, sucId: ID):[Gasto]
+    filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, descripcion:String, page:Int, size:Int):GastoPage
 }
 
 extend type Mutation {
-    saveGasto(entity:GastoInput!):Gasto!
-    deleteGasto(id:ID!):Boolean!
+    saveGasto(entity:GastoInput!, printerName: String, local: String):Gasto!
+    deleteGasto(id:ID!, sucId: ID):Boolean!
 }
 

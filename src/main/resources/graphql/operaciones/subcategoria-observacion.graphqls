@@ -1,0 +1,28 @@
+type SubcategoriaObservacion {
+    id:ID!
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    categoriaObservacion: CategoriaObservacion
+    usuario: Usuario
+}
+
+input SubcategoriaObservacionInput {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    categoriaObservacionId: Int
+    usuarioId: ID
+}
+
+extend type Query {
+    subcategoriaObservacion(id:ID!):SubcategoriaObservacion
+    subcategoriasObservaciones:[SubcategoriaObservacion]!
+    subcategoriaObservacionSearch(categoriaObservacion: ID, texto: String):[SubcategoriaObservacion]
+}
+
+extend type Mutation {
+    saveSubcategoriaObservacion(subcategoriaObservacion:SubcategoriaObservacionInput!):SubcategoriaObservacion!
+    deleteSubcategoriaObservacion(id:ID!):Boolean!
+}

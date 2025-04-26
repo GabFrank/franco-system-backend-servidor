@@ -1,9 +1,12 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.MovimientoCajaInput;
 import com.franco.dev.service.financiero.BancoService;
@@ -38,9 +41,12 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     @Autowired
     private MonedaService monedaService;
 
-    public Optional<MovimientoCaja> movimientoCaja(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<MovimientoCaja> movimientoCajas(int page, int size){
+    public Optional<MovimientoCaja> movimientoCaja(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
+
+    public List<MovimientoCaja> movimientoCajas(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -65,16 +71,18 @@ public class MovimientoCajaGraphQL implements GraphQLQueryResolver, GraphQLMutat
 //        return service.findByAll(texto);
 //    }
 
-    public void desactivarByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia){
-        MovimientoCaja movimientoCaja = service.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia);
-        if(movimientoCaja!=null){
-            movimientoCaja.setActivo(false);
-            service.save(movimientoCaja);
+    public void desactivarByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
+        List<MovimientoCaja> movimientoCajaList = service.findByTipoMovimientoAndReferencia(tipoMovimiento, referencia, sucId);
+        for(MovimientoCaja movimientoCaja: movimientoCajaList){
+            if (movimientoCaja != null) {
+                movimientoCaja.setActivo(false);
+                service.save(movimientoCaja);
+            }
         }
     }
 
-    public Boolean deleteMovimientoCaja(Long id){
-        return service.deleteById(id);
+    public Boolean deleteMovimientoCaja(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countMovimientoCaja(){

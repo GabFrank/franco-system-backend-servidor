@@ -13,6 +13,8 @@ type Venta {
     totalRs: Float
     totalDs: Float
     cobro: Cobro
+    sucursalId: Int
+    delivery: Delivery
 }
 
 input VentaInput {
@@ -27,21 +29,36 @@ input VentaInput {
     totalGs: Float
     totalRs: Float
     totalDs: Float
+    sucursalId: Int
+    deliveryId: Int
+}
+
+type VentaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Venta]
+    getPageable: Pageable
 }
 
 extend type Query {
-    venta(id:ID!):Venta
-    ventas(page:Int = 0, size:Int = 10):[Venta]!
+    venta(id:ID!, sucId: ID):Venta
+    ventas(page:Int = 0, size:Int = 10, sucId: ID):[Venta]!
     countVenta: Int
-    ventasPorCajaId(id:ID!, offset: Int):[Venta]
-    ventaPorPeriodo(inicio:String, fin:String): [VentaPorPeriodo]
+    ventasPorCajaId(idVenta:ID, idCaja:ID!, page: Int, size: Int, asc: Boolean, sucId: ID, formaPago: ID, estado: VentaEstado, isDelivery: Boolean, monedaId: Int):VentaPage
+#    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
+#    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }
 
 extend type Mutation {
-    saveVenta(ventaInput:VentaInput!, ventaItemList: [VentaItemInput], cobro: CobroInput, cobroDetalleList: [CobroDetalleInput]):Boolean
-    deleteVenta(id:ID!):Boolean!
-    cancelarVenta(id:ID!):Boolean!
-    reimprimirVenta(id:ID!):Boolean!
+    saveVenta(ventaInput:VentaInput!, ventaItemList: [VentaItemInput], cobro: CobroInput, cobroDetalleList: [CobroDetalleInput], ticket: Boolean, printerName: String, local: String):Venta
+    deleteVenta(id:ID!, sucId: ID):Boolean!
+    cancelarVenta(id:ID!, sucId: ID):Boolean!
+    reimprimirVenta(id:ID!, printerName: String, local: String, sucId: ID):Boolean!
 }
 
 enum VentaEstado {
@@ -54,6 +71,12 @@ type VentaPorPeriodo {
     valorDs: Float
     valorTotalGs: Float
     creadoEn: Date
+}
+
+type VentaPorSucursal {
+    sucId: ID,
+    nombre: Float
+    total: Float
 }
 
 

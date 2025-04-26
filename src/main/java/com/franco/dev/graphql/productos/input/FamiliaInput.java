@@ -12,7 +12,7 @@ public class FamiliaInput {
     private String descripcion;
     private Boolean activo;
     private Long usuarioId;
-    private Date creadoEn;
+    private String creadoEn;
     private String icono;
     private Integer posicion;
 

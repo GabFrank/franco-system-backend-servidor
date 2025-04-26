@@ -14,7 +14,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ZonaService extends CrudService<Zona, ZonaRepository> {
+public class ZonaService extends CrudService<Zona, ZonaRepository, Long> {
 
     @Autowired
     private Environment environment;

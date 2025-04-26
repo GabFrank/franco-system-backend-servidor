@@ -1,0 +1,87 @@
+type FacturaLegal {
+    id:ID!
+    caja: PdvCaja
+    viaTributaria: Boolean
+    timbradoDetalle:TimbradoDetalle
+    numeroFactura:String
+    cliente: Cliente
+    venta: Venta
+    fecha:Date
+    credito:Boolean
+    nombre:String
+    ruc:String
+    direccion:String
+    ivaParcial0:Float
+    ivaParcial5:Float
+    ivaParcial10:Float
+    totalParcial0:Float
+    totalParcial5:Float
+    totalParcial10:Float
+    totalFinal:Float
+    descuento:Float
+    usuario: Usuario
+    creadoEn: Date
+    sucursalId: Int
+    facturaLegalItemList: [FacturaLegalItem]
+    sucursal:Sucursal
+}
+
+input FacturaLegalInput {
+    id:ID
+    cajaId: Int
+    viaTributaria: Boolean
+    clienteId: Int
+    ventaId: Int
+    fecha:String
+    credito:Boolean
+    nombre:String
+    ruc:String
+    direccion:String
+    ivaParcial0:Float
+    ivaParcial5:Float
+    ivaParcial10:Float
+    totalParcial0:Float
+    totalParcial5:Float
+    totalParcial10:Float
+    totalFinal:Float
+    descuento:Float
+    usuarioId: Int
+    sucursalId: Int
+}
+
+type FacturaLegalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [FacturaLegal]
+    getPageable: Pageable
+}
+
+type ResumenFacturasDto {
+    cantFacturas: Int
+    maxNumero: Int
+    minNumero: Int
+    totalFinal: Float
+    total5: Float
+    total10: Float
+    total0: Float
+}
+
+extend type Query {
+    facturaLegal(id:ID!, sucId: ID):FacturaLegal
+    facturaLegales(page: Int, size: Int, fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):FacturaLegalPage!
+    countFacturaLegal: Int
+    reimprimirFacturaLegal(id:ID!, sucId:ID!, printerName: String):Boolean
+    findResumenFacturas(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):ResumenFacturasDto!
+    generarExcelFacturas(fechaInicio: String!, fechaFin: String!, sucId: ID):String
+    generarExcelFacturasZip(fechaInicio: String!, fechaFin: String!, sucId: [ID]):String
+}
+
+extend type Mutation {
+    deleteFacturaLegal(id:ID!, sucId: ID):Boolean!
+}
+

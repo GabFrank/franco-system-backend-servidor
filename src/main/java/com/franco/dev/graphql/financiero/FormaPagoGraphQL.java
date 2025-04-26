@@ -1,13 +1,12 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.FormaPago;
-import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.FormaPagoInput;
-import com.franco.dev.graphql.financiero.input.MonedaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.CuentaBancariaService;
 import com.franco.dev.service.financiero.FormaPagoService;
-import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
@@ -40,34 +39,38 @@ public class FormaPagoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<FormaPago> formaPago(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<FormaPago> formasPago(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Optional<FormaPago> formaPago(Long id) {
+        return service.findById(id);
+    }
+
+    public List<FormaPago> formasPago(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
 
-    public FormaPago saveFormaPago(FormaPagoInput input){
+    public FormaPago saveFormaPago(FormaPagoInput input) {
         ModelMapper m = new ModelMapper();
         FormaPago e = m.map(input, FormaPago.class);
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if(input.getCuentaBancariaId()!=null){
+        if (input.getCuentaBancariaId() != null) {
             e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.FORMA_DE_PAGO);
-        return e;    }
+        return e;
+    }
 
-    public Boolean deleteFormaPago(Long id){
-
+    public Boolean deleteFormaPago(Long id) {
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.FORMA_DE_PAGO);
-        return ok;    }
+        return ok;
+    }
 
-    public Long countFormaPago(){
+    public Long countFormaPago() {
         return service.count();
     }
 

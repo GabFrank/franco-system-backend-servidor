@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ProveedorService extends CrudService<Proveedor, ProveedorRepository> {
+public class ProveedorService extends CrudService<Proveedor, ProveedorRepository, Long> {
 
     private final ProveedorRepository repository;
 

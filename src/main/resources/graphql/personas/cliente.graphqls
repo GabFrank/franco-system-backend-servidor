@@ -1,21 +1,46 @@
 type Cliente {
     id:ID!
+    tipo: TipoCliente
     persona: Persona
     nombre: String
     credito: Float
     creadoEn: Date
     contactos: [Contacto]
-    usuarioId: Usuario
+    usuario: Usuario
+    saldo: Float
+    codigo: String
+    sucursal: Sucursal
+    tributa: Boolean
+    verificadoSet: Boolean
 }
 
 input ClienteInput {
-
     id:ID
-    personaId: ID!
-    credito: Float!
+    tipo: TipoCliente
+    personaId: Int
+    nombre: String
+    credito: Float
     creadoEn: Date
-    usuarioId: ID
+    direccion: String
+    usuarioId: Int
+    documento: String
+    saldo: Float
+    codigo: String
+    sucursalId: Int
+    tributa: Boolean
+    verificadoSet: Boolean
+}
 
+type ClientePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Cliente]
+    getPageable: Pageable
 }
 
 extend type Query {
@@ -23,6 +48,7 @@ extend type Query {
     clientePorPersonaId(id:ID): Cliente
     clientePorPersona(texto:String): [Cliente]
     clientePorTelefono(texto:String): [Cliente]
+    onSearchWithFilters(texto:String, tipo: TipoCliente, page: Int, size: Int): ClientePage
     clientes(page:Int = 0, size:Int = 10):[Cliente]!
     countCliente: Int
 }
@@ -30,5 +56,13 @@ extend type Query {
 extend type Mutation {
     saveCliente(cliente:ClienteInput!):Cliente!
     deleteCliente(id:ID!):Boolean!
+}
+
+enum TipoCliente {
+    NORMAL,
+    ASOCIADO,
+    CONVENIADO,
+    FUNCIONARIO,
+    VIP
 }
 

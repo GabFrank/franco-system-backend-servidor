@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.general;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.domain.general.Pais;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.general.input.CiudadInput;
 import com.franco.dev.graphql.general.input.PaisInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,6 +38,9 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Ciudad> ciudad(Long id) {return service.findById(id);}
 
     public List<Ciudad> ciudades(int page, int size){
@@ -52,13 +58,14 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         Ciudad e = m.map(input, Ciudad.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPais(ciudadService.findById(input.getPaisId()).orElse(null));
+        if(input.getCreadoEn() != null){
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.CIUDAD);
         return e;    }
 
     public Boolean deleteCiudad(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.CIUDAD);
         return ok;
     }
 

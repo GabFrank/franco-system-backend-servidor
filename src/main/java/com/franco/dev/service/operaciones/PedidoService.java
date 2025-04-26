@@ -4,40 +4,51 @@ import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.operaciones.PedidoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.personas.VendedorProveedorService;
 import lombok.AllArgsConstructor;
 import org.hibernate.Session;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.franco.dev.utilitarios.DateUtils.dateToString;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Service
 @AllArgsConstructor
-public class PedidoService extends CrudService<Pedido, PedidoRepository> {
+public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     private final PedidoRepository repository;
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private VendedorProveedorService vendedorProveedorService;
 
     @Override
     public PedidoRepository getRepository() {
         return repository;
     }
 
-    public List<Pedido> filterPedidos(String estado,Long sucursalId,String inicio,String fin,Long proveedorId,Long vendedorId,String formaPago,Long productoId){
-        if(inicio==null){
-            inicio = "2000-01-01";
-        }
-        if(fin==null){
-            fin = "2050-01-01";
-        }
-        return repository.filterPedidos(estado, sucursalId, inicio, fin, proveedorId, vendedorId, formaPago, productoId);
+    public Page<Pedido> filterPedidos(Long idPedido,
+                                      Integer numeroNotaRecepcion, PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPago, Long productoId, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        if(idPedido!=null) return repository.findById(idPedido, pageable);
+        if(numeroNotaRecepcion != null) return repository.filterPedidosByNumeroNota(numeroNotaRecepcion, pageable);
+        return repository.filterPedidos(idPedido,
+                numeroNotaRecepcion, estado, sucursalId, stringToDate(inicio), stringToDate(fin), proveedorId, vendedorId, formaPago, productoId, pageable);
     }
 
 //    public List<Pedido> filterPedidos(@Param("estado") String estado,@Param("sucursal_id") Long sucursalId,@Param("inicio") String inicio,@Param("fin") String fin,@Param("proveedor_id") Long proveedorId,@Param("vendedor_d") Long vendedorId,@Param("forma_pago") String formaPago,@Param("producto_id") Long productoId){
@@ -85,12 +96,14 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository> {
 
     @Override
     public Pedido save(Pedido entity) {
-        if(entity.getId()==null){
+        if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
             entity.setEstado(PedidoEstado.ABIERTO);
         }
         Pedido e = super.save(entity);
-//        personaPublisher.publish(p);
+        if (entity.getVendedor() != null && entity.getProveedor() != null) {
+            vendedorProveedorService.save(entity.getVendedor(), entity.getProveedor());
+        }
         return e;
     }
 }

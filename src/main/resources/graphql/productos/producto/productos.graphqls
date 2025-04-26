@@ -1,7 +1,5 @@
 type Producto {
     id:ID!
-    idCentral:Int
-    idSucursalOrigen:Int
     propagado:Boolean
     descripcion: String
     descripcionFactura: String
@@ -32,12 +30,12 @@ type Producto {
     costo: CostoPorProducto
     isEnvase: Boolean
     envase: Producto
+    activo: Boolean
+    creadoEn: Date
 }
 
 input ProductoInput {
     id:ID
-    idCentral:Int
-    idSucursalOrigen:Int
     propagado:Boolean
     descripcion: String
     descripcionFactura: String
@@ -60,18 +58,35 @@ input ProductoInput {
     tipoConservacion: TipoConservacion
     isEnvase: Boolean
     envaseId: Int
+    activo: Boolean
+    creadoEn: String
+}
+
+type ProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Producto]
+    getPageable: Pageable
 }
 
 extend type Query {
     producto(id:ID!):Producto
     productos(page:Int = 0, size:Int = 10):[Producto]!
     countProducto: Int
-    productoSearch(texto:String, offset:Int, isEnvase: Boolean):[Producto]
+    productoSearch(texto:String, offset:Int, isEnvase: Boolean, activo: Boolean):[Producto]
     productoPorProveedorId(id: ID!, texto: String): [Producto]
     productoPorSucursalStock(proId: ID!, sucId: ID!): Float
     productoPorCodigo(texto:String):Producto
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String
+    lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
+    imprimirCodigoBarra(codigoId: Int): Boolean
+    searchProductoWithFilters(texto: String, codigo: String, activo: Boolean, stock: Boolean, balanza: Boolean, subfamilia: Int, vencimiento: Boolean page: Int, size: Int):ProductoPage
 }
 
 extend type Mutation {
@@ -92,6 +107,16 @@ enum UnidadMedida {
     CAJA,
     KILO,
     LITRO
+}
+
+type LucroPorProducto {
+    productoId: ID!
+    descripcion: String
+    costoUnitario: Float
+    cantidad: Float
+    totalVenta: Float
+    lucro: Float
+    percent: Float
 }
 
 

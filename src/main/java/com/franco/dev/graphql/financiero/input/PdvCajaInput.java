@@ -1,19 +1,18 @@
 package com.franco.dev.graphql.financiero.input;
 
-import com.franco.dev.domain.financiero.Conteo;
-import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.domain.operaciones.enums.TipoEntrada;
+import com.franco.dev.domain.personas.Usuario;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
 
-import javax.persistence.*;
+import javax.persistence.FetchType;
+import javax.persistence.JoinColumn;
+import javax.persistence.ManyToOne;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 public class PdvCajaInput {
     private Long id;
+    private Long sucursalId;
     private String descripcion;
     private String observacion;
     private Boolean activo;
@@ -29,4 +28,6 @@ public class PdvCajaInput {
     private Double totalGs;
     private Double totalRs;
     private Double totalDs;
+    private Boolean verificado;
+    private Long verificadoPorId;
 }

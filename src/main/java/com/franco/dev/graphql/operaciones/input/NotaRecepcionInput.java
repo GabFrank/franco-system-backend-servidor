@@ -14,13 +14,16 @@ import java.time.LocalDateTime;
 public class NotaRecepcionInput {
     private Long id;
     private Long pedidoId;
+    private Long notaRecepcionAgrupadaId;
     private Long compraId;
     private Long documentoId;
+    private String tipoBoleta;
     private Double valor;
     private Double descuento;
     private Integer numero;
     private Integer timbrado;
     private Boolean pagado;
-    private LocalDateTime creadoEn;
+    private String creadoEn;
     private Long usuarioId;
+    private String fecha;
 }

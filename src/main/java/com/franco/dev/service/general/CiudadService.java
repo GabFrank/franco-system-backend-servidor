@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class CiudadService extends CrudService<Ciudad, CiudadRepository> {
+public class CiudadService extends CrudService<Ciudad, CiudadRepository, Long> {
 
     private final CiudadRepository repository;
 

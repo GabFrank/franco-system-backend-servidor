@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ProductoImagenService extends CrudService<ProductoImagen, ProductoImagenRepository> {
+public class ProductoImagenService extends CrudService<ProductoImagen, ProductoImagenRepository, Long> {
 
     @Autowired
     private final ProductoImagenRepository repository;

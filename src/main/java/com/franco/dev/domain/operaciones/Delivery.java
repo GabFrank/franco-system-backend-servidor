@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.general.Barrio;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
@@ -10,9 +11,11 @@ import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -26,17 +29,17 @@ import java.time.LocalDateTime;
         name = "delivery_estado",
         typeClass = PostgreSQLEnumType.class
 )
+@IdClass(EmbebedPrimaryKey.class)
 public class Delivery implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "venta_id", nullable = true)
-    private Venta venta;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @Column(name = "valor_en_gs")
     private Double valor;
@@ -71,17 +74,23 @@ public class Delivery implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
+    @Column(name = "fecha_concluido")
+    private LocalDateTime fechaConcluido;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vuelto_id", nullable = true)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "vuelto_id", referencedColumnName = "id"))
+    })
     private Vuelto vuelto;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")
-    @Type( type = "delivery_estado")
+    @Type(type = "delivery_estado")
     private DeliveryEstado estado;
 }
 

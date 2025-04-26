@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.graphql.productos.input.SubfamiliaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -11,6 +13,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -33,9 +36,14 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Subfamilia> subfamilia(Long id) {return service.findById(id);}
 
-    public List<Subfamilia> subfamiliaSearch(String texto) {return service.findByDescripcion(texto);}
+    public Page<Subfamilia> subfamiliaSearch(Long familiaId, String texto, int page, int size) {return service.findByDescripcion(familiaId, texto, page, size);}
+
+    public Page<Subfamilia> findByDescripcionSinFamilia(String texto, int page, int size) {return service.findByDescripcionSinFamilia(texto, page, size);}
 
 //    public List<Subfamilia> subfamilias(int page, int size){
 //        Pageable pageable = PageRequest.of(page,size);
@@ -46,17 +54,12 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         ModelMapper m = new ModelMapper();
         Subfamilia e = m.map(input, Subfamilia.class);
         if(input.getUsuarioId()!=null){
-            e.setUsuarioId(usuarioService.findById(input.getUsuarioId()).orElse(null));
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         if(input.getFamiliaId()!=null){
             e.setFamilia(familiaService.findById((input.getFamiliaId())).orElse(null));
-
-        }
-        if(input.getSubfamiliaId()!=null){
-            e.setSubfamilia(service.findById((input.getSubfamiliaId())).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.SUBFAMILIA);
         return e;
     }
 
@@ -69,7 +72,6 @@ public class SubfamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public Boolean deleteSubfamilia(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUBFAMILIA);
         return ok;
     }
 

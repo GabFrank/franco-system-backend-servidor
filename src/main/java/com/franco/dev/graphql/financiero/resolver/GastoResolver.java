@@ -1,9 +1,11 @@
 package com.franco.dev.graphql.financiero.resolver;
 
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.GastoDetalle;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.GastoDetalleService;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.financiero.MonedaService;
@@ -30,6 +32,9 @@ public class GastoResolver implements GraphQLResolver<Gasto> {
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private SucursalService sucursalService;
 
     public Double valorGs(Gasto e){
         List<GastoDetalle> gastoDetalleList = gastoDetalleService.findByGastoId(e.getId());
@@ -69,6 +74,10 @@ public class GastoResolver implements GraphQLResolver<Gasto> {
             }
         }
         return valor;
+    }
+
+    public Sucursal sucursal(Gasto e){
+        return sucursalService.findById(e.getSucursalId()).orElse(null);
     }
 
 }

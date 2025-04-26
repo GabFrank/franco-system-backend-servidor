@@ -1,6 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
-import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
@@ -16,13 +16,16 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "vuelto", schema = "operaciones")
+@IdClass(EmbebedPrimaryKey.class)
 public class Vuelto implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     private Boolean activo;
 

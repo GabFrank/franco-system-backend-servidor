@@ -1,8 +1,5 @@
 package com.franco.dev.rabbit.dto;
 
-import com.franco.dev.domain.productos.Producto;
-import com.franco.dev.graphql.productos.input.ProductoInput;
-import com.franco.dev.rabbit.RabbitEntity;
 import com.franco.dev.rabbit.enums.TipoAccion;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import lombok.AllArgsConstructor;
@@ -23,24 +20,35 @@ public class RabbitDto<T> implements Serializable {
     private T entidad;
     private Long idSucursalOrigen;
     private Object data;
+    private Boolean recibidoEnServidor = false;
+    private Boolean recibidoEnFilial = false;
 
-    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad, Long idSucursalOrigen){
+    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad, Long idSucursalOrigen) {
         this.entidad = entidad;
         this.tipoAccion = tipoAccion;
         this.tipoEntidad = tipoEntidad;
         this.idSucursalOrigen = idSucursalOrigen;
     }
 
-    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad){
+    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad) {
         this.entidad = entidad;
         this.tipoAccion = tipoAccion;
         this.tipoEntidad = tipoEntidad;
     }
 
-    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad, Object data){
+    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad, Object data) {
         this.entidad = entidad;
         this.tipoAccion = tipoAccion;
         this.tipoEntidad = tipoEntidad;
         this.data = data;
+    }
+
+    public RabbitDto(T entidad, TipoAccion tipoAccion, TipoEntidad tipoEntidad, Object data, Boolean central, Boolean sucursal) {
+        this.entidad = entidad;
+        this.tipoAccion = tipoAccion;
+        this.tipoEntidad = tipoEntidad;
+        this.data = data;
+        this.recibidoEnFilial = sucursal;
+        this.recibidoEnServidor = central;
     }
 }

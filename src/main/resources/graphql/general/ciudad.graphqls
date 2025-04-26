@@ -12,7 +12,7 @@ input CiudadInput {
     descripcion: String
     paisId: Int
     codigo: String
-    creadoEn: Date
+    creadoEn: String
     usuarioId: Int
 }
 

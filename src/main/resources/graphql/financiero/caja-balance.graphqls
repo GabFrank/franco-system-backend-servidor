@@ -1,5 +1,6 @@
 type CajaBalance {
     cajaId: Int
+    totalGeneral: Float
     totalAperGs: Float
     totalAperRs: Float
     totalAperDs: Float
@@ -10,6 +11,7 @@ type CajaBalance {
     totalVentaRs: Float
     totalVentaDs: Float
     totalTarjeta: Float
+    totalCredito: Float
     totalDescuento: Float
     totalAumento: Float
     totalRetiroGs: Float
@@ -18,7 +20,15 @@ type CajaBalance {
     totalGastoGs: Float
     totalGastoRs: Float
     totalGastoDs: Float
-    totalCanceladas: Float
+    totalCanceladasGs: Float
+    totalCanceladasRs: Float
+    totalCanceladasDs: Float
+    vueltoGs: Float
+    vueltoRs: Float
+    vueltoDs: Float
+    diferenciaGs: Float
+    diferenciaRs: Float
+    diferenciaDs: Float
 }
 
 

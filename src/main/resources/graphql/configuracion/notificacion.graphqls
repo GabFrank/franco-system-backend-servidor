@@ -1,0 +1,30 @@
+type NotificacionPush {
+    id: Int
+    persona: Persona
+    role: Role
+    cargo: Cargo
+    tipoCliente: TipoCliente
+    titulo: String
+    mensaje: String
+    token: String
+    data: String
+    creadoEn: Date
+}
+
+input NotificacionPushInput {
+    id: Int
+    personaId: Int
+    roleId: Int
+    cargoId: Int
+    tipoClienteId: Int
+    titulo: String
+    mensaje: String
+    token: String
+    data: String
+    creadoEn: String
+}
+
+extend type Query {
+    requestPushNotification(entity: NotificacionPushInput!):Boolean
+}
+

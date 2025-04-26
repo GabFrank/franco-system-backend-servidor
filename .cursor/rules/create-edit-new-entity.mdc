@@ -1,0 +1,259 @@
+---
+description: create or modify a java entity, repository, service, graphql
+globs: 
+---
+Spring boot
+User will pass a postgresql table and the enum if needed, with this information you will create the following classes and files:
+Entity class example:
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Entity
+//if there is a enum on entity add this
+@TypeDef(
+        name = "pedido_estado",
+        typeClass = PostgreSQLEnumType.class
+)
+@TypeDef(
+        name = "pedido_forma_pago",
+        typeClass = PostgreSQLEnumType.class
+)
+@Table(name = "pedido", schema = "operaciones")
+public class Pedido implements Identifiable<Long> {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "necesidad_id", nullable = true)
+    private Necesidad necesidad;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proveedor_id", nullable = true)
+    private Proveedor proveedor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vendedor_id", nullable = true)
+    private Vendedor vendedor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "forma_pago_id", nullable = true)
+    private FormaPago formaPago;
+
+    private String tipoBoleta;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moneda_id", nullable = true)
+    private Moneda moneda;
+
+    @Column(name = "plazo_credito")
+    private Integer plazoCredito;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado")
+    @Type(type = "pedido_estado")
+    private PedidoEstado estado;
+
+    @Column(name = "creado_en")
+    private LocalDateTime creadoEn;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = true)
+    private Usuario usuario;
+}
+
+enum file example with comments of each option:
+public enum PedidoEstado {
+
+    ABIERTO, //MIENTRAS EL PEDIDO SE ESTA HACIENDO
+    ACTIVO, //CUANDO EL PEDIDO SE CONCLUYO PERO TODAVIA NO LLEGO
+    MODIFICADO, //CUANDO EL PEDIDO SE MODIFICO PERO TODAVIA NO LLEGO
+    CANCELADO, //PEDIDO FUE CANCELADO ANTES DE LLEGAR
+    REPROGRAMADO, //CUANDO EL PEDIDO SE CONCLUYO PERO SE REPROGRAMO LA FECHA DE ENTREGA
+    EN_RECEPCION_NOTA,
+    EN_RECEPCION_MERCADERIA,
+    EN_VERIFICACION, //CUANDO EL PEDIDO YA LLEGO PERO SE ESTA VERIFICANDO
+    EN_VERIFICACION_SOLICITUD_AUTORIZACION, // CUANDO EL PEDIDO ESTA EN VERIFICACION Y SE SOLICITA AUTORIZACION
+    VERFICADO_SIN_MODIFICACION, //CUANDO EL PEDIDO YA LLEGO Y YA FUE VERIFICADO CON MODIFICACIONES PERO AUN NO SE PAGO
+    VERFICADO_CON_MODIFICACION, //CUANDO EL PEDIDO YA LLEGO Y YA FUE VERIFICADO SIN MODIFICACIONES PERO AUN NO SE PAGO
+    CONCLUIDO //CUANDO EL PEDIDO YA LLEGO, YA SE VERIFICO Y YA GENERO UNA COMPRA
+}
+
+repository file example:
+public interface PedidoRepository extends HelperRepository<Pedido, Long> {
+    default Class<Pedido> getEntityClass() {
+        return Pedido.class;
+    }
+}
+
+Service file example:
+@Service
+@AllArgsConstructor
+public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
+    private final PedidoRepository repository;
+
+    @Override
+    public PedidoRepository getRepository() {
+        return repository;
+    }
+
+    @Override
+    public Pedido save(Pedido entity) {
+        if (entity.getId() == null) {
+            entity.setCreadoEn(LocalDateTime.now());
+            entity.setEstado(PedidoEstado.ABIERTO);
+        }
+        Pedido e = super.save(entity);
+        if (entity.getVendedor() != null && entity.getProveedor() != null) {
+            vendedorProveedorService.save(entity.getVendedor(), entity.getProveedor());
+        }
+        return e;
+    }
+}
+
+graphql input class example:
+@Data
+public class PedidoInput {
+    private Long id;
+    private Long vendedorId;
+    private Long proveedorId;
+    private LocalDateTime fechaDeEntrega;
+    private Long formaPagoId;
+    private String tipoBoleta;
+    private PedidoEstado estado;
+    private Long monedaId;
+    private Integer plazoCredito;
+    private Float descuento;
+    private Float valorTotal;
+    private Long usuarioId;
+    private LocalDateTime creadoEn;
+    private List<PedidoItemInput> pedidoItemInputList;
+}
+
+graphql class example:
+@Component
+public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PedidoService service;
+
+public Pedido pedido(Long id){
+        return service.findById(id).orElse(null);
+}
+
+public Pedido savePedido(PedidoInput input) {
+        ModelMapper m = new ModelMapper();
+        Pedido e = m.map(input, Pedido.class);
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        if (input.getProveedorId() != null)
+            e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
+        if (input.getVendedorId() != null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+        Pedido pedido = service.save(e);
+        return pedido;
+    }
+
+}
+
+graphql resolver class example:
+@Component
+public class PedidoResolver implements GraphQLResolver<Pedido> {
+
+    @Autowired
+    private PedidoService pedidoService;
+
+}
+
+graphqls file example:
+OBS: the file extension is .graphqls
+type Pedido {
+    id:ID
+    proveedor: Proveedor
+    vendedor: Vendedor
+    formaPago: FormaPago
+    estado: PedidoEstado
+    moneda: Moneda
+    plazoCredito: Int
+    tipoBoleta: String
+    creadoEn: Date
+    usuario: Usuario
+    descuento: Float
+    valorTotal: Float
+    notaRecepcionList: [NotaRecepcion]
+    compra: Compra
+    fechaEntregaList: [PedidoFechaEntrega]
+    sucursalEntregaList: [PedidoSucursalEntrega]
+    sucursalInfluenciaList: [PedidoSucursalInfluencia]
+    cantPedidoItem: Int
+    cantPedidoItemSinNota: Int
+    cantPedidoItemCancelados: Int
+    cantNotas: Int
+    cantNotasPagadas: Int
+    cantNotasCanceladas: Int
+    pagado: Boolean
+}
+
+input PedidoInput {
+    id:ID
+    proveedorId: Int
+    vendedorId: Int
+    formaPagoId: Int
+    estado: PedidoEstado
+    monedaId: Int
+    plazoCredito: Int
+    tipoBoleta: String
+    creadoEn: Date
+    usuarioId: Int
+    descuento: Int
+    valorTotal: Float
+    pedidoItemInputList: [PedidoItemInput]
+}
+
+type PedidoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Pedido]
+    getPageable: Pageable
+}
+
+extend type Query {
+pedido(id: ID!):Pedido
+}
+
+extend type Mutation {
+    savePedido(entity:PedidoInput!):Pedido!
+}
+
+enum PedidoEstado {
+    ABIERTO,
+    ACTIVO,
+    MODIFICADO,
+    CANCELADO,
+    REPROGRAMADO,
+    EN_RECEPCION_NOTA,
+    EN_RECEPCION_MERCADERIA,
+    EN_VERIFICACION,
+    EN_VERIFICACION_SOLICITUD_AUTORIZACION,
+    VERFICADO_SIN_MODIFICACION,
+    VERFICADO_CON_MODIFICACION,
+    CONCLUIDO
+}
+
+create all those files based on example, do not add any imports and class package, if you need any extra information please ask to the user

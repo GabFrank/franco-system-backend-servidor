@@ -1,0 +1,74 @@
+# Replication table configuration
+
+type ReplicationTable {
+    id: ID!
+    tableName: String!
+    direction: ReplicationDirection!
+    enabled: Boolean!
+    description: String
+    creadoEn: String
+    usuario: Usuario
+}
+
+enum ReplicationDirection {
+    MAIN_TO_ALL
+    MAIN_TO_SPECIFIC
+    BRANCH_TO_MAIN
+}
+
+type ReplicationTablePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ReplicationTable]
+    getPageable: Pageable
+}
+
+input ReplicationTableInput {
+    id: ID
+    tableName: String!
+    direction: ReplicationDirection!
+    enabled: Boolean
+    description: String
+    usuarioId: ID
+}
+
+extend type Query {
+    # Get all replication tables
+    replicationTables: [ReplicationTable]
+    
+    # Get a single replication table by ID
+    replicationTable(id: ID!): ReplicationTable
+    
+    # Get replication tables with pagination
+    replicationTablesWithPagination(page: Int = 0, size: Int = 10, search: String): ReplicationTablePage
+    
+    # Get tables by direction
+    replicationTablesByDirection(direction: ReplicationDirection!): [ReplicationTable]
+    
+    # Get only enabled tables
+    enabledReplicationTables: [ReplicationTable]
+    
+    # Get table names for replication configuration
+    mainToAllTableNames: [String]
+    mainToSpecificTableNames: [String]
+    branchToMainTableNames: [String]
+}
+
+extend type Mutation {
+    # Create a new replication table
+    saveReplicationTable(input: ReplicationTableInput!): ReplicationTable
+    
+    # Delete a replication table
+    deleteReplicationTable(id: ID!): Boolean
+    
+    # Toggle enabled status
+    toggleReplicationTableEnabled(id: ID!): Boolean
+    
+    # Update LogicalReplicationService with current table configuration
+    updateReplicationServiceTables: Boolean
+} 

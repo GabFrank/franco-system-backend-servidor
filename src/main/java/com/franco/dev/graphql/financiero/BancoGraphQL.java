@@ -1,12 +1,11 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Banco;
-import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.BancoInput;
-import com.franco.dev.graphql.financiero.input.MonedaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.BancoService;
-import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
@@ -36,33 +35,38 @@ public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<Banco> banco(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<Banco> bancos(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Optional<Banco> banco(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Banco> bancos(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public Banco saveBanco(BancoInput input){
+    public Banco saveBanco(BancoInput input) {
         ModelMapper m = new ModelMapper();
         Banco e = m.map(input, Banco.class);
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.BANCO);
-        return e;        }
+        return e;
+    }
 
-    public List<Banco> bancosSearch(String texto){
+    public List<Banco> bancosSearch(String texto) {
         return service.findByAll(texto);
     }
 
-    public Boolean deleteBanco(Long id){
+    public Boolean deleteBanco(Long id) {
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.BANCO);
-        return ok;    }
+        return ok;
+    }
 
-    public Long countBanco(){
+    public Long countBanco() {
         return service.count();
     }
 

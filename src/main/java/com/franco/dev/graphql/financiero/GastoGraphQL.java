@@ -1,27 +1,26 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Gasto;
-import com.franco.dev.domain.financiero.GastoDetalle;
-import com.franco.dev.graphql.financiero.input.GastoDetalleInput;
 import com.franco.dev.graphql.financiero.input.GastoInput;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.service.impresion.ImpresionService;
-import com.franco.dev.service.impresion.dto.GastoDto;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.utilitarios.StringUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -47,74 +46,55 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private TipoGastoService tipoGastoService;
 
-    public Optional<Gasto> gasto(Long id) {return service.findById(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public List<Gasto> gastos(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public Gasto gasto(Long id, Long sucId) {
+        return service.findByIdAndSucursalId(id, sucId);
+    }
+
+    public List<Gasto> gastos(int page, int size, Long sucId) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<Gasto> gastosPorCajaId(Long id){
-        return service.findByCajaId(id);
+    public List<Gasto> gastosPorCajaId(Long id, Long sucId) {
+        return service.findByCajaId(id, sucId);
     }
 
-    public List<Gasto> gastosPorFecha(String inicio, String fin){
-        return service.findByDate(inicio, fin);
+    public List<Gasto> gastosPorFecha(String inicio, String fin, Long sucId) {
+        return service.findByDate(inicio, fin, sucId);
     }
 
-    public Gasto saveGasto(GastoInput input) throws GraphQLException {
+    public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
+//        e = service.save(e);
+//        multiTenantService.compartir(null, (Gasto s) -> service.save(s), e);
+        return e;
+    }
 
-        if(input.getFinalizado()==true){
-            e = gasto(input.getId()).orElse(null);
-            e.setVueltoGs(input.getVueltoGs());
-            e.setVueltoRs(input.getVueltoRs());
-            e.setVueltoDs(input.getVueltoDs());
-            e.setFinalizado(true);
-        } else {
-            if (input.getUsuarioId() != null) {
-                e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-            }
-            if (input.getCajaId() != null) e.setCaja(pdvCajaService.findById(input.getCajaId()).orElse(null));
-            if (input.getAutorizadoPorId() != null)
-                e.setAutorizadoPor(funcionarioService.findById(input.getAutorizadoPorId()).orElse(null));
-            if (input.getResponsableId() != null)
-                e.setResponsable(funcionarioService.findById(input.getResponsableId()).orElse(null));
-            if (input.getTipoGastoId() != null)
-                e.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
-        }
-        Gasto gasto = service.save(e);
-        GastoDto gastoDto = new GastoDto();
-        if(gasto!=null && input.getFinalizado()!=true){
-            gastoDto.setId(gasto.getId());
-            gastoDto.setFecha(gasto.getCreadoEn());
-            gastoDto.setUsuario(gasto.getUsuario());
-            gastoDto.setResponsable(gasto.getResponsable());
-            gastoDto.setAutorizadoPor(gasto.getAutorizadoPor());
-            gastoDto.setTipoGasto(gasto.getTipoGasto());
-            gastoDto.setObservacion(gasto.getObservacion());
-            gastoDto.setRetiroGs(input.getRetiroGs());
-            gastoDto.setRetiroRs(input.getRetiroRs());
-            gastoDto.setRetiroDs(input.getRetiroDs());
-            gastoDto.setVueltoGs(input.getVueltoGs());
-            gastoDto.setVueltoRs(input.getVueltoRs());
-            gastoDto.setVueltoDs(input.getVueltoDs());
-            gastoDto.setCajaId(gasto.getCaja().getId());
-            impresionService.printGasto(gastoDto);
-        }
-        return gasto;
+    public Page<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        descripcion = StringUtils.convertToCustomFormat(descripcion);
+        String finalDescripcion = descripcion;
+        return service.filterGastosPage(id, cajaId, sucId, responsableId, finalDescripcion, pageable);
     }
 
 //    public List<Gasto> gastosSearch(String texto){
 //        return service.findByAll(texto);
 //    }
 
-    public Boolean deleteGasto(Long id){
-        return service.deleteById(id);
+    public Boolean deleteGasto(Long id, Long sucId) {
+        Gasto gasto = service.findByIdAndSucursalId(id, sucId);
+        if (gasto != null) {
+            return service.delete(gasto);
+        } else {
+            throw new GraphQLException("No se pudo eliminar el gasto");
+        }
     }
 
-    public Long countGasto(){
+    public Long countGasto() {
         return service.count();
     }
 

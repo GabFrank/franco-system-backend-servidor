@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.RetiroDetalle;
 import com.franco.dev.graphql.financiero.input.BancoInput;
@@ -39,9 +40,9 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private MonedaService monedaService;
 
-    public Optional<RetiroDetalle> retiroDetalle(Long id) {return service.findById(id);}
+    public Optional<RetiroDetalle> retiroDetalle(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<RetiroDetalle> retiroDetalles(int page, int size){
+    public List<RetiroDetalle> retiroDetalles(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -54,16 +55,16 @@ public class RetiroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutati
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         if(input.getMonedaId()!=null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        if(input.getRetiroId()!=null) e.setRetiro(retiroService.findById(input.getRetiroId()).orElse(null));
+        if(input.getRetiroId()!=null) e.setRetiro(retiroService.findById(new EmbebedPrimaryKey(input.getRetiroId(), input.getSucursalId())).orElse(null));
         return service.save(e);
     }
 
-    public List<RetiroDetalle> retiroDetalleListPorRetiroId(Long id){
-        return service.findByRetiroId(id);
+    public List<RetiroDetalle> retiroDetalleListPorRetiroId(Long id, Long sucId){
+        return service.findByRetiroId(id, sucId);
     }
 
-    public Boolean deleteRetiroDetalle(Long id){
-        return service.deleteById(id);
+    public Boolean deleteRetiroDetalle(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countRetiroDetalle(){

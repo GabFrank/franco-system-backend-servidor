@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.GastoDetalle;
@@ -43,9 +44,9 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private GastoService gastoService;
 
-    public Optional<GastoDetalle> gastoDetalle(Long id) {return service.findById(id);}
+    public Optional<GastoDetalle> gastoDetalle(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<GastoDetalle> gastoDetalles(int page, int size){
+    public List<GastoDetalle> gastoDetalles(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -57,7 +58,7 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         if(input.getMonedaId()!=null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        if(input.getGastoId()!=null) e.setGasto(gastoService.findById(input.getGastoId()).orElse(null));
+        if(input.getGastoId()!=null) e.setGasto(gastoService.findById(new EmbebedPrimaryKey(input.getGastoId(), input.getSucursalId())).orElse(null));
         if(input.getCantidad()>0){
             return service.save(e);
         } else {
@@ -65,12 +66,12 @@ public class GastoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         }
     }
 
-    public List<GastoDetalle> gastoDetalleListPorGastoId(Long id){
+    public List<GastoDetalle> gastoDetalleListPorGastoId(Long id, Long sucId){
         return service.findByGastoId(id);
     }
 
-    public Boolean deleteGastoDetalle(Long id){
-        return service.deleteById(id);
+    public Boolean deleteGastoDetalle(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countGastoDetalle(){

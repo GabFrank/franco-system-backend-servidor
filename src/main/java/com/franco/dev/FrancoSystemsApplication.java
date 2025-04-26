@@ -4,12 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter;
 import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -22,24 +26,12 @@ import java.util.Collections;
 
 @EnableRetry
 @SpringBootApplication
+@EnableAutoConfiguration(exclude = {DataSourceTransactionManagerAutoConfiguration.class})
+@EnableAsync
 public class FrancoSystemsApplication {
 
-//    public final static String SFG_MESSAGE_QUEUE = "test-queue";
-//    @Autowired
-//    ProductoService productoService;
-//    @Autowired
-//    TipoPrecioService tipoPrecioService;
-//    @Autowired
-//    PrecioPorSucursalService precioPorSucursalService;
-//    @Autowired
-//    private ImageService imageService;
-//    private Logger log = LoggerFactory.getLogger(FrancoSystemsApplication.class);
     @Autowired
     private ObjectMapper objectMapper;
-//    @Autowired
-//    private CodigoService codigoService;
-//    @Autowired
-//    private Environment env;
 
     public static void main(String[] args) throws IOException {
 
@@ -83,9 +75,17 @@ public class FrancoSystemsApplication {
         objectMapper.registerModule(new JavaTimeModule());
     }
 
-	@Bean
-	public void getHomePath(){
-//		imageService.setUserDirectory(env.getProperty("homepath"));
-	}
+    @Bean
+    public void getHomePath() {
+    }
+
+    @Bean
+    public FlywayMigrationStrategy cleanMigrateStrategy() {
+        return flyway -> {
+            flyway.repair();
+            flyway.migrate();
+            
+        };
+    }
 
 }

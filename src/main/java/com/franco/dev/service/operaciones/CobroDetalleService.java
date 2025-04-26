@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.CobroDetalle;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.VentaItem;
@@ -16,7 +17,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class CobroDetalleService extends CrudService<CobroDetalle, CobroDetalleRepository> {
+public class CobroDetalleService extends CrudService<CobroDetalle, CobroDetalleRepository, EmbebedPrimaryKey> {
     private final CobroDetalleRepository repository;
 
     @Override
@@ -31,12 +32,12 @@ public class CobroDetalleService extends CrudService<CobroDetalle, CobroDetalleR
 //        texto = texto.replace(' ', '%');
 //        return  repository.findByProveedor(texto.toLowerCase());
 //
-    public List<CobroDetalle> findByCobroId(Long id){
-        return repository.findByCobroId(id);
+    public List<CobroDetalle> findByCobroId(Long id, Long sucId){
+        return repository.findByCobroIdAndSucursalId(id, sucId);
     }
 
-    public List<CobroDetalle> findByCajaId(Long id){
-        return repository.findByCajaId(id);
+    public List<CobroDetalle> findByCajaId(Long id, Long sucId){
+        return repository.findByCajaId(id, sucId);
     }
 
     @Override

@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class InventarioProductoService extends CrudService<InventarioProducto, InventarioProductoRepository> {
+public class InventarioProductoService extends CrudService<InventarioProducto, InventarioProductoRepository, Long> {
     private final InventarioProductoRepository repository;
 
     @Override
@@ -29,7 +29,7 @@ public class InventarioProductoService extends CrudService<InventarioProducto, I
 
     @Override
     public InventarioProducto save(InventarioProducto entity) {
-        if(entity.getProducto().getId()==null) entity.setProducto(null);
-        return super.save(entity);
+        entity = super.save(entity);
+        return entity;
     }
 }

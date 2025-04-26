@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PdvCategoriaService extends CrudService<PdvCategoria, PdvCategoriaRepository> {
+public class PdvCategoriaService extends CrudService<PdvCategoria, PdvCategoriaRepository, Long> {
 
     private final PdvCategoriaRepository repository;
 

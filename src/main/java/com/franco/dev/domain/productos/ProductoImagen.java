@@ -1,11 +1,13 @@
 package com.franco.dev.domain.productos;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.general.UnidadMedida;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
@@ -18,12 +20,19 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "producto_imagen", schema = "productos")
-public class ProductoImagen implements Serializable {
+public class ProductoImagen implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,0 +1,48 @@
+type Pago {
+    id: ID
+    usuario: Usuario
+    autorizadoPor: Usuario
+    solicitudPago: SolicitudPago
+    creadoEn: Date
+    estado: PagoEstado
+    programado: Boolean
+}
+
+input PagoInput {
+    id: ID
+    usuarioId: Int
+    autorizadoPorId: Int
+    solicitudPagoId: Int
+    creadoEn: Date
+    estado: PagoEstado
+    programado: Boolean
+}
+
+type PagoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Pago]
+    getPageable: Pageable
+}
+
+extend type Query {
+    pago(id: ID!): Pago
+    pagosPorSolicitudPagoId(solicitudPagoId: ID!): Pago
+}
+
+extend type Mutation {
+    savePago(entity: PagoInput!): Pago!
+}
+
+enum PagoEstado {
+    ABIERTO
+    PENDIENTE
+    PARCIAL
+    CONCLUIDO
+    CANCELADO
+}

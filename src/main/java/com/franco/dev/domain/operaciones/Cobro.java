@@ -1,33 +1,32 @@
 package com.franco.dev.domain.operaciones;
 
-import com.franco.dev.domain.financiero.FormaPago;
-import com.franco.dev.domain.operaciones.enums.VentaEstado;
-import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.utilitarios.PostgreSQLEnumType;
+import com.franco.dev.service.EmbeddedEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "cobro", schema = "operaciones")
-
-public class Cobro implements Serializable {
+@IdClass(EmbebedPrimaryKey.class)
+public class Cobro extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

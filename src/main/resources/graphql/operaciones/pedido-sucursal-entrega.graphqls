@@ -1,0 +1,27 @@
+type PedidoSucursalEntrega {
+    id: ID!
+    pedido: Pedido!
+    sucursal: Sucursal!
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input PedidoSucursalEntregaInput {
+    id: ID!
+    pedidoId: Int!
+    sucursalId: Int!
+    creadoEn: String
+    usuarioId: Int
+}
+
+extend type Query {
+    pedidoSucursalEntrega(id:ID!):PedidoSucursalEntrega
+    countPedidoSucursalEntrega: Int
+}
+
+extend type Mutation {
+    savePedidoSucursalEntrega(pedidoSucursalEntrega:PedidoSucursalEntregaInput!):PedidoSucursalEntrega!
+    deletePedidoSucursalEntrega(id:ID!):Boolean!
+}
+
+

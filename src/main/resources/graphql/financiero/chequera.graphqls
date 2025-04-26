@@ -1,0 +1,43 @@
+type Chequera {
+    id: ID!
+    cuentaBancaria: CuentaBancaria
+    rangoDesde: Float
+    rangoHasta: Float
+    fechaRetiro: Date
+    creadoEn: Date
+    usuario: Usuario
+    cheques: [Cheque]
+}
+
+input ChequeraInput {
+    id: ID
+    cuentaBancariaId: Int
+    rangoDesde: Float
+    rangoHasta: Float
+    fechaRetiro: Date
+    usuarioId: Int
+}
+
+type ChequeraPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Chequera]
+    getPageable: Pageable
+}
+
+extend type Query {
+    chequera(id: ID!): Chequera
+    chequeras(page: Int = 0, size: Int = 10): [Chequera]!
+    chequerasSearch(texto: String): [Chequera]
+    countChequera: Int
+}
+
+extend type Mutation {
+    saveChequera(entity: ChequeraInput!): Chequera!
+    deleteChequera(id: ID!): Boolean!
+} 

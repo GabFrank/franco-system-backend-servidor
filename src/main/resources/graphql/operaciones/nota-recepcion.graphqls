@@ -1,30 +1,49 @@
 type NotaRecepcion {
     id:ID!,
     pedido: Pedido,
+    notaRecepcionAgrupada: NotaRecepcionAgrupada
     compra: Compra,
     documento: Documento,
     valor: Float,
     descuento: Float,
+    tipoBoleta: String
     pagado: Boolean,
     numero: Int,
     timbrado: Int,
     creadoEn: Date,
-    usuario: Usuario
-    pedidoItemList: [PedidoItem]
+    usuario: Usuario,
+    cantidadItens: Int
+    fecha: Date
+    cantidadItensVerificadoRecepcionMercaderia: Int
 }
 
 input NotaRecepcionInput {
     id:ID
     pedidoId: Int,
+    notaRecepcionAgrupadaId: Int
     compraId: Int,
     documentoId: Int,
+    tipoBoleta: String
     valor: Float,
     descuento: Float,
     pagado: Boolean,
     numero: Int,
     timbrado: Int,
-    creadoEn: Date,
+    creadoEn: String,
     usuarioId: Int
+    fecha: String
+}
+
+type NotaRecepcionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [NotaRecepcion]
+    getPageable: Pageable
 }
 
 extend type Query {
@@ -32,6 +51,10 @@ extend type Query {
     notaRecepcions(page:Int = 0, size:Int = 10):[NotaRecepcion]!
     countNotaRecepcion: Int
     notaRecepcionPorPedidoId(id:ID!):[NotaRecepcion]
+    notaRecepcionPorPedidoIdAndNumero(id:ID!, numero: Int, page: Int, size: Int):NotaRecepcionPage
+    countNotaRecepcionPorPedidoId(id:ID!):Int
+    findByProveedorAndNumero(id: ID!, numero: Int!):[NotaRecepcion]
+    notaRecepcionPorNotaRecepcionAgrupadaId(id:ID!):[NotaRecepcion]
 }
 
 extend type Mutation {

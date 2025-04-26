@@ -1,13 +1,16 @@
 package com.franco.dev.domain.general;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -15,12 +18,19 @@ import java.util.Date;
 @NoArgsConstructor
 @Entity
 @Table(name = "ciudad", schema = "general")
-public class Ciudad implements Serializable {
+public class Ciudad implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     private String descripcion;
@@ -32,7 +42,7 @@ public class Ciudad implements Serializable {
 
     private String codigo;
 
-    private Date creadoEn;
+    private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)

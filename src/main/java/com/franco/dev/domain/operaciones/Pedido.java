@@ -1,5 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
@@ -10,6 +11,7 @@ import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
@@ -30,12 +32,19 @@ import java.time.LocalDateTime;
         typeClass = PostgreSQLEnumType.class
 )
 @Table(name = "pedido", schema = "operaciones")
-public class Pedido implements Serializable {
+public class Pedido implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -50,12 +59,11 @@ public class Pedido implements Serializable {
     @JoinColumn(name = "vendedor_id", nullable = true)
     private Vendedor vendedor;
 
-    @Column(name = "fecha_de_entrega")
-    private LocalDateTime fechaDeEntrega;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "forma_pago_id", nullable = true)
     private FormaPago formaPago;
+
+    private String tipoBoleta;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id", nullable = true)
@@ -63,9 +71,6 @@ public class Pedido implements Serializable {
 
     @Column(name = "plazo_credito")
     private Integer plazoCredito;
-
-    @Column(name = "descuento")
-    private Double descuento;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")

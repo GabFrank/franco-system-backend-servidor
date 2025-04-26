@@ -12,7 +12,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class IngredienteService extends CrudService<Ingrediente, IngredienteRepository> {
+public class IngredienteService extends CrudService<Ingrediente, IngredienteRepository, Long> {
 
     @Autowired
     private final IngredienteRepository repository;

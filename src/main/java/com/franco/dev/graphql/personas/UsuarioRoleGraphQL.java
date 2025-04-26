@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.UsuarioRole;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.UsuarioRoleInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.RoleService;
@@ -29,25 +31,33 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private PropagacionService propagacionService;
 
-    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {return service.findByUserId(id);}
+    @Autowired
+    private MultiTenantService multiTenantService;
 
-    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input){
+    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {
+        return service.findByUserId(id);
+    }
+
+    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input) {
         UsuarioRole e = new UsuarioRole();
-        if(input.getId()!=null) e.setId(input.getId());
+        if (input.getId() != null) e.setId(input.getId());
         e.setUser(usuarioService.findById(input.getUserId()).orElse(null));
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        } else {
+            e.setUsuario(usuarioService.findById(input.getUserId()).orElse(null));
+        }
         e.setRole(roleService.findById(input.getRoleId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.USUARIO_ROLE);
         return e;
     }
 
-    public Boolean deleteUsuarioRole(Long id){
+    public Boolean deleteUsuarioRole(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
-    public Long countUsuarioRole(){
+    public Long countUsuarioRole() {
         return service.count();
     }
 

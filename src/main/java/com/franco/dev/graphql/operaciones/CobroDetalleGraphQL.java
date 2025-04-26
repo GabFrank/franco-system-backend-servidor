@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.CobroDetalle;
 import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
@@ -43,11 +44,11 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private CompraService compraService;
 
-    public Optional<CobroDetalle> cobroDetalle(Long id) {return service.findById(id);}
+    public Optional<CobroDetalle> cobroDetalle(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 
-    public List<CobroDetalle> cobroDetallePorCobroId(Long id){ return service.findByCobroId(id) ;}
+    public List<CobroDetalle> cobroDetallePorCobroId(Long id, Long sucId){ return service.findByCobroId(id, sucId) ;}
 
-    public List<CobroDetalle> cobroDetalleList(int page, int size){
+    public List<CobroDetalle> cobroDetalleList(int page, int size, Long sucId){
         Pageable pageable = PageRequest.of(page,size);
         return service.findAll(pageable);
     }
@@ -58,14 +59,14 @@ public class CobroDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getMonedaId()!=null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if(input.getFormaPagoId()!=null) e.setFormaPago(formaPagoService.findById(input.getFormaPagoId()).orElse(null));
-        if(input.getCobroId()!=null) e.setCobro(cobroService.findById(input.getCobroId()).orElse(null));
+        if(input.getCobroId()!=null) e.setCobro(cobroService.findById(new EmbebedPrimaryKey(input.getCobroId(), input.getSucursalId())).orElse(null));
         CobroDetalle cobroDetalle = service.save(e);
         return cobroDetalle;
     }
 
 
-    public Boolean deleteCobroDetalle(Long id){
-        return service.deleteById(id);
+    public Boolean deleteCobroDetalle(Long id, Long sucId){
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countCobroDetalle(){

@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Delivery;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.graphql.operaciones.publisher.DeliveryPublisher;
@@ -13,10 +14,9 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class DeliveryService extends CrudService<Delivery, DeliveryRepository> {
+public class DeliveryService extends CrudService<Delivery, DeliveryRepository, EmbebedPrimaryKey> {
     private final DeliveryRepository repository;
     private final DeliveryPublisher deliveryPublisher;
-
 
     @Override
     public DeliveryRepository getRepository() {
@@ -35,10 +35,15 @@ public class DeliveryService extends CrudService<Delivery, DeliveryRepository> {
         return repository.findUltimos10();
     }
 
+    public Delivery findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
     @Override
     public Delivery save(Delivery entity) {
         Delivery e = super.save(entity);
         deliveryPublisher.publish(e);
         return e;
     }
+
 }

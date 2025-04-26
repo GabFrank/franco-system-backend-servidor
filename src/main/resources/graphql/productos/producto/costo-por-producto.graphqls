@@ -28,6 +28,22 @@ input CostoPorProductoInput {
     usuarioId: Int
 }
 
+type CostoPorProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [CostoPorProducto]
+    getPageable: Pageable
+}
+
+extend type Query {
+    costosPorProductoId(id:ID!, page: Int, size: Int):CostoPorProductoPage!
+}
+
 extend type Mutation {
     saveCostoPorProducto(costoPorProducto:CostoPorProductoInput!):CostoPorProducto!
     deleteCostoPorProducto(id:ID!):Boolean!

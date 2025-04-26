@@ -22,5 +22,4 @@ public class InventarioResolver implements GraphQLResolver<Inventario> {
     public List<InventarioProducto> inventarioProductoList(Inventario v){
         return inventarioProductoService.findByInventarioId(v.getId());
     }
-
 }

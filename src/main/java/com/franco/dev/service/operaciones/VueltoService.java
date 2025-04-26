@@ -1,5 +1,6 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.Vuelto;
 import com.franco.dev.repository.operaciones.NotaPedidoRepository;
@@ -10,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class VueltoService extends CrudService<Vuelto, VueltoRepository> {
+public class VueltoService extends CrudService<Vuelto, VueltoRepository, EmbebedPrimaryKey> {
     private final VueltoRepository repository;
 
     @Override

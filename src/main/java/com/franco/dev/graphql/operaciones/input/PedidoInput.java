@@ -13,6 +13,7 @@ public class PedidoInput {
     private Long proveedorId;
     private LocalDateTime fechaDeEntrega;
     private Long formaPagoId;
+    private String tipoBoleta;
     private PedidoEstado estado;
     private Long monedaId;
     private Integer plazoCredito;

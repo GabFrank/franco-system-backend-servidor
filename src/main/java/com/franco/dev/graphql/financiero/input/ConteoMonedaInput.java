@@ -2,10 +2,11 @@ package com.franco.dev.graphql.financiero.input;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.Date;
 
 @Data
-public class ConteoMonedaInput {
+public class ConteoMonedaInput implements Serializable {
     private Long id;
     private Long conteoId;
     private Long monedaBilletesId;
@@ -13,4 +14,5 @@ public class ConteoMonedaInput {
     private String observacion;
     private Date creadoEn;
     private Long usuarioId;
+    private Long sucursalId;
 }

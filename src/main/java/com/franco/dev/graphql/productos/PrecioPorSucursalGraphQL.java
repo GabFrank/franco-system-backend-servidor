@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.graphql.productos.input.CodigoInput;
 import com.franco.dev.graphql.productos.input.PrecioPorSucursalInput;
@@ -42,6 +44,9 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     private TipoPrecioService tipoPrecioService;
 
     @Autowired
+    private MultiTenantService multiTenantService;
+
+    @Autowired
     private Environment env;
 
     @Autowired
@@ -73,13 +78,11 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
         input.setSucursalId(Long.valueOf(env.getProperty("sucursalId")));
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.PRECIO_POR_SUCURSAL);
         return e;
     }
 
     public Boolean deletePrecioPorSucursal(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PRECIO_POR_SUCURSAL);
         return ok;
     }
 

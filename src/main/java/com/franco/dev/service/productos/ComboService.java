@@ -11,7 +11,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class ComboService extends CrudService<Combo, ComboRepository> {
+public class ComboService extends CrudService<Combo, ComboRepository, Long> {
 
     @Autowired
     private final ComboRepository repository;

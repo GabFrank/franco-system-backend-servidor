@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.personas;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.graphql.personas.input.ProveedorInput;
@@ -11,10 +13,12 @@ import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -37,6 +41,9 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Proveedor> proveedor(Long id) {return service.findById(id);}
 
     public List<Proveedor> proveedores(int page, int size){
@@ -48,19 +55,23 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findByVendedorId(id);
     }
 
-    public Proveedor saveProveedor(ProveedorInput input){
+    public Proveedor saveProveedor(ProveedorInput input) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Proveedor e = m.map(input, Proveedor.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
-        e = service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.PROVEEDOR);
+        try {
+            e = service.save(e);
+        } catch (Exception ex){
+            if(ex.getMessage().contains("proveedor_un")) {
+                throw new GraphQLException("Esta persona ya es un proveedor");
+            }
+        }
         return e;
     }
 
     public Boolean deleteProveedor(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PROVEEDOR);
         return ok;
     }
 
@@ -73,5 +84,11 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public List<Proveedor> proveedorSearchByPersona(String texto) { return service.findByPersonaNombre(texto); }
+
+    public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? "%" + texto.replace(" ", "%") + "%": "";
+        return service.getRepository().findByPersonaNombreLike(texto, pageable);
+    }
 
 }

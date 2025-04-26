@@ -34,4 +34,7 @@ public class MovimientoCajaInput {
     private Long usuarioId;
 
     private Boolean activo;
+
+    private Long sucursalId;
+
 }

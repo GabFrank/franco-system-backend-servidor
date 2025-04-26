@@ -1,23 +1,51 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
-public interface GastoRepository extends HelperRepository<Gasto, Long> {
+public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryKey> {
 
     default Class<Gasto> getEntityClass() {
         return Gasto.class;
     }
 
-    @Query(value = "select * from financiero.gasto ms \n" +
-            "where ms.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp)", nativeQuery = true)
-    public List<Gasto> findByDate(String inicio, String fin);
+    public List<Gasto> findBySucursalIdAndCreadoEnBetween(Long id, LocalDateTime inicio, LocalDateTime fin);
 
-    public List<Gasto> findByCajaId(Long id);
+    public List<Gasto> findByCajaIdAndSucursalId(Long id, Long sucId);
 
+    @Query("select r from Gasto r " +
+            "left join r.caja ca " +
+            "left join r.responsable res " +
+            "where " +
+            "(r.id = :id or :id is null) and " +
+            "(ca.id = :cajaId or :cajaId is null) and " +
+            "(r.sucursalId = :sucId or :sucId is null) and " +
+            "(res.id = :responsableId or :responsableId is null) and " +
+            "(r.observacion like :descripcion or :descripcion is null) " +
+            "order by r.id desc")
+    List<Gasto> findByAll(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable);
+
+    @Query("select r from Gasto r " +
+            "left join r.caja ca " +
+            "left join r.responsable res " +
+            "where " +
+            "(r.id = :id or :id is null) and " +
+            "(ca.id = :cajaId or :cajaId is null) and " +
+            "(r.sucursalId = :sucId or :sucId is null) and " +
+            "(res.id = :responsableId or :responsableId is null) and " +
+            "(r.observacion like :descripcion or :descripcion is null) " +
+            "order by r.id desc")
+    Page<Gasto> findByAllPage(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable);
+
+    public Gasto findByIdAndSucursalId(Long id, Long sucId);
 }

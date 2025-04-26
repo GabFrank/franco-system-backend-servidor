@@ -22,7 +22,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class PedidoItemResService extends CrudService<PedidoItemRes, PedidoItemResRepository> {
+public class PedidoItemResService extends CrudService<PedidoItemRes, PedidoItemResRepository, Long> {
 
     @Autowired
     private final PedidoItemResRepository repository;

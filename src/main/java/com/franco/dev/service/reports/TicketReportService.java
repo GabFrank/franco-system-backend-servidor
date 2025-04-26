@@ -1,5 +1,6 @@
 package com.franco.dev.service.reports;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.graphql.operaciones.VentaItemTicketData;
@@ -28,10 +29,10 @@ public class TicketReportService {
     @Autowired
     private VentaItemService ventaItemService;
 
-    public String exportReport(Long id){
+    public String exportReport(Long id, Long sucId){
         String status = "ndoikoi";
-        Venta venta = ventaService.findById(id).orElse(null);
-        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(id);
+        Venta venta = ventaService.findById(new EmbebedPrimaryKey(id, sucId)).orElse(null);
+        List<VentaItem> ventaItemList = ventaItemService.findByVentaId(id, sucId);
         ReportDataSource rds = new ReportDataSource();
         rds.venta = venta;
         rds.ventaItemList = ventaItemList;

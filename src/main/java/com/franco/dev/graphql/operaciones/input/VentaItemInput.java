@@ -21,4 +21,5 @@ public class VentaItemInput {
     private LocalDateTime creadoEn;
     private Long usuarioId;
     private Boolean activo;
+    private Long sucursalId;
 }

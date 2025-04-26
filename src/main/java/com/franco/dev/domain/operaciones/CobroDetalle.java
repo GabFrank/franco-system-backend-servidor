@@ -1,11 +1,17 @@
 package com.franco.dev.domain.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JoinColumnOrFormula;
+import org.hibernate.annotations.JoinColumnsOrFormulas;
+import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -16,16 +22,27 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "cobro_detalle", schema = "operaciones")
-public class CobroDetalle implements Serializable {
+@IdClass(EmbebedPrimaryKey.class)
+public class CobroDetalle extends EmbeddedEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cobro_id", nullable = true)
+    @Id
+    @Column(name = "sucursal_id", insertable = false, updatable = false)
+    private Long sucursalId;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sucursal_id", nullable = true)
+    private Sucursal sucursal;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumnsOrFormulas(value = {
+            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+            @JoinColumnOrFormula(column = @JoinColumn(name = "cobro_id", referencedColumnName = "id"))
+    })
     private Cobro cobro;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -49,8 +66,10 @@ public class CobroDetalle implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    private String identificadorTransaccion;
 
 }

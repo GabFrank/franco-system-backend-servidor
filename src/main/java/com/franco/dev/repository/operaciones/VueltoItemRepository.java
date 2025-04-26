@@ -1,5 +1,6 @@
 package com.franco.dev.repository.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.operaciones.Vuelto;
 import com.franco.dev.domain.operaciones.VueltoItem;
@@ -8,7 +9,7 @@ import com.franco.dev.repository.HelperRepository;
 
 import java.util.List;
 
-public interface VueltoItemRepository extends HelperRepository<VueltoItem, Long> {
+public interface VueltoItemRepository extends HelperRepository<VueltoItem, EmbebedPrimaryKey> {
     default Class<VueltoItem> getEntityClass() {
         return VueltoItem.class;
     }

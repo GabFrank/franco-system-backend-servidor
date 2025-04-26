@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.graphql.productos.input.PresentacionInput;
 import com.franco.dev.graphql.productos.input.TipoPrecioInput;
@@ -40,6 +42,9 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private PropagacionService propagacionService;
 
+    @Autowired
+    private MultiTenantService multiTenantService;
+
     public Optional<Presentacion> presentacion(Long id) {return service.findById(id);}
 
     public List<Presentacion> presentacionSearch(String texto) {return service.findByAll(texto);}
@@ -65,7 +70,6 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
         Presentacion e = m.map(input, Presentacion.class);
         e =  service.save(e);
-        propagacionService.propagarEntidad(e, TipoEntidad.PRESENTACION);
         return e;
     }
 
@@ -82,7 +86,6 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Boolean deletePresentacion(Long id){
         Boolean ok = service.deleteById(id);
-        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.PRESENTACION);
         return ok;
     }
 
@@ -93,7 +96,7 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     public Boolean saveImagenPresentacion(String image, String filename) throws IOException {
         Boolean ok = imageService.saveImageToPath(image, filename, imageService.getImagePresentaciones(), imageService.getImagePresentacionesThumb(), true);
         if(ok){
-            propagacionService.propagarImagen(image, filename, TipoEntidad.PRESENTACION);
+//            propagacionService.propagarImagen(image, filename, TipoEntidad.PRESENTACION);
         }
         return ok;
     }

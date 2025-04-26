@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
-public class MotivoDiferenciaPedidoService extends CrudService<MotivoDiferenciaPedido, MotivoDiferenciaPedidoRepository> {
+public class MotivoDiferenciaPedidoService extends CrudService<MotivoDiferenciaPedido, MotivoDiferenciaPedidoRepository, Long> {
     private final MotivoDiferenciaPedidoRepository repository;
 
     @Override

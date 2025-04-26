@@ -1,13 +1,16 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.graphql.operaciones.input.VentaItemInput;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.ProductoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,8 +21,11 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class VentaItemService extends CrudService<VentaItem, VentaItemRepository> {
+public class VentaItemService extends CrudService<VentaItem, VentaItemRepository, EmbebedPrimaryKey> {
     private final VentaItemRepository repository;
+
+    @Autowired
+    private CostosPorProductoService costosPorProductoService;
 
     @Override
     public VentaItemRepository getRepository() {
@@ -34,34 +40,28 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 //        texto = texto.replace(' ', '%');
 //        return  repository.findByProveedor(texto.toLowerCase());
 //
-    public List<VentaItem> findByVentaId(Long id){
-        return repository.findByVentaId(id);
+    public List<VentaItem> findByVentaId(Long id, Long sucId){
+        return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
     @Override
     public VentaItem save(VentaItem entity) {
-        VentaItem e = super.save(entity);
-        if(entity.getActivo()==false && entity.getId()!=null){
-            MovimientoStock movimientoStock = movimientoStockService.findByTipoMovimientoAndReferencia(TipoMovimiento.VENTA, entity.getId());
-            if(movimientoStock!=null){
-                movimientoStock.setEstado(false);
-                movimientoStockService.save(movimientoStock);
+        if(entity.getPrecioCosto()==null){
+            CostoPorProducto costoPorProducto = costosPorProductoService.findLastByProductoId(entity.getProducto().getId());
+            if(costoPorProducto!=null){
+                entity.setPrecioCosto(costoPorProducto.getUltimoPrecioCompra());
             }
-        } else {
-            MovimientoStock movimientoStock = new MovimientoStock();
-            movimientoStock.setCreadoEn(entity.getCreadoEn());
-            movimientoStock.setUsuario(entity.getUsuario());
-            movimientoStock.setTipoMovimiento(TipoMovimiento.VENTA);
-            movimientoStock.setReferencia(e.getId());
-            movimientoStock.setEstado(true);
-            movimientoStock.setProducto(e.getProducto());
-            movimientoStock.setCantidad(e.getCantidad() * e.getPresentacion().getCantidad() * -1);
-            movimientoStock.setCreadoEn(e.getCreadoEn());
-            movimientoStock.setUsuario(e.getUsuario());
-            movimientoStockService.save(movimientoStock);
         }
-
+        VentaItem e = super.save(entity);
 //        personaPublisher.publish(p);
         return e;
+    }
+
+    public VentaItem findByIdAndSucursalId(Long id, Long sucId){
+        return repository.findByIdAndSucursalId(id, sucId);
+    }
+
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
+        return repository.deleteByIdAndSucursalId(id, sucId);
     }
 }

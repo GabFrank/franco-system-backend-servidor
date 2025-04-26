@@ -1,8 +1,6 @@
 package com.franco.dev.service.financiero;
 
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.CuentaBancaria;
-import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -12,7 +10,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class CuentaBancariaService extends CrudService<CuentaBancaria, CuentaBancariaRepository> {
+public class CuentaBancariaService extends CrudService<CuentaBancaria, CuentaBancariaRepository, Long> {
 
     private final CuentaBancariaRepository repository;
 
@@ -26,7 +24,7 @@ public class CuentaBancariaService extends CrudService<CuentaBancaria, CuentaBan
 //        return  repository.findByDenominacionIgnoreCaseLike(texto);
 //    }
 
-    public List<CuentaBancaria> findByAll(String texto){
+    public List<CuentaBancaria> findByAll(String texto) {
         texto = texto.replace(' ', '%');
         return repository.findByAll(texto);
     }

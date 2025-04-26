@@ -1,17 +1,16 @@
 package com.franco.dev.service.productos;
 
+import com.franco.dev.domain.dto.ProductoIdAndCantidadDto;
 import com.franco.dev.domain.dto.ProductoReportDto;
+import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.ProductoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
-import com.franco.dev.rabbit.sender.Sender;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.RabbitCrudService;
 import com.franco.dev.service.utils.ImageService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -19,9 +18,10 @@ import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ResourceUtils;
 
@@ -33,9 +33,11 @@ import java.text.NumberFormat;
 import java.util.*;
 import java.util.logging.Logger;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Service
 @AllArgsConstructor
-public class ProductoService extends CrudService<Producto, ProductoRepository> {
+public class ProductoService extends CrudService<Producto, ProductoRepository, Long> {
 
     private static final Logger log = Logger.getLogger(String.valueOf(ProductoService.class));
     @Autowired
@@ -54,13 +56,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
     private final ImageService imageService;
     @Autowired
     private Environment env;
+
     @Override
     public ProductoRepository getRepository() {
         return repository;
     }
 
 
-    public List<Producto> findByAll(String texto, Integer offset, Boolean isEnvase) {
+    public List<Producto> findByAll(String texto, Integer offset, Boolean isEnvase, Boolean activo) {
         if (texto.length() > 0) {
             texto = texto.replace(' ', '%').toUpperCase();
             if (offset == null) {
@@ -76,6 +79,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
         return new ArrayList<>();
     }
 
+    public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza, Long subfamiliaId, Boolean vencimiento, Pageable page) {
+        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, page);
+    }
+
     public Producto save(ProductoInput entity) throws GraphQLException {
         Producto p = null;
         ModelMapper m = new ModelMapper();
@@ -84,29 +91,13 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
         if (entity.getUsuarioId() != null) e.setUsuario(usuarioService.findById(entity.getUsuarioId()).orElse(null));
         if (entity.getSubfamiliaId() != null)
             e.setSubfamilia(subFamiliaService.findById(entity.getSubfamiliaId()).orElse(null));
-        if (e.getDescripcionFactura() != null) e.setDescripcionFactura(e.getDescripcion().toUpperCase());
+        if (e.getDescripcionFactura() != null) e.setDescripcionFactura(e.getDescripcionFactura().toUpperCase());
         if (e.getImagenes() == null) e.setImagenes("/productos");
         if (entity.getEnvaseId() != null) e.setEnvase(findById(entity.getEnvaseId()).orElse(null));
         e.setDescripcion(e.getDescripcion().toUpperCase());
         p = repository.save(e);
         return p;
     }
-
-//    public Boolean deleteByInput(ProductoInput input, Long sucId) {
-//        if(sucId == null || sucId != Long.valueOf(env.getProperty("sucursalId"))){
-//            Long idProd = findByIdCentral(input.getIdCentral()).getId();
-//            if(idProd!=null){
-//                if(super.deleteById(idProd)){
-//                    propagarDelete(input.getIdCentral());
-//                    return true;
-//                } else {
-//                    throw new GraphQLException("No se pudo eliminar este producto");
-//                }
-//            }
-//        }
-//
-//        return false;
-//    }
 
     public List<Producto> findByProveedorId(Long id, String text) {
         return repository.findByProveedorId(id, text);
@@ -120,56 +111,17 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
         return repository.findByCodigo(texto);
     }
 
-    ;
-
-//    public String propagar(ProductoInput input){
-//        log.info("enviando producto a central");
-//        log.info(input.toString());
-//        RabbitDto<ProductoInput> dto = new RabbitDto();
-//        dto.setAccion(GUARDAR);
-//        dto.setTipo(Receiver.PRODUCTO);
-//        dto.setEntidad(input);
-////        sender.send(dto, "central");
-//        return "Success";
-//    }
-//
-//    public String propagarDelete(Long idCentral){
-//        log.info("propagando delete a central");
-//        RabbitDto<ProductoInput> dto = new RabbitDto();
-//        dto.setAccion(ELIMINAR);
-//        dto.setTipo(Receiver.PRODUCTO);
-//        dto.setIdSucursalOrigen(Long.valueOf(env.getProperty("sucursalId")));
-//        ProductoInput input = new ProductoInput();
-//        input.setIdCentral(idCentral);
-//        dto.setEntidad(input);
-////        sender.send(dto, "central");
-//        return "Success";
-//    }
-
-//    public void receive(RabbitDto dto) {
-//        log.info("recibiendo producto");
-//        log.info("accion: " + dto.getAccion());
-//        ProductoInput input = new ProductoInput();
-//        input = input.converHashMapToInput(dto.getEntidad());
-//        if(dto.getAccion().equals(GUARDAR)) this.save(input);
-//        else if(dto.getAccion().equals(ELIMINAR)) deleteByInput(input, dto.getIdSucursalOrigen());
-//    }
-
-    public Producto findByIdCentral(Long id) {
-        return repository.findByIdCentral(id);
-    }
-
     public List<Producto> findAllForPdv() {
         return repository.findAllForPdv();
     }
 
     public String exportarReporte(String texto) throws FileNotFoundException {
-        List<Producto> productoList = findByAll(texto, 0, false);
+        List<Producto> productoList = findByAll(texto, 0, false, true);
         List<ProductoReportDto> productosDtoList = new ArrayList<>();
         PrecioPorSucursal precioVenta = null;
         PrecioPorSucursal precioCosto = null;
         for (Producto p : productoList) {
-            Float stock = movimientoStockService.stockByProductoId(p.getId());
+            Double stock = movimientoStockService.stockByProductoId(p.getId());
             Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
             if (presentacion != null) {
                 precioVenta = precioPorSucursalService.findPrincipalByPrecionacionId(presentacion.getId());
@@ -215,4 +167,26 @@ public class ProductoService extends CrudService<Producto, ProductoRepository> {
         return repository.findByPdvGrupoProductoId(id);
     }
 
+    public List<ProductoIdAndCantidadDto> findProductosAndCantidadVendidaPorPeriodoAndSucursal(String inicio, String fin, Long sucId) {
+        List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository.findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, stringToDate(inicio), stringToDate(fin));
+        return productoIdAndCantidadDtoList;
+    }
+
+    public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList, List<Long> usuarioIdList, List<Long> productoIdList) {
+        List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
+        for (Long sucId : sucIdList) {
+            List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+            aggregatedResult.addAll(lucroPorProductosDtoList);
+        }
+        Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
+        for (LucroPorProductosDto dto : aggregatedResult) {
+            combinedResults.merge(dto.getProductoId(), dto, (oldDto, newDto) -> {
+                oldDto.aggregate(newDto);
+                return oldDto;
+            });
+        }
+        List<LucroPorProductosDto> result = new ArrayList<>(combinedResults.values());
+        result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
+        return result;
+    }
 }

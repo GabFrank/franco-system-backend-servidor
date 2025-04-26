@@ -8,9 +8,7 @@ import graphql.schema.CoercingSerializeException;
 import graphql.schema.GraphQLScalarType;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Component
 public class DateScalar extends GraphQLScalarType {
@@ -30,7 +28,7 @@ public class DateScalar extends GraphQLScalarType {
             @Override
             public LocalDateTime parseValue(Object input) {
                 if (input instanceof String) {
-                    LocalDateTime dt = DateUtils.toDate((String) input);
+                    LocalDateTime dt = DateUtils.stringToDate((String) input);
                     if(dt != null) {
                         return dt;
                     }
@@ -42,7 +40,7 @@ public class DateScalar extends GraphQLScalarType {
             public LocalDateTime parseLiteral(Object input) {
                 if (!(input instanceof StringValue)) return null;
                 String s = ((StringValue) input).getValue();
-                LocalDateTime dt = DateUtils.toDate(s);
+                LocalDateTime dt = DateUtils.stringToDate(s);
                 if(dt != null) {
                     return dt;
                 }

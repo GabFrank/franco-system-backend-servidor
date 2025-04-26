@@ -1,5 +1,6 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.CambioCaja;
 import com.franco.dev.repository.HelperRepository;
@@ -7,7 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 
-public interface CambioCajaRepository extends HelperRepository<CambioCaja, Long> {
+public interface CambioCajaRepository extends HelperRepository<CambioCaja, EmbebedPrimaryKey> {
 
     default Class<CambioCaja> getEntityClass() {
         return CambioCaja.class;

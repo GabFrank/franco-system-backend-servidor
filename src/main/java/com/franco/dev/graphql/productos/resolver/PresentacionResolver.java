@@ -39,7 +39,7 @@ public class PresentacionResolver implements GraphQLResolver<Presentacion> {
     private PrecioPorSucursalService precioPorSucursalService;
 
     public String imagenPrincipal(Presentacion p) throws IOException {
-        return imageService.getImageWithMediaType(imageService.getImagePresentacionesThumb() + p.getId()+".jpg");
+        return imageService.getImageWithMediaType( p.getId()+".jpg", imageService.getImagePresentacionesThumb());
     }
 
     public List<Codigo> codigos(Presentacion p){

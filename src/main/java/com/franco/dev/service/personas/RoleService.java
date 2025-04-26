@@ -13,7 +13,7 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class RoleService extends CrudService<Role, RoleRepository> {
+public class RoleService extends CrudService<Role, RoleRepository, Long> {
 
     @Autowired
     private final RoleRepository repository;

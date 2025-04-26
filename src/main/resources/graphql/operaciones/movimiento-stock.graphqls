@@ -7,8 +7,9 @@ type MovimientoStock {
     usuario: Usuario
     cantidad: Float
     estado: Boolean
-    sucursal: Sucursal
     proveedor: Proveedor
+    sucursalId: Int
+    sucursal: Sucursal
 }
 
 input MovimientoStockInput {
@@ -22,17 +23,42 @@ input MovimientoStockInput {
     sucursalId: Int
 }
 
+type MovimientoStockPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [MovimientoStock]
+    getPageable: Pageable
+}
+
+type ResumenMovimientoStock {
+    cantidadMovimientos: Int
+    stock: Float
+}
+
+type StockPorTipoMovimientoDto {
+    tipoMovimiento: TipoMovimiento
+    stock: Int
+}
+
 extend type Query {
-    movimientoStock(id:ID!):MovimientoStock
-    movimientosStock(page:Int = 0, size:Int = 10):[MovimientoStock]!
+    movimientoStock(id:ID!, sucId: ID):MovimientoStock
+    movimientosStock(page:Int = 0, size:Int = 10, sucId: ID):[MovimientoStock]!
     countMovimientoStock: Int
-    movimientoStockByFecha(inicio: String, fin: String):[MovimientoStock]
-    stockPorProducto(id:ID!):Float
+    movimientoStockByFecha(inicio: String, fin: String, sucId: ID):[MovimientoStock]
+    stockPorProducto(id:ID!, sucId: ID):Float
+    findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int, page: Int, size: Int): MovimientoStockPage
+    findStockWithFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): Float
+    findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): [StockPorTipoMovimientoDto]
 }
 
 extend type Mutation {
     saveMovimientoStock(movimientoStock:MovimientoStockInput!):MovimientoStock!
-    deleteMovimientoStock(id:ID!):Boolean!
+    deleteMovimientoStock(id:ID!, sucId: ID):Boolean!
 }
 
 enum TipoMovimiento {

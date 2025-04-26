@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.productos.resolver;
 
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.media.enums.TipoReferencia;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.PedidoItem;
@@ -10,6 +11,7 @@ import com.franco.dev.domain.productos.*;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
 import com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.media.ImagenMasterService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.PedidoItemService;
 import com.franco.dev.service.operaciones.PedidoService;
@@ -41,7 +43,7 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
     private ProductoIngredienteService productoIngredienteService;
 
     @Autowired
-    private CostosPorSucursalService costosPorSucursalService;
+    private CostosPorProductoService costosPorProductoService;
 
     @Autowired
     private CodigoService codigoService;
@@ -66,6 +68,9 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
 
     @Autowired
     private ImageService imageService;
+    
+    @Autowired
+    private ImagenMasterService imagenMasterService;
 
     @Autowired
     private PresentacionService presentacionService;
@@ -101,9 +106,9 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
         List<Sucursal> sucursalList = sucursalService.findAll2();
         for (Sucursal s : sucursalList ){
             ExistenciaCostoPorSucursal eps = new ExistenciaCostoPorSucursal();
-            eps.setExistencia(movimientoStockService.stockByProductoIdAndSucursalId(p.getId(), s.getId()));
+            eps.setExistencia(movimientoStockService.stockByProductoIdAndSucursalId(p.getId(), s.getId()).floatValue());
             eps.setSucursal(s);
-            CostoPorProducto cps = costosPorSucursalService.findLastByProductoId(p.getId());
+            CostoPorProducto cps = costosPorProductoService.findLastByProductoId(p.getId());
             MovimientoStock ms = null;
             if(cps!=null){
                 if(cps.getMovimientoStock()!=null){
@@ -151,7 +156,7 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
         return epsList;
     }
 
-    public Float existenciaTotal(Producto p){
+    public Double existenciaTotal(Producto p){
         return movimientoStockService.stockByProductoId(p.getId());
     }
 
@@ -165,7 +170,7 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
             pc.setCantidad(ms.getCantidad());
             pc.setCreadoEn(ms.getCreadoEn());
             pc.setPedido(pedidoService.findById(ms.getReferencia()).orElse(null));
-            CostoPorProducto cps = costosPorSucursalService.findByMovimientoStockId(ms.getId());
+            CostoPorProducto cps = costosPorProductoService.findByMovimientoStockId(ms.getId());
             if(cps!=null){
                 pc.setPrecio(cps.getUltimoPrecioCompra());
             }
@@ -179,13 +184,18 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
     }
 
     public String imagenPrincipal(Producto p) {
-        String id = null;
+        // Get the principal presentation ID
+        String presentacionId = null;
         Presentacion presentacionPrincipal = presentacionService.findByPrincipalAndProductoId(true, p.getId());
-        if(presentacionPrincipal!=null) {
-            id = presentacionPrincipal.getId().toString();
+        if(presentacionPrincipal != null) {
+            presentacionId = presentacionPrincipal.getId().toString();
+            
+            // Try to get the image using the new ImagenMasterService with backward compatibility
+            return imagenMasterService.getOrMigrateImageAsBase64(TipoReferencia.PRESENTACION, presentacionPrincipal.getId());
+        } else {
+            // If no principal presentation, try to get image directly for the product
+            return imagenMasterService.getOrMigrateImageAsBase64(TipoReferencia.PRODUCTO, p.getId());
         }
-        String image =  imageService.getImageWithMediaType(imageService.getImagePresentaciones()+id+".jpg");
-        return image;
     }
 
     public String codigoPrincipal(Producto p){
@@ -204,14 +214,15 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
     public String precioPrincipal(Producto p){
         Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
         if(presentacion!=null){
-            return presentacionResolver.precioPrincipal(presentacion).getPrecio().toString();
+            PrecioPorSucursal precio = presentacionResolver.precioPrincipal(presentacion);
+            return precio != null ? precio.getPrecio().toString() : null;
         } else {
             return null;
         }
     }
 
     public CostoPorProducto costo(Producto p){
-        return costosPorSucursalService.findLastByProductoId(p.getId());
+        return costosPorProductoService.findLastByProductoId(p.getId());
     }
 
 }

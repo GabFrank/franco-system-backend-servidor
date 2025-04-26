@@ -1,11 +1,13 @@
 package com.franco.dev.domain.personas;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.franco.dev.config.Identifiable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -19,12 +21,19 @@ import java.util.List;
 @Entity
 @Builder
 @Table(name = "usuario", schema = "personas")
-public class Usuario implements Serializable {
+public class Usuario implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
     private String password;

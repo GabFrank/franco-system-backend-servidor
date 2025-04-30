@@ -6,7 +6,7 @@ target/
 !**/src/test/**/target/
 .DS_Store
 src/.DS_Store
-
+tokens/
 ### STS ###
 .apt_generated
 

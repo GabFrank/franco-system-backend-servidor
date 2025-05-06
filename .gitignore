@@ -9,4 +9,5 @@ src/.DS_Store
 tokens/
 ### STS ###
 .apt_generated
+.vscode*/
 

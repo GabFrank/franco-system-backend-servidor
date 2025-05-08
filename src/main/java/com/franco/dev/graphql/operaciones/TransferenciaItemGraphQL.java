@@ -103,6 +103,10 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setPresentacionTransporte(presentacionService.findById(input.getPresentacionTransporteId()).orElse(null));
         if (input.getPresentacionRecepcionId() != null)
             e.setPresentacionRecepcion(presentacionService.findById(input.getPresentacionRecepcionId()).orElse(null));
+        if (input.getCreadoEn() != null)
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getVencimientoVerificado() == null)
+            e.setVencimientoVerificado(false);
         e = service.save(e);
         movimientoStockService.createMovimientoFromTransferenciaItem(e);
 

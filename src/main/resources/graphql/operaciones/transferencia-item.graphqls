@@ -29,7 +29,7 @@ type TransferenciaItem {
     poseeVencimiento: Boolean
     usuario: Usuario
     creadoEn: Date
-    vencimientoVerificado: Boolean!
+    vencimientoVerificado: Boolean
 }
 
 input TransferenciaItemInput {
@@ -62,8 +62,8 @@ input TransferenciaItemInput {
     activo: Boolean
     poseeVencimiento: Boolean
     usuarioId: Int
-    creadoEn: Date
-    vencimientoVerificado: Boolean!
+    creadoEn: String
+    vencimientoVerificado: Boolean
 }
 
 type TransferenciaItemPage {

@@ -91,7 +91,8 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 //    }
 
     public Double stockPorProducto(Long id, Long sucId) {
-        return service.stockByProductoId(id);
+        if(sucId == null) return service.stockByProductoId(id);
+        return service.stockByProductoIdAndSucursalId(id, sucId);
     }
 
     public Double findStockWithFilters(String inicio,

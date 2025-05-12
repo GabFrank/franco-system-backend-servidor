@@ -23,9 +23,22 @@ input InventarioInput {
     usuarioId: Int
 }
 
+type InventarioPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Inventario]
+    getPageable: Pageable
+}
+
 extend type Query {
     inventario(id:ID!):Inventario
     inventarioList(page:Int = 0, size:Int = 10):[Inventario]!
+    getInventariosPorUsuarioPaginado(usuarioId: ID!, page: Int!, size: Int!): InventarioPage
     countInventario: Int
     inventarioPorFecha(inicio: String, fin: String):[Inventario]
     inventarioPorUsuario(id: ID!):[Inventario]!

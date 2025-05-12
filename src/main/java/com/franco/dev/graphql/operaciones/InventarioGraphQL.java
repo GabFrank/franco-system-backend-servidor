@@ -23,6 +23,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -82,6 +83,10 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findByUsuario(id);
     }
 
+    public Page<Inventario> getInventariosPorUsuarioPaginado(Long usuarioId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findPageByUsuarioId(usuarioId, pageable);
+    }
 
     public Inventario saveInventario(InventarioInput input) {
         ModelMapper m = new ModelMapper();

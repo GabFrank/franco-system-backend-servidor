@@ -24,7 +24,7 @@ extend type Query {
 }
 
 extend type Mutation {
-    savePdvCategoria(pdvCategoria:PdvCategoriaInput!):PdvCategoria!
+    savePdvCategoria(entity:PdvCategoriaInput!):PdvCategoria!
     deletePdvCategoria(id:ID!):Boolean!
 }
 

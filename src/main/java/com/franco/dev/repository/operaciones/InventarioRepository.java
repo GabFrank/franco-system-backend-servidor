@@ -3,6 +3,8 @@ package com.franco.dev.repository.operaciones;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.enums.InventarioEstado;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -21,6 +23,8 @@ public interface InventarioRepository extends HelperRepository<Inventario, Long>
             "left join operaciones.inventario_producto ip on i.id = ip.inventario_id " +
             "where i.usuario_id = ?1 or ip.usuario_id = ?1 order by i.id", nativeQuery = true)
     public List<Inventario> findByUsuarioId(Long id);
+
+    public Page<Inventario> findByUsuarioIdOrderByIdDesc(Long usuarioId, Pageable pageable);
 
     public List<Inventario> findBySucursalIdAndEstado(Long id, InventarioEstado estado);
 

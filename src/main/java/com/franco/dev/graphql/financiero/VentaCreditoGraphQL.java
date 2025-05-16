@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.config.multitenant.MultiPage;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
@@ -41,6 +42,8 @@ import com.franco.dev.utilitarios.print.escpos.Style;
 import com.franco.dev.utilitarios.print.escpos.barcode.QRCode;
 import com.franco.dev.utilitarios.print.escpos.image.*;
 import com.franco.dev.utilitarios.print.output.PrinterOutputStream;
+import org.springframework.data.domain.Page;
+
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -177,7 +180,14 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public CustomPage<VentaCredito> ventaCreditoPorClientePage(Long id, EstadoVentaCredito estado, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return (CustomPage<VentaCredito>) service.findByClienteId(id, estado, pageable);
+        Page<VentaCredito> pageResult = service.findByClienteId(id, estado, pageable);
+        // Convertir Page a CustomPage usando CustomPageImpl
+        return new CustomPageImpl<>(
+            pageResult.getContent(),
+            pageResult.getPageable(),
+            pageResult.getTotalElements(),
+            null // No hay multiPageableList en este caso
+        );
     }
 
     public List<VentaCredito> ventaCreditoPorCliente(Long id, EstadoVentaCredito estado) {
@@ -405,7 +415,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 sb.append(itens.get(x).getVencimiento().format(formatter));
                 sb.append(" pagare solidariamente al Sr. FRANCO AREVALOS S.A. la suma de G$ ");
                 sb.append(valorPagare);
-                sb.append("por el valor recibido a mi/nuestro entera satisfaccion. En caso de retardo o incumplimiento total o parcial a la fecha de su vencimiento quedara contituida la MORA automatica, sin necesidad de interpelacion alguna.");
+                sb.append("por el valor recibido a mi/nuestra entera satisfaccion. En caso de retardo o incumplimiento total o parcial a la fecha de su vencimiento quedara constituida la MORA automatica, sin necesidad de interpelacion alguna.");
                 escpos.write(sb.toString());
                 escpos.feed(4);
                 escpos.writeLF("   --------------------------   ");

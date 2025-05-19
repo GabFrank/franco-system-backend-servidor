@@ -38,7 +38,7 @@ type InventarioPage {
 extend type Query {
     inventario(id:ID!):Inventario
     inventarioList(page:Int = 0, size:Int = 10):[Inventario]!
-    getInventariosPorUsuarioPaginado(usuarioId: ID!, page: Int!, size: Int!): InventarioPage
+    getInventariosPorUsuarioPaginado(usuarioId: ID!, page: Int!, size: Int!, sortOrder: String): InventarioPage
     countInventario: Int
     inventarioPorFecha(inicio: String, fin: String):[Inventario]
     inventarioPorUsuario(id: ID!):[Inventario]!

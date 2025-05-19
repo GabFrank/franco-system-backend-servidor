@@ -83,9 +83,8 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findByUsuario(id);
     }
 
-    public Page<Inventario> getInventariosPorUsuarioPaginado(Long usuarioId, int page, int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return service.findPageByUsuarioId(usuarioId, pageable);
+    public Page<Inventario> getInventariosPorUsuarioPaginado(Long usuarioId, int page, int size, String sortOrder) {
+        return service.findPageByUsuarioId(usuarioId, page, size, sortOrder);
     }
 
     public Inventario saveInventario(InventarioInput input) {

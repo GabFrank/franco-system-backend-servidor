@@ -57,6 +57,14 @@ public class InventarioProductoItem implements Identifiable<Long> {
 
     private Double cantidadFisica;
 
+    private Double cantidadAnterior;
+
+    private LocalDateTime fechaVerificado;
+
+    private Boolean verificado;
+
+    private Boolean revisado;
+
     @JoinColumn(name = "vencimiento", nullable = true)
     private LocalDateTime vencimiento;
 

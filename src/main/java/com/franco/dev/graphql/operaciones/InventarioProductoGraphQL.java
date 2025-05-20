@@ -62,11 +62,6 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
         ModelMapper m = new ModelMapper();
         InventarioProducto e = m.map(input, InventarioProducto.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if (input.getProductoId() != null) {
-            e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
-        } else {
-            e.setProducto(null);
-        }
         if (input.getZonaId() != null) e.setZona(zonaService.findById(input.getZonaId()).orElse(null));
         if (input.getInventarioId() != null)
             e.setInventario(inventarioService.findById(input.getInventarioId()).orElse(null));

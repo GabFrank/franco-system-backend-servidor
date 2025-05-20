@@ -5,6 +5,10 @@ type InventarioProductoItem {
     presentacion: Presentacion
     cantidad: Float
     cantidadFisica: Float
+    cantidadAnterior: Float
+    fechaVerificado: Date
+    verificado: Boolean
+    revisado: Boolean
     vencimiento: Date
     estado: InventarioProductoEstado
     creadoEn: Date
@@ -18,6 +22,10 @@ input InventarioProductoItemInput {
     presentacionId: Int
     cantidad: Float
     cantidadFisica: Float
+    cantidadAnterior: Float
+    fechaVerificado: Date
+    verificado: Boolean
+    revisado: Boolean
     vencimiento: String
     estado: InventarioProductoEstado
     usuarioId: Int

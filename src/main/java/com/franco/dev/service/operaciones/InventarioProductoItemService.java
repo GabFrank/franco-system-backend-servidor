@@ -54,6 +54,9 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
     public InventarioProductoItem save(InventarioProductoItem entity) {
         InventarioProductoItem e = new InventarioProductoItem();
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getVerificado() != null && entity.getVerificado() == true && entity.getFechaVerificado() == null) {
+            entity.setFechaVerificado(LocalDateTime.now());
+        }
         e = super.save(entity);
         return e;
     }

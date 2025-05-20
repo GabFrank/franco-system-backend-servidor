@@ -11,3 +11,4 @@ tokens/
 .apt_generated
 .vscode*/
 
+src/main/resources/application-dev.properties

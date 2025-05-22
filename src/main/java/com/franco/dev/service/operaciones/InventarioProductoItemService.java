@@ -33,6 +33,10 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
         return repository.findByInventarioIdAndProductoId(invId, proId);
     }
 
+    public Page<InventarioProductoItem> findItemsParaRevisar(Long inventarioId, String filtro, Pageable pageable) {
+        return repository.findItemsParaRevisar(inventarioId, filtro, pageable);
+    }
+
     public Page<InventarioProductoItem> findAllWithFilters(
             List<Long> sucursalIdList,
             LocalDateTime startDate,

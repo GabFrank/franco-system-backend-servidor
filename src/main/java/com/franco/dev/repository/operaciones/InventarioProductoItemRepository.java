@@ -24,6 +24,19 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
     public List<InventarioProductoItem> findByInventarioProductoInventarioIdAndPresentacionProductoId(Long ipiProId, Long proId);
 
     @Query(value = "Select i from InventarioProductoItem i " +
+            "join i.inventarioProducto ip " +
+            "join ip.inventario inv " +
+            "where inv.id = :inventarioId " +
+            "order by CASE " +
+            "WHEN :filtro = 'cantidadExacta' AND i.verificado = true AND (i.revisado = false OR i.revisado is null) THEN 0 " +
+            "WHEN :filtro = 'modificado' AND i.revisado = true AND (i.verificado = false OR i.verificado is null) THEN 0 " +
+            "ELSE 1 END, i.id DESC")
+    public Page<InventarioProductoItem> findItemsParaRevisar(
+            @Param("inventarioId") Long inventarioId,
+            @Param("filtro") String filtro,
+            Pageable pageable);
+
+    @Query(value = "Select i from InventarioProductoItem i " +
             "join i.presentacion pre " +
             "join pre.producto pro " +
             "join i.inventarioProducto ip " +

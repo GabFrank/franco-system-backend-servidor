@@ -53,6 +53,8 @@ extend type Query {
     reporteInventario(
         startDate: String, endDate: String, sucursalIdList: [Int], usuarioIdList:[ID], productoIdList:[ID],
         page: Int, size: Int, orderBy: String, tipoOrder: String, nickname: String): String
+    getInventarioItemsParaRevisar(
+        inventarioId: ID!, filtro: String, page: Int!, size: Int!): InventarioProductoItemPage
 }
 
 extend type Mutation {

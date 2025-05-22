@@ -72,6 +72,11 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         return service.findByInventarioProductoId(id, pageable);
     }
 
+    public Page<InventarioProductoItem> getInventarioItemsParaRevisar(Long inventarioId, String filtro, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findItemsParaRevisar(inventarioId, filtro, pageable);
+    }
+
     public InventarioProductoItem saveInventarioProductoItem(InventarioProductoItemInput input) {
         ModelMapper m = new ModelMapper();
         m.getConfiguration()

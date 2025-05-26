@@ -6,4 +6,5 @@
 pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile restart
 pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile restart
 
--- donde me quede
+-- ip del servidor
+159.203.86.103

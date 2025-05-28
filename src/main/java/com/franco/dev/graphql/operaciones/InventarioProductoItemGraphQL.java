@@ -2,12 +2,14 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.dto.ReporteInventarioDto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoItemInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
+import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
@@ -57,6 +59,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
     @Autowired
     private MultiTenantService multiTenantService;
+
+    @Autowired
+    private MovimientoStockService movimientoStockService;
 
     public Optional<InventarioProductoItem> inventarioProductoItem(Long id) {
         return service.findById(id);
@@ -198,5 +203,20 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         } else {
             return null;
         }
+    }
+
+    public Page<ProductoSaldoDto> productosConCantidadPositiva(Long sucursalId, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return movimientoStockService.findProductosConCantidadPositiva(sucursalId, pageable);
+    }
+
+    public Page<ProductoSaldoDto> productosConCantidadNegativa(Long sucursalId, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return movimientoStockService.findProductosConCantidadNegativa(sucursalId, pageable);
+    }
+
+    public Page<ProductoSaldoDto> productosFaltantes(Long sucursalId, String fechaInicio, String fechaFin, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return movimientoStockService.findProductosFaltantes(sucursalId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
     }
 }

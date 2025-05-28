@@ -28,6 +28,10 @@ public class DateUtils {
     public static LocalDateTime stringToDate(String s) {
         if(s == null) return null;
         if(s.contains("T")) return LocalDateTime.parse(s, formatter_iso);
+        if(s.length() == 10) {
+            // Si la fecha tiene solo 10 caracteres (yyyy-MM-dd), agregar hora por defecto
+            return LocalDateTime.parse(s + " 00:00", formatter);
+        }
         return LocalDateTime.parse(s, formatter);
     }
 

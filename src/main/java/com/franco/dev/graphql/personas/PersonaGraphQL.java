@@ -69,4 +69,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     public Long countPersona(){
         return service.count();
     }
+
+    public Persona personaPorDocumento(String texto){
+        return service.findByDocumento(texto);
+    }
 }

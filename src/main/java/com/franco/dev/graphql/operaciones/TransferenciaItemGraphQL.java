@@ -129,8 +129,16 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                 costoPorProducto = costosPorProductoService.save(costoPorProducto);
                 if (costoPorProducto != null)
                     costosPorProductoService.save(costoPorProducto);
+            } else if (lastCostoPorProducto == null && precioCosto != null) {
+                costoPorProducto.setCostoMedio(precioCosto);
+                costoPorProducto.setProducto(producto);
+                costoPorProducto.setCotizacion(1.0);
+                costoPorProducto.setUltimoPrecioCompra(precioCosto);
+                costoPorProducto.setUsuario(e.getUsuario());
+                costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
+                costoPorProducto.setCreadoEn(e.getCreadoEn());
+                costosPorProductoService.save(costoPorProducto);
             }
-
         }
         return e;
     }

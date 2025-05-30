@@ -51,11 +51,10 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 
     @Override
     public Sucursal save(Sucursal entity) {
-        Sucursal e = super.save(entity);
-        if(e.getId() == null){
-            e.setCreadoEn(LocalDateTime.now());
+        if(entity.getId() == null){
+            entity.setCreadoEn(LocalDateTime.now());
         }
-        return e;
+        return super.save(entity);
     }
 
     public Sucursal sucursalActual() {

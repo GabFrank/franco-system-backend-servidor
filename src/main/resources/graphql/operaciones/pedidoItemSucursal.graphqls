@@ -5,6 +5,7 @@ type PedidoItemSucursal {
     sucursalEntrega: Sucursal
     cantidadPorUnidad: Float
     cantidadPorUnidadRecibida: Float
+    stockDisponible: Float
     creadoEn: Date
     usuario: Usuario
     

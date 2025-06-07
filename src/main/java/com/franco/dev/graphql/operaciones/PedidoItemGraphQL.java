@@ -165,36 +165,68 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public PedidoItem addPedidoItemToNotaRecepcion(Long notaRecepcionId, Long pedidoItemId) {
         NotaRecepcion notaRecepcion = notaRecepcionId != null ? notaRecepcionService.findById(notaRecepcionId).orElse(null) : null;
         PedidoItem pi = service.getRepository().findById(pedidoItemId).orElse(null);
+        
+        if (pi == null) {
+            throw new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId);
+        }
+        
         try {
             if (notaRecepcion != null) {
+                // Assigning to a nota recepcion - copy data from Creacion fields
                 pi.setNotaRecepcion(notaRecepcion);
+                
+                // Copy data from Creacion fields to RecepcionNota fields
                 pi.setPresentacionRecepcionNota(pi.getPresentacionCreacion());
                 pi.setCantidadRecepcionNota(pi.getCantidadCreacion());
                 pi.setDescuentoUnitarioRecepcionNota(pi.getDescuentoUnitarioCreacion());
                 pi.setVencimientoRecepcionNota(pi.getVencimientoCreacion());
                 pi.setPrecioUnitarioRecepcionNota(pi.getPrecioUnitarioCreacion());
+                
+                // Initialize RecepcionNota specific fields
                 pi.setVerificadoRecepcionNota(true);
+                // Note: Other fields like usuarioRecepcionNota, obsRecepcionNota, etc. 
+                // will be set when the item is actually modified during the recepcion nota step
+                
                 return service.save(pi);
             } else {
-                pi.setPresentacionRecepcionNota(null);
-                pi.setCantidadRecepcionNota(null);
-                pi.setDescuentoUnitarioRecepcionNota(null);
-                pi.setVencimientoRecepcionNota(null);
-                pi.setPrecioUnitarioRecepcionNota(null);
-                pi.setVerificadoRecepcionNota(false);
-                pi.setNotaRecepcion(null);
+                // Unassigning from nota recepcion - clear ALL RecepcionNota fields
+                clearPedidoItemRecepcionNotaData(pi);
                 return service.save(pi);
             }
         } catch (Exception e) {
-            throw new GraphQLException("Ocurrio un problema");
+            throw new GraphQLException("Error al asignar/desasignar item a nota de recepción: " + e.getMessage());
         }
-
+    }
+    
+    /**
+     * Clear all RecepcionNota-related fields from a PedidoItem
+     * @param item PedidoItem to clear
+     */
+    private void clearPedidoItemRecepcionNotaData(PedidoItem item) {
+        // Clear all RecepcionNota fields
+        item.setPrecioUnitarioRecepcionNota(null);
+        item.setDescuentoUnitarioRecepcionNota(null);
+        item.setVencimientoRecepcionNota(null);
+        item.setPresentacionRecepcionNota(null);
+        item.setCantidadRecepcionNota(null);
+        item.setUsuarioRecepcionNota(null);
+        item.setObsRecepcionNota(null);
+        item.setAutorizacionRecepcionNota(null);
+        item.setAutorizadoPorRecepcionNota(null);
+        item.setMotivoModificacionRecepcionNota(null);
+        item.setVerificadoRecepcionNota(false);
+        item.setMotivoRechazoRecepcionNota(null);
+        
+        // Clear the nota recepcion reference
+        item.setNotaRecepcion(null);
     }
 
     public PedidoItem verificarRecepcionProducto(Long pedidoItemId, Boolean verificar) {
         PedidoItem pi = service.findById(pedidoItemId).orElse(null);
-        if (pi == null) throw new GraphQLException("Ocurrio un problema!!");
+        if (pi == null) throw new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId);
+        
         if (verificar) {
+            // Copy data from RecepcionNota fields to RecepcionProducto fields
             pi.setPresentacionRecepcionProducto(pi.getPresentacionRecepcionNota());
             pi.setCantidadRecepcionProducto(pi.getCantidadRecepcionNota());
             pi.setDescuentoUnitarioRecepcionProducto(pi.getDescuentoUnitarioRecepcionNota());
@@ -203,12 +235,8 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             pi.setVerificadoRecepcionProducto(true);
             return service.save(pi);
         } else {
-            pi.setPresentacionRecepcionProducto(null);
-            pi.setCantidadRecepcionProducto(null);
-            pi.setDescuentoUnitarioRecepcionProducto(null);
-            pi.setVencimientoRecepcionProducto(null);
-            pi.setPrecioUnitarioRecepcionProducto(null);
-            pi.setVerificadoRecepcionProducto(false);
+            // Clear all RecepcionProducto fields
+            clearPedidoItemRecepcionProductoData(pi);
             return service.save(pi);
         }
     }
@@ -224,5 +252,25 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Page<PedidoItem> findHistoricoCompras(Long productoId, int page, int size){
         Pageable pageable = PageRequest.of(page, size);
         return service.getRepository().findByProductoIdAndPedidoEstado(productoId, PedidoEstado.CONCLUIDO, pageable);
+    }
+
+    /**
+     * Clear all RecepcionProducto-related fields from a PedidoItem
+     * @param item PedidoItem to clear
+     */
+    private void clearPedidoItemRecepcionProductoData(PedidoItem item) {
+        // Clear all RecepcionProducto fields
+        item.setPrecioUnitarioRecepcionProducto(null);
+        item.setDescuentoUnitarioRecepcionProducto(null);
+        item.setVencimientoRecepcionProducto(null);
+        item.setPresentacionRecepcionProducto(null);
+        item.setCantidadRecepcionProducto(null);
+        item.setUsuarioRecepcionProducto(null);
+        item.setObsRecepcionProducto(null);
+        item.setAutorizacionRecepcionProducto(null);
+        item.setAutorizadoPorRecepcionProducto(null);
+        item.setMotivoModificacionRecepcionProducto(null);
+        item.setVerificadoRecepcionProducto(false);
+        item.setMotivoRechazoRecepcionProducto(null);
     }
 }

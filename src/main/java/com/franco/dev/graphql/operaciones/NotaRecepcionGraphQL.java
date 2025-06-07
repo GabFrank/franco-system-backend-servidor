@@ -88,7 +88,65 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteNotaRecepcion(Long id) {
-        return service.deleteById(id);
+        try {
+            // First, get all PedidoItems assigned to this NotaRecepcion
+            List<PedidoItem> assignedItems = pedidoItemService.findByNotaRecepcionId(id);
+            
+            // Clear RecepcionNota data for each assigned item
+            for (PedidoItem item : assignedItems) {
+                clearPedidoItemRecepcionNotaData(item);
+                // Save the updated item
+                pedidoItemService.save(item);
+            }
+            
+            // Then delete the NotaRecepcion
+            return service.deleteById(id);
+        } catch (Exception e) {
+            throw new GraphQLException("Error al eliminar nota de recepción: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Clear all RecepcionNota-related fields from a PedidoItem
+     * @param item PedidoItem to clear
+     */
+    private void clearPedidoItemRecepcionNotaData(PedidoItem item) {
+        // Clear all RecepcionNota fields
+        item.setPrecioUnitarioRecepcionNota(null);
+        item.setDescuentoUnitarioRecepcionNota(null);
+        item.setVencimientoRecepcionNota(null);
+        item.setPresentacionRecepcionNota(null);
+        item.setCantidadRecepcionNota(null);
+        item.setUsuarioRecepcionNota(null);
+        item.setObsRecepcionNota(null);
+        item.setAutorizacionRecepcionNota(null);
+        item.setAutorizadoPorRecepcionNota(null);
+        item.setMotivoModificacionRecepcionNota(null);
+        item.setVerificadoRecepcionNota(false);
+        item.setMotivoRechazoRecepcionNota(null);
+        
+        // Clear the nota recepcion reference
+        item.setNotaRecepcion(null);
+    }
+
+    /**
+     * Clear all RecepcionProducto-related fields from a PedidoItem
+     * @param item PedidoItem to clear
+     */
+    private void clearPedidoItemRecepcionProductoData(PedidoItem item) {
+        // Clear all RecepcionProducto fields
+        item.setPrecioUnitarioRecepcionProducto(null);
+        item.setDescuentoUnitarioRecepcionProducto(null);
+        item.setVencimientoRecepcionProducto(null);
+        item.setPresentacionRecepcionProducto(null);
+        item.setCantidadRecepcionProducto(null);
+        item.setUsuarioRecepcionProducto(null);
+        item.setObsRecepcionProducto(null);
+        item.setAutorizacionRecepcionProducto(null);
+        item.setAutorizadoPorRecepcionProducto(null);
+        item.setMotivoModificacionRecepcionProducto(null);
+        item.setVerificadoRecepcionProducto(false);
+        item.setMotivoRechazoRecepcionProducto(null);
     }
 
     public Long countNotaRecepcion() {

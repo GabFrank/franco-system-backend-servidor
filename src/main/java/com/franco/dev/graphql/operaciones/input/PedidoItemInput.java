@@ -28,7 +28,6 @@ public class PedidoItemInput {
     private Long presentacionCreacionId;
     private Double cantidadCreacion;
     private String creadoEn;
-    private Long notaPedidoId;
     private Long notaRecepcionId;
     private Double precioUnitarioRecepcionNota;
     private Double descuentoUnitarioRecepcionNota;

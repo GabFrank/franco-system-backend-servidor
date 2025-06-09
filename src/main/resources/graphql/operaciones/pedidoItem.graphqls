@@ -3,7 +3,6 @@ type PedidoItem {
     pedido: Pedido
     producto: Producto
     precioUnitarioCreacion: Float
-    notaPedido: NotaPedido
     descuentoUnitarioCreacion: Float
     bonificacion: Boolean
     bonificacionDetalle: String
@@ -56,7 +55,6 @@ input PedidoItemInput {
     id:ID
     pedidoId: Int
     productoId: Int
-    notaPedidoId: Int
     cantidadCreacion: Float
     precioUnitarioCreacion: Float
     descuentoUnitarioCreacion: Float

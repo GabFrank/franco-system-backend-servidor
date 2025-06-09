@@ -13,6 +13,7 @@ import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.productos.ProductoService;
+import com.franco.dev.service.operaciones.NotaPedidoService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -51,6 +52,9 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private CompraItemService compraItemService;
+
+    @Autowired
+    private NotaPedidoService notaPedidoService;
 
     public Optional<PedidoItem> pedidoItem(Long id) {
         return service.findById(id);

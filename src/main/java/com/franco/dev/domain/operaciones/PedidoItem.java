@@ -57,10 +57,6 @@ public class PedidoItem implements Identifiable<Long> {
     private Presentacion presentacionCreacion;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nota_pedido_id", nullable = true)
-    private NotaPedido notaPedido;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "nota_recepcion_id", nullable = true)
     private NotaRecepcion notaRecepcion;
 

@@ -38,6 +38,27 @@ import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
+// DTO class for PedidoRecepcionNotaSummary
+class PedidoRecepcionNotaSummary {
+    private Integer totalItems;
+    private Integer assignedItems;
+    private Integer pendingItems;
+    private Integer totalNotas;
+
+    public PedidoRecepcionNotaSummary(Integer totalItems, Integer assignedItems, Integer pendingItems, Integer totalNotas) {
+        this.totalItems = totalItems;
+        this.assignedItems = assignedItems;
+        this.pendingItems = pendingItems;
+        this.totalNotas = totalNotas;
+    }
+
+    // Getters
+    public Integer getTotalItems() { return totalItems; }
+    public Integer getAssignedItems() { return assignedItems; }
+    public Integer getPendingItems() { return pendingItems; }
+    public Integer getTotalNotas() { return totalNotas; }
+}
+
 @Component
 public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -85,6 +106,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private CambioService cambioService;
+
+    @Autowired
+    private NotaRecepcionService notaRecepcionService;
 
     public Optional<Pedido> pedido(Long id) {
         return service.findById(id);
@@ -308,6 +332,23 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Boolean verificarDistribucionSucursales(Long id){
         return pedidoItemService.getRepository().findDistribucionSucursalRecepcionByPedidoId(id);
+    }
+
+    public PedidoRecepcionNotaSummary pedidoRecepcionNotaSummary(Long id) {
+        // Get total items count
+        Integer totalItems = pedidoItemService.getRepository().countByPedidoId(id);
+        
+        // Get items with nota recepcion assigned (assigned items)
+        Long assignedItemsLong = pedidoItemService.getRepository().countByPedidoIdAndNotaRecepcionIdIsNotNull(id);
+        Integer assignedItems = assignedItemsLong != null ? assignedItemsLong.intValue() : 0;
+        
+        // Calculate pending items (items without nota recepcion)
+        Integer pendingItems = totalItems - assignedItems;
+        
+        // Get total notas count for this pedido
+        Integer totalNotas = notaRecepcionService.getRepository().countByPedidoId(id);
+        
+        return new PedidoRecepcionNotaSummary(totalItems, assignedItems, pendingItems, totalNotas);
     }
 
 }

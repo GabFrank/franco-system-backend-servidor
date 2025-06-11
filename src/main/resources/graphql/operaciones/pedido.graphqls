@@ -25,6 +25,13 @@ type Pedido {
     pagado: Boolean
 }
 
+type PedidoRecepcionNotaSummary {
+    totalItems: Int
+    assignedItems: Int
+    pendingItems: Int
+    totalNotas: Int
+}
+
 input PedidoInput {
     id:ID
     proveedorId: Int
@@ -59,6 +66,7 @@ extend type Query {
     filterPedidos(idPedido:ID, numeroNotaRecepcion:Int ,estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
     verificarDistribucionSucursales(id:ID!): Boolean
+    pedidoRecepcionNotaSummary(id:ID!): PedidoRecepcionNotaSummary
 }
 
 extend type Mutation {

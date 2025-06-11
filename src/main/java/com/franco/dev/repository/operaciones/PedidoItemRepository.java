@@ -92,7 +92,7 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
             "where p.id = :id")
     Boolean findDistribucionSucursalRecepcionByPedidoId(@Param("id") Long id);
 
-
+    public Long countByPedidoIdAndNotaRecepcionIdIsNotNull(Long id);
 
 }
 

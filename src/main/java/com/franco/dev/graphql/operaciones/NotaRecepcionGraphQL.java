@@ -92,9 +92,11 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
             // First, get all PedidoItems assigned to this NotaRecepcion
             List<PedidoItem> assignedItems = pedidoItemService.findByNotaRecepcionId(id);
             
-            // Clear RecepcionNota data for each assigned item
+            // Only clear the nota recepcion reference, preserve estado-related data
             for (PedidoItem item : assignedItems) {
-                clearPedidoItemRecepcionNotaData(item);
+                // Only set the nota recepcion reference to null
+                // Preserve all estado-related RecepcionNota data fields
+                item.setNotaRecepcion(null);
                 // Save the updated item
                 pedidoItemService.save(item);
             }

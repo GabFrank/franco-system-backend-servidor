@@ -128,6 +128,17 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     public Pedido savePedido(PedidoInput input) {
         ModelMapper m = new ModelMapper();
         Pedido e = m.map(input, Pedido.class);
+        
+        // Get existing pedido to detect estado changes
+        Pedido existingPedido = null;
+        PedidoEstado previousEstado = null;
+        if (input.getId() != null) {
+            existingPedido = service.findById(input.getId()).orElse(null);
+            if (existingPedido != null) {
+                previousEstado = existingPedido.getEstado();
+            }
+        }
+        
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
@@ -135,7 +146,15 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if (input.getProveedorId() != null)
             e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
         if (input.getVendedorId() != null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+        
         Pedido pedido = service.save(e);
+        
+        // Handle estado change: automatically copy data from previous step to current step
+        if (existingPedido != null && previousEstado != null && 
+            previousEstado != pedido.getEstado()) {
+            handlePedidoEstadoChange(pedido, previousEstado, pedido.getEstado());
+        }
+        
         return pedido;
     }
 
@@ -335,20 +354,127 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public PedidoRecepcionNotaSummary pedidoRecepcionNotaSummary(Long id) {
-        // Get total items count
-        Integer totalItems = pedidoItemService.getRepository().countByPedidoId(id);
+        List<PedidoItem> allItems = pedidoItemService.findByPedidoId(id);
+        List<PedidoItem> assignedItems = allItems.stream()
+                .filter(item -> item.getNotaRecepcion() != null)
+                .collect(Collectors.toList());
+
+        List<NotaRecepcion> notas = notaRecepcionService.findByPedidoId(id);
+
+        return new PedidoRecepcionNotaSummary(
+                allItems.size(),
+                assignedItems.size(),
+                allItems.size() - assignedItems.size(),
+                notas.size()
+        );
+    }
+
+    /**
+     * Handles automatic data copying when Pedido estado changes
+     * This ensures that when a Pedido transitions to a new state, all its items
+     * have the appropriate step data copied from the previous step
+     */
+    @Transactional
+    private void handlePedidoEstadoChange(Pedido pedido, PedidoEstado previousEstado, PedidoEstado newEstado) {
+        List<PedidoItem> pedidoItems = pedidoItemService.findByPedidoId(pedido.getId());
         
-        // Get items with nota recepcion assigned (assigned items)
-        Long assignedItemsLong = pedidoItemService.getRepository().countByPedidoIdAndNotaRecepcionIdIsNotNull(id);
-        Integer assignedItems = assignedItemsLong != null ? assignedItemsLong.intValue() : 0;
-        
-        // Calculate pending items (items without nota recepcion)
-        Integer pendingItems = totalItems - assignedItems;
-        
-        // Get total notas count for this pedido
-        Integer totalNotas = notaRecepcionService.getRepository().countByPedidoId(id);
-        
-        return new PedidoRecepcionNotaSummary(totalItems, assignedItems, pendingItems, totalNotas);
+        for (PedidoItem item : pedidoItems) {
+            copyDataForEstadoTransition(item, previousEstado, newEstado);
+            // Items from findByPedidoId are already managed entities, so we can save them directly
+            pedidoItemService.save(item);
+        }
+    }
+    
+    /**
+     * Copies data between step fields based on estado transition
+     */
+    private void copyDataForEstadoTransition(PedidoItem item, PedidoEstado previousEstado, PedidoEstado newEstado) {
+        switch (newEstado) {
+            case EN_RECEPCION_NOTA:
+                // Copy from Creacion to RecepcionNota fields
+                if (previousEstado == PedidoEstado.ABIERTO || previousEstado == PedidoEstado.ACTIVO) {
+                    copyCreacionToRecepcionNotaFields(item);
+                }
+                break;
+                
+            case EN_RECEPCION_MERCADERIA:
+                // Copy from RecepcionNota to RecepcionProducto fields
+                if (previousEstado == PedidoEstado.EN_RECEPCION_NOTA) {
+                    copyRecepcionNotaToRecepcionProductoFields(item);
+                } else if (previousEstado == PedidoEstado.ABIERTO || previousEstado == PedidoEstado.ACTIVO) {
+                    // Direct transition from creation to product reception
+                    copyCreacionToRecepcionProductoFields(item);
+                }
+                break;
+                
+            // Add other transitions as needed
+        }
+    }
+    
+    /**
+     * Copy data from Creacion fields to RecepcionNota fields
+     */
+    private void copyCreacionToRecepcionNotaFields(PedidoItem item) {
+        if (item.getPresentacionCreacion() != null) {
+            item.setPresentacionRecepcionNota(item.getPresentacionCreacion());
+        }
+        if (item.getCantidadCreacion() != null) {
+            item.setCantidadRecepcionNota(item.getCantidadCreacion());
+        }
+        if (item.getPrecioUnitarioCreacion() != null) {
+            item.setPrecioUnitarioRecepcionNota(item.getPrecioUnitarioCreacion());
+        }
+        if (item.getDescuentoUnitarioCreacion() != null) {
+            item.setDescuentoUnitarioRecepcionNota(item.getDescuentoUnitarioCreacion());
+        }
+        if (item.getVencimientoCreacion() != null) {
+            item.setVencimientoRecepcionNota(item.getVencimientoCreacion());
+        }
+        // Don't copy obs automatically - let user decide
+    }
+    
+    /**
+     * Copy data from RecepcionNota fields to RecepcionProducto fields
+     */
+    private void copyRecepcionNotaToRecepcionProductoFields(PedidoItem item) {
+        if (item.getPresentacionRecepcionNota() != null) {
+            item.setPresentacionRecepcionProducto(item.getPresentacionRecepcionNota());
+        }
+        if (item.getCantidadRecepcionNota() != null) {
+            item.setCantidadRecepcionProducto(item.getCantidadRecepcionNota());
+        }
+        if (item.getPrecioUnitarioRecepcionNota() != null) {
+            item.setPrecioUnitarioRecepcionProducto(item.getPrecioUnitarioRecepcionNota());
+        }
+        if (item.getDescuentoUnitarioRecepcionNota() != null) {
+            item.setDescuentoUnitarioRecepcionProducto(item.getDescuentoUnitarioRecepcionNota());
+        }
+        if (item.getVencimientoRecepcionNota() != null) {
+            item.setVencimientoRecepcionProducto(item.getVencimientoRecepcionNota());
+        }
+        // Don't copy obs automatically - let user decide
+    }
+    
+    /**
+     * Copy data directly from Creacion fields to RecepcionProducto fields (skip RecepcionNota)
+     */
+    private void copyCreacionToRecepcionProductoFields(PedidoItem item) {
+        if (item.getPresentacionCreacion() != null) {
+            item.setPresentacionRecepcionProducto(item.getPresentacionCreacion());
+        }
+        if (item.getCantidadCreacion() != null) {
+            item.setCantidadRecepcionProducto(item.getCantidadCreacion());
+        }
+        if (item.getPrecioUnitarioCreacion() != null) {
+            item.setPrecioUnitarioRecepcionProducto(item.getPrecioUnitarioCreacion());
+        }
+        if (item.getDescuentoUnitarioCreacion() != null) {
+            item.setDescuentoUnitarioRecepcionProducto(item.getDescuentoUnitarioCreacion());
+        }
+        if (item.getVencimientoCreacion() != null) {
+            item.setVencimientoRecepcionProducto(item.getVencimientoCreacion());
+        }
+        // Don't copy obs automatically - let user decide
     }
 
 }

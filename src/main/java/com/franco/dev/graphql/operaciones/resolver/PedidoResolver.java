@@ -114,7 +114,9 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
     }
 
     public Integer cantPedidoItem(Pedido e) {
-        return pedidoItemService.getRepository().countByPedidoId(e.getId());
+        Integer totalItems = pedidoItemService.getRepository().countByPedidoId(e.getId());
+        Long cancelledItems = pedidoItemService.getRepository().countByPedidoIdAndCancelado(e.getId(), true);
+        return totalItems - cancelledItems.intValue();
     }
 
     public Long cantPedidoItemSinNota(Pedido e) {

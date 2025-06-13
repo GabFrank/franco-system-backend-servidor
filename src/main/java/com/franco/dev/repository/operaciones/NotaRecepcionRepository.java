@@ -35,7 +35,9 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
     @Query(value = "select sum((pi.precio_unitario_recepcion_nota - pi.descuento_unitario_recepcion_nota) * (pi.cantidad_recepcion_nota * p.cantidad)) from operaciones.nota_recepcion nr " +
             "join operaciones.pedido_item pi on nr.id = pi.nota_recepcion_id " +
             "join productos.presentacion p on p.id = pi.presentacion_recepcion_nota_id " +
-            "where (pi.cancelado is null or pi.cancelado = false) and nr.id = ?1", nativeQuery = true)
+            "where (pi.cancelado is null or pi.cancelado = false) " +
+            "and (pi.motivo_rechazo_recepcion_nota is null or pi.motivo_rechazo_recepcion_nota = '') " +
+            "and nr.id = ?1", nativeQuery = true)
     public Double valor(Long id);
 //
 //    @Query("select p from Pedido p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")

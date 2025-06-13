@@ -68,6 +68,10 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         return repository.countByNotaRecepcionId(id);
     }
 
+    public Integer countByNotaRecepcionIdExcludingRejected(Long id) {
+        return repository.countByNotaRecepcionIdExcludingRejected(id);
+    }
+
 //    public Double cantidadSegunMovimiento(Long sucId, Long prodId, LocalDateTime inicio, LocalDateTime){
 //
 //    }

@@ -29,7 +29,18 @@ type PedidoRecepcionNotaSummary {
     totalItems: Int
     assignedItems: Int
     pendingItems: Int
+    cancelledItems: Int
     totalNotas: Int
+}
+
+type PedidoSummary {
+    totalItems: Int
+    cancelledItems: Int
+    activeItems: Int
+    totalSinDescuento: Float
+    totalDescuento: Float
+    totalConDescuento: Float
+    estado: PedidoEstado
 }
 
 input PedidoInput {
@@ -67,6 +78,7 @@ extend type Query {
     countPedido: Int
     verificarDistribucionSucursales(id:ID!): Boolean
     pedidoRecepcionNotaSummary(id:ID!): PedidoRecepcionNotaSummary
+    pedidoSummary(id:ID!): PedidoSummary
 }
 
 extend type Mutation {

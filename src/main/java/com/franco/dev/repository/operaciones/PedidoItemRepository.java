@@ -51,6 +51,13 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Integer countByPedidoId(Long id);
 
+    @Query(value = "SELECT COUNT(*) FROM operaciones.pedido_item pi " +
+            "WHERE pi.nota_recepcion_id = ?1 " +
+            "AND (pi.cancelado IS NULL OR pi.cancelado = false) " +
+            "AND (pi.motivo_rechazo_recepcion_nota IS NULL OR pi.motivo_rechazo_recepcion_nota = '')", 
+            nativeQuery = true)
+    public Integer countByNotaRecepcionIdExcludingRejected(Long id);
+
     public List<PedidoItem> findByIdIn(List<Long> idList);
 
     public Page<PedidoItem> findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);

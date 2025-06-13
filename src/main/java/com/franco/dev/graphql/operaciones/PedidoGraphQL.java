@@ -43,12 +43,14 @@ class PedidoRecepcionNotaSummary {
     private Integer totalItems;
     private Integer assignedItems;
     private Integer pendingItems;
+    private Integer cancelledItems;
     private Integer totalNotas;
 
-    public PedidoRecepcionNotaSummary(Integer totalItems, Integer assignedItems, Integer pendingItems, Integer totalNotas) {
+    public PedidoRecepcionNotaSummary(Integer totalItems, Integer assignedItems, Integer pendingItems, Integer cancelledItems, Integer totalNotas) {
         this.totalItems = totalItems;
         this.assignedItems = assignedItems;
         this.pendingItems = pendingItems;
+        this.cancelledItems = cancelledItems;
         this.totalNotas = totalNotas;
     }
 
@@ -56,7 +58,40 @@ class PedidoRecepcionNotaSummary {
     public Integer getTotalItems() { return totalItems; }
     public Integer getAssignedItems() { return assignedItems; }
     public Integer getPendingItems() { return pendingItems; }
+    public Integer getCancelledItems() { return cancelledItems; }
     public Integer getTotalNotas() { return totalNotas; }
+}
+
+// DTO class for comprehensive PedidoSummary
+class PedidoSummary {
+    private Integer totalItems;
+    private Integer cancelledItems;
+    private Integer activeItems;
+    private Double totalSinDescuento;
+    private Double totalDescuento;
+    private Double totalConDescuento;
+    private PedidoEstado estado;
+
+    public PedidoSummary(Integer totalItems, Integer cancelledItems, Integer activeItems, 
+                        Double totalSinDescuento, Double totalDescuento, Double totalConDescuento, 
+                        PedidoEstado estado) {
+        this.totalItems = totalItems;
+        this.cancelledItems = cancelledItems;
+        this.activeItems = activeItems;
+        this.totalSinDescuento = totalSinDescuento;
+        this.totalDescuento = totalDescuento;
+        this.totalConDescuento = totalConDescuento;
+        this.estado = estado;
+    }
+
+    // Getters
+    public Integer getTotalItems() { return totalItems; }
+    public Integer getCancelledItems() { return cancelledItems; }
+    public Integer getActiveItems() { return activeItems; }
+    public Double getTotalSinDescuento() { return totalSinDescuento; }
+    public Double getTotalDescuento() { return totalDescuento; }
+    public Double getTotalConDescuento() { return totalConDescuento; }
+    public PedidoEstado getEstado() { return estado; }
 }
 
 @Component
@@ -358,15 +393,171 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         List<PedidoItem> assignedItems = allItems.stream()
                 .filter(item -> item.getNotaRecepcion() != null)
                 .collect(Collectors.toList());
+        List<PedidoItem> cancelledItems = allItems.stream()
+                .filter(item -> item.getCancelado() != null && item.getCancelado())
+                .collect(Collectors.toList());
 
         List<NotaRecepcion> notas = notaRecepcionService.findByPedidoId(id);
+
+        // Calculate pending items: total - assigned - cancelled
+        int pendingItemsCount = allItems.size() - assignedItems.size() - cancelledItems.size();
 
         return new PedidoRecepcionNotaSummary(
                 allItems.size(),
                 assignedItems.size(),
-                allItems.size() - assignedItems.size(),
+                pendingItemsCount,
+                cancelledItems.size(),
                 notas.size()
         );
+    }
+
+    /**
+     * Calculate comprehensive pedido summary with financial totals based on estado
+     * Excludes cancelled items and uses appropriate step fields for calculations
+     */
+    public PedidoSummary pedidoSummary(Long id) {
+        Pedido pedido = service.findById(id).orElse(null);
+        if (pedido == null) {
+            throw new GraphQLException("Pedido no encontrado con ID: " + id);
+        }
+
+        List<PedidoItem> allItems = pedidoItemService.findByPedidoId(id);
+        
+        // Separate cancelled and active items
+        List<PedidoItem> cancelledItems = allItems.stream()
+                .filter(item -> item.getCancelado() != null && item.getCancelado())
+                .collect(Collectors.toList());
+        
+        List<PedidoItem> activeItems = allItems.stream()
+                .filter(item -> item.getCancelado() == null || !item.getCancelado())
+                .collect(Collectors.toList());
+
+        // Calculate financial totals based on pedido estado
+        double totalSinDescuento = 0.0;
+        double totalDescuento = 0.0;
+
+        for (PedidoItem item : activeItems) {
+            // Get values based on current pedido estado
+            Double precioUnitario = getPrecioUnitarioForEstado(item, pedido.getEstado());
+            Double descuentoUnitario = getDescuentoUnitarioForEstado(item, pedido.getEstado());
+            Double cantidad = getCantidadForEstado(item, pedido.getEstado());
+            Double cantidadPresentacion = getCantidadPresentacionForEstado(item, pedido.getEstado());
+
+            if (precioUnitario != null && cantidad != null && cantidadPresentacion != null) {
+                double itemTotalSinDescuento = cantidad * cantidadPresentacion.doubleValue() * precioUnitario;
+                double itemDescuento = (descuentoUnitario != null) ? 
+                    cantidad * cantidadPresentacion.doubleValue() * descuentoUnitario : 0.0;
+
+                totalSinDescuento += itemTotalSinDescuento;
+                totalDescuento += itemDescuento;
+            }
+        }
+
+        double totalConDescuento = totalSinDescuento - totalDescuento;
+
+        return new PedidoSummary(
+                Integer.valueOf(allItems.size()),
+                Integer.valueOf(cancelledItems.size()),
+                Integer.valueOf(activeItems.size()),
+                Double.valueOf(totalSinDescuento),
+                Double.valueOf(totalDescuento),
+                Double.valueOf(totalConDescuento),
+                pedido.getEstado()
+        );
+    }
+
+    /**
+     * Get precio unitario based on pedido estado
+     */
+    private Double getPrecioUnitarioForEstado(PedidoItem item, PedidoEstado estado) {
+        switch (estado) {
+            case ABIERTO:
+            case ACTIVO:
+                return item.getPrecioUnitarioCreacion();
+            case EN_RECEPCION_NOTA:
+                return item.getPrecioUnitarioRecepcionNota() != null ? 
+                    item.getPrecioUnitarioRecepcionNota() : item.getPrecioUnitarioCreacion();
+            case EN_RECEPCION_MERCADERIA:
+            case CONCLUIDO:
+                return item.getPrecioUnitarioRecepcionProducto() != null ? 
+                    item.getPrecioUnitarioRecepcionProducto() : 
+                    (item.getPrecioUnitarioRecepcionNota() != null ? 
+                        item.getPrecioUnitarioRecepcionNota() : item.getPrecioUnitarioCreacion());
+            default:
+                return item.getPrecioUnitarioCreacion();
+        }
+    }
+
+    /**
+     * Get descuento unitario based on pedido estado
+     */
+    private Double getDescuentoUnitarioForEstado(PedidoItem item, PedidoEstado estado) {
+        switch (estado) {
+            case ABIERTO:
+            case ACTIVO:
+                return item.getDescuentoUnitarioCreacion();
+            case EN_RECEPCION_NOTA:
+                return item.getDescuentoUnitarioRecepcionNota() != null ? 
+                    item.getDescuentoUnitarioRecepcionNota() : item.getDescuentoUnitarioCreacion();
+            case EN_RECEPCION_MERCADERIA:
+            case CONCLUIDO:
+                return item.getDescuentoUnitarioRecepcionProducto() != null ? 
+                    item.getDescuentoUnitarioRecepcionProducto() : 
+                    (item.getDescuentoUnitarioRecepcionNota() != null ? 
+                        item.getDescuentoUnitarioRecepcionNota() : item.getDescuentoUnitarioCreacion());
+            default:
+                return item.getDescuentoUnitarioCreacion();
+        }
+    }
+
+    /**
+     * Get cantidad based on pedido estado
+     */
+    private Double getCantidadForEstado(PedidoItem item, PedidoEstado estado) {
+        switch (estado) {
+            case ABIERTO:
+            case ACTIVO:
+                return item.getCantidadCreacion();
+            case EN_RECEPCION_NOTA:
+                return item.getCantidadRecepcionNota() != null ? 
+                    item.getCantidadRecepcionNota() : item.getCantidadCreacion();
+            case EN_RECEPCION_MERCADERIA:
+            case CONCLUIDO:
+                return item.getCantidadRecepcionProducto() != null ? 
+                    item.getCantidadRecepcionProducto() : 
+                    (item.getCantidadRecepcionNota() != null ? 
+                        item.getCantidadRecepcionNota() : item.getCantidadCreacion());
+            default:
+                return item.getCantidadCreacion();
+        }
+    }
+
+    /**
+     * Get cantidad presentacion based on pedido estado
+     */
+    private Double getCantidadPresentacionForEstado(PedidoItem item, PedidoEstado estado) {
+        switch (estado) {
+            case ABIERTO:
+            case ACTIVO:
+                return item.getPresentacionCreacion() != null ? 
+                    item.getPresentacionCreacion().getCantidad() : 1;
+            case EN_RECEPCION_NOTA:
+                return item.getPresentacionRecepcionNota() != null ? 
+                    item.getPresentacionRecepcionNota().getCantidad() : 
+                    (item.getPresentacionCreacion() != null ? 
+                        item.getPresentacionCreacion().getCantidad() : 1);
+            case EN_RECEPCION_MERCADERIA:
+            case CONCLUIDO:
+                return item.getPresentacionRecepcionProducto() != null ? 
+                    item.getPresentacionRecepcionProducto().getCantidad() : 
+                    (item.getPresentacionRecepcionNota() != null ? 
+                        item.getPresentacionRecepcionNota().getCantidad() : 
+                        (item.getPresentacionCreacion() != null ? 
+                            item.getPresentacionCreacion().getCantidad() : 1));
+            default:
+                return item.getPresentacionCreacion() != null ? 
+                    item.getPresentacionCreacion().getCantidad() : 1;
+        }
     }
 
     /**

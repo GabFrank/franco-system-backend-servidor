@@ -101,5 +101,13 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public Long countByPedidoIdAndNotaRecepcionIdIsNotNull(Long id);
 
+    /**
+     * Get total distributed quantity for a specific PedidoItem from PedidoItemSucursal
+     */
+    @Query("select coalesce(sum(pis.cantidadPorUnidad), 0.0) " +
+           "from PedidoItemSucursal pis " +
+           "where pis.pedidoItem.id = :pedidoItemId")
+    Double getTotalDistributedQuantityByPedidoItemId(@Param("pedidoItemId") Long pedidoItemId);
+
 }
 

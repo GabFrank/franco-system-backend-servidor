@@ -49,6 +49,7 @@ type PedidoItem {
     pedidoItemSucursalList: [PedidoItemSucursal]
     isDistribucionSucursalesCreacion: Boolean
     isDistribucionSucursalesRecepcion: Boolean
+    needsDistribucion: Boolean
 }
 
 input PedidoItemInput {

@@ -183,18 +183,31 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         
         try {
             if (notaRecepcion != null) {
-                // Assigning to a nota recepcion - copy data from Creacion fields
+                // Assigning to a nota recepcion
                 pi.setNotaRecepcion(notaRecepcion);
                 
-                // Copy data from Creacion fields to RecepcionNota fields
-                pi.setPresentacionRecepcionNota(pi.getPresentacionCreacion());
-                pi.setCantidadRecepcionNota(pi.getCantidadCreacion());
-                pi.setDescuentoUnitarioRecepcionNota(pi.getDescuentoUnitarioCreacion());
-                pi.setVencimientoRecepcionNota(pi.getVencimientoCreacion());
-                pi.setPrecioUnitarioRecepcionNota(pi.getPrecioUnitarioCreacion());
+                // **FIX ISSUE 2**: Only copy from Creacion fields if RecepcionNota fields are empty
+                // This prevents overwriting existing RecepcionNota data
+                if (pi.getPresentacionRecepcionNota() == null) {
+                    pi.setPresentacionRecepcionNota(pi.getPresentacionCreacion());
+                }
+                if (pi.getCantidadRecepcionNota() == null) {
+                    pi.setCantidadRecepcionNota(pi.getCantidadCreacion());
+                }
+                if (pi.getDescuentoUnitarioRecepcionNota() == null) {
+                    pi.setDescuentoUnitarioRecepcionNota(pi.getDescuentoUnitarioCreacion());
+                }
+                if (pi.getVencimientoRecepcionNota() == null) {
+                    pi.setVencimientoRecepcionNota(pi.getVencimientoCreacion());
+                }
+                if (pi.getPrecioUnitarioRecepcionNota() == null) {
+                    pi.setPrecioUnitarioRecepcionNota(pi.getPrecioUnitarioCreacion());
+                }
                 
-                // Initialize RecepcionNota specific fields
-                pi.setVerificadoRecepcionNota(true);
+                // Initialize RecepcionNota specific fields only if not already set
+                if (pi.getVerificadoRecepcionNota() == null) {
+                    pi.setVerificadoRecepcionNota(true);
+                }
                 // Note: Other fields like usuarioRecepcionNota, obsRecepcionNota, etc. 
                 // will be set when the item is actually modified during the recepcion nota step
                 

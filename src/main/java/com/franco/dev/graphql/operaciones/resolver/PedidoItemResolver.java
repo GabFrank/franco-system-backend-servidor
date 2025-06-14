@@ -96,4 +96,119 @@ public class PedidoItemResolver implements GraphQLResolver<PedidoItem> {
         return pedidoItemService.getRepository().findDistribucionSucursalRecepcionByPedidoItemId(p.getId());
     }
 
+    /**
+     * Estado-aware distribution check that considers the pedido's current estado
+     * to determine the appropriate quantity fields for comparison
+     */
+    public Boolean needsDistribucion(PedidoItem pedidoItem) {
+        try {
+            // Skip cancelled items
+            if (pedidoItem.getCancelado() != null && pedidoItem.getCancelado()) {
+                return false;
+            }
+
+            // Get expected quantity based on pedido estado
+            Double expectedQuantity = getCantidadForEstado(pedidoItem);
+            Presentacion expectedPresentacion = getPresentacionForEstado(pedidoItem);
+            
+            if (expectedQuantity == null || expectedQuantity <= 0 || expectedPresentacion == null) {
+                return false;
+            }
+
+            // Calculate total expected quantity (cantidad * presentacion.cantidad)
+            Double totalExpectedQuantity = expectedQuantity * (expectedPresentacion.getCantidad() != null ? expectedPresentacion.getCantidad() : 1.0);
+
+            // Get total distributed quantity from database
+            Double totalDistributedQuantity = pedidoItemService.getRepository().getTotalDistributedQuantityByPedidoItemId(pedidoItem.getId());
+            
+            if (totalDistributedQuantity == null) {
+                totalDistributedQuantity = 0.0;
+            }
+
+            // Item needs distribution if distributed quantity is less than expected
+            return totalDistributedQuantity < totalExpectedQuantity;
+            
+        } catch (Exception e) {
+            // Log error and return false as fallback
+            System.err.println("Error calculating needsDistribucion for PedidoItem " + pedidoItem.getId() + ": " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to get cantidad based on pedido estado with proper fallback logic
+     */
+    private Double getCantidadForEstado(PedidoItem pedidoItem) {
+        if (pedidoItem.getPedido() == null) {
+            return pedidoItem.getCantidadCreacion();
+        }
+
+        com.franco.dev.domain.operaciones.enums.PedidoEstado estado = pedidoItem.getPedido().getEstado();
+        if (estado == null) {
+            return pedidoItem.getCantidadCreacion();
+        }
+
+        switch (estado) {
+            case EN_RECEPCION_MERCADERIA:
+            case CONCLUIDO:
+                // RecepcionProducto -> RecepcionNota -> Creacion
+                if (pedidoItem.getCantidadRecepcionProducto() != null) {
+                    return pedidoItem.getCantidadRecepcionProducto();
+                }
+                if (pedidoItem.getCantidadRecepcionNota() != null) {
+                    return pedidoItem.getCantidadRecepcionNota();
+                }
+                return pedidoItem.getCantidadCreacion();
+                
+            case EN_RECEPCION_NOTA:
+                // RecepcionNota -> Creacion
+                if (pedidoItem.getCantidadRecepcionNota() != null) {
+                    return pedidoItem.getCantidadRecepcionNota();
+                }
+                return pedidoItem.getCantidadCreacion();
+                
+            default:
+                // ABIERTO, ACTIVO, etc. -> Creacion
+                return pedidoItem.getCantidadCreacion();
+        }
+    }
+
+    /**
+     * Helper method to get presentacion based on pedido estado with proper fallback logic
+     */
+    private Presentacion getPresentacionForEstado(PedidoItem pedidoItem) {
+        if (pedidoItem.getPedido() == null) {
+            return pedidoItem.getPresentacionCreacion();
+        }
+
+        com.franco.dev.domain.operaciones.enums.PedidoEstado estado = pedidoItem.getPedido().getEstado();
+        if (estado == null) {
+            return pedidoItem.getPresentacionCreacion();
+        }
+
+        switch (estado) {
+            case EN_RECEPCION_MERCADERIA:
+            case CONCLUIDO:
+                // RecepcionProducto -> RecepcionNota -> Creacion
+                if (pedidoItem.getPresentacionRecepcionProducto() != null) {
+                    return pedidoItem.getPresentacionRecepcionProducto();
+                }
+                if (pedidoItem.getPresentacionRecepcionNota() != null) {
+                    return pedidoItem.getPresentacionRecepcionNota();
+                }
+                return pedidoItem.getPresentacionCreacion();
+                
+            case EN_RECEPCION_NOTA:
+                // RecepcionNota -> Creacion
+                if (pedidoItem.getPresentacionRecepcionNota() != null) {
+                    return pedidoItem.getPresentacionRecepcionNota();
+                }
+                return pedidoItem.getPresentacionCreacion();
+                
+            default:
+                // ABIERTO, ACTIVO, etc. -> Creacion
+                return pedidoItem.getPresentacionCreacion();
+        }
+    }
+
 }

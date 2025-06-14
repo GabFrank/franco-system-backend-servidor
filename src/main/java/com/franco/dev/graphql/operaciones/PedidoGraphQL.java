@@ -45,13 +45,15 @@ class PedidoRecepcionNotaSummary {
     private Integer pendingItems;
     private Integer cancelledItems;
     private Integer totalNotas;
+    private Integer itemsNeedingDistribution;
 
-    public PedidoRecepcionNotaSummary(Integer totalItems, Integer assignedItems, Integer pendingItems, Integer cancelledItems, Integer totalNotas) {
+    public PedidoRecepcionNotaSummary(Integer totalItems, Integer assignedItems, Integer pendingItems, Integer cancelledItems, Integer totalNotas, Integer itemsNeedingDistribution) {
         this.totalItems = totalItems;
         this.assignedItems = assignedItems;
         this.pendingItems = pendingItems;
         this.cancelledItems = cancelledItems;
         this.totalNotas = totalNotas;
+        this.itemsNeedingDistribution = itemsNeedingDistribution;
     }
 
     // Getters
@@ -60,6 +62,7 @@ class PedidoRecepcionNotaSummary {
     public Integer getPendingItems() { return pendingItems; }
     public Integer getCancelledItems() { return cancelledItems; }
     public Integer getTotalNotas() { return totalNotas; }
+    public Integer getItemsNeedingDistribution() { return itemsNeedingDistribution; }
 }
 
 // DTO class for comprehensive PedidoSummary
@@ -385,29 +388,67 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean verificarDistribucionSucursales(Long id){
-        return pedidoItemService.getRepository().findDistribucionSucursalRecepcionByPedidoId(id);
+        // Use estado-aware logic instead of the flawed repository method
+        List<PedidoItem> allItems = pedidoItemService.findByPedidoId(id);
+        
+        for (PedidoItem item : allItems) {
+            // Skip cancelled items
+            if (item.getCancelado() != null && item.getCancelado()) {
+                continue;
+            }
+            
+            // If any item needs distribution, return false
+            if (itemNeedsDistribution(item)) {
+                return false;
+            }
+        }
+        
+        // All items have complete distribution
+        return true;
     }
 
     public PedidoRecepcionNotaSummary pedidoRecepcionNotaSummary(Long id) {
         List<PedidoItem> allItems = pedidoItemService.findByPedidoId(id);
+        
+        // **FIX ISSUE 1**: Include cancelled items in assigned count if they have notaRecepcion
+        // This allows cancelled items to still be assigned to notas for tracking purposes
         List<PedidoItem> assignedItems = allItems.stream()
                 .filter(item -> item.getNotaRecepcion() != null)
                 .collect(Collectors.toList());
+        
         List<PedidoItem> cancelledItems = allItems.stream()
                 .filter(item -> item.getCancelado() != null && item.getCancelado())
                 .collect(Collectors.toList());
 
         List<NotaRecepcion> notas = notaRecepcionService.findByPedidoId(id);
 
-        // Calculate pending items: total - assigned - cancelled
-        int pendingItemsCount = allItems.size() - assignedItems.size() - cancelledItems.size();
+        // **FIX ISSUE 1**: Calculate pending items correctly
+        // Pending = items that are NOT assigned to any nota AND are NOT cancelled
+        // This means: total - assigned (regardless of cancelled status)
+        int pendingItemsCount = allItems.size() - assignedItems.size();
+        
+        // **FIX ISSUE 2**: Calculate items needing distribution
+        // Count assigned items that don't have complete distribution using estado-aware logic
+        int itemsNeedingDistribution = 0;
+        for (PedidoItem item : assignedItems) {
+            // Skip cancelled items
+            if (item.getCancelado() != null && item.getCancelado()) {
+                continue;
+            }
+            
+            // Use the same estado-aware logic as PedidoItemResolver.needsDistribucion
+            if (itemNeedsDistribution(item)) {
+                itemsNeedingDistribution++;
+            }
+        }
 
         return new PedidoRecepcionNotaSummary(
                 allItems.size(),
                 assignedItems.size(),
                 pendingItemsCount,
                 cancelledItems.size(),
-                notas.size()
+                notas.size(),
+                itemsNeedingDistribution
         );
     }
 
@@ -557,6 +598,45 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             default:
                 return item.getPresentacionCreacion() != null ? 
                     item.getPresentacionCreacion().getCantidad() : 1;
+        }
+    }
+
+    /**
+     * Check if a PedidoItem needs distribution using estado-aware logic
+     * This mirrors the logic in PedidoItemResolver.needsDistribucion
+     */
+    private boolean itemNeedsDistribution(PedidoItem pedidoItem) {
+        try {
+            // Skip cancelled items
+            if (pedidoItem.getCancelado() != null && pedidoItem.getCancelado()) {
+                return false;
+            }
+
+            // Get expected quantity based on pedido estado
+            Double expectedQuantity = getCantidadForEstado(pedidoItem, pedidoItem.getPedido().getEstado());
+            Double expectedPresentacionCantidad = getCantidadPresentacionForEstado(pedidoItem, pedidoItem.getPedido().getEstado());
+            
+            if (expectedQuantity == null || expectedQuantity <= 0 || expectedPresentacionCantidad == null) {
+                return false;
+            }
+
+            // Calculate total expected quantity (cantidad * presentacion.cantidad)
+            Double totalExpectedQuantity = expectedQuantity * expectedPresentacionCantidad;
+
+            // Get total distributed quantity from database
+            Double totalDistributedQuantity = pedidoItemService.getRepository().getTotalDistributedQuantityByPedidoItemId(pedidoItem.getId());
+            
+            if (totalDistributedQuantity == null) {
+                totalDistributedQuantity = 0.0;
+            }
+
+            // Item needs distribution if distributed quantity is less than expected
+            return totalDistributedQuantity < totalExpectedQuantity;
+            
+        } catch (Exception e) {
+            // Log error and return false as fallback
+            System.err.println("Error calculating itemNeedsDistribution for PedidoItem " + pedidoItem.getId() + ": " + e.getMessage());
+            return false;
         }
     }
 

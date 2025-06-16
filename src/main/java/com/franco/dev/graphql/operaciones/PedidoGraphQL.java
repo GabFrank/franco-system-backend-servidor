@@ -630,8 +630,8 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                 totalDistributedQuantity = 0.0;
             }
 
-            // Item needs distribution if distributed quantity is less than expected
-            return totalDistributedQuantity < totalExpectedQuantity;
+            // Item needs distribution if distributed quantity is not equal to expected, so return false if not equal
+            return !totalDistributedQuantity.equals(totalExpectedQuantity);
             
         } catch (Exception e) {
             // Log error and return false as fallback

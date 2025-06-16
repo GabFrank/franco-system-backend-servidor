@@ -95,8 +95,8 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
                     distributedQuantity = 0.0;
                 }
                 
-                // Item needs distribution if distributed quantity is LESS than expected
-                if (distributedQuantity < totalExpectedQuantity) {
+                // Item needs distribution if distributed quantity is not equal to expected
+                if (!distributedQuantity.equals(totalExpectedQuantity)) {
                     itemsNeedingDistribution++;
                 }
             }

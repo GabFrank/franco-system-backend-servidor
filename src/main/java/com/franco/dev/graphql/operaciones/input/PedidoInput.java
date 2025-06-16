@@ -22,6 +22,32 @@ public class PedidoInput {
     private Long usuarioId;
     private LocalDateTime creadoEn;
     private List<PedidoItemInput> pedidoItemInputList;
+    
+    // Step tracking fields following the same pattern as PedidoItem
+    
+    // Step: Creacion (Datos del pedido)
+    private Long usuarioCreacionId;
+    private LocalDateTime fechaInicioCreacion;
+    private LocalDateTime fechaFinCreacion;
+    private Integer progresoCreacion;
+    
+    // Step: Recepcion Nota
+    private Long usuarioRecepcionNotaId;
+    private LocalDateTime fechaInicioRecepcionNota;
+    private LocalDateTime fechaFinRecepcionNota;
+    private Integer progresoRecepcionNota;
+    
+    // Step: Recepcion Mercaderia
+    private Long usuarioRecepcionMercaderiaId;
+    private LocalDateTime fechaInicioRecepcionMercaderia;
+    private LocalDateTime fechaFinRecepcionMercaderia;
+    private Integer progresoRecepcionMercaderia;
+    
+    // Step: Solicitud Pago
+    private Long usuarioSolicitudPagoId;
+    private LocalDateTime fechaInicioSolicitudPago;
+    private LocalDateTime fechaFinSolicitudPago;
+    private Integer progresoSolicitudPago;
 }
 
 

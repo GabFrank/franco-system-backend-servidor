@@ -23,6 +23,32 @@ type Pedido {
     cantNotasPagadas: Int
     cantNotasCanceladas: Int
     pagado: Boolean
+    
+    # Step tracking fields following the same pattern as PedidoItem
+    
+    # Step: Creacion (Datos del pedido)
+    usuarioCreacion: Usuario
+    fechaInicioCreacion: Date
+    fechaFinCreacion: Date
+    progresoCreacion: Int
+    
+    # Step: Recepcion Nota
+    usuarioRecepcionNota: Usuario
+    fechaInicioRecepcionNota: Date
+    fechaFinRecepcionNota: Date
+    progresoRecepcionNota: Int
+    
+    # Step: Recepcion Mercaderia
+    usuarioRecepcionMercaderia: Usuario
+    fechaInicioRecepcionMercaderia: Date
+    fechaFinRecepcionMercaderia: Date
+    progresoRecepcionMercaderia: Int
+    
+    # Step: Solicitud Pago
+    usuarioSolicitudPago: Usuario
+    fechaInicioSolicitudPago: Date
+    fechaFinSolicitudPago: Date
+    progresoSolicitudPago: Int
 }
 
 type PedidoRecepcionNotaSummary {
@@ -58,6 +84,27 @@ input PedidoInput {
     descuento: Int
     valorTotal: Float
     pedidoItemInputList: [PedidoItemInput]
+    
+    # Step tracking fields
+    usuarioCreacionId: Int
+    fechaInicioCreacion: Date
+    fechaFinCreacion: Date
+    progresoCreacion: Int
+    
+    usuarioRecepcionNotaId: Int
+    fechaInicioRecepcionNota: Date
+    fechaFinRecepcionNota: Date
+    progresoRecepcionNota: Int
+    
+    usuarioRecepcionMercaderiaId: Int
+    fechaInicioRecepcionMercaderia: Date
+    fechaFinRecepcionMercaderia: Date
+    progresoRecepcionMercaderia: Int
+    
+    usuarioSolicitudPagoId: Int
+    fechaInicioSolicitudPago: Date
+    fechaFinSolicitudPago: Date
+    progresoSolicitudPago: Int
 }
 
 type PedidoPage {

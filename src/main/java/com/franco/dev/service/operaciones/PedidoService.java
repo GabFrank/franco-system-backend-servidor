@@ -99,6 +99,12 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
             entity.setEstado(PedidoEstado.ABIERTO);
+            
+            // Initialize step tracking for new pedido - Step 1: Creacion
+            // Set current user and start time for creation step
+            entity.setUsuarioCreacion(entity.getUsuario());
+            entity.setFechaInicioCreacion(LocalDateTime.now());
+            entity.setProgresoCreacion(0); // Starting
         }
         Pedido e = super.save(entity);
         if (entity.getVendedor() != null && entity.getProveedor() != null) {

@@ -341,6 +341,10 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if (pedido == null) {
             throw new GraphQLException("No se puedo encontrar el pedido");
         }
+        
+        // Store the previous estado for step tracking
+        PedidoEstado previousEstado = pedido.getEstado();
+        
         if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
             List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
             procesarPedidoItems(pedido, pedidoItemList);
@@ -350,8 +354,12 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
             }
         }
+        
+        // Update estado and handle step tracking
         pedido.setEstado(estado);
-        return service.save(pedido);
+        handlePedidoEstadoChange(pedido, previousEstado, estado);
+        
+        return pedido; // handlePedidoEstadoChange already saves the pedido
     }
 
     @Async
@@ -643,16 +651,75 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     /**
      * Handles automatic data copying when Pedido estado changes
      * This ensures that when a Pedido transitions to a new state, all its items
-     * have the appropriate step data copied from the previous step
+     * have the appropriate step data copied from the previous step.
+     * Also handles step tracking for the Pedido itself.
      */
     @Transactional
     private void handlePedidoEstadoChange(Pedido pedido, PedidoEstado previousEstado, PedidoEstado newEstado) {
+        // Handle step tracking for the Pedido
+        handlePedidoStepTracking(pedido, previousEstado, newEstado);
+        
+        // Handle PedidoItem data copying
         List<PedidoItem> pedidoItems = pedidoItemService.findByPedidoId(pedido.getId());
         
         for (PedidoItem item : pedidoItems) {
             copyDataForEstadoTransition(item, previousEstado, newEstado);
             // Items from findByPedidoId are already managed entities, so we can save them directly
             pedidoItemService.save(item);
+        }
+        
+        // Save the updated pedido with step tracking changes
+        service.save(pedido);
+    }
+    
+    /**
+     * Handles step tracking when Pedido estado changes
+     * This method manages completing previous steps and preparing next steps
+     */
+    private void handlePedidoStepTracking(Pedido pedido, PedidoEstado previousEstado, PedidoEstado newEstado) {
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Complete previous step based on estado transition
+        switch (newEstado) {
+            case EN_RECEPCION_NOTA:
+                // Complete creation step when moving to recepcion nota
+                if (previousEstado == PedidoEstado.ABIERTO || previousEstado == PedidoEstado.ACTIVO) {
+                    pedido.setFechaFinCreacion(now);
+                    pedido.setProgresoCreacion(100); // Complete
+                    
+                    // Note: Do NOT set usuarioRecepcionNota or fechaInicioRecepcionNota yet
+                    // This will be set when user explicitly begins the step
+                }
+                break;
+                
+            case EN_RECEPCION_MERCADERIA:
+                // Complete recepcion nota step when moving to recepcion mercaderia
+                if (previousEstado == PedidoEstado.EN_RECEPCION_NOTA) {
+                    pedido.setFechaFinRecepcionNota(now);
+                    pedido.setProgresoRecepcionNota(100); // Complete
+                    
+                    // Note: Do NOT set usuarioRecepcionMercaderia or fechaInicioRecepcionMercaderia yet
+                    // This will be set when user explicitly begins the step
+                }
+                break;
+                
+            case CONCLUIDO:
+                // Complete all remaining steps when moving to concluded
+                if (previousEstado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
+                    pedido.setFechaFinRecepcionMercaderia(now);
+                    pedido.setProgresoRecepcionMercaderia(100); // Complete
+                    
+                    pedido.setFechaFinSolicitudPago(now);
+                    pedido.setProgresoSolicitudPago(100); // Complete
+                } else if (previousEstado == PedidoEstado.EN_RECEPCION_NOTA) {
+                    // Direct transition from recepcion nota to concluded
+                    pedido.setFechaFinRecepcionNota(now);
+                    pedido.setProgresoRecepcionNota(100); // Complete
+                    
+                    pedido.setFechaFinSolicitudPago(now);
+                    pedido.setProgresoSolicitudPago(100); // Complete
+                }
+                break;
         }
     }
     

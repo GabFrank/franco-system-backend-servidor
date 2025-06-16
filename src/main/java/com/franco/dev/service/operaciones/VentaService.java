@@ -80,7 +80,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
         Pageable pagina = PageRequest.of(page, size);
-        return findWithFiltersCriteria(id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId, asc);
+        return findWithFiltersCriteria(null, id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId, asc, null);
     }
 
     public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
@@ -221,7 +221,11 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return null;
     }
 
-    public Page<Venta> findWithFiltersCriteria(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc) {
+    public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento){
+        return findWithFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc, conDescuento);
+    }
+
+    public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento) {
         Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
@@ -233,7 +237,11 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             predicates.add(cb.equal(cajaJoin.get("id"), id));
             predicates.add(cb.equal(root.get("sucursalId"), sucId));
 
-            if (formaPagoId != null || monedaId != null) {
+            if(idVenta != null){
+                predicates.add(cb.equal(root.get("id"), idVenta));
+            }
+
+            if (formaPagoId != null || monedaId != null || (conDescuento != null && conDescuento)) {
                 Subquery<Long> cobroDetalleSubquery = query.subquery(Long.class);
                 Root<CobroDetalle> cobroDetalleRoot = cobroDetalleSubquery.from(CobroDetalle.class);
 
@@ -248,6 +256,10 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
                 if (monedaId != null) {
                     subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("moneda").get("id"), monedaId));
+                }
+
+                if (conDescuento != null && conDescuento == true){
+                    subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("descuento")));
                 }
 
                 cobroDetalleSubquery.select(cobroDetalleRoot.get("id"))

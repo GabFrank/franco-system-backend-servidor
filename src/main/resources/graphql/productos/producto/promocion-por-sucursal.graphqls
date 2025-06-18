@@ -1,0 +1,53 @@
+type PromocionPorSucursal {
+    id: ID!
+    precio: PrecioPorSucursal
+    sucursal: Sucursal
+    activo: Boolean
+    esPromocion: Boolean
+    tipoPromocion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input PromocionPorSucursalInput {
+    id: ID
+    precioId: ID
+    sucursalId: ID
+    activo: Boolean
+    esPromocion: Boolean
+    tipoPromocion: String
+    usuarioId: ID
+}
+
+type BulkPromocionResult {
+    success: Boolean!
+    count: Int!
+}
+
+type VerificacionPromocionResult {
+    todasLasSucursalesOk: Boolean!
+    promocionesEncontradas: [PromocionPorSucursal]!
+    faltantes: [ID]!
+    extras: [ID]!
+    sucursalesConPromocion: [ID]!
+}
+
+extend type Query {
+    promocionPorSucursal(id: ID!): PromocionPorSucursal
+    promocionesPorSucursal(sucursalId: ID!): [PromocionPorSucursal]!
+    promocionesPorPresentacion(presentacionId: ID!): [PromocionPorSucursal]!
+    promocionesPorPrecioId(precioId: ID!): [PromocionPorSucursal]!
+    promocionesActivasPorSucursal(sucursalId: ID!): [PromocionPorSucursal]!
+    promocionesActivasPorPresentacion(presentacionId: ID!): [PromocionPorSucursal]!
+    promocionesPorTipo(tipoPromocion: String!): [PromocionPorSucursal]!
+    promocionesPorSucursal(page: Int = 0, size: Int = 10): [PromocionPorSucursal]!
+    countPromocionPorSucursal: Int
+    verificarPromociones(presentacionId: ID!, sucursalesIds: [ID!]!): VerificacionPromocionResult!
+}
+
+extend type Mutation {
+    savePromocionPorSucursal(promocion: PromocionPorSucursalInput!): PromocionPorSucursal!
+    saveBulkPromocionPorSucursal(promociones: [PromocionPorSucursalInput!]!): BulkPromocionResult!
+    deletePromocionPorSucursal(id: ID!): Boolean!
+    deleteBulkPromocionPorSucursal(ids: [ID!]!): Boolean!
+} 

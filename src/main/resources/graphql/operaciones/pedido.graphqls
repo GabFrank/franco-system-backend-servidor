@@ -60,6 +60,13 @@ type PedidoRecepcionNotaSummary {
     itemsNeedingDistribution: Int
 }
 
+type PedidoRecepcionMercaderiaSummary {
+    totalItems: Int
+    verificados: Int
+    pendientes: Int
+    sucursales: Int
+}
+
 type PedidoSummary {
     totalItems: Int
     cancelledItems: Int
@@ -126,6 +133,7 @@ extend type Query {
     countPedido: Int
     verificarDistribucionSucursales(id:ID!): Boolean
     pedidoRecepcionNotaSummary(id:ID!): PedidoRecepcionNotaSummary
+    pedidoRecepcionMercaderiaSummary(id:ID!): PedidoRecepcionMercaderiaSummary
     pedidoSummary(id:ID!): PedidoSummary
 }
 

@@ -116,7 +116,7 @@ extend type Query {
     pedidoItemPorPedido(id:ID!):[PedidoItem]!
     countPedidoItem: Int
     pedidoItemPorPedidoIdSobrante(id:ID, page:Int = 0, size:Int = 10, texto: String): PedidoItemPage!
-    pedidoItemPorNotaRecepcion(id:ID, page:Int = 0, size:Int = 10, texto: String, verificado: Boolean): PedidoItemPage!
+    pedidoItemPorNotaRecepcion(id:ID, page:Int = 0, size:Int = 10, texto: String, verificado: Boolean, pedidoId: ID): PedidoItemPage!
     cantidadItensFaltaVerificarNota(id:ID!):Int
     cantidadItensFaltaVerificarProducto(id:ID!):Int
     findHistoricoCompras(productoId: ID!, page: Int!, size: Int!): PedidoItemPage!

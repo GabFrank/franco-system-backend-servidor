@@ -12,6 +12,7 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.*;
+import com.franco.dev.service.operaciones.PedidoItemSucursalService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.personas.VendedorService;
@@ -63,6 +64,27 @@ class PedidoRecepcionNotaSummary {
     public Integer getCancelledItems() { return cancelledItems; }
     public Integer getTotalNotas() { return totalNotas; }
     public Integer getItemsNeedingDistribution() { return itemsNeedingDistribution; }
+}
+
+// DTO class for PedidoRecepcionMercaderiaSummary
+class PedidoRecepcionMercaderiaSummary {
+    private Integer totalItems;
+    private Integer verificados;
+    private Integer pendientes;
+    private Integer sucursales;
+
+    public PedidoRecepcionMercaderiaSummary(Integer totalItems, Integer verificados, Integer pendientes, Integer sucursales) {
+        this.totalItems = totalItems;
+        this.verificados = verificados;
+        this.pendientes = pendientes;
+        this.sucursales = sucursales;
+    }
+
+    // Getters
+    public Integer getTotalItems() { return totalItems; }
+    public Integer getVerificados() { return verificados; }
+    public Integer getPendientes() { return pendientes; }
+    public Integer getSucursales() { return sucursales; }
 }
 
 // DTO class for comprehensive PedidoSummary
@@ -147,6 +169,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private NotaRecepcionService notaRecepcionService;
+
+    @Autowired
+    private PedidoItemSucursalService pedidoItemSucursalService;
 
     public Optional<Pedido> pedido(Long id) {
         return service.findById(id);
@@ -512,6 +537,54 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                 Double.valueOf(totalDescuento),
                 Double.valueOf(totalConDescuento),
                 pedido.getEstado()
+        );
+    }
+
+    /**
+     * Calculate summary data for Recepcion Mercaderia step
+     * Following user requirements:
+     * - Total Items: quantity of items available for reception
+     * - Verificados: items that have been verified (verificadoRecepcionProducto = true)
+     * - Pendientes: difference between total and verified 
+     * - Sucursales: quantity of sucursales from pedido-item-sucursal linked to available items
+     */
+    public PedidoRecepcionMercaderiaSummary pedidoRecepcionMercaderiaSummary(Long id) {
+        // Get all pedido items that are available for reception
+        // (have notaRecepcion assigned and are not cancelled)
+        List<PedidoItem> allItems = pedidoItemService.findByPedidoId(id);
+        
+        List<PedidoItem> availableItems = allItems.stream()
+                .filter(item -> item.getNotaRecepcion() != null) // Must have nota assigned
+                .filter(item -> item.getCancelado() == null || !item.getCancelado()) // Not cancelled
+                .collect(Collectors.toList());
+
+        // Count verified items (verificadoRecepcionProducto = true)
+        long verificados = availableItems.stream()
+                .filter(item -> item.getVerificadoRecepcionProducto() != null && item.getVerificadoRecepcionProducto())
+                .count();
+
+        // Calculate pendientes (total - verified)
+        int totalItems = availableItems.size();
+        int pendientes = totalItems - (int) verificados;
+
+        // Count unique sucursales from pedidoItemSucursalList
+        Set<Long> uniqueSucursales = new java.util.HashSet<>();
+        for (PedidoItem item : availableItems) {
+            List<com.franco.dev.domain.operaciones.PedidoItemSucursal> sucursalList = 
+                pedidoItemSucursalService.findByPedidoItemId(item.getId());
+            
+            for (com.franco.dev.domain.operaciones.PedidoItemSucursal sucursalItem : sucursalList) {
+                if (sucursalItem.getSucursalEntrega() != null) {
+                    uniqueSucursales.add(sucursalItem.getSucursalEntrega().getId());
+                }
+            }
+        }
+
+        return new PedidoRecepcionMercaderiaSummary(
+                Integer.valueOf(totalItems),
+                Integer.valueOf((int) verificados),
+                Integer.valueOf(pendientes),
+                Integer.valueOf(uniqueSucursales.size())
         );
     }
 

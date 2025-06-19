@@ -134,21 +134,40 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
     }
 
-    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size, String texto, Boolean verificado) {
+    public Page<PedidoItem> pedidoItemPorNotaRecepcion(Long id, int page, int size, String texto, Boolean verificado, Long pedidoId) {
         Pageable pageable = PageRequest.of(page, size);
-        if (texto != null) {
-            texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
-            if (verificado != null) {
-                return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(id, texto, verificado, pageable);
+        
+        // If nota recepcion ID is provided, filter by nota recepcion (existing behavior)
+        if (id != null) {
+            if (texto != null) {
+                texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
+                if (verificado != null) {
+                    return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(id, texto, verificado, pageable);
+                } else {
+                    return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
+                }
             } else {
-                return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
+                if (verificado != null) {
+                    return service.getRepository().findByNotaRecepcionIdAndVerificadoRecepcionProducto(id, verificado, pageable);
+                } else {
+                    return service.findByNotaRecepcionId(id, pageable);
+                }
             }
-        } else {
-            if (verificado != null) {
-                return service.getRepository().findByNotaRecepcionIdAndVerificadoRecepcionProducto(id, verificado, pageable);
+        }
+        // If no nota recepcion ID but pedidoId is provided, return all items from that pedido
+        else if (pedidoId != null) {
+            if (texto != null) {
+                texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
+                // Use the available method from repository for pedido + texto filtering
+                return service.getRepository().findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(pedidoId, texto, pageable);
             } else {
-                return service.findByNotaRecepcionId(id, pageable);
+                // Use service method for pedido filtering
+                return service.findByPedidoId(pedidoId, pageable);
             }
+        }
+        // If neither nota recepcion ID nor pedido ID is provided, return empty page
+        else {
+            return Page.empty(pageable);
         }
     }
 

@@ -376,7 +376,100 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         } else if (estado == PedidoEstado.CONCLUIDO) {
             List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
             for (PedidoItem pi : pedidoItemList) {
+                // Skip cancelled items
+                if (pi.getCancelado() != null && pi.getCancelado()) {
+                    continue;
+                }
 
+                // Skip items that haven't been verified in recepcion mercaderia
+                if (pi.getVerificadoRecepcionProducto() == null || !pi.getVerificadoRecepcionProducto()) {
+                    continue;
+                }
+
+                // Get the final cost price from recepcion producto
+                Double nuevoPrecioCosto = pi.getPrecioUnitarioRecepcionProducto();
+                if (nuevoPrecioCosto == null) {
+                    // Fallback to recepcion nota price
+                    nuevoPrecioCosto = pi.getPrecioUnitarioRecepcionNota();
+                }
+                if (nuevoPrecioCosto == null) {
+                    // Skip if no price available
+                    continue;
+                }
+
+                // Check if we need to create a new CostoPorProducto entry
+                CostoPorProducto ultimoCosto = costosPorProductoService.findLastByProductoId(pi.getProducto().getId());
+                boolean needsNewCostEntry = false;
+
+                if (ultimoCosto == null) {
+                    // No previous cost entry exists
+                    needsNewCostEntry = true;
+                } else if (!nuevoPrecioCosto.equals(ultimoCosto.getUltimoPrecioCompra())) {
+                    // Price has changed
+                    needsNewCostEntry = true;
+                }
+
+                if (needsNewCostEntry) {
+                    // Calculate new average cost
+                    Double cantidadRecibida = pi.getCantidadRecepcionProducto();
+                    if (cantidadRecibida == null) {
+                        cantidadRecibida = pi.getCantidadRecepcionNota();
+                    }
+                    if (cantidadRecibida == null) {
+                        cantidadRecibida = pi.getCantidadCreacion();
+                    }
+
+                    Double costoMedio = costosPorProductoService.calcularCostoMedio(
+                            pi.getProducto().getId(),
+                            cantidadRecibida,
+                            nuevoPrecioCosto);
+
+                    // Create new CostoPorProducto entry
+                    CostoPorProducto costoPorProducto = new CostoPorProducto();
+                    costoPorProducto.setProducto(pi.getProducto());
+                    costoPorProducto.setUltimoPrecioCompra(nuevoPrecioCosto);
+                    costoPorProducto.setCostoMedio(costoMedio);
+                    costoPorProducto.setCreadoEn(LocalDateTime.now());
+                    costoPorProducto.setMoneda(pi.getPedido().getMoneda());
+                    
+                    // Safe handling of cotizacion
+                    if (costoPorProducto.getMoneda() != null) {
+                        try {
+                            Double cotizacion = cambioService.findLastByMonedaId(costoPorProducto.getMoneda().getId()).getValorEnGs();
+                            costoPorProducto.setCotizacion(cotizacion);
+                        } catch (Exception e) {
+                            // Fallback to 1.0 if no exchange rate found
+                            costoPorProducto.setCotizacion(1.0);
+                        }
+                    } else {
+                        costoPorProducto.setCotizacion(1.0);
+                    }
+                    
+                    costoPorProducto.setUsuario(pedido.getUsuario());
+                    costosPorProductoService.save(costoPorProducto);
+                }
+
+                // Create stock movements for each sucursal distribution
+                List<PedidoItemSucursal> sucursalDistributions = pedidoItemSucursalService.findByPedidoItemId(pi.getId());
+                for (PedidoItemSucursal sucursalDist : sucursalDistributions) {
+                    if (sucursalDist.getCantidadPorUnidad() != null && sucursalDist.getCantidadPorUnidad() > 0) {
+                        // Create MovimientoStock for this sucursal
+                        MovimientoStock movimiento = new MovimientoStock();
+                        movimiento.setProducto(pi.getProducto());
+                        movimiento.setSucursalId(sucursalDist.getSucursalEntrega().getId());
+                        movimiento.setTipoMovimiento(TipoMovimiento.COMPRA);
+                        movimiento.setCantidad(sucursalDist.getCantidadPorUnidad());
+                        movimiento.setReferencia(sucursalDist.getId()); // Reference to pedido item sucursal ID
+                        movimiento.setUsuario(pedido.getUsuarioRecepcionMercaderia());
+                        movimiento.setCreadoEn(LocalDateTime.now());
+                        movimiento.setEstado(true); // Active movement
+                        
+                        // Generate unique ID for the movement
+                        movimiento.setId(System.currentTimeMillis() + sucursalDist.getId());
+
+                        movimientoStockService.save(movimiento);
+                    }
+                }
             }
         }
         
@@ -399,23 +492,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             productoProveedor.setCreadoEn(LocalDateTime.now());
             productoProveedorService.save(productoProveedor);
 
-            // Crear precio de costo
-            Double precioCosto = pi.getPrecioUnitarioRecepcionNota();
-            Double costoMedio = costosPorProductoService.calcularCostoMedio(
-                    pi.getProducto().getId(),
-                    pi.getCantidadRecepcionNota(),
-                    precioCosto);
-
-            CostoPorProducto costoPorProducto = new CostoPorProducto();
-            costoPorProducto.setProducto(pi.getProducto());
-            costoPorProducto.setUltimoPrecioCompra(precioCosto);
-            costoPorProducto.setCostoMedio(costoMedio);
-            costoPorProducto.setCreadoEn(LocalDateTime.now());
-            costoPorProducto.setMoneda(pi.getPedido().getMoneda());
-            costoPorProducto.setCotizacion(
-                    cambioService.findLastByMonedaId(costoPorProducto.getMoneda().getId()).getValorEnGs());
-            costoPorProducto.setUsuario(pedido.getUsuario());
-            costosPorProductoService.save(costoPorProducto);
+            // NOTE: CostoPorProducto creation removed from here to avoid duplicates
+            // Cost records will be created only when pedido reaches CONCLUIDO status
+            // with the final verified prices from recepcion producto step
         }
 
     }
@@ -777,20 +856,20 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                 break;
                 
             case CONCLUIDO:
-                // Complete all remaining steps when moving to concluded
+                // Complete recepcion mercaderia step when moving to concluded
                 if (previousEstado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
                     pedido.setFechaFinRecepcionMercaderia(now);
                     pedido.setProgresoRecepcionMercaderia(100); // Complete
                     
-                    pedido.setFechaFinSolicitudPago(now);
-                    pedido.setProgresoSolicitudPago(100); // Complete
+                    // DO NOT complete Solicitud Pago step automatically
+                    // This should be a separate step that user initiates
                 } else if (previousEstado == PedidoEstado.EN_RECEPCION_NOTA) {
-                    // Direct transition from recepcion nota to concluded
+                    // Direct transition from recepcion nota to concluded (skip mercaderia)
                     pedido.setFechaFinRecepcionNota(now);
                     pedido.setProgresoRecepcionNota(100); // Complete
                     
-                    pedido.setFechaFinSolicitudPago(now);
-                    pedido.setProgresoSolicitudPago(100); // Complete
+                    // DO NOT complete Solicitud Pago step automatically
+                    // This should be a separate step that user initiates
                 }
                 break;
         }

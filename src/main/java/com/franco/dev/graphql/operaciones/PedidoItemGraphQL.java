@@ -115,57 +115,57 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setMotivoRechazoRecepcionProducto(input.getMotivoRechazoRecepcionProducto());
             
             logger.info("Manual mapping completed successfully");
-            
-            // Map navigation properties - always fetch fresh managed entities from database
-            if (input.getUsuarioCreacionId() != null)
-                e.setUsuarioCreacion(usuarioService.findById(input.getUsuarioCreacionId()).orElse(null));
-            if (input.getUsuarioRecepcionNotaId() != null)
-                e.setUsuarioRecepcionNota(usuarioService.findById(input.getUsuarioRecepcionNotaId()).orElse(null));
-            if (input.getUsuarioRecepcionProductoId() != null)
-                e.setUsuarioRecepcionProducto(usuarioService.findById(input.getUsuarioRecepcionProductoId()).orElse(null));
-            if (input.getProductoId() != null) 
-                e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
-            if (input.getPedidoId() != null) 
-                e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
-            if (input.getPresentacionCreacionId() != null)
-                e.setPresentacionCreacion(presentacionService.findById(input.getPresentacionCreacionId()).orElse(null));
-            if (input.getPresentacionRecepcionNotaId() != null)
-                e.setPresentacionRecepcionNota(presentacionService.findById(input.getPresentacionRecepcionNotaId()).orElse(null));
-            if (input.getPresentacionRecepcionProductoId() != null)
-                e.setPresentacionRecepcionProducto(presentacionService.findById(input.getPresentacionRecepcionProductoId()).orElse(null));
+        
+        // Map navigation properties - always fetch fresh managed entities from database
+        if (input.getUsuarioCreacionId() != null)
+            e.setUsuarioCreacion(usuarioService.findById(input.getUsuarioCreacionId()).orElse(null));
+        if (input.getUsuarioRecepcionNotaId() != null)
+            e.setUsuarioRecepcionNota(usuarioService.findById(input.getUsuarioRecepcionNotaId()).orElse(null));
+        if (input.getUsuarioRecepcionProductoId() != null)
+            e.setUsuarioRecepcionProducto(usuarioService.findById(input.getUsuarioRecepcionProductoId()).orElse(null));
+        if (input.getProductoId() != null) 
+            e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
+        if (input.getPedidoId() != null) 
+            e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
+        if (input.getPresentacionCreacionId() != null)
+            e.setPresentacionCreacion(presentacionService.findById(input.getPresentacionCreacionId()).orElse(null));
+        if (input.getPresentacionRecepcionNotaId() != null)
+            e.setPresentacionRecepcionNota(presentacionService.findById(input.getPresentacionRecepcionNotaId()).orElse(null));
+        if (input.getPresentacionRecepcionProductoId() != null)
+            e.setPresentacionRecepcionProducto(presentacionService.findById(input.getPresentacionRecepcionProductoId()).orElse(null));
                 
             // Manually handle date field conversions 
             logger.info("Starting manual date conversions...");
             if (input.getCreadoEn() != null) {
                 logger.debug("Converting creadoEn: {}", input.getCreadoEn());
-                e.setCreadoEn(stringToDate(input.getCreadoEn()));
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
             }
             if (input.getVencimientoCreacion() != null) {
                 logger.debug("Converting vencimientoCreacion: {}", input.getVencimientoCreacion());
-                e.setVencimientoCreacion(stringToDate(input.getVencimientoCreacion()));
+            e.setVencimientoCreacion(stringToDate(input.getVencimientoCreacion()));
             }
             if (input.getVencimientoRecepcionNota() != null) {
                 logger.debug("Converting vencimientoRecepcionNota: {}", input.getVencimientoRecepcionNota());
-                e.setVencimientoRecepcionNota(stringToDate(input.getVencimientoRecepcionNota()));
+            e.setVencimientoRecepcionNota(stringToDate(input.getVencimientoRecepcionNota()));
             }
             if (input.getVencimientoRecepcionProducto() != null) {
                 logger.debug("Converting vencimientoRecepcionProducto: {}", input.getVencimientoRecepcionProducto());
-                e.setVencimientoRecepcionProducto(stringToDate(input.getVencimientoRecepcionProducto()));
+            e.setVencimientoRecepcionProducto(stringToDate(input.getVencimientoRecepcionProducto()));
             }
             logger.info("Manual date conversions completed");
             
-            if (input.getNotaRecepcionId() != null){ 
-                e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
-            } else {
-                e.setNotaRecepcion(null);
-            }
-            if (input.getAutorizadoPorRecepcionNotaId() != null)
-                e.setAutorizadoPorRecepcionNota(usuarioService.findById(input.getAutorizadoPorRecepcionNotaId()).orElse(null));
-            if (input.getAutorizadoPorRecepcionProductoId() != null)
-                e.setAutorizadoPorRecepcionProducto(usuarioService.findById(input.getAutorizadoPorRecepcionProductoId()).orElse(null));
+        if (input.getNotaRecepcionId() != null){ 
+            e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
+        } else {
+            e.setNotaRecepcion(null);
+        }
+        if (input.getAutorizadoPorRecepcionNotaId() != null)
+            e.setAutorizadoPorRecepcionNota(usuarioService.findById(input.getAutorizadoPorRecepcionNotaId()).orElse(null));
+        if (input.getAutorizadoPorRecepcionProductoId() != null)
+            e.setAutorizadoPorRecepcionProducto(usuarioService.findById(input.getAutorizadoPorRecepcionProductoId()).orElse(null));
 
             logger.info("=== Manual Mapping: PedidoItem mapping completed successfully ===");
-            return service.save(e);
+        return service.save(e);
             
         } catch (Exception ex) {
             logger.error("=== Manual Mapping: ERROR during mapping ===");
@@ -199,19 +199,19 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         
         // If nota recepcion ID is provided, filter by nota recepcion (existing behavior)
         if (id != null) {
-            if (texto != null) {
-                texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
-                if (verificado != null) {
-                    return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(id, texto, verificado, pageable);
-                } else {
-                    return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
-                }
+        if (texto != null) {
+            texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
+            if (verificado != null) {
+                return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(id, texto, verificado, pageable);
             } else {
-                if (verificado != null) {
-                    return service.getRepository().findByNotaRecepcionIdAndVerificadoRecepcionProducto(id, verificado, pageable);
-                } else {
-                    return service.findByNotaRecepcionId(id, pageable);
-                }
+                return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
+            }
+        } else {
+            if (verificado != null) {
+                return service.getRepository().findByNotaRecepcionIdAndVerificadoRecepcionProducto(id, verificado, pageable);
+            } else {
+                return service.findByNotaRecepcionId(id, pageable);
+            }
             }
         }
         // If no nota recepcion ID but pedidoId is provided, return all items from that pedido

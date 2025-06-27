@@ -6,6 +6,7 @@ type NotaRecepcionAgrupada {
     creadoEn: Date
     usuario: Usuario
     cantNotas: Int
+    valorTotal: Float
     estado: NotaRecepcionAgrupadaEstado
     solicitudPago: SolicitudPago
 }
@@ -38,9 +39,19 @@ extend type Query {
     notaRecepcionListPorUsuarioId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
     notaRecepcionAgrupadaPorId(id: ID!): NotaRecepcionAgrupada
     notaRecepcionListPorProveedorId(id: ID!, page: Int!, size: Int!): NotaRecepcionAgrupadaPage
+    getGruposDisponiblesParaSolicitudPago(proveedorId: ID!, page: Int = 0, size: Int = 20): NotaRecepcionAgrupadaPage
+    getGruposPorPedido(pedidoId: ID!, page: Int = 0, size: Int = 20): NotaRecepcionAgrupadaPage
     pedidoRecepcionProductoPorNotaRecepcionAgrupada( id: ID!, estado: PedidoRecepcionProductoEstado, page: Int = 0,size: Int = 10 ): PedidoRecepcionProductoPage
     pedidoRecepcionProductoPorNotaRecepcionAgrupadaAndProducto(notaRecepcionAgrupadaId: ID!, productoId: ID!, estado: PedidoRecepcionProductoEstado): PedidoRecepcionProductoDto
 
+}
+
+# Simplified result types for mutations - using NotaRecepcionAgrupada directly
+type GrupoOperacionResult {
+    grupo: NotaRecepcionAgrupada
+    notasAfectadas: [NotaRecepcion]
+    mensaje: String
+    success: Boolean
 }
 
 # Mutations
@@ -50,6 +61,9 @@ extend type Mutation {
     finalizarRecepcion(id: ID!): NotaRecepcionAgrupada
     reabrirRecepcion(id: ID!): NotaRecepcionAgrupada
     solicitarPagoNotaRecepcionAgrupada(id: ID!): SolicitudPago
+    crearGrupoYAsignarNotas(proveedorId: ID!, sucursalId: ID, notaRecepcionIds: [ID!]!, descripcion: String): GrupoOperacionResult
+    asignarNotasAGrupoExistente(grupoId: ID!, notaRecepcionIds: [ID!]!): GrupoOperacionResult
+    eliminarNotaRecepcionAgrupada(grupoId: ID!): GrupoOperacionResult
 }
 
 enum NotaRecepcionAgrupadaEstado {

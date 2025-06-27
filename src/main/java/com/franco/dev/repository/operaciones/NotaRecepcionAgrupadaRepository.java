@@ -22,6 +22,47 @@ public interface NotaRecepcionAgrupadaRepository extends HelperRepository<NotaRe
 
     public Page<NotaRecepcionAgrupada> findByProveedorId(Long id, Pageable page);
 
+    /**
+     * Find available grupos for solicitud pago with business logic filtering
+     * Only returns grupos that can receive new notas for payment request.
+     * 
+     * Database-level filtering applied:
+     * - Same proveedor.id
+     * - Estado = 'EN_RECEPCION' (only active grupos)
+     * - Ordered by creadoEn DESC (newest first)
+     * 
+     * Note: Related entities (proveedor, usuario, sucursal) are loaded lazily
+     * as JOIN FETCH causes issues with pagination count queries in Spring Data JPA.
+     * Payment status filtering is applied at service level since the 
+     * SolicitudPago relationship is resolved through service lookup.
+     * Removed cantNotas > 0 condition to allow empty grupos to receive notas.
+     */
+    @Query("SELECT g FROM NotaRecepcionAgrupada g " +
+           "WHERE g.proveedor.id = :proveedorId " +
+           "AND g.estado = 'EN_RECEPCION' " +
+           "ORDER BY g.creadoEn DESC")
+    Page<NotaRecepcionAgrupada> findGruposDisponiblesParaSolicitudPago(
+        @Param("proveedorId") Long proveedorId, 
+        Pageable pageable
+    );
+
+    /**
+     * Alternative method with eager loading for specific use cases
+     * Use this only when you need all related entities loaded and don't need pagination
+     */
+    @Query("SELECT g FROM NotaRecepcionAgrupada g " +
+           "LEFT JOIN FETCH g.proveedor p " +
+           "LEFT JOIN FETCH p.persona " +
+           "LEFT JOIN FETCH g.usuario u " +
+           "LEFT JOIN FETCH u.persona " +
+           "LEFT JOIN FETCH g.sucursal s " +
+           "WHERE g.proveedor.id = :proveedorId " +
+           "AND g.estado = 'EN_RECEPCION' " +
+           "ORDER BY g.creadoEn DESC")
+    List<NotaRecepcionAgrupada> findGruposDisponiblesParaSolicitudPagoWithEagerLoading(
+        @Param("proveedorId") Long proveedorId
+    );
+
 //    @Query(
 //            value = "SELECT new com.franco.dev.domain.operaciones.dto.PedidoRecepcionProductoDto(" +
 //                    "    prod, " +
@@ -101,5 +142,29 @@ public interface NotaRecepcionAgrupadaRepository extends HelperRepository<NotaRe
             @Param("productoId") Long productoId,
             @Param("estado") String estado);
 
+    /**
+     * Find all NotaRecepcionAgrupada for a specific pedido
+     * This is more efficient than loading all NotaRecepcion and filtering in Java
+     */
+    @Query("SELECT DISTINCT nra FROM NotaRecepcionAgrupada nra " +
+           "JOIN NotaRecepcion nr ON nr.notaRecepcionAgrupada = nra " +
+           "WHERE nr.pedido.id = :pedidoId")
+    List<NotaRecepcionAgrupada> findByPedidoId(@Param("pedidoId") Long pedidoId);
+
+    /**
+     * Find all NotaRecepcionAgrupada for a specific pedido with pagination
+     * Used for solicitud-pago step to show grupos created for this specific pedido
+     * Shows grupos regardless of SolicitudPago status - ordered by creation date (newest first)
+     */
+    @Query("SELECT DISTINCT nra FROM NotaRecepcionAgrupada nra " +
+           "JOIN NotaRecepcion nr ON nr.notaRecepcionAgrupada = nra " +
+           "WHERE nr.pedido.id = :pedidoId " +
+           "ORDER BY nra.creadoEn DESC")
+    Page<NotaRecepcionAgrupada> findGruposByPedidoIdPaginated(@Param("pedidoId") Long pedidoId, Pageable pageable);
+
+    /**
+     * Alternative method with eager loading for specific use cases
+     * Use this only when you need all related entities loaded and don't need pagination
+     */
 
 }

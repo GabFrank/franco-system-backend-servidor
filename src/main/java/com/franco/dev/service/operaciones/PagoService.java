@@ -28,8 +28,7 @@ public class PagoService extends CrudService<Pago, PagoRepository, Long> {
         return super.save(entity);
     }
     
-    public Pago findBySolicitudPagoId(Long solicitudPagoId) {
-        return repository.findBySolicitudPagoId(solicitudPagoId);
-    }
+    // Note: This method is removed because we now use many-to-many relationship
+    // Use PagoSolicitudPagoService to find relationships
 }
 

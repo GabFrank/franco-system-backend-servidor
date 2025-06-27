@@ -62,5 +62,9 @@ public class SolicitudPago implements Identifiable<Long> {
     
     @Column(name = "referencia_id")
     private Long referenciaId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pago_id", nullable = true)
+    private Pago pago;
 }
 

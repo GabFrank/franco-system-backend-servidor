@@ -15,6 +15,7 @@ input SolicitudPagoInput {
     estado: SolicitudPagoEstado
     tipo: TipoSolicitudPago
     referenciaId: ID
+    pagoId: Int
 }
 
 type SolicitudPagoPage {
@@ -46,6 +47,7 @@ extend type Query {
 
 extend type Mutation {
     saveSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
+    finalizarSolicitudPagoStep(pedidoId: ID!): [SolicitudPago]!
 }
 
 enum SolicitudPagoEstado {

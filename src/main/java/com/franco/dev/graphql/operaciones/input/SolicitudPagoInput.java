@@ -12,5 +12,6 @@ public class SolicitudPagoInput {
     private SolicitudPagoEstado estado;
     private TipoSolicitudPago tipo;
     private Long referenciaId;
+    private Long pagoId;
 }
 

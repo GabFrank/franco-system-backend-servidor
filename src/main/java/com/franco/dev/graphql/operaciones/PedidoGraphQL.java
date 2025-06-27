@@ -4,6 +4,9 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionAgrupadaEstado;
+import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
+import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.ProductoProveedor;
@@ -32,6 +35,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -119,6 +123,92 @@ class PedidoSummary {
     public PedidoEstado getEstado() { return estado; }
 }
 
+// DTO class for SolicitudPagoSummary
+class SolicitudPagoSummary {
+    private Integer totalNotas;
+    private Integer notasAgrupadas;
+    private Integer notasSinAgrupar;
+    private Integer totalGrupos;
+    private Double valorTotalNotas;
+    private Double valorTotalAgrupado;
+    private Boolean puedeProgresar;
+
+    public SolicitudPagoSummary(Integer totalNotas, Integer notasAgrupadas, Integer notasSinAgrupar, 
+                               Integer totalGrupos, Double valorTotalNotas, Double valorTotalAgrupado, 
+                               Boolean puedeProgresar) {
+        this.totalNotas = totalNotas;
+        this.notasAgrupadas = notasAgrupadas;
+        this.notasSinAgrupar = notasSinAgrupar;
+        this.totalGrupos = totalGrupos;
+        this.valorTotalNotas = valorTotalNotas;
+        this.valorTotalAgrupado = valorTotalAgrupado;
+        this.puedeProgresar = puedeProgresar;
+    }
+
+    // Getters
+    public Integer getTotalNotas() { return totalNotas; }
+    public Integer getNotasAgrupadas() { return notasAgrupadas; }
+    public Integer getNotasSinAgrupar() { return notasSinAgrupar; }
+    public Integer getTotalGrupos() { return totalGrupos; }
+    public Double getValorTotalNotas() { return valorTotalNotas; }
+    public Double getValorTotalAgrupado() { return valorTotalAgrupado; }
+    public Boolean getPuedeProgresar() { return puedeProgresar; }
+}
+
+// DTO class for GrupoConInfo (matches frontend expectations)
+class GrupoConInfo {
+    private NotaRecepcionAgrupada grupo;
+    private List<NotaRecepcion> notasAsignadas;
+    private Double valorTotal;
+    private Boolean puedeAgregarNotas;
+    private Boolean puedeEliminar;
+    private Boolean esGrupoExterno;
+
+    public GrupoConInfo(NotaRecepcionAgrupada grupo, List<NotaRecepcion> notasAsignadas, 
+                       Double valorTotal, Boolean puedeAgregarNotas, 
+                       Boolean puedeEliminar, Boolean esGrupoExterno) {
+        this.grupo = grupo;
+        this.notasAsignadas = notasAsignadas;
+        this.valorTotal = valorTotal;
+        this.puedeAgregarNotas = puedeAgregarNotas;
+        this.puedeEliminar = puedeEliminar;
+        this.esGrupoExterno = esGrupoExterno;
+    }
+
+    // Getters
+    public NotaRecepcionAgrupada getGrupo() { return grupo; }
+    public List<NotaRecepcion> getNotasAsignadas() { return notasAsignadas; }
+    public Double getValorTotal() { return valorTotal; }
+    public Boolean getPuedeAgregarNotas() { return puedeAgregarNotas; }
+    public Boolean getPuedeEliminar() { return puedeEliminar; }
+    public Boolean getEsGrupoExterno() { return esGrupoExterno; }
+}
+
+// DTO class for SolicitudPagoStepResult
+class SolicitudPagoStepResult {
+    private List<SolicitudPago> solicitudesCreadas;
+    private List<NotaRecepcionAgrupada> gruposFinalizados;
+    private Pedido pedidoActualizado;
+    private Boolean success;
+    private String mensaje;
+
+    public SolicitudPagoStepResult(List<SolicitudPago> solicitudesCreadas, List<NotaRecepcionAgrupada> gruposFinalizados, 
+                                 Pedido pedidoActualizado, Boolean success, String mensaje) {
+        this.solicitudesCreadas = solicitudesCreadas;
+        this.gruposFinalizados = gruposFinalizados;
+        this.pedidoActualizado = pedidoActualizado;
+        this.success = success;
+        this.mensaje = mensaje;
+    }
+
+    // Getters
+    public List<SolicitudPago> getSolicitudesCreadas() { return solicitudesCreadas; }
+    public List<NotaRecepcionAgrupada> getGruposFinalizados() { return gruposFinalizados; }
+    public Pedido getPedidoActualizado() { return pedidoActualizado; }
+    public Boolean getSuccess() { return success; }
+    public String getMensaje() { return mensaje; }
+}
+
 @Component
 public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -172,6 +262,12 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private PedidoItemSucursalService pedidoItemSucursalService;
+
+    @Autowired
+    private NotaRecepcionAgrupadaService notaRecepcionAgrupadaService;
+
+    @Autowired
+    private SolicitudPagoService solicitudPagoService;
 
     public Optional<Pedido> pedido(Long id) {
         return service.findById(id);
@@ -855,21 +951,22 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                 }
                 break;
                 
-            case CONCLUIDO:
-                // Complete recepcion mercaderia step when moving to concluded
+            case EN_SOLICITUD_PAGO:
+                // Complete recepcion mercaderia step when moving to solicitud pago
                 if (previousEstado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
                     pedido.setFechaFinRecepcionMercaderia(now);
                     pedido.setProgresoRecepcionMercaderia(100); // Complete
                     
-                    // DO NOT complete Solicitud Pago step automatically
-                    // This should be a separate step that user initiates
-                } else if (previousEstado == PedidoEstado.EN_RECEPCION_NOTA) {
-                    // Direct transition from recepcion nota to concluded (skip mercaderia)
-                    pedido.setFechaFinRecepcionNota(now);
-                    pedido.setProgresoRecepcionNota(100); // Complete
-                    
-                    // DO NOT complete Solicitud Pago step automatically
-                    // This should be a separate step that user initiates
+                    // Note: Do NOT set usuarioSolicitudPago or fechaInicioSolicitudPago yet
+                    // This will be set when user explicitly begins the step
+                }
+                break;
+                
+            case CONCLUIDO:
+                // Complete solicitud pago step when moving to concluded
+                if (previousEstado == PedidoEstado.EN_SOLICITUD_PAGO) {
+                    pedido.setFechaFinSolicitudPago(now);
+                    pedido.setProgresoSolicitudPago(100); // Complete
                 }
                 break;
         }
@@ -966,5 +1063,165 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         // Don't copy obs automatically - let user decide
     }
+
+    // ==================== SOLICITUD PAGO METHODS ====================
+
+    /**
+     * Get solicitud pago summary for a pedido
+     */
+    public SolicitudPagoSummary pedidoSolicitudPagoSummary(Long pedidoId) {
+        try {
+            Pedido pedido = service.findById(pedidoId).orElse(null);
+            if (pedido == null) {
+                return new SolicitudPagoSummary(0, 0, 0, 0, 0.0, 0.0, false);
+            }
+
+            // Get all nota recepcions for this pedido
+            List<NotaRecepcion> allNotas = notaRecepcionService.findByPedidoId(pedidoId);
+            
+            // Count notas by status
+            int totalNotas = allNotas.size();
+            int notasAgrupadas = 0;
+            int notasSinAgrupar = 0;
+            double valorTotalNotas = 0.0;
+            double valorTotalAgrupado = 0.0;
+
+            for (NotaRecepcion nota : allNotas) {
+                // Calculate nota value based on its items
+                double notaValue = calculateNotaValue(nota);
+                valorTotalNotas += notaValue;
+
+                if (nota.getNotaRecepcionAgrupada() != null) {
+                    notasAgrupadas++;
+                    valorTotalAgrupado += notaValue;
+                } else {
+                    notasSinAgrupar++;
+                }
+            }
+
+            // Count unique groups for this pedido's notas
+            Set<Long> grupoIds = allNotas.stream()
+                .filter(nota -> nota.getNotaRecepcionAgrupada() != null)
+                .map(nota -> nota.getNotaRecepcionAgrupada().getId())
+                .collect(Collectors.toSet());
+            int totalGrupos = grupoIds.size();
+
+            // Can progress if all notas are grouped
+            boolean puedeProgresar = notasSinAgrupar == 0 && totalNotas > 0;
+
+            return new SolicitudPagoSummary(
+                totalNotas,
+                notasAgrupadas,
+                notasSinAgrupar,
+                totalGrupos,
+                valorTotalNotas,
+                valorTotalAgrupado,
+                puedeProgresar
+            );
+
+        } catch (Exception e) {
+            System.err.println("Error calculating pedidoSolicitudPagoSummary for pedido " + pedidoId + ": " + e.getMessage());
+            return new SolicitudPagoSummary(0, 0, 0, 0, 0.0, 0.0, false);
+        }
+    }
+
+    /**
+     * Get nota recepcions that are not yet assigned to any group for a pedido
+     */
+    public List<NotaRecepcion> notaRecepcionesSinAgrupar(Long pedidoId) {
+        try {
+            return notaRecepcionService.findByPedidoId(pedidoId).stream()
+                .filter(nota -> nota.getNotaRecepcionAgrupada() == null)
+                .collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error getting notaRecepcionesSinAgrupar for pedido " + pedidoId + ": " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+
+
+    /**
+     * Get groups created for a specific pedido with their assigned notas
+     */
+    public List<GrupoConInfo> gruposCreadosParaPedido(Long pedidoId) {
+        try {
+            // Get all notas for this pedido
+            List<NotaRecepcion> notasPedido = notaRecepcionService.findByPedidoId(pedidoId);
+            
+            // Get unique groups from these notas
+            Set<NotaRecepcionAgrupada> grupos = notasPedido.stream()
+                .filter(nota -> nota.getNotaRecepcionAgrupada() != null)
+                .map(NotaRecepcion::getNotaRecepcionAgrupada)
+                .collect(Collectors.toSet());
+
+            return grupos.stream().map(grupo -> {
+                // Get notas assigned to this group from this pedido
+                List<NotaRecepcion> notasAsignadas = notasPedido.stream()
+                    .filter(nota -> nota.getNotaRecepcionAgrupada() != null && 
+                                   nota.getNotaRecepcionAgrupada().getId().equals(grupo.getId()))
+                    .collect(Collectors.toList());
+                
+                // Calculate total value
+                double valorTotal = notasAsignadas.stream()
+                    .mapToDouble(this::calculateNotaValue)
+                    .sum();
+                
+                // Check if grupo can accept more notas
+                boolean puedeAgregarNotas = grupo.getEstado() != NotaRecepcionAgrupadaEstado.CONCLUIDO;
+                
+                // Check if it's an external group (created outside this pedido)
+                boolean esGrupoExterno = false; // For now, assume all groups are created for this pedido
+                
+                // Check if can be deleted
+                boolean puedeEliminar = grupo.getEstado() != NotaRecepcionAgrupadaEstado.CONCLUIDO;
+
+                return new GrupoConInfo(
+                    grupo,
+                    notasAsignadas,
+                    valorTotal,
+                    puedeAgregarNotas,
+                    puedeEliminar,
+                    esGrupoExterno
+                );
+            }).collect(Collectors.toList());
+
+        } catch (Exception e) {
+            System.err.println("Error getting gruposCreadosParaPedido for pedido " + pedidoId + ": " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    
+
+    /**
+     * Calculate the total value of a NotaRecepcion based on its PedidoItems
+     */
+    private Double calculateNotaValue(NotaRecepcion nota) {
+        try {
+            List<PedidoItem> items = pedidoItemService.findByNotaRecepcionId(nota.getId());
+            return items.stream()
+                .filter(item -> item.getCancelado() == null || !item.getCancelado()) // Exclude cancelled items
+                .mapToDouble(item -> {
+                    // Use recepcion nota values if available, otherwise use creation values
+                    Double precio = item.getPrecioUnitarioRecepcionNota() != null ? 
+                        item.getPrecioUnitarioRecepcionNota() : item.getPrecioUnitarioCreacion();
+                    Double cantidadDouble = item.getCantidadRecepcionNota() != null ? 
+                        item.getCantidadRecepcionNota() : item.getCantidadCreacion();
+                    Double descuento = item.getDescuentoUnitarioRecepcionNota() != null ? 
+                        item.getDescuentoUnitarioRecepcionNota() : item.getDescuentoUnitarioCreacion();
+                    
+                    if (precio == null || cantidadDouble == null) return 0.0;
+                    if (descuento == null) descuento = 0.0;
+                    
+                    return (precio - descuento) * cantidadDouble;
+                })
+                .sum();
+        } catch (Exception e) {
+            System.err.println("Error calculating nota value for nota " + nota.getId() + ": " + e.getMessage());
+            return 0.0;
+        }
+    }
+
 
 }

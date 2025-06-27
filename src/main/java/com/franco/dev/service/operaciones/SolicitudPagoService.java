@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 import javax.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +52,15 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      */
     public SolicitudPago findByTipoAndReferenciaId(TipoSolicitudPago tipo, Long referenciaId) {
         return repository.findByTipoAndReferenciaId(tipo, referenciaId);
+    }
+    
+    /**
+     * Find all SolicitudPago by pago ID
+     * @param pagoId The ID of the pago
+     * @return List of SolicitudPago associated with the pago
+     */
+    public List<SolicitudPago> findByPagoId(Long pagoId) {
+        return repository.findByPagoId(pagoId);
     }
     
     /**

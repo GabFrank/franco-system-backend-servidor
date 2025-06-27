@@ -2,17 +2,17 @@ package com.franco.dev.domain.operaciones.enums;
 
 public enum PedidoEstado {
 
-    ABIERTO, //MIENTRAS EL PEDIDO SE ESTA HACIENDO
-    ACTIVO, //CUANDO EL PEDIDO SE CONCLUYO PERO TODAVIA NO LLEGO
-    MODIFICADO, //CUANDO EL PEDIDO SE MODIFICO PERO TODAVIA NO LLEGO
-    CANCELADO, //PEDIDO FUE CANCELADO ANTES DE LLEGAR
-    REPROGRAMADO, //CUANDO EL PEDIDO SE CONCLUYO PERO SE REPROGRAMO LA FECHA DE ENTREGA
-    EN_RECEPCION_NOTA,
-    EN_RECEPCION_MERCADERIA,
-    EN_VERIFICACION, //CUANDO EL PEDIDO YA LLEGO PERO SE ESTA VERIFICANDO
-    EN_VERIFICACION_SOLICITUD_AUTORIZACION, // CUANDO EL PEDIDO ESTA EN VERIFICACION Y SE SOLICITA AUTORIZACION
-    VERFICADO_SIN_MODIFICACION, //CUANDO EL PEDIDO YA LLEGO Y YA FUE VERIFICADO CON MODIFICACIONES PERO AUN NO SE PAGO
-    VERFICADO_CON_MODIFICACION, //CUANDO EL PEDIDO YA LLEGO Y YA FUE VERIFICADO SIN MODIFICACIONES PERO AUN NO SE PAGO
-    CONCLUIDO //CUANDO EL PEDIDO YA LLEGO, YA SE VERIFICO Y YA GENERO UNA COMPRA
+    // Creation phase - pedido is being created and items are being added
+    ABIERTO, // Initial state when pedido is first created (no items yet)
+    ACTIVO, // Creation phase with items added (ready to proceed to nota reception)
+
+    // Reception phases - sequential workflow steps
+    EN_RECEPCION_NOTA, // Step 2: Assigning items to nota recepcion entities
+    EN_RECEPCION_MERCADERIA, // Step 3: Verifying received merchandise
+    EN_SOLICITUD_PAGO, // Step 4: Creating payment request groups
+    
+    // Final states
+    CONCLUIDO, // All steps completed successfully
+    CANCELADO // Pedido was cancelled at any stage
 
 }

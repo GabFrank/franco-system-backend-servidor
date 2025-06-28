@@ -56,6 +56,7 @@ extend type Query {
     countNotaRecepcionPorPedidoId(id:ID!):Int
     findByProveedorAndNumero(id: ID!, numero: Int!):[NotaRecepcion]
     notaRecepcionPorNotaRecepcionAgrupadaId(id:ID!):[NotaRecepcion]
+    notaRecepcionPorNotaRecepcionAgrupadaIdPage(id:ID!, page: Int, size: Int):NotaRecepcionPage
 }
 
 extend type Mutation {

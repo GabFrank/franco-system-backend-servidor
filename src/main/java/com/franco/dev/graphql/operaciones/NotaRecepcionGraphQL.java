@@ -166,4 +166,9 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public List<NotaRecepcion> notaRecepcionPorNotaRecepcionAgrupadaId(Long id){
         return service.getRepository().findByNotaRecepcionAgrupadaId(id);
     }
+
+    public Page<NotaRecepcion> notaRecepcionPorNotaRecepcionAgrupadaIdPage(Long id, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByNotaRecepcionAgrupadaId(id, pageable);
+    }
 }

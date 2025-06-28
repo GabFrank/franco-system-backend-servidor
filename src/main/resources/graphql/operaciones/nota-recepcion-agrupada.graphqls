@@ -2,6 +2,7 @@
 type NotaRecepcionAgrupada {
     id: ID!
     proveedor: Proveedor
+    pedido: Pedido
     sucursal: Sucursal
     creadoEn: Date
     usuario: Usuario
@@ -15,6 +16,7 @@ type NotaRecepcionAgrupada {
 input NotaRecepcionAgrupadaInput {
     id: ID
     proveedorId: ID
+    pedidoId: ID
     sucursalId: ID
     usuarioId: ID
     creadoEn: String

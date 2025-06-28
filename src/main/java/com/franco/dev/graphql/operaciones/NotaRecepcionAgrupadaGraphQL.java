@@ -80,6 +80,9 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
     @Autowired
     private SolicitudPagoService solicitudPagoService;
 
+    @Autowired
+    private PedidoService pedidoService;
+
     public NotaRecepcionAgrupada notaRecepcionAgrupadaPorId(Long id) {
         return service.getRepository().findById(id).orElse(null);
     }
@@ -123,6 +126,8 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
     public NotaRecepcionAgrupada saveNotaRecepcionAgrupada(NotaRecepcionAgrupadaInput input) {
         ModelMapper m = new ModelMapper();
         NotaRecepcionAgrupada e = m.map(input, NotaRecepcionAgrupada.class);
+        if (input.getPedidoId() != null)
+            e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
         if (input.getProveedorId() != null)
             e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -238,8 +243,19 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
 
     public GrupoOperacionResult crearGrupoYAsignarNotas(Long proveedorId, Long sucursalId, List<Long> notaRecepcionIds, String descripcion) {
         try {
+            // Get the first nota to determine the pedido
+            if (notaRecepcionIds.isEmpty()) {
+                throw new RuntimeException("Debe proporcionar al menos una nota para crear el grupo");
+            }
+            
+            NotaRecepcion primeraNota = notaRecepcionService.findById(notaRecepcionIds.get(0)).orElse(null);
+            if (primeraNota == null || primeraNota.getPedido() == null) {
+                throw new RuntimeException("No se pudo determinar el pedido de las notas");
+            }
+            
             // Create new group
             NotaRecepcionAgrupada grupo = new NotaRecepcionAgrupada();
+            grupo.setPedido(primeraNota.getPedido()); // Set pedido relationship
             grupo.setProveedor(proveedorService.findById(proveedorId).orElse(null));
             // Set sucursal only if sucursalId is provided
             if (sucursalId != null) {

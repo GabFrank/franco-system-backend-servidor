@@ -144,21 +144,20 @@ public interface NotaRecepcionAgrupadaRepository extends HelperRepository<NotaRe
 
     /**
      * Find all NotaRecepcionAgrupada for a specific pedido
-     * This is more efficient than loading all NotaRecepcion and filtering in Java
+     * Now using direct pedido relationship for better performance
      */
-    @Query("SELECT DISTINCT nra FROM NotaRecepcionAgrupada nra " +
-           "JOIN NotaRecepcion nr ON nr.notaRecepcionAgrupada = nra " +
-           "WHERE nr.pedido.id = :pedidoId")
+    @Query("SELECT nra FROM NotaRecepcionAgrupada nra " +
+           "WHERE nra.pedido.id = :pedidoId")
     List<NotaRecepcionAgrupada> findByPedidoId(@Param("pedidoId") Long pedidoId);
 
     /**
      * Find all NotaRecepcionAgrupada for a specific pedido with pagination
      * Used for solicitud-pago step to show grupos created for this specific pedido
      * Shows grupos regardless of SolicitudPago status - ordered by creation date (newest first)
+     * Now using direct pedido relationship for better performance
      */
-    @Query("SELECT DISTINCT nra FROM NotaRecepcionAgrupada nra " +
-           "JOIN NotaRecepcion nr ON nr.notaRecepcionAgrupada = nra " +
-           "WHERE nr.pedido.id = :pedidoId " +
+    @Query("SELECT nra FROM NotaRecepcionAgrupada nra " +
+           "WHERE nra.pedido.id = :pedidoId " +
            "ORDER BY nra.creadoEn DESC")
     Page<NotaRecepcionAgrupada> findGruposByPedidoIdPaginated(@Param("pedidoId") Long pedidoId, Pageable pageable);
 

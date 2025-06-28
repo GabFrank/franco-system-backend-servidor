@@ -6,6 +6,7 @@ import lombok.Data;
 @Data
 public class NotaRecepcionAgrupadaInput {
     private Long id;
+    private Long pedidoId;
     private Long proveedorId;
     private Long sucursalId;
     private String creadoEn;

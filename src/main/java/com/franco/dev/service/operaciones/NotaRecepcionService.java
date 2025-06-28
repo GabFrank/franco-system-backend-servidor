@@ -39,6 +39,10 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         return repository.findByNotaRecepcionAgrupadaId(id);
     }
 
+    public Page<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id, Pageable page){
+        return repository.findByNotaRecepcionAgrupadaId(id, page);
+    }
+
     public Long countByNotaRecepcionAgrupadaId(Long id){
         return repository.countByNotaRecepcionAgrupadaId(id);
     }

@@ -79,8 +79,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return new ArrayList<>();
     }
 
-    public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza, Long subfamiliaId, Boolean vencimiento, Pageable page) {
-        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, page);
+    public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza, Long subfamiliaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId, Pageable page) {
+        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, costoCero, stockFiltro, sucursalId, page);
     }
 
     public Producto save(ProductoInput entity) throws GraphQLException {

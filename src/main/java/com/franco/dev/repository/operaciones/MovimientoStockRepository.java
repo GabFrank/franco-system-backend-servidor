@@ -26,6 +26,11 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2")
     public Float stockByProductoIdAndSucursalId(Long proId, Long sucId);
 
+    @Query("select SUM(p.cantidad) from MovimientoStock p " +
+            "left outer join p.producto as pro " +
+            "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2 and p.creadoEn < ?3")
+    public Float stockByProductoIdAndSucursalIdAntesDeFecha(Long proId, Long sucId, LocalDateTime fecha);
+
     @Query("select new com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto(COALESCE(SUM(p.cantidad), 0), MAX(p.id), count(p.id)) " +
             "from MovimientoStock p " +
             "left join p.producto pro " +

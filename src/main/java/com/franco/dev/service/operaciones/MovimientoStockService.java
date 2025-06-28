@@ -96,6 +96,11 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return Double.valueOf(stock != null ? stock : 0);
     }
 
+    public Double stockByProductoIdAndSucursalIdAntesDeFecha(Long proId, Long sucId, LocalDateTime fecha) {
+        Float stock = repository.stockByProductoIdAndSucursalIdAntesDeFecha(proId, sucId, fecha);
+        return Double.valueOf(stock != null ? stock : 0);
+    }
+
     public Page<MovimientoStock> findMovimientoStockWithFilters(LocalDateTime inicio,
                                                                 LocalDateTime fin,
                                                                 List<Long> sucursalList,

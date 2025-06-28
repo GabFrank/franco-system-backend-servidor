@@ -103,14 +103,33 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             @Param("usuarioIdList") List<Long> usuarioIdList,
             @Param("productoIdList") List<Long> productoIdList);
 
-    @Query("select p from Producto p " +
+    @Query("select distinct p from Producto p " +
             "join p.subfamilia sub " +
-            "where  (CAST(p.id as text) like %:texto% or UPPER(p.descripcion) like %:texto% or UPPER(p.descripcionFactura) like %:texto%) " +
+            "left join Presentacion pres on pres.producto.id = p.id " +
+            "left join Codigo cod on cod.presentacion.id = pres.id " +
+            "where  (CAST(p.id as string) like CONCAT('%', :texto, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') " + 
+            "or UPPER(p.descripcionFactura) like CONCAT('%', UPPER(:texto), '%')) " +
             "and ((:activo) is null or p.activo = :activo) " +
             "and ((:stock) is null or p.stock = :stock) " +
             "and ((:balanza) is null or p.balanza = :balanza) " +
             "and ((:vencimiento) is null or p.vencimiento = :vencimiento) " +
             "and ((:subfamiliaId) is null or sub.id = :subfamiliaId) " +
+            "and ((:costoCero) is null or " +
+            "     ((:costoCero) = true and (p.id IN (SELECT c1.producto.id FROM CostoPorProducto c1 " +
+            "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) " +
+            "FROM CostoPorProducto c2 WHERE c2.producto.id = c1.producto.id)) " + 
+            "OR p.id NOT IN (SELECT DISTINCT c4.producto.id FROM CostoPorProducto c4))) or " +
+            "     ((:costoCero) = false and p.id NOT IN (SELECT c1.producto.id FROM CostoPorProducto c1 " + 
+            "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) FROM CostoPorProducto c2 " + 
+            "WHERE c2.producto.id = c1.producto.id)) AND EXISTS (SELECT 1 FROM CostoPorProducto c3 " +
+            "WHERE c3.producto.id = p.id AND c3.costoMedio > 0))) " +
+            "and ((:stockFiltro) is null or :stockFiltro = 'todos' or " +
+            "     ((:stockFiltro) = 'positivo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms " + 
+            "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " + 
+            "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) > 0)) or " +
+            "     ((:stockFiltro) = 'negativo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms " +
+            "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
+            "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) < 0))) " +
             "order by p.id asc")
     public Page<Producto> searchWithFilters(
             @Param("texto") String texto,
@@ -119,6 +138,9 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             @Param("balanza") Boolean balanza,
             @Param("subfamiliaId") Long subfamiliaId,
             @Param("vencimiento") Boolean vencimiento,
+            @Param("costoCero") Boolean costoCero,
+            @Param("stockFiltro") String stockFiltro,
+            @Param("sucursalId") Long sucursalId,
             Pageable pageable
     );
 }

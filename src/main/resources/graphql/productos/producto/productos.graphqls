@@ -84,6 +84,7 @@ extend type Query {
     productoPorCodigo(texto:String):Producto
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String
+    exportarReporteConFiltros(texto: String, codigo: Boolean, activo: Boolean, stock: Boolean, balanza: Boolean, vencimiento: Boolean, costoCero: Boolean, subfamiliaId: ID, stockFiltro: String, sucursalId: ID, usuarioId: ID, usuario: String): String
     lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
     imprimirCodigoBarra(codigoId: Int): Boolean
     searchProductoWithFilters(texto: String, codigo: String, activo: Boolean, stock: Boolean, balanza: Boolean, subfamilia: Int, vencimiento: Boolean, costoCero: Boolean, stockFiltro: String, sucursalId: Int, page: Int, size: Int):ProductoPage

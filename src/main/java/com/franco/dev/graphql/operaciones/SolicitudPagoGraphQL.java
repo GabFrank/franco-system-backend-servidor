@@ -12,6 +12,7 @@ import com.franco.dev.service.operaciones.NotaRecepcionAgrupadaService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.impresion.ImpresionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -41,6 +42,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     
     @Autowired
     private NotaRecepcionAgrupadaService notaRecepcionAgrupadaService;
+    
+    @Autowired
+    private ImpresionService impresionService;
 
     public List<SolicitudPago> solicitudPagoPorUsuarioId(Long id){
         return service.getRepository().findByUsuarioId(id);
@@ -161,6 +165,63 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             System.err.println("Error in finalization for pedido " + pedidoId + ": " + e.getMessage());
             e.printStackTrace();
             throw new GraphQLException("Error al crear las solicitudes de pago: " + e.getMessage());
+        }
+    }
+
+    public String imprimirSolicitudPago(
+            Long solicitudPagoId,
+            String proveedorNombre,
+            String fechaDePago,
+            String formaPago,
+            Boolean nominal,
+            Boolean tipoImpresion,
+            String printerName) {
+        
+        try {
+            System.out.println("=== IMPRIMIR SOLICITUD PAGO ===");
+            System.out.println("SolicitudPago ID: " + solicitudPagoId);
+            System.out.println("Tipo impresion (PDF=true, Ticket=false): " + tipoImpresion);
+            
+            // Buscar la solicitud de pago
+            SolicitudPago solicitudPago = service.findById(solicitudPagoId).orElse(null);
+            if (solicitudPago == null) {
+                throw new GraphQLException("Solicitud de pago no encontrada: " + solicitudPagoId);
+            }
+            
+            // Buscar el grupo de notas relacionado
+            NotaRecepcionAgrupada grupo = notaRecepcionAgrupadaService.findById(solicitudPago.getReferenciaId()).orElse(null);
+            if (grupo == null) {
+                throw new GraphQLException("Grupo de notas no encontrado: " + solicitudPago.getReferenciaId());
+            }
+            
+            if (tipoImpresion != null && tipoImpresion) {
+                // Impresión PDF
+                return impresionService.imprimirSolicitudPagoPDF(
+                    solicitudPago, 
+                    grupo, 
+                    proveedorNombre, 
+                    fechaDePago, 
+                    formaPago, 
+                    nominal
+                );
+            } else {
+                // Impresión Ticket 58mm
+                impresionService.imprimirSolicitudPagoTicket(
+                    solicitudPago, 
+                    grupo, 
+                    proveedorNombre, 
+                    fechaDePago, 
+                    formaPago, 
+                    nominal,
+                    printerName
+                );
+                return "TICKET_PRINTED";
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error al imprimir solicitud de pago " + solicitudPagoId + ": " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al imprimir solicitud de pago: " + e.getMessage());
         }
     }
 }

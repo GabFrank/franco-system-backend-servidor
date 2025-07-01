@@ -48,6 +48,15 @@ extend type Query {
 extend type Mutation {
     saveSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
     finalizarSolicitudPagoStep(pedidoId: ID!): [SolicitudPago]!
+    imprimirSolicitudPago(
+        solicitudPagoId: ID!,
+        proveedorNombre: String!,
+        fechaDePago: String!,
+        formaPago: String!,
+        nominal: Boolean,
+        tipoImpresion: Boolean!,
+        printerName: String
+    ): String
 }
 
 enum SolicitudPagoEstado {

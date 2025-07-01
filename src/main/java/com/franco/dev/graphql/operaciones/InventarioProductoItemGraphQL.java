@@ -29,6 +29,7 @@ import org.springframework.util.ResourceUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -159,8 +160,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                     reporteInventarioDtoList.add(reporteInventarioDto);
                 }
 
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "reporte-inventario.jrxml");
-                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                InputStream jrxmlInputStream = this.getClass().getResourceAsStream("/reporte-inventario.jrxml");
+                JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlInputStream);
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(reporteInventarioDtoList);
                 Map<String, Object> parameters = new HashMap<>();
                 parameters.put("filtroFechaInicio", startDate);
@@ -183,9 +184,6 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
                 String base64String = Base64.getEncoder().encodeToString(pdfBytes);
                 return base64String;
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-                return null;
             } catch (JRException e) {
                 e.printStackTrace();
                 return null;

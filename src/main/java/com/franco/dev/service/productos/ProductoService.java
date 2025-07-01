@@ -28,6 +28,7 @@ import org.springframework.util.ResourceUtils;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.util.*;
@@ -136,9 +137,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         }
 
         try {
-            File file = ResourceUtils.getFile("classpath:productos.jrxml");
-            try {
-                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            InputStream jrxmlInputStream = this.getClass().getResourceAsStream("/productos.jrxml");
+            if (jrxmlInputStream != null) {
+                JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlInputStream);
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
                 Map<String, Object> parameters = new HashMap<>();
                 parameters.put("creadoPor", "Gabriel Franco");
@@ -152,11 +153,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-
-            } catch (JRException e) {
-                e.printStackTrace();
             }
-        } catch (IOException e) {
+        } catch (JRException e) {
             e.printStackTrace();
         }
 

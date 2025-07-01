@@ -30,6 +30,14 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "offset ?2", nativeQuery = true)
     public List<Producto> findbyAll(String texto, int offset);
 
+    @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
+            "from productos.producto p  " +
+            "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
+            "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
+            "where (CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcion_factura) like %?1% or c.codigo like %?1%) and p.activo = true " +
+            "ORDER BY p.descripcion asc", nativeQuery = true)
+    public List<Producto> findForReport(String texto);
+
     @Query(value = "select distinct on (p.id, p.descripcion) p.*   " +
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +

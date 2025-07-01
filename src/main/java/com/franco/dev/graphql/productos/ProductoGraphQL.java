@@ -174,6 +174,26 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.exportarReporte(texto);
     }
 
+    public String exportarReporteConFiltros(
+            String texto, 
+            Boolean codigo, 
+            Boolean activo, 
+            Boolean stock, 
+            Boolean balanza, 
+            Boolean vencimiento, 
+            Boolean costoCero, 
+            Long subfamiliaId, 
+            String stockFiltro, 
+            Long sucursalId, 
+            Long usuarioId, 
+            String usuario
+    ) throws FileNotFoundException {
+        return service.exportarReporteConFiltros(
+            texto, codigo, activo, stock, balanza, vencimiento, 
+            costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario
+        );
+    }
+
     public List<Producto> findByPdvGrupoProducto(Long id) {
         return service.findByGrupoProductoId(id);
     }

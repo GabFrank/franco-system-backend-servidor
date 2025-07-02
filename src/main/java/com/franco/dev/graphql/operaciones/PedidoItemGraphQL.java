@@ -14,6 +14,8 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.operaciones.NotaPedidoService;
+import com.franco.dev.service.operaciones.PedidoItemSucursalService;
+import com.franco.dev.domain.operaciones.PedidoItemSucursal;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -58,6 +60,9 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private NotaPedidoService notaPedidoService;
+
+    @Autowired
+    private PedidoItemSucursalService pedidoItemSucursalService;
 
     public Optional<PedidoItem> pedidoItem(Long id) {
         return service.findById(id);
@@ -165,7 +170,29 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setAutorizadoPorRecepcionProducto(usuarioService.findById(input.getAutorizadoPorRecepcionProductoId()).orElse(null));
 
             logger.info("=== Manual Mapping: PedidoItem mapping completed successfully ===");
-        return service.save(e);
+            
+            // **NEW: Check if verificadoRecepcionProducto changed and update PedidoItemSucursal accordingly**
+            boolean wasVerifiedBefore = false;
+            if (e.getId() != null) {
+                // This is an update, check previous verification status
+                PedidoItem existingItem = service.findById(e.getId()).orElse(null);
+                if (existingItem != null) {
+                    wasVerifiedBefore = existingItem.getVerificadoRecepcionProducto() != null && existingItem.getVerificadoRecepcionProducto();
+                }
+            }
+            
+            // Save the pedido item first
+            PedidoItem savedItem = service.save(e);
+            
+            // Update PedidoItemSucursal if verification status changed
+            boolean isVerifiedNow = savedItem.getVerificadoRecepcionProducto() != null && savedItem.getVerificadoRecepcionProducto();
+            if (wasVerifiedBefore != isVerifiedNow) {
+                logger.info("Verification status changed for PedidoItem ID: {}, from {} to {}", 
+                    savedItem.getId(), wasVerifiedBefore, isVerifiedNow);
+                updatePedidoItemSucursalCantidadRecibida(savedItem, isVerifiedNow);
+            }
+            
+            return savedItem;
             
         } catch (Exception ex) {
             logger.error("=== Manual Mapping: ERROR during mapping ===");
@@ -336,10 +363,18 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             pi.setVencimientoRecepcionProducto(pi.getVencimientoRecepcionNota());
             pi.setPrecioUnitarioRecepcionProducto(pi.getPrecioUnitarioRecepcionNota());
             pi.setVerificadoRecepcionProducto(true);
+            
+            // **NEW: Update PedidoItemSucursal cantidadPorUnidadRecibida when verifying**
+            updatePedidoItemSucursalCantidadRecibida(pi, true);
+            
             return service.save(pi);
         } else {
             // Clear all RecepcionProducto fields
             clearPedidoItemRecepcionProductoData(pi);
+            
+            // **NEW: Clear PedidoItemSucursal cantidadPorUnidadRecibida when unverifying**
+            updatePedidoItemSucursalCantidadRecibida(pi, false);
+            
             return service.save(pi);
         }
     }
@@ -375,5 +410,41 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         item.setMotivoModificacionRecepcionProducto(null);
         item.setVerificadoRecepcionProducto(false);
         item.setMotivoRechazoRecepcionProducto(null);
+    }
+
+    /**
+     * Update cantidadPorUnidadRecibida in all PedidoItemSucursal records related to this PedidoItem
+     * @param pedidoItem The PedidoItem being verified/unverified
+     * @param isVerifying true if verifying (set cantidadPorUnidadRecibida), false if unverifying (clear it)
+     */
+    private void updatePedidoItemSucursalCantidadRecibida(PedidoItem pedidoItem, boolean isVerifying) {
+        try {
+            // Get all PedidoItemSucursal records for this PedidoItem
+            List<PedidoItemSucursal> sucursalDistributions = pedidoItemSucursalService.findByPedidoItemId(pedidoItem.getId());
+            
+            if (sucursalDistributions != null && !sucursalDistributions.isEmpty()) {
+                for (PedidoItemSucursal sucursalDist : sucursalDistributions) {
+                    if (isVerifying) {
+                        // When verifying: set cantidadPorUnidadRecibida = cantidadPorUnidad
+                        // This indicates that the expected quantity was actually received in this sucursal
+                        sucursalDist.setCantidadPorUnidadRecibida(sucursalDist.getCantidadPorUnidad());
+                    } else {
+                        // When unverifying: clear cantidadPorUnidadRecibida (set to null or 0)
+                        sucursalDist.setCantidadPorUnidadRecibida(null);
+                    }
+                    
+                    // Save the updated PedidoItemSucursal
+                    pedidoItemSucursalService.save(sucursalDist);
+                }
+                
+                logger.info("Updated {} PedidoItemSucursal records for PedidoItem ID: {}, verified: {}", 
+                    sucursalDistributions.size(), pedidoItem.getId(), isVerifying);
+            }
+        } catch (Exception e) {
+            logger.error("Error updating PedidoItemSucursal cantidadPorUnidadRecibida for PedidoItem ID: {}", 
+                pedidoItem.getId(), e);
+            // Don't throw exception here to avoid breaking the main verification flow
+            // The PedidoItem verification should still succeed even if PedidoItemSucursal update fails
+        }
     }
 }

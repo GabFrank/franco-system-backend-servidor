@@ -72,12 +72,3 @@ public class TokenController {
         return ResponseEntity.ok(response);
     }
 }
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-class LoginResponse {
-    Long usuarioId;
-    String token;
-    Sucursal sucursal;
-}

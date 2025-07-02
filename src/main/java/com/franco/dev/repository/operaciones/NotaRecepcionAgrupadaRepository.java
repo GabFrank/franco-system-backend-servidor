@@ -98,7 +98,7 @@ public interface NotaRecepcionAgrupadaRepository extends HelperRepository<NotaRe
             "FROM NotaRecepcionAgrupada nra " +
             "JOIN NotaRecepcion nr WITH nr.notaRecepcionAgrupada = nra " +
             "JOIN PedidoItem pi WITH pi.notaRecepcion = nr " +
-            "JOIN PedidoItemSucursal pis WITH pis.pedidoItem = pi AND pis.sucursalEntrega = nra.sucursal " +
+            "JOIN PedidoItemSucursal pis WITH pis.pedidoItem = pi AND (nra.sucursal IS NULL OR pis.sucursalEntrega = nra.sucursal) " +
             "JOIN pi.presentacionRecepcionNota pre " +
             "JOIN pre.producto prod " +
             "WHERE nra.id = :notaRecepcionAgrupadaId " +
@@ -129,7 +129,7 @@ public interface NotaRecepcionAgrupadaRepository extends HelperRepository<NotaRe
             "LEFT JOIN NotaRecepcion nr ON nr.pedido = p " +
             "LEFT JOIN nr.notaRecepcionAgrupada nra " +
             "WHERE nra.id = :notaRecepcionAgrupadaId " +
-            "  AND prod.id = :productoId AND pis.sucursal = nra.sucursal " +
+            "  AND prod.id = :productoId AND (nra.sucursal IS NULL OR pis.sucursalEntrega = nra.sucursal) " +
             "GROUP BY prod " +
             "HAVING (:estado IS NULL OR " +
             "        (CASE " +

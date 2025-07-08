@@ -43,7 +43,7 @@ public class NotaRecepcionAgrupada implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_id", nullable = false)
+    @JoinColumn(name = "pedido_id", nullable = true)
     private Pedido pedido;
 
     @ManyToOne(fetch = FetchType.LAZY)

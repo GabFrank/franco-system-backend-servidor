@@ -47,6 +47,21 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         return repository.countByNotaRecepcionAgrupadaId(id);
     }
 
+    public List<NotaRecepcion> findByNumero(Integer numero){
+        return repository.findByNumeroAndPedidoEstadoNot(numero, com.franco.dev.domain.operaciones.enums.PedidoEstado.CONCLUIDO);
+    }
+
+    /**
+     * Find NotaRecepcion available for reception with complex filtering criteria
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided) 
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal
+     * @return List of available NotaRecepcion for reception
+     */
+    public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
+        return repository.findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
+    }
+
     @Override
     public NotaRecepcion save(NotaRecepcion entity) {
         NotaRecepcion e = super.save(entity);

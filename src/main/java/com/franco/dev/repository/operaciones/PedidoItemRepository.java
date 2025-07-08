@@ -34,13 +34,13 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
     public Integer countByNotaRecepcionIdAndVerificadoRecepcionProducto(Long id, Boolean verificado);
 
     public Page<PedidoItem> findByNotaRecepcionIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id,  String texto, Pageable page);
-    public Page<PedidoItem> findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(Long id,  String texto, Boolean verificado, Pageable page);
+    public Page<PedidoItem> findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByIdDesc(Long id,  String texto, Boolean verificado, Pageable page);
 
 
     public List<PedidoItem> findByNotaRecepcionId(Long id);
 
     public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNull(Long id, Pageable page);
-    public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNullAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);
+    public Page<PedidoItem> findByPedidoIdAndNotaRecepcionIdIsNullAndProductoDescripcionLikeOrderByIdDesc(Long id, String texto, Pageable page);
 
 
     public Long countByPedidoIdAndNotaRecepcionIdIsNull(Long id);
@@ -60,7 +60,7 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
 
     public List<PedidoItem> findByIdIn(List<Long> idList);
 
-    public Page<PedidoItem> findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(Long id, String texto, Pageable page);
+    public Page<PedidoItem> findByPedidoIdAndProductoDescripcionLikeOrderByIdDesc(Long id, String texto, Pageable page);
 
     public Integer countByPedidoIdAndVerificadoRecepcionProductoFalse(Long id);
     public Integer countByPedidoIdAndVerificadoRecepcionNotaFalse(Long id);

@@ -62,9 +62,39 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
 
     public List<NotaRecepcion> findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(Long id, Integer numero, PedidoEstado estado);
 
+    @Query(value = "SELECT nr FROM NotaRecepcion nr " +
+            "WHERE nr.numero = :numero " +
+            "AND nr.pedido.estado != :estado " +
+            "ORDER BY nr.id DESC")
+    public List<NotaRecepcion> findByNumeroAndPedidoEstadoNot(@Param("numero") Integer numero, @Param("estado") PedidoEstado estado);
+
     public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
 
     public Page<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id, Pageable page);
 
     public Long countByNotaRecepcionAgrupadaId(Long id);
+
+    /**
+     * Find NotaRecepcion available for reception with complex filtering criteria
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided)
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal
+     * @return List of available NotaRecepcion for reception
+     */
+    @Query("SELECT DISTINCT nr FROM NotaRecepcion nr " +
+           "LEFT JOIN nr.pedido p " +
+           "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
+           "LEFT JOIN PedidoItemSucursal pis ON pis.pedidoItem = pi " +
+           "WHERE " +
+           "(:numero IS NULL OR nr.numero = :numero) " +
+           "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +
+           "AND p.estado = 'EN_RECEPCION_MERCADERIA' " +
+           "AND nr.notaRecepcionAgrupada IS NULL " +
+           "AND (:sucursalId IS NULL OR pis.sucursalEntrega.id = :sucursalId) " +
+           "ORDER BY nr.id DESC")
+    List<NotaRecepcion> findNotasDisponiblesParaRecepcion(
+            @Param("numero") Integer numero,
+            @Param("proveedorId") Long proveedorId,
+            @Param("sucursalId") Long sucursalId
+    );
 }

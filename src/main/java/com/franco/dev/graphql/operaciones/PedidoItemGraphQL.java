@@ -229,7 +229,7 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         if (texto != null) {
             texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
             if (verificado != null) {
-                return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByProductoDescripcionDesc(id, texto, verificado, pageable);
+                return service.getRepository().findByNotaRecepcionIdAndProductoDescripcionLikeAndVerificadoRecepcionProductoOrderByIdDesc(id, texto, verificado, pageable);
             } else {
                 return service.findByNotaRecepcionIdAndDescripcion(id, texto, pageable);
             }
@@ -246,7 +246,7 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             if (texto != null) {
                 texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
                 // Use the available method from repository for pedido + texto filtering
-                return service.getRepository().findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(pedidoId, texto, pageable);
+                return service.getRepository().findByPedidoIdAndProductoDescripcionLikeOrderByIdDesc(pedidoId, texto, pageable);
             } else {
                 // Use service method for pedido filtering
                 return service.findByPedidoId(pedidoId, pageable);

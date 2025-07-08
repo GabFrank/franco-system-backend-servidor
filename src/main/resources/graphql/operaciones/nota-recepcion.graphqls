@@ -55,6 +55,8 @@ extend type Query {
     notaRecepcionPorPedidoIdAndNumero(id:ID!, numero: Int, page: Int, size: Int):NotaRecepcionPage
     countNotaRecepcionPorPedidoId(id:ID!):Int
     findByProveedorAndNumero(id: ID!, numero: Int!):[NotaRecepcion]
+    findByNumero(numero: Int!):[NotaRecepcion]
+    findNotasDisponiblesParaRecepcion(numero: Int, proveedorId: ID, sucursalId: ID):[NotaRecepcion]
     notaRecepcionPorNotaRecepcionAgrupadaId(id:ID!):[NotaRecepcion]
     notaRecepcionPorNotaRecepcionAgrupadaIdPage(id:ID!, page: Int, size: Int):NotaRecepcionPage
 }

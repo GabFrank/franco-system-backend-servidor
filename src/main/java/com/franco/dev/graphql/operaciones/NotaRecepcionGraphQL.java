@@ -163,6 +163,22 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.getRepository().findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(id, numero, PedidoEstado.CONCLUIDO);
     }
 
+    public List<NotaRecepcion> findByNumero(Integer numero) {
+        return service.findByNumero(numero);
+    }
+
+    /**
+     * Find NotaRecepcion available for reception with complex filtering criteria
+     * Used specifically for the reception process with business logic filtering
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided)
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal 
+     * @return List of available NotaRecepcion for reception
+     */
+    public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
+        return service.findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
+    }
+
     public List<NotaRecepcion> notaRecepcionPorNotaRecepcionAgrupadaId(Long id){
         return service.getRepository().findByNotaRecepcionAgrupadaId(id);
     }

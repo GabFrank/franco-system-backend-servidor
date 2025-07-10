@@ -41,19 +41,39 @@ public class PedidoItemSucursal implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_item_id", nullable = true)
+    @JoinColumn(name = "pedido_item_id", nullable = false)
     private PedidoItem pedidoItem;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sucursal_id", nullable = true)
+    @JoinColumn(name = "sucursal_id", nullable = false)
     private Sucursal sucursal;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_entrega_id", nullable = true)
     private Sucursal sucursalEntrega;
 
+    // 📦 Pedido inicial
     private Double cantidadPorUnidad;
+
+    // ✅ Recepción efectiva
     private Double cantidadPorUnidadRecibida;
+    private Double cantidadPorUnidadRechazada;
+
+    // 🛑 Rechazo y modificación
+    private Boolean rechazado = false;
+    private String motivoRechazo; // ej: "VENCIDO", "FALTANTE", "AVERÍADO"
+    private Boolean modificado = false;
+    private String motivoModificacion; // ej: "PRESENTACION INCORRECTA", "CANTIDAD INCONSISTENTE"
+
+    // 👤 Usuario y trazabilidad
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_recepcion_id", nullable = true)
+    private Usuario usuarioRecepcion;
+
+    private LocalDateTime fechaRecepcion;
+
+    private Boolean verificado = false;
+    private String observacion;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

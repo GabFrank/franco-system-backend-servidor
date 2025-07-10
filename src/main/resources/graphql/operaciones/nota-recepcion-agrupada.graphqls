@@ -66,6 +66,7 @@ extend type Mutation {
     crearGrupoYAsignarNotas(proveedorId: ID!, sucursalId: ID, notaRecepcionIds: [ID!]!, descripcion: String): GrupoOperacionResult
     asignarNotasAGrupoExistente(grupoId: ID!, notaRecepcionIds: [ID!]!): GrupoOperacionResult
     eliminarNotaRecepcionAgrupada(grupoId: ID!): GrupoOperacionResult
+    rechazarProductoNotaRecepcionAgrupada(notaRecepcionAgrupadaId: ID!, productoId: ID!, sucursalId: ID!, motivoRechazo: String!, usuarioId: ID!): Boolean
 }
 
 enum NotaRecepcionAgrupadaEstado {

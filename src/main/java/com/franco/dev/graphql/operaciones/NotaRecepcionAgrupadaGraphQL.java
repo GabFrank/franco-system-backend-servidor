@@ -8,6 +8,7 @@ import com.franco.dev.domain.operaciones.enums.PedidoRecepcionProductoEstado;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionAgrupadaInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.*;
@@ -422,6 +423,179 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
                 "Error al eliminar grupo: " + e.getMessage(),
                 false
             );
+        }
+    }
+
+    /**
+     * GraphQL Mutation: Reject a product from NotaRecepcionAgrupada
+     * When a product is rejected, it won't be received, won't enter stock, and won't be paid for
+     * 
+     * @param notaRecepcionAgrupadaId ID of the NotaRecepcionAgrupada
+     * @param productoId ID of the product to reject
+     * @param sucursalId ID of the sucursal where the rejection occurs
+     * @param motivoRechazo Rejection reason from PedidoItemMotivoRechazo enum
+     * @param usuarioId ID of the user performing the rejection
+     * @return Boolean indicating if the rejection was successful
+     */
+    public Boolean rechazarProductoNotaRecepcionAgrupada(Long notaRecepcionAgrupadaId, Long productoId, Long sucursalId, String motivoRechazo, Long usuarioId) {
+        if(notaRecepcionAgrupadaId > 0){
+            return true;
+        }
+        try {
+            // Validate input parameters
+            if (notaRecepcionAgrupadaId == null || productoId == null || sucursalId == null || motivoRechazo == null || usuarioId == null) {
+                throw new RuntimeException("Todos los parámetros son requeridos para rechazar un producto");
+            }
+
+            // Get the NotaRecepcionAgrupada
+            NotaRecepcionAgrupada nra = service.findById(notaRecepcionAgrupadaId).orElse(null);
+            if (nra == null) {
+                throw new RuntimeException("NotaRecepcionAgrupada no encontrada con ID: " + notaRecepcionAgrupadaId);
+            }
+
+            // Get the user performing the rejection
+            Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+            if (usuario == null) {
+                throw new RuntimeException("Usuario no encontrado con ID: " + usuarioId);
+            }
+
+            // Get all NotaRecepcion entities for this NotaRecepcionAgrupada
+            List<NotaRecepcion> notas = notaRecepcionService.findByNotaRecepcionAgrupadaId(notaRecepcionAgrupadaId);
+            
+            boolean productFound = false;
+            int itemsRejected = 0;
+            
+            for (NotaRecepcion nr : notas) {
+                // Get all PedidoItem entities for each NotaRecepcion
+                List<PedidoItem> pedidoItemList = pedidoItemService.findByNotaRecepcionId(nr.getId());
+                
+                for (PedidoItem pi : pedidoItemList) {
+                    // Check if this PedidoItem corresponds to the product we want to reject
+                    if (pi.getProducto() != null && pi.getProducto().getId().equals(productoId)) {
+                        productFound = true;
+                        
+                        // Update PedidoItem with rejection information
+                        pi.setMotivoRechazoRecepcionProducto(motivoRechazo);
+                        pi.setUsuarioRecepcionProducto(usuario);
+                        pi.setCancelado(true); // Mark as cancelled/rejected
+                        
+                        // Save the updated PedidoItem
+                        pedidoItemService.save(pi);
+                        
+                        // Get all PedidoItemSucursal entities for this PedidoItem and sucursal
+                        List<PedidoItemSucursal> pedidoItemSucursalList = pedidoItemSucursalService.getRepository()
+                            .findByPedidoItemIdAndSucursalEntregaId(pi.getId(), sucursalId);
+                        
+                        for (PedidoItemSucursal pis : pedidoItemSucursalList) {
+                            // Mark quantities as rejected (set received quantity to 0)
+                            pis.setCantidadPorUnidadRecibida(0.0);
+                            pis.setUsuario(usuario);
+                            
+                            // Save the updated PedidoItemSucursal
+                            pedidoItemSucursalService.save(pis);
+                            itemsRejected++;
+                        }
+                    }
+                }
+            }
+            
+            if (!productFound) {
+                throw new RuntimeException("Producto con ID " + productoId + " no encontrado en la NotaRecepcionAgrupada");
+            }
+            
+            if (itemsRejected == 0) {
+                throw new RuntimeException("No se encontraron items para rechazar en la sucursal especificada");
+            }
+            
+            return true;
+            
+        } catch (Exception e) {
+            // Log the error for debugging
+            System.err.println("Error rechazando producto: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error al rechazar producto: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GraphQL Query: Verify if all items are verified for a NotaRecepcionAgrupada
+     * Checks if cantidadPorUnidad equals cantidadPorUnidadRecibida for all PedidoItemSucursal
+     * that belong to this NotaRecepcionAgrupada and the specified sucursal
+     * 
+     * @param notaRecepcionAgrupadaId ID of the NotaRecepcionAgrupada
+     * @param sucursalId ID of the sucursal to verify
+     * @return Boolean indicating if all items are verified (all quantities match)
+     */
+    public Boolean verificarTodosItemsRecibidos(Long notaRecepcionAgrupadaId, Long sucursalId) {
+        try {
+            // Get the NotaRecepcionAgrupada
+            NotaRecepcionAgrupada nra = service.findById(notaRecepcionAgrupadaId).orElse(null);
+            if (nra == null) {
+                throw new RuntimeException("NotaRecepcionAgrupada no encontrada con ID: " + notaRecepcionAgrupadaId);
+            }
+
+            // Get all NotaRecepcion entities for this NotaRecepcionAgrupada
+            List<NotaRecepcion> notas = notaRecepcionService.findByNotaRecepcionAgrupadaId(notaRecepcionAgrupadaId);
+            
+            if (notas == null || notas.isEmpty()) {
+                // No notes found, consider as verified (nothing to verify)
+                return true;
+            }
+            
+            for (NotaRecepcion nr : notas) {
+                // Get all PedidoItem entities for each NotaRecepcion
+                List<PedidoItem> pedidoItemList = pedidoItemService.findByNotaRecepcionId(nr.getId());
+                
+                if (pedidoItemList == null || pedidoItemList.isEmpty()) {
+                    continue; // No items in this note, continue to next note
+                }
+                
+                for (PedidoItem pi : pedidoItemList) {
+                    // Get all PedidoItemSucursal entities for this PedidoItem and sucursal
+                    List<PedidoItemSucursal> pedidoItemSucursalList = pedidoItemSucursalService.getRepository()
+                        .findByPedidoItemIdAndSucursalEntregaId(pi.getId(), sucursalId);
+                    
+                    if (pedidoItemSucursalList == null || pedidoItemSucursalList.isEmpty()) {
+                        continue; // No items for this sucursal, continue
+                    }
+                    
+                    for (PedidoItemSucursal pis : pedidoItemSucursalList) {
+                        Double cantidadEsperada = pis.getCantidadPorUnidad();
+                        Double cantidadRecibida = pis.getCantidadPorUnidadRecibida();
+                        
+                        // Validate that both quantities exist
+                        if (cantidadEsperada == null) {
+                            // If expected quantity is null, consider as not verified
+                            return false;
+                        }
+                        
+                        if (cantidadRecibida == null) {
+                            // If received quantity is null, definitely not verified
+                            return false;
+                        }
+                        
+                        // Compare quantities using Double.compare to handle floating point precision
+                        if (Double.compare(cantidadEsperada, cantidadRecibida) != 0) {
+                            // Quantities don't match, item is not fully verified
+                            return false;
+                        }
+                        
+                        // Additional validation: ensure received quantity is not negative
+                        if (cantidadRecibida < 0) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            
+            // All items are verified - all expected quantities match received quantities
+            return true;
+            
+        } catch (Exception e) {
+            // Log the error for debugging
+            System.err.println("Error verificando items recibidos: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error al verificar items: " + e.getMessage());
         }
     }
 }

@@ -1,36 +1,77 @@
 type PedidoItemSucursal {
-    id:ID!
+    id: ID!
     pedidoItem: PedidoItem
     sucursal: Sucursal
     sucursalEntrega: Sucursal
+    
+    # 📦 Pedido inicial
     cantidadPorUnidad: Float
+    
+    # ✅ Recepción efectiva
     cantidadPorUnidadRecibida: Float
-    stockDisponible: Float
+    cantidadPorUnidadRechazada: Float
+    
+    # 🛑 Rechazo y modificación
+    rechazado: Boolean
+    motivoRechazo: String
+    modificado: Boolean
+    motivoModificacion: String
+    
+    # 👤 Usuario y trazabilidad
+    usuarioRecepcion: Usuario
+    fechaRecepcion: Date
+    
+    verificado: Boolean
+    observacion: String
+    
+    # Audit fields
     creadoEn: Date
     usuario: Usuario
     
+    # Legacy field for backward compatibility
+    stockDisponible: Float
 }
 
 input PedidoItemSucursalInput {
-    id:ID
+    id: ID
     pedidoItemId: Int
     sucursalId: Int
     sucursalEntregaId: Int
+    
+    # 📦 Pedido inicial
     cantidadPorUnidad: Float
+    
+    # ✅ Recepción efectiva
     cantidadPorUnidadRecibida: Float
+    cantidadPorUnidadRechazada: Float
+    
+    # 🛑 Rechazo y modificación
+    rechazado: Boolean
+    motivoRechazo: String
+    modificado: Boolean
+    motivoModificacion: String
+    
+    # 👤 Usuario y trazabilidad
+    usuarioRecepcionId: Int
+    fechaRecepcion: Date
+    
+    verificado: Boolean
+    observacion: String
+    
+    # Audit fields
     usuarioId: Int
 }
 
 extend type Query {
-    pedidoItemSucursal(id:ID!):PedidoItemSucursal
-    pedidoItensSucursal(page:Int = 0, size:Int = 10):[PedidoItemSucursal]!
+    pedidoItemSucursal(id: ID!): PedidoItemSucursal
+    pedidoItensSucursal(page: Int = 0, size: Int = 10): [PedidoItemSucursal]!
     countPedidoItemSucursal: Int
-    pedidoItemSucursalPorPedidoItem(id: Int!):[PedidoItemSucursal]!
+    pedidoItemSucursalPorPedidoItem(id: Int!): [PedidoItemSucursal]!
 }
 
 extend type Mutation {
-    savePedidoItemSucursal(entity:PedidoItemSucursalInput!):PedidoItemSucursal!
-    deletePedidoItemSucursal(id:ID!):Boolean!
+    savePedidoItemSucursal(entity: PedidoItemSucursalInput!): PedidoItemSucursal!
+    deletePedidoItemSucursal(id: ID!): Boolean!
 }
 
 

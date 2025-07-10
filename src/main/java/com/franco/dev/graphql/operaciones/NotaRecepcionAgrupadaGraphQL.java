@@ -160,6 +160,9 @@ public class NotaRecepcionAgrupadaGraphQL implements GraphQLQueryResolver, Graph
                                 pis.setCantidadPorUnidadRecibida(cantFaltante);
                                 cantidad = cantidad - cantFaltante;
                             }
+                            if(pis.getCantidadPorUnidad().equals(pis.getCantidadPorUnidadRecibida())){
+                                pis.setVerificado(true);
+                            }
                             pedidoItemSucursalService.save(pis);
                         }
                     }

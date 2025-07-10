@@ -1,7 +1,7 @@
 type NotaRecepcion {
     id:ID!,
     pedido: Pedido,
-    notaRecepcionAgrupada: NotaRecepcionAgrupada
+    notaRecepcionAgrupada: [NotaRecepcionAgrupada]
     compra: Compra,
     documento: Documento,
     valor: Float,

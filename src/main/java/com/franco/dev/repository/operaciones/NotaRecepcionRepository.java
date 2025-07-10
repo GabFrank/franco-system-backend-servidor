@@ -76,6 +76,9 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
 
     /**
      * Find NotaRecepcion available for reception with complex filtering criteria
+     * A NotaRecepcion is available for reception in a sucursal if:
+     * 1. It has no NotaRecepcionAgrupada assigned (never received), OR
+     * 2. It has a NotaRecepcionAgrupada but not for the requested sucursal
      * @param numero Optional nota number (can be null if proveedor is provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided)
      * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal
@@ -85,12 +88,15 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
            "LEFT JOIN nr.pedido p " +
            "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
            "LEFT JOIN PedidoItemSucursal pis ON pis.pedidoItem = pi " +
+           "LEFT JOIN nr.notaRecepcionAgrupada nra " +
            "WHERE " +
            "(:numero IS NULL OR nr.numero = :numero) " +
            "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +
-           "AND p.estado = 'EN_RECEPCION_MERCADERIA' " +
-           "AND nr.notaRecepcionAgrupada IS NULL " +
            "AND (:sucursalId IS NULL OR pis.sucursalEntrega.id = :sucursalId) " +
+           "AND (nr.notaRecepcionAgrupada IS NULL OR " +
+           "     (nr.notaRecepcionAgrupada IS NOT NULL AND " +
+           "      :sucursalId IS NOT NULL AND " +
+           "      nra.sucursal.id != :sucursalId)) " +
            "ORDER BY nr.id DESC")
     List<NotaRecepcion> findNotasDisponiblesParaRecepcion(
             @Param("numero") Integer numero,

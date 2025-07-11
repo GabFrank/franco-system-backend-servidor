@@ -18,11 +18,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 import java.util.List;
 import java.util.Optional;
 
-import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -90,11 +90,6 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             // Map only the fields that exist in the refactored PedidoItem
             e.setId(input.getId());
             e.setObservacion(input.getObservacion());
-            e.setEstado(input.getEstado());
-            
-            // Core fields that are still available
-            e.setPrecioUnitarioSolicitado(input.getPrecioUnitarioCreacion());
-            e.setCantidadSolicitada(input.getCantidadCreacion());
             
             // Map navigation properties
             if (input.getUsuarioCreacionId() != null)

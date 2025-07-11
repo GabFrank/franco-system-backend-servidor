@@ -68,6 +68,9 @@ public class PedidoItem implements Identifiable<Long> {
     @Column(name = "observacion")
     private String observacion;
 
+    @Column(name = "es_bonificacion")
+    private Boolean esBonificacion = false;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")
     @Type(type = "pedido_item_estado")

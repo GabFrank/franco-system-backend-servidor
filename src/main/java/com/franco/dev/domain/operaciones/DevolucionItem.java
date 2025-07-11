@@ -46,4 +46,7 @@ public class DevolucionItem implements Identifiable<Long> {
 
     @Column(name = "lote")
     private String lote;
+
+    @Column(name = "motivo")
+    private String motivo;
 } 

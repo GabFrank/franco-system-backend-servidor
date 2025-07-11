@@ -35,4 +35,7 @@ public class SolicitudPagoRecepcion implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recepcion_mercaderia_id", nullable = false)
     private RecepcionMercaderia recepcionMercaderia;
+
+    @Column(name = "monto_asignado")
+    private Double montoAsignado;
 } 

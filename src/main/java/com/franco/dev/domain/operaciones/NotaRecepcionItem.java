@@ -1,12 +1,16 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
 import java.time.LocalDate;
@@ -16,6 +20,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@TypeDef(
+        name = "nota_recepcion_item_estado",
+        typeClass = PostgreSQLEnumType.class
+)
 @Table(name = "nota_recepcion_item", schema = "operaciones")
 public class NotaRecepcionItem implements Identifiable<Long> {
 
@@ -58,6 +66,14 @@ public class NotaRecepcionItem implements Identifiable<Long> {
 
     @Column(name = "observacion")
     private String observacion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado")
+    @Type(type = "nota_recepcion_item_estado")
+    private NotaRecepcionItemEstado estado;
+
+    @Column(name = "motivo_rechazo")
+    private String motivoRechazo;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

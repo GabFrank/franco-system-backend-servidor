@@ -8,7 +8,7 @@ type RecepcionMercaderiaItem {
     vencimientoRecibido: Date
     lote: String
     esBonificacion: Boolean
-    observacion: String
+    observaciones: String
 }
 
 input RecepcionMercaderiaItemInput {

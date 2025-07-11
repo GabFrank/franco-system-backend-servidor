@@ -69,6 +69,6 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     @Column(name = "motivo_rechazo")
     private String motivoRechazo;
 
-    @Column(name = "observacion")
-    private String observacion;
+    @Column(name = "observaciones")
+    private String observaciones;
 } 

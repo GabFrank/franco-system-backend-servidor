@@ -1,0 +1,27 @@
+type RecepcionCostoAdicional {
+    id: ID
+    recepcionMercaderia: RecepcionMercaderia
+    descripcion: String
+    monto: Float
+    moneda: Moneda
+}
+
+input RecepcionCostoAdicionalInput {
+    id: ID
+    recepcionMercaderiaId: Int
+    descripcion: String
+    monto: Float
+    monedaId: Int
+    creadoEn: String
+}
+
+extend type Query {
+    recepcionCostoAdicional(id: ID!): RecepcionCostoAdicional
+    recepcionCostoAdicionalPorRecepcion(recepcionId: ID!): [RecepcionCostoAdicional]
+    countRecepcionCostoAdicional: Int
+}
+
+extend type Mutation {
+    saveRecepcionCostoAdicional(entity: RecepcionCostoAdicionalInput!): RecepcionCostoAdicional!
+    deleteRecepcionCostoAdicional(id: ID!): Boolean!
+} 

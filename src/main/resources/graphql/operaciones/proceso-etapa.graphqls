@@ -1,0 +1,50 @@
+type ProcesoEtapa {
+    id: ID
+    pedido: Pedido
+    tipoEtapa: ProcesoEtapaTipo
+    estadoEtapa: ProcesoEtapaEstado
+    fechaInicio: Date
+    fechaFin: Date
+    usuarioInicio: Usuario
+    creadoEn: Date
+}
+
+input ProcesoEtapaInput {
+    id: ID
+    pedidoId: Int
+    tipoEtapa: ProcesoEtapaTipo
+    estadoEtapa: ProcesoEtapaEstado
+    fechaInicio: String
+    fechaFin: String
+    usuarioInicioId: Int
+    creadoEn: String
+}
+
+extend type Query {
+    procesoEtapasByPedidoId(pedidoId: ID!): [ProcesoEtapa]
+    procesoEtapaByPedidoAndTipo(pedidoId: ID!, tipo: ProcesoEtapaTipo!): ProcesoEtapa
+    etapaActualPorPedido(pedidoId: ID!): ProcesoEtapaTipo
+    isEtapaCompletada(pedidoId: ID!, tipo: ProcesoEtapaTipo!): Boolean
+}
+
+extend type Mutation {
+    saveProcesoEtapa(entity: ProcesoEtapaInput!): ProcesoEtapa!
+    iniciarEtapa(pedidoId: ID!, tipo: ProcesoEtapaTipo!, usuarioId: ID!): ProcesoEtapa!
+    finalizarEtapa(pedidoId: ID!, tipo: ProcesoEtapaTipo!): ProcesoEtapa!
+    omitirEtapa(pedidoId: ID!, tipo: ProcesoEtapaTipo!): ProcesoEtapa!
+}
+
+enum ProcesoEtapaTipo {
+    CREACION
+    RECEPCION_NOTA
+    RECEPCION_MERCADERIA
+    SOLICITUD_PAGO
+    PAGO
+}
+
+enum ProcesoEtapaEstado {
+    PENDIENTE,
+    EN_PROCESO,
+    FINALIZADA,
+    OMITIDA
+} 

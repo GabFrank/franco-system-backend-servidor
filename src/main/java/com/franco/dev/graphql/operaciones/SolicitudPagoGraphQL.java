@@ -1,18 +1,17 @@
 package com.franco.dev.graphql.operaciones;
 
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
-import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.domain.operaciones.SolicitudPago;
-import com.franco.dev.domain.operaciones.enums.NotaRecepcionAgrupadaEstado;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
-import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.graphql.operaciones.input.SolicitudPagoInput;
-import com.franco.dev.service.operaciones.NotaRecepcionAgrupadaService;
-import com.franco.dev.service.operaciones.PedidoService;
+import com.franco.dev.graphql.operaciones.input.SolicitudPagoMultipleRecepcionesInput;
+import com.franco.dev.service.financiero.FormaPagoService;
+import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.operaciones.PagoService;
+import com.franco.dev.service.operaciones.RecepcionMercaderiaService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
+import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.impresion.ImpresionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -24,8 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -38,38 +35,36 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private UsuarioService usuarioService;
     
     @Autowired
-    private PedidoService pedidoService;
+    private ProveedorService proveedorService;
     
     @Autowired
-    private NotaRecepcionAgrupadaService notaRecepcionAgrupadaService;
+    private MonedaService monedaService;
     
     @Autowired
-    private ImpresionService impresionService;
+    private FormaPagoService formaPagoService;
+    
+    @Autowired
+    private PagoService pagoService;
+    
+    @Autowired
+    private RecepcionMercaderiaService recepcionMercaderiaService;
 
-    public List<SolicitudPago> solicitudPagoPorUsuarioId(Long id){
+    // ===== QUERY OPERATIONS =====
+
+    public SolicitudPago solicitudPago(Long id) {
+        return service.findById(id).orElse(null);
+    }
+
+    public List<SolicitudPago> solicitudPagoPorUsuarioId(Long id) {
         return service.getRepository().findByUsuarioId(id);
     }
 
-    public SolicitudPago solicitudPago(Long id){
-        return service.findById(id).orElse(null);
-    }
-    
     /**
      * Query to filter SolicitudPago by multiple criteria
-     * @param solicitudPagoId The ID of the solicitud pago to filter by (optional)
-     * @param referenciaId The reference ID to filter by (optional)
-     * @param tipo The tipo to filter by (optional)
-     * @param estado The estado to filter by (optional)
-     * @param fechaInicio The start date to filter by (optional)
-     * @param fechaFin The end date to filter by (optional)
-     * @param page The page number (default: 0)
-     * @param size The page size (default: 20)
-     * @return A page of SolicitudPago that match the filter criteria
      */
     public Page<SolicitudPago> solicitudPagoConFiltros(
             Long solicitudPagoId,
-            Long referenciaId,
-            TipoSolicitudPago tipo,
+            Long proveedorId,
             SolicitudPagoEstado estado,
             String fechaInicio,
             String fechaFin,
@@ -78,8 +73,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         
         return service.findAllWithFilters(
                 solicitudPagoId,
-                referenciaId,
-                tipo,
+                proveedorId,
                 estado,
                 fechaInicio,
                 fechaFin,
@@ -88,140 +82,112 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         );
     }
 
+    public Long countSolicitudPago() {
+        return service.count();
+    }
+
+    // ===== MUTATION OPERATIONS =====
+
     public SolicitudPago saveSolicitudPago(SolicitudPagoInput input) {
-        ModelMapper m = new ModelMapper();
-        SolicitudPago e = m.map(input, SolicitudPago.class);
-        if (input.getUsuarioId() != null) {
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        try {
+            SolicitudPago entity = new SolicitudPago();
+            
+            // Map basic fields
+            entity.setId(input.getId());
+            entity.setMontoTotal(input.getMontoTotal());
+            entity.setEstado(input.getEstado());
+            
+            // Map navigation properties
+            if (input.getProveedorId() != null) {
+                entity.setProveedor(proveedorService.findById(input.getProveedorId())
+                    .orElseThrow(() -> new GraphQLException("Proveedor no encontrado con ID: " + input.getProveedorId())));
+            }
+            
+            if (input.getMonedaId() != null) {
+                entity.setMoneda(monedaService.findById(input.getMonedaId())
+                    .orElseThrow(() -> new GraphQLException("Moneda no encontrada con ID: " + input.getMonedaId())));
+            }
+            
+            if (input.getFormaPagoId() != null) {
+                entity.setFormaPago(formaPagoService.findById(input.getFormaPagoId())
+                    .orElseThrow(() -> new GraphQLException("Forma de pago no encontrada con ID: " + input.getFormaPagoId())));
+            }
+            
+            if (input.getUsuarioId() != null) {
+                entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+            }
+            
+            if (input.getPagoId() != null) {
+                entity.setPago(pagoService.findById(input.getPagoId()).orElse(null));
+            }
+            
+            if (input.getCreadoEn() != null) {
+                entity.setCreadoEn(stringToDate(input.getCreadoEn()));
+            }
+            
+            return service.save(entity);
+            
+        } catch (Exception e) {
+            throw new GraphQLException("Error al guardar solicitud de pago: " + e.getMessage());
         }
-        if(input.getCreadoEn() != null){
-            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+    }
+
+    public Boolean deleteSolicitudPago(Long id) {
+        return service.deleteById(id);
+    }
+
+    // ===== NUEVAS FUNCIONALIDADES - REFACTOR =====
+
+    /**
+     * Crea una solicitud de pago para múltiples recepciones de mercadería
+     */
+    @Transactional
+    public SolicitudPago crearSolicitudPagoMultipleRecepciones(SolicitudPagoMultipleRecepcionesInput input) {
+        try {
+            // Validar entrada
+            if (input.getProveedorId() == null || input.getRecepcionMercaderiaIds() == null || 
+                input.getRecepcionMercaderiaIds().isEmpty() || input.getUsuarioId() == null) {
+                throw new GraphQLException("Proveedor, recepciones y usuario son requeridos");
+            }
+
+            // Obtener entidades
+            com.franco.dev.domain.personas.Proveedor proveedor = proveedorService.findById(input.getProveedorId())
+                .orElseThrow(() -> new GraphQLException("Proveedor no encontrado: " + input.getProveedorId()));
+
+            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findById(input.getUsuarioId())
+                .orElseThrow(() -> new GraphQLException("Usuario no encontrado: " + input.getUsuarioId()));
+
+            // Obtener recepciones
+            java.util.List<RecepcionMercaderia> recepciones = new java.util.ArrayList<>();
+            for (Long recepcionId : input.getRecepcionMercaderiaIds()) {
+                RecepcionMercaderia recepcion = recepcionMercaderiaService.findById(recepcionId)
+                    .orElseThrow(() -> new GraphQLException("Recepción no encontrada: " + recepcionId));
+                recepciones.add(recepcion);
+            }
+
+            // Crear solicitud usando el service
+            return service.crearSolicitudPagoMultipleRecepciones(
+                proveedor, input.getDescripcion(), recepciones, usuario);
+
+        } catch (Exception e) {
+            throw new GraphQLException("Error al crear solicitud de pago: " + e.getMessage());
         }
-        SolicitudPago solicitudPago = service.save(e);
-        return solicitudPago;
     }
 
     /**
-     * UPDATED: Finalize solicitud pago step - create ONE SolicitudPago for EACH grupo in this pedido
-     * This provides more granular control for financial team
+     * Procesa el pago de una solicitud
+     * Actualiza las etapas del proceso para todos los pedidos relacionados
      */
     @Transactional
-    public List<SolicitudPago> finalizarSolicitudPagoStep(Long pedidoId) {
-        try {
-            System.out.println("=== FINALIZE SOLICITUD PAGO STEP ===");
-            System.out.println("Processing pedido ID: " + pedidoId);
-            
-            Pedido pedido = pedidoService.findById(pedidoId).orElse(null);
-            if (pedido == null) {
-                System.err.println("ERROR: Pedido not found: " + pedidoId);
-                throw new GraphQLException("Pedido not found: " + pedidoId);
-            }
-            
-            System.out.println("Found pedido: " + pedido.getId() + " in estado: " + pedido.getEstado());
-
-            // Get all groups for this pedido - EFFICIENT: Direct database query
-            List<NotaRecepcionAgrupada> grupos = notaRecepcionAgrupadaService.findByPedidoId(pedidoId);
-
-            if (grupos.isEmpty()) {
-                System.err.println("ERROR: No hay grupos para procesar en el pedido: " + pedidoId);
-                throw new GraphQLException("No hay grupos para procesar en el pedido: " + pedidoId);
-            }
-            
-            System.out.println("Found " + grupos.size() + " grupos to process");
-
-            // NEW: Create ONE SolicitudPago for EACH grupo
-            List<SolicitudPago> solicitudesCreadas = new ArrayList<>();
-            
-            for (NotaRecepcionAgrupada grupo : grupos) {
-                SolicitudPago solicitudPago = new SolicitudPago();
-                solicitudPago.setUsuario(pedido.getUsuario());
-                solicitudPago.setCreadoEn(LocalDateTime.now());
-                solicitudPago.setEstado(SolicitudPagoEstado.PENDIENTE);
-                solicitudPago.setTipo(TipoSolicitudPago.COMPRA);
-                solicitudPago.setReferenciaId(grupo.getId()); // Reference the grupo, not pedido
-                
-                solicitudPago = service.save(solicitudPago);
-                solicitudesCreadas.add(solicitudPago);
-                
-                System.out.println("Created SolicitudPago: " + solicitudPago.getId() + " for grupo: " + grupo.getId());
-                
-                // Update grupo to CONCLUIDO
-                grupo.setEstado(NotaRecepcionAgrupadaEstado.CONCLUIDO);
-                notaRecepcionAgrupadaService.save(grupo);
-                System.out.println("Updated grupo " + grupo.getId() + " to CONCLUIDO");
-            }
-
-            // Update pedido to CONCLUIDO
-            pedido.setEstado(PedidoEstado.CONCLUIDO);
-            pedido.setFechaFinSolicitudPago(LocalDateTime.now());
-            pedido.setProgresoSolicitudPago(100);
-            pedidoService.save(pedido);
-            System.out.println("Updated pedido " + pedido.getId() + " to CONCLUIDO");
-
-            System.out.println("=== FINALIZATION SUCCESSFUL - Created " + solicitudesCreadas.size() + " SolicitudPago ===");
-            return solicitudesCreadas;
-
-        } catch (Exception e) {
-            System.err.println("Error in finalization for pedido " + pedidoId + ": " + e.getMessage());
-            e.printStackTrace();
-            throw new GraphQLException("Error al crear las solicitudes de pago: " + e.getMessage());
+    public SolicitudPago procesarPagoSolicitud(Long solicitudPagoId) {
+        if (solicitudPagoId == null) {
+            throw new GraphQLException("ID de solicitud de pago es requerido");
         }
-    }
 
-    public String imprimirSolicitudPago(
-            Long solicitudPagoId,
-            String proveedorNombre,
-            String fechaDePago,
-            String formaPago,
-            Boolean nominal,
-            Boolean tipoImpresion,
-            String printerName) {
-        
         try {
-            System.out.println("=== IMPRIMIR SOLICITUD PAGO ===");
-            System.out.println("SolicitudPago ID: " + solicitudPagoId);
-            System.out.println("Tipo impresion (PDF=true, Ticket=false): " + tipoImpresion);
-            
-            // Buscar la solicitud de pago
-            SolicitudPago solicitudPago = service.findById(solicitudPagoId).orElse(null);
-            if (solicitudPago == null) {
-                throw new GraphQLException("Solicitud de pago no encontrada: " + solicitudPagoId);
-            }
-            
-            // Buscar el grupo de notas relacionado
-            NotaRecepcionAgrupada grupo = notaRecepcionAgrupadaService.findById(solicitudPago.getReferenciaId()).orElse(null);
-            if (grupo == null) {
-                throw new GraphQLException("Grupo de notas no encontrado: " + solicitudPago.getReferenciaId());
-            }
-            
-            if (tipoImpresion != null && tipoImpresion) {
-                // Impresión PDF
-                return impresionService.imprimirSolicitudPagoPDF(
-                    solicitudPago, 
-                    grupo, 
-                    proveedorNombre, 
-                    fechaDePago, 
-                    formaPago, 
-                    nominal
-                );
-            } else {
-                // Impresión Ticket 58mm
-                impresionService.imprimirSolicitudPagoTicket(
-                    solicitudPago, 
-                    grupo, 
-                    proveedorNombre, 
-                    fechaDePago, 
-                    formaPago, 
-                    nominal,
-                    printerName
-                );
-                return "TICKET_PRINTED";
-            }
-            
+            return service.procesarPago(solicitudPagoId);
         } catch (Exception e) {
-            System.err.println("Error al imprimir solicitud de pago " + solicitudPagoId + ": " + e.getMessage());
-            e.printStackTrace();
-            throw new GraphQLException("Error al imprimir solicitud de pago: " + e.getMessage());
+            throw new GraphQLException("Error al procesar pago: " + e.getMessage());
         }
     }
 }

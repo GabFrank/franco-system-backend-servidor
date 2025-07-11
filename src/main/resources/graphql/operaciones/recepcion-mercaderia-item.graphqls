@@ -1,0 +1,36 @@
+type RecepcionMercaderiaItem {
+    id: ID
+    recepcionMercaderia: RecepcionMercaderia
+    notaRecepcionItem: NotaRecepcionItem
+    producto: Producto
+    sucursalEntrega: Sucursal
+    cantidadRecibida: Float
+    vencimientoRecibido: Date
+    lote: String
+    esBonificacion: Boolean
+    observacion: String
+}
+
+input RecepcionMercaderiaItemInput {
+    id: ID
+    recepcionMercaderiaId: Int
+    notaRecepcionItemId: Int
+    productoId: Int
+    sucursalEntregaId: Int
+    cantidadRecibida: Float
+    vencimientoRecibido: String
+    lote: String
+    esBonificacion: Boolean
+    observacion: String
+    creadoEn: String
+}
+
+extend type Query {
+    recepcionMercaderiaItem(id: ID!): RecepcionMercaderiaItem
+    recepcionMercaderiaItemsPorRecepcion(recepcionId: ID!): [RecepcionMercaderiaItem]
+    recepcionMercaderiaItemsPorProductoYSucursal(productoId: ID!, sucursalId: ID!): [RecepcionMercaderiaItem]
+}
+
+extend type Mutation {
+    saveRecepcionMercaderiaItem(entity: RecepcionMercaderiaItemInput!): RecepcionMercaderiaItem!
+} 

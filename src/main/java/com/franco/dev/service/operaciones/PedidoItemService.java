@@ -41,52 +41,22 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
     @Autowired
     private PedidoItemSucursalService pedidoItemSucursalService;
 
-    //public List<PedidoItem> findByAll(String texto){
-    //    texto = texto.replace(' ', '%');
-    //    return  repository.findByAll(texto);
-    //}
+    // ===== BASIC METHODS =====
+    public List<PedidoItem> findByProductoId(Long id) { 
+        return repository.findByProductoId(id); 
+    }
 
-    public List<PedidoItem> findByProductoId(Long id) { return repository.findByProductoId(id); }
-
-    public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { return repository.findByPedidoIdOrderByIdDesc(id, page); }
+    public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { 
+        return repository.findByPedidoIdOrderByIdDesc(id, page); 
+    }
 
     public Page<PedidoItem> findByPedidoIdAndTexto(Long id, String texto, Pageable page) {
         return repository.findByPedidoIdAndProductoDescripcionLikeOrderByIdDesc(id, texto, page);
     }
 
-    public List<PedidoItem> findByPedidoId(Long id) { return repository.findByPedidoId(id); }
-
-    public Page<PedidoItem> findByPedidoIdSobrantes(Long id, Pageable page){
-        return repository.findByPedidoIdAndNotaRecepcionIdIsNull(id, page);
+    public List<PedidoItem> findByPedidoId(Long id) { 
+        return repository.findByPedidoId(id); 
     }
-
-    public Page<PedidoItem> findByPedidoIdAndDescripcionSobrantes(Long id, String texto, Pageable page){
-        return repository.findByPedidoIdAndNotaRecepcionIdIsNullAndProductoDescripcionLikeOrderByIdDesc(id, texto, page);
-    }
-
-    public Page<PedidoItem> findByNotaRecepcionId(Long id, Pageable page) {
-        return repository.findByNotaRecepcionId(id, page);
-    }
-
-    public Page<PedidoItem> findByNotaRecepcionIdAndDescripcion(Long id, String texto, Pageable page) {
-        return repository.findByNotaRecepcionIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
-    }
-
-    public List<PedidoItem> findByNotaRecepcionId(Long id) {
-        return repository.findByNotaRecepcionId(id);
-    }
-
-    public Integer countByNotaRecepcionId(Long id) {
-        return repository.countByNotaRecepcionId(id);
-    }
-
-    public Integer countByNotaRecepcionIdExcludingRejected(Long id) {
-        return repository.countByNotaRecepcionIdExcludingRejected(id);
-    }
-
-//    public Double cantidadSegunMovimiento(Long sucId, Long prodId, LocalDateTime inicio, LocalDateTime){
-//
-//    }
 
     @Override
     public PedidoItem save(PedidoItem entity) {
@@ -123,18 +93,20 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
             List<PedidoSucursalEntrega> sucursalesEntrega = 
                 pedidoSucursalEntregaService.findByPedidoId(pedidoId);
             
-            // Calculate cantidadPorUnidad based on business rules
+            // Calculate cantidadPorUnidad based on business rules using basic fields
             Double cantidadPorUnidad = 0.0;
+            
+            // Using basic PedidoItem fields instead of step-specific ones
             if(sucursalesInfluencia.size() == 1 && sucursalesEntrega.size() == 1) {
                 // If there's exactly one sucursal de influencia and one sucursal de entrega
-                // cantidadPorUnidad = presentacionCreacion.cantidad * cantidadCreacion
+                // cantidadPorUnidad = presentacionCreacion.cantidad * cantidadSolicitada
                 Double presentacionCantidad = pedidoItem.getPresentacionCreacion() != null 
                     ? pedidoItem.getPresentacionCreacion().getCantidad() : 1.0;
-                Double cantidadCreacion = pedidoItem.getCantidadCreacion() != null 
-                    ? pedidoItem.getCantidadCreacion() : 0.0;
-                cantidadPorUnidad = presentacionCantidad * cantidadCreacion;
+                Double cantidadSolicitada = pedidoItem.getCantidadSolicitada() != null 
+                    ? pedidoItem.getCantidadSolicitada() : 0.0;
+                cantidadPorUnidad = presentacionCantidad * cantidadSolicitada;
             }
-            // Otherwise cantidadPorUnidad remains 0.0
+            // Otherwise cantidadPorUnidad remains 0.0 (for manual distribution)
             
             // Determine sucursalEntrega for the PedidoItemSucursal records
             Long sucursalEntregaId = null;

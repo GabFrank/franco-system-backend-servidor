@@ -1,21 +1,32 @@
 type SolicitudPago {
     id: ID
-    usuario: Usuario
-    creadoEn: Date
+    proveedor: Proveedor
+    montoTotal: Float
+    moneda: Moneda
+    formaPago: FormaPago
     estado: SolicitudPagoEstado
-    tipo: TipoSolicitudPago
-    referenciaId: ID
+    creadoEn: Date
+    usuario: Usuario
     pago: Pago
 }
 
 input SolicitudPagoInput {
     id: ID
-    usuarioId: Int
-    creadoEn: Date
+    proveedorId: Int
+    montoTotal: Float
+    monedaId: Int
+    formaPagoId: Int
     estado: SolicitudPagoEstado
-    tipo: TipoSolicitudPago
-    referenciaId: ID
+    creadoEn: Date
+    usuarioId: Int
     pagoId: Int
+}
+
+input SolicitudPagoMultipleRecepcionesInput {
+    proveedorId: Int
+    descripcion: String
+    recepcionMercaderiaIds: [Int]
+    usuarioId: Int
 }
 
 type SolicitudPagoPage {
@@ -31,32 +42,27 @@ type SolicitudPagoPage {
 }
 
 extend type Query {
-    solicitudPagoPorUsuarioId(id: ID!): [SolicitudPago]
     solicitudPago(id: ID!): SolicitudPago
+    solicitudPagoPorUsuarioId(id: ID!): [SolicitudPago]
     solicitudPagoConFiltros(
         solicitudPagoId: ID, 
-        referenciaId: ID, 
-        tipo: TipoSolicitudPago, 
+        proveedorId: ID,
         estado: SolicitudPagoEstado, 
         fechaInicio: String, 
         fechaFin: String, 
         page: Int = 0, 
         size: Int = 20
     ): SolicitudPagoPage
+    countSolicitudPago: Int
 }
 
 extend type Mutation {
     saveSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
-    finalizarSolicitudPagoStep(pedidoId: ID!): [SolicitudPago]!
-    imprimirSolicitudPago(
-        solicitudPagoId: ID!,
-        proveedorNombre: String!,
-        fechaDePago: String!,
-        formaPago: String!,
-        nominal: Boolean,
-        tipoImpresion: Boolean!,
-        printerName: String
-    ): String
+    deleteSolicitudPago(id: ID!): Boolean!
+    
+    # Nuevas funcionalidades del refactor
+    crearSolicitudPagoMultipleRecepciones(entity: SolicitudPagoMultipleRecepcionesInput!): SolicitudPago!
+    procesarPagoSolicitud(solicitudPagoId: ID!): SolicitudPago!
 }
 
 enum SolicitudPagoEstado {
@@ -64,10 +70,4 @@ enum SolicitudPagoEstado {
     PARCIAL
     CONCLUIDO
     CANCELADO
-}
-
-enum TipoSolicitudPago {
-    COMPRA
-    GASTO
-    RRHH
 }

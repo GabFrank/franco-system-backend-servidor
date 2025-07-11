@@ -3,107 +3,12 @@ type Pedido {
     proveedor: Proveedor
     vendedor: Vendedor
     formaPago: FormaPago
-    estado: PedidoEstado
+    tipoBoleta: String
     moneda: Moneda
     plazoCredito: Int
-    tipoBoleta: String
+    estado: PedidoEstado
     creadoEn: Date
     usuario: Usuario
-    descuento: Float
-    valorTotal: Float
-    notaRecepcionList: [NotaRecepcion]
-    compra: Compra
-    fechaEntregaList: [PedidoFechaEntrega]
-    sucursalEntregaList: [PedidoSucursalEntrega]
-    sucursalInfluenciaList: [PedidoSucursalInfluencia]
-    cantPedidoItem: Int
-    cantPedidoItemSinNota: Int
-    cantPedidoItemCancelados: Int
-    cantNotas: Int
-    cantNotasPagadas: Int
-    cantNotasCanceladas: Int
-    pagado: Boolean
-    
-    # Step tracking fields following the same pattern as PedidoItem
-    
-    # Step: Creacion (Datos del pedido)
-    usuarioCreacion: Usuario
-    fechaInicioCreacion: Date
-    fechaFinCreacion: Date
-    progresoCreacion: Int
-    
-    # Step: Recepcion Nota
-    usuarioRecepcionNota: Usuario
-    fechaInicioRecepcionNota: Date
-    fechaFinRecepcionNota: Date
-    progresoRecepcionNota: Int
-    
-    # Step: Recepcion Mercaderia
-    usuarioRecepcionMercaderia: Usuario
-    fechaInicioRecepcionMercaderia: Date
-    fechaFinRecepcionMercaderia: Date
-    progresoRecepcionMercaderia: Int
-    
-    # Step: Solicitud Pago
-    usuarioSolicitudPago: Usuario
-    fechaInicioSolicitudPago: Date
-    fechaFinSolicitudPago: Date
-    progresoSolicitudPago: Int
-}
-
-type PedidoRecepcionNotaSummary {
-    totalItems: Int
-    assignedItems: Int
-    pendingItems: Int
-    cancelledItems: Int
-    totalNotas: Int
-    itemsNeedingDistribution: Int
-}
-
-type PedidoRecepcionMercaderiaSummary {
-    totalItems: Int
-    verificados: Int
-    pendientes: Int
-    sucursales: Int
-}
-
-type PedidoSummary {
-    totalItems: Int
-    cancelledItems: Int
-    activeItems: Int
-    totalSinDescuento: Float
-    totalDescuento: Float
-    totalConDescuento: Float
-    estado: PedidoEstado
-}
-
-type SolicitudPagoSummary {
-    totalNotas: Int
-    notasAgrupadas: Int
-    notasSinAgrupar: Int
-    totalGrupos: Int
-    valorTotalNotas: Float
-    valorTotalAgrupado: Float
-    puedeProgresar: Boolean
-}
-
-
-
-type GrupoConInfo {
-    grupo: NotaRecepcionAgrupada
-    notasAsignadas: [NotaRecepcion]
-    valorTotal: Float
-    puedeAgregarNotas: Boolean
-    puedeEliminar: Boolean
-    esGrupoExterno: Boolean
-}
-
-type SolicitudPagoStepResult {
-    solicitudesCreadas: [SolicitudPago]
-    gruposFinalizados: [NotaRecepcionAgrupada]
-    pedidoActualizado: Pedido
-    success: Boolean
-    mensaje: String
 }
 
 input PedidoInput {
@@ -111,36 +16,12 @@ input PedidoInput {
     proveedorId: Int
     vendedorId: Int
     formaPagoId: Int
-    estado: PedidoEstado
+    tipoBoleta: String
     monedaId: Int
     plazoCredito: Int
-    tipoBoleta: String
+    estado: PedidoEstado
     creadoEn: Date
     usuarioId: Int
-    descuento: Int
-    valorTotal: Float
-    pedidoItemInputList: [PedidoItemInput]
-    
-    # Step tracking fields
-    usuarioCreacionId: Int
-    fechaInicioCreacion: Date
-    fechaFinCreacion: Date
-    progresoCreacion: Int
-    
-    usuarioRecepcionNotaId: Int
-    fechaInicioRecepcionNota: Date
-    fechaFinRecepcionNota: Date
-    progresoRecepcionNota: Int
-    
-    usuarioRecepcionMercaderiaId: Int
-    fechaInicioRecepcionMercaderia: Date
-    fechaFinRecepcionMercaderia: Date
-    progresoRecepcionMercaderia: Int
-    
-    usuarioSolicitudPagoId: Int
-    fechaInicioSolicitudPago: Date
-    fechaFinSolicitudPago: Date
-    progresoSolicitudPago: Int
 }
 
 type PedidoPage {
@@ -160,13 +41,10 @@ extend type Query {
     pedidos(page:Int = 0, size:Int = 10):[Pedido]!
     filterPedidos(idPedido:ID, numeroNotaRecepcion:Int ,estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
-    verificarDistribucionSucursales(id:ID!): Boolean
-    pedidoRecepcionNotaSummary(id:ID!): PedidoRecepcionNotaSummary
-    pedidoRecepcionMercaderiaSummary(id:ID!): PedidoRecepcionMercaderiaSummary
-    pedidoSummary(id:ID!): PedidoSummary
-    pedidoSolicitudPagoSummary(pedidoId:ID!): SolicitudPagoSummary
-    notaRecepcionesSinAgrupar(pedidoId:ID!): [NotaRecepcion]
-    gruposCreadosParaPedido(pedidoId:ID!): [GrupoConInfo]
+    
+    # New step tracking queries
+    etapaActualDelPedido(pedidoId:ID!): String
+    progresoPedido(pedidoId:ID!): Int
 }
 
 extend type Mutation {
@@ -174,21 +52,19 @@ extend type Mutation {
     savePedidoFull(entity:PedidoInput!, fechaEntregaList: [String], sucursalEntregaList: [Int], sucursalInfluenciaList: [Int], usuarioId: Int):Pedido!
     deletePedido(id:ID!):Boolean!
     finalizarPedido(id:ID, estado:PedidoEstado): Pedido
+    
+    # New step tracking mutations
+    finalizarCreacionPedido(pedidoId:ID!): Pedido
 }
 
 enum PedidoEstado {
-    # Creation phase - pedido is being created and items are being added
-    ABIERTO,    # Initial state when pedido is first created (no items yet)
-    ACTIVO,     # Creation phase with items added (ready to proceed to nota reception)
-
-    # Reception phases - sequential workflow steps
-    EN_RECEPCION_NOTA,      # Step 2: Assigning items to nota recepcion entities
-    EN_RECEPCION_MERCADERIA, # Step 3: Verifying received merchandise
-    EN_SOLICITUD_PAGO,      # Step 4: Creating payment request groups
-    
-    # Final states
-    CONCLUIDO,  # All steps completed successfully
-    CANCELADO   # Pedido was cancelled at any stage
+    ABIERTO,
+    ACTIVO,
+    EN_RECEPCION_NOTA,
+    EN_RECEPCION_MERCADERIA,
+    EN_SOLICITUD_PAGO,
+    CONCLUIDO,
+    CANCELADO
 }
 
 

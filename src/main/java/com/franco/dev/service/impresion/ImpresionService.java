@@ -6,7 +6,6 @@ import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.SolicitudPago;
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Cliente;
@@ -911,7 +910,7 @@ public class ImpresionService {
 
     public void imprimirSolicitudPagoTicket(
             SolicitudPago solicitudPago,
-            NotaRecepcionAgrupada grupo,
+            // NotaRecepcionAgrupada grupo,
             String proveedorNombre,
             String fechaDePago,
             String formaPago,
@@ -924,14 +923,14 @@ public class ImpresionService {
                 printerOutputStream = new PrinterOutputStream(selectedPrintService);
                 
                 // Calcular el valor total de las notas de recepción del grupo
-                List<NotaRecepcion> notasRecepcion = notaRecepcionService.findByNotaRecepcionAgrupadaId(grupo.getId());
-                double valorTotal = notasRecepcion.stream()
-                    .mapToDouble(nota -> {
-                        // Usar el mismo método de cálculo que en el resolver
-                        Double valor = notaRecepcionService.getRepository().valor(nota.getId());
-                        return valor != null ? valor : 0.0;
-                    })
-                    .sum();
+                // List<NotaRecepcion> notasRecepcion = notaRecepcionService.findByNotaRecepcionAgrupadaId(grupo.getId());
+                // double valorTotal = notasRecepcion.stream()
+                //     .mapToDouble(nota -> {
+                //         // Usar el mismo método de cálculo que en el resolver
+                //         Double valor = notaRecepcionService.getRepository().valor(nota.getId());
+                //         return valor != null ? valor : 0.0;
+                //     })
+                //     .sum();
                 
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -968,21 +967,21 @@ public class ImpresionService {
                 }
                 
                 escpos.writeLF("--------------------------------");
-                escpos.writeLF("Grupo de Notas: " + grupo.getId());
+                // escpos.writeLF("Grupo de Notas: " + grupo.getId());
                 
                 // Imprimir el valor total formateado
-                String valorTotalFormateado = NumberFormat.getNumberInstance(Locale.GERMAN).format((long) valorTotal);
-                escpos.writeLF(center.setBold(true), "TOTAL: Gs. " + valorTotalFormateado);
+                // String valorTotalFormateado = NumberFormat.getNumberInstance(Locale.GERMAN).format((long) valorTotal);
+                // escpos.writeLF(center.setBold(true), "TOTAL: Gs. " + valorTotalFormateado);
                 
                 // Información adicional del grupo si está disponible
-                if (grupo.getProveedor() != null && grupo.getProveedor().getPersona() != null) {
-                    String nombreProveedor = grupo.getProveedor().getPersona().getNombre();
-                    if (nombreProveedor.length() > 30) {
-                        escpos.writeLF("Prov. Original: " + nombreProveedor.substring(0, 30));
-                    } else {
-                        escpos.writeLF("Prov. Original: " + nombreProveedor);
-                    }
-                }
+                // if (grupo.getProveedor() != null && grupo.getProveedor().getPersona() != null) {
+                //     String nombreProveedor = grupo.getProveedor().getPersona().getNombre();
+                //     if (nombreProveedor.length() > 30) {
+                //         escpos.writeLF("Prov. Original: " + nombreProveedor.substring(0, 30));
+                //     } else {
+                //         escpos.writeLF("Prov. Original: " + nombreProveedor);
+                //     }
+                // }
                 
                 escpos.writeLF("--------------------------------");
                 escpos.feed(4);
@@ -1010,7 +1009,7 @@ public class ImpresionService {
 
     public String imprimirSolicitudPagoPDF(
             SolicitudPago solicitudPago,
-            NotaRecepcionAgrupada grupo,
+            // NotaRecepcionAgrupada grupo,
             String proveedorNombre,
             String fechaDePago,
             String formaPago,
@@ -1018,28 +1017,28 @@ public class ImpresionService {
         
         try {
             // Obtener los números de factura de las notas de recepción del grupo
-            List<NotaRecepcion> notasRecepcion = notaRecepcionService.findByNotaRecepcionAgrupadaId(grupo.getId());
+            // List<NotaRecepcion> notasRecepcion = notaRecepcionService.findByNotaRecepcionAgrupadaId(grupo.getId());
             String numerosFactura = "";
-            if (!notasRecepcion.isEmpty()) {
-                List<String> numeros = notasRecepcion.stream()
-                    .filter(nota -> nota.getNumero() != null)
-                    .map(nota -> String.valueOf(nota.getNumero()))
-                    .distinct()
-                    .collect(Collectors.toList());
-                numerosFactura = String.join(", ", numeros);
-            }
+            // if (!notasRecepcion.isEmpty()) {
+            //     List<String> numeros = notasRecepcion.stream()
+            //         .filter(nota -> nota.getNumero() != null)
+            //         .map(nota -> String.valueOf(nota.getNumero()))
+            //         .distinct()
+            //         .collect(Collectors.toList());
+            //     numerosFactura = String.join(", ", numeros);
+            // }
             if (numerosFactura.isEmpty()) {
                 numerosFactura = "---";
             }
             
             // Calcular el valor total de las notas de recepción del grupo
-            double valorTotal = notasRecepcion.stream()
-                .mapToDouble(nota -> {
-                    // Usar el mismo método de cálculo que en el resolver
-                    Double valor = notaRecepcionService.getRepository().valor(nota.getId());
-                    return valor != null ? valor : 0.0;
-                })
-                .sum();
+            // double valorTotal = notasRecepcion.stream()
+            //     .mapToDouble(nota -> {
+            //         // Usar el mismo método de cálculo que en el resolver
+            //         Double valor = notaRecepcionService.getRepository().valor(nota.getId());
+            //         return valor != null ? valor : 0.0;
+            //     })
+            //     .sum();
             
             // Crear DTO para el reporte
             List<SolicitudPagoItemDto> solicitudPagoItemDtoList = new ArrayList<>();
@@ -1049,16 +1048,16 @@ public class ImpresionService {
             itemDto.setFechaDePago(fechaDePago);
             itemDto.setFormaPago(formaPago);
             itemDto.setNominal(nominal != null ? nominal : false);
-            itemDto.setGrupoId(String.valueOf(grupo.getId()));
+            // itemDto.setGrupoId(String.valueOf(grupo.getId()));
             itemDto.setEstado(solicitudPago.getEstado().toString());
             itemDto.setCreadoEn(solicitudPago.getCreadoEn().format(shortDateTime));
             if (solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null) {
                 itemDto.setUsuario(solicitudPago.getUsuario().getPersona().getNombre());
             }
             // Información adicional del proveedor original
-            if (grupo.getProveedor() != null && grupo.getProveedor().getPersona() != null) {
-                itemDto.setObservacion("Proveedor original: " + grupo.getProveedor().getPersona().getNombre());
-            }
+            // if (grupo.getProveedor() != null && grupo.getProveedor().getPersona() != null) {
+            //     itemDto.setObservacion("Proveedor original: " + grupo.getProveedor().getPersona().getNombre());
+            // }
             solicitudPagoItemDtoList.add(itemDto);
             
             JasperReport jasperReport = compileReportFromClasspath("solicitud-pago.jrxml");
@@ -1070,9 +1069,9 @@ public class ImpresionService {
             parameters.put("fechaDePago", fechaDePago);
             parameters.put("formaPago", formaPago);
             parameters.put("nominal", nominal != null ? nominal : false);
-            parameters.put("grupoId", grupo.getId());
+            // parameters.put("grupoId", grupo.getId());
             parameters.put("numerosFactura", numerosFactura);
-            parameters.put("valorTotal", valorTotal);
+            // parameters.put("valorTotal", valorTotal);
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
             parameters.put("usuario", solicitudPago.getUsuario() != null ? 
                 solicitudPago.getUsuario().getNickname() : "");

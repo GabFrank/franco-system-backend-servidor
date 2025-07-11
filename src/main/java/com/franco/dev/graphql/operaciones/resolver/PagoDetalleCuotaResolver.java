@@ -1,13 +1,11 @@
 package com.franco.dev.graphql.operaciones.resolver;
 
 import com.franco.dev.domain.financiero.Cheque;
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
 import com.franco.dev.domain.operaciones.PagoDetalleCuota;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.service.financiero.ChequeService;
-import com.franco.dev.service.operaciones.NotaRecepcionAgrupadaService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.ProveedorService;
 import graphql.kickstart.tools.GraphQLResolver;
@@ -23,8 +21,6 @@ public class PagoDetalleCuotaResolver implements GraphQLResolver<PagoDetalleCuot
     @Autowired
     private SolicitudPagoService solicitudPagoService;
     
-    @Autowired
-    private NotaRecepcionAgrupadaService notaRecepcionAgrupadaService;
     
     @Autowired
     private ProveedorService proveedorService;

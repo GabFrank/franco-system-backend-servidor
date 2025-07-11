@@ -18,17 +18,17 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
 
     public List<SolicitudPago> findByUsuarioId(Long id);
     
-    public SolicitudPago findByTipoAndReferenciaId(TipoSolicitudPago tipo, Long referenciaId);
+    // public SolicitudPago findByTipoAndReferenciaId(TipoSolicitudPago tipo, Long referenciaId);
     
     public List<SolicitudPago> findByPagoId(Long pagoId);
 
     // Using basic query for simple filters
-    Page<SolicitudPago> findByReferenciaIdAndTipoAndEstadoAndCreadoEnBetween(
-            Long referenciaId, 
-            TipoSolicitudPago tipo, 
-            SolicitudPagoEstado estado, 
-            LocalDateTime fechaInicio,
-            LocalDateTime fechaFin,
-            Pageable pageable);
+    // Page<SolicitudPago> findByReferenciaIdAndTipoAndEstadoAndCreadoEnBetween(
+    //         Long referenciaId, 
+    //         TipoSolicitudPago tipo, 
+    //         SolicitudPagoEstado estado, 
+    //         LocalDateTime fechaInicio,
+    //         LocalDateTime fechaFin,
+    //         Pageable pageable);
 }
 

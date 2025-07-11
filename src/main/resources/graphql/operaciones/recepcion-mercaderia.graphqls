@@ -1,0 +1,74 @@
+type RecepcionMercaderia {
+    id: ID
+    proveedor: Proveedor
+    sucursalRecepcion: Sucursal
+    fecha: Date
+    moneda: Moneda
+    cotizacion: Float
+    estado: RecepcionMercaderiaEstado
+    usuario: Usuario
+    items: [RecepcionMercaderiaItem]
+    costosAdicionales: [RecepcionCostoAdicional]
+}
+
+input RecepcionMercaderiaInput {
+    id: ID
+    proveedorId: Int
+    sucursalRecepcionId: Int
+    fecha: String
+    monedaId: Int
+    cotizacion: Float
+    estado: RecepcionMercaderiaEstado
+    usuarioId: Int
+    creadoEn: String
+    items: [RecepcionMercaderiaItemInput]
+    costosAdicionales: [RecepcionCostoAdicionalInput]
+    notaRecepcionIds: [Int]
+}
+
+type RecepcionMercaderiaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [RecepcionMercaderia]
+    getPageable: Pageable
+}
+
+extend type Query {
+    recepcionMercaderia(id: ID!): RecepcionMercaderia
+    recepcionMercaderiaConFiltros(
+        proveedorId: ID,
+        sucursalId: ID,
+        estado: RecepcionMercaderiaEstado,
+        fechaInicio: String,
+        fechaFin: String,
+        page: Int = 0,
+        size: Int = 20
+    ): RecepcionMercaderiaPage
+    recepcionesPorProveedor(proveedorId: ID!): [RecepcionMercaderia]
+    recepcionesPorEstado(estado: RecepcionMercaderiaEstado!): [RecepcionMercaderia]
+}
+
+extend type Mutation {
+    saveRecepcionMercaderia(entity: RecepcionMercaderiaInput!): RecepcionMercaderia!
+    finalizarRecepcionMercaderia(recepcionId: ID!): RecepcionMercaderia!
+    crearRecepcionMercaderia(
+        proveedorId: ID!,
+        sucursalId: ID!,
+        monedaId: ID!,
+        cotizacion: Float,
+        usuarioId: ID!
+    ): RecepcionMercaderia!
+    asociarNotasARecepcion(recepcionId: ID!, notaRecepcionIds: [Int]!): Boolean
+}
+
+enum RecepcionMercaderiaEstado {
+    PENDIENTE
+    EN_PROCESO
+    FINALIZADA
+    CANCELADA
+} 

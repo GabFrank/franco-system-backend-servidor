@@ -35,18 +35,6 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         return repository.findByPedidoIdAndNumero(id, texto, page);
     }
 
-    public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id){
-        return repository.findByNotaRecepcionAgrupadaId(id);
-    }
-
-    public Page<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id, Pageable page){
-        return repository.findByNotaRecepcionAgrupadaId(id, page);
-    }
-
-    public Long countByNotaRecepcionAgrupadaId(Long id){
-        return repository.countByNotaRecepcionAgrupadaId(id);
-    }
-
     public List<NotaRecepcion> findByNumero(Integer numero){
         return repository.findByNumeroAndPedidoEstadoNot(numero, com.franco.dev.domain.operaciones.enums.PedidoEstado.CONCLUIDO);
     }

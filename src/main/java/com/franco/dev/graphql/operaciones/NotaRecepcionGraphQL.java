@@ -1,7 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.PedidoItemSucursal;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
@@ -45,9 +44,6 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     PedidoItemSucursalService pedidoItemSucursalService;
 
-    @Autowired
-    private NotaRecepcionAgrupadaService notaRecepcionAgrupadaService;
-
     public Optional<NotaRecepcion> notaRecepcion(Long id) {
         return service.findById(id);
     }
@@ -79,8 +75,6 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
             e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
         if (input.getPedidoId() != null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if (input.getNotaRecepcionAgrupadaId() != null)
-            e.setNotaRecepcionAgrupada(notaRecepcionAgrupadaService.findById(input.getNotaRecepcionAgrupadaId()).orElse(null));
         if (input.getFecha() != null) e.setFecha(stringToDate(input.getFecha()));
         if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         return service.save(e);
@@ -89,66 +83,14 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public Boolean deleteNotaRecepcion(Long id) {
         try {
-            // First, get all PedidoItems assigned to this NotaRecepcion
-            List<PedidoItem> assignedItems = pedidoItemService.findByNotaRecepcionId(id);
-            
-            // Only clear the nota recepcion reference, preserve estado-related data
-            for (PedidoItem item : assignedItems) {
-                // Only set the nota recepcion reference to null
-                // Preserve all estado-related RecepcionNota data fields
-                item.setNotaRecepcion(null);
-                // Save the updated item
-                pedidoItemService.save(item);
-            }
-            
-            // Then delete the NotaRecepcion
+            // With the refactor, PedidoItem no longer has direct notaRecepcion reference
+            // The relationship is now through NotaRecepcionItem
+            // Simply delete the NotaRecepcion - related NotaRecepcionItem entities 
+            // will handle their own cascade behavior
             return service.deleteById(id);
         } catch (Exception e) {
             throw new GraphQLException("Error al eliminar nota de recepción: " + e.getMessage());
         }
-    }
-    
-    /**
-     * Clear all RecepcionNota-related fields from a PedidoItem
-     * @param item PedidoItem to clear
-     */
-    private void clearPedidoItemRecepcionNotaData(PedidoItem item) {
-        // Clear all RecepcionNota fields
-        item.setPrecioUnitarioRecepcionNota(null);
-        item.setDescuentoUnitarioRecepcionNota(null);
-        item.setVencimientoRecepcionNota(null);
-        item.setPresentacionRecepcionNota(null);
-        item.setCantidadRecepcionNota(null);
-        item.setUsuarioRecepcionNota(null);
-        item.setObsRecepcionNota(null);
-        item.setAutorizacionRecepcionNota(null);
-        item.setAutorizadoPorRecepcionNota(null);
-        item.setMotivoModificacionRecepcionNota(null);
-        item.setVerificadoRecepcionNota(false);
-        item.setMotivoRechazoRecepcionNota(null);
-        
-        // Clear the nota recepcion reference
-        item.setNotaRecepcion(null);
-    }
-
-    /**
-     * Clear all RecepcionProducto-related fields from a PedidoItem
-     * @param item PedidoItem to clear
-     */
-    private void clearPedidoItemRecepcionProductoData(PedidoItem item) {
-        // Clear all RecepcionProducto fields
-        item.setPrecioUnitarioRecepcionProducto(null);
-        item.setDescuentoUnitarioRecepcionProducto(null);
-        item.setVencimientoRecepcionProducto(null);
-        item.setPresentacionRecepcionProducto(null);
-        item.setCantidadRecepcionProducto(null);
-        item.setUsuarioRecepcionProducto(null);
-        item.setObsRecepcionProducto(null);
-        item.setAutorizacionRecepcionProducto(null);
-        item.setAutorizadoPorRecepcionProducto(null);
-        item.setMotivoModificacionRecepcionProducto(null);
-        item.setVerificadoRecepcionProducto(false);
-        item.setMotivoRechazoRecepcionProducto(null);
     }
 
     public Long countNotaRecepcion() {
@@ -177,14 +119,5 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
         return service.findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
-    }
-
-    public List<NotaRecepcion> notaRecepcionPorNotaRecepcionAgrupadaId(Long id){
-        return service.getRepository().findByNotaRecepcionAgrupadaId(id);
-    }
-
-    public Page<NotaRecepcion> notaRecepcionPorNotaRecepcionAgrupadaIdPage(Long id, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return service.findByNotaRecepcionAgrupadaId(id, pageable);
     }
 }

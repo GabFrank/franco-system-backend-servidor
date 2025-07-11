@@ -2,9 +2,8 @@ package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.financiero.Documento;
-import com.franco.dev.domain.operaciones.enums.NotaRecepcionAgrupadaEstado;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
@@ -22,12 +21,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "nota_recepcion_agrupada", schema = "operaciones")
 @TypeDef(
-        name = "nota_recepcion_agrupada_estado",
+        name = "recepcion_mercaderia_estado",
         typeClass = PostgreSQLEnumType.class
 )
-public class NotaRecepcionAgrupada implements Identifiable<Long> {
+@Table(name = "recepcion_mercaderia", schema = "operaciones")
+public class RecepcionMercaderia implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
@@ -43,26 +42,29 @@ public class NotaRecepcionAgrupada implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_id", nullable = true)
-    private Pedido pedido;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id", nullable = false)
     private Proveedor proveedor;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sucursal_id", nullable = true)
-    private Sucursal sucursal;
+    @JoinColumn(name = "sucursal_recepcion_id", nullable = false)
+    private Sucursal sucursalRecepcion;
 
-    @Column(name = "creado_en")
-    private LocalDateTime creadoEn;
+    @Column(name = "fecha", nullable = false)
+    private LocalDateTime fecha;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuario;
+    @JoinColumn(name = "moneda_id", nullable = false)
+    private Moneda moneda;
+
+    @Column(name = "cotizacion")
+    private Double cotizacion;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "estado")
-    @Type(type = "nota_recepcion_agrupada_estado")
-    private NotaRecepcionAgrupadaEstado estado;
-}
+    @Column(name = "estado", nullable = false)
+    @Type(type = "recepcion_mercaderia_estado")
+    private RecepcionMercaderiaEstado estado;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
+} 

@@ -1,0 +1,26 @@
+type PedidoItemDistribucion {
+    id: ID
+    pedidoItem: PedidoItem
+    sucursalEntrega: Sucursal
+    cantidadAsignada: Float
+}
+
+input PedidoItemDistribucionInput {
+    id: ID
+    pedidoItemId: Int
+    sucursalEntregaId: Int
+    cantidadSolicitada: Float
+    creadoEn: String
+}
+
+extend type Query {
+    pedidoItemDistribucion(id: ID!): PedidoItemDistribucion
+    pedidoItemDistribucionPorPedidoItem(pedidoItemId: ID!): [PedidoItemDistribucion]
+    pedidoItemDistribucionPorSucursal(sucursalId: ID!): [PedidoItemDistribucion]
+    countPedidoItemDistribucion: Int
+}
+
+extend type Mutation {
+    savePedidoItemDistribucion(entity: PedidoItemDistribucionInput!): PedidoItemDistribucion!
+    deletePedidoItemDistribucion(id: ID!): Boolean!
+} 

@@ -2,6 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.repository.operaciones.PedidoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.personas.VendedorProveedorService;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
@@ -36,6 +38,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
 
     @Autowired
     private VendedorProveedorService vendedorProveedorService;
+    
+    @Autowired
+    private ProcesoEtapaService procesoEtapaService;
 
     @Override
     public PedidoRepository getRepository() {
@@ -99,17 +104,38 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
             entity.setEstado(PedidoEstado.ABIERTO);
-            
-            // Initialize step tracking for new pedido - Step 1: Creacion
-            // Set current user and start time for creation step
-            entity.setUsuarioCreacion(entity.getUsuario());
-            entity.setFechaInicioCreacion(LocalDateTime.now());
-            entity.setProgresoCreacion(0); // Starting
         }
         Pedido e = super.save(entity);
         if (entity.getVendedor() != null && entity.getProveedor() != null) {
             vendedorProveedorService.save(entity.getVendedor(), entity.getProveedor());
         }
         return e;
+    }
+
+    /**
+     * Finaliza la creación de un pedido - NUEVA FUNCIONALIDAD
+     * Cambia el estado del pedido y gestiona las etapas del proceso
+     */
+    @Transactional
+    public Pedido finalizarCreacion(Long pedidoId) {
+        Pedido pedido = findById(pedidoId).orElseThrow(
+            () -> new IllegalArgumentException("Pedido no encontrado: " + pedidoId)
+        );
+        
+        if (pedido.getEstado() != PedidoEstado.ABIERTO) {
+            throw new IllegalStateException("Solo se pueden finalizar pedidos en estado ABIERTO");
+        }
+        
+        // Cambiar estado del pedido
+        pedido.setEstado(PedidoEstado.EN_RECEPCION_NOTA);
+        Pedido pedidoFinalizado = save(pedido);
+        
+        // Finalizar etapa de creación
+        procesoEtapaService.finalizarEtapa(pedidoId, ProcesoEtapaTipo.CREACION);
+        
+        // Crear la siguiente etapa (Recepción de Nota) como pendiente
+        procesoEtapaService.crearEtapaSiguiente(pedido, ProcesoEtapaTipo.CREACION);
+        
+        return pedidoFinalizado;
     }
 }

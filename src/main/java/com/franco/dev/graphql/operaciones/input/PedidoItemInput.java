@@ -51,8 +51,7 @@ public class PedidoItemInput {
     private String motivoModificacionRecepcionNota;
     private String motivoModificacionRecepcionProducto;
     private Boolean cancelado;
-    private Boolean verificadoRecepcionNota;
-    private Boolean verificadoRecepcionProducto;
+    private Boolean activo;
     private String motivoRechazoRecepcionNota;
     private String motivoRechazoRecepcionProducto;
 }

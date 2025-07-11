@@ -2,7 +2,7 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
+// import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada; // REMOVED - entity deleted in refactor
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -39,12 +39,6 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             "and (pi.motivo_rechazo_recepcion_nota is null or pi.motivo_rechazo_recepcion_nota = '') " +
             "and nr.id = ?1", nativeQuery = true)
     public Double valor(Long id);
-//
-//    @Query("select p from Pedido p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")
-//    public List<Pedido> findByProveedor(String texto);
-//
-//    //@Query("select p from Producto p where CAST(id as text) like %?1% or LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
-//    //public List<Producto> findbyAll(String texto);
 
     public Integer countByPedidoId(Long id);
 
@@ -68,17 +62,14 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             "ORDER BY nr.id DESC")
     public List<NotaRecepcion> findByNumeroAndPedidoEstadoNot(@Param("numero") Integer numero, @Param("estado") PedidoEstado estado);
 
-    public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
-
-    public Page<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id, Pageable page);
-
-    public Long countByNotaRecepcionAgrupadaId(Long id);
+    // REMOVED - Methods related to NotaRecepcionAgrupada (deleted entity):
+    // public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
+    // public Page<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id, Pageable page);
+    // public Long countByNotaRecepcionAgrupadaId(Long id);
 
     /**
-     * Find NotaRecepcion available for reception with complex filtering criteria
-     * A NotaRecepcion is available for reception in a sucursal if:
-     * 1. It has no NotaRecepcionAgrupada assigned (never received), OR
-     * 2. It has a NotaRecepcionAgrupada but not for the requested sucursal
+     * Find NotaRecepcion available for reception with filtering criteria
+     * UPDATED: Simplified query since NotaRecepcionAgrupada was removed in refactor
      * @param numero Optional nota number (can be null if proveedor is provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided)
      * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal
@@ -88,15 +79,10 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
            "LEFT JOIN nr.pedido p " +
            "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
            "LEFT JOIN PedidoItemSucursal pis ON pis.pedidoItem = pi " +
-           "LEFT JOIN nr.notaRecepcionAgrupada nra " +
            "WHERE " +
            "(:numero IS NULL OR nr.numero = :numero) " +
            "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +
            "AND (:sucursalId IS NULL OR pis.sucursalEntrega.id = :sucursalId) " +
-           "AND (nr.notaRecepcionAgrupada IS NULL OR " +
-           "     (nr.notaRecepcionAgrupada IS NOT NULL AND " +
-           "      :sucursalId IS NOT NULL AND " +
-           "      nra.sucursal.id != :sucursalId)) " +
            "ORDER BY nr.id DESC")
     List<NotaRecepcion> findNotasDisponiblesParaRecepcion(
             @Param("numero") Integer numero,

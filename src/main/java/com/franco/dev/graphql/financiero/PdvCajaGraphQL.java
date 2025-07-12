@@ -73,6 +73,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, pageable);
     }
 
+    public Page<PdvCaja> cajasAnalisisDiferencias(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId, String maletinDescripcion, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, String difEstado, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findAllForAnalisisDiferencias(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId, fechaInicio, fechaFin, sucId, verificado, difEstado, pageable);
+    }
+
     public CajaBalance balancePorFecha(String inicio, String fin, Long sucId) {
         List<PdvCaja> pdvCajaList = service.findByDate(inicio, fin, sucId);
         Double totalGeneral = 0.0;

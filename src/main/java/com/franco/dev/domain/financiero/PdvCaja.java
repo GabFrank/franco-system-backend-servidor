@@ -15,6 +15,8 @@ import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
+import javax.persistence.Transient;
 
 @Data
 @AllArgsConstructor
@@ -33,6 +35,7 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
     @Id
     private Long id;
 
+    @Id
     @Column(name = "sucursal_id", insertable = false, updatable = false)
     private Long sucursalId;
 
@@ -84,6 +87,12 @@ public class PdvCaja extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "verificado_por_id", nullable = true)
     private Usuario verificadoPor;
 
+    // Campos transientes para análisis de diferencias consecutivas
+    @Transient
+    private Long cajaAnteriorId;
+    
+    @Transient
+    private String estadoDiferenciaConsecutiva;
 }
 
 

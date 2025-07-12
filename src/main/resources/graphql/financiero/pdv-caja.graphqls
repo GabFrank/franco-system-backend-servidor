@@ -17,6 +17,8 @@ type PdvCaja {
     sucursal: Sucursal
     verificado: Boolean
     verificadoPor: Usuario
+    cajaAnteriorId: ID
+    estadoDiferenciaConsecutiva: String
 }
 
 input PdvCajaInput {
@@ -64,6 +66,7 @@ extend type Query {
     balanceActiveCajasBySucursalId(sucursalId: ID!): [CajaBalance]
     cajasPorUsuarioId(id:ID!, page: Int, size: Int):[PdvCaja]
     cajasWithFilters(cajaId:ID,estado: PdvCajaEstado , maletinId: ID, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, page:Int, size:Int):PdvCajaPage
+    cajasAnalisisDiferencias(cajaId:ID, cajaAnteriorId: ID, estado: PdvCajaEstado , maletinId: ID, maletinDescripcion: String, cajeroId: ID, fechaInicio:String , fechaFin:String, sucId: ID, verificado: Boolean, difEstado:String, page:Int, size:Int):PdvCajaPage
     verificarCaja(cajaId:ID!, sucursalId: ID!, usuarioId:ID!, verificado: Boolean): Boolean
     findCajasWithVentaObservaciones:[PdvCaja]!
 }

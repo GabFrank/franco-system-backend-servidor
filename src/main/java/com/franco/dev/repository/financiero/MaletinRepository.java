@@ -23,4 +23,5 @@ public interface MaletinRepository extends HelperRepository<Maletin, Long> {
 
     Page<Maletin> findAll(Pageable pageable);
 
+    List<Maletin> findBySucursalId(Long id);
 }

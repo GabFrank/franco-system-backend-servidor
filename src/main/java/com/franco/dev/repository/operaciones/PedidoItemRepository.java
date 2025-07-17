@@ -29,12 +29,12 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
     // ===== BASIC COUNTING METHODS =====
     public Integer countByPedidoId(Long id);
 
-    // ===== DISTRIBUTION METHODS (PedidoItemSucursal) =====
+    // ===== DISTRIBUTION METHODS (PedidoItemDistribucion) =====
     /**
-     * Get total distributed quantity for a specific PedidoItem from PedidoItemSucursal
+     * Get total distributed quantity for a specific PedidoItem from PedidoItemDistribucion
      */
-    @Query("select coalesce(sum(pis.cantidadPorUnidad), 0.0) " +
-           "from PedidoItemSucursal pis " +
+    @Query("select coalesce(sum(pis.cantidadAsignada), 0.0) " +
+           "from PedidoItemDistribucion pis " +
            "where pis.pedidoItem.id = :pedidoItemId")
     Double getTotalDistributedQuantityByPedidoItemId(@Param("pedidoItemId") Long pedidoItemId);
 

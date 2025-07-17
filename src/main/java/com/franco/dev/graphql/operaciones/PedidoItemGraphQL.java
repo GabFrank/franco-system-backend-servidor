@@ -88,8 +88,14 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             PedidoItem e = new PedidoItem();
             
             // Map only the fields that exist in the refactored PedidoItem
-            e.setId(input.getId());
+            if(input.getId() != null)
+                e.setId(input.getId()); // id is ia nor null
             e.setObservacion(input.getObservacion());
+            e.setEsBonificacion(input.getEsBonificacion());
+            e.setEstado(input.getEstado());
+            e.setVencimientoEsperado(stringToDate(input.getVencimientoEsperado()));
+            e.setCantidadSolicitada(input.getCantidadSolicitada());
+            e.setPrecioUnitarioSolicitado(input.getPrecioUnitarioSolicitado());
             
             // Map navigation properties
             if (input.getUsuarioCreacionId() != null)

@@ -39,4 +39,18 @@ public class PedidoItemDistribucionService extends CrudService<PedidoItemDistrib
     public List<PedidoItemDistribucion> findBySucursalEntregaId(Long sucursalId) {
         return repository.findBySucursalEntregaId(sucursalId);
     }
+
+    /**
+     * Busca distribuciones por sucursal de influencia
+     */
+    public List<PedidoItemDistribucion> findBySucursalInfluenciaId(Long sucursalId) {
+        return repository.findBySucursalInfluenciaId(sucursalId);
+    }
+
+    /**
+     * Elimina todas las distribuciones asociadas a un pedido item
+     */
+    public void deleteByPedidoItemId(Long pedidoItemId) {
+        repository.deleteByPedidoItemId(pedidoItemId);
+    }
 } 

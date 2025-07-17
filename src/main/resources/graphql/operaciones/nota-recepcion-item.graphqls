@@ -1,33 +1,57 @@
 type NotaRecepcionItem {
-    id:ID!,
-    notaRecepcion: NotaRecepcion
+    id: ID!
+    notaRecepcion: NotaRecepcion!
     pedidoItem: PedidoItem
-    creadoEn: Date,
+    producto: Producto!
+    presentacionEnNota: Presentacion
+    cantidadEnNota: Float!
+    precioUnitarioEnNota: Float!
+    esBonificacion: Boolean
+    vencimientoEnNota: Date
+    observacion: String
+    estado: NotaRecepcionItemEstado!
+    motivoRechazo: String
+    creadoEn: Date
     usuario: Usuario
 }
 
 input NotaRecepcionItemInput {
-    id:ID
-    notaRecepcionId: Int
+    id: ID
+    notaRecepcionId: Int!
     pedidoItemId: Int
-    creadoEn: Date,
+    productoId: Int!
+    presentacionEnNotaId: Int
+    cantidadEnNota: Float!
+    precioUnitarioEnNota: Float!
+    esBonificacion: Boolean
+    vencimientoEnNota: String
+    observacion: String
+    estado: NotaRecepcionItemEstado!
+    motivoRechazo: String
+    creadoEn: String
     usuarioId: Int
 }
 
 extend type Query {
-    notaRecepcionItem(id:ID!):NotaRecepcionItem
-    notaRecepcionItemList(page:Int = 0, size:Int = 10):[NotaRecepcionItem]!
-    notaRecepcionItemListPorNotaRecepcionId(id:ID!):[NotaRecepcionItem]
+    notaRecepcionItem(id: ID!): NotaRecepcionItem
+    notaRecepcionItemList(page: Int = 0, size: Int = 10): [NotaRecepcionItem]!
+    notaRecepcionItemListPorNotaRecepcionId(id: ID!): [NotaRecepcionItem]
     countNotaRecepcionItem: Int
-
-    buscarSobrantes(id:ID): [NotaRecepcionItem]
+    buscarSobrantes(id: ID): [NotaRecepcionItem]
 }
 
 extend type Mutation {
-    saveNotaRecepcionItem(NotaRecepcionItem:NotaRecepcionItemInput!):NotaRecepcionItem!
-    deleteNotaRecepcionItem(id:ID!):Boolean!
-    adicionarItens(id:ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): [NotaRecepcionItem]
-    removerItens(id:ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): Boolean
+    saveNotaRecepcionItem(NotaRecepcionItem: NotaRecepcionItemInput!): NotaRecepcionItem!
+    deleteNotaRecepcionItem(id: ID!): Boolean!
+    adicionarItens(id: ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): [NotaRecepcionItem]
+    removerItens(id: ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): Boolean
+}
+
+enum NotaRecepcionItemEstado {
+    PENDIENTE_CONCILIACION
+    CONCILIADO
+    RECHAZADO
+    DISCREPANCIA
 }
 
 

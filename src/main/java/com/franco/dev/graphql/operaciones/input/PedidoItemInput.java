@@ -17,4 +17,6 @@ public class PedidoItemInput {
     private Double cantidadSolicitada;
     private String creadoEn;
     private Long usuarioCreacionId;
+    private Boolean esBonificacion;
+    private PedidoItemEstado estado;
 }

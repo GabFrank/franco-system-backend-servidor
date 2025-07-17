@@ -23,11 +23,11 @@ public interface PedidoRepository extends HelperRepository<Pedido, Long> {
             value = "SELECT DISTINCT p " +
                     "FROM Pedido p " +
                     "LEFT JOIN PedidoItem pi2 ON pi2.pedido.id = p.id " +
-                    "LEFT JOIN PedidoItemSucursal pis ON pis.pedidoItem.id = pi2.id " +
+                    "LEFT JOIN PedidoItemDistribucion pis ON pis.pedidoItem.id = pi2.id " +
                     "LEFT JOIN NotaRecepcion nr ON nr.pedido.id = p.id " +
                     "WHERE " +
                     "(cast(:estado as com.franco.dev.domain.operaciones.enums.PedidoEstado) IS NULL OR p.estado = :estado) " +
-                    "AND (:sucursalId IS NULL OR pis.sucursal.id = :sucursalId) " +
+                    "AND (:sucursalId IS NULL OR pis.sucursalInfluencia.id = :sucursalId) " +
                     "AND (:idPedido IS NULL OR p.id = :idPedido) " +
                     "AND (:numeroNotaRecepcion IS NULL OR nr.numero = :numeroNotaRecepcion) " +
                     "AND (cast(:inicio as timestamp) IS NULL OR p.creadoEn BETWEEN :inicio AND :fin) " +

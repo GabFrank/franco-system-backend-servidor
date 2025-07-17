@@ -2,7 +2,6 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.PedidoItem;
-import com.franco.dev.domain.operaciones.PedidoItemSucursal;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionInput;
 import com.franco.dev.service.financiero.DocumentoService;
@@ -41,8 +40,6 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private PedidoService pedidoService;
     @Autowired
     private PedidoItemService pedidoItemService;
-    @Autowired
-    PedidoItemSucursalService pedidoItemSucursalService;
 
     public Optional<NotaRecepcion> notaRecepcion(Long id) {
         return service.findById(id);
@@ -114,7 +111,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Used specifically for the reception process with business logic filtering
      * @param numero Optional nota number (can be null if proveedor is provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided)
-     * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal 
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion 
      * @return List of available NotaRecepcion for reception
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {

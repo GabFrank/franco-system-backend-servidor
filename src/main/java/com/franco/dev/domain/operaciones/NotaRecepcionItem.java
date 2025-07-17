@@ -4,6 +4,7 @@ import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -51,6 +52,10 @@ public class NotaRecepcionItem implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "producto_id", nullable = false)
     private Producto producto;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "presentacion_en_nota_id")
+    private Presentacion presentacionEnNota;
 
     @Column(name = "cantidad_en_nota", nullable = false)
     private Double cantidadEnNota;

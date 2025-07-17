@@ -2,6 +2,7 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.PedidoItemDistribucion;
 import com.franco.dev.repository.HelperRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,4 +22,11 @@ public interface PedidoItemDistribucionRepository extends HelperRepository<Pedid
 
     @Query("SELECT pid FROM PedidoItemDistribucion pid WHERE pid.sucursalEntrega.id = :sucursalId")
     List<PedidoItemDistribucion> findBySucursalEntregaId(@Param("sucursalId") Long sucursalId);
+
+    @Query("SELECT pid FROM PedidoItemDistribucion pid WHERE pid.sucursalInfluencia.id = :sucursalId")
+    List<PedidoItemDistribucion> findBySucursalInfluenciaId(@Param("sucursalId") Long sucursalId);
+
+    @Modifying
+    @Query("DELETE FROM PedidoItemDistribucion pid WHERE pid.pedidoItem.id = :pedidoItemId")
+    void deleteByPedidoItemId(@Param("pedidoItemId") Long pedidoItemId);
 } 

@@ -1,0 +1,34 @@
+type NotaRecepcionItemDistribucion {
+    id: ID
+    notaRecepcionItem: NotaRecepcionItem
+    sucursalEntrega: Sucursal
+    cantidad: Float
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input NotaRecepcionItemDistribucionInput {
+    id: ID
+    notaRecepcionItemId: Int
+    sucursalEntregaId: Int
+    cantidad: Float
+    creadoEn: String
+    usuarioId: Int
+}
+
+extend type Query {
+    notaRecepcionItemDistribucion(id: ID!): NotaRecepcionItemDistribucion
+    notaRecepcionItemDistribucionesByNotaRecepcionItemId(notaRecepcionItemId: ID!): [NotaRecepcionItemDistribucion]
+    notaRecepcionItemDistribucionesBySucursalEntregaId(sucursalId: ID!): [NotaRecepcionItemDistribucion]
+    notaRecepcionItemDistribucionesByNotaRecepcionId(notaRecepcionId: ID!): [NotaRecepcionItemDistribucion]
+    totalDistributedQuantityByNotaRecepcionItemId(notaRecepcionItemId: ID!): Float
+    distributedQuantityByNotaRecepcionItemIdAndSucursalId(notaRecepcionItemId: ID!, sucursalId: ID!): Float
+}
+
+extend type Mutation {
+    saveNotaRecepcionItemDistribucion(input: NotaRecepcionItemDistribucionInput!): NotaRecepcionItemDistribucion!
+    saveNotaRecepcionItemDistribuciones(inputs: [NotaRecepcionItemDistribucionInput]!): [NotaRecepcionItemDistribucion]!
+    replaceNotaRecepcionItemDistribuciones(notaRecepcionItemId: ID!, inputs: [NotaRecepcionItemDistribucionInput]!): [NotaRecepcionItemDistribucion]!
+    deleteNotaRecepcionItemDistribucion(id: ID!): Boolean!
+    deleteNotaRecepcionItemDistribucionesByNotaRecepcionItemId(notaRecepcionItemId: ID!): Boolean!
+} 

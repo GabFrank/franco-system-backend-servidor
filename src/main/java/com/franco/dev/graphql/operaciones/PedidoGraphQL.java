@@ -3,6 +3,8 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.graphql.operaciones.input.PedidoInput;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -122,6 +125,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                                 List<Long> sucursalEntregaList, List<Long> sucursalInfluenciaList, 
                                 Long usuarioId) {
         ModelMapper m = new ModelMapper();
+        Boolean isNew = input.getId() == null;
         Pedido e = m.map(input, Pedido.class);
         
         if (input.getUsuarioId() != null) {
@@ -145,8 +149,12 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if (sucursalInfluenciaList != null) {
             updatePedidoSucursalInfluencia(pedido, sucursalInfluenciaList, usuarioId);
         }
+
+        if(isNew){
+            inicializarEtapas(pedido);
+        }
         
-        return pedido;
+        return service.findById(pedido.getId()).orElse(null);
     }
 
     // ===== RELATED ENTITY UPDATES =====
@@ -312,6 +320,46 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
     }
 
+    @Transactional
+    private void inicializarEtapas(Pedido pedido) {
+        List<ProcesoEtapa> etapas = new ArrayList<>();
+
+        // Etapa de Creación
+        ProcesoEtapa etapaCreacion = new ProcesoEtapa();
+        etapaCreacion.setPedido(pedido);
+        etapaCreacion.setTipoEtapa(ProcesoEtapaTipo.CREACION);
+        etapaCreacion.setEstadoEtapa(ProcesoEtapaEstado.EN_PROCESO);
+        etapaCreacion.setFechaInicio(LocalDateTime.now());
+        etapaCreacion.setUsuarioInicio(pedido.getUsuario());
+        etapaCreacion.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaCreacion);
+
+        // Etapa de Recepción de Nota
+        ProcesoEtapa etapaRecepcionNota = new ProcesoEtapa();
+        etapaRecepcionNota.setPedido(pedido);
+        etapaRecepcionNota.setTipoEtapa(ProcesoEtapaTipo.RECEPCION_NOTA);
+        etapaRecepcionNota.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+        etapaRecepcionNota.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaRecepcionNota);
+
+        // Etapa de Recepción de Mercadería
+        ProcesoEtapa etapaRecepcionMercaderia = new ProcesoEtapa();
+        etapaRecepcionMercaderia.setPedido(pedido);
+        etapaRecepcionMercaderia.setTipoEtapa(ProcesoEtapaTipo.RECEPCION_MERCADERIA);
+        etapaRecepcionMercaderia.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+        etapaRecepcionMercaderia.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaRecepcionMercaderia);
+
+        // Etapa de Solicitud de Pago
+        ProcesoEtapa etapaSolicitudPago = new ProcesoEtapa();
+        etapaSolicitudPago.setPedido(pedido);
+        etapaSolicitudPago.setTipoEtapa(ProcesoEtapaTipo.SOLICITUD_PAGO);
+        etapaSolicitudPago.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+        etapaSolicitudPago.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaSolicitudPago);
+        
+        procesoEtapaService.saveAll(etapas);
+    }
 
 
     /**

@@ -72,13 +72,13 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
      * UPDATED: Simplified query since NotaRecepcionAgrupada was removed in refactor
      * @param numero Optional nota number (can be null if proveedor is provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided)
-     * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
      * @return List of available NotaRecepcion for reception
      */
     @Query("SELECT DISTINCT nr FROM NotaRecepcion nr " +
            "LEFT JOIN nr.pedido p " +
            "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
-           "LEFT JOIN PedidoItemSucursal pis ON pis.pedidoItem = pi " +
+           "LEFT JOIN PedidoItemDistribucion pis ON pis.pedidoItem = pi " +
            "WHERE " +
            "(:numero IS NULL OR nr.numero = :numero) " +
            "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +

@@ -2,7 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.domain.operaciones.PedidoItem;
-import com.franco.dev.domain.operaciones.PedidoItemSucursal;
+import com.franco.dev.domain.operaciones.PedidoItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoSucursalEntrega;
 import com.franco.dev.domain.operaciones.PedidoSucursalInfluencia;
 import com.franco.dev.domain.operaciones.enums.CompraItemEstado;
@@ -39,7 +39,7 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
     private PedidoSucursalEntregaService pedidoSucursalEntregaService;
 
     @Autowired
-    private PedidoItemSucursalService pedidoItemSucursalService;
+    private PedidoItemDistribucionService pedidoItemDistribucionService;
 
     // ===== BASIC METHODS =====
     public List<PedidoItem> findByProductoId(Long id) { 
@@ -69,19 +69,19 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         
         e = super.save(entity);
         
-        // **NEW LOGIC**: Create PedidoItemSucursal automatically for new items
+        // **NEW LOGIC**: Create PedidoItemDistribucion automatically for new items
         if(isNewItem && entity.getPedido() != null) {
-            createPedidoItemSucursalForNewItem(e);
+            createPedidoItemDistribucionForNewItem(e);
         }
         
         return e;
     }
 
     /**
-     * Creates PedidoItemSucursal records automatically for a new PedidoItem
+     * Creates PedidoItemDistribucion records automatically for a new PedidoItem
      * based on the pedido's sucursales de influencia and entrega
      */
-    private void createPedidoItemSucursalForNewItem(PedidoItem pedidoItem) {
+    private void createPedidoItemDistribucionForNewItem(PedidoItem pedidoItem) {
         try {
             Long pedidoId = pedidoItem.getPedido().getId();
             
@@ -93,55 +93,38 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
             List<PedidoSucursalEntrega> sucursalesEntrega = 
                 pedidoSucursalEntregaService.findByPedidoId(pedidoId);
             
-            // Calculate cantidadPorUnidad based on business rules using basic fields
-            Double cantidadPorUnidad = 0.0;
+            // Calculate cantidadAsignada based on business rules using basic fields
+            Double cantidadAsignada = 0.0;
             
             // Using basic PedidoItem fields instead of step-specific ones
             if(sucursalesInfluencia.size() == 1 && sucursalesEntrega.size() == 1) {
                 // If there's exactly one sucursal de influencia and one sucursal de entrega
-                // cantidadPorUnidad = presentacionCreacion.cantidad * cantidadSolicitada
+                // cantidadAsignada = presentacionCreacion.cantidad * cantidadSolicitada
                 Double presentacionCantidad = pedidoItem.getPresentacionCreacion() != null 
                     ? pedidoItem.getPresentacionCreacion().getCantidad() : 1.0;
                 Double cantidadSolicitada = pedidoItem.getCantidadSolicitada() != null 
                     ? pedidoItem.getCantidadSolicitada() : 0.0;
-                cantidadPorUnidad = presentacionCantidad * cantidadSolicitada;
+                cantidadAsignada = presentacionCantidad * cantidadSolicitada;
             }
-            // Otherwise cantidadPorUnidad remains 0.0 (for manual distribution)
+            // Otherwise cantidadAsignada remains 0.0 (for manual distribution)
             
-            // Determine sucursalEntrega for the PedidoItemSucursal records
-            Long sucursalEntregaId = null;
-            if(sucursalesEntrega.size() == 1) {
-                // If there's only one sucursal de entrega, assign it
-                sucursalEntregaId = sucursalesEntrega.get(0).getSucursal().getId();
-            }
-            // If there are multiple sucursales de entrega, leave sucursal_entrega_id null
-            
-            // Create one PedidoItemSucursal for each sucursal de influencia
+            // Create PedidoItemDistribucion for each combination of sucursal influencia and sucursal entrega
             for(PedidoSucursalInfluencia sucursalInfluencia : sucursalesInfluencia) {
-                PedidoItemSucursal pedidoItemSucursal = new PedidoItemSucursal();
-                pedidoItemSucursal.setPedidoItem(pedidoItem);
-                pedidoItemSucursal.setSucursal(sucursalInfluencia.getSucursal());
-                pedidoItemSucursal.setCantidadPorUnidad(cantidadPorUnidad);
-                pedidoItemSucursal.setUsuario(pedidoItem.getUsuarioCreacion());
-                
-                // Set sucursalEntrega if there's only one
-                if(sucursalEntregaId != null) {
-                    // Find the sucursal entity
-                    for(PedidoSucursalEntrega entrega : sucursalesEntrega) {
-                        if(entrega.getSucursal().getId().equals(sucursalEntregaId)) {
-                            pedidoItemSucursal.setSucursalEntrega(entrega.getSucursal());
-                            break;
-                        }
-                    }
+                for(PedidoSucursalEntrega sucursalEntrega : sucursalesEntrega) {
+                    PedidoItemDistribucion pedidoItemDistribucion = new PedidoItemDistribucion();
+                    pedidoItemDistribucion.setPedidoItem(pedidoItem);
+                    pedidoItemDistribucion.setSucursalInfluencia(sucursalInfluencia.getSucursal());
+                    pedidoItemDistribucion.setSucursalEntrega(sucursalEntrega.getSucursal());
+                    pedidoItemDistribucion.setCantidadAsignada(cantidadAsignada);
+                    
+                    // Save the PedidoItemDistribucion
+                    pedidoItemDistribucionService.save(pedidoItemDistribucion);
                 }
-                
-                // Save the PedidoItemSucursal
-                pedidoItemSucursalService.save(pedidoItemSucursal);
             }
             
         } catch (Exception ex) {
             // Log the error but don't break the main PedidoItem saving process
-            System.err.println("Error creating PedidoItemSucursal for PedidoItem " + pedidoItem.getId() + ": " + ex.getMessage());
+            System.err.println("Error creating PedidoItemDistribucion for PedidoItem " + pedidoItem.getId() + ": " + ex.getMessage());
             ex.printStackTrace();
         }
     }

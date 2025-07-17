@@ -43,7 +43,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
      * Find NotaRecepcion available for reception with complex filtering criteria
      * @param numero Optional nota number (can be null if proveedor is provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided) 
-     * @param sucursalId Optional sucursal ID for filtering by PedidoItemSucursal
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
      * @return List of available NotaRecepcion for reception
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {

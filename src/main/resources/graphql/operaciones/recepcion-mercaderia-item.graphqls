@@ -3,11 +3,14 @@ type RecepcionMercaderiaItem {
     recepcionMercaderia: RecepcionMercaderia
     notaRecepcionItem: NotaRecepcionItem
     producto: Producto
+    presentacionRecibida: Presentacion
     sucursalEntrega: Sucursal
     cantidadRecibida: Float
+    cantidadRechazada: Float
     vencimientoRecibido: Date
     lote: String
     esBonificacion: Boolean
+    motivoRechazo: String
     observaciones: String
 }
 
@@ -16,11 +19,14 @@ input RecepcionMercaderiaItemInput {
     recepcionMercaderiaId: Int
     notaRecepcionItemId: Int
     productoId: Int
+    presentacionRecibidaId: Int
     sucursalEntregaId: Int
     cantidadRecibida: Float
+    cantidadRechazada: Float
     vencimientoRecibido: String
     lote: String
     esBonificacion: Boolean
+    motivoRechazo: String
     observacion: String
     creadoEn: String
 }

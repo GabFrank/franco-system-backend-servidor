@@ -9,6 +9,9 @@ type Pedido {
     estado: PedidoEstado
     creadoEn: Date
     usuario: Usuario
+    sucursalEntregaList: [PedidoSucursalEntrega]
+    sucursalInfluenciaList: [PedidoSucursalInfluencia]
+    procesoEtapas: [ProcesoEtapa]
 }
 
 input PedidoInput {

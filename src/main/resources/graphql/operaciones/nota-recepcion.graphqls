@@ -1,34 +1,35 @@
 type NotaRecepcion {
-    id:ID!,
-    pedido: Pedido,
-    compra: Compra,
-    documento: Documento,
-    valor: Float,
-    descuento: Float,
+    id: ID!
+    pedido: Pedido
+    compra: Compra
+    documento: Documento
+    numero: Int
     tipoBoleta: String
-    pagado: Boolean,
-    numero: Int,
-    timbrado: Int,
-    creadoEn: Date,
-    usuario: Usuario,
-    # cantidadItens: Int
+    timbrado: Int
     fecha: Date
+    moneda: Moneda!
+    cotizacion: Float
+    estado: NotaRecepcionEstado!
+    pagado: Boolean
+    creadoEn: Date
+    usuario: Usuario
 }
 
 input NotaRecepcionInput {
-    id:ID
-    pedidoId: Int,
-    compraId: Int,
-    documentoId: Int,
+    id: ID
+    pedidoId: Int
+    compraId: Int
+    documentoId: Int
+    numero: Int
     tipoBoleta: String
-    valor: Float,
-    descuento: Float,
-    pagado: Boolean,
-    numero: Int,
-    timbrado: Int,
-    creadoEn: String,
-    usuarioId: Int
+    timbrado: Int
     fecha: String
+    monedaId: Int!
+    cotizacion: Float
+    estado: NotaRecepcionEstado!
+    pagado: Boolean
+    creadoEn: String
+    usuarioId: Int
 }
 
 type NotaRecepcionPage {
@@ -44,20 +45,29 @@ type NotaRecepcionPage {
 }
 
 extend type Query {
-    notaRecepcion(id:ID!):NotaRecepcion
-    notaRecepcions(page:Int = 0, size:Int = 10):[NotaRecepcion]!
+    notaRecepcion(id: ID!): NotaRecepcion
+    notaRecepcions(page: Int = 0, size: Int = 10): [NotaRecepcion]!
     countNotaRecepcion: Int
-    notaRecepcionPorPedidoId(id:ID!):[NotaRecepcion]
-    notaRecepcionPorPedidoIdAndNumero(id:ID!, numero: Int, page: Int, size: Int):NotaRecepcionPage
-    countNotaRecepcionPorPedidoId(id:ID!):Int
-    findByProveedorAndNumero(id: ID!, numero: Int!):[NotaRecepcion]
-    findByNumero(numero: Int!):[NotaRecepcion]
-    findNotasDisponiblesParaRecepcion(numero: Int, proveedorId: ID, sucursalId: ID):[NotaRecepcion]
+    notaRecepcionPorPedidoId(id: ID!): [NotaRecepcion]
+    notaRecepcionPorPedidoIdAndNumero(id: ID!, numero: Int, page: Int, size: Int): NotaRecepcionPage
+    countNotaRecepcionPorPedidoId(id: ID!): Int
+    findByProveedorAndNumero(id: ID!, numero: Int!): [NotaRecepcion]
+    findByNumero(numero: Int!): [NotaRecepcion]
+    findNotasDisponiblesParaRecepcion(numero: Int, proveedorId: ID, sucursalId: ID): [NotaRecepcion]
 }
 
 extend type Mutation {
-    saveNotaRecepcion(entity:NotaRecepcionInput!):NotaRecepcion!
-    deleteNotaRecepcion(id:ID!):Boolean!
+    saveNotaRecepcion(entity: NotaRecepcionInput!): NotaRecepcion!
+    deleteNotaRecepcion(id: ID!): Boolean!
+}
+
+enum NotaRecepcionEstado {
+    PENDIENTE_CONCILIACION
+    CONCILIADA
+    EN_RECEPCION
+    RECEPCION_PARCIAL
+    RECEPCION_COMPLETA
+    CERRADA
 }
 
 

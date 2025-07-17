@@ -6,7 +6,7 @@ import lombok.Data;
 public class PedidoItemDistribucionInput {
     private Long id;
     private Long pedidoItemId;
+    private Long sucursalInfluenciaId;
     private Long sucursalEntregaId;
-    private Double cantidadSolicitada;
-    private String creadoEn;
-} 
+    private Double cantidadAsignada;
+}

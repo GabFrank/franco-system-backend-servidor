@@ -55,7 +55,7 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (pedidoId == null) {
             throw new GraphQLException("ID del pedido es requerido");
         }
-        return service.getEtapaActual(pedidoId);
+        return service.getEtapaTipoActual(pedidoId);
     }
 
     /**

@@ -6,7 +6,6 @@ import com.franco.dev.domain.operaciones.PedidoItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoSucursalEntrega;
 import com.franco.dev.domain.operaciones.PedidoSucursalInfluencia;
 import com.franco.dev.domain.operaciones.enums.CompraItemEstado;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.PedidoItemEstado;
 import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import com.franco.dev.service.CrudService;
@@ -127,5 +126,19 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
             System.err.println("Error creating PedidoItemDistribucion for PedidoItem " + pedidoItem.getId() + ": " + ex.getMessage());
             ex.printStackTrace();
         }
+    }
+
+    /**
+     * Calcula la cantidad pendiente de conciliar para un PedidoItem
+     * @param pedidoItemId ID del pedido item
+     * @return Cantidad pendiente (cantidadSolicitada - sum(cantidadEnNota))
+     */
+    public Double getCantidadPendiente(Long pedidoItemId) {
+        if (pedidoItemId == null) {
+            return 0.0;
+        }
+        
+        Double cantidadPendiente = repository.getCantidadPendienteByPedidoItemId(pedidoItemId);
+        return cantidadPendiente != null ? Math.max(0.0, cantidadPendiente) : 0.0;
     }
 }

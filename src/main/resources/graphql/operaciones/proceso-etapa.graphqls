@@ -45,6 +45,6 @@ enum ProcesoEtapaTipo {
 enum ProcesoEtapaEstado {
     PENDIENTE,
     EN_PROCESO,
-    FINALIZADA,
+    COMPLETADA,
     OMITIDA
 } 

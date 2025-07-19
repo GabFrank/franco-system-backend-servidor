@@ -26,6 +26,10 @@ public class NotaRecepcionItemService extends CrudService<NotaRecepcionItem, Not
         return repository.findByPedidoIdAndPedidoItemIsNull(id);
     }
 
+    public List<NotaRecepcionItem> findByPedidoItemId(Long pedidoItemId) {
+        return repository.findByPedidoItemId(pedidoItemId);
+    }
+
     @Override
     public NotaRecepcionItem save(NotaRecepcionItem entity) {
         NotaRecepcionItem e = super.save(entity);

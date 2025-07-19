@@ -9,6 +9,7 @@ import com.franco.dev.graphql.operaciones.input.NotaRecepcionItemInput;
 import com.franco.dev.service.financiero.DocumentoService;
 import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.productos.PresentacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -36,6 +37,9 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     private PedidoItemService pedidoItemService;
     @Autowired
     private PedidoService pedidoService;
+    
+    @Autowired
+    private PresentacionService presentacionService;
 
     public Optional<NotaRecepcionItem> notaRecepcionItem(Long id) {return service.findById(id);}
 
@@ -53,6 +57,7 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         NotaRecepcionItem e = m.map(input, NotaRecepcionItem.class);
         if(input.getNotaRecepcionId()!=null) e.setNotaRecepcion(notaRecepcionService.findById(input.getNotaRecepcionId()).orElse(null));
         if(input.getPedidoItemId()!=null) e.setPedidoItem(pedidoItemService.findById(input.getPedidoItemId()).orElse(null));
+        if(input.getPresentacionEnNotaId()!=null) e.setPresentacionEnNota(presentacionService.findById(input.getPresentacionEnNotaId()).orElse(null));
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         return service.save(e);
     }

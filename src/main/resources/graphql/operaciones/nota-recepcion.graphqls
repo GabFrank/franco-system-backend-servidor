@@ -59,6 +59,7 @@ extend type Query {
 extend type Mutation {
     saveNotaRecepcion(entity: NotaRecepcionInput!): NotaRecepcion!
     deleteNotaRecepcion(id: ID!): Boolean!
+    asignarItemsANota(notaRecepcionId: ID!, pedidoItemIds: [ID!]!): AsignacionResult!
 }
 
 enum NotaRecepcionEstado {
@@ -68,6 +69,18 @@ enum NotaRecepcionEstado {
     RECEPCION_PARCIAL
     RECEPCION_COMPLETA
     CERRADA
+}
+
+type AsignacionResult {
+    success: Boolean!
+    message: String
+    notaRecepcionItems: [NotaRecepcionItem!]
+    errores: [AsignacionError!]
+}
+
+type AsignacionError {
+    pedidoItemId: ID!
+    error: String!
 }
 
 

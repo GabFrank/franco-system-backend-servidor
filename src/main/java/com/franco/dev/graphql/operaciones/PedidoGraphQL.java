@@ -2,7 +2,6 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.*;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.personas.Usuario;
@@ -86,13 +85,13 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findAll(pageable);
     }
 
-    public Page<Pedido> filterPedidos(Long idPedido, Integer numeroNotaRecepcion, PedidoEstado estado, 
-                                      Long sucursalId, String inicio, String fin, Long proveedorId, 
-                                      Long vendedorId, Long formaPagoId, Long productoId, 
-                                      Integer page, Integer size) {
-        return service.filterPedidos(idPedido, numeroNotaRecepcion, estado, sucursalId, inicio, fin, 
-                                   proveedorId, vendedorId, formaPagoId, productoId, page, size);
-    }
+    // public Page<Pedido> filterPedidos(Long idPedido, Integer numeroNotaRecepcion, PedidoEstado estado, 
+    //                                   Long sucursalId, String inicio, String fin, Long proveedorId, 
+    //                                   Long vendedorId, Long formaPagoId, Long productoId, 
+    //                                   Integer page, Integer size) {
+    //     return service.filterPedidos(idPedido, numeroNotaRecepcion, estado, sucursalId, inicio, fin, 
+    //                                proveedorId, vendedorId, formaPagoId, productoId, page, size);
+    // }
 
     public Long countPedido() {
         return service.count();
@@ -252,20 +251,20 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     // ===== WORKFLOW OPERATIONS =====
 
-    public Pedido finalizarPedido(Long id, PedidoEstado estado) {
-        Pedido pedido = service.findById(id).orElse(null);
-        if (pedido == null) {
-            throw new GraphQLException("No se puedo encontrar el pedido");
-        }
+    // public Pedido finalizarPedido(Long id, PedidoEstado estado) {
+    //     Pedido pedido = service.findById(id).orElse(null);
+    //     if (pedido == null) {
+    //         throw new GraphQLException("No se puedo encontrar el pedido");
+    //     }
 
-        if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
-            List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
-            procesarPedidoItems(pedido, pedidoItemList);
-        }
+    //     if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
+    //         List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
+    //         procesarPedidoItems(pedido, pedidoItemList);
+    //     }
 
-        pedido.setEstado(estado);
-        return service.save(pedido);
-    }
+    //     pedido.setEstado(estado);
+    //     return service.save(pedido);
+    // }
 
     @Async
     public void procesarPedidoItems(Pedido pedido, List<PedidoItem> pedidoItemList) {
@@ -291,7 +290,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                 throw new GraphQLException("ID del pedido es requerido");
             }
             
-            Object etapaActual = procesoEtapaService.getEtapaActual(pedidoId);
+            Object etapaActual = procesoEtapaService.getEtapaTipoActual(pedidoId);
             return etapaActual != null ? etapaActual.toString() : "CREACION";
             
         } catch (Exception e) {
@@ -379,7 +378,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             }
 
             long etapasCompletadas = etapas.stream()
-                .filter(etapa -> etapa.getEstadoEtapa() == com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado.FINALIZADA)
+                .filter(etapa -> etapa.getEstadoEtapa() == com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado.COMPLETADA)
                 .count();
 
             return (int) ((etapasCompletadas * 100) / etapas.size());
@@ -387,6 +386,23 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         } catch (Exception e) {
             System.err.println("Error calculando progreso para pedido " + pedidoId + ": " + e.getMessage());
             return 0;
+        }
+    }
+
+    /**
+     * Obtiene el resumen del pedido con información actualizada
+     */
+    public PedidoResumen getPedidoResumen(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            return service.getPedidoResumen(pedidoId);
+
+        } catch (Exception e) {
+            System.err.println("Error obteniendo resumen del pedido " + pedidoId + ": " + e.getMessage());
+            throw new GraphQLException("Error al obtener resumen del pedido: " + e.getMessage());
         }
     }
 }

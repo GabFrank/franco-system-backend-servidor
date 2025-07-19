@@ -24,4 +24,6 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
             "left join operaciones.nota_recepcion_item nri on nri.pedido_item_id = pi2.id " +
             "where pi2.pedido_id = ?1 and nri.pedido_item_id isnull", nativeQuery = true)
     public List<NotaRecepcionItem> findByPedidoIdAndPedidoItemIsNull(Long id);
+
+    public List<NotaRecepcionItem> findByPedidoItemId(Long pedidoItemId);
 }

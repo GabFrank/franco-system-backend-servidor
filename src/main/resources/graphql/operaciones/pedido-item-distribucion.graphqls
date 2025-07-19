@@ -20,6 +20,7 @@ extend type Query {
     pedidoItemDistribucionPorSucursal(sucursalId: ID!): [PedidoItemDistribucion]
     pedidoItemDistribucionPorSucursalInfluencia(sucursalId: ID!): [PedidoItemDistribucion]
     countPedidoItemDistribucion: Int
+    isDistribucionConcluida(pedidoItemId: ID!): Boolean!
 }
 
 extend type Mutation {

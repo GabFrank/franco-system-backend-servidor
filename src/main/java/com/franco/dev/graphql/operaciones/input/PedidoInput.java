@@ -1,6 +1,6 @@
 package com.franco.dev.graphql.operaciones.input;
 
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -14,7 +14,7 @@ public class PedidoInput {
     private LocalDateTime fechaDeEntrega;
     private Long formaPagoId;
     private String tipoBoleta;
-    private PedidoEstado estado;
+
     private Long monedaId;
     private Integer plazoCredito;
     private Float descuento;

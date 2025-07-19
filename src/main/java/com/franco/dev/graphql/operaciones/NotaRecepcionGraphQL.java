@@ -2,9 +2,10 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.PedidoItem;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionInput;
 import com.franco.dev.service.financiero.DocumentoService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -40,6 +41,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private PedidoService pedidoService;
     @Autowired
     private PedidoItemService pedidoItemService;
+    @Autowired
+    private MonedaService monedaService;
 
     public Optional<NotaRecepcion> notaRecepcion(Long id) {
         return service.findById(id);
@@ -74,6 +77,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getFecha() != null) e.setFecha(stringToDate(input.getFecha()));
         if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         return service.save(e);
 
     }
@@ -99,11 +103,13 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public List<NotaRecepcion> findByProveedorAndNumero(Long id, Integer numero) {
-        return service.getRepository().findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(id, numero, PedidoEstado.CONCLUIDO);
+        // return service.getRepository().findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(id, numero, PedidoEstado.CONCLUIDO);
+        return new ArrayList<>();
     }
 
     public List<NotaRecepcion> findByNumero(Integer numero) {
-        return service.findByNumero(numero);
+        // return service.findByNumero(numero);
+        return new ArrayList<>();
     }
 
     /**
@@ -116,5 +122,19 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
         return service.findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
+    }
+
+    /**
+     * Asigna ítems de pedido a una nota de recepción
+     * @param notaRecepcionId ID de la nota de recepción
+     * @param pedidoItemIds Lista de IDs de ítems de pedido a asignar
+     * @return Resultado de la asignación con ítems creados y errores
+     */
+    public AsignacionResult asignarItemsANota(Long notaRecepcionId, List<Long> pedidoItemIds) {
+        try {
+            return service.asignarItemsANota(notaRecepcionId, pedidoItemIds);
+        } catch (Exception e) {
+            throw new GraphQLException("Error al asignar ítems a la nota: " + e.getMessage());
+        }
     }
 }

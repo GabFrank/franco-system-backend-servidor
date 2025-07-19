@@ -6,12 +6,20 @@ type Pedido {
     tipoBoleta: String
     moneda: Moneda
     plazoCredito: Int
-    estado: PedidoEstado
     creadoEn: Date
     usuario: Usuario
     sucursalEntregaList: [PedidoSucursalEntrega]
     sucursalInfluenciaList: [PedidoSucursalInfluencia]
     procesoEtapas: [ProcesoEtapa]
+}
+
+type PedidoResumen {
+    pedidoId: ID
+    etapaActual: ProcesoEtapa
+    cantidadItems: Int
+    valorTotal: Float
+    cantidadItemsConDistribucionCompleta: Int
+    cantidadItemsPendientesDistribucion: Int
 }
 
 input PedidoInput {
@@ -22,7 +30,6 @@ input PedidoInput {
     tipoBoleta: String
     monedaId: Int
     plazoCredito: Int
-    estado: PedidoEstado
     creadoEn: Date
     usuarioId: Int
 }
@@ -42,32 +49,24 @@ type PedidoPage {
 extend type Query {
     pedido(id:ID!):Pedido
     pedidos(page:Int = 0, size:Int = 10):[Pedido]!
-    filterPedidos(idPedido:ID, numeroNotaRecepcion:Int ,estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
+    # filterPedidos(idPedido:ID, numeroNotaRecepcion:Int, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
     
     # New step tracking queries
     etapaActualDelPedido(pedidoId:ID!): String
     progresoPedido(pedidoId:ID!): Int
+    getPedidoResumen(pedidoId:ID!): PedidoResumen
 }
 
 extend type Mutation {
     savePedido(entity:PedidoInput!):Pedido!
     savePedidoFull(entity:PedidoInput!, fechaEntregaList: [String], sucursalEntregaList: [Int], sucursalInfluenciaList: [Int], usuarioId: Int):Pedido!
     deletePedido(id:ID!):Boolean!
-    finalizarPedido(id:ID, estado:PedidoEstado): Pedido
     
     # New step tracking mutations
     finalizarCreacionPedido(pedidoId:ID!): Pedido
 }
 
-enum PedidoEstado {
-    ABIERTO,
-    ACTIVO,
-    EN_RECEPCION_NOTA,
-    EN_RECEPCION_MERCADERIA,
-    EN_SOLICITUD_PAGO,
-    CONCLUIDO,
-    CANCELADO
-}
+
 
 

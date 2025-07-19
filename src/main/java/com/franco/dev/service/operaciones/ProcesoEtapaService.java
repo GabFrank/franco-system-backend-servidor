@@ -73,11 +73,11 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
         }
 
         ProcesoEtapa etapa = etapaOpt.get();
-        if (etapa.getEstadoEtapa() == ProcesoEtapaEstado.FINALIZADA) {
-            throw new IllegalStateException("La etapa " + tipo + " ya está finalizada");
+        if (etapa.getEstadoEtapa() == ProcesoEtapaEstado.COMPLETADA) {
+            throw new IllegalStateException("La etapa " + tipo + " ya está completada");
         }
 
-        etapa.setEstadoEtapa(ProcesoEtapaEstado.FINALIZADA);
+        etapa.setEstadoEtapa(ProcesoEtapaEstado.COMPLETADA);
         etapa.setFechaFin(LocalDateTime.now());
 
         return save(etapa);
@@ -149,13 +149,13 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
     public boolean isEtapaCompletada(Long pedidoId, ProcesoEtapaTipo tipo) {
         Optional<ProcesoEtapa> etapaOpt = getEtapaByPedidoAndTipo(pedidoId, tipo);
         return etapaOpt.isPresent() && 
-               etapaOpt.get().getEstadoEtapa() == ProcesoEtapaEstado.FINALIZADA;
+               etapaOpt.get().getEstadoEtapa() == ProcesoEtapaEstado.COMPLETADA;
     }
 
     /**
      * Obtiene el estado actual del proceso para un pedido
      */
-    public ProcesoEtapaTipo getEtapaActual(Long pedidoId) {
+    public ProcesoEtapaTipo getEtapaTipoActual(Long pedidoId) {
         List<ProcesoEtapa> etapas = getEtapasByPedidoId(pedidoId);
         
         // Buscar la última etapa en proceso o la primera pendiente
@@ -174,5 +174,25 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
         
         // Si no hay pendientes ni en proceso, asumir que necesita creación
         return ProcesoEtapaTipo.CREACION;
+    }
+
+    // retorna la etapa actual del pedido, similar a getEtapaTipoActual pero retorna la etapa completa
+    public ProcesoEtapa getEtapaActual(Long pedidoId) {
+        List<ProcesoEtapa> etapas = getEtapasByPedidoId(pedidoId);
+        // 
+        for (ProcesoEtapa etapa : etapas) {
+            if (etapa.getEstadoEtapa() == ProcesoEtapaEstado.EN_PROCESO) {
+                return etapa;
+            }
+        }
+
+        // si no hay ninguna en proceso, buscar la primera pendiente
+        for (ProcesoEtapa etapa : etapas) {
+            if (etapa.getEstadoEtapa() == ProcesoEtapaEstado.PENDIENTE) {
+                return etapa;
+            }
+        }
+
+        return null;
     }
 } 

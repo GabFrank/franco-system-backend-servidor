@@ -3,7 +3,7 @@ package com.franco.dev.domain.operaciones;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.Vendedor;
@@ -23,10 +23,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@TypeDef(
-        name = "pedido_estado",
-        typeClass = PostgreSQLEnumType.class
-)
 @TypeDef(
         name = "pedido_forma_pago",
         typeClass = PostgreSQLEnumType.class
@@ -68,10 +64,7 @@ public class Pedido implements Identifiable<Long> {
     @Column(name = "plazo_credito")
     private Integer plazoCredito;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "estado")
-    @Type(type = "pedido_estado")
-    private PedidoEstado estado;
+
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

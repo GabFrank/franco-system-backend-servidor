@@ -172,10 +172,8 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
     @Transactional
     public Boolean deletePedidoItemDistribucionesByPedidoItemId(Long pedidoItemId) {
         try {
-            List<PedidoItemDistribucion> distribuciones = service.findByPedidoItemId(pedidoItemId);
-            for (PedidoItemDistribucion distribucion : distribuciones) {
-                service.deleteById(distribucion.getId());
-            }
+            // Use the repository method that handles the deletion in a single query
+            service.deleteByPedidoItemId(pedidoItemId);
             return true;
         } catch (Exception e) {
             throw new GraphQLException(
@@ -189,15 +187,8 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
     @Transactional
     public Boolean deletePedidoItemDistribucionesByIds(List<Long> ids) {
         try {
-            for (Long id : ids) {
-                Optional<PedidoItemDistribucion> distribucion = service.findById(id);
-                if (distribucion.isPresent()) {
-                    service.deleteById(id);
-                } else {
-                    throw new GraphQLException("PedidoItemDistribucion no encontrado con ID: " + id);
-                }
-            }
-            return true;
+            int deletedCount = service.deleteByIds(ids);
+            return deletedCount > 0 || ids.isEmpty();
         } catch (Exception e) {
             throw new GraphQLException("Error al eliminar distribuciones. " + e.getMessage());
         }
@@ -238,5 +229,12 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
 
         // Step 4: Return the updated PedidoItem
         return distribuciones;
+    }
+
+    public Boolean isDistribucionConcluida(Long pedidoItemId) {
+        PedidoItem pedidoItem = pedidoItemService.findById(pedidoItemId)
+                .orElseThrow(() -> new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId));
+
+        return service.isDistribucionConcluida(pedidoItemId, pedidoItem.getCantidadSolicitada());
     }
 }

@@ -2,8 +2,6 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
-// import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada; // REMOVED - entity deleted in refactor
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -54,13 +52,13 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             , nativeQuery = true)
     public Boolean areAllNotasPagadasTrue(@Param("pedidoId") Long pedidoId);
 
-    public List<NotaRecepcion> findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(Long id, Integer numero, PedidoEstado estado);
+//     public List<NotaRecepcion> findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(Long id, Integer numero, PedidoEstado estado);
 
-    @Query(value = "SELECT nr FROM NotaRecepcion nr " +
-            "WHERE nr.numero = :numero " +
-            "AND nr.pedido.estado != :estado " +
-            "ORDER BY nr.id DESC")
-    public List<NotaRecepcion> findByNumeroAndPedidoEstadoNot(@Param("numero") Integer numero, @Param("estado") PedidoEstado estado);
+//     @Query(value = "SELECT nr FROM NotaRecepcion nr " +
+//             "WHERE nr.numero = :numero " +
+//             "AND nr.pedido.estado != :estado " +
+//             "ORDER BY nr.id DESC")
+//     public List<NotaRecepcion> findByNumeroAndPedidoEstadoNot(@Param("numero") Integer numero, @Param("estado") PedidoEstado estado);
 
     // REMOVED - Methods related to NotaRecepcionAgrupada (deleted entity):
     // public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);

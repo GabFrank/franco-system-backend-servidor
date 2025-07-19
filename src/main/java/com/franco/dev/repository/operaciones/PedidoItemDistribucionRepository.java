@@ -29,4 +29,10 @@ public interface PedidoItemDistribucionRepository extends HelperRepository<Pedid
     @Modifying
     @Query("DELETE FROM PedidoItemDistribucion pid WHERE pid.pedidoItem.id = :pedidoItemId")
     void deleteByPedidoItemId(@Param("pedidoItemId") Long pedidoItemId);
+
+    /**
+     * Obtiene la suma total de cantidades asignadas para un pedido item específico
+     */
+    @Query("SELECT COALESCE(SUM(pid.cantidadAsignada), 0.0) FROM PedidoItemDistribucion pid WHERE pid.pedidoItem.id = :pedidoItemId")
+    Double getTotalAsignadoByPedidoItemId(@Param("pedidoItemId") Long pedidoItemId);
 } 

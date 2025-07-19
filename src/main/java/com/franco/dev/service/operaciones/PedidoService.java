@@ -1,12 +1,18 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.Pedido;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
+import com.franco.dev.domain.operaciones.PedidoResumen;
+import com.franco.dev.domain.operaciones.ProcesoEtapa;
+
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
 import com.franco.dev.repository.operaciones.PedidoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.personas.VendedorProveedorService;
 import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -48,12 +54,12 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     }
 
     public Page<Pedido> filterPedidos(Long idPedido,
-                                      Integer numeroNotaRecepcion, PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPago, Long productoId, Integer page, Integer size) {
+                                      Integer numeroNotaRecepcion, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPago, Long productoId, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         if(idPedido!=null) return repository.findById(idPedido, pageable);
         if(numeroNotaRecepcion != null) return repository.filterPedidosByNumeroNota(numeroNotaRecepcion, pageable);
         return repository.filterPedidos(idPedido,
-                numeroNotaRecepcion, estado, sucursalId, stringToDate(inicio), stringToDate(fin), proveedorId, vendedorId, formaPago, productoId, pageable);
+                numeroNotaRecepcion, sucursalId, stringToDate(inicio), stringToDate(fin), proveedorId, vendedorId, formaPago, productoId, pageable);
     }
 
 //    public List<Pedido> filterPedidos(@Param("estado") String estado,@Param("sucursal_id") Long sucursalId,@Param("inicio") String inicio,@Param("fin") String fin,@Param("proveedor_id") Long proveedorId,@Param("vendedor_d") Long vendedorId,@Param("forma_pago") String formaPago,@Param("producto_id") Long productoId){
@@ -103,7 +109,6 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     public Pedido save(Pedido entity) {
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
-            entity.setEstado(PedidoEstado.ABIERTO);
         }
         Pedido e = super.save(entity);
         if (entity.getVendedor() != null && entity.getProveedor() != null) {
@@ -113,8 +118,42 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     }
 
     /**
+     * Obtiene el resumen del pedido con información actualizada
+     * @param pedidoId ID del pedido
+     * @return PedidoResumen con etapa actual, cantidad de ítems, valor total y estadísticas de distribución
+     */
+    public PedidoResumen getPedidoResumen(Long pedidoId) {
+        if (pedidoId == null) {
+            throw new IllegalArgumentException("ID del pedido es requerido");
+        }
+
+        // Obtener etapa actual
+        ProcesoEtapa etapaActual = procesoEtapaService.getEtapaActual(pedidoId);
+        
+        // Obtener datos básicos desde el repositorio
+        Long cantidadItems = repository.getCantidadItemsByPedidoId(pedidoId);
+        Double valorTotal = repository.getValorTotalByPedidoId(pedidoId);
+        
+        // Obtener estadísticas de distribución
+        Long cantidadItemsConDistribucionCompleta = repository.getCantidadItemsConDistribucionCompleta(pedidoId);
+        Long cantidadItemsPendientesDistribucion = cantidadItems - cantidadItemsConDistribucionCompleta;
+        
+        // Crear y retornar el resumen
+        PedidoResumen resumen = new PedidoResumen();
+        resumen.setPedidoId(pedidoId);
+        resumen.setEtapaActual(etapaActual);
+        resumen.setCantidadItems(cantidadItems != null ? cantidadItems : 0L);
+        resumen.setValorTotal(valorTotal != null ? valorTotal : 0.0);
+        resumen.setCantidadItemsConDistribucionCompleta(cantidadItemsConDistribucionCompleta != null ? cantidadItemsConDistribucionCompleta : 0L);
+        resumen.setCantidadItemsPendientesDistribucion(cantidadItemsPendientesDistribucion != null ? cantidadItemsPendientesDistribucion : 0L);
+        
+        return resumen;
+    }
+
+    /**
      * Finaliza la creación de un pedido - NUEVA FUNCIONALIDAD
      * Cambia el estado del pedido y gestiona las etapas del proceso
+     * AHORA USA PROCESOETAPA EN LUGAR DE PEDIDOESTADO
      */
     @Transactional
     public Pedido finalizarCreacion(Long pedidoId) {
@@ -122,15 +161,18 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
             () -> new IllegalArgumentException("Pedido no encontrado: " + pedidoId)
         );
         
-        if (pedido.getEstado() != PedidoEstado.ABIERTO) {
-            throw new IllegalStateException("Solo se pueden finalizar pedidos en estado ABIERTO");
+        // Verificar que la etapa de creación esté en proceso usando ProcesoEtapa
+        ProcesoEtapa etapaCreacion = procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.CREACION)
+            .orElseThrow(() -> new IllegalStateException("No se encontró la etapa de creación para el pedido: " + pedidoId));
+        
+        if (etapaCreacion.getEstadoEtapa() != ProcesoEtapaEstado.EN_PROCESO) {
+            throw new IllegalStateException("Solo se pueden finalizar pedidos cuya etapa de creación esté en proceso");
         }
         
-        // Cambiar estado del pedido
-        pedido.setEstado(PedidoEstado.EN_RECEPCION_NOTA);
+        // El estado del pedido ahora se maneja completamente a través de ProcesoEtapa
         Pedido pedidoFinalizado = save(pedido);
         
-        // Finalizar etapa de creación
+        // Finalizar etapa de creación usando ProcesoEtapa
         procesoEtapaService.finalizarEtapa(pedidoId, ProcesoEtapaTipo.CREACION);
         
         // Crear la siguiente etapa (Recepción de Nota) como pendiente

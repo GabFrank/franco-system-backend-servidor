@@ -33,6 +33,8 @@ import java.util.List;
 
 import static com.franco.dev.utilitarios.DateUtils.dateToString;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import com.franco.dev.domain.operaciones.NotaRecepcion;
+import com.franco.dev.service.operaciones.NotaRecepcionService;
 
 @Service
 @AllArgsConstructor
@@ -47,6 +49,9 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     
     @Autowired
     private ProcesoEtapaService procesoEtapaService;
+
+    @Autowired
+    private NotaRecepcionService notaRecepcionService;
 
     @Override
     public PedidoRepository getRepository() {
@@ -132,7 +137,7 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         
         // Obtener datos básicos desde el repositorio
         Long cantidadItems = repository.getCantidadItemsByPedidoId(pedidoId);
-        Double valorTotal = repository.getValorTotalByPedidoId(pedidoId);
+        Double valorTotal = repository.getValorTotalNotasRecepcionByPedidoId(pedidoId); // Usar valor de notas de recepción
         
         // Obtener estadísticas de distribución
         Long cantidadItemsConDistribucionCompleta = repository.getCantidadItemsConDistribucionCompleta(pedidoId);
@@ -179,5 +184,39 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         procesoEtapaService.crearEtapaSiguiente(pedido, ProcesoEtapaTipo.CREACION);
         
         return pedidoFinalizado;
+    }
+
+    /**
+     * Finaliza la etapa de recepción de notas y avanza a la siguiente etapa
+     * @param pedidoId - ID del pedido
+     * @return Pedido actualizado
+     */
+    @Transactional
+    public Pedido finalizarRecepcionNotas(Long pedidoId) {
+        Pedido pedido = findById(pedidoId).orElseThrow(
+            () -> new IllegalArgumentException("Pedido no encontrado: " + pedidoId)
+        );
+        
+        // Verificar que la etapa de recepción de notas esté en proceso
+        ProcesoEtapa etapaRecepcionNota = procesoEtapaService.getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA)
+            .orElseThrow(() -> new IllegalStateException("No se encontró la etapa de recepción de notas para el pedido: " + pedidoId));
+        
+        if (etapaRecepcionNota.getEstadoEtapa() != ProcesoEtapaEstado.EN_PROCESO) {
+            throw new IllegalStateException("Solo se pueden finalizar pedidos cuya etapa de recepción de notas esté en proceso");
+        }
+        
+        // Validar que existan notas registradas
+        List<NotaRecepcion> notas = notaRecepcionService.findByPedidoId(pedidoId);
+        if (notas.isEmpty()) {
+            throw new IllegalStateException("Debe registrar al menos una nota de recepción para finalizar la conciliación");
+        }
+        
+        // Finalizar etapa de recepción de notas
+        procesoEtapaService.finalizarEtapa(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
+        
+        // Crear la siguiente etapa (Recepción de Mercadería) como pendiente
+        procesoEtapaService.crearEtapaSiguiente(pedido, ProcesoEtapaTipo.RECEPCION_NOTA);
+        
+        return pedido;
     }
 }

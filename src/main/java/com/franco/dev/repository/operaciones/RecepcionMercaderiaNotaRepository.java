@@ -19,6 +19,19 @@ public interface RecepcionMercaderiaNotaRepository extends HelperRepository<Rece
     @Query("SELECT rmn FROM RecepcionMercaderiaNota rmn WHERE rmn.notaRecepcion.id = :notaId")
     List<RecepcionMercaderiaNota> findByNotaRecepcionId(@Param("notaId") Long notaId);
 
-    @Query("SELECT rmn FROM RecepcionMercaderiaNota rmn WHERE rmn.recepcionMercaderia.id = :recepcionId AND rmn.notaRecepcion.id = :notaId")
+    /**
+     * Verifica si existe una asociación entre una recepción y una nota
+     */
+    @Query("SELECT COUNT(rmn) > 0 FROM RecepcionMercaderiaNota rmn " +
+           "WHERE rmn.recepcionMercaderia.id = :recepcionId " +
+           "AND rmn.notaRecepcion.id = :notaId")
+    boolean existeAsociacion(@Param("recepcionId") Long recepcionId, @Param("notaId") Long notaId);
+
+    /**
+     * Busca asociaciones por recepción y nota
+     */
+    @Query("SELECT rmn FROM RecepcionMercaderiaNota rmn " +
+           "WHERE rmn.recepcionMercaderia.id = :recepcionId " +
+           "AND rmn.notaRecepcion.id = :notaId")
     List<RecepcionMercaderiaNota> findByRecepcionAndNota(@Param("recepcionId") Long recepcionId, @Param("notaId") Long notaId);
 } 

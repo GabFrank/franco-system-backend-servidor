@@ -38,4 +38,41 @@ public interface RecepcionMercaderiaRepository extends HelperRepository<Recepcio
 
     @Query("SELECT rm FROM RecepcionMercaderia rm WHERE rm.estado = :estado")
     List<RecepcionMercaderia> findByEstado(@Param("estado") RecepcionMercaderiaEstado estado);
+
+    /**
+     * Busca recepciones reutilizables por criterios específicos
+     * Regla: Mismo proveedor, misma sucursal, misma fecha, estado EN_PROCESO/PENDIENTE
+     */
+    @Query("SELECT rm FROM RecepcionMercaderia rm " +
+           "WHERE rm.proveedor.id = :proveedorId " +
+           "AND rm.sucursalRecepcion.id = :sucursalRecepcionId " +
+           "AND DATE(rm.fecha) = DATE(:fecha) " +
+           "AND rm.estado IN ('EN_PROCESO', 'PENDIENTE') " +
+           "AND (:usuarioId IS NULL OR rm.usuario.id = :usuarioId) " +
+           "ORDER BY rm.fecha DESC")
+    List<RecepcionMercaderia> findRecepcionesReutilizables(
+            @Param("proveedorId") Long proveedorId,
+            @Param("sucursalRecepcionId") Long sucursalRecepcionId,
+            @Param("fecha") LocalDateTime fecha,
+            @Param("usuarioId") Long usuarioId);
+
+    /**
+     * Verifica si existe una recepción para un ítem de nota y sucursal específica
+     */
+    @Query("SELECT COUNT(rmi) > 0 FROM RecepcionMercaderiaItem rmi " +
+           "WHERE rmi.notaRecepcionItem.id = :notaRecepcionItemId " +
+           "AND rmi.sucursalEntrega.id = :sucursalEntregaId")
+    boolean existeRecepcionParaNotaItemYSucursal(
+            @Param("notaRecepcionItemId") Long notaRecepcionItemId,
+            @Param("sucursalEntregaId") Long sucursalEntregaId);
+
+    /**
+     * Busca recepciones por pedidoId
+     */
+    @Query("SELECT DISTINCT rm FROM RecepcionMercaderia rm " +
+           "JOIN RecepcionMercaderiaItem rmi ON rmi.recepcionMercaderia.id = rm.id " +
+           "JOIN rmi.notaRecepcionItem nri " +
+           "JOIN nri.notaRecepcion nr " +
+           "WHERE nr.pedido.id = :pedidoId")
+    List<RecepcionMercaderia> findByPedidoId(@Param("pedidoId") Long pedidoId);
 } 

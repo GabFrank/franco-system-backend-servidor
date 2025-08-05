@@ -13,8 +13,14 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.productos.CostosPorProductoService;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.personas.ProveedorService;
+import com.franco.dev.service.personas.UsuarioService;
 
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +34,8 @@ import java.util.Optional;
 @Service
 @AllArgsConstructor
 public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia, RecepcionMercaderiaRepository, Long> {
+    
+    private static final Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaService.class);
     
     private final RecepcionMercaderiaRepository repository;
     
@@ -48,6 +56,18 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     
     @Autowired
     private ProcesoEtapaService procesoEtapaService;
+
+    @Autowired
+    private ProveedorService proveedorService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
+    @Autowired
+    private MonedaService monedaService;
+
+    @Autowired
+    private UsuarioService usuarioService;
 
     @Override
     public RecepcionMercaderiaRepository getRepository() {
@@ -337,5 +357,73 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
      */
     public List<RecepcionMercaderia> findByEstado(RecepcionMercaderiaEstado estado) {
         return repository.findByEstado(estado);
+    }
+
+    /**
+     * Busca recepciones existentes por criterios de reutilización
+     * Regla: Mismo proveedor, misma sucursal, misma fecha, estado EN_PROCESO/PENDIENTE
+     */
+    public List<RecepcionMercaderia> findRecepcionesReutilizables(
+            Long proveedorId, Long sucursalRecepcionId, LocalDateTime fecha, Long usuarioId) {
+        return repository.findRecepcionesReutilizables(proveedorId, sucursalRecepcionId, fecha, usuarioId);
+    }
+
+    /**
+     * Obtiene o crea una recepción según las reglas de negocio
+     * Regla 1: Reutilizar si existe con mismos criterios
+     * Regla 2: Crear nueva si no existe o criterios diferentes
+     */
+    @Transactional
+    public RecepcionMercaderia obtenerOcrearRecepcion(
+            Long proveedorId, Long sucursalRecepcionId, Long monedaId, 
+            Double cotizacion, Long usuarioId) {
+        
+        // Normalizar fecha a día completo (00:00:00)
+        LocalDateTime fechaNormalizada = LocalDateTime.now()
+            .withHour(0).withMinute(0).withSecond(0).withNano(0);
+        
+        // Buscar recepciones reutilizables
+        List<RecepcionMercaderia> recepcionesExistentes = findRecepcionesReutilizables(
+            proveedorId, sucursalRecepcionId, fechaNormalizada, usuarioId);
+        
+        if (!recepcionesExistentes.isEmpty()) {
+            // Reutilizar la primera recepción encontrada
+            RecepcionMercaderia recepcionExistente = recepcionesExistentes.get(0);
+            logger.info("Reutilizando recepción existente ID: {} para proveedor: {}, sucursal: {}, fecha: {}", 
+                recepcionExistente.getId(), proveedorId, sucursalRecepcionId, fechaNormalizada);
+            return recepcionExistente;
+        } else {
+            // Crear nueva recepción
+            Proveedor proveedor = proveedorService.findById(proveedorId)
+                .orElseThrow(() -> new RuntimeException("Proveedor no encontrado: " + proveedorId));
+            
+            Sucursal sucursal = sucursalService.findById(sucursalRecepcionId)
+                .orElseThrow(() -> new RuntimeException("Sucursal no encontrada: " + sucursalRecepcionId));
+            
+            Moneda moneda = monedaService.findById(monedaId)
+                .orElseThrow(() -> new RuntimeException("Moneda no encontrada: " + monedaId));
+            
+            Usuario usuario = usuarioService.findById(usuarioId)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado: " + usuarioId));
+            
+            RecepcionMercaderia nuevaRecepcion = crearRecepcion(proveedor, sucursal, moneda, cotizacion, usuario);
+            logger.info("Creada nueva recepción ID: {} para proveedor: {}, sucursal: {}, fecha: {}", 
+                nuevaRecepcion.getId(), proveedorId, sucursalRecepcionId, fechaNormalizada);
+            return nuevaRecepcion;
+        }
+    }
+
+    /**
+     * Verifica si un ítem de nota ya tiene recepción para una sucursal específica
+     */
+    public boolean existeRecepcionParaNotaItemYSucursal(Long notaRecepcionItemId, Long sucursalEntregaId) {
+        return repository.existeRecepcionParaNotaItemYSucursal(notaRecepcionItemId, sucursalEntregaId);
+    }
+
+    /**
+     * Busca recepciones por pedidoId
+     */
+    public List<RecepcionMercaderia> findByPedidoId(Long pedidoId) {
+        return repository.findByPedidoId(pedidoId);
     }
 } 

@@ -11,8 +11,10 @@ type NotaRecepcion {
     cotizacion: Float
     estado: NotaRecepcionEstado!
     pagado: Boolean
+    esNotaRechazo: Boolean
     creadoEn: Date
     usuario: Usuario
+    valorTotal: Float
 }
 
 input NotaRecepcionInput {
@@ -28,6 +30,7 @@ input NotaRecepcionInput {
     cotizacion: Float
     estado: NotaRecepcionEstado!
     pagado: Boolean
+    esNotaRechazo: Boolean
     creadoEn: String
     usuarioId: Int
 }

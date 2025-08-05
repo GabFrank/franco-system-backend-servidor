@@ -44,25 +44,22 @@ public class RecepcionMercaderiaNotaService extends CrudService<RecepcionMercade
      * Asocia una nota de recepción a una recepción de mercadería
      */
     @Transactional
-    public RecepcionMercaderiaNota asociarNotaARecepcion(RecepcionMercaderia recepcion, Long notaRecepcionId) {
-        // Verificar que la nota existe
-        NotaRecepcion notaRecepcion = notaRecepcionService.findById(notaRecepcionId)
-            .orElseThrow(() -> new IllegalArgumentException("Nota de recepción no encontrada: " + notaRecepcionId));
+    public RecepcionMercaderiaNota asociarNotaARecepcion(RecepcionMercaderia recepcion, Long notaId) {
+        NotaRecepcion nota = notaRecepcionService.findById(notaId)
+            .orElseThrow(() -> new RuntimeException("Nota de recepción no encontrada: " + notaId));
         
-        // Verificar que no esté ya asociada
-        List<RecepcionMercaderiaNota> existentes = repository.findByRecepcionAndNota(
-            recepcion.getId(), notaRecepcionId);
-        
-        if (!existentes.isEmpty()) {
-            throw new IllegalStateException("La nota ya está asociada a esta recepción");
-        }
-        
-        // Crear la asociación
         RecepcionMercaderiaNota asociacion = new RecepcionMercaderiaNota();
         asociacion.setRecepcionMercaderia(recepcion);
-        asociacion.setNotaRecepcion(notaRecepcion);
+        asociacion.setNotaRecepcion(nota);
         
         return save(asociacion);
+    }
+
+    /**
+     * Verifica si existe una asociación entre una recepción y una nota
+     */
+    public boolean existeAsociacion(Long recepcionId, Long notaId) {
+        return repository.existeAsociacion(recepcionId, notaId);
     }
 
     /**

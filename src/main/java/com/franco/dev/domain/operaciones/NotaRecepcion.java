@@ -81,6 +81,9 @@ public class NotaRecepcion implements Identifiable<Long> {
     @Column(name = "pagado")
     private Boolean pagado;
 
+    @Column(name = "es_nota_rechazo")
+    private Boolean esNotaRechazo = false;
+
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 

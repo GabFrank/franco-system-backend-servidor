@@ -13,6 +13,15 @@ type NotaRecepcionItem {
     motivoRechazo: String
     creadoEn: Date
     usuario: Usuario
+    distribucionConcluida: Boolean
+    cantidadPendiente: Float
+    notaRecepcionItemDistribuciones: [NotaRecepcionItemDistribucion]
+    
+    # Campos de recepción física (calculados por el resolver)
+    cantidadRecibida: Float
+    cantidadRechazada: Float
+    estadoRecepcion: String
+    recepcionMercaderiaItems: [RecepcionMercaderiaItem]
 }
 
 input NotaRecepcionItemInput {
@@ -36,6 +45,14 @@ extend type Query {
     notaRecepcionItem(id: ID!): NotaRecepcionItem
     notaRecepcionItemList(page: Int = 0, size: Int = 10): [NotaRecepcionItem]!
     notaRecepcionItemListPorNotaRecepcionId(id: ID!): [NotaRecepcionItem]
+    notaRecepcionItemListPorNotaRecepcionIdYSucursales(
+        notaRecepcionId: ID!, 
+        sucursalesIds: [ID!]!, 
+        page: Int = 0, 
+        size: Int = 10,
+        filtroVerificacion: FiltroVerificacion = TODOS,
+        filtroTexto: String
+    ): NotaRecepcionItemPage
     countNotaRecepcionItem: Int
     buscarSobrantes(id: ID): [NotaRecepcionItem]
 }
@@ -52,6 +69,24 @@ enum NotaRecepcionItemEstado {
     CONCILIADO
     RECHAZADO
     DISCREPANCIA
+}
+
+type NotaRecepcionItemPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [NotaRecepcionItem]
+    getPageable: Pageable
+}
+
+enum FiltroVerificacion {
+    TODOS
+    PENDIENTES
+    VERIFICADOS
 }
 
 

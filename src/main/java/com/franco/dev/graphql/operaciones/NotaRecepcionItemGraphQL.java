@@ -14,6 +14,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,15 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import graphql.GraphQLException;
+
+// Enum para filtro de verificación
+enum FiltroVerificacion {
+    TODOS,
+    PENDIENTES,
+    VERIFICADOS,
+    RECHAZADOS
+}
 
 @Component
 public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -50,6 +60,40 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     public List<NotaRecepcionItem> notaRecepcionItemListPorNotaRecepcionId(Long id){
         return service.findByNotaRecepcionId(id);
+    }
+
+    public Page<NotaRecepcionItem> notaRecepcionItemListPorNotaRecepcionIdYSucursales(
+            Long notaRecepcionId, List<Long> sucursalesIds, Integer page, Integer size, FiltroVerificacion filtroVerificacion, String filtroTexto) {
+        
+        if (notaRecepcionId == null) {
+            throw new GraphQLException("ID de nota de recepción es requerido");
+        }
+        
+        if (sucursalesIds == null || sucursalesIds.isEmpty()) {
+            throw new GraphQLException("Lista de IDs de sucursales es requerida");
+        }
+        
+        if (page == null) page = 0;
+        if (size == null) size = 10;
+        if (filtroVerificacion == null) filtroVerificacion = FiltroVerificacion.TODOS;
+        
+        Pageable pageable = PageRequest.of(page, size);
+        
+        switch (filtroVerificacion) {
+            case PENDIENTES:
+                return service.findByNotaRecepcionIdAndSucursalesIdsAndNoVerificados(
+                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+            case VERIFICADOS:
+                return service.findByNotaRecepcionIdAndSucursalesIdsAndVerificados(
+                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+            case RECHAZADOS:
+                return service.findByNotaRecepcionIdAndSucursalesIdsAndRechazados(
+                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+            case TODOS:
+            default:
+                return service.findByNotaRecepcionIdAndSucursalesIds(
+                    notaRecepcionId, sucursalesIds, filtroTexto, pageable);
+        }
     }
 
     public NotaRecepcionItem saveNotaRecepcionItem(NotaRecepcionItemInput input){

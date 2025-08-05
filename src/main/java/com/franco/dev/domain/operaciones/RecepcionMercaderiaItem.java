@@ -4,10 +4,15 @@ import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
 import java.time.LocalDate;
@@ -16,6 +21,10 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@TypeDef(
+        name = "motivo_rechazo_fisico",
+        typeClass = PostgreSQLEnumType.class
+)
 @Table(name = "recepcion_mercaderia_item", schema = "operaciones")
 public class RecepcionMercaderiaItem implements Identifiable<Long> {
 
@@ -41,8 +50,8 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     private NotaRecepcionItem notaRecepcionItem;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_item_distribucion_id")
-    private PedidoItemDistribucion pedidoItemDistribucion;
+    @JoinColumn(name = "nota_recepcion_item_distribucion_id")
+    private NotaRecepcionItemDistribucion notaRecepcionItemDistribucion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "producto_id", nullable = false)
@@ -55,6 +64,10 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_entrega_id", nullable = false)
     private Sucursal sucursalEntrega;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private Usuario usuario;
 
     @Column(name = "cantidad_recibida", nullable = false)
     private Double cantidadRecibida;
@@ -71,9 +84,19 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     @Column(name = "lote")
     private String lote;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "motivo_rechazo")
-    private String motivoRechazo;
+    @Type(type = "motivo_rechazo_fisico")
+    private MotivoRechazoFisico motivoRechazo;
 
     @Column(name = "observaciones")
     private String observaciones;
+
+    /**
+     * Obtiene el ID de la recepción de mercadería
+     * @return ID de la recepción de mercadería
+     */
+    public Long getRecepcionMercaderiaId() {
+        return recepcionMercaderia != null ? recepcionMercaderia.getId() : null;
+    }
 } 

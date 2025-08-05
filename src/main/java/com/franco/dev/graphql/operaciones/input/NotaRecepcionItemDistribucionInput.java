@@ -10,4 +10,5 @@ public class NotaRecepcionItemDistribucionInput {
     private Double cantidad;
     private String creadoEn;
     private Long usuarioId;
+    private Long sucursalInfluenciaId;
 } 

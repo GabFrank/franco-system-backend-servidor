@@ -36,6 +36,10 @@ public class NotaRecepcionItemDistribucion implements Identifiable<Long> {
     private NotaRecepcionItem notaRecepcionItem;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_influencia_id")
+    private Sucursal sucursalInfluencia;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_entrega_id", nullable = false)
     private Sucursal sucursalEntrega;
 

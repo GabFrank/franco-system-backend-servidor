@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.graphql.operaciones.dto.AsignacionError;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
 import com.franco.dev.repository.operaciones.NotaPedidoRepository;
@@ -30,6 +31,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     private final NotaRecepcionItemService notaRecepcionItemService;
     private final NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
     private final PedidoItemService pedidoItemService;
+    private final ProcesoEtapaService procesoEtapaService;
 
     @Override
     public NotaRecepcionRepository getRepository() {
@@ -64,8 +66,29 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     }
 
     @Override
+    @Transactional
     public NotaRecepcion save(NotaRecepcion entity) {
+        // Verificar si es la primera nota de recepción del pedido
+        boolean esPrimeraNota = false;
+        if (entity.getPedido() != null && entity.getId() == null) {
+            // Es una nueva nota (ID null) y tiene pedido asociado
+            List<NotaRecepcion> notasExistentes = findByPedidoId(entity.getPedido().getId());
+            esPrimeraNota = notasExistentes.isEmpty();
+        }
+        
+        // Guardar la nota
         NotaRecepcion e = super.save(entity);
+        
+        // Si es la primera nota, actualizar el estado de la etapa RECEPCION_NOTA
+        if (esPrimeraNota && entity.getPedido() != null) {
+            try {
+                procesoEtapaService.actualizarEtapaAEnProceso(entity.getPedido().getId(), ProcesoEtapaTipo.RECEPCION_NOTA);
+            } catch (Exception ex) {
+                // Log del error pero no fallar la operación principal
+                System.err.println("Error al actualizar etapa RECEPCION_NOTA: " + ex.getMessage());
+            }
+        }
+        
         return e;
     }
 
@@ -116,31 +139,30 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                     continue;
                 }
 
-                // Verificar que el ítem no esté ya asignado a otra nota
-                // Buscar si ya existe un NotaRecepcionItem para este PedidoItem
-                List<NotaRecepcionItem> existingItems = notaRecepcionItemService.findByPedidoItemId(pedidoItemId);
-                if (!existingItems.isEmpty()) {
+                // Verificar que el ítem tenga cantidad pendiente para asignar
+                Double cantidadPendiente = pedidoItemService.getCantidadPendiente(pedidoItemId);
+                if (cantidadPendiente <= 0) {
                     AsignacionError error = new AsignacionError();
                     error.setPedidoItemId(pedidoItemId);
-                    error.setError("El ítem ya está asignado a otra nota de recepción");
+                    error.setError("El ítem no tiene cantidad pendiente para asignar");
                     result.getErrores().add(error);
                     continue;
                 }
 
-                // Crear el NotaRecepcionItem
+                // Crear el NotaRecepcionItem con la cantidad pendiente
                 NotaRecepcionItem notaRecepcionItem = new NotaRecepcionItem();
                 notaRecepcionItem.setNotaRecepcion(notaRecepcion);
                 notaRecepcionItem.setPedidoItem(pedidoItem);
                 notaRecepcionItem.setProducto(pedidoItem.getProducto());
                 notaRecepcionItem.setPresentacionEnNota(pedidoItem.getPresentacionCreacion());
-                notaRecepcionItem.setCantidadEnNota(pedidoItem.getCantidadSolicitada());
+                notaRecepcionItem.setCantidadEnNota(cantidadPendiente); // Usar cantidad pendiente en lugar de cantidad solicitada
                 notaRecepcionItem.setPrecioUnitarioEnNota(pedidoItem.getPrecioUnitarioSolicitado());
                 notaRecepcionItem.setEsBonificacion(false);
                 notaRecepcionItem.setEstado(NotaRecepcionItemEstado.PENDIENTE_CONCILIACION);
                 notaRecepcionItem.setCreadoEn(LocalDateTime.now());
 
-                // Guardar el NotaRecepcionItem
-                NotaRecepcionItem savedItem = notaRecepcionItemService.save(notaRecepcionItem);
+                // Guardar el NotaRecepcionItem asegurando mapeo correcto de presentación
+                NotaRecepcionItem savedItem = notaRecepcionItemService.saveWithPresentacionMapping(notaRecepcionItem);
 
                 // Crear las distribuciones basadas en PedidoItemDistribucion
                 List<NotaRecepcionItemDistribucion> distribuciones = new ArrayList<>();
@@ -152,6 +174,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                     for (com.franco.dev.domain.operaciones.PedidoItemDistribucion pedidoDist : pedidoDistribuciones) {
                         NotaRecepcionItemDistribucion distribucion = new NotaRecepcionItemDistribucion();
                         distribucion.setNotaRecepcionItem(savedItem);
+                        distribucion.setSucursalInfluencia(pedidoDist.getSucursalInfluencia());
                         distribucion.setSucursalEntrega(pedidoDist.getSucursalEntrega());
                         distribucion.setCantidad(pedidoDist.getCantidadAsignada());
                         distribucion.setCreadoEn(LocalDateTime.now());

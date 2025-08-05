@@ -1,16 +1,19 @@
 type RecepcionMercaderiaItem {
     id: ID
+    recepcionMercaderiaId: Int
     recepcionMercaderia: RecepcionMercaderia
     notaRecepcionItem: NotaRecepcionItem
+    notaRecepcionItemDistribucion: NotaRecepcionItemDistribucion
     producto: Producto
     presentacionRecibida: Presentacion
     sucursalEntrega: Sucursal
+    usuario: Usuario
     cantidadRecibida: Float
     cantidadRechazada: Float
     vencimientoRecibido: Date
     lote: String
     esBonificacion: Boolean
-    motivoRechazo: String
+    motivoRechazo: MotivoRechazoFisico
     observaciones: String
 }
 
@@ -18,17 +21,26 @@ input RecepcionMercaderiaItemInput {
     id: ID
     recepcionMercaderiaId: Int
     notaRecepcionItemId: Int
+    notaRecepcionItemDistribucionId: Int
     productoId: Int
     presentacionRecibidaId: Int
     sucursalEntregaId: Int
+    usuarioId: Int
     cantidadRecibida: Float
     cantidadRechazada: Float
     vencimientoRecibido: String
     lote: String
     esBonificacion: Boolean
-    motivoRechazo: String
-    observacion: String
+    motivoRechazo: MotivoRechazoFisico
+    observaciones: String
     creadoEn: String
+}
+
+input RechazoInput {
+    sucursalId: ID!
+    cantidadRechazada: Float!
+    motivoRechazo: MotivoRechazoFisico!
+    observaciones: String
 }
 
 extend type Query {
@@ -39,4 +51,9 @@ extend type Query {
 
 extend type Mutation {
     saveRecepcionMercaderiaItem(entity: RecepcionMercaderiaItemInput!): RecepcionMercaderiaItem!
+    rechazarItem(notaRecepcionItemId: ID!, presentacionId: ID, rechazos: [RechazoInput!]!, usuarioId: ID!): Boolean!
+    cancelarVerificacion(notaRecepcionItemId: ID!, sucursalId: ID!): Boolean!
+    cancelarRechazo(notaRecepcionItemId: ID!, sucursalId: ID!): Boolean!
+    validarFinalizacionRecepcionPorPedido(pedidoId: ID!, sucursalesIds: [ID!]!): ValidacionFinalizacionRecepcion!
+    finalizarRecepcionFisicaPorPedido(pedidoId: ID!, sucursalesIds: [ID!]!): Boolean!
 } 

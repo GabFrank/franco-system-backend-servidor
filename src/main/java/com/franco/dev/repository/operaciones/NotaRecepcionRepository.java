@@ -38,6 +38,18 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             "and nr.id = ?1", nativeQuery = true)
     public Double valor(Long id);
 
+    /**
+     * Calcula el valor total de una nota de recepción usando la nueva estructura
+     * Suma: cantidadEnNota * precioUnitarioEnNota de todos los ítems de la nota
+     * Excluye ítems rechazados y bonificaciones (esBonificacion = true)
+     */
+    @Query(value = "SELECT COALESCE(SUM(nri.cantidad_en_nota * nri.precio_unitario_en_nota), 0.0) " +
+            "FROM operaciones.nota_recepcion_item nri " +
+            "WHERE nri.nota_recepcion_id = :notaRecepcionId " +
+            "AND (nri.es_bonificacion IS NULL OR nri.es_bonificacion = false) " +
+            "AND (nri.estado != 'RECHAZADO' OR nri.estado IS NULL)", nativeQuery = true)
+    public Double valorTotal(@Param("notaRecepcionId") Long notaRecepcionId);
+
     public Integer countByPedidoId(Long id);
 
     public Integer countByPedidoIdAndPagadoTrue(Long id);

@@ -75,6 +75,9 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
         if (input.getSucursalEntregaId() != null) {
             entity.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
         }
+        if (input.getSucursalInfluenciaId() != null) {
+            entity.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
+        }
         if (input.getUsuarioId() != null) {
             entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
@@ -93,6 +96,9 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
                     }
                     if (input.getSucursalEntregaId() != null) {
                         entity.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
+                    }
+                    if (input.getSucursalInfluenciaId() != null) {
+                        entity.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
                     }
                     if (input.getUsuarioId() != null) {
                         entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -116,6 +122,9 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
                     }
                     if (input.getSucursalEntregaId() != null) {
                         entity.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
+                    }
+                    if (input.getSucursalInfluenciaId() != null) {
+                        entity.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
                     }
                     if (input.getUsuarioId() != null) {
                         entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

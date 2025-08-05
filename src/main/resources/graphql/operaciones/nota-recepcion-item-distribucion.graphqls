@@ -1,6 +1,7 @@
 type NotaRecepcionItemDistribucion {
     id: ID
     notaRecepcionItem: NotaRecepcionItem
+    sucursalInfluencia: Sucursal
     sucursalEntrega: Sucursal
     cantidad: Float
     creadoEn: Date
@@ -10,6 +11,7 @@ type NotaRecepcionItemDistribucion {
 input NotaRecepcionItemDistribucionInput {
     id: ID
     notaRecepcionItemId: Int
+    sucursalInfluenciaId: Int
     sucursalEntregaId: Int
     cantidad: Float
     creadoEn: String

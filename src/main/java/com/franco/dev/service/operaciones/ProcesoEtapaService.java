@@ -101,6 +101,30 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
     }
 
     /**
+     * Actualiza una etapa existente a estado EN_PROCESO
+     * Usado cuando se inicia el trabajo en una etapa que ya existe
+     */
+    @Transactional
+    public ProcesoEtapa actualizarEtapaAEnProceso(Long pedidoId, ProcesoEtapaTipo tipo) {
+        Optional<ProcesoEtapa> etapaOpt = getEtapaByPedidoAndTipo(pedidoId, tipo);
+        if (!etapaOpt.isPresent()) {
+            throw new IllegalStateException("No se encontró la etapa " + tipo + " para el pedido " + pedidoId);
+        }
+
+        ProcesoEtapa etapa = etapaOpt.get();
+        
+        // Solo actualizar si está en estado PENDIENTE
+        if (etapa.getEstadoEtapa() == ProcesoEtapaEstado.PENDIENTE) {
+            etapa.setEstadoEtapa(ProcesoEtapaEstado.EN_PROCESO);
+            etapa.setFechaInicio(LocalDateTime.now());
+            return save(etapa);
+        }
+        
+        // Si ya está en proceso o completada, no hacer nada
+        return etapa;
+    }
+
+    /**
      * Crea la etapa pendiente siguiente según el flujo del proceso
      */
     @Transactional

@@ -86,6 +86,21 @@ public interface PedidoRepository extends HelperRepository<Pedido, Long> {
     )
     Double getValorTotalByPedidoId(@Param("pedidoId") Long pedidoId);
 
+    /**
+     * Obtiene el valor total de las facturas actuales (notas de recepción)
+     * @param pedidoId ID del pedido
+     * @return Valor total de las notas de recepción
+     */
+    @Query(
+            value = "SELECT COALESCE(SUM(nri.cantidad_en_nota * nri.precio_unitario_en_nota), 0.0) " +
+                    "FROM operaciones.nota_recepcion_item nri " +
+                    "JOIN operaciones.nota_recepcion nr ON nr.id = nri.nota_recepcion_id " +
+                    "WHERE nr.pedido_id = :pedidoId " +
+                    "AND nr.es_nota_rechazo = false",
+            nativeQuery = true
+    )
+    Double getValorTotalNotasRecepcionByPedidoId(@Param("pedidoId") Long pedidoId);
+
     @Query(
             value = "SELECT COUNT(pi.id) " +
                     "FROM operaciones.pedido_item pi " +

@@ -34,6 +34,7 @@ import java.util.List;
 import static com.franco.dev.utilitarios.DateUtils.dateToString;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 
 @Service
@@ -209,6 +210,14 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         List<NotaRecepcion> notas = notaRecepcionService.findByPedidoId(pedidoId);
         if (notas.isEmpty()) {
             throw new IllegalStateException("Debe registrar al menos una nota de recepción para finalizar la conciliación");
+        }
+        
+        // CAMBIAR ESTADO DE LAS NOTAS DE PENDIENTE_CONCILIACION A CONCILIADA
+        for (NotaRecepcion nota : notas) {
+            if (nota.getEstado() == NotaRecepcionEstado.PENDIENTE_CONCILIACION) {
+                nota.setEstado(NotaRecepcionEstado.CONCILIADA);
+                notaRecepcionService.save(nota);
+            }
         }
         
         // Finalizar etapa de recepción de notas

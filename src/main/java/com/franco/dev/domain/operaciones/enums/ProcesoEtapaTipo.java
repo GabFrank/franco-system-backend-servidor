@@ -4,6 +4,5 @@ public enum ProcesoEtapaTipo {
     CREACION,
     RECEPCION_NOTA,
     RECEPCION_MERCADERIA,
-    SOLICITUD_PAGO,
-    PAGO
+    SOLICITUD_PAGO
 } 

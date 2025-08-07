@@ -19,6 +19,7 @@
 	<parameter name="grupoId" class="java.lang.Long"/>
 	<parameter name="numerosFactura" class="java.lang.String"/>
 	<parameter name="valorTotal" class="java.lang.Double"/>
+	<parameter name="estado" class="java.lang.String"/>
 	<parameter name="fechaReporte" class="java.lang.String"/>
 	<parameter name="usuario" class="java.lang.String"/>
 	<parameter name="logo" class="java.lang.String"/>
@@ -49,7 +50,7 @@
 				<text><![CDATA[ORDEN DE PAGO NRO:]]></text>
 			</staticText>
 			<textField>
-				<reportElement x="730" y="31" width="72" height="20" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6"/>
+				<reportElement x="510" y="2" width="72" height="20" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6"/>
 				<box>
 					<pen lineWidth="1.0"/>
 				</box>
@@ -66,7 +67,7 @@
 				<text><![CDATA[Recibí de:]]></text>
 			</staticText>
 			<textField>
-				<reportElement x="160" y="31" width="471" height="20" uuid="186428af-f5d4-4389-8c9b-cadb45c47034"/>
+				<reportElement x="160" y="31" width="422" height="20" uuid="186428af-f5d4-4389-8c9b-cadb45c47034"/>
 				<box>
 					<pen lineWidth="1.0"/>
 				</box>
@@ -84,7 +85,7 @@
 				<textElement>
 					<font size="9"/>
 				</textElement>
-				<text><![CDATA[Autorizado por:]]></text>
+				<text><![CDATA[Creado por:]]></text>
 			</staticText>
 			<textField>
 				<reportElement x="140" y="187" width="150" height="12" uuid="c72b73f6-2ce5-40cd-8ef7-ba4bd75022ad"/>
@@ -94,10 +95,10 @@
 				<textFieldExpression><![CDATA[$P{usuario}]]></textFieldExpression>
 			</textField>
 			<line>
-				<reportElement x="105" y="171" width="150" height="1" uuid="a5e1ae18-89be-4a96-a29c-10298aca4de6"/>
+				<reportElement x="105" y="160" width="150" height="1" uuid="a5e1ae18-89be-4a96-a29c-10298aca4de6"/>
 			</line>
 			<staticText>
-				<reportElement x="105" y="176" width="150" height="12" uuid="d600e083-880b-48ce-bfb3-01dbb72ca132"/>
+				<reportElement x="105" y="165" width="150" height="12" uuid="d600e083-880b-48ce-bfb3-01dbb72ca132"/>
 				<textElement textAlignment="Center">
 					<font size="9"/>
 				</textElement>
@@ -203,12 +204,24 @@
 				<textFieldExpression><![CDATA[$P{nominal} ? "NOMINAL" : "AL PORTADOR"]]></textFieldExpression>
 			</textField>
 			<staticText>
-				<reportElement x="649" y="36" width="90" height="15" uuid="d4fe58e3-c879-4271-af4e-90fc4fa7bb43"/>
+				<reportElement x="590" y="34" width="56" height="15" uuid="d4fe58e3-c879-4271-af4e-90fc4fa7bb44"/>
 				<textElement>
 					<font size="11" isBold="true"/>
 				</textElement>
-				<text><![CDATA[Solicitud Nro.:]]></text>
+				<text><![CDATA[Estado:]]></text>
 			</staticText>
+			<textField>
+				<reportElement x="646" y="34" width="156" height="15" uuid="d4fe58e3-c879-4271-af4e-90fc4fa7bb47">
+					<printWhenExpression><![CDATA[$P{estado}.equals("CONCLUIDO")]]></printWhenExpression>
+				</reportElement>
+				<box>
+					<pen lineWidth="1.0"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{estado}]]></textFieldExpression>
+			</textField>
 			<textField pattern="#,##0.###;(#,##0.###-)">
 				<reportElement x="500" y="157" width="280" height="24" uuid="a21faa22-1d56-49c5-b5f6-a682f642a8e6"/>
 				<textElement verticalAlignment="Bottom">
@@ -221,7 +234,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Bottom">
 					<font size="16" isBold="true"/>
 				</textElement>
-				<text><![CDATA[ORDEN DE PAGO]]></text>
+				<text><![CDATA[ORDEN DE PAGO Nro]]></text>
 			</staticText>
 		</band>
 	</title>

@@ -39,7 +39,6 @@ enum ProcesoEtapaTipo {
     RECEPCION_NOTA
     RECEPCION_MERCADERIA
     SOLICITUD_PAGO
-    PAGO
 }
 
 enum ProcesoEtapaEstado {

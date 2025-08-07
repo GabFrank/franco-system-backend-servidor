@@ -1013,21 +1013,13 @@ public class ImpresionService {
             String proveedorNombre,
             String fechaDePago,
             String formaPago,
-            Boolean nominal) {
+            Boolean nominal,
+            String numerosFactura,
+            Double valorTotal) {
         
         try {
-            // Obtener los números de factura de las notas de recepción del grupo
-            // List<NotaRecepcion> notasRecepcion = notaRecepcionService.findByNotaRecepcionAgrupadaId(grupo.getId());
-            String numerosFactura = "";
-            // if (!notasRecepcion.isEmpty()) {
-            //     List<String> numeros = notasRecepcion.stream()
-            //         .filter(nota -> nota.getNumero() != null)
-            //         .map(nota -> String.valueOf(nota.getNumero()))
-            //         .distinct()
-            //         .collect(Collectors.toList());
-            //     numerosFactura = String.join(", ", numeros);
-            // }
-            if (numerosFactura.isEmpty()) {
+            // Usar los parámetros pasados desde el GraphQL resolver
+            if (numerosFactura == null || numerosFactura.isEmpty()) {
                 numerosFactura = "---";
             }
             
@@ -1053,6 +1045,10 @@ public class ImpresionService {
             itemDto.setCreadoEn(solicitudPago.getCreadoEn().format(shortDateTime));
             if (solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null) {
                 itemDto.setUsuario(solicitudPago.getUsuario().getPersona().getNombre());
+            } else if (solicitudPago.getUsuario() != null) {
+                itemDto.setUsuario(solicitudPago.getUsuario().getNickname());
+            } else {
+                itemDto.setUsuario("");
             }
             // Información adicional del proveedor original
             // if (grupo.getProveedor() != null && grupo.getProveedor().getPersona() != null) {
@@ -1071,10 +1067,12 @@ public class ImpresionService {
             parameters.put("nominal", nominal != null ? nominal : false);
             // parameters.put("grupoId", grupo.getId());
             parameters.put("numerosFactura", numerosFactura);
-            // parameters.put("valorTotal", valorTotal);
+            parameters.put("valorTotal", valorTotal != null ? valorTotal : 0.0);
+            parameters.put("estado", solicitudPago.getEstado().toString());
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
-            parameters.put("usuario", solicitudPago.getUsuario() != null ? 
-                solicitudPago.getUsuario().getNickname() : "");
+            parameters.put("usuario", solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null ? 
+                solicitudPago.getUsuario().getPersona().getNombre() : 
+                (solicitudPago.getUsuario() != null ? solicitudPago.getUsuario().getNickname() : ""));
             parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
             
             JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);

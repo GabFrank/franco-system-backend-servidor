@@ -159,9 +159,9 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
             case RECEPCION_NOTA:
                 return ProcesoEtapaTipo.RECEPCION_MERCADERIA;
             case RECEPCION_MERCADERIA:
-                return ProcesoEtapaTipo.PAGO;
-            case PAGO:
-                return null; // Última etapa
+                return ProcesoEtapaTipo.SOLICITUD_PAGO;
+            case SOLICITUD_PAGO:
+                return null; // Última etapa - las solicitudes de pago son independientes
             default:
                 throw new IllegalArgumentException("Tipo de etapa no reconocido: " + tipoActual);
         }

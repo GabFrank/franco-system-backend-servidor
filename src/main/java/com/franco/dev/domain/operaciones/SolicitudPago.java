@@ -15,7 +15,9 @@ import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -45,6 +47,15 @@ public class SolicitudPago implements Identifiable<Long> {
     @JoinColumn(name = "proveedor_id", nullable = false)
     private Proveedor proveedor;
 
+    @Column(name = "numero_solicitud", nullable = false)
+    private String numeroSolicitud;
+
+    @Column(name = "fecha_solicitud", nullable = false)
+    private LocalDateTime fechaSolicitud;
+
+    @Column(name = "fecha_pago_propuesta")
+    private LocalDateTime fechaPagoPropuesta;
+
     @Column(name = "monto_total", nullable = false)
     private Double montoTotal;
 
@@ -53,13 +64,16 @@ public class SolicitudPago implements Identifiable<Long> {
     private Moneda moneda;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "forma_pago_id", nullable = false)
+    @JoinColumn(name = "forma_pago_id", nullable = true)
     private FormaPago formaPago;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false)
     @Type(type = "solicitud_pago_estado")
     private SolicitudPagoEstado estado;
+
+    @Column(name = "observaciones")
+    private String observaciones;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
@@ -71,5 +85,9 @@ public class SolicitudPago implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pago_id", nullable = true)
     private Pago pago;
+
+    // Relationship with notas de recepcion
+    @OneToMany(mappedBy = "solicitudPago", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<SolicitudPagoNotaRecepcion> notasRecepcion;
 }
 

@@ -744,22 +744,15 @@ public class ImpresionService {
             List<LucroPorProductosDto> auxList = new ArrayList<>();
             try {
                 for (LucroPorProductosDto dto : lucroPorProductosDtoList) {
-                    if(dto.getCostoUnitario() == 0){
-                        dto.setCostoUnitario((dto.getTotalVenta() / dto.getCantidad()) * 0.80);
-                    } else {
-                        dto.setCostoUnitario(dto.getCostoUnitario() / dto.getCantidad());
-                    }
-                    dto.setLucro((dto.getTotalVenta() - (dto.getCostoUnitario() * dto.getCantidad())));
-                    dto.setVentaMedia(dto.getTotalVenta() / dto.getCantidad());
-                    dto.setPercent((dto.getLucro() * 100) / dto.getTotalVenta());
-                    dto.setMargen(((dto.getVentaMedia() * 100) / dto.getCostoUnitario()) - 100);
+                    // Los cálculos ya están hechos correctamente en ProductoService
+                    // Solo sumamos los totales para el resumen
                     lucroTotalGs += dto.getLucro();
-                    costoTotal += dto.getCostoUnitario() * dto.getCantidad();
+                    costoTotal += dto.getCostoTotal();
                     ventaTotal += dto.getTotalVenta();
                     auxList.add(dto);
                 }
                 cantProductos = Long.valueOf(lucroPorProductosDtoList.size());
-                lucroTotalPorcentaje = ((ventaTotal-costoTotal) / ventaTotal);
+                lucroTotalPorcentaje = ventaTotal > 0 ? ((ventaTotal-costoTotal) / ventaTotal) * 100 : 0.0;
                 file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "lucro-por-producto.jrxml");
                 JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);

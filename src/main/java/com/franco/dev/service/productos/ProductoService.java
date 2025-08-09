@@ -489,6 +489,56 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             });
         }
         List<LucroPorProductosDto> result = new ArrayList<>(combinedResults.values());
+        
+        // Calcular todos los campos derivados después de la agregación
+        for (LucroPorProductosDto dto : result) {
+            // Log para debug
+            log.info("DEBUG - Producto ID: " + dto.getProductoId() + 
+                    ", Cantidad: " + dto.getCantidad() + 
+                    ", CostoTotal: " + dto.getCostoTotal() + 
+                    ", TotalVenta: " + dto.getTotalVenta());
+            
+            if (dto.getCantidad() != null && dto.getCantidad() > 0) {
+                // Calcular costo unitario
+                dto.setCostoUnitario(dto.getCostoTotal() / dto.getCantidad());
+                
+                // Calcular venta media
+                dto.setVentaMedia(dto.getTotalVenta() / dto.getCantidad());
+                
+                // Calcular lucro (total venta - total costo)
+                dto.setLucro(dto.getTotalVenta() - dto.getCostoTotal());
+                
+                // Calcular margen (lucro / costo total * 100) - porcentaje sobre costo
+                if (dto.getCostoTotal() > 0) {
+                    dto.setMargen((dto.getLucro() / dto.getCostoTotal()) * 100);
+                } else {
+                    dto.setMargen(0.0);
+                }
+                
+                // Calcular porcentaje (lucro / total venta * 100) - porcentaje sobre venta
+                if (dto.getTotalVenta() > 0) {
+                    dto.setPercent((dto.getLucro() / dto.getTotalVenta()) * 100);
+                } else {
+                    dto.setPercent(0.0);
+                }
+                
+                // Log para debug de cálculos
+                log.info("DEBUG - Cálculos para ID " + dto.getProductoId() + 
+                        ": CostoUnitario=" + dto.getCostoUnitario() + 
+                        ", VentaMedia=" + dto.getVentaMedia() + 
+                        ", Lucro=" + dto.getLucro() + 
+                        ", Margen=" + dto.getMargen() + 
+                        ", Percent=" + dto.getPercent());
+            } else {
+                // Si no hay cantidad, todos los valores son 0
+                dto.setCostoUnitario(0.0);
+                dto.setVentaMedia(0.0);
+                dto.setLucro(0.0);
+                dto.setMargen(0.0);
+                dto.setPercent(0.0);
+            }
+        }
+        
         result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
         return result;
     }

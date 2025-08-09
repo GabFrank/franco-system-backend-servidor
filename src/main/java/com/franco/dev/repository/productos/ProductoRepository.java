@@ -83,9 +83,9 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
     @Query("SELECT Distinct new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
             "pro.id as id, " +
             "pro.descripcion as descripcion, " +
-            "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, cpp.ultimoPrecioCompra, 0)) as costoUnitario, " +
+            "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, cpp.ultimoPrecioCompra, 0)) as costoTotal, " +
             "SUM(vi.cantidad * pre.cantidad) as cantidad, " +
-            "SUM(vi.precio * vi.cantidad) as totalVenta," +
+            "SUM(vi.precio * vi.cantidad * pre.cantidad) as totalVenta," +
             "0.0, 0.0, 0.0, 0.0 " +
             ") " +
             "FROM VentaItem vi " +
@@ -103,7 +103,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
             "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
             "group by pro.id " +
-            "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
+            "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
     public List<LucroPorProductosDto> findLucroPorProducto(
             @Param("sucursalId") Long sucursalId,
             @Param("startDate") LocalDateTime startDate,

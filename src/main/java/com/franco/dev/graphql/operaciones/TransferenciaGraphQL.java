@@ -126,6 +126,10 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 newSucursalDestinoId = input.getSucursalDestinoId();
                 oldSucursalDestinoId = transferencia.getSucursalDestino().getId();
             }
+            // Preservar la fecha de creación si no viene en el input
+            if (input.getCreadoEn() == null && transferencia != null) {
+                e.setCreadoEn(transferencia.getCreadoEn());
+            }
         }
         if(input.getCreadoEn()!=null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         e = service.save(e);

@@ -1,0 +1,70 @@
+type DocumentoElectronico {
+    id: ID
+    cdc: String
+    estadoSifen: String
+    mensajeSifen: String
+    urlQr: String
+    xmlFirmado: String
+    creadoEn: Date
+    facturaLegal: FacturaLegal
+}
+
+type EventoDte {
+    id: ID
+    tipoEvento: Int
+    fechaEvento: Date
+    cdcEvento: String
+    mensajeRespuestaSifen: String
+    motivo: String
+    observacion: String
+}
+
+extend type Query {
+    documentoElectronico(id: ID!): DocumentoElectronico
+    documentosElectronicos(page: Int, size: Int, estado: String, fechaDesde: String, fechaHasta: String, cdc: String, sucursalId: ID): DocumentoElectronicoPage
+    eventosPorDte(dteId: ID!): [EventoDte]
+    dteMetrics: DteMetrics
+    dteRechazadosRecientes(limit: Int = 5): [DocumentoElectronico]
+    lotesRecientes(limit: Int = 10): [LoteDte]
+}
+
+type DocumentoElectronicoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [DocumentoElectronico]
+    getPageable: Pageable
+}
+
+extend type Mutation {
+    generarDocumentoElectronico(ventaId: ID!, sucursalId: ID!, usuarioId: ID): DocumentoElectronico
+    registrarEventoDte(documentoElectronicoId: ID!, tipoEvento: Int!, usuarioId: ID, motivo: String, observacion: String): EventoDte
+    enviarLoteNow(usuarioId: ID): LoteDte
+    consultarLotesNow: Boolean
+    reintentarGeneracionDte(dteId: ID!, usuarioId: ID): DocumentoElectronico
+    seedDteMock(cantidad: Int = 20, diasAtras: Int = 30): Boolean
+    wipeDteData: Boolean
+}
+
+type LoteDte {
+    id: ID
+    idProtocoloSifen: String
+    estadoSifen: String
+    creadoEn: Date
+}
+
+type DteMetrics {
+    total: Long
+    pendientes: Long
+    generados: Long
+    enviados: Long
+    aprobados: Long
+    rechazados: Long
+    cancelados: Long
+}
+
+

@@ -14,6 +14,7 @@ import org.springframework.core.Ordered;
 import org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -28,6 +29,7 @@ import java.util.Collections;
 @SpringBootApplication
 @EnableAutoConfiguration(exclude = {DataSourceTransactionManagerAutoConfiguration.class})
 @EnableAsync
+@EnableScheduling
 public class FrancoSystemsApplication {
 
     @Autowired

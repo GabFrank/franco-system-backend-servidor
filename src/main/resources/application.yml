@@ -1,1 +1,40 @@
 homepath: /Users/gabfranck
+
+# Configuración SIFEN (por defecto apunta a ambiente de pruebas)
+sifen:
+  wsdl:
+    # Pruebas
+    sync:
+      recibe: https://sifen-test.set.gov.py/de/ws/sync/recibe.wsd?wsdl
+    async:
+      recibe-lote: https://sifen-test.set.gov.py/de/ws/async/recibe-lote.wsdl?wsdl
+    eventos: https://sifen-test.set.gov.py/de/ws/eventos/evento.wsdl?wsdl
+    consulta: https://sifen-test.set.gov.py/de/ws/consultas/consulta.wsdl?wsdl
+    consulta-lote: https://sifen-test.set.gov.py/de/ws/consultas/consulta-lote.wsdl?wsdl
+    consulta-ruc: https://sifen-test.set.gov.py/de/ws/consultas/consulta-ruc.wsdl?wsdl
+
+    # Producción (descomentar para usar prod)
+    # sync:
+    #   recibe: https://sifen.set.gov.py/de/ws/sync/recibe.wsdl?wsdl
+    # async:
+    #   recibe-lote: https://sifen.set.gov.py/de/ws/async/recibe-lote.wsdl?wsdl
+    # eventos: https://sifen.set.gov.py/de/ws/eventos/evento.wsdl?wsdl
+    # consulta: https://sifen.set.gov.py/de/ws/consultas/consulta.wsdl?wsdl
+    # consulta-lote: https://sifen.set.gov.py/de/ws/consultas/consulta-lote.wsdl?wsdl
+    # consulta-ruc: https://sifen.set.gov.py/de/ws/consultas/consulta-ruc.wsdl?wsdl
+
+# Microservicio Node DTE
+dte:
+  node:
+    base-url: http://localhost:3000
+    endpoints:
+      generar: /api/documento/generar
+      enviar-lote: /api/lote/enviar
+      consultar-lote: /api/lote/{id}
+      registrar-evento: /api/evento/registrar
+    # Modo mock: true utiliza respuestas simuladas (sin firmar ni llamar a SIFEN)
+    mock: true
+    # Configuración de robustez (solo aplica en modo real)
+    timeout-ms: 15000     # Tiempo máximo de espera por request
+    max-retries: 3        # Reintentos ante timeout de red
+    backoff-ms: 1000      # Backoff base entre reintentos

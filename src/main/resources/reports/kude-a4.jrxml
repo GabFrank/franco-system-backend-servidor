@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE jasperReport PUBLIC "-//JasperReports//DTD Report Design//EN" "http://jasperreports.sourceforge.net/dtds/jasperreport.dtd">
+<jasperReport name="kude-a4" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="d9a7e1a8-7a1c-4d0e-a0ea-111111111111">
+    <parameter name="RAZON_SOCIAL" class="java.lang.String"/>
+    <parameter name="RUC" class="java.lang.String"/>
+    <parameter name="TIMBRADO" class="java.lang.String"/>
+    <parameter name="FECHA_INICIO" class="java.lang.String"/>
+    <parameter name="NRO_FACTURA" class="java.lang.String"/>
+    <parameter name="CONDICION" class="java.lang.String"/>
+    <parameter name="CLIENTE" class="java.lang.String"/>
+    <parameter name="RUC_CLIENTE" class="java.lang.String"/>
+    <parameter name="DIRECCION_CLIENTE" class="java.lang.String"/>
+    <parameter name="DETALLE" class="java.lang.String"/>
+    <parameter name="TOTAL" class="java.lang.String"/>
+    <parameter name="CDC" class="java.lang.String"/>
+    <parameter name="URL_QR" class="java.lang.String"/>
+
+    <title>
+        <band height="120">
+            <staticText>
+                <reportElement x="0" y="0" width="555" height="20"/>
+                <textElement textAlignment="Center"/>
+                <text><![CDATA[FACTURA ELECTRÓNICA]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="24" width="555" height="18"/>
+                <textElement textAlignment="Center"/>
+                <textFieldExpression><![CDATA[$P{RAZON_SOCIAL} + "  -  RUC: " + $P{RUC}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="44" width="555" height="18"/>
+                <textElement textAlignment="Center"/>
+                <textFieldExpression><![CDATA["Timbrado: " + $P{TIMBRADO} + "  -  Fecha inicio: " + $P{FECHA_INICIO}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="64" width="555" height="18"/>
+                <textElement textAlignment="Center"/>
+                <textFieldExpression><![CDATA["Nro: " + $P{NRO_FACTURA} + "  -  Condición: " + $P{CONDICION}]]></textFieldExpression>
+            </textField>
+        </band>
+    </title>
+
+    <detail>
+        <band height="520">
+            <textField>
+                <reportElement x="0" y="0" width="555" height="16"/>
+                <textFieldExpression><![CDATA["Cliente: " + $P{CLIENTE} + "  -  RUC/CI: " + $P{RUC_CLIENTE}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="18" width="555" height="16"/>
+                <textFieldExpression><![CDATA["Dirección: " + $P{DIRECCION_CLIENTE}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="0" y="40" width="555" height="16"/>
+                <text><![CDATA[Detalle (resumen):]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="58" width="555" height="200"/>
+                <textFieldExpression><![CDATA[$P{DETALLE}]]></textFieldExpression>
+            </textField>
+            <textField>
+                <reportElement x="0" y="262" width="555" height="18"/>
+                <textElement textAlignment="Right"/>
+                <textFieldExpression><![CDATA["Total: " + $P{TOTAL}]]></textFieldExpression>
+            </textField>
+            <image>
+                <reportElement x="200" y="290" width="155" height="155"/>
+                <imageExpression><![CDATA[$P{URL_QR}]]></imageExpression>
+            </image>
+            <staticText>
+                <reportElement x="0" y="450" width="555" height="16"/>
+                <textElement textAlignment="Center"/>
+                <text><![CDATA[Consulte la validez de esta Factura Electrónica con el número de CDC impreso abajo en:]]></text>
+            </staticText>
+            <staticText>
+                <reportElement x="0" y="468" width="555" height="16"/>
+                <textElement textAlignment="Center"/>
+                <text><![CDATA[https://ekuatia.set.gov.py/consultas]]></text>
+            </staticText>
+            <textField>
+                <reportElement x="0" y="486" width="555" height="16"/>
+                <textElement textAlignment="Center"/>
+                <textFieldExpression><![CDATA[$P{CDC}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="0" y="504" width="555" height="16"/>
+                <textElement textAlignment="Center"/>
+                <text><![CDATA[ESTE DOCUMENTO ES UNA REPRESENTACION GRAFICA DE UN DOCUMENTO ELECTRONICO (XML)]]></text>
+            </staticText>
+        </band>
+    </detail>
+</jasperReport>
+

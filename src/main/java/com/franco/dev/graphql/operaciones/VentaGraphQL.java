@@ -29,6 +29,7 @@ import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
+import com.franco.dev.service.financiero.DteService;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -103,6 +104,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     @Autowired
     private FacturaLegalGraphQL facturaLegalGraphQL;
+    @Autowired
+    private DteService dteService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -150,6 +153,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         } else {
             try {
                 if (ticket) printTicket58mm(venta, cobro, ventaItemList1, cobroDetalleList, false, printerName, local);
+                // Generación automática DTE (si aplica): se dispara una vez que existe la venta/cobro
+                dteService.generarDesdeFacturaLegalSiNoExiste(venta.getId(), venta.getSucursalId(), ventaInput.getUsuarioId());
             } catch (Exception e) {
                 return venta;
             }

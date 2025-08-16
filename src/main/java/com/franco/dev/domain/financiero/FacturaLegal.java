@@ -92,6 +92,9 @@ public class FacturaLegal implements Serializable {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    @OneToOne(mappedBy = "facturaLegal", fetch = FetchType.LAZY)
+    private DocumentoElectronico documentoElectronico;
 }
 
 

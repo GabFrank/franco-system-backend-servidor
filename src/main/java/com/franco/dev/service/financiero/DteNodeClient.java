@@ -58,10 +58,12 @@ public class DteNodeClient {
         String url = baseUrl + generarEndpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        GenerarDocumentoRequest body = new GenerarDocumentoRequest();
-        body.setFacturaLegalId(facturaId);
-        body.setSucursalId(sucursalId);
-        HttpEntity<GenerarDocumentoRequest> entity = new HttpEntity<>(body, headers);
+        
+        // Crear el body con el formato que espera el microservicio Node.js
+        Map<String, Object> body = new HashMap<>();
+        body.put("facturaId", facturaId);
+        
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         return executeWithRetry(() -> restTemplate.postForObject(url, entity, GenerarDocumentoResponse.class));
     }
 
@@ -72,8 +74,11 @@ public class DteNodeClient {
         String url = baseUrl + enviarLoteEndpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        // Crear el body con el formato que espera el microservicio Node.js
         Map<String, Object> body = new HashMap<>();
-        body.put("xmls", xmlFirmados);
+        body.put("dtes", xmlFirmados);
+        
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         EnviarLoteResponse res = executeWithRetry(() -> restTemplate.postForObject(url, entity, EnviarLoteResponse.class));
         return res != null ? res.getIdProtocolo() : null;
@@ -98,11 +103,14 @@ public class DteNodeClient {
         String url = baseUrl + registrarEventoEndpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        // Crear el body con el formato que espera el microservicio Node.js
         Map<String, Object> body = new HashMap<>();
         body.put("cdc", cdcDocumento);
-        body.put("tipo", tipoEvento);
+        body.put("tipoEvento", tipoEvento);
         body.put("motivo", motivo);
         body.put("observacion", observacion);
+        
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         return executeWithRetry(() -> restTemplate.postForObject(url, entity, RegistrarEventoResponse.class));
     }

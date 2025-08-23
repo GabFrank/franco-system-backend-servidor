@@ -26,14 +26,14 @@ sifen:
 # Microservicio Node DTE
 dte:
   node:
-    base-url: http://localhost:3000
+    base-url: http://localhost:3001
     endpoints:
       generar: /api/documento/generar
       enviar-lote: /api/lote/enviar
       consultar-lote: /api/lote/{id}
       registrar-evento: /api/evento/registrar
     # Modo mock: true utiliza respuestas simuladas (sin firmar ni llamar a SIFEN)
-    mock: true
+    mock: false
     # Configuración de robustez (solo aplica en modo real)
     timeout-ms: 15000     # Tiempo máximo de espera por request
     max-retries: 3        # Reintentos ante timeout de red

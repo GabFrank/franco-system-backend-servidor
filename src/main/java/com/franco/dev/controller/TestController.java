@@ -1,6 +1,7 @@
 package com.franco.dev.controller;
 
 import com.franco.dev.service.financiero.DteNodeClient;
+import com.franco.dev.scheduler.DteScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class TestController {
 
     private final DteNodeClient dteNodeClient;
+    private final DteScheduler dteScheduler;
 
     /**
      * Test de comunicación con el microservicio Node.js
@@ -65,5 +67,14 @@ public class TestController {
         health.put("microservice", "SIFEN Node.js");
         
         return ResponseEntity.ok(health);
+    }
+
+    /**
+     * Endpoint para probar el scheduler de DTE manualmente
+     */
+    @GetMapping("/dte-scheduler")
+    public String testDteScheduler() {
+        dteScheduler.procesarFacturasLegalesSinDte();
+        return "DTE Scheduler ejecutado manualmente";
     }
 }

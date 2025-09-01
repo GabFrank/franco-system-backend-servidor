@@ -34,7 +34,16 @@ public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, E
 
     Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 
-    public FacturaLegal findByVentaIdAndSucursalId(Long id, Long sucId);
+    /**
+     * Busca factura legal por ventaId y sucursalId
+     * Si ventaId es null, busca por sucursalId y venta_id IS NULL
+     * Si ventaId no es null, busca por ventaId y sucursalId
+     */
+    @Query(value = "SELECT fl FROM FacturaLegal fl " +
+           "LEFT JOIN fl.venta v " +
+           "WHERE (:ventaId IS NULL AND v IS NULL AND fl.sucursalId = :sucursalId) OR " +
+           "(:ventaId IS NOT NULL AND v.id = :ventaId AND fl.sucursalId = :sucursalId)")
+    public FacturaLegal findByVentaIdAndSucursalId(@Param("ventaId") Long ventaId, @Param("sucursalId") Long sucursalId);
 
     @Query(value =  "select fl from FacturaLegal fl where " +
             "(fl.creadoEn between :inicio and :fin) " +
@@ -58,6 +67,41 @@ public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, E
             "and (:nombre is null or fl.nombre like :nombre) " +
             "and (:ruc is null or fl.ruc like :ruc)")
     public ResumenFacturasDto findResumenFacturas(LocalDateTime inicio, LocalDateTime fin, List<Long> sucId, String nombre, String ruc);
+
+    /**
+     * Busca facturas legales que no tienen DTE asociado
+     * @return Lista de facturas legales pendientes de DTE
+     */
+    @Query(value = "SELECT fl.* FROM financiero.factura_legal fl " +
+           "WHERE fl.id NOT IN (SELECT de.factura_legal_id FROM financiero.documento_electronico de WHERE de.factura_legal_id IS NOT NULL) " +
+           "AND fl.venta_id IS NOT NULL " +
+           "ORDER BY fl.creado_en DESC", nativeQuery = true)
+    public List<FacturaLegal> findFacturasSinDte();
+
+    /**
+     * Busca solo los IDs necesarios de facturas legales sin DTE (para evitar problemas de mapeo)
+     * Solo procesa facturas creadas a partir de una fecha específica
+     * IMPORTANTE: Procesa facturas CON y SIN venta asociada
+     * @return Lista de arrays con [id, creado_en, venta_id, usuario_id, sucursal_id]
+     */
+    @Query(value = "SELECT fl.id, fl.creado_en, fl.venta_id, fl.usuario_id, fl.sucursal_id FROM financiero.factura_legal fl " +
+           "WHERE fl.id NOT IN (SELECT de.factura_legal_id FROM financiero.documento_electronico de WHERE de.factura_legal_id IS NOT NULL) " +
+           "AND fl.creado_en >= :fechaLimite " +
+           "ORDER BY fl.creado_en DESC", nativeQuery = true)
+    public List<Object[]> findFacturasSinDteIds(@Param("fechaLimite") LocalDateTime fechaLimite);
+
+    /**
+     * Busca factura legal con toda la información del timbrado para SIFEN
+     * Incluye: factura, timbradoDetalle, timbrado, cliente
+     * Los items se obtienen por separado via FacturaLegalItemService
+     */
+    @Query("SELECT fl FROM FacturaLegal fl " +
+           "LEFT JOIN FETCH fl.timbradoDetalle td " +
+           "LEFT JOIN FETCH td.timbrado t " +
+           "LEFT JOIN FETCH fl.cliente c " +
+           "WHERE fl.id = :facturaId AND fl.sucursalId = :sucursalId")
+    public FacturaLegal findByIdWithTimbradoAndItems(@Param("facturaId") Long facturaId, 
+                                                    @Param("sucursalId") Long sucursalId);
 
 //    @Query(value = "select " +
 //            "CAST('I' AS TEXT) as ven_tipimp, " +

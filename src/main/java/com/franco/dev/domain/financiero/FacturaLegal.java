@@ -7,10 +7,6 @@ import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JoinColumnOrFormula;
-import org.hibernate.annotations.JoinColumnsOrFormulas;
-import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -37,10 +33,10 @@ public class FacturaLegal implements Serializable {
     @JoinColumn(name = "timbrado_detalle_id", nullable = true)
     private TimbradoDetalle timbradoDetalle;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns(value = {
+            @JoinColumn(name = "caja_id", referencedColumnName = "id", insertable = false, updatable = false),
+            @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id", insertable = false, updatable = false)
     })
     private PdvCaja caja;
 
@@ -55,10 +51,10 @@ public class FacturaLegal implements Serializable {
     @JoinColumn(name = "cliente_id", nullable = true)
     private Cliente cliente;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "venta_id", referencedColumnName = "id"))
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns(value = {
+            @JoinColumn(name = "venta_id", referencedColumnName = "id", insertable = false, updatable = false),
+            @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id", insertable = false, updatable = false)
     })
     private Venta venta;
 
@@ -86,7 +82,7 @@ public class FacturaLegal implements Serializable {
 
     private Boolean activo;
 
-    @CreationTimestamp
+    @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)

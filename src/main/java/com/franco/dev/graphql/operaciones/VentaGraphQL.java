@@ -57,6 +57,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
+import com.franco.dev.domain.financiero.DocumentoElectronico;
+import com.franco.dev.repository.financiero.DocumentoElectronicoRepository;
 
 @Component
 public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -106,6 +108,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private FacturaLegalGraphQL facturaLegalGraphQL;
     @Autowired
     private DteService dteService;
+    @Autowired
+    private DocumentoElectronicoRepository documentoElectronicoRepository;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -154,9 +158,14 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             try {
                 if (ticket) printTicket58mm(venta, cobro, ventaItemList1, cobroDetalleList, false, printerName, local);
                 // Generación automática DTE (si aplica): se dispara una vez que existe la venta/cobro
+                log.info("🚀 VENTA: Iniciando generación automática de DTE para ventaId={}, sucursalId={}, usuarioId={}", 
+                    venta.getId(), venta.getSucursalId(), ventaInput.getUsuarioId());
                 dteService.generarDesdeFacturaLegalSiNoExiste(venta.getId(), venta.getSucursalId(), ventaInput.getUsuarioId());
+                log.info("✅ VENTA: Generación automática de DTE completada exitosamente");
             } catch (Exception e) {
-                return venta;
+                log.error("❌ VENTA: Error durante la generación automática del DTE", e);
+                // No retornamos la venta aquí, dejamos que el error se propague para debugging
+                throw new RuntimeException("Error generando DTE: " + e.getMessage(), e);
             }
         }
         return venta;
@@ -297,11 +306,35 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 escpos.write(" ");
             }
             escpos.writeLF(valorDs);
-            if (sucursal != null && sucursal.getNroDelivery() != null) {
-                escpos.write(center, "Delivery? Escaneá el código qr o escribinos al ");
-                escpos.writeLF(center, sucursal.getNroDelivery());
+            
+            // Sección DTE (si existe): QR, texto de validación SIFEN y CDC formateado
+            escpos.writeLF("--------------------------------");
+            // Primero obtener la FacturaLegal asociada a la venta
+            FacturaLegal facturaLegal = facturaLegalGraphQL.facturaLegalPorVenta(venta.getId(), venta.getSucursalId());
+            DocumentoElectronico dte = null;
+            if (facturaLegal != null) {
+                dte = documentoElectronicoRepository.findFirstByFacturaLegal_IdAndFacturaLegal_SucursalId(facturaLegal.getId(), facturaLegal.getSucursalId());
             }
-//        escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), "wa.me/595986128000");
+            if (dte != null) {
+                if (dte.getUrlQr() != null) {
+                    escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), dte.getUrlQr());
+                }
+                // Texto requerido por SIFEN debajo del QR
+                escpos.writeLF(center, "Consulte la validez de esta Factura Electrónica con el número de CDC impreso abajo en:");
+                escpos.writeLF(center, "https://ekuatia.set.gov.py/consultas");
+                if (dte.getCdc() != null) {
+                    String cdc = dte.getCdc().replaceAll("\\s+", "");
+                    StringBuilder sb = new StringBuilder();
+                    for (int i = 0; i < cdc.length(); i += 4) {
+                        if (i > 0) sb.append(" ");
+                        sb.append(cdc.substring(i, Math.min(i + 4, cdc.length())));
+                    }
+                    escpos.writeLF(center, sb.toString());
+                }
+                escpos.writeLF(center, "ESTE DOCUMENTO ES UNA REPRESENTACION GRAFICA DE UN DOCUMENTO ELECTRONICO (XML)");
+                escpos.writeLF("--------------------------------");
+            }
+            
             escpos.feed(1);
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
             escpos.feed(5);

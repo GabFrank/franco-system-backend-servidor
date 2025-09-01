@@ -8,11 +8,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.http.ResponseEntity;
+
+import com.franco.dev.domain.financiero.DocumentoElectronico;
+
 import org.springframework.web.client.ResourceAccessException;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -47,14 +52,24 @@ public class DteNodeClient {
     @Value("${dte.node.backoff-ms:1000}")
     private int backoffMs;
 
+    // Getters para logging
+    public String getBaseUrl() { return baseUrl; }
+    public String getGenerarEndpoint() { return generarEndpoint; }
+
     public GenerarDocumentoResponse generarDocumentoDesdeFactura(Long facturaId, Long sucursalId) {
+        System.out.println("🚀🚀🚀 DTE NodeClient: MÉTODO generarDocumentoDesdeFactura EJECUTÁNDOSE");
+        System.out.println("🚀🚀🚀 DTE NodeClient: facturaId=" + facturaId + ", sucursalId=" + sucursalId);
+        
         if (mock) {
+            System.out.println("🚀🚀🚀 DTE NodeClient: MODO MOCK ACTIVADO");
             GenerarDocumentoResponse m = new GenerarDocumentoResponse();
             m.setCdc(String.format("%044d", System.nanoTime() % 1_000_000_000));
             m.setXmlFirmado("<xml>mock</xml>");
             m.setUrlQr("https://kude.mock/" + facturaId);
             return m;
         }
+        
+        System.out.println("🚀🚀🚀 DTE NodeClient: MODO REAL ACTIVADO - LLAMANDO AL MICROSERVICIO");
         String url = baseUrl + generarEndpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -62,26 +77,96 @@ public class DteNodeClient {
         // Crear el body con el formato que espera el microservicio Node.js
         Map<String, Object> body = new HashMap<>();
         body.put("facturaId", facturaId);
+        body.put("sucursalId", sucursalId);
         
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-        return executeWithRetry(() -> restTemplate.postForObject(url, entity, GenerarDocumentoResponse.class));
+        
+        // Logging para debug
+        System.out.println("🚀🚀🚀 DTE NodeClient: Enviando POST a URL: " + url);
+        System.out.println("🚀🚀🚀 DTE NodeClient: Body enviado: " + body);
+        
+        try {
+            System.out.println("🚀🚀🚀 DTE NodeClient: Iniciando llamada HTTP al microservicio...");
+            
+            // Usar la nueva clase wrapper que coincide con la estructura JSON del microservicio
+            MicroservicioResponse microservicioResponse = executeWithRetry(() -> restTemplate.postForObject(url, entity, MicroservicioResponse.class));
+            
+            System.out.println("🚀🚀🚀 DTE NodeClient: Respuesta HTTP recibida del microservicio: " + microservicioResponse);
+            
+            if (microservicioResponse != null && microservicioResponse.getDte() != null) {
+                DteData dteData = microservicioResponse.getDte();
+                System.out.println("🚀🚀🚀 DTE NodeClient: DTE data extraída: " + dteData);
+                System.out.println("🚀🚀🚀 DTE NodeClient: CDC en DTE: '" + dteData.getCdc() + "'");
+                System.out.println("🚀🚀🚀 DTE NodeClient: XML en DTE: " + (dteData.getXml() != null ? dteData.getXml().length() + " caracteres" : "null"));
+                System.out.println("🚀🚀🚀 DTE NodeClient: QR en DTE: '" + dteData.getQrUrl() + "'");
+                
+                // Convertir a GenerarDocumentoResponse
+                GenerarDocumentoResponse response = new GenerarDocumentoResponse();
+                response.setCdc(dteData.getCdc());
+                response.setXmlFirmado(dteData.getXml());
+                response.setUrlQr(dteData.getQrUrl());
+                
+                System.out.println("🚀🚀🚀 DTE NodeClient: GenerarDocumentoResponse creado: " + response);
+                return response;
+            } else {
+                System.err.println("❌❌❌ DTE NodeClient: Respuesta del microservicio es null o no tiene DTE");
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("❌❌❌ DTE NodeClient: Error en POST: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
-    public String enviarLote(List<String> xmlFirmados) {
+    public String enviarLote(List<DocumentoElectronico> documentos) {
         if (mock) {
+            System.err.println("🚀🚀🚀 DTE NodeClient: MODO MOCK ACTIVADO - RETORNANDO PROTOCOLO SIMULADO");
             return "mock-protocolo-" + System.currentTimeMillis();
         }
+        
+        System.err.println("🚀🚀🚀 DTE NodeClient: MÉTODO enviarLote EJECUTÁNDOSE");
+        System.err.println("🚀🚀🚀 DTE NodeClient: Cantidad de documentos: " + documentos.size());
+        
         String url = baseUrl + enviarLoteEndpoint;
+        System.err.println("🚀🚀🚀 DTE NodeClient: URL del endpoint: " + url);
+        
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        System.err.println("🚀🚀🚀 DTE NodeClient: Headers configurados: " + headers);
         
-        // Crear el body con el formato que espera el microservicio Node.js
+        // Crear el body con XML y CDC para cada DTE
+        List<Map<String, String>> dtesData = documentos.stream()
+            .map(doc -> {
+                Map<String, String> dteData = new HashMap<>();
+                dteData.put("xml", doc.getXmlFirmado());
+                dteData.put("cdc", doc.getCdc());
+                
+                System.err.println("🚀🚀🚀 DTE NodeClient: DTE procesado - CDC: " + doc.getCdc() + 
+                                 ", XML length: " + (doc.getXmlFirmado() != null ? doc.getXmlFirmado().length() : "NULL"));
+                
+                return dteData;
+            })
+            .collect(Collectors.toList());
+        
         Map<String, Object> body = new HashMap<>();
-        body.put("dtes", xmlFirmados);
+        body.put("dtes", dtesData);
+        
+        System.err.println("🚀🚀🚀 DTE NodeClient: Body preparado: " + body);
+        System.err.println("🚀🚀🚀 DTE NodeClient: Cantidad de DTEs en body: " + dtesData.size());
         
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-        EnviarLoteResponse res = executeWithRetry(() -> restTemplate.postForObject(url, entity, EnviarLoteResponse.class));
-        return res != null ? res.getIdProtocolo() : null;
+        System.err.println("🚀🚀🚀 DTE NodeClient: Entity creada, iniciando llamada HTTP...");
+        
+        try {
+            EnviarLoteResponse res = executeWithRetry(() -> restTemplate.postForObject(url, entity, EnviarLoteResponse.class));
+            System.err.println("🚀🚀🚀 DTE NodeClient: Respuesta recibida: " + res);
+            return res != null ? res.getIdProtocolo() : null;
+        } catch (Exception e) {
+            System.err.println("❌❌❌ DTE NodeClient: Error en enviarLote: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     public String consultarLote(String protocoloId) {
@@ -113,6 +198,77 @@ public class DteNodeClient {
         
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         return executeWithRetry(() -> restTemplate.postForObject(url, entity, RegistrarEventoResponse.class));
+    }
+
+    /**
+     * Consulta el estado individual de un documento en SIFEN
+     * @param cdc Código de Control del documento
+     * @return Estado del documento
+     */
+    public String consultarEstadoIndividual(String cdc) {
+        System.out.println("🚀🚀🚀 DTE NodeClient: MÉTODO consultarEstadoIndividual EJECUTÁNDOSE");
+        System.out.println("🚀🚀🚀 DTE NodeClient: cdc=" + cdc);
+        
+        try {
+            if (mock) {
+                System.out.println("🚀🚀🚀 DTE NodeClient: MODO MOCK ACTIVADO - RETORNANDO SIMULACIÓN");
+                return simularEstadoIndividual(cdc);
+            }
+            
+            System.out.println("🚀🚀🚀 DTE NodeClient: MODO REAL ACTIVADO - LLAMANDO AL MICROSERVICIO");
+            
+            String url = baseUrl + "/api/documento/" + cdc + "/estado";
+            System.out.println("🚀🚀🚀 DTE NodeClient: Enviando GET a URL: " + url);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+            
+            System.out.println("🚀🚀🚀 DTE NodeClient: Iniciando llamada HTTP al microservicio...");
+            
+            // Usar la nueva clase wrapper que coincide con la estructura JSON del microservicio
+            ResponseEntity<Map> responseEntity = executeWithRetry(() -> restTemplate.exchange(
+                url,
+                org.springframework.http.HttpMethod.GET,
+                entity,
+                Map.class
+            ));
+            
+            Map response = responseEntity != null ? responseEntity.getBody() : null;
+            
+            System.out.println("🚀🚀🚀 DTE NodeClient: Respuesta HTTP recibida del microservicio: " + response);
+            
+            if (response != null && response.containsKey("estado")) {
+                String estado = (String) response.get("estado");
+                System.out.println("🚀🚀🚀 DTE NodeClient: Estado extraído: '" + estado + "'");
+                return estado;
+            } else {
+                System.err.println("❌❌❌ DTE NodeClient: Respuesta no contiene estado, retornando PENDIENTE");
+                return "PENDIENTE";
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌❌❌ DTE NodeClient: Error consultando estado individual del documento " + cdc + ": " + e.getMessage());
+            e.printStackTrace();
+            return "ERROR_CONSULTA";
+        }
+    }
+    
+    /**
+     * Simula el estado individual de un documento (modo prueba)
+     * @param cdc Código de Control del documento
+     * @return Estado simulado
+     */
+    private String simularEstadoIndividual(String cdc) {
+        // Simular respuesta basada en el CDC
+        if (cdc.endsWith("0") || cdc.endsWith("5")) {
+            return "RECHAZADO";
+        } else if (cdc.endsWith("1") || cdc.endsWith("6")) {
+            return "PENDIENTE";
+        } else {
+            return "APROBADO";
+        }
     }
 
     private <T> T executeWithRetry(SupplierWithException<T> supplier) {
@@ -147,6 +303,23 @@ public class DteNodeClient {
         private String cdc;
         private String xmlFirmado;
         private String urlQr;
+    }
+
+    // Clase wrapper para la respuesta del microservicio
+    @Data
+    public static class MicroservicioResponse {
+        private boolean success;
+        private DteData dte;
+    }
+
+    @Data
+    public static class DteData {
+        private Long id;
+        private String cdc;
+        private String xml;
+        private String qrUrl;
+        private String estado;
+        private String fechaGeneracion;
     }
 
     @Data

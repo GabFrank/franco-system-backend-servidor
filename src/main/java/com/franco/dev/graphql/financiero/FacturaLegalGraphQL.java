@@ -140,6 +140,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findByVentaIdAndSucursalId(id, sucId);
     }
 
+    /**
+     * Consulta factura legal con toda la información del timbrado para SIFEN
+     */
+    public FacturaLegal facturaLegalConTimbrado(Long id, Long sucId) {
+        return service.findByIdWithTimbradoAndItems(id, sucId);
+    }
+
     @Unsecured
     @Transactional
     public FacturaLegal saveFacturaLegal(FacturaLegalInput input, List<FacturaLegalItemInput> facturaLegalItemInputList) {
@@ -474,13 +481,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 escpos.writeLF(center, "ESTE DOCUMENTO ES UNA REPRESENTACION GRAFICA DE UN DOCUMENTO ELECTRONICO (XML)");
                 escpos.writeLF("--------------------------------");
             }
-            if (sucursal != null && sucursal.getNroDelivery() != null) {
-                escpos.write(center, "Delivery? Escaneá el código qr o escribinos al ");
-                escpos.writeLF(center, sucursal.getNroDelivery());
-            }
-            if (sucursal.getNroDelivery() != null) {
-                escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), "wa.me/" + sucursal.getNroDelivery());
-            }
+            // Reemplazar sección de delivery con información DTE requerida por SIFEN
             escpos.feed(1);
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
 //            escpos.writeLF("--------------------------------");

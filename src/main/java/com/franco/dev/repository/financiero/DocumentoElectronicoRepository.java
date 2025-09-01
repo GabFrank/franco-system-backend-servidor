@@ -37,6 +37,9 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
     Page<DocumentoElectronico> findByEstadoSifenOrderByIdDesc(String estadoSifen, Pageable pageable);
 
     DocumentoElectronico findFirstByFacturaLegal_IdAndFacturaLegal_SucursalId(Long facturaLegalId, Long sucursalId);
+
+    // Método para sincronización de estados
+    List<DocumentoElectronico> findByEstadoSifenAndLoteIsNotNull(String estadoSifen);
 }
 
 

@@ -34,8 +34,6 @@ public class DteScheduler {
     private final FacturaLegalService facturaLegalService;
     private final DteService dteService;
 
-    @Value("${dte.node.mock:true}")
-    private boolean mockMode;
 
     @Value("${dte.fecha-inicio:2025-08-27}")
     private String fechaInicio;
@@ -43,7 +41,7 @@ public class DteScheduler {
 
     @PostConstruct
     public void logConfiguration() {
-        log.info("🔧 DTE Scheduler Config: mockMode={}, fechaInicio={}", mockMode, fechaInicio);
+        log.info("🔧 DTE Scheduler Config: fechaInicio={}", fechaInicio);
     }
     // Cada 10 minutos
     @Scheduled(fixedRate = 300_000)
@@ -58,24 +56,8 @@ public class DteScheduler {
 
         LoteDte nuevoLote = new LoteDte();
         nuevoLote.setFechaEnvio(LocalDateTime.now());
-
-        if (mockMode) {
-            // Modo mock: no llamar al Node, simular envío inmediato
-            nuevoLote.setEstadoSifen(DteEstado.RECIBIDO_POR_SIFEN.name());
-            nuevoLote.setIdProtocoloSifen("mock-" + System.currentTimeMillis());
-            nuevoLote = loteDteRepository.save(nuevoLote);
-            final LoteDte loteRef = nuevoLote;
-            docs.forEach(d -> {
-                d.setLote(loteRef);
-                d.setEstadoSifen(DteEstado.ENVIADO.name());
-            });
-            documentoElectronicoRepository.saveAll(docs);
-            log.info("[DTE] (MOCK) Lote {} simulado como RECIBIDO_POR_SIFEN", nuevoLote.getId());
-            return;
-        } else {
-            nuevoLote.setEstadoSifen(DteEstado.ENVIADO.name());
-            nuevoLote = loteDteRepository.save(nuevoLote);
-        }
+        nuevoLote.setEstadoSifen(DteEstado.ENVIADO.name());
+        nuevoLote = loteDteRepository.save(nuevoLote);
 
         final LoteDte loteRef = nuevoLote;
         docs.forEach(d -> {
@@ -108,36 +90,6 @@ public class DteScheduler {
         log.info("[DTE] Consultando resultados de lotes 'RECIBIDO_POR_SIFEN'");
         List<LoteDte> lotes = loteDteRepository.findByEstadoSifen(DteEstado.RECIBIDO_POR_SIFEN.name());
         if (lotes.isEmpty()) return;
-        if (mockMode) {
-            Random rnd = new Random();
-            String[] motivosRechazo = new String[]{
-                    "RUC del receptor inválido",
-                    "Timbrado vencido",
-                    "Monto total inconsistente",
-                    "IVA mal calculado",
-                    "Fecha de emisión fuera de rango",
-                    "Campos obligatorios faltantes"
-            };
-            for (LoteDte lote : lotes) {
-                List<DocumentoElectronico> docs = documentoElectronicoRepository.findByLoteId(lote.getId());
-                for (DocumentoElectronico d : docs) {
-                    boolean aprobado = rnd.nextInt(10) < 8; // 80%
-                    d.setEstadoSifen(aprobado ? DteEstado.APROBADO.name() : DteEstado.RECHAZADO.name());
-                    if (aprobado) {
-                        d.setMensajeSifen("Aprobado por SIFEN (mock)");
-                    } else {
-                        String motivo = motivosRechazo[rnd.nextInt(motivosRechazo.length)];
-                        d.setMensajeSifen("Rechazado: " + motivo);
-                    }
-                }
-                documentoElectronicoRepository.saveAll(docs);
-                lote.setEstadoSifen(DteEstado.PROCESADO_OK.name());
-                lote.setRespuestaSifen("<mock>procesado</mock>");
-                loteDteRepository.save(lote);
-                log.info("[DTE] (MOCK) Lote {} procesado con {} documentos", lote.getId(), docs.size());
-            }
-            return;
-        }
         for (LoteDte lote : lotes) {
             try {
                 log.info("[DTE] Consultando estado del lote {} con protocolo: {}", lote.getId(), lote.getIdProtocoloSifen());
@@ -329,31 +281,10 @@ public class DteScheduler {
      */
     @Scheduled(fixedRate = 300000) // 5 minutos = 300,000 ms
     public void procesarFacturasLegalesSinDte() {
-        if (mockMode) {
-            log.info("🔄 DTE: Modo mock activado, procesando facturas legales sin DTE (simulado)");
-            procesarFacturasLegalesSinDteMock();
-        } else {
-            log.info("🚀 DTE: Procesando facturas legales sin DTE en modo real");
-            procesarFacturasLegalesSinDteReal();
-        }
+        log.info("🚀 DTE: Procesando facturas legales sin DTE");
+        procesarFacturasLegalesSinDteReal();
     }
 
-    /**
-     * Procesa facturas legales sin DTE en modo mock
-     */
-    private void procesarFacturasLegalesSinDteMock() {
-        try {
-            // Simular procesamiento de 2-3 facturas
-            int facturasProcesadas = (int) (Math.random() * 3) + 1;
-            log.info("✅ DTE: Procesamiento mock completado - {} facturas procesadas", facturasProcesadas);
-            
-            // Simular delay de procesamiento
-            Thread.sleep(1000);
-            
-        } catch (Exception e) {
-            log.error("❌ DTE: Error en procesamiento mock de facturas legales", e);
-        }
-    }
 
     /**
      * Procesa facturas legales sin DTE en modo real
@@ -515,13 +446,18 @@ public class DteScheduler {
         }
     }
 
-    // Cada 3 minutos - Consultar estados individuales de documentos pendientes
-    @Scheduled(fixedRate = 180_000)
+    // Cada 10 minutos - Consultar estados individuales de documentos pendientes
+    // Optimizado para evitar rate limiting: menos frecuencia, menos documentos por ejecución
+    @Scheduled(fixedRate = 600_000) // 10 minutos = 600,000 ms
     @Transactional
     public void consultarEstadosIndividuales() {
-        log.info("[DTE] Consultando estados individuales de documentos 'PENDIENTE_APROBACION'");
+        log.info("[DTE] Consultando estados individuales de documentos 'PENDIENTE_APROBACION' (optimizado)");
+        // Limitar a 10 documentos por ejecución para evitar rate limiting
         List<DocumentoElectronico> docsPendientes = documentoElectronicoRepository
-            .findTop50ByEstadoSifenOrderByIdAsc(DteEstado.PENDIENTE_APROBACION.name());
+            .findTop50ByEstadoSifenOrderByIdAsc(DteEstado.PENDIENTE_APROBACION.name())
+            .stream()
+            .limit(10) // Limitar a 10 documentos para rate limiting
+            .collect(Collectors.toList());
         if (docsPendientes.isEmpty()) {
             log.info("[DTE] No hay documentos pendientes de aprobación");
             return;
@@ -531,8 +467,18 @@ public class DteScheduler {
         int aprobados = 0;
         int rechazados = 0;
         int errores = 0;
+
+        // Rate limiting: agregar delay entre consultas para evitar sobrecargar el microservicio
+        int consultaIndex = 0;
         for (DocumentoElectronico doc : docsPendientes) {
             try {
+                // Agregar delay progresivo entre consultas (500ms base + 200ms por consulta)
+                if (consultaIndex > 0) {
+                    long delay = 500 + (consultaIndex * 200);
+                    log.debug("[DTE] Esperando {}ms antes de consultar documento {}", delay, doc.getId());
+                    Thread.sleep(delay);
+                }
+
                 String estadoSifen = nodeClient.consultarEstadoIndividual(doc.getCdc()); // Corrected to nodeClient
                 if ("APROBADO".equals(estadoSifen)) {
                     doc.setEstadoSifen(DteEstado.APROBADO.name());
@@ -552,9 +498,26 @@ public class DteScheduler {
                     log.warn("[DTE] Documento {} - Estado no reconocido: {}, manteniendo PENDIENTE_APROBACION", doc.getId(), estadoSifen);
                 }
                 consultados++;
+            } catch (org.springframework.web.client.HttpClientErrorException.TooManyRequests e) {
+                // Manejo especial para 429: continuar con otros documentos pero con delay mayor
+                errores++;
+                log.warn("[DTE] Documento {} - Rate limiting alcanzado (429), esperando antes de continuar", doc.getId());
+                try {
+                    Thread.sleep(5000); // Esperar 5 segundos adicionales por rate limiting
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
             } catch (Exception e) {
                 errores++;
                 log.error("[DTE] Error consultando estado individual del documento {}", doc.getId(), e);
+                // Para otros errores, agregar un pequeño delay para evitar sobrecargar más
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            } finally {
+                consultaIndex++; // Incrementar contador al final de cada iteración
             }
         }
         if (aprobados > 0 || rechazados > 0) {

@@ -1,6 +1,7 @@
 package com.franco.dev.domain.financiero;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -51,7 +52,7 @@ public class DocumentoElectronico implements Identifiable<Long>, Serializable {
     @Column(name = "url_qr")
     private String urlQr;
 
-    @Column(name = "creado_en")
+    @Column(name = "creado_en", nullable = false)
     private LocalDateTime creadoEn;
 
     @OneToOne(fetch = FetchType.LAZY)
@@ -60,6 +61,10 @@ public class DocumentoElectronico implements Identifiable<Long>, Serializable {
             @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id")
     })
     private FacturaLegal facturaLegal;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sucursal_id", insertable = false, updatable = false)
+    private Sucursal sucursal;
 
     @OneToMany(mappedBy = "documentoElectronico", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<EventoDte> eventos;

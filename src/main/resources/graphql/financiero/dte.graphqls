@@ -1,6 +1,7 @@
 type DocumentoElectronico {
     id: ID
     cdc: String
+    sucursal: Sucursal
     estadoSifen: String
     mensajeSifen: String
     urlQr: String
@@ -43,11 +44,7 @@ type DocumentoElectronicoPage {
 extend type Mutation {
     generarDocumentoElectronico(ventaId: ID!, sucursalId: ID!, usuarioId: ID): DocumentoElectronico
     registrarEventoDte(documentoElectronicoId: ID!, tipoEvento: Int!, usuarioId: ID, motivo: String, observacion: String): EventoDte
-    enviarLoteNow(usuarioId: ID): LoteDte
-    consultarLotesNow: Boolean
     reintentarGeneracionDte(dteId: ID!, usuarioId: ID): DocumentoElectronico
-    seedDteMock(cantidad: Int = 20, diasAtras: Int = 30): Boolean
-    wipeDteData: Boolean
 }
 
 type LoteDte {

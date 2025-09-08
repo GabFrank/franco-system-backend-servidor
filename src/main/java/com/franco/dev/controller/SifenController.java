@@ -75,7 +75,7 @@ public class SifenController {
             
             // Datos del documento
             Map<String, Object> documento = new HashMap<>();
-            documento.put("tipo", 1); // 1 = Factura
+            documento.put("tipo", "01"); // 01 = Factura Electrónica según Manual Técnico SIFEN v150
             documento.put("numero", factura.getNumeroFactura());
             documento.put("fecha", factura.getFecha());
             documento.put("moneda", "PYG");

@@ -605,7 +605,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             params.put("CLIENTE", f.getNombre());
             params.put("RUC_CLIENTE", f.getRuc());
             params.put("DIRECCION_CLIENTE", f.getDireccion());
-            params.put("DETALLE", "Detalle no expandido en mock");
+            params.put("DETALLE", "Detalle no expandido");
             params.put("TOTAL", new java.text.DecimalFormat("#,##0").format(f.getTotalFinal() != null ? f.getTotalFinal() : 0.0));
             DocumentoElectronico dte = documentoElectronicoRepository.findFirstByFacturaLegal_IdAndFacturaLegal_SucursalId(f.getId(), f.getSucursalId());
             if (dte != null) {

@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -40,8 +41,6 @@ public class DteNodeClient {
     @Value("${dte.node.endpoints.registrar-evento:/api/evento/registrar}")
     private String registrarEventoEndpoint;
 
-    @Value("${dte.node.mock:true}")
-    private boolean mock;
 
     @Value("${dte.node.timeout-ms:15000}")
     private int timeoutMs;
@@ -59,17 +58,7 @@ public class DteNodeClient {
     public GenerarDocumentoResponse generarDocumentoDesdeFactura(Long facturaId, Long sucursalId) {
         System.out.println("🚀🚀🚀 DTE NodeClient: MÉTODO generarDocumentoDesdeFactura EJECUTÁNDOSE");
         System.out.println("🚀🚀🚀 DTE NodeClient: facturaId=" + facturaId + ", sucursalId=" + sucursalId);
-        
-        if (mock) {
-            System.out.println("🚀🚀🚀 DTE NodeClient: MODO MOCK ACTIVADO");
-            GenerarDocumentoResponse m = new GenerarDocumentoResponse();
-            m.setCdc(String.format("%044d", System.nanoTime() % 1_000_000_000));
-            m.setXmlFirmado("<xml>mock</xml>");
-            m.setUrlQr("https://kude.mock/" + facturaId);
-            return m;
-        }
-        
-        System.out.println("🚀🚀🚀 DTE NodeClient: MODO REAL ACTIVADO - LLAMANDO AL MICROSERVICIO");
+        System.out.println("🚀🚀🚀 DTE NodeClient: LLAMANDO AL MICROSERVICIO");
         String url = baseUrl + generarEndpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -105,8 +94,6 @@ public class DteNodeClient {
                 response.setCdc(dteData.getCdc());
                 response.setXmlFirmado(dteData.getXml());
                 response.setUrlQr(dteData.getQrUrl());
-                
-                System.out.println("🚀🚀🚀 DTE NodeClient: GenerarDocumentoResponse creado: " + response);
                 return response;
             } else {
                 System.err.println("❌❌❌ DTE NodeClient: Respuesta del microservicio es null o no tiene DTE");
@@ -120,11 +107,6 @@ public class DteNodeClient {
     }
 
     public String enviarLote(List<DocumentoElectronico> documentos) {
-        if (mock) {
-            System.err.println("🚀🚀🚀 DTE NodeClient: MODO MOCK ACTIVADO - RETORNANDO PROTOCOLO SIMULADO");
-            return "mock-protocolo-" + System.currentTimeMillis();
-        }
-        
         System.err.println("🚀🚀🚀 DTE NodeClient: MÉTODO enviarLote EJECUTÁNDOSE");
         System.err.println("🚀🚀🚀 DTE NodeClient: Cantidad de documentos: " + documentos.size());
         
@@ -170,21 +152,12 @@ public class DteNodeClient {
     }
 
     public String consultarLote(String protocoloId) {
-        if (mock) {
-            return "<respuesta><aprobado cdc='MOCK'/></respuesta>";
-        }
         String url = baseUrl + consultarLoteEndpoint.replace("{id}", protocoloId);
         ConsultarLoteResponse res = executeWithRetry(() -> restTemplate.getForObject(url, ConsultarLoteResponse.class));
         return res != null ? res.getRespuesta() : null;
     }
 
     public RegistrarEventoResponse registrarEvento(String cdcDocumento, Integer tipoEvento, String motivo, String observacion) {
-        if (mock) {
-            RegistrarEventoResponse m = new RegistrarEventoResponse();
-            m.setCdcEvento("MOCK-EVT-" + System.currentTimeMillis());
-            m.setMensaje("Evento registrado (mock)");
-            return m;
-        }
         String url = baseUrl + registrarEventoEndpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -208,14 +181,9 @@ public class DteNodeClient {
     public String consultarEstadoIndividual(String cdc) {
         System.out.println("🚀🚀🚀 DTE NodeClient: MÉTODO consultarEstadoIndividual EJECUTÁNDOSE");
         System.out.println("🚀🚀🚀 DTE NodeClient: cdc=" + cdc);
-        
+
         try {
-            if (mock) {
-                System.out.println("🚀🚀🚀 DTE NodeClient: MODO MOCK ACTIVADO - RETORNANDO SIMULACIÓN");
-                return simularEstadoIndividual(cdc);
-            }
-            
-            System.out.println("🚀🚀🚀 DTE NodeClient: MODO REAL ACTIVADO - LLAMANDO AL MICROSERVICIO");
+            System.out.println("🚀🚀🚀 DTE NodeClient: LLAMANDO AL MICROSERVICIO");
             
             String url = baseUrl + "/api/documento/" + cdc + "/estado";
             System.out.println("🚀🚀🚀 DTE NodeClient: Enviando GET a URL: " + url);
@@ -254,42 +222,57 @@ public class DteNodeClient {
             return "ERROR_CONSULTA";
         }
     }
-    
-    /**
-     * Simula el estado individual de un documento (modo prueba)
-     * @param cdc Código de Control del documento
-     * @return Estado simulado
-     */
-    private String simularEstadoIndividual(String cdc) {
-        // Simular respuesta basada en el CDC
-        if (cdc.endsWith("0") || cdc.endsWith("5")) {
-            return "RECHAZADO";
-        } else if (cdc.endsWith("1") || cdc.endsWith("6")) {
-            return "PENDIENTE";
-        } else {
-            return "APROBADO";
-        }
-    }
 
     private <T> T executeWithRetry(SupplierWithException<T> supplier) {
         int attempts = 0;
-        ResourceAccessException lastEx = null;
+        Exception lastEx = null;
         while (attempts < maxRetries) {
             try {
                 return supplier.get();
             } catch (ResourceAccessException e) {
                 lastEx = e;
-                try { Thread.sleep(backoffMs * (attempts + 1)); } catch (InterruptedException ignored) {}
+                try {
+                    long delay = backoffMs * (long) Math.pow(2, attempts); // Backoff exponencial
+                    System.out.println("🚀🚀🚀 DTE NodeClient: ResourceAccessException - Reintentando en " + delay + "ms (intento " + (attempts + 1) + "/" + maxRetries + ")");
+                    Thread.sleep(delay);
+                } catch (InterruptedException ignored) {}
+                attempts++;
+            } catch (HttpClientErrorException e) {
+                lastEx = e;
+                // Si es 429 Too Many Requests, usar backoff exponencial más agresivo
+                if (e.getStatusCode().value() == 429) {
+                    try {
+                        long delay = backoffMs * (long) Math.pow(3, attempts); // Backoff exponencial más agresivo para 429
+                        System.out.println("🚀🚀🚀 DTE NodeClient: 429 Too Many Requests - Reintentando en " + delay + "ms (intento " + (attempts + 1) + "/" + maxRetries + ")");
+                        Thread.sleep(delay);
+                    } catch (InterruptedException ignored) {}
+                    attempts++;
+                } else {
+                    // Para otros errores HTTP client (4xx), no reintentar
+                    System.err.println("❌❌❌ DTE NodeClient: Error HTTP client no reintentable: " + e.getStatusCode() + " - " + e.getMessage());
+                    throw e;
+                }
+            } catch (Exception e) {
+                lastEx = e;
+                // Para otros errores generales, reintentar con backoff normal
+                try {
+                    long delay = backoffMs * (attempts + 1);
+                    System.err.println("❌❌❌ DTE NodeClient: Error general - Reintentando en " + delay + "ms (intento " + (attempts + 1) + "/" + maxRetries + "): " + e.getMessage());
+                    Thread.sleep(delay);
+                } catch (InterruptedException ignored) {}
                 attempts++;
             }
         }
-        if (lastEx != null) throw lastEx;
+        if (lastEx != null) {
+            System.err.println("❌❌❌ DTE NodeClient: Máximo de reintentos alcanzado. Último error: " + lastEx.getMessage());
+            throw lastEx instanceof RuntimeException ? (RuntimeException) lastEx : new RuntimeException(lastEx);
+        }
         return null;
     }
 
     @FunctionalInterface
     interface SupplierWithException<T> {
-        T get() throws ResourceAccessException;
+        T get() throws Exception;
     }
 
     @Data

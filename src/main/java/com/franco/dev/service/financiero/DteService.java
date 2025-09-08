@@ -20,7 +20,7 @@ import graphql.GraphQLException;
 
 import java.util.ArrayList;
 import java.util.List;
-import static com.franco.dev.utilitarios.CalcularVerificadorRuc.getDigitoVerificadorString;
+import static com.franco.dev.utilitarios.CalcularVerificadorRuc.getDigitoVerificador;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -91,6 +91,7 @@ public class DteService {
         DocumentoElectronico dte = new DocumentoElectronico();
         dte.setEstadoSifen(DteEstado.PENDIENTE.name());
         dte.setFacturaLegal(facturaLegal);
+        dte.setCreadoEn(LocalDateTime.now()); // ✅ Fecha de creación siempre se mantiene
         if (usuarioId != null) dte.setUsuario(usuarioService.findById(usuarioId).orElse(null));
         dte = documentoElectronicoRepository.save(dte);
         log.info("✅ DTE: DocumentoElectronico creado y guardado, id={}", dte.getId());
@@ -108,48 +109,123 @@ public class DteService {
 
     public Page<DocumentoElectronico> findFiltered(String estado, String fechaDesde, String fechaHasta, int page, int size, String cdc, Long sucursalId) {
         PageRequest pr = PageRequest.of(page, size);
-        boolean hasEstado = estado != null;
-        boolean hasDesde = fechaDesde != null;
-        boolean hasHasta = fechaHasta != null;
-        boolean hasCdc = cdc != null    ;
-        boolean hasSuc = sucursalId != null;
-        
-        if (hasCdc) return documentoElectronicoRepository.findByCdcContainingIgnoreCase(cdc, pr);
-        
-        if (hasSuc && !hasDesde && !hasHasta && !hasEstado) {
-            return documentoElectronicoRepository.findByFacturaLegal_SucursalId(sucursalId, pr);
+
+        try {
+            boolean hasEstado = estado != null && !estado.isEmpty() && !estado.trim().isEmpty();
+            boolean hasDesde = fechaDesde != null && !fechaDesde.isEmpty() && !fechaDesde.trim().isEmpty();
+            boolean hasHasta = fechaHasta != null && !fechaHasta.isEmpty() && !fechaHasta.trim().isEmpty();
+            boolean hasCdc = cdc != null && !cdc.isEmpty() && !cdc.trim().isEmpty();
+            boolean hasSuc = sucursalId != null;
+
+            if (hasCdc) {
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByCdcContainingIgnoreCase(cdc, pr);
+                return result;
+            }
+
+            if (hasSuc && !hasDesde && !hasHasta && !hasEstado) {
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByFacturaLegal_SucursalId(sucursalId, pr);
+                return result;
+            }
+            if (hasSuc && !hasDesde && !hasHasta && hasEstado) {
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndEstadoSifen(sucursalId, estado, pr);
+                return result;
+            }
+            if (hasSuc && (hasDesde || hasHasta) && !hasEstado) {
+                LocalDateTime desde = stringToDate(fechaDesde);
+                LocalDateTime hasta = stringToDate(fechaHasta);
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndCreadoEnBetween(sucursalId, desde, hasta, pr);
+
+                // Si no hay resultados, verificar si hay registros con creadoEn = null
+                if (result.getTotalElements() == 0) {
+                    Page<DocumentoElectronico> resultWithNull = documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndCreadoEnBetweenIncludingNull(sucursalId, desde, hasta, pr);
+
+                    if (resultWithNull.getTotalElements() > 0) {
+                        return resultWithNull;
+                    }
+                }
+
+                return result;
+            }
+            if (hasSuc && (hasDesde || hasHasta) && hasEstado) {
+                LocalDateTime desde = stringToDate(fechaDesde);
+                LocalDateTime hasta = stringToDate(fechaHasta);
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndEstadoSifenAndCreadoEnBetween(sucursalId, estado, desde, hasta, pr);
+
+                // Si no hay resultados, verificar si hay registros con creadoEn = null o diagnóstico completo
+                if (result.getTotalElements() == 0) {
+
+                    // Intentar solo por estado (sin sucursal ni fechas)
+                    Page<DocumentoElectronico> resultEstado = documentoElectronicoRepository.findByEstadoSifen(estado, PageRequest.of(0, 1000));
+
+                    // Intentar solo por sucursal (sin estado ni fechas)
+                    Page<DocumentoElectronico> resultSucursal = documentoElectronicoRepository.findByFacturaLegal_SucursalId(sucursalId, PageRequest.of(0, 1000));
+
+                    // Verificar si hay registros con creadoEn = null
+                    Page<DocumentoElectronico> resultWithNull = documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndEstadoSifenAndCreadoEnBetweenIncludingNull(sucursalId, estado, desde, hasta, pr);
+
+                    if (resultWithNull.getTotalElements() > 0) {
+                        return resultWithNull;
+                    }
+
+                    // Mostrar algunos registros de muestra para ver qué estados y sucursales existen
+                    if (resultSucursal.getTotalElements() > 0) {
+                        resultSucursal.getContent().stream().limit(3).forEach(doc -> {
+                                System.out.println("DEBUG - ID: " + doc.getId() + ", Estado: " + doc.getEstadoSifen() +
+                                                ", Sucursal: " + (doc.getFacturaLegal() != null ? doc.getFacturaLegal().getSucursalId() : "null") +
+                                                ", Fecha: " + doc.getCreadoEn());
+                        });
+                    }
+                }
+
+                return result;
+            }
+
+            if (!hasDesde && !hasHasta && hasEstado) {
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByEstadoSifen(estado, pr);
+                return result;
+            }
+
+            if ((hasDesde || hasHasta) && !hasEstado) {
+                LocalDateTime desde = stringToDate(fechaDesde);
+                LocalDateTime hasta = stringToDate(fechaHasta);
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByCreadoEnBetween(desde, hasta, pr);
+
+                // Si no hay resultados, verificar si hay registros con creadoEn = null
+                if (result.getTotalElements() == 0) {
+                    Page<DocumentoElectronico> resultWithNull = documentoElectronicoRepository.findByCreadoEnBetweenIncludingNull(desde, hasta, pr);
+
+                    if (resultWithNull.getTotalElements() > 0) {
+                        return resultWithNull;
+                    }
+                }
+
+                return result;
+            }
+
+            if ((hasDesde || hasHasta) && hasEstado) {
+                LocalDateTime desde = stringToDate(fechaDesde);
+                LocalDateTime hasta = stringToDate(fechaHasta);
+                Page<DocumentoElectronico> result = documentoElectronicoRepository.findByEstadoSifenAndCreadoEnBetween(estado, desde, hasta, pr);
+
+                // Si no hay resultados, verificar si hay registros con creadoEn = null
+                if (result.getTotalElements() == 0) {
+                    Page<DocumentoElectronico> resultWithNull = documentoElectronicoRepository.findByEstadoSifenAndCreadoEnBetweenIncludingNull(estado, desde, hasta, pr);
+
+                    if (resultWithNull.getTotalElements() > 0) {
+                        return resultWithNull;
+                    }
+                }
+
+                return result;
+            }
+
+            Page<DocumentoElectronico> result = documentoElectronicoRepository.findAll(pr);
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // En caso de error, devolver página vacía
+            return Page.empty(pr);
         }
-        if (hasSuc && !hasDesde && !hasHasta && hasEstado) {
-            return documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndEstadoSifen(sucursalId, estado, pr);
-        }
-        if (hasSuc && (hasDesde || hasHasta) && !hasEstado) {
-            LocalDateTime desde = stringToDate(fechaDesde);
-            LocalDateTime hasta = stringToDate(fechaHasta);
-            return documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndCreadoEnBetween(sucursalId, desde, hasta, pr);
-        }
-        if (hasSuc && (hasDesde || hasHasta) && hasEstado) {
-            LocalDateTime desde = stringToDate(fechaDesde);
-            LocalDateTime hasta = stringToDate(fechaHasta);
-            return documentoElectronicoRepository.findByFacturaLegal_SucursalIdAndEstadoSifenAndCreadoEnBetween(sucursalId, estado, desde, hasta, pr);
-        }
-        
-        if (!hasDesde && !hasHasta && hasEstado) {
-            return documentoElectronicoRepository.findByEstadoSifen(estado, pr);
-        }
-        
-        if ((hasDesde || hasHasta) && !hasEstado) {
-            LocalDateTime desde = stringToDate(fechaDesde);
-            LocalDateTime hasta = stringToDate(fechaHasta);
-            return documentoElectronicoRepository.findByCreadoEnBetween(desde, hasta, pr);
-        }
-        
-        if ((hasDesde || hasHasta) && hasEstado) {
-            LocalDateTime desde = stringToDate(fechaDesde);
-            LocalDateTime hasta = stringToDate(fechaHasta);
-            return documentoElectronicoRepository.findByEstadoSifenAndCreadoEnBetween(estado, desde, hasta, pr);
-        }
-        
-        return documentoElectronicoRepository.findAll(pr);
     }
 
     public DocumentoElectronico findById(Long id) {
@@ -232,6 +308,7 @@ public class DteService {
                 DocumentoElectronico dte = new DocumentoElectronico();
                 dte.setEstadoSifen(DteEstado.PENDIENTE.name());
                 dte.setFacturaLegal(facturaLegal);
+                dte.setCreadoEn(LocalDateTime.now()); // ✅ Fecha de creación siempre se mantiene
                 if (usuarioId != null) dte.setUsuario(usuarioService.findById(usuarioId).orElse(null));
                 dte = documentoElectronicoRepository.save(dte);
                 log.info("✅ DTE: DocumentoElectronico creado directamente, id={}", dte.getId());
@@ -262,7 +339,7 @@ public class DteService {
         if (motivo != null) evento.setMotivo(motivo);
         if (observacion != null) evento.setObservacion(observacion);
         evento.setCreadoEn(java.time.LocalDateTime.now());
-        // Llamada al Node (mock o real) para registrar el evento
+        // Llamada al Node para registrar el evento
         try {
             DteNodeClient.RegistrarEventoResponse resp = dteNodeClient.registrarEvento(dte.getCdc(), tipoEvento, motivo, observacion);
             if (resp != null) {
@@ -329,10 +406,10 @@ public class DteService {
                 dte.setXmlFirmado(res.getXmlFirmado());
                 dte.setCdc(res.getCdc());
                 dte.setUrlQr(res.getUrlQr());
-                
+
                 // Cambiar estado a GENERADO para que el scheduler pueda procesarlo
                 dte.setEstadoSifen(DteEstado.GENERADO.name());
-                
+
                 // Guardar el DTE primero
                 dte = documentoElectronicoRepository.save(dte);
                 log.info("✅ DTE: DTE actualizado y guardado exitosamente");
@@ -389,9 +466,16 @@ public class DteService {
                 String[] parts = f.getRuc().split("-");
                 String base = parts[0];
                 String dv = parts[1];
-                String dvCalc = getDigitoVerificadorString(base);
-                if (!dv.equals(dvCalc)) errores.add("RUC con dígito verificador inválido");
-            } catch (Exception ignored) {}
+                // Calcular el dígito verificador sin el guion
+                Integer dvCalcInt = getDigitoVerificador(base, 11);
+                String dvCalc = dvCalcInt != null ? dvCalcInt.toString() : "";
+
+                if (!dv.equals(dvCalc)) {
+                    errores.add("RUC con dígito verificador inválido");
+                }
+            } catch (Exception e) {
+                log.error("❌ ERROR en validación RUC: {}", e.getMessage());
+            }
         }
         // Totales
         if (f.getTotalFinal() == null || f.getTotalFinal() <= 0) errores.add("Total final inválido");

@@ -44,6 +44,8 @@ extend type Query {
         proveedorId: ID,
         sucursalId: ID,
         estado: RecepcionMercaderiaEstado,
+        estados: [RecepcionMercaderiaEstado!],
+        usuarioId: ID,
         fechaInicio: String,
         fechaFin: String,
         page: Int = 0,
@@ -51,11 +53,13 @@ extend type Query {
     ): RecepcionMercaderiaPage
     recepcionesPorProveedor(proveedorId: ID!): [RecepcionMercaderia]
     recepcionesPorEstado(estado: RecepcionMercaderiaEstado!): [RecepcionMercaderia]
+    generarConstanciaRecepcionPDF(recepcionId: ID!): ConstanciaRecepcionPDF
 }
 
 extend type Mutation {
     saveRecepcionMercaderia(entity: RecepcionMercaderiaInput!): RecepcionMercaderia!
     finalizarRecepcionMercaderia(recepcionId: ID!): RecepcionMercaderia!
+    iniciarRecepcion(sucursalId: ID!, notaRecepcionIds: [ID!]!, proveedorId: ID!, monedaId: ID!, usuarioId: ID!, cotizacion: Float): RecepcionMercaderia!
     crearRecepcionMercaderia(
         proveedorId: ID!,
         sucursalId: ID!,
@@ -71,4 +75,11 @@ enum RecepcionMercaderiaEstado {
     EN_PROCESO
     FINALIZADA
     CANCELADA
+}
+
+type ConstanciaRecepcionPDF {
+    pdfBase64: String!
+    nombreArchivo: String!
+    tamanioBytes: Int!
+    fechaGeneracion: Date!
 } 

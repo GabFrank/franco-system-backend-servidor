@@ -2,6 +2,7 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
+import com.franco.dev.graphql.operaciones.dto.ResumenItemsNotaDTO;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -160,4 +161,44 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
            "FROM operaciones.nota_recepcion_item nri " +
            "WHERE nri.id = :notaRecepcionItemId", nativeQuery = true)
     Double getCantidadPendienteByNotaRecepcionItemId(Long notaRecepcionItemId);
+
+    /**
+     * Obtiene items de una nota de recepción de forma paginada
+     * Incluye información completa del producto, presentación y moneda
+     */
+    @Query(value = "SELECT nri FROM NotaRecepcionItem nri " +
+           "LEFT JOIN FETCH nri.producto p " +
+           "LEFT JOIN FETCH nri.presentacionEnNota pres " +
+           "LEFT JOIN FETCH nri.notaRecepcion nr " +
+           "LEFT JOIN FETCH nr.moneda m " +
+           "WHERE nri.notaRecepcion.id = :notaId " +
+           "ORDER BY p.descripcion ASC",
+           countQuery = "SELECT COUNT(nri) FROM NotaRecepcionItem nri " +
+           "WHERE nri.notaRecepcion.id = :notaId")
+    Page<NotaRecepcionItem> findItemsByNotaIdPaginados(
+            @Param("notaId") Long notaId, 
+            Pageable pageable);
+
+    /**
+     * Obtiene resumen de items por estado para múltiples notas
+     */
+    @Query("SELECT new com.franco.dev.graphql.operaciones.dto.ResumenItemsNotaDTO(" +
+           "nri.notaRecepcion.id, " +
+           "COUNT(nri), " +
+           "SUM(nri.cantidadEnNota), " +
+           "CAST(nri.estado AS string)) " +
+           "FROM NotaRecepcionItem nri " +
+           "WHERE nri.notaRecepcion.id IN :notaIds " +
+           "GROUP BY nri.notaRecepcion.id, nri.estado")
+    List<ResumenItemsNotaDTO> getResumenItemsPorNota(@Param("notaIds") List<Long> notaIds);
+
+    /**
+     * Obtiene resumen general de items para múltiples notas
+     */
+    @Query("SELECT " +
+           "COUNT(nri) as totalItems, " +
+           "SUM(nri.cantidadEnNota) as totalCantidad " +
+           "FROM NotaRecepcionItem nri " +
+           "WHERE nri.notaRecepcion.id IN :notaIds")
+    Object[] getResumenGeneralItems(@Param("notaIds") List<Long> notaIds);
 }

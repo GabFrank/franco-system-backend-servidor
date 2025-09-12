@@ -1,11 +1,13 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
+import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaService;
+import com.franco.dev.service.operaciones.RecepcionMercaderiaItemService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -23,6 +25,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
+import com.franco.dev.domain.operaciones.EstadoVerificacion;
+import com.franco.dev.service.operaciones.NotaRecepcionItemDistribucionService;
 
 @Component
 public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -42,6 +47,15 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private com.franco.dev.service.operaciones.ConstanciaDeRecepcionService constanciaDeRecepcionService;
+
+    @Autowired
+    private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
+
+    @Autowired
+    private NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
+
     /**
      * Obtiene una recepción de mercadería por ID
      */
@@ -59,6 +73,8 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             Long proveedorId,
             Long sucursalId,
             RecepcionMercaderiaEstado estado,
+            List<RecepcionMercaderiaEstado> estados,
+            Long usuarioId,
             String fechaInicio,
             String fechaFin,
             Integer page,
@@ -71,7 +87,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
         LocalDateTime fechaInicioDate = fechaInicio != null ? stringToDate(fechaInicio) : null;
         LocalDateTime fechaFinDate = fechaFin != null ? stringToDate(fechaFin) : null;
 
-        return service.findByFilters(proveedorId, sucursalId, estado, fechaInicioDate, fechaFinDate, pageable);
+        return service.findByFilters(proveedorId, sucursalId, estado, estados, usuarioId, fechaInicioDate, fechaFinDate, pageable);
     }
 
     /**
@@ -154,6 +170,12 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
 
             RecepcionMercaderia recepcion = service.finalizarRecepcion(recepcionId);
 
+            // Generar constancia automáticamente
+            List<RecepcionMercaderiaItem> items = recepcionMercaderiaItemService.findByRecepcionMercaderiaId(recepcionId);
+
+            // Persistir constancia
+            constanciaDeRecepcionService.generarConstancia(recepcion, items);
+
             System.out.println("=== RECEPCIÓN FINALIZADA EXITOSAMENTE ===");
             System.out.println("Estado final: " + recepcion.getEstado());
 
@@ -164,6 +186,27 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             e.printStackTrace();
             throw new GraphQLException("Error al finalizar recepción: " + e.getMessage());
         }
+    }
+
+    /**
+     * Inicia recepción móvil (crea la recepción, asocia notas y pre-crea todos los ítems)
+     */
+    @Transactional
+    public RecepcionMercaderia iniciarRecepcion(Long sucursalId, List<Long> notaRecepcionIds, Long proveedorId, Long monedaId, Long usuarioId, Double cotizacion) {
+        if (sucursalId == null || proveedorId == null || monedaId == null || usuarioId == null || notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
+            throw new GraphQLException("Parámetros inválidos para iniciar recepción");
+        }
+
+        // Crear recepción básica
+        RecepcionMercaderia recepcion = crearRecepcionMercaderia(proveedorId, sucursalId, monedaId, cotizacion, usuarioId);
+
+        // Asociar notas
+        asociarNotasARecepcion(recepcion.getId(), notaRecepcionIds);
+
+        // Pre-crear todos los ítems de recepción para cada nota
+        preCrearItemsRecepcion(recepcion.getId(), notaRecepcionIds, usuarioId);
+
+        return recepcion;
     }
 
     /**
@@ -216,6 +259,82 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             return true;
         } catch (Exception e) {
             throw new GraphQLException("Error al asociar notas: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Pre-crea todos los ítems de recepción para las notas asociadas
+     * Cada ítem se crea con estado PENDIENTE y cantidadRecibida = 0
+     */
+    @Transactional
+    public void preCrearItemsRecepcion(Long recepcionId, List<Long> notaRecepcionIds, Long usuarioId) {
+        if (recepcionId == null || notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
+            throw new GraphQLException("ID de recepción, lista de notas y usuario son requeridos");
+        }
+
+        try {
+            // Obtener la recepción
+            RecepcionMercaderia recepcion = service.findById(recepcionId)
+                .orElseThrow(() -> new GraphQLException("Recepción no encontrada: " + recepcionId));
+
+            // Obtener el usuario
+            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findById(usuarioId)
+                .orElseThrow(() -> new GraphQLException("Usuario no encontrado: " + usuarioId));
+
+            // Para cada nota, obtener sus distribuciones y crear los ítems
+            for (Long notaId : notaRecepcionIds) {
+                List<NotaRecepcionItemDistribucion> distribuciones = 
+                    notaRecepcionItemDistribucionService.findByNotaRecepcionId(notaId);
+                
+                for (NotaRecepcionItemDistribucion distribucion : distribuciones) {
+                    // Crear el ítem de recepción
+                    RecepcionMercaderiaItem item = new RecepcionMercaderiaItem();
+                    item.setRecepcionMercaderia(recepcion);
+                    item.setNotaRecepcionItem(distribucion.getNotaRecepcionItem());
+                    item.setNotaRecepcionItemDistribucion(distribucion);
+                    item.setProducto(distribucion.getNotaRecepcionItem().getProducto());
+                    item.setPresentacionRecibida(distribucion.getNotaRecepcionItem().getPresentacionEnNota());
+                    item.setSucursalEntrega(recepcion.getSucursalRecepcion());
+                    item.setUsuario(usuario);
+                    item.setCantidadRecibida(0.0); // Inicialmente 0
+                    item.setCantidadRechazada(0.0); // Inicialmente 0
+                    item.setEsBonificacion(false);
+                    item.setEstadoVerificacion(EstadoVerificacion.PENDIENTE); // Estado inicial
+                    
+                    // Guardar el ítem
+                    recepcionMercaderiaItemService.save(item);
+                }
+            }
+        } catch (Exception e) {
+            throw new GraphQLException("Error al pre-crear ítems de recepción: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Genera PDF de constancia de recepción y retorna como base64
+     */
+    public com.franco.dev.graphql.operaciones.dto.ConstanciaRecepcionPDFDTO generarConstanciaRecepcionPDF(Long recepcionId) {
+        if (recepcionId == null) {
+            throw new GraphQLException("ID de la recepción es requerido");
+        }
+
+        try {
+            // Generar PDF usando el servicio de impresión
+            byte[] pdfBytes = constanciaDeRecepcionService.generarConstanciaRecepcionPDF(recepcionId);
+            
+            // Convertir a base64
+            String pdfBase64 = java.util.Base64.getEncoder().encodeToString(pdfBytes);
+            
+            // Crear respuesta
+            return new com.franco.dev.graphql.operaciones.dto.ConstanciaRecepcionPDFDTO(
+                pdfBase64,
+                "constancia-recepcion-" + recepcionId + ".pdf",
+                (long) pdfBytes.length,
+                LocalDateTime.now()
+            );
+            
+        } catch (Exception e) {
+            throw new GraphQLException("Error al generar PDF: " + e.getMessage());
         }
     }
 } 

@@ -36,13 +36,18 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 
     public List<Sucursal> findByAll(String texto) {
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return repository.findByAll(texto);
+        return repository.findByAllWithActivoFilter(texto, true);
 
+    }
+
+    public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable) {
+        nombre = nombre != null ? nombre.replace(" ", "%").toUpperCase() : "";
+        return repository.findByNombreConFiltros(nombre, deposito, activo, pageable).getContent();
     }
 
     @Override
     public List<Sucursal> findAll(Pageable pageable) {
-        return repository.findAllByOrderByIdAsc();
+        return repository.findAllByActivoTrueOrderByIdAsc();
     }
 
     public List<Sucursal> findAllNotConfigured() {

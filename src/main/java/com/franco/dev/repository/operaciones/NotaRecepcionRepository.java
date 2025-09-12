@@ -99,4 +99,29 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             @Param("proveedorId") Long proveedorId,
             @Param("sucursalId") Long sucursalId
     );
+
+    /**
+     * Find NotaRecepcion available for reception with filtering criteria and pagination
+     * UPDATED: Simplified query since NotaRecepcionAgrupada was removed in refactor
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided)
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
+     * @param pageable Pagination parameters
+     * @return Page of available NotaRecepcion for reception
+     */
+    @Query("SELECT DISTINCT nr FROM NotaRecepcion nr " +
+           "LEFT JOIN nr.pedido p " +
+           "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
+           "LEFT JOIN PedidoItemDistribucion pis ON pis.pedidoItem = pi " +
+           "WHERE " +
+           "(:numero IS NULL OR nr.numero = :numero) " +
+           "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +
+           "AND (:sucursalId IS NULL OR pis.sucursalEntrega.id = :sucursalId) " +
+           "ORDER BY nr.id DESC")
+    Page<NotaRecepcion> findNotasDisponiblesParaRecepcionPage(
+            @Param("numero") Integer numero,
+            @Param("proveedorId") Long proveedorId,
+            @Param("sucursalId") Long sucursalId,
+            Pageable pageable
+    );
 }

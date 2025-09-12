@@ -28,8 +28,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
+import javax.persistence.EntityManager;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import javax.persistence.TypedQuery;
+import org.springframework.data.domain.PageImpl;
 
 @Service
 @AllArgsConstructor
@@ -68,6 +77,9 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
 
     @Autowired
     private UsuarioService usuarioService;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Override
     public RecepcionMercaderiaRepository getRepository() {
@@ -336,13 +348,98 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     }
 
     /**
-     * Busca recepciones con filtros
+     * Busca recepciones con filtros usando QueryBuilder para mayor control
      */
     public Page<RecepcionMercaderia> findByFilters(Long proveedorId, Long sucursalId, 
                                                   RecepcionMercaderiaEstado estado,
+                                                  List<RecepcionMercaderiaEstado> estados,
+                                                  Long usuarioId,
                                                   LocalDateTime fechaInicio, LocalDateTime fechaFin,
                                                   Pageable pageable) {
-        return repository.findByFilters(proveedorId, sucursalId, estado, fechaInicio, fechaFin, pageable);
+        
+        // Construir query usando CriteriaBuilder
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<RecepcionMercaderia> query = cb.createQuery(RecepcionMercaderia.class);
+        Root<RecepcionMercaderia> root = query.from(RecepcionMercaderia.class);
+        
+        // Lista de predicados para los filtros
+        List<Predicate> predicates = new ArrayList<>();
+        
+        // Filtro por proveedor
+        if (proveedorId != null) {
+            predicates.add(cb.equal(root.get("proveedor").get("id"), proveedorId));
+        }
+        
+        // Filtro por sucursal
+        if (sucursalId != null) {
+            predicates.add(cb.equal(root.get("sucursalRecepcion").get("id"), sucursalId));
+        }
+        
+        // Filtro por estado individual
+        if (estado != null) {
+            predicates.add(cb.equal(root.get("estado"), estado));
+        }
+        
+        // Filtro por lista de estados
+        if (estados != null && !estados.isEmpty()) {
+            predicates.add(root.get("estado").in(estados));
+        }
+        
+        // Filtro por usuario
+        if (usuarioId != null) {
+            predicates.add(cb.equal(root.get("usuario").get("id"), usuarioId));
+        }
+        
+        // Filtro por fecha inicio
+        if (fechaInicio != null) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get("fecha"), fechaInicio));
+        }
+        
+        // Filtro por fecha fin
+        if (fechaFin != null) {
+            predicates.add(cb.lessThanOrEqualTo(root.get("fecha"), fechaFin));
+        }
+        
+        // Aplicar todos los predicados
+        if (!predicates.isEmpty()) {
+            query.where(predicates.toArray(new Predicate[0]));
+        }
+        
+        // Ordenar por fecha descendente
+        query.orderBy(cb.desc(root.get("fecha")));
+        
+        // Log de debug: Query generada y predicados aplicados
+        System.out.println("🔍 [Service] Query generada: " + query.toString());
+        System.out.println("🔍 [Service] Predicados aplicados: " + predicates.size());
+        System.out.println("🔍 [Service] Filtros: proveedorId=" + proveedorId + 
+                          ", sucursalId=" + sucursalId + 
+                          ", estados=" + estados + 
+                          ", usuarioId=" + usuarioId);
+        
+        // Ejecutar query con paginación
+        TypedQuery<RecepcionMercaderia> typedQuery = entityManager.createQuery(query);
+        typedQuery.setFirstResult((int) pageable.getOffset());
+        typedQuery.setMaxResults(pageable.getPageSize());
+        
+        List<RecepcionMercaderia> content = typedQuery.getResultList();
+        
+        // Contar total de resultados para paginación
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<RecepcionMercaderia> countRoot = countQuery.from(RecepcionMercaderia.class);
+        countQuery.select(cb.count(countRoot));
+        
+        if (!predicates.isEmpty()) {
+            countQuery.where(predicates.toArray(new Predicate[0]));
+        }
+        
+        Long totalElements = entityManager.createQuery(countQuery).getSingleResult();
+        
+        // Log de resultados
+        System.out.println("🔍 [Service] Resultados encontrados: " + content.size() + 
+                          ", Total: " + totalElements);
+        
+        // Crear objeto Page
+        return new PageImpl<>(content, pageable, totalElements);
     }
 
     /**

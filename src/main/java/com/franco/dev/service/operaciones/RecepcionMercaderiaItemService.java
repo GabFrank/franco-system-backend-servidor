@@ -3,21 +3,40 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
+import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
+import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemVariacionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Optional;
 import org.springframework.transaction.annotation.Transactional;
+import com.franco.dev.domain.operaciones.EstadoVerificacion;
+import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
+
+import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import java.util.ArrayList;
+
+import java.math.BigDecimal;
 
 @Service
 @AllArgsConstructor
 public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercaderiaItem, RecepcionMercaderiaItemRepository, Long> {
     private final RecepcionMercaderiaItemRepository repository;
+    private final RecepcionMercaderiaItemVariacionRepository recepcionMercaderiaItemVariacionRepository;
+    private final EntityManager entityManager;
 
     @Override
     public RecepcionMercaderiaItemRepository getRepository() {
@@ -189,6 +208,62 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
     }
 
     /**
+     * Resetea la verificación de un ítem de recepción (elimina variaciones y resetea estado)
+     * @param recepcionMercaderiaItemId ID del RecepcionMercaderiaItem
+     * @return true si la verificación fue reseteada, false en caso contrario
+     */
+    @Transactional
+    public Boolean resetearVerificacion(Long recepcionMercaderiaItemId) {
+        Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+        logger.info("=== Iniciando reseteo de verificación ===");
+        logger.info("RecepcionMercaderiaItemId: {}", recepcionMercaderiaItemId);
+        
+        try {
+            // 1. Buscar RecepcionMercaderiaItem por su ID
+            RecepcionMercaderiaItem item = repository.findById(recepcionMercaderiaItemId)
+                .orElse(null);
+            
+            if (item == null) {
+                logger.warn("No se encontró RecepcionMercaderiaItem con ID: {}", recepcionMercaderiaItemId);
+                return false;
+            }
+            
+            logger.info("Reseteando RecepcionMercaderiaItem ID: {} - Producto: {}", 
+                item.getId(), item.getProducto() != null ? item.getProducto().getDescripcion() : "N/A");
+            
+            // 2. Buscar y eliminar todas las variaciones del item
+            List<RecepcionMercaderiaItemVariacion> variaciones = recepcionMercaderiaItemVariacionRepository.findByRecepcionMercaderiaItemId(item.getId());
+            
+            if (variaciones != null && !variaciones.isEmpty()) {
+                logger.info("Eliminando {} variaciones del item {}", variaciones.size(), item.getId());
+                for (RecepcionMercaderiaItemVariacion variacion : variaciones) {
+                    recepcionMercaderiaItemVariacionRepository.delete(variacion);
+                    logger.info("Variación {} eliminada", variacion.getId());
+                }
+            } else {
+                logger.info("No se encontraron variaciones para el item {}", item.getId());
+            }
+            
+            // 3. Resetear cantidades y estado
+            item.setCantidadRecibida(0.0);
+            item.setCantidadRechazada(0.0);
+            item.setEstadoVerificacion(EstadoVerificacion.PENDIENTE);
+            
+            // 4. Guardar el item reseteado
+            repository.save(item);
+            logger.info("Item {} reseteado exitosamente", item.getId());
+            
+            logger.info("=== Reseteo de verificación completado exitosamente ===");
+            return true;
+            
+        } catch (Exception e) {
+            logger.error("=== ERROR durante reseteo de verificación ===");
+            logger.error("Exception: {}", e.getMessage(), e);
+            throw new RuntimeException("Error al resetear verificación: " + e.getMessage());
+        }
+    }
+
+    /**
      * Cancela el rechazo de un ítem de recepción.
      * @param notaRecepcionItemId ID del NotaRecepcionItem
      * @param sucursalId ID de la sucursal
@@ -249,5 +324,127 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
      */
     public List<RecepcionMercaderiaItem> findByRecepcionMercaderiaIdAndSucursales(Long recepcionId, List<Long> sucursalesIds) {
         return repository.findByRecepcionMercaderiaIdAndSucursales(recepcionId, sucursalesIds);
+    }
+
+    /**
+     * Obtiene ítems por ID de recepción de mercadería con paginación y filtros
+     * @param recepcionId ID de la recepción de mercadería
+     * @param filtroTexto Texto para filtrar por nombre de producto o código
+     * @param estados Lista de estados de verificación para filtrar (opcional)
+     * @param pageable Parámetros de paginación
+     * @return Página de ítems de recepción
+     */
+    public Page<RecepcionMercaderiaItem> findByRecepcionMercaderiaIdPaginados(
+            Long recepcionId, String filtroTexto, List<EstadoVerificacion> estados, Pageable pageable) {
+        
+        if (recepcionId == null) {
+            throw new IllegalArgumentException("ID de recepción es requerido");
+        }
+
+        // Usar QueryBuilder para filtrar por array de estados
+        return findByRecepcionMercaderiaIdPaginadosConEstados(recepcionId, filtroTexto, estados, pageable);
+    }
+
+    /**
+     * Obtiene ítems por ID de recepción de mercadería con paginación, filtros y array de estados usando QueryBuilder
+     * @param recepcionId ID de la recepción de mercadería
+     * @param filtroTexto Texto para filtrar por nombre de producto o código
+     * @param estados Lista de estados de verificación para filtrar
+     * @param pageable Parámetros de paginación
+     * @return Página de ítems de recepción
+     */
+    public Page<RecepcionMercaderiaItem> findByRecepcionMercaderiaIdPaginadosConEstados(
+            Long recepcionId, String filtroTexto, List<EstadoVerificacion> estados, Pageable pageable) {
+        
+        if (recepcionId == null) {
+            throw new IllegalArgumentException("ID de recepción es requerido");
+        }
+
+        // Construir query usando CriteriaBuilder
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<RecepcionMercaderiaItem> query = cb.createQuery(RecepcionMercaderiaItem.class);
+        Root<RecepcionMercaderiaItem> root = query.from(RecepcionMercaderiaItem.class);
+        
+        // Lista de predicados para los filtros
+        List<Predicate> predicates = new ArrayList<>();
+        
+        // Filtro por recepción de mercadería
+        predicates.add(cb.equal(root.get("recepcionMercaderia").get("id"), recepcionId));
+        
+        // Filtro por texto (nombre de producto o código)
+        if (filtroTexto != null && !filtroTexto.trim().isEmpty()) {
+            String filtroLower = filtroTexto.toLowerCase();
+            predicates.add(cb.or(
+                cb.like(cb.lower(root.get("notaRecepcionItem").get("producto").get("descripcion")), "%" + filtroLower + "%"),
+                cb.like(root.get("notaRecepcionItem").get("producto").get("id").as(String.class), "%" + filtroTexto + "%")
+            ));
+        }
+        
+        // Filtro por array de estados
+        if (estados != null && !estados.isEmpty()) {
+            predicates.add(root.get("estadoVerificacion").in(estados));
+        }
+        
+        // Aplicar todos los predicados
+        if (!predicates.isEmpty()) {
+            query.where(predicates.toArray(new Predicate[0]));
+        }
+        
+        // Ordenar por ID ascendente
+        query.orderBy(cb.asc(root.get("id")));
+        
+        // Ejecutar query con paginación
+        TypedQuery<RecepcionMercaderiaItem> typedQuery = entityManager.createQuery(query);
+        typedQuery.setFirstResult((int) pageable.getOffset());
+        typedQuery.setMaxResults(pageable.getPageSize());
+        
+        List<RecepcionMercaderiaItem> content = typedQuery.getResultList();
+        
+        // Contar total de resultados para paginación
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<RecepcionMercaderiaItem> countRoot = countQuery.from(RecepcionMercaderiaItem.class);
+        countQuery.select(cb.count(countRoot));
+        
+        if (!predicates.isEmpty()) {
+            countQuery.where(predicates.toArray(new Predicate[0]));
+        }
+        
+        Long totalElements = entityManager.createQuery(countQuery).getSingleResult();
+        
+        // Crear objeto Page
+        return new PageImpl<>(content, pageable, totalElements);
+    }
+
+    /**
+     * Busca un item pendiente de recepción por producto en una recepción específica
+     * @param recepcionId ID de la recepción de mercadería
+     * @param productoId ID del producto
+     * @return Item pendiente de recepción o null si no se encuentra
+     */
+    public RecepcionMercaderiaItem findPendienteRecepcionItemPorProducto(Long recepcionId, Long productoId) {
+        if (recepcionId == null || productoId == null) {
+            throw new IllegalArgumentException("ID de recepción y producto son requeridos");
+        }
+        
+        return repository.findPendienteRecepcionItemPorProducto(recepcionId, productoId);
+    }
+
+    /**
+     * Obtiene el sumario de una recepción de mercadería
+     * @param recepcionId ID de la recepción
+     * @return DTO con el sumario de la recepción
+     */
+    public RecepcionSumarioDTO obtenerSumarioRecepcion(Long recepcionId) {
+        if (recepcionId == null) {
+            throw new IllegalArgumentException("ID de recepción es requerido");
+        }
+
+        try {
+            return repository.findSumarioRecepcion(recepcionId);
+        } catch (Exception e) {
+            Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+            logger.error("Error al obtener sumario de recepción: " + recepcionId, e);
+            throw new RuntimeException("Error al obtener sumario de recepción", e);
+        }
     }
 } 

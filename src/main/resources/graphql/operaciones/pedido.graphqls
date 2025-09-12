@@ -64,6 +64,13 @@ extend type Query {
 
 extend type Mutation {
     savePedido(entity: PedidoInput!): Pedido!
+    savePedidoFull(
+        entity: PedidoInput!
+        fechaEntregaList: [String]
+        sucursalEntregaList: [Int]
+        sucursalInfluenciaList: [Int]
+        usuarioId: Int
+    ): Pedido!
     deletePedido(id: ID!): Boolean!
     finalizarCreacionPedido(pedidoId: ID!): Pedido!
     finalizarRecepcionNotas(pedidoId: ID!): Pedido!

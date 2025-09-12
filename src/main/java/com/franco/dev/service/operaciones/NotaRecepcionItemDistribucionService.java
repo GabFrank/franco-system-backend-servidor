@@ -4,8 +4,11 @@ import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.repository.operaciones.NotaRecepcionItemDistribucionRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.graphql.operaciones.dto.ProductoAgrupadoDTO;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -49,6 +52,13 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
      */
     public List<NotaRecepcionItemDistribucion> findByNotaRecepcionId(Long notaRecepcionId) {
         return repository.findByNotaRecepcionId(notaRecepcionId);
+    }
+
+    /**
+     * Obtener distribuciones por múltiples notas de recepción
+     */
+    public List<NotaRecepcionItemDistribucion> findByNotaRecepcionIds(List<Long> notaRecepcionIds) {
+        return repository.findByNotaRecepcionIds(notaRecepcionIds);
     }
 
     /**
@@ -190,5 +200,55 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
         // Usamos una tolerancia pequeña para manejar errores de punto flotante
         double tolerancia = 0.001;
         return Math.abs(totalDistribuido - cantidadEnNota) <= tolerancia;
+    }
+
+    /**
+     * Obtiene productos agrupados por notas con paginación y filtros
+     * @param notaRecepcionIds Lista de IDs de notas de recepción
+     * @param filtroTexto Texto para filtrar por nombre de producto o código
+     * @param pageable Parámetros de paginación
+     * @return Página de productos agrupados
+     */
+    public Page<ProductoAgrupadoDTO> 
+            findProductosAgrupadosPaginados(List<Long> notaRecepcionIds, String filtroTexto, 
+                                         Pageable pageable) {
+        
+        if (notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
+            throw new IllegalArgumentException("Se requieren IDs de notas de recepción");
+        }
+
+        // Obtener distribuciones con filtros y paginación desde el repositorio
+        Page<NotaRecepcionItemDistribucion> distribucionesPage = 
+            repository.findProductosAgrupadosPaginados(notaRecepcionIds, filtroTexto, pageable);
+
+        // Convertir a DTOs agrupados
+        List<ProductoAgrupadoDTO> productosAgrupados = 
+            distribucionesPage.getContent().stream()
+                .collect(java.util.stream.Collectors.groupingBy(d -> d.getNotaRecepcionItem().getProducto()))
+                .entrySet().stream()
+                .map(entry -> {
+                    ProductoAgrupadoDTO dto = new ProductoAgrupadoDTO();
+                    dto.setProducto(entry.getKey());
+                    
+                    double total = entry.getValue().stream()
+                            .mapToDouble(d -> d.getCantidad() != null ? d.getCantidad() : 0.0)
+                            .sum();
+                    dto.setCantidadTotalEsperada(total);
+                    
+                    // Usar presentación del primer item
+                    if (!entry.getValue().isEmpty()) {
+                        dto.setPresentacionConsolidada(entry.getValue().get(0).getNotaRecepcionItem().getPresentacionEnNota());
+                    }
+                    dto.setDistribuciones(entry.getValue());
+                    return dto;
+                })
+                .collect(java.util.stream.Collectors.toList());
+
+        // Crear nueva página con los DTOs agrupados
+        return new org.springframework.data.domain.PageImpl<>(
+            productosAgrupados, 
+            pageable, 
+            distribucionesPage.getTotalElements()
+        );
     }
 } 

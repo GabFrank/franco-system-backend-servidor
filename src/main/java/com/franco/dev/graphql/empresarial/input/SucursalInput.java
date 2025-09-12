@@ -17,5 +17,6 @@ public class SucursalInput {
     private String creadoEn;
     private String ip;
     private Integer puerto;
+    private Boolean activo;
 
 }

@@ -3,6 +3,9 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
+import com.franco.dev.graphql.operaciones.dto.ProductoAgrupadoDTO;
+import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
+import com.franco.dev.service.operaciones.NotaRecepcionItemDistribucionService;
 import com.franco.dev.graphql.operaciones.input.NotaRecepcionInput;
 import com.franco.dev.service.financiero.DocumentoService;
 import com.franco.dev.service.financiero.MonedaService;
@@ -14,8 +17,8 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -44,6 +47,9 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private MonedaService monedaService;
 
+    @Autowired
+    private NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
+
     public Optional<NotaRecepcion> notaRecepcion(Long id) {
         return service.findById(id);
     }
@@ -65,6 +71,62 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         } else {
             return service.findByPedidoId(id, pageable);
         }
+    }
+
+    /**
+     * Agrupa productos por notas
+     */
+    public List<ProductoAgrupadoDTO> productosAgrupadosPorNotas(List<Long> notaRecepcionIds) {
+        if (notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
+            throw new GraphQLException("Se requieren IDs de notas de recepción");
+        }
+
+        List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
+                .findByNotaRecepcionIds(notaRecepcionIds);
+
+        // Agrupar por producto
+        return distribuciones.stream()
+                .collect(java.util.stream.Collectors.groupingBy(d -> d.getNotaRecepcionItem().getProducto()))
+                .entrySet().stream()
+                .map(entry -> {
+                    ProductoAgrupadoDTO dto = new ProductoAgrupadoDTO();
+                    dto.setProducto(entry.getKey());
+                    double total = entry.getValue().stream()
+                            .mapToDouble(d -> d.getCantidad() != null ? d.getCantidad() : 0.0)
+                            .sum();
+                    dto.setCantidadTotalEsperada(total);
+                    // Heurística simple: usar presentacion del primer item
+                    if (!entry.getValue().isEmpty()) {
+                        dto.setPresentacionConsolidada(entry.getValue().get(0).getNotaRecepcionItem().getPresentacionEnNota());
+                    }
+                    dto.setDistribuciones(entry.getValue());
+                    return dto;
+                })
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    /**
+     * Agrupa productos por notas con paginación y filtros
+     */
+    public Page<ProductoAgrupadoDTO> productosAgrupadosPorNotasPaginados(
+            List<Long> notaRecepcionIds, 
+            Integer page, 
+            Integer size, 
+            String filtroTexto) {
+        
+        if (notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
+            throw new GraphQLException("Se requieren IDs de notas de recepción");
+        }
+
+        // Crear pageable para paginación
+        Pageable pageable = PageRequest.of(
+            page != null ? page : 0, 
+            size != null ? size : 20
+        );
+
+        // Obtener productos agrupados paginados desde el servicio
+        return notaRecepcionItemDistribucionService
+                .findProductosAgrupadosPaginados(notaRecepcionIds, filtroTexto, pageable);
     }
 
     public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input) {
@@ -122,6 +184,27 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
         return service.findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
+    }
+
+    /**
+     * Notas pendientes para recepción (alias claro para móvil)
+     */
+    public List<NotaRecepcion> notasPendientes(Long sucursalId, Long proveedorId) {
+        // Reutiliza el método existente con numero = null
+        return service.findNotasDisponiblesParaRecepcion(null, proveedorId, sucursalId);
+    }
+
+    /**
+     * Notas pendientes para recepción con paginación
+     * @param sucursalId ID de la sucursal
+     * @param proveedorId ID del proveedor (opcional)
+     * @param page Número de página (0-based)
+     * @param size Tamaño de la página
+     * @return Página paginada de notas pendientes
+     */
+    public Page<NotaRecepcion> notasPendientesPage(Long sucursalId, Long proveedorId, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findNotasDisponiblesParaRecepcionPage(null, proveedorId, sucursalId, pageable);
     }
 
     /**

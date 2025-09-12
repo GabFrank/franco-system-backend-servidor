@@ -15,6 +15,21 @@ type RecepcionMercaderiaItem {
     esBonificacion: Boolean
     motivoRechazo: MotivoRechazoFisico
     observaciones: String
+    metodoVerificacion: MetodoVerificacion
+    motivoVerificacionManual: MotivoVerificacionManual
+    estadoVerificacion: EstadoVerificacion
+    variaciones: [RecepcionMercaderiaItemVariacion]
+}
+
+type RecepcionMercaderiaItemVariacion {
+    id: ID
+    recepcionMercaderiaItem: RecepcionMercaderiaItem
+    presentacion: Presentacion
+    cantidad: Float
+    vencimiento: String
+    lote: String
+    rechazado: Boolean
+    motivoRechazo: MotivoRechazoFisico
 }
 
 input RecepcionMercaderiaItemInput {
@@ -34,6 +49,67 @@ input RecepcionMercaderiaItemInput {
     motivoRechazo: MotivoRechazoFisico
     observaciones: String
     creadoEn: String
+    metodoVerificacion: MetodoVerificacion
+    motivoVerificacionManual: MotivoVerificacionManual
+    estadoVerificacion: EstadoVerificacion
+    variaciones: [RecepcionMercaderiaItemVariacionInput]
+}
+
+input RecepcionMercaderiaItemVariacionInput {
+    presentacionId: ID
+    cantidad: Float
+    vencimiento: String
+    lote: String
+    rechazado: Boolean
+    motivoRechazo: MotivoRechazoFisico
+}
+
+enum MetodoVerificacion {
+    ESCANER
+    MANUAL
+}
+
+enum MotivoVerificacionManual {
+    CODIGO_ILEGIBLE
+    PRODUCTO_SIN_CODIGO
+}
+
+enum EstadoVerificacion {
+    PENDIENTE
+    VERIFICADO
+    VERIFICADO_CON_DIFERENCIA
+    RECHAZADO
+}
+
+type RecepcionMercaderiaItemPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [RecepcionMercaderiaItem]
+    getPageable: Pageable
+}
+
+type RecepcionSumario {
+    recepcionId: ID
+    estadoRecepcion: String
+    nombreProveedor: String
+    nombreSucursal: String
+    totalItems: Int
+    itemsVerificados: Int
+    itemsPendientes: Int
+    itemsConDiferencia: Int
+    itemsRechazados: Int
+    progresoPorcentaje: Float
+    estadoProgreso: String
+    totalProductosUnicos: Int
+    productosVerificados: Int
+    productosPendientes: Int
+    fechaCreacion: String
+    fechaUltimaVerificacion: String
 }
 
 input RechazoInput {
@@ -46,14 +122,29 @@ input RechazoInput {
 extend type Query {
     recepcionMercaderiaItem(id: ID!): RecepcionMercaderiaItem
     recepcionMercaderiaItemsPorRecepcion(recepcionId: ID!): [RecepcionMercaderiaItem]
+    recepcionMercaderiaItemsPorRecepcionPaginados(
+        recepcionId: ID!, 
+        page: Int = 0, 
+        size: Int = 20, 
+        filtroTexto: String,
+        estados: [EstadoVerificacion!]
+    ): RecepcionMercaderiaItemPage
     recepcionMercaderiaItemsPorProductoYSucursal(productoId: ID!, sucursalId: ID!): [RecepcionMercaderiaItem]
+    findPendienteRecepcionItemPorProducto(recepcionId: ID!, productoId: ID!): RecepcionMercaderiaItem
+    obtenerSumarioRecepcion(
+        recepcionId: ID!
+    ): RecepcionSumario
 }
 
 extend type Mutation {
     saveRecepcionMercaderiaItem(entity: RecepcionMercaderiaItemInput!): RecepcionMercaderiaItem!
     rechazarItem(notaRecepcionItemId: ID!, presentacionId: ID, rechazos: [RechazoInput!]!, usuarioId: ID!): Boolean!
     cancelarVerificacion(notaRecepcionItemId: ID!, sucursalId: ID!): Boolean!
+    resetearVerificacion(recepcionMercaderiaItemId: ID!): Boolean!
     cancelarRechazo(notaRecepcionItemId: ID!, sucursalId: ID!): Boolean!
     validarFinalizacionRecepcionPorPedido(pedidoId: ID!, sucursalesIds: [ID!]!): ValidacionFinalizacionRecepcion!
     finalizarRecepcionFisicaPorPedido(pedidoId: ID!, sucursalesIds: [ID!]!): Boolean!
+    
+    # Mutación para eliminar variaciones individuales
+    deleteRecepcionMercaderiaItemVariacion(id: ID!): Boolean!
 } 

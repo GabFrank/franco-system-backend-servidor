@@ -5,6 +5,8 @@ import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -32,6 +34,15 @@ public interface NotaRecepcionItemDistribucionRepository extends HelperRepositor
      */
     @Query("SELECT nrid FROM NotaRecepcionItemDistribucion nrid WHERE nrid.notaRecepcionItem.notaRecepcion.id = :notaRecepcionId")
     List<NotaRecepcionItemDistribucion> findByNotaRecepcionId(@Param("notaRecepcionId") Long notaRecepcionId);
+
+    /**
+     * Buscar distribuciones por múltiples NotaRecepcion IDs
+     */
+    @Query("SELECT nrid FROM NotaRecepcionItemDistribucion nrid " +
+           "JOIN FETCH nrid.notaRecepcionItem nri " +
+           "JOIN FETCH nri.producto p " +
+           "WHERE nri.notaRecepcion.id IN (:notaRecepcionIds)")
+    List<NotaRecepcionItemDistribucion> findByNotaRecepcionIds(@Param("notaRecepcionIds") List<Long> notaRecepcionIds);
 
     /**
      * Obtener cantidad total distribuida para un NotaRecepcionItem específico
@@ -95,4 +106,30 @@ public interface NotaRecepcionItemDistribucionRepository extends HelperRepositor
            "ORDER BY nrid.sucursalEntrega.nombre")
     List<Sucursal> findSucursalesUnicasByPedidoId(@Param("pedidoId") Long pedidoId);
 
+    /**
+     * Buscar distribuciones por múltiples NotaRecepcion IDs con paginación y filtros
+     * Permite filtrar por nombre de producto o código
+     */
+    @Query(value = "SELECT DISTINCT nrid FROM NotaRecepcionItemDistribucion nrid " +
+           "JOIN FETCH nrid.notaRecepcionItem nri " +
+           "JOIN FETCH nri.producto p " +
+           "JOIN FETCH nri.notaRecepcion nr " +
+           "WHERE nri.notaRecepcion.id IN (:notaRecepcionIds) " +
+           "AND (:filtroTexto IS NULL OR :filtroTexto = '' OR " +
+           "      LOWER(p.descripcion) LIKE CONCAT('%', LOWER(:filtroTexto), '%') OR " +
+           "      str(p.id) LIKE CONCAT('%', :filtroTexto, '%')) " +
+           "ORDER BY nrid.id",
+           countQuery = "SELECT COUNT(DISTINCT nrid) FROM NotaRecepcionItemDistribucion nrid " +
+           "JOIN nrid.notaRecepcionItem nri " +
+           "JOIN nri.producto p " +
+           "JOIN nri.notaRecepcion nr " +
+           "WHERE nri.notaRecepcion.id IN (:notaRecepcionIds) " +
+           "AND (:filtroTexto IS NULL OR :filtroTexto = '' OR " +
+           "      LOWER(p.descripcion) LIKE CONCAT('%', LOWER(:filtroTexto), '%') OR " +
+           "      str(p.id) LIKE CONCAT('%', :filtroTexto, '%'))")
+    Page<NotaRecepcionItemDistribucion> findProductosAgrupadosPaginados(
+        @Param("notaRecepcionIds") List<Long> notaRecepcionIds,
+        @Param("filtroTexto") String filtroTexto,
+        Pageable pageable
+    );
 } 

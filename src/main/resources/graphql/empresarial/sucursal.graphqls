@@ -14,6 +14,7 @@ type Sucursal {
     codigoEstablecimientoFactura: String
     ip: String
     puerto: Int
+    activo: Boolean
 }
 
 input SucursalInput {
@@ -31,6 +32,7 @@ input SucursalInput {
     creadoEn: String
     ip: String
     puerto: Int
+    activo: Boolean
 }
 
 type SucursalPage {
@@ -52,6 +54,7 @@ extend type Query {
     sucursalesSearch(texto:String):[Sucursal]
     sucursalActual:Sucursal
     findByNombre(nombre: String, page: Int, size: Int): SucursalPage
+    findByNombreConFiltros(nombre: String, deposito: Boolean, activo: Boolean, page: Int, size: Int): [Sucursal]
 }
 
 extend type Mutation {

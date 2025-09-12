@@ -47,6 +47,13 @@ type NotaRecepcionPage {
     getPageable: Pageable
 }
 
+type ProductoAgrupadoDTO {
+    producto: Producto
+    cantidadTotalEsperada: Float
+    presentacionConsolidada: Presentacion
+    distribuciones: [NotaRecepcionItemDistribucion]
+}
+
 extend type Query {
     notaRecepcion(id: ID!): NotaRecepcion
     notaRecepcions(page: Int = 0, size: Int = 10): [NotaRecepcion]!
@@ -57,6 +64,15 @@ extend type Query {
     findByProveedorAndNumero(id: ID!, numero: Int!): [NotaRecepcion]
     findByNumero(numero: Int!): [NotaRecepcion]
     findNotasDisponiblesParaRecepcion(numero: Int, proveedorId: ID, sucursalId: ID): [NotaRecepcion]
+    productosAgrupadosPorNotas(notaRecepcionIds: [ID!]!): [ProductoAgrupadoDTO]
+    productosAgrupadosPorNotasPaginados(
+        notaRecepcionIds: [ID!]!, 
+        page: Int = 0, 
+        size: Int = 20, 
+        filtroTexto: String
+    ): ProductoAgrupadoPage
+    notasPendientes(sucursalId: ID!, proveedorId: ID): [NotaRecepcion]
+    notasPendientesPage(sucursalId: ID!, proveedorId: ID, page: Int = 0, size: Int = 20): NotaRecepcionPage
 }
 
 extend type Mutation {
@@ -84,6 +100,18 @@ type AsignacionResult {
 type AsignacionError {
     pedidoItemId: ID!
     error: String!
+}
+
+type ProductoAgrupadoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ProductoAgrupadoDTO]
+    getPageable: Pageable
 }
 
 

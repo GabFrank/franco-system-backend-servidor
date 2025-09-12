@@ -55,6 +55,18 @@ extend type Query {
     ): NotaRecepcionItemPage
     countNotaRecepcionItem: Int
     buscarSobrantes(id: ID): [NotaRecepcionItem]
+    
+    # Nuevas queries paginadas para items
+    itemsNotaPaginados(
+        notaId: ID!, 
+        page: Int = 0, 
+        size: Int = 20, 
+        sort: String, 
+        direction: String
+    ): NotaRecepcionItemPage
+    
+    # Query para resumen de items sin cargar todos los datos
+    resumenItemsNota(notaIds: [ID!]!): ResumenItemsNota
 }
 
 extend type Mutation {
@@ -87,6 +99,27 @@ enum FiltroVerificacion {
     TODOS
     PENDIENTES
     VERIFICADOS
+}
+
+# Tipo para resumen de items de notas de recepción
+type ResumenItemsNota {
+    totalItems: Int!
+    totalCantidad: Float!
+    itemsPorEstado: [ItemPorEstado]
+    resumenPorNota: [ResumenPorNota]
+}
+
+type ItemPorEstado {
+    estado: String!
+    count: Int!
+    cantidad: Float!
+}
+
+type ResumenPorNota {
+    notaId: ID!
+    totalItems: Int!
+    totalCantidad: Float!
+    estado: String!
 }
 
 

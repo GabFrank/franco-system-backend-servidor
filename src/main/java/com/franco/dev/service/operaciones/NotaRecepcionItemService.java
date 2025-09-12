@@ -1,6 +1,7 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
+import com.franco.dev.graphql.operaciones.dto.ResumenItemsNotaDTO;
 import com.franco.dev.repository.operaciones.NotaRecepcionItemRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -98,5 +99,26 @@ public class NotaRecepcionItemService extends CrudService<NotaRecepcionItem, Not
         
         Double cantidadPendiente = repository.getCantidadPendienteByNotaRecepcionItemId(notaRecepcionItemId);
         return cantidadPendiente != null ? Math.max(0.0, cantidadPendiente) : 0.0;
+    }
+
+    /**
+     * Obtiene items de una nota de recepción de forma paginada
+     */
+    public Page<NotaRecepcionItem> findItemsByNotaIdPaginados(Long notaId, Pageable pageable) {
+        return repository.findItemsByNotaIdPaginados(notaId, pageable);
+    }
+
+    /**
+     * Obtiene resumen de items por estado para múltiples notas
+     */
+    public List<ResumenItemsNotaDTO> getResumenItemsPorNota(List<Long> notaIds) {
+        return repository.getResumenItemsPorNota(notaIds);
+    }
+
+    /**
+     * Obtiene resumen general de items para múltiples notas
+     */
+    public Object[] getResumenGeneralItems(List<Long> notaIds) {
+        return repository.getResumenGeneralItems(notaIds);
     }
 }

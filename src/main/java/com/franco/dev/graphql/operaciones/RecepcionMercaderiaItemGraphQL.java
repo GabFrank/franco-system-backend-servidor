@@ -13,6 +13,7 @@ import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.operaciones.ProcesoEtapaService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
+import com.franco.dev.service.operaciones.RecepcionMercaderiaItemVariacionService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.productos.PresentacionService;
@@ -32,12 +33,16 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico;
 import com.franco.dev.dto.operaciones.ValidacionFinalizacionRecepcion;
 import com.franco.dev.dto.operaciones.ItemPendiente;
+import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -47,12 +52,18 @@ import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import com.franco.dev.domain.operaciones.EstadoVerificacion;
+import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
+import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemVariacionInput;
 
 @Component
 public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
     private RecepcionMercaderiaItemService service;
+
+    @Autowired
+    private RecepcionMercaderiaItemVariacionService recepcionMercaderiaItemVariacionService;
 
     @Autowired
     private RecepcionMercaderiaService recepcionMercaderiaService;
@@ -121,6 +132,41 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     }
 
     /**
+     * Obtiene ítems por ID de recepción de mercadería con paginación y filtros
+     */
+    public Page<RecepcionMercaderiaItem> recepcionMercaderiaItemsPorRecepcionPaginados(
+            Long recepcionId, 
+            Integer page, 
+            Integer size, 
+            String filtroTexto,
+            List<EstadoVerificacion> estados) {
+        
+        if (recepcionId == null) {
+            throw new GraphQLException("ID de recepción es requerido");
+        }
+
+        // Crear pageable para paginación
+        Pageable pageable = PageRequest.of(
+            page != null ? page : 0, 
+            size != null ? size : 20
+        );
+
+        // Obtener ítems paginados desde el servicio
+        return service.findByRecepcionMercaderiaIdPaginados(recepcionId, filtroTexto, estados, pageable);
+    }
+
+    /**
+     * Busca un item pendiente de recepción por producto en una recepción específica
+     */
+    public RecepcionMercaderiaItem findPendienteRecepcionItemPorProducto(Long recepcionId, Long productoId) {
+        if (recepcionId == null || productoId == null) {
+            throw new GraphQLException("ID de recepción y producto son requeridos");
+        }
+        
+        return service.findPendienteRecepcionItemPorProducto(recepcionId, productoId);
+    }
+
+    /**
      * Obtiene ítems por producto y sucursal
      */
     public List<RecepcionMercaderiaItem> recepcionMercaderiaItemsPorProductoYSucursal(Long productoId, Long sucursalId) {
@@ -135,127 +181,69 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      */
     @Transactional
     public RecepcionMercaderiaItem saveRecepcionMercaderiaItem(RecepcionMercaderiaItemInput input) {
-        if (input == null) {
-            throw new GraphQLException("Input de ítem de recepción es requerido");
+        if (input == null || input.getId() == null) {
+            throw new GraphQLException("Input o ID de ítem de recepción es requerido para la actualización");
         }
 
         try {
-            RecepcionMercaderiaItem item = new RecepcionMercaderiaItem();
-            
-            // Mapear campos básicos
-            if (input.getId() != null) {
-                item.setId(input.getId());
+            // 1. Obtener el RecepcionMercaderiaItem existente
+            RecepcionMercaderiaItem item = service.findById(input.getId())
+                    .orElseThrow(() -> new GraphQLException("RecepcionMercaderiaItem no encontrado con ID: " + input.getId()));
+
+            // 2. Mapear campos opcionales del item principal
+            if(input.getUsuarioId() != null){
+                item.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
             }
+            item.setObservaciones(input.getObservaciones());
+            item.setMetodoVerificacion(input.getMetodoVerificacion());
+            item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
 
-        // Mapear relaciones
-            RecepcionMercaderia recepcion = null;
-        if (input.getRecepcionMercaderiaId() != null) {
-                recepcion = recepcionMercaderiaService.findById(input.getRecepcionMercaderiaId())
-                    .orElseThrow(() -> new GraphQLException("Recepción no encontrada: " + input.getRecepcionMercaderiaId()));
-                item.setRecepcionMercaderia(recepcion);
-            } else {
-                // Crear recepción automáticamente si no se proporciona
-                recepcion = crearRecepcionAutomatica(input);
-                item.setRecepcionMercaderia(recepcion);
-        }
+            // 3. Eliminar variaciones anteriores
+            recepcionMercaderiaItemVariacionService.deleteByRecepcionMercaderiaItemId(item.getId());
 
-        if (input.getNotaRecepcionItemId() != null) {
-                NotaRecepcionItem notaItem = notaRecepcionItemService.findById(input.getNotaRecepcionItemId())
-                    .orElseThrow(() -> new GraphQLException("Ítem de nota no encontrado: " + input.getNotaRecepcionItemId()));
-                item.setNotaRecepcionItem(notaItem);
-                
-                // Vincular NotaRecepcionItemDistribucion
-                if (input.getNotaRecepcionItemDistribucionId() != null) {
-                    // Si se proporciona directamente el ID de la distribución
-                    NotaRecepcionItemDistribucion distribucion = notaRecepcionItemDistribucionService.findById(input.getNotaRecepcionItemDistribucionId())
-                        .orElseThrow(() -> new GraphQLException("Distribución no encontrada: " + input.getNotaRecepcionItemDistribucionId()));
-                    item.setNotaRecepcionItemDistribucion(distribucion);
-                    System.out.println("=== DISTRIBUCIÓN VINCULADA POR ID ===");
-                    System.out.println("NotaRecepcionItemDistribucion ID: " + distribucion.getId());
-                    System.out.println("Sucursal: " + distribucion.getSucursalEntrega().getNombre());
-                    System.out.println("Cantidad: " + distribucion.getCantidad());
-                } else if (input.getSucursalEntregaId() != null) {
-                    // Buscar distribución por sucursal y nota item
-                    List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService.findByNotaRecepcionItemId(notaItem.getId());
-                    NotaRecepcionItemDistribucion distribucionEncontrada = distribuciones.stream()
-                        .filter(dist -> dist.getSucursalEntrega().getId().equals(input.getSucursalEntregaId()))
-                        .findFirst()
-                        .orElse(null);
-                    
-                    if (distribucionEncontrada != null) {
-                        item.setNotaRecepcionItemDistribucion(distribucionEncontrada);
-                        System.out.println("=== DISTRIBUCIÓN VINCULADA POR SUCURSAL ===");
-                        System.out.println("NotaRecepcionItemDistribucion ID: " + distribucionEncontrada.getId());
-                        System.out.println("Sucursal: " + distribucionEncontrada.getSucursalEntrega().getNombre());
-                        System.out.println("Cantidad: " + distribucionEncontrada.getCantidad());
+            Double cantidadRecibidaTotal = 0.0;
+            Double cantidadRechazadaTotal = 0.0;
+
+            // 4. Procesar y crear las nuevas variaciones
+            if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
+                for (RecepcionMercaderiaItemVariacionInput varInput : input.getVariaciones()) {
+                    RecepcionMercaderiaItemVariacion variacion = new RecepcionMercaderiaItemVariacion();
+                    variacion.setRecepcionMercaderiaItem(item);
+
+                    if (varInput.getPresentacionId() != null) {
+                        variacion.setPresentacion(presentacionService.findById(varInput.getPresentacionId()).orElse(null));
+                    }
+                    if (varInput.getVencimiento() != null && !varInput.getVencimiento().isEmpty()) {
+                        variacion.setVencimiento(stringToDate(varInput.getVencimiento()));
+                    }
+
+                    variacion.setCantidad(varInput.getCantidad());
+                    variacion.setLote(varInput.getLote());
+                    variacion.setRechazado(varInput.getRechazado() != null && varInput.getRechazado());
+                    variacion.setMotivoRechazo(varInput.getMotivoRechazo());
+
+                    recepcionMercaderiaItemVariacionService.save(variacion);
+
+                    // 5. Sumarizar totales
+                    if (variacion.getRechazado()) {
+                        cantidadRechazadaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
                     } else {
-                        System.out.println("=== ADVERTENCIA: No se encontró distribución para la sucursal ===");
-                        System.out.println("NotaRecepcionItemId: " + notaItem.getId());
-                        System.out.println("SucursalId: " + input.getSucursalEntregaId());
-                        System.out.println("Distribuciones disponibles: " + distribuciones.size());
+                        cantidadRecibidaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
                     }
                 }
             }
-            
-            // Obtener producto del NotaRecepcionItem si no se proporciona productoId
-            if (input.getProductoId() != null) {
-                Producto producto = productoService.findById(input.getProductoId())
-                    .orElseThrow(() -> new GraphQLException("Producto no encontrado: " + input.getProductoId()));
-                item.setProducto(producto);
-            } else {
-                // Obtener producto del NotaRecepcionItem
-                NotaRecepcionItem notaItem = item.getNotaRecepcionItem();
-                if (notaItem != null && notaItem.getProducto() != null) {
-                    item.setProducto(notaItem.getProducto());
-                } else {
-                    throw new GraphQLException("No se puede determinar el producto para el ítem");
-                }
-        }
 
-            if (input.getPresentacionRecibidaId() != null) {
-                Presentacion presentacion = presentacionService.findById(input.getPresentacionRecibidaId())
-                    .orElseThrow(() -> new GraphQLException("Presentación no encontrada: " + input.getPresentacionRecibidaId()));
-                item.setPresentacionRecibida(presentacion);
-        }
+            // 6. Actualizar el item principal con los totales sumados
+            item.setCantidadRecibida(cantidadRecibidaTotal);
+            item.setCantidadRechazada(cantidadRechazadaTotal);
 
-        if (input.getSucursalEntregaId() != null) {
-                Sucursal sucursal = sucursalService.findById(input.getSucursalEntregaId())
-                    .orElseThrow(() -> new GraphQLException("Sucursal no encontrada: " + input.getSucursalEntregaId()));
-                item.setSucursalEntrega(sucursal);
-            }
+            // 7. Calcular y actualizar el estado de verificación
+            actualizarEstadoVerificacion(item);
 
-            if(input.getUsuarioId() != null){
-                Usuario usuario = usuarioService.findById(input.getUsuarioId())
-                    .orElseThrow(() -> new GraphQLException("Usuario no encontrado: " + input.getUsuarioId()));
-                item.setUsuario(usuario);
-            }
-            
-            // Mapear campos de cantidad
-            item.setCantidadRecibida(input.getCantidadRecibida());
-            item.setCantidadRechazada(input.getCantidadRechazada());
-            item.setEsBonificacion(input.getEsBonificacion());
-            
-            // Mapear campos adicionales
-        if (input.getVencimientoRecibido() != null) {
-                item.setVencimientoRecibido(LocalDate.parse(input.getVencimientoRecibido()));
-            }
-            
-            item.setLote(input.getLote());
-            item.setMotivoRechazo(input.getMotivoRechazo());
-            item.setObservaciones(input.getObservaciones());
-            
-            // Guardar usando el método simple
-            RecepcionMercaderiaItem itemGuardado = service.save(item);
-            
-            System.out.println("=== ÍTEM DE RECEPCIÓN GUARDADO ===");
-            System.out.println("ID: " + itemGuardado.getId());
-            System.out.println("Recepción ID: " + itemGuardado.getRecepcionMercaderia().getId());
-            System.out.println("Cantidad Recibida: " + itemGuardado.getCantidadRecibida());
-            
-            return itemGuardado;
+            // 8. Guardar el ítem principal actualizado
+            return service.save(item);
             
         } catch (Exception e) {
-            System.err.println("Error al guardar ítem de recepción: " + e.getMessage());
             e.printStackTrace();
             throw new GraphQLException("Error al guardar ítem de recepción: " + e.getMessage());
         }
@@ -281,6 +269,28 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             System.err.println("Error al cancelar verificación: " + e.getMessage());
             e.printStackTrace();
             throw new GraphQLException("Error al cancelar verificación: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Resetea la verificación de un ítem de recepción (elimina variaciones y resetea estado)
+     */
+    public Boolean resetearVerificacion(Long recepcionMercaderiaItemId) {
+        System.out.println("=== RESETEAR VERIFICACIÓN ===");
+        System.out.println("RecepcionMercaderiaItemId: " + recepcionMercaderiaItemId);
+        
+        if (recepcionMercaderiaItemId == null) {
+            throw new GraphQLException("RecepcionMercaderiaItemId es requerido");
+        }
+        
+        try {
+            Boolean resultado = service.resetearVerificacion(recepcionMercaderiaItemId);
+            System.out.println("Resultado de reseteo: " + resultado);
+            return resultado;
+        } catch (Exception e) {
+            System.err.println("Error al resetear verificación: " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al resetear verificación: " + e.getMessage());
         }
     }
 
@@ -694,5 +704,118 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             e.printStackTrace();
             throw new GraphQLException("Error al finalizar recepción física: " + e.getMessage());
         }
+    }
+
+    /**
+     * Actualiza el estado de verificación de un ítem basado en las cantidades
+     * Implementa lógica inteligente para casos de recepción parcial + rechazo parcial
+     */
+    private void actualizarEstadoVerificacion(RecepcionMercaderiaItem item) {
+        if (item == null) return;
+        
+        try {
+            // Obtener la cantidad esperada de la distribución
+            Double cantidadEsperada = 0.0;
+            if (item.getNotaRecepcionItemDistribucion() != null) {
+                cantidadEsperada = item.getNotaRecepcionItemDistribucion().getCantidad();
+            }
+            
+            Double cantidadRecibida = item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0;
+            Double cantidadRechazada = item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0;
+            
+            // Calcular el estado con lógica inteligente
+            EstadoVerificacion nuevoEstado;
+            
+            if (cantidadRecibida == 0 && cantidadRechazada == 0) {
+                // No se ha procesado nada
+                nuevoEstado = EstadoVerificacion.PENDIENTE;
+            } else if (cantidadRecibida > 0 && cantidadRechazada > 0) {
+                // Caso especial: recepción parcial + rechazo parcial
+                if (cantidadRecibida >= cantidadRechazada) {
+                    // Se recibió más o igual que lo rechazado -> VERIFICADO_CON_DIFERENCIA
+                    nuevoEstado = EstadoVerificacion.VERIFICADO_CON_DIFERENCIA;
+                } else {
+                    // Se rechazó más que lo recibido -> RECHAZADO
+                    nuevoEstado = EstadoVerificacion.RECHAZADO;
+                }
+            } else if (cantidadRecibida > 0) {
+                // Solo hay recepción
+                if (Math.abs(cantidadRecibida - cantidadEsperada) < 0.001) {
+                    // Cantidad exacta recibida
+                    nuevoEstado = EstadoVerificacion.VERIFICADO;
+                } else {
+                    // Cantidad diferente a la esperada
+                    nuevoEstado = EstadoVerificacion.VERIFICADO_CON_DIFERENCIA;
+                }
+            } else if (cantidadRechazada > 0) {
+                // Solo hay rechazo
+                nuevoEstado = EstadoVerificacion.RECHAZADO;
+            } else {
+                // Caso edge (no debería ocurrir)
+                nuevoEstado = EstadoVerificacion.PENDIENTE;
+            }
+            
+            // Log del estado calculado para debugging
+            System.out.println("=== ACTUALIZACIÓN DE ESTADO DE VERIFICACIÓN ===");
+            System.out.println("Item ID: " + item.getId());
+            System.out.println("Producto: " + (item.getNotaRecepcionItem() != null ? item.getNotaRecepcionItem().getProducto().getDescripcion() : "N/A"));
+            System.out.println("Cantidad Esperada: " + cantidadEsperada);
+            System.out.println("Cantidad Recibida: " + cantidadRecibida);
+            System.out.println("Cantidad Rechazada: " + cantidadRechazada);
+            System.out.println("Estado Anterior: " + item.getEstadoVerificacion());
+            System.out.println("Estado Nuevo: " + nuevoEstado);
+            System.out.println("Razón: " + obtenerRazonEstado(nuevoEstado, cantidadRecibida, cantidadRechazada, cantidadEsperada));
+            
+            // Actualizar el estado si ha cambiado
+            if (!nuevoEstado.equals(item.getEstadoVerificacion())) {
+                item.setEstadoVerificacion(nuevoEstado);
+                service.save(item); // Guardar el cambio de estado
+                System.out.println("✅ Estado actualizado exitosamente");
+            } else {
+                System.out.println("ℹ️ Estado sin cambios");
+            }
+            
+        } catch (Exception e) {
+            // Log del error pero no fallar la operación principal
+            System.err.println("Error al actualizar estado de verificación: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Obtiene la razón del estado calculado para debugging
+     */
+    private String obtenerRazonEstado(EstadoVerificacion estado, Double cantidadRecibida, Double cantidadRechazada, Double cantidadEsperada) {
+        switch (estado) {
+            case PENDIENTE:
+                return "No se ha procesado nada (recibido: " + cantidadRecibida + ", rechazado: " + cantidadRechazada + ")";
+            case VERIFICADO:
+                return "Cantidad exacta recibida (" + cantidadRecibida + " = " + cantidadEsperada + ")";
+            case VERIFICADO_CON_DIFERENCIA:
+                if (cantidadRecibida > 0 && cantidadRechazada > 0) {
+                    return "Recepción parcial + rechazo parcial (recibido: " + cantidadRecibida + ", rechazado: " + cantidadRechazada + ")";
+                } else {
+                    return "Cantidad diferente a la esperada (recibido: " + cantidadRecibida + ", esperado: " + cantidadEsperada + ")";
+                }
+            case RECHAZADO:
+                if (cantidadRecibida > 0) {
+                    return "Más rechazado que recibido (recibido: " + cantidadRecibida + ", rechazado: " + cantidadRechazada + ")";
+                } else {
+                    return "Todo rechazado (rechazado: " + cantidadRechazada + ")";
+                }
+            default:
+                return "Estado desconocido";
+        }
+    }
+
+    /**
+     * Obtiene el sumario de una recepción de mercadería
+     */
+    public RecepcionSumarioDTO obtenerSumarioRecepcion(Long recepcionId) {
+        if (recepcionId == null) {
+            throw new IllegalArgumentException("ID de recepción es requerido");
+        }
+        
+        return service.obtenerSumarioRecepcion(recepcionId);
     }
 } 

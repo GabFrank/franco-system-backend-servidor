@@ -56,6 +56,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
 
     /**
      * Find NotaRecepcion available for reception with complex filtering criteria
+     * Used specifically for the reception process with business logic filtering
      * @param numero Optional nota number (can be null if proveedor is provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided) 
      * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
@@ -63,6 +64,19 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
         return repository.findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
+    }
+
+    /**
+     * Find NotaRecepcion available for reception with complex filtering criteria and pagination
+     * Used specifically for the reception process with business logic filtering
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided) 
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
+     * @param pageable Pagination parameters
+     * @return Page of available NotaRecepcion for reception
+     */
+    public Page<NotaRecepcion> findNotasDisponiblesParaRecepcionPage(Integer numero, Long proveedorId, Long sucursalId, Pageable pageable) {
+        return repository.findNotasDisponiblesParaRecepcionPage(numero, proveedorId, sucursalId, pageable);
     }
 
     @Override

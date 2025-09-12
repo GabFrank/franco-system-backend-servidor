@@ -17,10 +17,13 @@ public interface RecepcionMercaderiaRepository extends HelperRepository<Recepcio
         return RecepcionMercaderia.class;
     }
 
+    /*
     @Query("SELECT rm FROM RecepcionMercaderia rm " +
            "WHERE (:proveedorId IS NULL OR rm.proveedor.id = :proveedorId) " +
            "AND (:sucursalId IS NULL OR rm.sucursalRecepcion.id = :sucursalId) " +
            "AND (:estado IS NULL OR rm.estado = :estado) " +
+           "AND rm.estado IN :estados " +
+           "AND (:usuarioId IS NULL OR rm.usuario.id = :usuarioId) " +
            "AND (:fechaInicio IS NULL OR rm.fecha >= :fechaInicio) " +
            "AND (:fechaFin IS NULL OR rm.fecha <= :fechaFin) " +
            "ORDER BY rm.fecha DESC")
@@ -28,10 +31,13 @@ public interface RecepcionMercaderiaRepository extends HelperRepository<Recepcio
             @Param("proveedorId") Long proveedorId,
             @Param("sucursalId") Long sucursalId,
             @Param("estado") RecepcionMercaderiaEstado estado,
+            @Param("estados") List<RecepcionMercaderiaEstado> estados,
+            @Param("usuarioId") Long usuarioId,
             @Param("fechaInicio") LocalDateTime fechaInicio,
             @Param("fechaFin") LocalDateTime fechaFin,
             Pageable pageable
     );
+    */
 
     @Query("SELECT rm FROM RecepcionMercaderia rm WHERE rm.proveedor.id = :proveedorId ORDER BY rm.fecha DESC")
     List<RecepcionMercaderia> findByProveedorId(@Param("proveedorId") Long proveedorId);

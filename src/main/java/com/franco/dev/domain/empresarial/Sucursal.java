@@ -71,4 +71,6 @@ public class Sucursal implements Identifiable<Long> {
 
     private Integer puerto;
 
+    private Boolean activo;
+
 }

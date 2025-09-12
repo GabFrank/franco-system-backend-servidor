@@ -290,6 +290,26 @@
 			<artifactId>spring-test</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>com.roshka.sifen</groupId>
+			<artifactId>rshk-jsifenlib</artifactId>
+			<version>0.2.4</version>
+		</dependency>
+
+		<!-- SOAP API para rshk-jsifenlib -->
+		<dependency>
+			<groupId>javax.xml.soap</groupId>
+			<artifactId>javax.xml.soap-api</artifactId>
+			<version>1.4.0</version>
+		</dependency>
+		
+		<!-- SAAJ Implementation para rshk-jsifenlib -->
+		<dependency>
+			<groupId>com.sun.xml.messaging.saaj</groupId>
+			<artifactId>saaj-impl</artifactId>
+			<version>1.5.1</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

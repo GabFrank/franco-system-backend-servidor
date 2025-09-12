@@ -1,0 +1,66 @@
+type GeneracionXmlResponse {
+    procesamientoCorrecto: Boolean!
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    timestamp: String
+    xmlGenerado: String
+    numeroControl: String
+    codigoSeguridad: String
+    qrCode: String
+    fechaHoraFirma: String
+    hash: String
+    archivoXml: String
+    archivoPdf: String
+    estadoDocumento: String
+    mensajeValidacion: String
+}
+
+input FacturaElectronicaInput {
+    rucEmisor: String!
+    razonSocialEmisor: String!
+    direccionEmisor: String!
+    telefonoEmisor: String!
+    emailEmisor: String!
+    rucReceptor: String!
+    razonSocialReceptor: String!
+    direccionReceptor: String!
+    telefonoReceptor: String!
+    emailReceptor: String!
+    tipoDocumento: String!
+    numeroDocumento: String!
+    fechaEmision: String!
+    moneda: String!
+    tipoCambio: Float!
+    condicionVenta: String!
+    tipoPago: String!
+    totalGravado10: Float!
+    totalGravado5: Float!
+    totalExento: Float!
+    totalIva10: Float!
+    totalIva5: Float!
+    totalGeneral: Float!
+    items: [ItemFacturaInput!]!
+    observaciones: String
+    codigoEstablecimiento: String
+    codigoPuntoExpedicion: String
+    codigoSucursal: String
+}
+
+input ItemFacturaInput {
+    codigoProducto: String!
+    descripcion: String!
+    cantidad: Float!
+    precioUnitario: Float!
+    descuento: Float!
+    subtotal: Float!
+    tipoImpuesto: String!
+    porcentajeImpuesto: Float!
+    montoImpuesto: Float!
+    unidadMedida: String
+    codigoArancelario: String
+    codigoNandina: String
+}
+
+extend type Mutation {
+    generarXmlFactura(input: FacturaElectronicaInput!): GeneracionXmlResponse!
+}

@@ -1,10 +1,12 @@
 package com.franco.dev.service.personas;
 
 import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.ConsultaRucResponse;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.personas.ClienteRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.sifen.service.SifenService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,6 +21,7 @@ import java.util.List;
 public class ClienteService extends CrudService<Cliente, ClienteRepository, Long> {
 
     private final ClienteRepository repository;
+    private final SifenService sifenService;
 
 
     @Override
@@ -51,5 +54,20 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
         return p;
     }
 
+    public ConsultaRucResponse consultaRuc(String ruc) {
+        com.franco.dev.service.sifen.dto.response.ConsultaRucResponse sifenResponse = sifenService.consultaRuc(ruc);
+        // Mapear del DTO de servicio al DTO de dominio
+        ConsultaRucResponse domainResponse = new ConsultaRucResponse();
+        domainResponse.setProcesamientoCorrecto(sifenResponse.isProcesamientoCorrecto());
+        domainResponse.setCodigoRespuesta(sifenResponse.getCodigoRespuesta());
+        domainResponse.setMensajeRespuesta(sifenResponse.getMensajeRespuesta());
+        domainResponse.setTimestamp(sifenResponse.getTimestamp());
+        domainResponse.setRuc(sifenResponse.getRuc());
+        domainResponse.setRazonSocial(sifenResponse.getRazonSocial());
+        domainResponse.setEstadoContribuyente(sifenResponse.getEstadoContribuyente());
+        domainResponse.setCodigoEstadoContribuyente(sifenResponse.getCodigoEstadoContribuyente());
+        domainResponse.setEsFacturadorElectronico(sifenResponse.getEsFacturadorElectronico());
+        return domainResponse;
+    }
 
 }

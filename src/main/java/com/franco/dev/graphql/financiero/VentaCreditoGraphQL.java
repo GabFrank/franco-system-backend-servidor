@@ -72,14 +72,10 @@ import java.util.Optional;
 import static com.franco.dev.service.utils.PrintingService.resize;
 import static com.franco.dev.utilitarios.CalcularVerificadorRuc.getDigitoVerificadorString;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.franco.dev.service.financiero.DteService;
 
 @Component
 public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver, GraphQLSubscriptionResolver {
 
-    private static final Logger log = LoggerFactory.getLogger(VentaCreditoGraphQL.class);
 
     @Autowired
     private VentaCreditoService service;
@@ -132,8 +128,6 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private MultiTenantService multiTenantService;
 
-    @Autowired
-    private DteService dteService;
 
     @Unsecured
     public Publisher<VentaCreditoQRAuthUpdate> ventaCreditoAuthQrSub() {
@@ -155,8 +149,6 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Transactional
     public VentaCredito saveVentaCredito(VentaCreditoInput input, List<VentaCreditoCuotaInput> ventaCreditoCuotaInputList) {
-        log.info("🚀 VENTA_CREDITO: Iniciando saveVentaCredito para usuarioId={}, sucursalId={}", 
-            input.getUsuarioId(), input.getSucursalId());
         
         ModelMapper m = new ModelMapper();
         VentaCredito e = m.map(input, VentaCredito.class);
@@ -166,18 +158,6 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getFechaCobro() != null) e.setFechaCobro(stringToDate(input.getFechaCobro()));
         e = service.save(e);
         if (e.getId() != null) {
-            log.info("✅ VENTA_CREDITO: VentaCredito guardada exitosamente, id={}", e.getId());
-            
-            // Generación automática DTE (si aplica): se dispara una vez que existe la venta
-            try {
-                log.info("🚀 VENTA_CREDITO: Iniciando generación automática de DTE para ventaId={}, sucursalId={}, usuarioId={}", 
-                    e.getId(), e.getSucursalId(), input.getUsuarioId());
-                dteService.generarDesdeFacturaLegalSiNoExiste(e.getId(), e.getSucursalId(), input.getUsuarioId());
-                log.info("✅ VENTA_CREDITO: Generación automática de DTE completada exitosamente");
-            } catch (Exception dteError) {
-                log.error("❌ VENTA_CREDITO: Error durante la generación automática del DTE", dteError);
-                // No fallamos la venta por error en DTE, solo logueamos
-            }
             
             for (VentaCreditoCuotaInput vc : ventaCreditoCuotaInputList) {
                 vc.setVentaCreditoId(e.getId());

@@ -57,6 +57,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -153,6 +156,7 @@ public class GeneracionXmlService {
             // Post-procesar XML para incluir dBasExe faltante y corregir URL del QR
             xmlGenerado = postProcesarXmlParaDBasExe(xmlGenerado);
             xmlGenerado = postProcesarXmlParaQR(xmlGenerado);
+            xmlGenerado = postProcesarXmlParaFirma(xmlGenerado);
             
             // Extraer solo la parte del rDE del XML SOAP para el prevalidador
             String xmlParaPrevalidador = extraerRDE(xmlGenerado);
@@ -208,11 +212,11 @@ public class GeneracionXmlService {
             emisor.setdTelEmi(request.getTelefonoEmisor());
             emisor.setdEmailE(request.getEmailEmisor());
             emisor.setdDenSuc("Sucursal Principal");
-            emisor.setcDepEmi(TDepartamento.CAPITAL); // Cambiar a CAPITAL para pruebas
+            emisor.setcDepEmi(TDepartamento.CANINDEYU); // Cambiar a CAPITAL para pruebas
             emisor.setcDisEmi((short) 1); // Distrito de Asunción
-            emisor.setdDesDisEmi("ASUNCION (DISTRITO)");
-            emisor.setcCiuEmi(1); // Ciudad de Asunción
-            emisor.setdDesCiuEmi("ASUNCION (DISTRITO)");
+            emisor.setdDesDisEmi("SALTOS DEL GUAIRA");
+            emisor.setcCiuEmi(4851); // Ciudad de Asunción
+            emisor.setdDesCiuEmi("SALTOS DEL GUAIRA");
             
             // Configurar actividades económicas (TgActEco) - OBLIGATORIO
             List<TgActEco> actividades = new ArrayList<>();
@@ -257,11 +261,11 @@ public class GeneracionXmlService {
             receptor.setiTiOpe(TiTiOpe.B2B); // Business To Business (valor 1)
             receptor.setiNatRec(TiNatRec.CONTRIBUYENTE); // Contribuyente
             receptor.setcPaisRec(PaisType.PRY); // Configurar país del receptor (Paraguay)
-            receptor.setcDepRec(TDepartamento.CAPITAL); // Cambiar a CAPITAL para pruebas
+            receptor.setcDepRec(TDepartamento.CANINDEYU); // Cambiar a CAPITAL para pruebas
             receptor.setcDisRec((short) 1); // Distrito de Asunción
-            receptor.setdDesDisRec("ASUNCION (DISTRITO)");
-            receptor.setcCiuRec(1); // Ciudad de Asunción
-            receptor.setdDesCiuRec("ASUNCION (DISTRITO)");
+            receptor.setdDesDisRec("SALTOS DEL GUAIRA");
+            receptor.setcCiuRec(4851); // Ciudad de Asunción
+            receptor.setdDesCiuRec("SALTOS DEL GUAIRA");
             
             // 4. Configurar datos generales de la operación (TdDatGralOpe)
             TdDatGralOpe datGralOpe = new TdDatGralOpe();
@@ -1079,25 +1083,25 @@ public class GeneracionXmlService {
             // 2. Buscar el patrón de la URL del QR con fecha codificada en hexadecimal
             String patron = "(<dCarQR>https://ekuatia\\.set\\.gov\\.py/consultas-test/qr\\?.*?&amp;dFeEmiDE=)([0-9a-fA-F]+)(&amp;.*?</dCarQR>)";
             
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(patron);
-            java.util.regex.Matcher matcher = pattern.matcher(xmlGenerado);
+            Pattern pattern = Pattern.compile(patron);
+            Matcher matcher = pattern.matcher(xmlGenerado);
             
             if (matcher.find()) {
                 String fechaHex = matcher.group(2);
                 
-                // Construir nueva URL del QR con valores reales, manteniendo la fecha en hexadecimal
-                String nuevaUrlQR = construirNuevaUrlQRConFechaHex(
-                    matcher.group(1), 
-                    fechaHex, 
+                // Construir nueva URL del QR completa con valores reales, manteniendo la fecha en hexadecimal
+                String nuevaUrlQR = construirNuevaUrlQRCompleta(
                     dTotGralOpeReal, 
                     dTotIVAReal, 
                     cItemsReal, 
                     digestValueReal,
-                    idDocumentoReal
+                    idDocumentoReal,
+                    fechaHex
                 );
                 
-                String reemplazo = nuevaUrlQR + "</dCarQR>";
-                String xmlCorregido = matcher.replaceAll(reemplazo);
+                // Reemplazar toda la URL del QR
+                String patronCompleto = "<dCarQR>https://ekuatia\\.set\\.gov\\.py/consultas-test/qr\\?.*?</dCarQR>";
+                String xmlCorregido = xmlGenerado.replaceAll(patronCompleto, "<dCarQR>" + nuevaUrlQR + "</dCarQR>");
                 
                 log.info("Post-procesamiento QR aplicado: fecha hexadecimal mantenida {}, URL actualizada con valores reales", 
                         fechaHex);
@@ -1120,17 +1124,17 @@ public class GeneracionXmlService {
                                      String dTotIVA, String cItems, String digestValue, String idDocumento) {
         StringBuilder nuevaUrl = new StringBuilder();
         nuevaUrl.append(prefijo).append(fechaCorregida);
-        nuevaUrl.append("&amp;dRucRec=80099482");
-        nuevaUrl.append("&amp;dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
-        nuevaUrl.append("&amp;dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
-        nuevaUrl.append("&amp;cItems=").append(cItems != null ? cItems : "2");
-        nuevaUrl.append("&amp;DigestValue=").append(digestValue != null ? digestValue : "simulated_digest");
-        nuevaUrl.append("&amp;IdCSC=0001");
+        nuevaUrl.append("&dRucRec=80097276");
+        nuevaUrl.append("&dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
+        nuevaUrl.append("&dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
+        nuevaUrl.append("&cItems=").append(cItems != null ? cItems : "2");
+        nuevaUrl.append("&DigestValue=").append(digestValue != null ? digestValue : "simulated_digest");
+        nuevaUrl.append("&IdCSC=0001");
         
         // Calcular el hash QR correctamente
         String parametrosQR = construirParametrosQR(fechaCorregida, dTotGralOpe, dTotIVA, cItems, digestValue, idDocumento);
         String hashQR = calcularHashSHA256(parametrosQR);
-        nuevaUrl.append("&amp;cHashQR=").append(hashQR);
+        nuevaUrl.append("&cHashQR=").append(hashQR);
         
         return nuevaUrl.toString();
     }
@@ -1142,18 +1146,18 @@ public class GeneracionXmlService {
                                                  String dTotIVA, String cItems, String digestValue, String idDocumento) {
         StringBuilder nuevaUrl = new StringBuilder();
         nuevaUrl.append(prefijo).append(fechaHex);
-        nuevaUrl.append("&amp;dRucRec=80099482");
-        nuevaUrl.append("&amp;dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
-        nuevaUrl.append("&amp;dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
-        nuevaUrl.append("&amp;cItems=").append(cItems != null ? cItems : "2");
-        nuevaUrl.append("&amp;DigestValue=").append(digestValue != null ? digestValue : "simulated_digest");
-        nuevaUrl.append("&amp;IdCSC=0001");
+        nuevaUrl.append("&dRucRec=80097276");
+        nuevaUrl.append("&dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
+        nuevaUrl.append("&dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
+        nuevaUrl.append("&cItems=").append(cItems != null ? cItems : "2");
+        nuevaUrl.append("&DigestValue=").append(digestValue != null ? digestValue : "simulated_digest");
+        nuevaUrl.append("&IdCSC=0001");
         
         // Calcular el hash QR correctamente con fecha en hexadecimal
         String parametrosQR = construirParametrosQRConFechaHex(fechaHex, dTotGralOpe, dTotIVA, cItems, digestValue, idDocumento);
         String hashQR = calcularHashSHA256(parametrosQR);
         log.info("Hash QR calculado: {}", hashQR);
-        nuevaUrl.append("&amp;cHashQR=").append(hashQR);
+        nuevaUrl.append("&cHashQR=").append(hashQR);
         
         return nuevaUrl.toString();
     }
@@ -1165,9 +1169,9 @@ public class GeneracionXmlService {
                                        String cItems, String digestValue, String idDocumento) {
         StringBuilder parametros = new StringBuilder();
         parametros.append("nVersion=150");
-        parametros.append("&Id=").append(idDocumento != null ? idDocumento : "01800994825001001100000122025091216278094630");
+        parametros.append("&Id=").append(idDocumento != null ? idDocumento : "01800972765001001100000122025091216278094630");
         parametros.append("&dFeEmiDE=").append(fechaCorregida);
-        parametros.append("&dRucRec=80099482");
+        parametros.append("&dRucRec=80097276");
         parametros.append("&dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
         parametros.append("&dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
         parametros.append("&cItems=").append(cItems != null ? cItems : "2");
@@ -1184,9 +1188,9 @@ public class GeneracionXmlService {
                                                    String cItems, String digestValue, String idDocumento) {
         StringBuilder parametros = new StringBuilder();
         parametros.append("nVersion=150");
-        parametros.append("&Id=").append(idDocumento != null ? idDocumento : "01800994825001001100000122025091216278094630");
+        parametros.append("&Id=").append(idDocumento != null ? idDocumento : "01800972765001001100000122025091216278094630");
         parametros.append("&dFeEmiDE=").append(fechaHex);
-        parametros.append("&dRucRec=80099482");
+        parametros.append("&dRucRec=80097276");
         parametros.append("&dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
         parametros.append("&dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
         parametros.append("&cItems=").append(cItems != null ? cItems : "2");
@@ -1203,8 +1207,8 @@ public class GeneracionXmlService {
     private String extraerIdDocumentoDelXML(String xmlGenerado) {
         try {
             String patron = "<DE Id=\"([^\"]+)\">";
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(patron);
-            java.util.regex.Matcher matcher = pattern.matcher(xmlGenerado);
+            Pattern pattern = Pattern.compile(patron);
+            Matcher matcher = pattern.matcher(xmlGenerado);
             
             if (matcher.find()) {
                 return matcher.group(1);
@@ -1224,8 +1228,8 @@ public class GeneracionXmlService {
         try {
             // Buscar el DigestValue en la firma digital
             String patron = "<DigestValue>([^<]+)</DigestValue>";
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(patron);
-            java.util.regex.Matcher matcher = pattern.matcher(xmlGenerado);
+            Pattern pattern = Pattern.compile(patron);
+            Matcher matcher = pattern.matcher(xmlGenerado);
             
             if (matcher.find()) {
                 String digestValueBase64 = matcher.group(1);
@@ -1263,8 +1267,8 @@ public class GeneracionXmlService {
     private String extraerTotalGralOpeDelXML(String xmlGenerado) {
         try {
             String patron = "<dTotGralOpe>([^<]+)</dTotGralOpe>";
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(patron);
-            java.util.regex.Matcher matcher = pattern.matcher(xmlGenerado);
+            Pattern pattern = Pattern.compile(patron);
+            Matcher matcher = pattern.matcher(xmlGenerado);
             
             if (matcher.find()) {
                 return matcher.group(1);
@@ -1283,8 +1287,8 @@ public class GeneracionXmlService {
     private String extraerTotalIVADelXML(String xmlGenerado) {
         try {
             String patron = "<dTotIVA>([^<]+)</dTotIVA>";
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(patron);
-            java.util.regex.Matcher matcher = pattern.matcher(xmlGenerado);
+            Pattern pattern = Pattern.compile(patron);
+            Matcher matcher = pattern.matcher(xmlGenerado);
             
             if (matcher.find()) {
                 return matcher.group(1);
@@ -1346,6 +1350,52 @@ public class GeneracionXmlService {
     }
     
     /**
+     * Construye una URL QR completa con todos los parámetros usando & en lugar de &amp;
+     */
+    private String construirNuevaUrlQRCompleta(String dTotGralOpe, String dTotIVA, String cItems, 
+                                               String digestValue, String idDocumento, String fechaHex) {
+        StringBuilder nuevaUrl = new StringBuilder();
+        nuevaUrl.append("https://ekuatia.set.gov.py/consultas-test/qr?");
+        nuevaUrl.append("nVersion=150");
+        nuevaUrl.append("&Id=").append(idDocumento != null ? idDocumento : "01800972765001001100000122025091216278094630");
+        nuevaUrl.append("&dFeEmiDE=").append(fechaHex);
+        nuevaUrl.append("&dRucRec=80097276");
+        nuevaUrl.append("&dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
+        nuevaUrl.append("&dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
+        nuevaUrl.append("&cItems=").append(cItems != null ? cItems : "2");
+        nuevaUrl.append("&DigestValue=").append(digestValue != null ? digestValue : "simulated_digest");
+        nuevaUrl.append("&IdCSC=0001");
+        
+        // Calcular el hash QR correctamente
+        String parametrosQR = construirParametrosQRCompleto(fechaHex, dTotGralOpe, dTotIVA, cItems, digestValue, idDocumento);
+        String hashQR = calcularHashSHA256(parametrosQR);
+        log.info("Hash QR calculado: {}", hashQR);
+        nuevaUrl.append("&cHashQR=").append(hashQR);
+        
+        return nuevaUrl.toString();
+    }
+    
+    /**
+     * Construye los parámetros para el cálculo del hash QR usando & en lugar de &amp;
+     */
+    private String construirParametrosQRCompleto(String fechaHex, String dTotGralOpe, String dTotIVA, 
+                                                 String cItems, String digestValue, String idDocumento) {
+        StringBuilder parametros = new StringBuilder();
+        parametros.append("nVersion=150");
+        parametros.append("&Id=").append(idDocumento != null ? idDocumento : "01800972765001001100000122025091216278094630");
+        parametros.append("&dFeEmiDE=").append(fechaHex);
+        parametros.append("&dRucRec=80097276");
+        parametros.append("&dTotGralOpe=").append(dTotGralOpe != null ? dTotGralOpe : "150000");
+        parametros.append("&dTotIVA=").append(dTotIVA != null ? dTotIVA : "13636");
+        parametros.append("&cItems=").append(cItems != null ? cItems : "2");
+        parametros.append("&DigestValue=").append(digestValue != null ? digestValue : "simulated_digest");
+        parametros.append("&IdCSC=0001");
+        
+        log.info("Parámetros QR para hash: {}", parametros.toString());
+        return parametros.toString();
+    }
+    
+    /**
      * Convierte una fecha en formato YYYYMMDDHHMMSS a hexadecimal
      */
     private String convertirDateAHex(String fechaYYYYMMDDHHMMSS) {
@@ -1371,6 +1421,38 @@ public class GeneracionXmlService {
         } catch (Exception e) {
             log.error("Error convirtiendo fecha a hexadecimal: {}", e.getMessage());
             return null;
+        }
+    }
+    
+    /**
+     * Post-procesa el XML para corregir la estructura de la firma digital
+     * Mueve el elemento gCamFuFD antes de la firma para evitar "Content is not allowed in trailing section"
+     */
+    private String postProcesarXmlParaFirma(String xmlGenerado) {
+        try {
+            // Buscar el elemento gCamFuFD y moverlo antes de la firma
+            String patron = "(<gCamFuFD>.*?</gCamFuFD>)(.*?)(<Signature.*?>)";
+            Pattern pattern = Pattern.compile(patron, Pattern.DOTALL);
+            Matcher matcher = pattern.matcher(xmlGenerado);
+            
+            if (matcher.find()) {
+                String gCamFuFD = matcher.group(1);
+                String contenidoIntermedio = matcher.group(2);
+                String signature = matcher.group(3);
+                
+                // Reconstruir el XML moviendo gCamFuFD antes de la firma
+                String xmlCorregido = xmlGenerado.replaceAll(patron, "$2$1$3");
+                
+                log.info("Post-procesamiento de firma aplicado: gCamFuFD movido antes de la firma");
+                return xmlCorregido;
+            } else {
+                log.warn("No se encontró el patrón gCamFuFD/Signature en el XML");
+            }
+            
+            return xmlGenerado;
+        } catch (Exception e) {
+            log.error("Error durante el post-procesamiento de la firma: {}", e.getMessage());
+            return xmlGenerado;
         }
     }
 } 

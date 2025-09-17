@@ -78,30 +78,6 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
-    /**
-     * Busca factura legal con toda la información del timbrado para SIFEN
-     */
-    public FacturaLegal findByIdWithTimbradoAndItems(Long facturaId, Long sucursalId) {
-        return repository.findByIdWithTimbradoAndItems(facturaId, sucursalId);
-    }
-
-    /**
-     * Busca facturas legales que no tienen DTE asociado
-     * @return Lista de facturas legales pendientes de DTE
-     */
-    public List<FacturaLegal> findFacturasSinDte() {
-        return repository.findFacturasSinDte();
-    }
-
-    /**
-     * Busca solo los IDs necesarios de facturas legales sin DTE
-     * Solo procesa facturas creadas a partir de una fecha específica
-     * @return Lista de arrays con [id, creado_en, venta_id, usuario_id, sucursal_id]
-     */
-    public List<Object[]> findFacturasSinDteIds(LocalDateTime fechaLimite) {
-        return repository.findFacturasSinDteIds(fechaLimite);
-    }
-
     public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);

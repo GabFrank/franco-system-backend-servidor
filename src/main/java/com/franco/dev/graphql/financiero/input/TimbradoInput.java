@@ -16,7 +16,39 @@ public class TimbradoInput {
 
     private String fechaFin;
 
+    private Boolean isElectronico;
+
+    private String csc;
+
+    private String email;
+
+    private String tipoSociedad;
+    
+    private String domicilioFiscalDepartamento;
+    
+    private String domicilioFiscalCiudad;
+    
+    private String domicilioFiscalCodigoCiudad;
+    
+    private String domicilioFiscalLocalidad;
+    
+    private String domicilioFiscalBarrio;
+    
+    private String domicilioFiscalDireccion;
+    
+    private String telefono;
+    
+    private String codActividadEconomicaPrincipal;
+    
+    private String descActividadEconomicaPrincipal;
+    
+    private String listCodigoActividadEconomicaSecundaria;
+    
+    private String listDescripcionActividadEconomicaSecundaria;
+
     private Boolean activo;
 
     private Long usuarioId;
+
+    private String creadoEn;
 }

@@ -2,6 +2,7 @@ package com.franco.dev.domain.financiero;
 
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.PuntoDeVenta;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -51,6 +52,22 @@ public class TimbradoDetalle implements Identifiable<Long> {
 
     private Long numeroActual;
 
+    // Campos para documento electrónico
+    private String departamento;
+    
+    private String ciudad;
+    
+    @Column(name = "codigo_ciudad")
+    private String codigoCiudad;
+    
+    private String localidad;
+    
+    private String barrio;
+    
+    private String direccion;
+    
+    private String telefono;
+
     private Boolean activo;
 
 
@@ -60,6 +77,10 @@ public class TimbradoDetalle implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sucursal_id", nullable = true)
+    private Sucursal sucursal;
 }
 
 

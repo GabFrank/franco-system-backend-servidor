@@ -1,0 +1,57 @@
+type LoteDE {
+    id: ID!
+    estado: EstadoLoteDE
+    fechaProcesado: Date
+    fechaUltimoIntento: Date
+    intentos: Int
+    respuestaSifen: String
+    protocolo: String
+    documentosElectronicos: [DocumentoElectronico]
+    creadoEn: Date
+    actualizadoEn: Date
+    usuario: Usuario
+}
+
+input LoteDEInput {
+    id: ID
+    estado: EstadoLoteDE
+    fechaProcesado: String
+    fechaUltimoIntento: String
+    intentos: Int
+    respuestaSifen: String
+    protocolo: String
+    usuarioId: Int
+}
+
+extend type Query {
+    loteDe(id: ID!): LoteDE
+    loteDes(page: Int = 0, size: Int = 10, estado: EstadoLoteDE, fechaInicio: String, fechaFin: String): PageLoteDE!
+    loteDesPaginado(page: Int = 0, size: Int = 10): [LoteDE]!
+}
+
+extend type Mutation {
+    saveLoteDe(input: LoteDEInput!): LoteDE!
+}
+
+type PageLoteDE {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LoteDE]
+    getPageable: Pageable
+}
+
+enum EstadoLoteDE {
+    PENDIENTE_ENVIO
+    EN_PROCESO
+    PROCESADO
+    PROCESADO_CON_ERRORES
+    ERROR_ENVIO
+    ERROR_RED
+    ERROR_PERMANENTE
+    RECHAZADO
+}

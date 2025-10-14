@@ -74,7 +74,7 @@ public class TestController {
      */
     @GetMapping("/dte-scheduler")
     public String testDteScheduler() {
-        dteScheduler.procesarFacturasLegalesSinDte();
+        // dteScheduler.procesarFacturasLegalesSinDte();
         return "DTE Scheduler ejecutado manualmente";
     }
 }

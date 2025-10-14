@@ -24,7 +24,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
-            "where (CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcion_factura) like %?1% or c.codigo like %?1%) and p.activo = true " +
+            "where (CAST(p.id as text) like '%?1%' or UPPER(p.descripcion) like '%?1%' or UPPER(p.descripcion_factura) like '%?1%' or c.codigo like '%?1%') and p.activo = true " +
             "ORDER BY p.descripcion asc  " +
             "limit 10 " +
             "offset ?2", nativeQuery = true)
@@ -34,7 +34,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
-            "where (CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcion_factura) like %?1% or c.codigo like %?1%) and p.activo = true " +
+            "where (CAST(p.id as text) like '%?1%' or UPPER(p.descripcion) like '%?1%' or UPPER(p.descripcion_factura) like '%?1%' or c.codigo like '%?1%') and p.activo = true " +
             "ORDER BY p.descripcion asc", nativeQuery = true)
     public List<Producto> findForReport(String texto);
 
@@ -42,7 +42,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
-            "where p.is_envase = true and CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% " +
+            "where p.is_envase = true and CAST(p.id as text) like '%?1%' or UPPER(p.descripcion) like '%?1%' " +
             "ORDER BY p.descripcion asc  " +
             "limit 10 " +
             "offset ?2", nativeQuery = true)

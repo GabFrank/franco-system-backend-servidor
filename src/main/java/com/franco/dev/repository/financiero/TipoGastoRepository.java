@@ -18,7 +18,7 @@ public interface TipoGastoRepository extends HelperRepository<TipoGasto, Long> {
     public List<TipoGasto> findRoot();
 
     @Query(value = "select * from financiero.tipo_gasto tg " +
-            "where CAST(tg.id as text) like %?1% or upper(tg.descripcion) like %?1%", nativeQuery = true)
+            "where CAST(tg.id as text) like '%?1%' or upper(tg.descripcion) like '%?1%'", nativeQuery = true)
     public List<TipoGasto> findByAll(String texto);
 
 //    Moneda findByPaisId(Long id);

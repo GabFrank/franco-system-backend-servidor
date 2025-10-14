@@ -63,6 +63,7 @@ public class FacturaLegal implements Serializable {
     private String nombre;
     private String ruc;
     private String direccion;
+    private String cdc;
 
     @Column(name = "iva_parcial_0")
     private Double ivaParcial0;

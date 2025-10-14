@@ -293,8 +293,8 @@
 		<dependency>
 			<groupId>com.roshka.sifen</groupId>
 			<artifactId>rshk-jsifenlib</artifactId>
-			<version>0.2.4</version>
-		</dependency>
+			<version>0.2.5</version>
+		</dependency>		
 
 		<!-- SOAP API para rshk-jsifenlib -->
 		<dependency>

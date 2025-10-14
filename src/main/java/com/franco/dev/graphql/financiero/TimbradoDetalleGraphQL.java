@@ -14,6 +14,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -51,9 +52,6 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return service.findAll(pageable);
     }
 
-    public List<TimbradoDetalle> timbradoDetallePorTimbradoId(Long id) {
-        return service.findByTimbradoId(id);
-    }
 
     public TimbradoDetalle saveTimbradoDetalle(TimbradoDetalleInput input) {
         ModelMapper m = new ModelMapper();

@@ -6,6 +6,9 @@ import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +26,10 @@ public class TimbradoDetalleService extends CrudService<TimbradoDetalle, Timbrad
 
     public List<TimbradoDetalle> findByTimbradoId(Long id){
         return repository.findByTimbradoId(id);
+    }
+
+    public Page<TimbradoDetalle> findByTimbradoId(Long timbradoId, Pageable pageable){
+        return repository.findByTimbradoId(timbradoId, pageable);
     }
 
     @Override

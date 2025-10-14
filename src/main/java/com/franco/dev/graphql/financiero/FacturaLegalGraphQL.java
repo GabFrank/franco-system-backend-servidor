@@ -4,7 +4,6 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
-import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
 import com.franco.dev.domain.operaciones.Delivery;
@@ -18,7 +17,6 @@ import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.FacturaLegalItemService;
-import com.franco.dev.repository.financiero.DocumentoElectronicoRepository;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
 import com.franco.dev.service.impresion.ImpresionService;
@@ -122,8 +120,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private MultiTenantService multiTenantService;
 
-    @Autowired
-    private DocumentoElectronicoRepository documentoElectronicoRepository;
 
     public DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -138,13 +134,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public FacturaLegal facturaLegalPorVenta(Long id, Long sucId) {
         return service.findByVentaIdAndSucursalId(id, sucId);
-    }
-
-    /**
-     * Consulta factura legal con toda la información del timbrado para SIFEN
-     */
-    public FacturaLegal facturaLegalConTimbrado(Long id, Long sucId) {
-        return service.findByIdWithTimbradoAndItems(id, sucId);
     }
 
     @Unsecured
@@ -290,8 +279,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(factura, facturaLegal.getTimbradoDetalle().getTimbrado().getRazonSocial().toUpperCase());
             escpos.writeLF(factura, "RUC: " + facturaLegal.getTimbradoDetalle().getTimbrado().getRuc());
             escpos.writeLF(factura, "Timbrado: " + facturaLegal.getTimbradoDetalle().getTimbrado().getNumero());
-            // SIFEN: Mostrar solo fecha de inicio del timbrado
-            escpos.writeLF(factura, "Fecha inicio: " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaInicio().format(impresionService.shortDate));
+            escpos.writeLF(factura, "De " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaInicio().format(impresionService.shortDate) + " a " + 
+            facturaLegal.getTimbradoDetalle().getTimbrado().getFechaFin().format(impresionService.shortDate));
             Long numeroFacturaAux = Long.valueOf(facturaLegal.getNumeroFactura());
             StringBuilder numeroFacturaString = new StringBuilder();
             for (int i = 7; i > numeroFacturaAux.toString().length(); i--) {
@@ -460,28 +449,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 //            escpos.writeLF("0");
 
             escpos.writeLF("--------------------------------");
-            // Datos DTE (si existen): QR, texto de validación SIFEN y CDC formateado
-            DocumentoElectronico dte = documentoElectronicoRepository.findFirstByFacturaLegal_IdAndFacturaLegal_SucursalId(facturaLegal.getId(), facturaLegal.getSucursalId());
-            if (dte != null) {
-                if (dte.getUrlQr() != null) {
-                    escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), dte.getUrlQr());
-                }
-                // Texto requerido por SIFEN debajo del QR
-                escpos.writeLF(center, "Consulte la validez de esta Factura Electrónica con el número de CDC impreso abajo en:");
-                escpos.writeLF(center, "https://ekuatia.set.gov.py/consultas");
-                if (dte.getCdc() != null) {
-                    String cdc = dte.getCdc().replaceAll("\\s+", "");
-                    StringBuilder sb = new StringBuilder();
-                    for (int i = 0; i < cdc.length(); i += 4) {
-                        if (i > 0) sb.append(" ");
-                        sb.append(cdc.substring(i, Math.min(i + 4, cdc.length())));
-                    }
-                    escpos.writeLF(center, sb.toString());
-                }
-                escpos.writeLF(center, "ESTE DOCUMENTO ES UNA REPRESENTACION GRAFICA DE UN DOCUMENTO ELECTRONICO (XML)");
-                escpos.writeLF("--------------------------------");
+            if (sucursal != null && sucursal.getNroDelivery() != null) {
+                escpos.write(center, "Delivery? Escaneá el código qr o escribinos al ");
+                escpos.writeLF(center, sucursal.getNroDelivery());
             }
-            // Reemplazar sección de delivery con información DTE requerida por SIFEN
+            if (sucursal.getNroDelivery() != null) {
+                escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), "wa.me/" + sucursal.getNroDelivery());
+            }
             escpos.feed(1);
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
 //            escpos.writeLF("--------------------------------");
@@ -586,48 +560,5 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.printStackTrace();
         }
         return "";
-    }
-
-
-    public String generarKudeA4(Long id, Long sucId) {
-        FacturaLegal f = service.findByIdAndSucursalId(id, sucId);
-        if (f == null) return null;
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("RAZON_SOCIAL", f.getTimbradoDetalle().getTimbrado().getRazonSocial());
-            params.put("RUC", f.getTimbradoDetalle().getTimbrado().getRuc());
-            params.put("TIMBRADO", String.valueOf(f.getTimbradoDetalle().getTimbrado().getNumero()));
-            params.put("FECHA_INICIO", f.getTimbradoDetalle().getTimbrado().getFechaInicio().format(impresionService.shortDate));
-            Sucursal sucursal = sucursalService.findById(f.getSucursalId()).orElse(null);
-            String nro = (sucursal != null ? sucursal.getCodigoEstablecimientoFactura() : "000") + "-" + f.getTimbradoDetalle().getPuntoExpedicion() + "-" + String.format("%07d", f.getNumeroFactura());
-            params.put("NRO_FACTURA", nro);
-            params.put("CONDICION", (f.getCredito() != null && f.getCredito()) ? "Crédito" : "Contado");
-            params.put("CLIENTE", f.getNombre());
-            params.put("RUC_CLIENTE", f.getRuc());
-            params.put("DIRECCION_CLIENTE", f.getDireccion());
-            params.put("DETALLE", "Detalle no expandido");
-            params.put("TOTAL", new java.text.DecimalFormat("#,##0").format(f.getTotalFinal() != null ? f.getTotalFinal() : 0.0));
-            DocumentoElectronico dte = documentoElectronicoRepository.findFirstByFacturaLegal_IdAndFacturaLegal_SucursalId(f.getId(), f.getSucursalId());
-            if (dte != null) {
-                String cdc = dte.getCdc() != null ? dte.getCdc() : "";
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < cdc.length(); i += 4) {
-                    if (i > 0) sb.append(" ");
-                    sb.append(cdc.substring(i, Math.min(i + 4, cdc.length())));
-                }
-                params.put("CDC", sb.toString());
-                params.put("URL_QR", dte.getUrlQr());
-            } else {
-                params.put("CDC", "");
-                params.put("URL_QR", "");
-            }
-            net.sf.jasperreports.engine.JasperReport jr = net.sf.jasperreports.engine.JasperCompileManager.compileReport("src/main/resources/reports/kude-a4.jrxml");
-            net.sf.jasperreports.engine.JasperPrint jp = net.sf.jasperreports.engine.JasperFillManager.fillReport(jr, params, new net.sf.jasperreports.engine.JREmptyDataSource());
-            byte[] pdf = net.sf.jasperreports.engine.JasperExportManager.exportReportToPdf(jp);
-            return Base64.getEncoder().encodeToString(pdf);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 }

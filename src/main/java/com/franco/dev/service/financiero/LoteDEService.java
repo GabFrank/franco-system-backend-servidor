@@ -43,4 +43,12 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Long> {
         Pageable pageable = PageRequest.of(page, size);
         return repository.findAllByOrderByIdAsc(pageable);
     }
+
+    public List<LoteDE> findLotesAntiguosProcesados(LocalDateTime fechaLimite) {
+        return repository.findLotesAntiguosProcesados(fechaLimite);
+    }
+
+    public List<LoteDE> findByEstado(EstadoLoteDE estado) {
+        return repository.findByEstado(estado);
+    }
 }

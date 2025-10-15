@@ -36,9 +36,11 @@ public class DocumentoElectronico implements Serializable{
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
 
+  @Column(name = "sucursal_id", nullable = false)
   private Long sucursalId;
 
   @OneToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "factura_legal_id", nullable = false, unique = true)
   private FacturaLegal facturaLegal;
 
   // Información del documento electrónico

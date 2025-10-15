@@ -27,10 +27,16 @@ extend type Query {
     loteDe(id: ID!): LoteDE
     loteDes(page: Int = 0, size: Int = 10, estado: EstadoLoteDE, fechaInicio: String, fechaFin: String): PageLoteDE!
     loteDesPaginado(page: Int = 0, size: Int = 10): [LoteDE]!
+    lotesPendientes: [LoteDE]!
+    lotesEnProceso: [LoteDE]!
 }
 
 extend type Mutation {
     saveLoteDe(input: LoteDEInput!): LoteDE!
+    crearLote: LoteDE!
+    vincularDocumentosALote(loteId: ID!, documentoIds: [ID!]!): Boolean!
+    enviarLote(loteId: ID!): EnvioLoteResponse!
+    consultarLote(loteId: ID!): ConsultaLoteResponse!
 }
 
 type PageLoteDE {
@@ -54,4 +60,19 @@ enum EstadoLoteDE {
     ERROR_RED
     ERROR_PERMANENTE
     RECHAZADO
+}
+
+type EnvioLoteResponse {
+    exitoso: Boolean!
+    protocolo: String
+    mensaje: String
+    lote: LoteDE
+}
+
+type ConsultaLoteResponse {
+    exitoso: Boolean!
+    estado: EstadoLoteDE
+    mensaje: String
+    documentosProcesados: Int
+    lote: LoteDE
 }

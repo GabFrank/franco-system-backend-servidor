@@ -1,0 +1,107 @@
+type EventoCancelacionDE {
+    id: ID!
+    documentoElectronico: DocumentoElectronico!
+    eventoId: String!
+    fechaFirma: Date!
+    cdcDocumento: String!
+    motivoCancelacion: String
+    xmlEvento: String
+    estado: EstadoEvento!
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+type EventoNominacionDE {
+    id: ID!
+    documentoElectronico: DocumentoElectronico!
+    eventoId: String
+    fechaFirma: Date
+    cdcDocumento: String
+    cliente: Cliente
+    nombreReceptor: String!
+    documentoReceptor: String!
+    tipoReceptor: String!
+    totalFactura: Float!
+    fechaEmision: Date!
+    fechaRecepcion: Date
+    xmlEvento: String
+    estado: EstadoEvento
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+input EventoCancelacionDEInput {
+    documentoElectronicoId: ID!
+    motivoCancelacion: String!
+    usuarioId: Int
+}
+
+input EventoNominacionDEInput {
+    documentoElectronicoId: ID!
+    clienteId: ID!
+    usuarioId: Int
+}
+
+extend type Query {
+    eventoCancelacion(id: ID!): EventoCancelacionDE
+    eventosCancelacionPorDocumento(documentoId: ID!): [EventoCancelacionDE]!
+    eventosCancelacionPorEstado(estado: EstadoEvento!): [EventoCancelacionDE]!
+
+    eventoNominacion(id: ID!): EventoNominacionDE
+    eventosNominacionPorDocumento(documentoId: ID!): [EventoNominacionDE]!
+    eventosNominacionPorEstado(estado: EstadoEvento!): [EventoNominacionDE]!
+}
+
+extend type Mutation {
+    cancelarDocumentoElectronico(cdc: String!, motivo: String!): CancelacionDEResponse!
+    nominarReceptorDocumento(cdc: String!, clienteId: ID!): NominacionDEResponse!
+    inutilizarNumeros(
+        timbradoId: ID!
+        establecimiento: String!
+        puntoExpedicion: String!
+        numeroInicio: Int!
+        numeroFin: Int!
+        motivo: String!
+    ): InutilizacionResponse!
+}
+
+type CancelacionDEResponse {
+    exitoso: Boolean!
+    evento: EventoCancelacionDE
+    codigoRespuesta: String
+    mensajeRespuesta: String
+}
+
+type NominacionDEResponse {
+    exitoso: Boolean!
+    evento: EventoNominacionDE
+    codigoRespuesta: String
+    mensajeRespuesta: String
+}
+
+type InutilizacionResponse {
+    exitoso: Boolean!
+    codigoRespuesta: String
+    mensajeRespuesta: String
+}
+
+enum EstadoEvento {
+    PENDIENTE
+    APROBADO
+    RECHAZADO
+    ERROR_ENVIO
+}

@@ -1,38 +1,44 @@
 package com.franco.dev.repository.financiero;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
+import com.franco.dev.domain.financiero.DocumentoElectronico;
+import com.franco.dev.domain.financiero.enums.EstadoDE;
+import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import com.franco.dev.domain.financiero.DocumentoElectronico;
-import com.franco.dev.domain.financiero.enums.EstadoDE;
-import com.franco.dev.repository.HelperRepository;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
-public interface DocumentoElectronicoRepository extends HelperRepository <DocumentoElectronico, Long>{
+public interface DocumentoElectronicoRepository extends HelperRepository<DocumentoElectronico, Long> {
 
-  default Class<DocumentoElectronico> getEntityClass() {
-    return DocumentoElectronico.class;
-  }
+    default Class<DocumentoElectronico> getEntityClass() {
+        return DocumentoElectronico.class;
+    }
 
-  DocumentoElectronico findByFacturaLegalId(Long id);
+    List<DocumentoElectronico> findAllByOrderByIdAsc(Pageable pageable);
 
-  DocumentoElectronico findByLoteDeId(Long id);
+    Optional<DocumentoElectronico> findByCdc(String cdc);
+    
+    Optional<DocumentoElectronico> findByFacturaLegalId(Long facturaLegalId);
 
-  @Query(value = "select * from financiero.documento_electronico de where de.lote_de_id = :id order by de.id asc", nativeQuery = true)
-  List<DocumentoElectronico> findByLoteDeIdOrderByIdAsc(@Param("id") Long id);
+    List<DocumentoElectronico> findByEstado(EstadoDE estado);
 
-  DocumentoElectronico findByCdc(String cdc);
+    List<DocumentoElectronico> findByLoteDeIdAndEstado(Long loteId, EstadoDE estado);
 
-  DocumentoElectronico findBySucursalId(Long id);
+    @Query("SELECT d FROM DocumentoElectronico d WHERE " +
+           "(d.estado = :estado OR cast(:estado as com.franco.dev.domain.financiero.enums.EstadoDE) IS NULL) AND " +
+           "(d.fechaEmision >= :fechaInicio OR cast(:fechaInicio as timestamp) IS NULL) AND " +
+           "(d.fechaEmision <= :fechaFin OR cast(:fechaFin as timestamp) IS NULL) " +
+           "ORDER BY d.id DESC")
+    Page<DocumentoElectronico> findByFilters(
+        @Param("estado") EstadoDE estado,
+        @Param("fechaInicio") LocalDateTime fechaInicio,
+        @Param("fechaFin") LocalDateTime fechaFin,
+        Pageable pageable
+    );
 
-  @Query(value = "select de from DocumentoElectronico de where " +
-  "(de.creadoEn between :inicio and :fin) " + 
-  "and (de.sucursalId in :sucId) order by de.creadoEn asc")
-  public Page<DocumentoElectronico> findByCreadoEnBetweenAndSucursalId(Pageable pageable, LocalDateTime inicio, LocalDateTime fin, Long sucId);
-  
-  DocumentoElectronico findByEstado(EstadoDE estado);
+    List<DocumentoElectronico> findByIdIn(List<Long> ids);
 }

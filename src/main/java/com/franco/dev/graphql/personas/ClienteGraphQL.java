@@ -3,7 +3,6 @@ package com.franco.dev.graphql.personas;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Contacto;
 import com.franco.dev.domain.personas.Cliente;
-import com.franco.dev.domain.personas.ConsultaRucResponse;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
@@ -153,7 +152,8 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public ConsultaRucResponse consultaRuc(String ruc) {
-        return service.consultaRuc(ruc);
+        // TODO: Implementar la consulta al RUC
+        return null;
     }
 
 }

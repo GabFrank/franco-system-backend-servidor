@@ -41,10 +41,16 @@ input DocumentoElectronicoInput {
 
 extend type Query {
     documentoElectronicos(page: Int = 0, size: Int = 10): [DocumentoElectronico]!
+    documentoElectronico(id: ID!): DocumentoElectronico
+    documentoElectronicoPorCdc(cdc: String!): DocumentoElectronico
+    documentoElectronicosPorEstado(estado: EstadoDE!, page: Int = 0, size: Int = 10): [DocumentoElectronico]!
+    documentoElectronicosPorLote(loteId: ID!): [DocumentoElectronico]!
 }
 
 extend type Mutation {
     saveDocumentoElectronico(input: DocumentoElectronicoInput!): DocumentoElectronico!
+    crearDocumentoElectronicoDesdeFactura(facturaId: ID!, sucursalId: ID!): DocumentoElectronico!
+    consultarDocumentoElectronico(cdc: String!): ConsultaDEResponse!
 }
 
 enum EstadoDE {
@@ -53,5 +59,13 @@ enum EstadoDE {
     APROBADO
     RECHAZADO
     CANCELADO
+}
+
+type ConsultaDEResponse {
+    documentoElectronico: DocumentoElectronico
+    estadoSifen: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    exitoso: Boolean
 }
 

@@ -64,6 +64,10 @@ public class LoteDE implements Serializable {
 
   private String protocolo;
 
+  private Boolean aprobado;
+
+  private Boolean activo;
+
   @OneToMany(mappedBy = "loteDe", fetch = FetchType.LAZY)
   private List<DocumentoElectronico> documentosElectronicos;
 

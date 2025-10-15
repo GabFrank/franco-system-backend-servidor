@@ -1,68 +1,63 @@
 package com.franco.dev.service.financiero;
 
-import static com.franco.dev.utilitarios.DateUtils.stringToDate;
-
-import java.time.LocalDateTime;
-
+import com.franco.dev.domain.financiero.DocumentoElectronico;
+import com.franco.dev.domain.financiero.enums.EstadoDE;
+import com.franco.dev.repository.financiero.DocumentoElectronicoRepository;
+import com.franco.dev.service.CrudService;
+import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import com.franco.dev.repository.financiero.DocumentoElectronicoRepository;
-import com.franco.dev.service.CrudService;
-import com.franco.dev.domain.financiero.DocumentoElectronico;
-import com.franco.dev.domain.financiero.enums.EstadoDE;
-
-import lombok.AllArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class DocumentoElectronicoService extends CrudService<DocumentoElectronico, DocumentoElectronicoRepository, Long>{
+public class DocumentoElectronicoService extends CrudService<DocumentoElectronico, DocumentoElectronicoRepository, Long> {
 
-  private final DocumentoElectronicoRepository repository;
-  
-  @Override
-  public DocumentoElectronicoRepository getRepository() {
-    return repository;
-  }
-  
-  public DocumentoElectronico findByFacturaLegalId(Long id) {
-    return repository.findByFacturaLegalId(id);
-  }
+    private final DocumentoElectronicoRepository repository;
 
-  public DocumentoElectronico findByLoteDeId(Long id) {
-    return repository.findByLoteDeId(id);
-  }
+    @Override
+    public DocumentoElectronicoRepository getRepository() {
+        return repository;
+    }
 
-  public java.util.List<DocumentoElectronico> findByLoteDeIdList(Long id) {
-    return repository.findByLoteDeIdOrderByIdAsc(id);
-  }
+    public Optional<DocumentoElectronico> findByCdc(String cdc) {
+        return repository.findByCdc(cdc);
+    }
 
-  public DocumentoElectronico findByCdc(String cdc) {
-    return repository.findByCdc(cdc);
-  }
+    public Optional<DocumentoElectronico> findByFacturaLegalId(Long facturaLegalId) {
+        return repository.findByFacturaLegalId(facturaLegalId);
+    }
 
-  public DocumentoElectronico findBySucursalId(Long id) {
-    return repository.findBySucursalId(id);
-  }
+    public List<DocumentoElectronico> findByEstado(EstadoDE estado) {
+        return repository.findByEstado(estado);
+    }
 
-  public Page<DocumentoElectronico> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, Long sucId) {
-    LocalDateTime inicio = stringToDate(fechaInicio);
-    LocalDateTime fin = stringToDate(fechaFin);
-    Pageable pageable = PageRequest.of(page, size);
-    return repository.findByCreadoEnBetweenAndSucursalId(pageable, inicio, fin, sucId);
-  }
+    public List<DocumentoElectronico> findByLoteDeIdAndEstado(Long loteId, EstadoDE estado) {
+        return repository.findByLoteDeIdAndEstado(loteId, estado);
+    }
 
-  public DocumentoElectronico findByEstado(EstadoDE estado) {
-    return repository.findByEstado(estado);
-  }
+    public List<DocumentoElectronico> findByLoteDeIdList(Long loteId) {
+        return repository.findByLoteDeIdAndEstado(loteId, null);
+    }
 
-  @Override
-  public DocumentoElectronico save(DocumentoElectronico entity) {
-    if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
-    DocumentoElectronico e = super.save(entity);
-    return e;
-  }
-  
+    public List<DocumentoElectronico> findByIdIn(List<Long> ids) {
+        return repository.findByIdIn(ids);
+    }
+
+    public Page<DocumentoElectronico> findByFilters(
+            EstadoDE estado,
+            LocalDateTime fechaInicio,
+            LocalDateTime fechaFin,
+            Pageable pageable) {
+        return repository.findByFilters(estado, fechaInicio, fechaFin, pageable);
+    }
+
+    @Override
+    public DocumentoElectronico save(DocumentoElectronico entity) {
+        return super.save(entity);
+    }
 }

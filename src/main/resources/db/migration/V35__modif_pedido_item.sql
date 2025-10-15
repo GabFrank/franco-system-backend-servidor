@@ -35,3 +35,4 @@ ALTER TABLE operaciones.pedido_item ADD CONSTRAINT pedido_item_autorizado_por_re
 ALTER TABLE operaciones.pedido_item ADD CONSTRAINT pedido_item_autorizado_por_recepcion_producto_fk FOREIGN KEY (autorizado_por_recepcion_producto_id) REFERENCES personas.usuario(id);
 ALTER TABLE operaciones.pedido_item ADD CONSTRAINT pedido_item_usuario_recepcion_nota_id_fk FOREIGN KEY (usuario_recepcion_nota_id) REFERENCES personas.usuario(id);
 ALTER TABLE operaciones.pedido_item ADD CONSTRAINT pedido_item_usuario_recepcion_producto_id_recepcion_producto_fk FOREIGN KEY (usuario_recepcion_producto_id) REFERENCES personas.usuario(id);
+

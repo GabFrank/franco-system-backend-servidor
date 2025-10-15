@@ -67,7 +67,6 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 }
             }
         }
-
         Presentacion e = m.map(input, Presentacion.class);
         e =  service.save(e);
         return e;

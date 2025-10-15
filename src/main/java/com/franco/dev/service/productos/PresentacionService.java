@@ -1,19 +1,17 @@
 package com.franco.dev.service.productos;
 
 import com.franco.dev.domain.productos.Presentacion;
-import com.franco.dev.domain.productos.TipoPrecio;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.productos.PresentacionRepository;
-import com.franco.dev.repository.productos.TipoPrecioRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.utils.ImageService;
-import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -28,14 +26,18 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
     public PresentacionRepository getRepository() {
         return repository;
     }
-
     public List<Presentacion> findByAll(String texto){
         texto = texto.replace(' ', '%');
-        return  repository.findByAll(texto.toUpperCase());
+        return  repository.findByAll(texto.toUpperCase())
+                .stream()
+                .sorted(Comparator.comparing(Presentacion::getCantidad))
+                .collect(Collectors.toList());
     }
-
+    public List<Presentacion> findByProductoIdOrderByCantidadAsc(Long id){
+        return repository.findByProductoIdOrderByCantidadAsc(id);
+    }
     public List<Presentacion> findByProductoId(Long id){
-        return repository.findByProductoId(id);
+        return findByProductoIdOrderByCantidadAsc(id);
     }
 
     @Override
@@ -43,6 +45,7 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
         Presentacion e = super.save(entity);
 //        personaPublisher.publish(p);
+        repository.flush();
         return e;
     }
 

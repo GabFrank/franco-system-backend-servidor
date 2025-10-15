@@ -21,3 +21,4 @@ CREATE TABLE configuraciones.error_log (
     cantidad_ocurrencias INTEGER DEFAULT 1,
     CONSTRAINT fk_sucursal FOREIGN KEY (sucursal_id) REFERENCES empresarial.sucursal(id)  -- Adjust this to the correct table/column for sucursal
 );
+

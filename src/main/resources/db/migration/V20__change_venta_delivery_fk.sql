@@ -3,3 +3,4 @@ ALTER TABLE operaciones.venta ADD CONSTRAINT fk_venta_delivery FOREIGN KEY (deli
 
 ALTER TABLE operaciones.delivery DROP CONSTRAINT delivery_fk_venta;
 ALTER TABLE operaciones.delivery DROP COLUMN venta_id;
+

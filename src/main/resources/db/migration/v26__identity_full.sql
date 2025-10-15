@@ -1,3 +1,4 @@
+/* COMMENTED_BY_SCRIPT: disabled on 2025-10-14T11:14:14-03:00
 ALTER TABLE administrativo.marcacion REPLICA IDENTITY FULL;
 ALTER TABLE configuraciones.inicio_sesion REPLICA IDENTITY FULL;
 ALTER TABLE financiero.cambio_caja REPLICA IDENTITY FULL;
@@ -104,3 +105,4 @@ ALTER TABLE vehiculos.modelo REPLICA IDENTITY FULL;
 ALTER TABLE vehiculos.tipo_vehiculo REPLICA IDENTITY FULL;
 ALTER TABLE vehiculos.vehiculo REPLICA IDENTITY FULL;
 ALTER TABLE vehiculos.vehiculo_sucursal REPLICA IDENTITY FULL;
+*/

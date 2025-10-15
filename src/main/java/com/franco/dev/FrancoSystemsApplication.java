@@ -31,7 +31,6 @@ import java.util.Collections;
 @EnableAsync
 @EnableScheduling
 public class FrancoSystemsApplication {
-
     @Autowired
     private ObjectMapper objectMapper;
 

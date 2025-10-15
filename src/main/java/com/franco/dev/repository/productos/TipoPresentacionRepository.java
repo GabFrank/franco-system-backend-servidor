@@ -15,5 +15,4 @@ public interface TipoPresentacionRepository extends HelperRepository<TipoPresent
 
     @Query("select f from TipoPresentacion f where CAST(id as text) like %?1% or UPPER(descripcion) like %?1%")
     public List<TipoPresentacion> findByAll(String texto);
-
 }

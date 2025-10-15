@@ -11,3 +11,4 @@ ADD CONSTRAINT fk_venta_delivery
 FOREIGN KEY (delivery_id, sucursal_id)
 REFERENCES operaciones.delivery(id, sucursal_id);
 
+

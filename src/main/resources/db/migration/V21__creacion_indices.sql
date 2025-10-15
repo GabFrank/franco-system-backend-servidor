@@ -30,3 +30,4 @@ CREATE INDEX transferencia_item_transferencia_id_idx ON operaciones.transferenci
 CREATE INDEX costo_por_producto_producto_id_idx ON productos.costo_por_producto (producto_id);
 CREATE INDEX presentacion_producto_id_idx ON productos.presentacion (producto_id);
 CREATE INDEX precio_por_sucursal_presentacion_id_idx ON productos.precio_por_sucursal (presentacion_id);
+

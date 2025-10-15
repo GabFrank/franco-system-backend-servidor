@@ -51,3 +51,4 @@ CREATE TABLE operaciones.pago_detalle (
     CONSTRAINT pago_detalle_sucursal_fk FOREIGN KEY (sucursal_id) REFERENCES empresarial.sucursal(id) ON DELETE SET NULL,
     CONSTRAINT pago_detalle_caja_fk FOREIGN KEY (caja_id, sucursal_id) REFERENCES financiero.pdv_caja(id, sucursal_id) ON DELETE RESTRICT
 );
+

@@ -10,3 +10,4 @@ FOREIGN KEY (precio_id)
 REFERENCES productos.precio_por_sucursal(id) 
 ON DELETE SET NULL 
 ON UPDATE CASCADE;
+

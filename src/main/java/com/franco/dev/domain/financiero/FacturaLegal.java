@@ -15,8 +15,6 @@ import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
 
-import org.hibernate.annotations.JoinColumnsOrFormulas;
-
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -38,7 +36,10 @@ public class FacturaLegal implements Serializable {
     private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "timbrado_detalle_id", nullable = true)
+    @JoinColumns({
+            @JoinColumn(name = "timbrado_detalle_id", referencedColumnName = "id"),
+            @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id", insertable = false, updatable = false)
+    })
     private TimbradoDetalle timbradoDetalle;
 
     @ManyToOne(fetch = FetchType.EAGER)

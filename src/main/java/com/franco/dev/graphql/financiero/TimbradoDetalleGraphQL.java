@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.TimbradoDetalleInput;
@@ -43,8 +44,8 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Optional<TimbradoDetalle> timbradoDetalle(Long id) {
-        return service.findById(id);
+    public Optional<TimbradoDetalle> timbradoDetalle(Long id, Long sucId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<TimbradoDetalle> timbradoDetalles(int page, int size) {
@@ -66,8 +67,8 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return e;
     }
 
-    public Boolean deleteTimbradoDetalle(Long id) {
-        Boolean ok = service.deleteById(id);
+    public Boolean deleteTimbradoDetalle(Long id, Long sucId) {
+        Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
         return ok;
     }
 

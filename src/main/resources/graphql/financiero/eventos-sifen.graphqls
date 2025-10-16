@@ -67,8 +67,16 @@ extend type Query {
 }
 
 extend type Mutation {
-    cancelarDocumentoElectronico(cdc: String!, motivo: String!): CancelacionDEResponse!
-    nominarReceptorDocumento(cdc: String!, clienteId: ID!): NominacionDEResponse!
+    # Cancela un Documento Electrónico previamente enviado a SIFEN
+    # Retorna el evento de cancelación con toda la información (estado, código respuesta, etc.)
+    cancelarDocumentoElectronico(cdc: String!, motivo: String!): EventoCancelacionDE!
+    
+    # Nomina un receptor para un DE innominado
+    # Retorna el evento de nominación con toda la información
+    nominarReceptorDocumento(cdc: String!, clienteId: ID!): EventoNominacionDE!
+    
+    # Declara un rango de números como inutilizados en SIFEN
+    # Retorna true si fue exitoso, lanza excepción si falla
     inutilizarNumeros(
         timbradoId: ID!
         establecimiento: String!
@@ -76,27 +84,7 @@ extend type Mutation {
         numeroInicio: Int!
         numeroFin: Int!
         motivo: String!
-    ): InutilizacionResponse!
-}
-
-type CancelacionDEResponse {
-    exitoso: Boolean!
-    evento: EventoCancelacionDE
-    codigoRespuesta: String
-    mensajeRespuesta: String
-}
-
-type NominacionDEResponse {
-    exitoso: Boolean!
-    evento: EventoNominacionDE
-    codigoRespuesta: String
-    mensajeRespuesta: String
-}
-
-type InutilizacionResponse {
-    exitoso: Boolean!
-    codigoRespuesta: String
-    mensajeRespuesta: String
+    ): Boolean!
 }
 
 enum EstadoEvento {

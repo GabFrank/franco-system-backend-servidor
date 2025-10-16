@@ -41,4 +41,6 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
     );
 
     List<DocumentoElectronico> findByIdIn(List<Long> ids);
+
+    List<DocumentoElectronico> findByLoteDe(com.franco.dev.domain.financiero.LoteDE loteDe);
 }

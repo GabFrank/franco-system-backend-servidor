@@ -3,168 +3,205 @@ package com.franco.dev.service.sifen;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.EventoCancelacionDE;
 import com.franco.dev.domain.financiero.EventoNominacionDE;
+import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.Timbrado;
-import com.franco.dev.domain.financiero.enums.EstadoDE;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.EventoCancelacionDEService;
 import com.franco.dev.service.financiero.EventoNominacionDEService;
+import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.sifen.util.SifenReceptorHelper;
+import com.roshka.sifen.Sifen;
+import com.roshka.sifen.core.beans.EventosDE;
+import com.roshka.sifen.core.beans.response.RespuestaRecepcionEvento;
 import com.roshka.sifen.core.exceptions.SifenException;
+import com.roshka.sifen.core.fields.request.event.TgGroupTiEvt;
+import com.roshka.sifen.core.fields.request.event.TrGeVeCan;
+import com.roshka.sifen.core.fields.request.event.TrGeVeInu;
+import com.roshka.sifen.core.fields.request.event.TrGeVeNotRec;
+import com.roshka.sifen.core.fields.request.event.TrGesEve;
+import com.roshka.sifen.core.types.TiNatRec;
+import com.roshka.sifen.core.types.TTiDE;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
-/**
- * Servicio para gestionar eventos de SIFEN sobre Documentos Electrónicos.
- * 
- * Eventos soportados:
- * - Cancelación de DE
- * - Inutilización de rangos de numeración
- * - Nominación de receptor (para facturas innominadas)
- */
 @Slf4j
 @Service
 public class SifenEventoService {
 
-    @Autowired
-    private DocumentoElectronicoService documentoElectronicoService;
+    private final DocumentoElectronicoService documentoElectronicoService;
+    private final EventoCancelacionDEService eventoCancelacionDEService;
+    private final EventoNominacionDEService eventoNominacionDEService;
+    private final FacturaLegalService facturaLegalService;
 
-    @Autowired
-    private EventoCancelacionDEService eventoCancelacionDEService;
+    public SifenEventoService(
+            DocumentoElectronicoService documentoElectronicoService,
+            EventoCancelacionDEService eventoCancelacionDEService,
+            EventoNominacionDEService eventoNominacionDEService,
+            FacturaLegalService facturaLegalService) {
+        this.documentoElectronicoService = documentoElectronicoService;
+        this.eventoCancelacionDEService = eventoCancelacionDEService;
+        this.eventoNominacionDEService = eventoNominacionDEService;
+        this.facturaLegalService = facturaLegalService;
+    }
 
-    @Autowired
-    private EventoNominacionDEService eventoNominacionDEService;
-
-    /**
-     * Cancela un Documento Electrónico previamente aprobado.
-     *
-     * Flujo completo de cancelación:
-     * 1. Verifica que el DE existe y está APROBADO
-     * 2. Verifica que no exista ya una cancelación APROBADA
-     * 3. Crea un EventoCancelacionDE con estado PENDIENTE
-     * 4. Genera y envía el evento a SIFEN
-     * 5. Procesa la respuesta y actualiza estados
-     * 6. Si es aprobado, actualiza el DE a estado CANCELADO
-     *
-     * @param cdc CDC del documento a cancelar
-     * @param motivo Motivo de la cancelación (obligatorio)
-     * @return RespuestaRecepcionEvento con el resultado del proceso
-     * @throws IllegalArgumentException Si los parámetros son inválidos
-     * @throws SifenException Si hay errores en el envío a SIFEN
-     */
-    @Transactional(rollbackFor = Exception.class)
+    @Transactional
     public RespuestaRecepcionEvento cancelarDE(String cdc, String motivo) throws SifenException {
-        log.info("Iniciando cancelación de DE con CDC: {}", cdc);
+        log.info("🚫 Cancelando DE con CDC: {}", cdc);
+        log.info("   Motivo: {}", motivo);
 
-        if (cdc == null || cdc.trim().isEmpty()) {
-            throw new IllegalArgumentException("CDC no puede ser null o vacío");
+        DocumentoElectronico de = documentoElectronicoService.findByCdc(cdc)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró DE con CDC: " + cdc));
+
+        if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId())) {
+            log.warn("⚠️ El DE ya tiene un evento de cancelación APROBADO");
+            log.warn("   Estado del DE: {}", de.getEstado());
+            throw new IllegalStateException("El DE ya fue cancelado exitosamente. No se puede cancelar nuevamente.");
         }
 
-        if (motivo == null || motivo.trim().isEmpty()) {
-            throw new IllegalArgumentException("Motivo de cancelación es obligatorio");
+        List<EventoCancelacionDE> eventosActivos = eventoCancelacionDEService.findActivosByCdcDocumento(cdc);
+        if (!eventosActivos.isEmpty()) {
+            log.info("   🔄 Se encontraron {} evento(s) previo(s) - realizando reintento automático", eventosActivos.size());
+            for (EventoCancelacionDE eventoAnterior : eventosActivos) {
+                eventoAnterior.setActivo(false);
+                eventoCancelacionDEService.save(eventoAnterior);
+                log.info("      📝 Evento anterior ID {} marcado como inactivo (estado: {})", eventoAnterior.getId(), eventoAnterior.getEstado());
+            }
         }
 
-        // 1. Buscar DE por CDC
-        Optional<DocumentoElectronico> deOpt = documentoElectronicoService.findByCdc(cdc);
-        if (!deOpt.isPresent()) {
-            throw new IllegalArgumentException("Documento electrónico no encontrado con CDC: " + cdc);
-        }
+        TrGeVeCan cancelacion = new TrGeVeCan();
+        cancelacion.setId(cdc);
+        cancelacion.setmOtEve(motivo);
 
-        DocumentoElectronico documento = deOpt.get();
+        TgGroupTiEvt tipoEvento = new TgGroupTiEvt();
+        tipoEvento.setrGeVeCan(cancelacion);
 
-        // 2. Validar que el DE existe y está en estado APROBADO
-        if (documento.getEstado() != EstadoDE.APROBADO) {
-            throw new IllegalStateException("Documento debe estar APROBADO para poder ser cancelado. Estado actual: " + documento.getEstado());
-        }
+        TrGesEve gestionEvento = new TrGesEve();
+        int numeroRandom = new Random().nextInt(99999999) + 1;
+        String eventoId = String.valueOf(numeroRandom);
+        LocalDateTime fechaFirma = LocalDateTime.now();
+        gestionEvento.setId(eventoId);
+        gestionEvento.setdFecFirma(fechaFirma);
+        gestionEvento.setgGroupTiEvt(tipoEvento);
 
-        // 3. Verificar que no existe cancelación aprobada previa
-        Optional<EventoCancelacionDE> cancelacionExistente =
-            eventoCancelacionDEService.findByDocumentoElectronicoIdAndEstado(documento.getId(), EstadoEvento.APROBADO);
+        List<TrGesEve> listaEventos = new ArrayList<>();
+        listaEventos.add(gestionEvento);
 
-        if (cancelacionExistente.isPresent()) {
-            throw new IllegalStateException("El documento ya tiene una cancelación aprobada");
-        }
+        EventosDE eventosDE = new EventosDE();
+        eventosDE.setrGesEveList(listaEventos);
 
-        // 4. Crear EventoCancelacionDE con estado PENDIENTE
         EventoCancelacionDE eventoCancelacion = new EventoCancelacionDE();
-        eventoCancelacion.setDocumentoElectronico(documento);
-        eventoCancelacion.setEventoId("CANCEL-" + System.currentTimeMillis());
-        eventoCancelacion.setFechaFirma(LocalDateTime.now());
+        eventoCancelacion.setDocumentoElectronico(de);
+        eventoCancelacion.setEventoId(eventoId);
+        eventoCancelacion.setFechaFirma(fechaFirma);
         eventoCancelacion.setCdcDocumento(cdc);
         eventoCancelacion.setMotivoCancelacion(motivo);
         eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
-        eventoCancelacion.setUsuario(documento.getUsuario());
         eventoCancelacion.setActivo(true);
 
-        // Guardar evento antes de enviar a SIFEN
-        eventoCancelacion = eventoCancelacionDEService.save(eventoCancelacion);
+        log.info("   📤 Enviando evento de cancelación a SIFEN...");
+        RespuestaRecepcionEvento respuesta = Sifen.recepcionEvento(eventosDE);
 
-        // 5. Generar XML de evento usando librería SIFEN
-        // TODO: Implementar generación completa del XML de cancelación
+        String xmlRespuesta = respuesta.getRespuestaBruta();
+        String codigoRespuesta = extraerValorXML(xmlRespuesta, "<dCodRes>", "</dCodRes>");
+        if (codigoRespuesta == null) {
+            codigoRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dCodRes>", "</ns2:dCodRes>");
+        }
+        String mensajeRespuesta = extraerValorXML(xmlRespuesta, "<dMsgRes>", "</dMsgRes>");
+        if (mensajeRespuesta == null) {
+            mensajeRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dMsgRes>", "</ns2:dMsgRes>");
+        }
+        log.info("   📥 Respuesta recibida - Código: {}", codigoRespuesta);
+        log.info("   📥 Mensaje: {}", mensajeRespuesta);
 
-        // 6. Enviar evento usando Sifen.eventoDE()
-        RespuestaRecepcionEvento respuesta = new RespuestaRecepcionEvento();
-        try {
-            // TODO: Implementar envío real usando Sifen.eventoDE()
-            // com.roshka.sifen.core.beans.ResponseRecepcionEvento respuestaSifen = Sifen.eventoDE(...);
+        eventoCancelacion.setRespuestaBruta(xmlRespuesta);
+        eventoCancelacion.setCodigoRespuesta(codigoRespuesta);
+        eventoCancelacion.setMensajeRespuesta(mensajeRespuesta);
 
-            // Simulación de respuesta exitosa para desarrollo
-            respuesta.setExitoso(true);
-            respuesta.setCodigoRespuesta("0600");
-            respuesta.setMensajeRespuesta("Cancelación enviada exitosamente");
-            respuesta.setFechaProcesamiento(LocalDateTime.now());
+        String estadoResultado = extraerValorXML(xmlRespuesta, "<dEstRes>", "</dEstRes>");
+        if (estadoResultado == null) {
+            estadoResultado = extraerValorXML(xmlRespuesta, "<ns2:dEstRes>", "</ns2:dEstRes>");
+        }
+        log.info("   📊 Estado del evento en SIFEN: {}", estadoResultado);
 
-        } catch (Exception e) {
-            log.error("Error al enviar evento de cancelación: {}", e.getMessage());
-            respuesta.setExitoso(false);
-            respuesta.setCodigoRespuesta("1999");
-            respuesta.setMensajeRespuesta("Error al enviar cancelación: " + e.getMessage());
+        String protocolo = extraerValorXML(xmlRespuesta, "<dProtAut>", "</dProtAut>");
+        if (protocolo == null) {
+            protocolo = extraerValorXML(xmlRespuesta, "<ns2:dProtAut>", "</ns2:dProtAut>");
+        }
+        if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
+            eventoCancelacion.setProtocoloAutorizacion(protocolo);
+            log.info("   📋 Protocolo: {}", protocolo);
         }
 
-        // 7. Parsear respuesta y actualizar estado del evento
-        EstadoEvento nuevoEstado = respuesta.isExitoso() ? EstadoEvento.APROBADO : EstadoEvento.ERROR_ENVIO;
-
-        eventoCancelacion.setEstado(nuevoEstado);
-        eventoCancelacion.setFechaProcesamiento(respuesta.getFechaProcesamiento());
-        eventoCancelacion.setProtocoloAutorizacion(respuesta.getProtocoloAutorizacion());
-        eventoCancelacion.setCodigoRespuesta(respuesta.getCodigoRespuesta());
-        eventoCancelacion.setMensajeRespuesta(respuesta.getMensajeRespuesta());
-        eventoCancelacion.setRespuestaBruta(respuesta.getXmlRespuesta());
+        if ("Aprobado".equalsIgnoreCase(estadoResultado)) {
+            eventoCancelacion.setEstado(EstadoEvento.APROBADO);
+            eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
+            de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
+            de.setCodigoRespuestaSifen(codigoRespuesta);
+            de.setMensajeRespuestaSifen(mensajeRespuesta);
+            documentoElectronicoService.save(de);
+            log.info("   ✅ Evento APROBADO - DE actualizado a estado CANCELADO");
+            log.info("   📋 Código SIFEN: {} - {}", codigoRespuesta, mensajeRespuesta);
+        } else if ("Rechazado".equalsIgnoreCase(estadoResultado)) {
+            eventoCancelacion.setEstado(EstadoEvento.RECHAZADO);
+            eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
+            de.setCodigoRespuestaSifen(codigoRespuesta);
+            de.setMensajeRespuestaSifen(mensajeRespuesta);
+            documentoElectronicoService.save(de);
+            log.error("   ❌ Evento RECHAZADO por SIFEN");
+            log.error("   📋 Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+            log.error("   ℹ️ El DE mantiene su estado actual: {}", de.getEstado());
+        } else if (estadoResultado == null || estadoResultado.isEmpty()) {
+            if ("0300".equals(codigoRespuesta)) {
+                eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
+                log.info("   ✅ Evento recibido (código 0300) - pendiente de procesamiento");
+            } else if ("0600".equals(codigoRespuesta)) {
+                if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
+                    eventoCancelacion.setEstado(EstadoEvento.APROBADO);
+                    eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
+                    de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
+                    documentoElectronicoService.save(de);
+                    log.info("   ✅ Evento APROBADO (código 0600 + protocolo) - DE actualizado a CANCELADO");
+                } else {
+                    eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
+                    log.info("   ✅ Evento registrado (código 0600) - estado pendiente");
+                }
+            } else {
+                eventoCancelacion.setEstado(EstadoEvento.ERROR_ENVIO);
+                log.error("   ❌ Error en envío - Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+            }
+        } else {
+            eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
+            log.warn("   ⚠️ Estado desconocido: {} - marcando como PENDIENTE", estadoResultado);
+        }
 
         eventoCancelacionDEService.save(eventoCancelacion);
-
-        // 8. Si es APROBADO, actualizar DE a CANCELADO
-        if (respuesta.isExitoso()) {
-            documento.setEstado(EstadoDE.CANCELADO);
-            documentoElectronicoService.save(documento);
-            log.info("Documento CDC {} cancelado exitosamente", cdc);
-        } else {
-            log.error("Cancelación rechazada para documento CDC {}", cdc);
-        }
-
+        log.info("   💾 Evento guardado en BD - ID: {}, Estado: {}", eventoCancelacion.getId(), eventoCancelacion.getEstado());
         return respuesta;
     }
 
-    /**
-     * Inutiliza un rango de números de factura.
-     * Útil cuando hay saltos en la numeración o errores.
-     * 
-     * @param timbrado Timbrado asociado
-     * @param establecimiento Código de establecimiento
-     * @param puntoExpedicion Código de punto de expedición
-     * @param numeroInicio Primer número del rango
-     * @param numeroFin Último número del rango
-     * @param tipoDE Tipo de documento electrónico
-     * @param motivo Motivo de la inutilización
-     * @return RespuestaRecepcionEvento con el resultado
-     * @throws SifenException Si hay errores en el envío
-     */
+    private String extraerValorXML(String xml, String tagInicio, String tagFin) {
+        try {
+            int inicio = xml.indexOf(tagInicio);
+            if (inicio == -1) return null;
+            inicio += tagInicio.length();
+            int fin = xml.indexOf(tagFin, inicio);
+            if (fin == -1) return null;
+            return xml.substring(inicio, fin).trim();
+        } catch (Exception e) {
+            log.error("Error al extraer valor XML: {}", e.getMessage());
+            return null;
+        }
+    }
+
     @Transactional
     public RespuestaRecepcionEvento inutilizarNumeros(
             Timbrado timbrado,
@@ -172,170 +209,229 @@ public class SifenEventoService {
             String puntoExpedicion,
             int numeroInicio,
             int numeroFin,
-            String tipoDE,
+            TTiDE tipoDE,
             String motivo) throws SifenException {
-        
-        log.info("Inutilizando rango {}-{} del establecimiento {} punto {}", 
-                 numeroInicio, numeroFin, establecimiento, puntoExpedicion);
-        
-        // TODO: Implementar lógica completa de inutilización
-        // 1. Validar parámetros
-        // 2. Generar evento de inutilización usando librería SIFEN
-        // 3. Enviar a SIFEN
-        // 4. Procesar respuesta
-        // 5. Registrar el evento en BD si es necesario
-        
-        throw new UnsupportedOperationException("Método pendiente de implementación completa");
-    }
 
-    /**
-     * Nomina un receptor para una factura emitida como innominada.
-     * Permite identificar al comprador después de emitida la factura.
-     *
-     * @param cdc CDC del documento innominado
-     * @param cliente Cliente a nominar como receptor (debe tener persona con datos completos)
-     * @return RespuestaRecepcionEvento con el resultado del proceso
-     * @throws IllegalArgumentException Si los parámetros son inválidos
-     * @throws SifenException Si hay errores en el envío a SIFEN
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public RespuestaRecepcionEvento nominarReceptor(String cdc, Cliente cliente) throws SifenException {
-        log.info("Nominando receptor para DE CDC: {}", cdc);
+        log.info("📝 Inutilizando números de documentos");
+        log.info("   Timbrado: {}", timbrado.getNumero());
+        log.info("   Establecimiento: {}", establecimiento);
+        log.info("   Punto Expedición: {}", puntoExpedicion);
+        log.info("   Rango: {} - {}", numeroInicio, numeroFin);
+        log.info("   Tipo DE: {}", tipoDE);
+        log.info("   Motivo: {}", motivo);
 
-        if (cdc == null || cdc.trim().isEmpty()) {
-            throw new IllegalArgumentException("CDC no puede ser null o vacío");
+        if (numeroInicio > numeroFin) {
+            throw new IllegalArgumentException("Número inicial (" + numeroInicio + ") no puede ser mayor que número final (" + numeroFin + ")");
         }
 
-        if (cliente == null) {
-            throw new IllegalArgumentException("Cliente no puede ser null");
-        }
+        TrGeVeInu inutilizacion = new TrGeVeInu();
+        inutilizacion.setdNumTim(Integer.parseInt(timbrado.getNumero()));
+        inutilizacion.setdEst(establecimiento);
+        inutilizacion.setdPunExp(puntoExpedicion);
+        inutilizacion.setdNumIn(String.valueOf(numeroInicio));
+        inutilizacion.setdNumFin(String.valueOf(numeroFin));
+        inutilizacion.setiTiDE(tipoDE);
+        inutilizacion.setmOtEve(motivo);
 
-        if (cliente.getPersona() == null) {
-            throw new IllegalArgumentException("Cliente debe tener datos de persona asociados");
-        }
+        TgGroupTiEvt tipoEvento = new TgGroupTiEvt();
+        tipoEvento.setrGeVeInu(inutilizacion);
 
-        // 1. Buscar DE por CDC
-        Optional<DocumentoElectronico> deOpt = documentoElectronicoService.findByCdc(cdc);
-        if (!deOpt.isPresent()) {
-            throw new IllegalArgumentException("Documento electrónico no encontrado con CDC: " + cdc);
-        }
+        String eventoId = String.format("INU-%s-%s-%s-%07d", timbrado.getNumero(), establecimiento, puntoExpedicion, numeroInicio);
+        TrGesEve gestionEvento = new TrGesEve();
+        gestionEvento.setId(eventoId);
+        gestionEvento.setdFecFirma(LocalDateTime.now());
+        gestionEvento.setgGroupTiEvt(tipoEvento);
 
-        DocumentoElectronico documento = deOpt.get();
+        List<TrGesEve> listaEventos = new ArrayList<>();
+        listaEventos.add(gestionEvento);
 
-        // 2. Validar que el DE existe y está en estado APROBADO
-        if (documento.getEstado() != EstadoDE.APROBADO) {
-            throw new IllegalStateException("Documento debe estar APROBADO para poder nominar receptor. Estado actual: " + documento.getEstado());
-        }
+        EventosDE eventosDE = new EventosDE();
+        eventosDE.setrGesEveList(listaEventos);
 
-        // 3. Validar que el DE es innominado (receptor sin identificación)
-        // TODO: Implementar lógica para detectar si es innominado
-        // Por ahora asumimos que si llega aquí es porque necesita nominación
+        log.info("   📤 Enviando evento de inutilización a SIFEN...");
+        RespuestaRecepcionEvento respuesta = Sifen.recepcionEvento(eventosDE);
 
-        // 4. Usar SifenReceptorHelper para construir datos del receptor
-        Double montoTotal = documento.getFacturaLegal().getTotalFinal();
-        SifenReceptorHelper.ConfiguracionReceptor configReceptor =
-            SifenReceptorHelper.determinarConfiguracionReceptor(cliente, montoTotal);
-
-        if (!SifenReceptorHelper.validarConfiguracion(configReceptor)) {
-            throw new IllegalStateException("Configuración del receptor nominada inválida");
-        }
-
-        // 5. Crear EventoNominacionDE con estado PENDIENTE
-        EventoNominacionDE eventoNominacion = new EventoNominacionDE();
-        eventoNominacion.setDocumentoElectronico(documento);
-        eventoNominacion.setEventoId("NOMINA-" + System.currentTimeMillis());
-        eventoNominacion.setFechaFirma(LocalDateTime.now());
-        eventoNominacion.setCdcDocumento(cdc);
-        eventoNominacion.setCliente(cliente);
-        eventoNominacion.setNombreReceptor(configReceptor.getNombreReceptor());
-        eventoNominacion.setDocumentoReceptor(configReceptor.getNumeroDocumento());
-        eventoNominacion.setTipoReceptor(configReceptor.getTipoDocumentoReceptor() != null ?
-            configReceptor.getTipoDocumentoReceptor().name() : "CEDULA_PARAGUAYA");
-        eventoNominacion.setTotalFactura(java.math.BigDecimal.valueOf(montoTotal));
-        eventoNominacion.setFechaEmision(documento.getFechaEmision());
-        eventoNominacion.setEstado(EstadoEvento.PENDIENTE);
-        eventoNominacion.setUsuario(documento.getUsuario());
-        eventoNominacion.setActivo(true);
-
-        // Guardar evento antes de enviar a SIFEN
-        eventoNominacion = eventoNominacionDEService.save(eventoNominacion);
-
-        // 6. Generar XML de evento usando librería SIFEN
-        // TODO: Implementar generación completa del XML de nominación
-
-        // 7. Enviar a SIFEN usando Sifen.eventoDE()
-        RespuestaRecepcionEvento respuesta = new RespuestaRecepcionEvento();
-        try {
-            // TODO: Implementar envío real usando Sifen.eventoDE()
-            // com.roshka.sifen.core.beans.ResponseRecepcionEvento respuestaSifen = Sifen.eventoDE(...);
-
-            // Simulación de respuesta exitosa para desarrollo
-            respuesta.setExitoso(true);
-            respuesta.setCodigoRespuesta("0600");
-            respuesta.setMensajeRespuesta("Nominación enviada exitosamente");
-            respuesta.setFechaProcesamiento(LocalDateTime.now());
-
-        } catch (Exception e) {
-            log.error("Error al enviar evento de nominación: {}", e.getMessage());
-            respuesta.setExitoso(false);
-            respuesta.setCodigoRespuesta("1999");
-            respuesta.setMensajeRespuesta("Error al enviar nominación: " + e.getMessage());
-        }
-
-        // 8. Procesar respuesta y actualizar estado del evento
-        EstadoEvento nuevoEstado = respuesta.isExitoso() ? EstadoEvento.APROBADO : EstadoEvento.ERROR_ENVIO;
-
-        eventoNominacion.setEstado(nuevoEstado);
-        eventoNominacion.setFechaProcesamiento(respuesta.getFechaProcesamiento());
-        eventoNominacion.setProtocoloAutorizacion(respuesta.getProtocoloAutorizacion());
-        eventoNominacion.setCodigoRespuesta(respuesta.getCodigoRespuesta());
-        eventoNominacion.setMensajeRespuesta(respuesta.getMensajeRespuesta());
-        eventoNominacion.setRespuestaBruta(respuesta.getXmlRespuesta());
-
-        eventoNominacionDEService.save(eventoNominacion);
-
-        // 9. Si es APROBADO, actualizar FacturaLegal con el cliente nominado
-        if (respuesta.isExitoso()) {
-            documento.getFacturaLegal().setCliente(cliente);
-            documentoElectronicoService.save(documento);
-            log.info("Documento CDC {} nominado exitosamente con cliente ID {}", cdc, cliente.getId());
-        } else {
-            log.error("Nominación rechazada para documento CDC {}", cdc);
-        }
+        log.info("   📥 Respuesta recibida - Código: {}", respuesta.getdCodRes());
+        log.info("✅ Evento de inutilización procesado");
 
         return respuesta;
     }
 
-    /**
-     * DTO que encapsula la respuesta completa de un evento enviado a SIFEN.
-     * Contiene tanto los datos de respuesta técnica como los de procesamiento.
-     */
-    public static class RespuestaRecepcionEvento {
-        private boolean exitoso;                    // Si el evento fue procesado exitosamente
-        private String codigoRespuesta;             // Código de respuesta de SIFEN (ej: "0600")
-        private String mensajeRespuesta;            // Mensaje descriptivo de la respuesta
-        private String protocoloAutorizacion;       // Protocolo de autorización si aplica
-        private LocalDateTime fechaProcesamiento;   // Fecha y hora de procesamiento por SIFEN
-        private String xmlRespuesta;                // XML completo de respuesta de SIFEN
-        
-        // Getters y setters
-        public boolean isExitoso() { return exitoso; }
-        public void setExitoso(boolean exitoso) { this.exitoso = exitoso; }
-        
-        public String getCodigoRespuesta() { return codigoRespuesta; }
-        public void setCodigoRespuesta(String codigoRespuesta) { this.codigoRespuesta = codigoRespuesta; }
-        
-        public String getMensajeRespuesta() { return mensajeRespuesta; }
-        public void setMensajeRespuesta(String mensajeRespuesta) { this.mensajeRespuesta = mensajeRespuesta; }
-        
-        public String getProtocoloAutorizacion() { return protocoloAutorizacion; }
-        public void setProtocoloAutorizacion(String protocoloAutorizacion) { this.protocoloAutorizacion = protocoloAutorizacion; }
-        
-        public LocalDateTime getFechaProcesamiento() { return fechaProcesamiento; }
-        public void setFechaProcesamiento(LocalDateTime fechaProcesamiento) { this.fechaProcesamiento = fechaProcesamiento; }
-        
-        public String getXmlRespuesta() { return xmlRespuesta; }
-        public void setXmlRespuesta(String xmlRespuesta) { this.xmlRespuesta = xmlRespuesta; }
+    @Transactional
+    public RespuestaRecepcionEvento nominarReceptor(String cdc, Cliente cliente) throws SifenException {
+        log.info("👤 Nominando receptor para DE con CDC: {}", cdc);
+        if (cliente == null) {
+            throw new IllegalArgumentException("Cliente no puede ser null para nominación");
+        }
+        log.info("   Cliente: {} (ID: {})", cliente.getPersona() != null ? cliente.getPersona().getNombre() : "null", cliente.getId());
+
+        DocumentoElectronico de = documentoElectronicoService.findByCdc(cdc)
+                .orElseThrow(() -> new IllegalArgumentException("No se encontró DE con CDC: " + cdc));
+
+        FacturaLegal factura = de.getFacturaLegal();
+        if (factura == null) {
+            throw new IllegalArgumentException("DE sin factura asociada");
+        }
+
+        if (eventoNominacionDEService.tieneNominacionAprobada(de.getId())) {
+            log.warn("⚠️ El DE ya tiene un evento de nominación APROBADO");
+            throw new IllegalStateException("El DE ya fue nominado exitosamente. No se puede nominar nuevamente.");
+        }
+
+        List<EventoNominacionDE> eventosActivos = eventoNominacionDEService.findActivosByCdcDocumento(cdc);
+        if (!eventosActivos.isEmpty()) {
+            log.info("   🔄 Se encontraron {} evento(s) previo(s) - realizando reintento automático", eventosActivos.size());
+            for (EventoNominacionDE eventoAnterior : eventosActivos) {
+                eventoAnterior.setActivo(false);
+                eventoNominacionDEService.save(eventoAnterior);
+                log.info("      📝 Evento anterior ID {} marcado como inactivo (estado: {})", eventoAnterior.getId(), eventoAnterior.getEstado());
+            }
+        }
+
+        BigDecimal totalFactura = BigDecimal.valueOf(factura.getTotalFinal());
+        LocalDateTime fechaFirma = LocalDateTime.now();
+        LocalDateTime fechaRecepcion = LocalDateTime.now();
+        log.info("   Total: {} (obtenido desde factura ID: {})", totalFactura, factura.getId());
+
+        SifenReceptorHelper.ConfiguracionReceptor config = SifenReceptorHelper.determinarConfiguracionReceptor(cliente, factura.getTotalFinal());
+        TrGeVeNotRec nominacion = new TrGeVeNotRec();
+        nominacion.setId(cdc);
+        nominacion.setdFecEmi(factura.getFecha());
+        nominacion.setdFecRecep(fechaRecepcion);
+        nominacion.setdTotalGs(totalFactura);
+        nominacion.setdNomRec(config.getNombreReceptor());
+
+        String tipoReceptor;
+        String documentoReceptor;
+        if (config.getNaturalezaReceptor() == TiNatRec.CONTRIBUYENTE) {
+            nominacion.setiTipRec(TiNatRec.CONTRIBUYENTE);
+            nominacion.setdRucRec(config.getNumeroDocumento());
+            nominacion.setdDVRec(String.valueOf(config.getDigitoVerificador()));
+            tipoReceptor = "CONTRIBUYENTE";
+            documentoReceptor = config.getNumeroDocumento() + "-" + config.getDigitoVerificador();
+            log.info("   Tipo: Contribuyente - RUC: {}-{}", config.getNumeroDocumento(), config.getDigitoVerificador());
+        } else {
+            nominacion.setiTipRec(TiNatRec.NO_CONTRIBUYENTE);
+            nominacion.setdTipIDRec(config.getTipoDocumentoReceptor());
+            nominacion.setdNumID(config.getNumeroDocumento());
+            tipoReceptor = "NO_CONTRIBUYENTE";
+            documentoReceptor = config.getNumeroDocumento();
+            log.info("   Tipo: No Contribuyente - Doc: {} ({})", config.getNumeroDocumento(), config.getTipoDocumentoReceptor());
+        }
+
+        TgGroupTiEvt tipoEvento = new TgGroupTiEvt();
+        tipoEvento.setrGeVeNotRec(nominacion);
+
+        TrGesEve gestionEvento = new TrGesEve();
+        int numeroRandom = new Random().nextInt(99999999) + 1;
+        String eventoId = String.valueOf(numeroRandom);
+        gestionEvento.setId(eventoId);
+        gestionEvento.setdFecFirma(fechaFirma);
+        gestionEvento.setgGroupTiEvt(tipoEvento);
+
+        List<TrGesEve> listaEventos = new ArrayList<>();
+        listaEventos.add(gestionEvento);
+
+        EventosDE eventosDE = new EventosDE();
+        eventosDE.setrGesEveList(listaEventos);
+
+        EventoNominacionDE eventoNominacion = new EventoNominacionDE();
+        eventoNominacion.setDocumentoElectronico(de);
+        eventoNominacion.setEventoId(eventoId);
+        eventoNominacion.setFechaFirma(fechaFirma);
+        eventoNominacion.setCdcDocumento(cdc);
+        eventoNominacion.setCliente(cliente);
+        eventoNominacion.setNombreReceptor(config.getNombreReceptor());
+        eventoNominacion.setDocumentoReceptor(documentoReceptor);
+        eventoNominacion.setTipoReceptor(tipoReceptor);
+        eventoNominacion.setTotalFactura(totalFactura);
+        eventoNominacion.setFechaEmision(factura.getFecha());
+        eventoNominacion.setFechaRecepcion(fechaRecepcion);
+        eventoNominacion.setEstado(EstadoEvento.PENDIENTE);
+        eventoNominacion.setActivo(true);
+
+        log.info("   📤 Enviando evento de nominación a SIFEN...");
+        RespuestaRecepcionEvento respuesta = Sifen.recepcionEvento(eventosDE);
+
+        String xmlRespuesta = respuesta.getRespuestaBruta();
+        String codigoRespuesta = extraerValorXML(xmlRespuesta, "<dCodRes>", "</dCodRes>");
+        if (codigoRespuesta == null) {
+            codigoRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dCodRes>", "</ns2:dCodRes>");
+        }
+        String mensajeRespuesta = extraerValorXML(xmlRespuesta, "<dMsgRes>", "</dMsgRes>");
+        if (mensajeRespuesta == null) {
+            mensajeRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dMsgRes>", "</ns2:dMsgRes>");
+        }
+        log.info("   📥 Respuesta recibida - Código: {}", codigoRespuesta);
+        log.info("   📥 Mensaje: {}", mensajeRespuesta);
+
+        eventoNominacion.setRespuestaBruta(xmlRespuesta);
+        eventoNominacion.setCodigoRespuesta(codigoRespuesta);
+        eventoNominacion.setMensajeRespuesta(mensajeRespuesta);
+
+        String estadoResultado = extraerValorXML(xmlRespuesta, "<dEstRes>", "</dEstRes>");
+        if (estadoResultado == null) {
+            estadoResultado = extraerValorXML(xmlRespuesta, "<ns2:dEstRes>", "</ns2:dEstRes>");
+        }
+        log.info("   📊 Estado del evento en SIFEN: {}", estadoResultado);
+
+        String protocolo = extraerValorXML(xmlRespuesta, "<dProtAut>", "</dProtAut>");
+        if (protocolo == null) {
+            protocolo = extraerValorXML(xmlRespuesta, "<ns2:dProtAut>", "</ns2:dProtAut>");
+        }
+        if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
+            eventoNominacion.setProtocoloAutorizacion(protocolo);
+            log.info("   📋 Protocolo: {}", protocolo);
+        }
+
+        if ("Aprobado".equalsIgnoreCase(estadoResultado)) {
+            eventoNominacion.setEstado(EstadoEvento.APROBADO);
+            eventoNominacion.setFechaProcesamiento(LocalDateTime.now());
+            de.setCodigoRespuestaSifen(codigoRespuesta);
+            de.setMensajeRespuestaSifen(mensajeRespuesta);
+            documentoElectronicoService.save(de);
+            factura.setCliente(cliente);
+            facturaLegalService.save(factura);
+            log.info("   ✅ Evento APROBADO - Factura actualizada con cliente nominado");
+            log.info("   📋 Código SIFEN: {} - {}", codigoRespuesta, mensajeRespuesta);
+            log.info("   👤 Factura ID {} ahora tiene cliente ID {}", factura.getId(), cliente.getId());
+        } else if ("Rechazado".equalsIgnoreCase(estadoResultado)) {
+            eventoNominacion.setEstado(EstadoEvento.RECHAZADO);
+            eventoNominacion.setFechaProcesamiento(LocalDateTime.now());
+            de.setCodigoRespuestaSifen(codigoRespuesta);
+            de.setMensajeRespuestaSifen(mensajeRespuesta);
+            documentoElectronicoService.save(de);
+            log.error("   ❌ Evento RECHAZADO por SIFEN");
+            log.error("   📋 Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+            log.error("   ℹ️ La factura mantiene cliente NULL (innominada)");
+        } else if (estadoResultado == null || estadoResultado.isEmpty()) {
+            if ("0300".equals(codigoRespuesta)) {
+                eventoNominacion.setEstado(EstadoEvento.PENDIENTE);
+                log.info("   ✅ Evento recibido (código 0300) - pendiente de procesamiento");
+            } else if ("0600".equals(codigoRespuesta)) {
+                if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
+                    eventoNominacion.setEstado(EstadoEvento.APROBADO);
+                    eventoNominacion.setFechaProcesamiento(LocalDateTime.now());
+                    factura.setCliente(cliente);
+                    facturaLegalService.save(factura);
+                    log.info("   ✅ Evento APROBADO (código 0600 + protocolo) - Factura actualizada");
+                    log.info("   👤 Factura ID {} ahora tiene cliente ID {}", factura.getId(), cliente.getId());
+                } else {
+                    eventoNominacion.setEstado(EstadoEvento.PENDIENTE);
+                    log.info("   ✅ Evento registrado (código 0600) - estado pendiente");
+                }
+            } else {
+                eventoNominacion.setEstado(EstadoEvento.ERROR_ENVIO);
+                log.error("   ❌ Error en envío - Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+            }
+        } else {
+            eventoNominacion.setEstado(EstadoEvento.PENDIENTE);
+            log.warn("   ⚠️ Estado desconocido: {} - marcando como PENDIENTE", estadoResultado);
+        }
+
+        eventoNominacionDEService.save(eventoNominacion);
+        log.info("   💾 Evento guardado en BD - ID: {}, Estado: {}", eventoNominacion.getId(), eventoNominacion.getEstado());
+        return respuesta;
     }
 }
 

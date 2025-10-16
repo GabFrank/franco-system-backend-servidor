@@ -57,4 +57,8 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
         return null;
     }
 
+    public Cliente findByPersonaDocumento(String texto) {
+        return repository.findByPersonaDocumento(texto);
+    }
+
 }

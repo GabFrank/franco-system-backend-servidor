@@ -37,6 +37,18 @@ public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE,
         return repository.findByDocumentoElectronicoIdOrderByFecha(documentoElectronicoId);
     }
 
+    public boolean tieneCancelacionAprobada(Long documentoElectronicoId) {
+        return repository.findByDocumentoElectronicoIdAndEstado(documentoElectronicoId, EstadoEvento.APROBADO).isPresent();
+    }
+
+    public List<EventoCancelacionDE> findActivosByCdcDocumento(String cdcDocumento) {
+        return repository.findByCdcDocumentoAndActivo(cdcDocumento, true);
+    }
+
+    public Optional<EventoCancelacionDE> findByEventoId(String eventoId) {
+        return repository.findByEventoId(eventoId);
+    }
+
     @Override
     public EventoCancelacionDE save(EventoCancelacionDE entity) {
         return super.save(entity);

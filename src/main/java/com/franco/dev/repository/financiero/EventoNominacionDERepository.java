@@ -30,5 +30,9 @@ public interface EventoNominacionDERepository extends HelperRepository<EventoNom
     List<EventoNominacionDE> findByDocumentoElectronicoIdOrderByFecha(
         @Param("documentoElectronicoId") Long documentoElectronicoId
     );
+
+    List<EventoNominacionDE> findByCdcDocumentoAndActivo(String cdcDocumento, Boolean activo);
+
+    Optional<EventoNominacionDE> findByEventoId(String eventoId);
 }
 

@@ -31,5 +31,9 @@ public interface EventoCancelacionDERepository extends HelperRepository<EventoCa
     List<EventoCancelacionDE> findByDocumentoElectronicoIdOrderByFecha(
         @Param("documentoElectronicoId") Long documentoElectronicoId
     );
+
+    List<EventoCancelacionDE> findByCdcDocumentoAndActivo(String cdcDocumento, Boolean activo);
+
+    Optional<EventoCancelacionDE> findByEventoId(String eventoId);
 }
 

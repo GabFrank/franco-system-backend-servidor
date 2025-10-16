@@ -37,6 +37,18 @@ public class EventoNominacionDEService extends CrudService<EventoNominacionDE, E
         return repository.findByDocumentoElectronicoIdOrderByFecha(documentoElectronicoId);
     }
 
+    public boolean tieneNominacionAprobada(Long documentoElectronicoId) {
+        return repository.findByDocumentoElectronicoIdAndEstado(documentoElectronicoId, EstadoEvento.APROBADO).isPresent();
+    }
+
+    public List<EventoNominacionDE> findActivosByCdcDocumento(String cdcDocumento) {
+        return repository.findByCdcDocumentoAndActivo(cdcDocumento, true);
+    }
+
+    public Optional<EventoNominacionDE> findByEventoId(String eventoId) {
+        return repository.findByEventoId(eventoId);
+    }
+
     @Override
     public EventoNominacionDE save(EventoNominacionDE entity) {
         return super.save(entity);

@@ -1,6 +1,8 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.DocumentoElectronico;
+import com.franco.dev.domain.financiero.FacturaLegal;
+import com.franco.dev.domain.financiero.LoteDE;
 import com.franco.dev.domain.financiero.enums.EstadoDE;
 import com.franco.dev.repository.financiero.DocumentoElectronicoRepository;
 import com.franco.dev.service.CrudService;
@@ -54,6 +56,24 @@ public class DocumentoElectronicoService extends CrudService<DocumentoElectronic
             LocalDateTime fechaFin,
             Pageable pageable) {
         return repository.findByFilters(estado, fechaInicio, fechaFin, pageable);
+    }
+
+    public List<DocumentoElectronico> findByLoteDe(LoteDE loteDe) {
+        return repository.findByLoteDe(loteDe);
+    }
+
+    public DocumentoElectronico createFromFacturaLegal(FacturaLegal facturaLegal) {
+        DocumentoElectronico documentoElectronico = new DocumentoElectronico();
+        documentoElectronico.setFacturaLegal(facturaLegal);
+        documentoElectronico.setSucursalId(facturaLegal.getSucursalId());
+        documentoElectronico.setNumeroDocumento(facturaLegal.getNumeroFactura().toString());
+        documentoElectronico.setTipoDocumento("FACTURA");
+        documentoElectronico.setFechaEmision(facturaLegal.getFecha());
+        documentoElectronico.setActivo(true);
+        documentoElectronico.setUsuario(facturaLegal.getUsuario());
+        documentoElectronico.setEstado(EstadoDE.PENDIENTE);
+        
+        return documentoElectronico;
     }
 
     @Override

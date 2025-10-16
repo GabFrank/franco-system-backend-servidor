@@ -18,6 +18,7 @@ import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.sifen.SifenService;
+import com.roshka.sifen.core.beans.response.RespuestaConsultaDE;
 
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -63,7 +64,7 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
   }
 
   public List<DocumentoElectronico> documentoElectronicosPorEstado(EstadoDE estado, int page, int size) {
-    Pageable pageable = PageRequest.of(page, size);
+    // TODO: Implementar paginación real con service.findByFilters(estado, null, null, pageable)
     return service.findByEstado(estado);
   }
 
@@ -89,14 +90,23 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
 
   public ConsultaDEResponse consultarDocumentoElectronico(String cdc) {
     try {
-      SifenService.RespuestaConsultaDE respuesta = sifenService.consultarDE(cdc);
+      RespuestaConsultaDE respuesta = sifenService.consultarDE(cdc);
+
+      // Buscar el DE en la base de datos por CDC (se actualiza automáticamente por consultarDE)
+      DocumentoElectronico de = service.findByCdc(cdc).orElse(null);
 
       ConsultaDEResponse graphqlResponse = new ConsultaDEResponse();
-      graphqlResponse.setDocumentoElectronico(respuesta.getDocumentoElectronico());
-      graphqlResponse.setEstadoSifen(respuesta.getEstadoSifen());
-      graphqlResponse.setCodigoRespuesta(respuesta.getCodigoRespuesta());
-      graphqlResponse.setMensajeRespuesta(respuesta.getMensajeRespuesta());
-      graphqlResponse.setExitoso("APROBADO".equals(respuesta.getEstadoSifen()));
+      graphqlResponse.setDocumentoElectronico(de);
+      
+      // Los códigos de SIFEN: 0300 = Aprobado, otros = Error/Rechazado
+      String codigoRespuesta = respuesta.getdCodRes();
+      String mensajeRespuesta = respuesta.getdMsgRes();
+      boolean exitoso = "0300".equals(codigoRespuesta);
+      
+      graphqlResponse.setEstadoSifen(exitoso ? "Aprobado" : "Rechazado");
+      graphqlResponse.setCodigoRespuesta(codigoRespuesta);
+      graphqlResponse.setMensajeRespuesta(mensajeRespuesta);
+      graphqlResponse.setExitoso(exitoso);
 
       return graphqlResponse;
 

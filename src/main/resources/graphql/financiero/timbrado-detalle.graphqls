@@ -54,13 +54,13 @@ type TimbradoDetallePage {
 }
 
 extend type Query {
-    timbradoDetalle(id:ID!):TimbradoDetalle
+    timbradoDetalle(id:ID!, sucId:ID!):TimbradoDetalle
     timbradoDetalles(page:Int = 0, size:Int = 10):[TimbradoDetalle]!
     countTimbradoDetalle: Int
 }
 
 extend type Mutation {
     saveTimbradoDetalle(timbradoDetalle:TimbradoDetalleInput!):TimbradoDetalle!
-    deleteTimbradoDetalle(id:ID!):Boolean!
+    deleteTimbradoDetalle(id:ID!, sucId:ID!):Boolean!
 }
 

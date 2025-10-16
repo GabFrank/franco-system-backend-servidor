@@ -1,6 +1,7 @@
 package com.franco.dev.domain.financiero;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.PuntoDeVenta;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
@@ -19,20 +20,17 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "timbrado_detalle", schema = "financiero")
-public class TimbradoDetalle implements Identifiable<Long> {
+@IdClass(EmbebedPrimaryKey.class)
+public class TimbradoDetalle implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GenericGenerator(
-            name = "assigned-identity",
-            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
-    )
-    @GeneratedValue(
-            generator = "assigned-identity",
-            strategy = GenerationType.IDENTITY
-    )
     private Long id;
+
+    @Id
+    @Column(name = "sucursal_id")
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "timbrado_id", nullable = true)
@@ -79,7 +77,7 @@ public class TimbradoDetalle implements Identifiable<Long> {
     private Usuario usuario;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "sucursal_id", nullable = true)
+    @JoinColumn(name = "sucursal_id", nullable = true, insertable = false, updatable = false)
     private Sucursal sucursal;
 }
 

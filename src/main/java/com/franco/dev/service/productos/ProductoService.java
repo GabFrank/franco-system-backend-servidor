@@ -24,7 +24,6 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,9 +31,7 @@ import org.springframework.util.ResourceUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.nio.file.Files;
-import java.text.NumberFormat;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -65,8 +62,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final CostosPorProductoService costosPorProductoService;
     @Autowired
     private final SucursalService sucursalService;
-    @Autowired
-    private Environment env;
 
     @Override
     public ProductoRepository getRepository() {
@@ -541,5 +536,16 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         
         result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
         return result;
+    }
+
+    public Double findPrecioVentaPorProducto(Long productoId, Long sucursalId){
+        Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, productoId);
+        if(presentacion != null){
+            PrecioPorSucursal precioPorSucursal = precioPorSucursalService.findBySucursalIdAndPresentacionId(sucursalId, presentacion.getId());
+            if(precioPorSucursal != null){
+                return precioPorSucursal.getPrecio();
+            }
+        }
+        return null;
     }
 }

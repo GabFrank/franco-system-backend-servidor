@@ -49,12 +49,26 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
                 pageable
         );
     }
-
     @Override
     public InventarioProductoItem save(InventarioProductoItem entity) {
-        InventarioProductoItem e = new InventarioProductoItem();
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        e = super.save(entity);
-        return e;
+
+        Long inventarioId = null;
+        Long productoId = null;
+        if (entity.getInventarioProducto() != null && entity.getInventarioProducto().getInventario() != null) {
+            inventarioId = entity.getInventarioProducto().getInventario().getId();
+        }
+        if (entity.getPresentacion() != null && entity.getPresentacion().getProducto() != null) {
+            productoId = entity.getPresentacion().getProducto().getId();
+        }
+
+        if (inventarioId != null && productoId != null) {
+            List<InventarioProductoItem> existingItems = findByInventarioIdAndProductoId(inventarioId, productoId);
+            if (!existingItems.isEmpty()) {
+                throw new IllegalStateException("El producto ya fue registrado en este inventario");
+            }
+        }
+
+        return super.save(entity);
     }
 }

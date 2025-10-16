@@ -1,7 +1,6 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
-import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

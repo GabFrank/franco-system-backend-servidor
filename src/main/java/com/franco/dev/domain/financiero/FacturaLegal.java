@@ -37,7 +37,7 @@ public class FacturaLegal implements Serializable {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumns({
-            @JoinColumn(name = "timbrado_detalle_id", referencedColumnName = "id"),
+            @JoinColumn(name = "timbrado_detalle_id", referencedColumnName = "id", insertable = false, updatable = false),
             @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id", insertable = false, updatable = false)
     })
     private TimbradoDetalle timbradoDetalle;

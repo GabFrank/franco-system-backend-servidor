@@ -53,5 +53,10 @@ public class SifenConfiguration {
         }
         return config;
     }
+
+    @Bean
+    public Sifen sifen(SifenConfig sifenConfig) {
+        return new Sifen();
+    }
 }
 

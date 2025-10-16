@@ -14,6 +14,7 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -51,4 +52,9 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Long> {
     public List<LoteDE> findByEstado(EstadoLoteDE estado) {
         return repository.findByEstado(estado);
     }
+
+    public Optional<LoteDE> findByProtocolo(String protocolo) {
+        return repository.findByProtocolo(protocolo);
+    }
+    
 }

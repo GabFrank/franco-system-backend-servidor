@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface LoteDERepository extends HelperRepository<LoteDE, Long> {
@@ -42,6 +43,8 @@ public interface LoteDERepository extends HelperRepository<LoteDE, Long> {
     List<LoteDE> findLotesAntiguosProcesados(@Param("fechaLimite") LocalDateTime fechaLimite);
 
     List<LoteDE> findByEstado(EstadoLoteDE estado);
+
+    Optional<LoteDE> findByProtocolo(String protocolo);
 
 }
 

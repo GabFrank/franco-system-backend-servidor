@@ -3,7 +3,9 @@ package com.franco.dev.service.sifen.test;
 import com.franco.dev.domain.financiero.LoteDE;
 import com.franco.dev.service.financiero.LoteDEService;
 import com.franco.dev.service.sifen.SifenService;
+import com.roshka.sifen.Sifen;
 import com.roshka.sifen.core.beans.response.RespuestaConsultaDE;
+import com.roshka.sifen.core.beans.response.RespuestaConsultaLoteDE;
 import com.roshka.sifen.core.exceptions.SifenException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
@@ -13,6 +15,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.PageRequest;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
@@ -62,6 +65,9 @@ public class SifenTest {
     @Autowired
     private DocumentoElectronicoService documentoElectronicoService;
 
+    @Autowired
+    private Sifen sifen;
+
 
     /**
      * Prueba el flujo completo:
@@ -87,7 +93,9 @@ public class SifenTest {
 
             List<FacturaLegal> facturasPage = facturaLegalService.getRepository().findByCreadoEnBetweenAndSucursalId(fechaInicio, fechaFin, 24L);
 
-            FacturaLegal facturaSeleccionada = facturasPage.stream()
+            FacturaLegal factura = null;
+
+            FacturaLegal facturaSeleccionada = factura != null ? factura : facturasPage.stream()
                 .filter(f -> f.getVenta() != null && !documentoElectronicoService.findByFacturaLegalId(f.getId()).isPresent())
                 .findFirst()
                 .orElse(null);
@@ -150,6 +158,16 @@ public class SifenTest {
             log.info("   - Estado: {}", loteEnviado.getEstado());
             log.info("   - Protocolo: {}", loteEnviado.getProtocolo());
 
+            // Paso 5: Consultar el lote
+            log.info("PASO 5: Consultando el lote...");
+            RespuestaConsultaLoteDE respuestaConsultaLote = sifenService.consultaLotePorProtocolo(loteEnviado.getProtocolo());
+            log.info("Respuesta de SIFEN para consulta de lote: Código {}, Mensaje: {}", respuestaConsultaLote.getdCodResLot(), respuestaConsultaLote.getdMsgResLot());
+            log.info("Respuesta bruta: {}", respuestaConsultaLote.getRespuestaBruta());
+            assert respuestaConsultaLote.getRespuestaBruta() != null && !respuestaConsultaLote.getRespuestaBruta().isEmpty();
+            log.info("✅ Lote ID {} consultado exitosamente a SIFEN.", loteEnviado.getId());
+            log.info("   - Estado: {}", loteEnviado.getEstado());
+            log.info("   - Protocolo: {}", loteEnviado.getProtocolo());
+
         } catch (Exception e) {
             log.error("❌ Error durante el test de flujo completo", e);
             throw new RuntimeException(e);
@@ -167,7 +185,7 @@ public class SifenTest {
         log.info("Iniciando prueba de consulta de Documento Electrónico (DE)...");
 
         // TODO: Reemplazar con un CDC válido para la prueba
-        String cdcPrueba = "01800994825001001000003122025100118428013857"; 
+        String cdcPrueba = "01800994825001001000007822025091612643454517"; 
 
         if ("CDC_DE_PRUEBA".equals(cdcPrueba)) {
             log.warn("ATENCIÓN: El CDC de prueba no ha sido modificado. La prueba no se ejecutará.");
@@ -196,41 +214,10 @@ public class SifenTest {
     void consultaLoteTest() {
         log.info("Iniciando prueba de consulta de Lote de Documentos Electrónicos...");
 
-        // Buscar un lote en estado EN_PROCESO que tenga un protocolo para la prueba
-        List<LoteDE> lotesEnProceso = loteDEService.findByEstado(EstadoLoteDE.EN_PROCESO);
-        
-        Optional<LoteDE> loteParaProbarOpt = lotesEnProceso.stream()
-                .filter(lote -> lote.getProtocolo() != null && !lote.getProtocolo().isEmpty())
-                .findFirst();
+        String protocolo = "10786082195263820";
 
-        if (!loteParaProbarOpt.isPresent()) {
-            log.warn("ATENCIÓN: No se encontró ningún lote en estado EN_PROCESO con un protocolo válido.");
-            log.info("Asegúrate de ejecutar primero un test de envío de lote para tener datos de prueba.");
-            return;
-        }
-
-        LoteDE loteDePrueba = loteParaProbarOpt.get();
-        log.info("Lote encontrado para la prueba. ID: {}, Protocolo: {}", loteDePrueba.getId(), loteDePrueba.getProtocolo());
-        
-        try {
-            // El método consultarLote actualiza el estado del lote directamente en la BD
-            sifenService.consultarLote(loteDePrueba);
-            
-            // Recargar el lote para ver el estado actualizado
-            Optional<LoteDE> loteActualizadoOpt = loteDEService.findById(loteDePrueba.getId());
-            if (loteActualizadoOpt.isPresent()) {
-                LoteDE loteActualizado = loteActualizadoOpt.get();
-                log.info("Estado del lote después de la consulta: {}", loteActualizado.getEstado());
-                log.info("Lote aprobado: {}", loteActualizado.getAprobado());
-                
-                // Aquí puedes agregar aserciones para verificar el estado
-                // Ejemplo: assertEquals(EstadoLoteDE.PROCESADO, loteActualizado.getEstado());
-            }
-
-        } catch (SifenException e) {
-            log.error("Error durante la prueba de consulta de lote", e);
-        }
-
-        log.info("Prueba de consulta de lote finalizada.");
+        RespuestaConsultaLoteDE respuesta = sifenService.consultaLotePorProtocolo(protocolo);
+        log.info("Respuesta de SIFEN para consulta de lote: Código {}, Mensaje: {}", respuesta.getdCodResLot(), respuesta.getdMsgResLot());
+        log.info("Respuesta bruta: {}", respuesta.getRespuestaBruta());
     }
 }

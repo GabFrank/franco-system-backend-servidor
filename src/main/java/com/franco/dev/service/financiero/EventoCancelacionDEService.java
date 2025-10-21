@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EventoCancelacionDE;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.repository.financiero.EventoCancelacionDERepository;
@@ -12,7 +13,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE, EventoCancelacionDERepository, Long> {
+public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE, EventoCancelacionDERepository, EmbebedPrimaryKey> {
 
     private final EventoCancelacionDERepository repository;
 
@@ -21,32 +22,32 @@ public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE,
         return repository;
     }
 
-    public List<EventoCancelacionDE> findByDocumentoElectronicoId(Long documentoElectronicoId) {
-        return repository.findByDocumentoElectronicoId(documentoElectronicoId);
+    public List<EventoCancelacionDE> findByDocumentoElectronicoId(Long documentoElectronicoId, Long sucursalId) {
+        return repository.findByDocumentoElectronicoIdAndSucursalId(documentoElectronicoId, sucursalId);
     }
 
-    public Optional<EventoCancelacionDE> findByDocumentoElectronicoIdAndEstado(Long documentoElectronicoId, EstadoEvento estado) {
-        return repository.findByDocumentoElectronicoIdAndEstado(documentoElectronicoId, estado);
+    public Optional<EventoCancelacionDE> findByDocumentoElectronicoIdAndEstado(Long documentoElectronicoId, Long sucursalId, EstadoEvento estado) {
+        return repository.findByDocumentoElectronicoIdAndSucursalIdAndEstado(documentoElectronicoId, sucursalId, estado);
     }
 
-    public List<EventoCancelacionDE> findByEstado(EstadoEvento estado) {
-        return repository.findByEstado(estado);
+    public List<EventoCancelacionDE> findByEstado(EstadoEvento estado, Long sucursalId) {
+        return repository.findByEstadoAndSucursalId(estado, sucursalId);
     }
 
-    public List<EventoCancelacionDE> findByDocumentoElectronicoIdOrderByFecha(Long documentoElectronicoId) {
-        return repository.findByDocumentoElectronicoIdOrderByFecha(documentoElectronicoId);
+    public List<EventoCancelacionDE> findByDocumentoElectronicoIdOrderByFecha(Long documentoElectronicoId, Long sucursalId) {
+        return repository.findByDocumentoElectronicoIdOrderByFechaAndSucursalId(documentoElectronicoId, sucursalId);
     }
 
-    public boolean tieneCancelacionAprobada(Long documentoElectronicoId) {
-        return repository.findByDocumentoElectronicoIdAndEstado(documentoElectronicoId, EstadoEvento.APROBADO).isPresent();
+    public boolean tieneCancelacionAprobada(Long documentoElectronicoId, Long sucursalId) {
+        return repository.findByDocumentoElectronicoIdAndSucursalIdAndEstado(documentoElectronicoId, sucursalId, EstadoEvento.APROBADO).isPresent();
     }
 
     public List<EventoCancelacionDE> findActivosByCdcDocumento(String cdcDocumento) {
         return repository.findByCdcDocumentoAndActivo(cdcDocumento, true);
     }
 
-    public Optional<EventoCancelacionDE> findByEventoId(String eventoId) {
-        return repository.findByEventoId(eventoId);
+    public Optional<EventoCancelacionDE> findByEventoId(String eventoId, Long sucursalId) {
+        return repository.findByEventoIdAndSucursalId(eventoId, sucursalId);
     }
 
     @Override

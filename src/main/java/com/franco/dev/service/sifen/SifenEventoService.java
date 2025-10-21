@@ -61,7 +61,7 @@ public class SifenEventoService {
         DocumentoElectronico de = documentoElectronicoService.findByCdc(cdc)
                 .orElseThrow(() -> new IllegalArgumentException("No se encontró DE con CDC: " + cdc));
 
-        if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId())) {
+        if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId(), de.getSucursalId())) {
             log.warn("⚠️ El DE ya tiene un evento de cancelación APROBADO");
             log.warn("   Estado del DE: {}", de.getEstado());
             throw new IllegalStateException("El DE ya fue cancelado exitosamente. No se puede cancelar nuevamente.");
@@ -100,6 +100,8 @@ public class SifenEventoService {
 
         EventoCancelacionDE eventoCancelacion = new EventoCancelacionDE();
         eventoCancelacion.setDocumentoElectronico(de);
+        eventoCancelacion.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
+        eventoCancelacion.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
         eventoCancelacion.setEventoId(eventoId);
         eventoCancelacion.setFechaFirma(fechaFirma);
         eventoCancelacion.setCdcDocumento(cdc);
@@ -273,7 +275,7 @@ public class SifenEventoService {
             throw new IllegalArgumentException("DE sin factura asociada");
         }
 
-        if (eventoNominacionDEService.tieneNominacionAprobada(de.getId())) {
+        if (eventoNominacionDEService.tieneNominacionAprobada(de.getId(), de.getSucursalId())) {
             log.warn("⚠️ El DE ya tiene un evento de nominación APROBADO");
             throw new IllegalStateException("El DE ya fue nominado exitosamente. No se puede nominar nuevamente.");
         }
@@ -337,6 +339,8 @@ public class SifenEventoService {
 
         EventoNominacionDE eventoNominacion = new EventoNominacionDE();
         eventoNominacion.setDocumentoElectronico(de);
+        eventoNominacion.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
+        eventoNominacion.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
         eventoNominacion.setEventoId(eventoId);
         eventoNominacion.setFechaFirma(fechaFirma);
         eventoNominacion.setCdcDocumento(cdc);

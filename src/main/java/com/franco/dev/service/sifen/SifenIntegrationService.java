@@ -64,7 +64,7 @@ public class SifenIntegrationService {
 
         try {
             // Verificar si ya existe un DE para esta factura
-            Optional<DocumentoElectronico> existente = documentoElectronicoService.findByFacturaLegalId(factura.getId());
+            Optional<DocumentoElectronico> existente = documentoElectronicoService.findByFacturaLegalId(factura.getId(), factura.getSucursalId());
             if (existente.isPresent()) {
                 log.warn("Intento de crear un DE duplicado para la factura ID {}. Omitiendo.", factura.getId());
                 return;

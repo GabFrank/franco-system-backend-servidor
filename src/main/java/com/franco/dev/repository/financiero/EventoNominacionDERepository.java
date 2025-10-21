@@ -1,5 +1,6 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EventoNominacionDE;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.repository.HelperRepository;
@@ -10,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface EventoNominacionDERepository extends HelperRepository<EventoNominacionDE, Long> {
+public interface EventoNominacionDERepository extends HelperRepository<EventoNominacionDE, EmbebedPrimaryKey> {
 
     default Class<EventoNominacionDE> getEntityClass() {
         return EventoNominacionDE.class;
@@ -18,21 +19,34 @@ public interface EventoNominacionDERepository extends HelperRepository<EventoNom
 
     List<EventoNominacionDE> findAllByOrderByIdDesc(Pageable pageable);
 
-    List<EventoNominacionDE> findByDocumentoElectronicoId(Long documentoElectronicoId);
+    @Query("SELECT e FROM EventoNominacionDE e " +
+           "LEFT JOIN e.documentoElectronico d " +
+           "WHERE d.id = :documentoElectronicoId AND e.sucursalId = :sucursalId")
+    List<EventoNominacionDE> findByDocumentoElectronicoIdAndSucursalId(
+        @Param("documentoElectronicoId") Long documentoElectronicoId, 
+        @Param("sucursalId") Long sucursalId);
 
-    Optional<EventoNominacionDE> findByDocumentoElectronicoIdAndEstado(Long documentoElectronicoId, EstadoEvento estado);
+    @Query("SELECT e FROM EventoNominacionDE e " +
+           "LEFT JOIN e.documentoElectronico d " +
+           "WHERE d.id = :documentoElectronicoId AND e.sucursalId = :sucursalId AND e.estado = :estado")
+    Optional<EventoNominacionDE> findByDocumentoElectronicoIdAndSucursalIdAndEstado(
+        @Param("documentoElectronicoId") Long documentoElectronicoId, 
+        @Param("sucursalId") Long sucursalId, 
+        @Param("estado") EstadoEvento estado);
 
     List<EventoNominacionDE> findByEstado(EstadoEvento estado);
 
-    @Query("SELECT e FROM EventoNominacionDE e WHERE " +
-           "e.documentoElectronico.id = :documentoElectronicoId " +
+    @Query("SELECT e FROM EventoNominacionDE e " +
+           "LEFT JOIN e.documentoElectronico d " +
+           "WHERE d.id = :documentoElectronicoId AND e.sucursalId = :sucursalId " +
            "ORDER BY e.creadoEn DESC")
-    List<EventoNominacionDE> findByDocumentoElectronicoIdOrderByFecha(
-        @Param("documentoElectronicoId") Long documentoElectronicoId
+    List<EventoNominacionDE> findByDocumentoElectronicoIdAndSucursalIdOrderByFecha(
+        @Param("documentoElectronicoId") Long documentoElectronicoId,
+        @Param("sucursalId") Long sucursalId
     );
 
     List<EventoNominacionDE> findByCdcDocumentoAndActivo(String cdcDocumento, Boolean activo);
 
-    Optional<EventoNominacionDE> findByEventoId(String eventoId);
+    Optional<EventoNominacionDE> findByEventoIdAndSucursalId(String eventoId, Long sucursalId);
 }
 

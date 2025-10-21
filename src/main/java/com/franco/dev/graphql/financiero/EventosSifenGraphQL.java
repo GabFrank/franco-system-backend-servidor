@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EventoCancelacionDE;
 import com.franco.dev.domain.financiero.EventoNominacionDE;
 import com.franco.dev.domain.financiero.Timbrado;
@@ -46,24 +47,24 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     // ========== QUERIES ==========
 
-    public EventoCancelacionDE eventoCancelacion(Long id) {
-        return eventoCancelacionDEService.findById(id).orElse(null);
+    public EventoCancelacionDE eventoCancelacion(Long id, Long sucursalId) {
+        return eventoCancelacionDEService.findById(new EmbebedPrimaryKey(id, sucursalId)).orElse(null);
     }
 
-    public List<EventoCancelacionDE> eventosCancelacionPorDocumento(Long documentoId) {
-        return eventoCancelacionDEService.findByDocumentoElectronicoId(documentoId);
+    public List<EventoCancelacionDE> eventosCancelacionPorDocumento(Long documentoId, Long sucursalId) {
+        return eventoCancelacionDEService.findByDocumentoElectronicoId(documentoId, sucursalId);
     }
 
-    public List<EventoCancelacionDE> eventosCancelacionPorEstado(EstadoEvento estado) {
-        return eventoCancelacionDEService.findByEstado(estado);
+    public List<EventoCancelacionDE> eventosCancelacionPorEstado(EstadoEvento estado, Long sucursalId) {
+        return eventoCancelacionDEService.findByEstado(estado, sucursalId);
     }
 
-    public EventoNominacionDE eventoNominacion(Long id) {
-        return eventoNominacionDEService.findById(id).orElse(null);
+    public EventoNominacionDE eventoNominacion(Long id, Long sucursalId) {
+        return eventoNominacionDEService.findById(new EmbebedPrimaryKey(id, sucursalId)).orElse(null);
     }
 
-    public List<EventoNominacionDE> eventosNominacionPorDocumento(Long documentoId) {
-        return eventoNominacionDEService.findByDocumentoElectronicoId(documentoId);
+    public List<EventoNominacionDE> eventosNominacionPorDocumento(Long documentoId, Long sucursalId) {
+        return eventoNominacionDEService.findByDocumentoElectronicoId(documentoId, sucursalId);
     }
 
     public List<EventoNominacionDE> eventosNominacionPorEstado(EstadoEvento estado) {

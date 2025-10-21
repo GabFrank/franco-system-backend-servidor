@@ -96,7 +96,7 @@ public class SifenTest {
             FacturaLegal factura = null;
 
             FacturaLegal facturaSeleccionada = factura != null ? factura : facturasPage.stream()
-                .filter(f -> f.getVenta() != null && !documentoElectronicoService.findByFacturaLegalId(f.getId()).isPresent())
+                .filter(f -> f.getVenta() != null && !documentoElectronicoService.findByFacturaLegalId(f.getId(), f.getSucursalId()).isPresent())
                 .findFirst()
                 .orElse(null);
 
@@ -149,7 +149,7 @@ public class SifenTest {
             sifenService.enviarLote(lote);
 
             // Recargar el lote para verificar el estado
-            LoteDE loteEnviado = loteDEService.findById(lote.getId())
+            LoteDE loteEnviado = loteDEService.findByIdAndSucursalId(lote.getId(), lote.getSucursalId())
                     .orElseThrow(() -> new IllegalStateException("El lote recién creado no se encontró en la BD"));
 
             assert loteEnviado.getEstado() == EstadoLoteDE.EN_PROCESO;

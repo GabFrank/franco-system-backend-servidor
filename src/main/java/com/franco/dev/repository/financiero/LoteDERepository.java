@@ -1,5 +1,6 @@
 package com.franco.dev.repository.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.LoteDE;
 import com.franco.dev.domain.financiero.enums.EstadoLoteDE;
 import com.franco.dev.repository.HelperRepository;
@@ -16,7 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface LoteDERepository extends HelperRepository<LoteDE, Long> {
+public interface LoteDERepository extends HelperRepository<LoteDE, EmbebedPrimaryKey> {
 
     default Class<LoteDE> getEntityClass() {
         return LoteDE.class;
@@ -45,6 +46,9 @@ public interface LoteDERepository extends HelperRepository<LoteDE, Long> {
     List<LoteDE> findByEstado(EstadoLoteDE estado);
 
     Optional<LoteDE> findByProtocolo(String protocolo);
+
+    @Query("SELECT l FROM LoteDE l WHERE l.id = :id AND l.sucursalId = :sucursalId")
+    Optional<LoteDE> findByIdAndSucursalId(@Param("id") Long id, @Param("sucursalId") Long sucursalId);
 
 }
 

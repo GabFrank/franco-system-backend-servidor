@@ -12,6 +12,7 @@ import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.IdClass;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
@@ -22,6 +23,8 @@ import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.enums.EstadoLoteDE;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
@@ -39,13 +42,24 @@ import lombok.NoArgsConstructor;
 )
 @Entity
 @Table(name = "lote_de", schema = "financiero")
+@IdClass(EmbebedPrimaryKey.class)
 public class LoteDE implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
+  @Column(name = "id")
   private Long id;
+
+  @Id
+  @Column(name = "sucursal_id", nullable = false)
+  private Long sucursalId;
+
+  // Relación con la sucursal (para replicación)
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "sucursal_id", nullable = false, insertable = false, updatable = false)
+  private Sucursal sucursal;
 
   @Enumerated(EnumType.STRING)
   @Type(type = "estado_lote_de_enum")

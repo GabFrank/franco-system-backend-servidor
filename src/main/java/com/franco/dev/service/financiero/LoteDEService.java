@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import lombok.AllArgsConstructor;
 import com.franco.dev.service.CrudService;
 import org.springframework.data.domain.Page;
@@ -18,7 +19,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Long> {
+public class LoteDEService extends CrudService<LoteDE, LoteDERepository, EmbebedPrimaryKey> {
 
     private final LoteDERepository repository;
 
@@ -55,6 +56,10 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Long> {
 
     public Optional<LoteDE> findByProtocolo(String protocolo) {
         return repository.findByProtocolo(protocolo);
+    }
+
+    public Optional<LoteDE> findByIdAndSucursalId(Long id, Long sucursalId) {
+        return repository.findByIdAndSucursalId(id, sucursalId);
     }
     
 }

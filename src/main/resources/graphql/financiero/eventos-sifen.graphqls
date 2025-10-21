@@ -1,5 +1,6 @@
 type EventoCancelacionDE {
     id: ID!
+    sucursalId: Int
     documentoElectronico: DocumentoElectronico!
     eventoId: String!
     fechaFirma: Date!
@@ -20,6 +21,7 @@ type EventoCancelacionDE {
 
 type EventoNominacionDE {
     id: ID!
+    sucursalId: Int
     documentoElectronico: DocumentoElectronico!
     eventoId: String
     fechaFirma: Date
@@ -57,12 +59,12 @@ input EventoNominacionDEInput {
 }
 
 extend type Query {
-    eventoCancelacion(id: ID!): EventoCancelacionDE
-    eventosCancelacionPorDocumento(documentoId: ID!): [EventoCancelacionDE]!
-    eventosCancelacionPorEstado(estado: EstadoEvento!): [EventoCancelacionDE]!
+    eventoCancelacion(id: ID!, sucursalId: ID!): EventoCancelacionDE
+    eventosCancelacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoCancelacionDE]!
+    eventosCancelacionPorEstado(estado: EstadoEvento!, sucursalId: ID!): [EventoCancelacionDE]!
 
-    eventoNominacion(id: ID!): EventoNominacionDE
-    eventosNominacionPorDocumento(documentoId: ID!): [EventoNominacionDE]!
+    eventoNominacion(id: ID!, sucursalId: ID!): EventoNominacionDE
+    eventosNominacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoNominacionDE]!
     eventosNominacionPorEstado(estado: EstadoEvento!): [EventoNominacionDE]!
 }
 

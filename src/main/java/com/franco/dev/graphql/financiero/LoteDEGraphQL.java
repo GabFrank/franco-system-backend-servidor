@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.LoteDE;
 import com.franco.dev.domain.financiero.enums.EstadoLoteDE;
@@ -42,8 +43,8 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findAll(page, size);
     }
 
-    public LoteDE loteDe(Long id) {
-        return service.findById(id).orElse(null);
+    public LoteDE loteDe(Long id, Long sucursalId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucursalId)).orElse(null);
     }
 
     @Transactional
@@ -78,9 +79,9 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     @Transactional
-    public Boolean vincularDocumentosALote(Long loteId, List<Long> documentoIds) {
+    public Boolean vincularDocumentosALote(Long loteId, Long sucursalId, List<Long> documentoIds) {
         try {
-            LoteDE lote = service.findById(loteId).orElse(null);
+            LoteDE lote = service.findByIdAndSucursalId(loteId, sucursalId).orElse(null);
             if (lote == null) {
                 throw new RuntimeException("Lote no encontrado");
             }
@@ -94,9 +95,9 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
     }
 
-    public EnvioLoteResponse enviarLote(Long loteId) {
+    public EnvioLoteResponse enviarLote(Long loteId, Long sucursalId) {
         try {
-            LoteDE lote = service.findById(loteId).orElse(null);
+            LoteDE lote = service.findByIdAndSucursalId(loteId, sucursalId).orElse(null);
             if (lote == null) {
                 throw new RuntimeException("Lote no encontrado");
             }
@@ -119,9 +120,9 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
     }
 
-    public ConsultaLoteResponse consultarLote(Long loteId) {
+    public ConsultaLoteResponse consultarLote(Long loteId, Long sucursalId) {
         try {
-            LoteDE lote = service.findById(loteId).orElse(null);
+            LoteDE lote = service.findByIdAndSucursalId(loteId, sucursalId).orElse(null);
             if (lote == null) {
                 throw new RuntimeException("Lote no encontrado");
             }

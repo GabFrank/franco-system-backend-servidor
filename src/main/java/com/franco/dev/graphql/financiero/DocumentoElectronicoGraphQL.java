@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.enums.EstadoDE;
@@ -55,8 +56,8 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
 
   // ========== NUEVAS CONSULTAS SIFEN ==========
 
-  public DocumentoElectronico documentoElectronico(Long id) {
-    return service.findById(id).orElse(null);
+  public DocumentoElectronico documentoElectronico(Long id, Long sucursalId) {
+    return service.findById(new EmbebedPrimaryKey(id, sucursalId)).orElse(null);
   }
 
   public DocumentoElectronico documentoElectronicoPorCdc(String cdc) {
@@ -68,8 +69,8 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
     return service.findByEstado(estado);
   }
 
-  public List<DocumentoElectronico> documentoElectronicosPorLote(Long loteId) {
-    return service.findByLoteDeIdAndEstado(loteId, null);
+  public List<DocumentoElectronico> documentoElectronicosPorLote(Long loteId, Long sucursalId) {
+    return service.findByLoteDeIdAndSucursalIdAndEstado(loteId, sucursalId, null);
   }
 
   // ========== NUEVAS MUTACIONES SIFEN ==========

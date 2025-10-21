@@ -1013,4 +1013,117 @@ public class LogicalReplicationService {
     public String generateCentralToBranchSubscriptionName(Long sucursalId) {
         return "central_filial" + sucursalId + "_sub";
     }
+    
+    /**
+     * Refresh a specific subscription to sync with its publication
+     * @param subscriptionName Name of the subscription to refresh
+     * @return true if successful
+     */
+    public boolean refreshSubscription(String subscriptionName) {
+        try {
+            String sql = "ALTER SUBSCRIPTION " + subscriptionName + " REFRESH PUBLICATION WITH (copy_data = false)";
+            jdbcTemplate.execute(sql);
+            logger.info("Successfully refreshed subscription: " + subscriptionName);
+            return true;
+        } catch (Exception e) {
+            logger.error("Error refreshing subscription " + subscriptionName + ": " + e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Refresh all subscriptions in the database
+     * @return true if all subscriptions were refreshed successfully
+     */
+    public boolean refreshAllSubscriptions() {
+        try {
+            List<Map<String, Object>> subscriptions = listSubscriptions();
+            int successCount = 0;
+            int failCount = 0;
+            
+            for (Map<String, Object> subscription : subscriptions) {
+                String subscriptionName = (String) subscription.get("subname");
+                if (subscriptionName != null) {
+                    if (refreshSubscription(subscriptionName)) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                }
+            }
+            
+            logger.info("Refreshed " + successCount + " subscriptions successfully, " + failCount + " failed");
+            return failCount == 0;
+        } catch (Exception e) {
+            logger.error("Error refreshing all subscriptions: " + e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Refresh a specific subscription on a remote branch
+     * @param sucursalId The ID of the branch
+     * @param subscriptionName Name of the subscription to refresh
+     * @return true if successful
+     */
+    public boolean refreshRemoteSubscription(Long sucursalId, String subscriptionName) {
+        try {
+            Sucursal branch = sucursalService.findById(sucursalId)
+                .orElseThrow(() -> new RuntimeException("Branch not found with ID: " + sucursalId));
+                
+            if (branch.getIp() == null || branch.getPuerto() == null) {
+                throw new RuntimeException("Branch does not have IP or port information");
+            }
+            
+            JdbcTemplate remoteJdbcTemplate = createRemoteJdbcTemplate(
+                branch.getIp(), 
+                branch.getPuerto(), 
+                "general", // Database name
+                dbUsername,
+                dbPassword
+            );
+            
+            String sql = "ALTER SUBSCRIPTION " + subscriptionName + " REFRESH PUBLICATION WITH (copy_data = false)";
+            remoteJdbcTemplate.execute(sql);
+            logger.info("Successfully refreshed remote subscription " + subscriptionName + " on branch " + sucursalId);
+            
+            return true;
+        } catch (Exception e) {
+            logger.error("Error refreshing remote subscription " + subscriptionName + 
+                " on branch " + sucursalId + ": " + e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * Refresh all subscriptions on a remote branch
+     * @param sucursalId The ID of the branch
+     * @return true if all subscriptions were refreshed successfully
+     */
+    public boolean refreshAllRemoteSubscriptions(Long sucursalId) {
+        try {
+            List<Map<String, Object>> subscriptions = listRemoteSubscriptions(sucursalId);
+            int successCount = 0;
+            int failCount = 0;
+            
+            for (Map<String, Object> subscription : subscriptions) {
+                String subscriptionName = (String) subscription.get("subname");
+                if (subscriptionName != null) {
+                    if (refreshRemoteSubscription(sucursalId, subscriptionName)) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                }
+            }
+            
+            logger.info("Refreshed " + successCount + " remote subscriptions successfully on branch " + 
+                sucursalId + ", " + failCount + " failed");
+            return failCount == 0;
+        } catch (Exception e) {
+            logger.error("Error refreshing all remote subscriptions on branch " + 
+                sucursalId + ": " + e.getMessage(), e);
+            return false;
+        }
+    }
 } 

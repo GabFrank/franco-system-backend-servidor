@@ -29,14 +29,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.franco.dev.repository.financiero.FacturaLegalSpecification.withFilters;
 import static com.franco.dev.utilitarios.DateUtils.dateToStringWithFormat;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -78,11 +81,14 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
-    public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
+    public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico, Boolean activo) {
         Pageable pageable = PageRequest.of(page, size);
-        return repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucId, nombre, ruc, pageable);
+        Page<FacturaLegal> response = repository.findAll(withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo), pageable);
+        return response;
+    }
+
+    public Optional<FacturaLegal> findByCdc(String cdc){
+        return repository.findByDocumentoElectronicoCdc(cdc);
     }
 
     public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {

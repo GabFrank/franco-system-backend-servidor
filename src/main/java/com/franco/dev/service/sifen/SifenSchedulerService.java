@@ -169,7 +169,7 @@ public class SifenSchedulerService {
                     sifenService.enviarLote(lote);
                     
                     // Verificar resultado del envío
-                    LoteDE loteActualizado = loteDEService.findById(lote.getId()).orElse(null);
+                    LoteDE loteActualizado = loteDEService.findByIdAndSucursalId(lote.getId(), lote.getSucursalId()).orElse(null);
                     if (loteActualizado != null) {
                         if (loteActualizado.getEstado() == EstadoLoteDE.EN_PROCESO) {
                             log.info("✅ Lote {} enviado exitosamente - Protocolo: {}", 
@@ -252,7 +252,7 @@ public class SifenSchedulerService {
                     lotesConsultados++;
                     
                     // Verificar estado actualizado
-                    LoteDE loteActualizado = loteDEService.findById(lote.getId()).orElse(null);
+                    LoteDE loteActualizado = loteDEService.findByIdAndSucursalId(lote.getId(), lote.getSucursalId()).orElse(null);
                     if (loteActualizado != null) {
                         switch (loteActualizado.getEstado()) {
                             case PROCESADO:

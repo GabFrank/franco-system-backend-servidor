@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EventoNominacionDE;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.repository.financiero.EventoNominacionDERepository;
@@ -12,7 +13,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class EventoNominacionDEService extends CrudService<EventoNominacionDE, EventoNominacionDERepository, Long> {
+public class EventoNominacionDEService extends CrudService<EventoNominacionDE, EventoNominacionDERepository, EmbebedPrimaryKey> {
 
     private final EventoNominacionDERepository repository;
 
@@ -21,32 +22,32 @@ public class EventoNominacionDEService extends CrudService<EventoNominacionDE, E
         return repository;
     }
 
-    public List<EventoNominacionDE> findByDocumentoElectronicoId(Long documentoElectronicoId) {
-        return repository.findByDocumentoElectronicoId(documentoElectronicoId);
+    public List<EventoNominacionDE> findByDocumentoElectronicoId(Long documentoElectronicoId, Long sucursalId) {
+        return repository.findByDocumentoElectronicoIdAndSucursalId(documentoElectronicoId, sucursalId);
     }
 
-    public Optional<EventoNominacionDE> findByDocumentoElectronicoIdAndEstado(Long documentoElectronicoId, EstadoEvento estado) {
-        return repository.findByDocumentoElectronicoIdAndEstado(documentoElectronicoId, estado);
+    public Optional<EventoNominacionDE> findByDocumentoElectronicoIdAndEstado(Long documentoElectronicoId, Long sucursalId, EstadoEvento estado) {
+        return repository.findByDocumentoElectronicoIdAndSucursalIdAndEstado(documentoElectronicoId, sucursalId, estado);
     }
 
     public List<EventoNominacionDE> findByEstado(EstadoEvento estado) {
         return repository.findByEstado(estado);
     }
 
-    public List<EventoNominacionDE> findByDocumentoElectronicoIdOrderByFecha(Long documentoElectronicoId) {
-        return repository.findByDocumentoElectronicoIdOrderByFecha(documentoElectronicoId);
+    public List<EventoNominacionDE> findByDocumentoElectronicoIdOrderByFecha(Long documentoElectronicoId, Long sucursalId) {
+        return repository.findByDocumentoElectronicoIdAndSucursalIdOrderByFecha(documentoElectronicoId, sucursalId);
     }
 
-    public boolean tieneNominacionAprobada(Long documentoElectronicoId) {
-        return repository.findByDocumentoElectronicoIdAndEstado(documentoElectronicoId, EstadoEvento.APROBADO).isPresent();
+    public boolean tieneNominacionAprobada(Long documentoElectronicoId, Long sucursalId) {
+        return repository.findByDocumentoElectronicoIdAndSucursalIdAndEstado(documentoElectronicoId, sucursalId, EstadoEvento.APROBADO).isPresent();
     }
 
     public List<EventoNominacionDE> findActivosByCdcDocumento(String cdcDocumento) {
         return repository.findByCdcDocumentoAndActivo(cdcDocumento, true);
     }
 
-    public Optional<EventoNominacionDE> findByEventoId(String eventoId) {
-        return repository.findByEventoId(eventoId);
+    public Optional<EventoNominacionDE> findByEventoId(String eventoId, Long sucursalId) {
+        return repository.findByEventoIdAndSucursalId(eventoId, sucursalId);
     }
 
     @Override

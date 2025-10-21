@@ -10,13 +10,15 @@ import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
-public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, EmbebedPrimaryKey> {
+public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, EmbebedPrimaryKey>, JpaSpecificationExecutor<FacturaLegal> {
 
     default Class<FacturaLegal> getEntityClass() {
         return FacturaLegal.class;
@@ -58,6 +60,9 @@ public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, E
             "and (:nombre is null or fl.nombre like :nombre) " +
             "and (:ruc is null or fl.ruc like :ruc)")
     public ResumenFacturasDto findResumenFacturas(LocalDateTime inicio, LocalDateTime fin, List<Long> sucId, String nombre, String ruc);
+
+    @Query("select f from DocumentoElectronico de join de.facturaLegal f where de.cdc = :cdc")
+    Optional<FacturaLegal> findByDocumentoElectronicoCdc(@Param("cdc") String cdc);
 
 //    @Query(value = "select " +
 //            "CAST('I' AS TEXT) as ven_tipimp, " +

@@ -1,5 +1,6 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.LoteDE;
@@ -17,7 +18,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class DocumentoElectronicoService extends CrudService<DocumentoElectronico, DocumentoElectronicoRepository, Long> {
+public class DocumentoElectronicoService extends CrudService<DocumentoElectronico, DocumentoElectronicoRepository, EmbebedPrimaryKey> {
 
     private final DocumentoElectronicoRepository repository;
 
@@ -30,20 +31,20 @@ public class DocumentoElectronicoService extends CrudService<DocumentoElectronic
         return repository.findByCdc(cdc);
     }
 
-    public Optional<DocumentoElectronico> findByFacturaLegalId(Long facturaLegalId) {
-        return repository.findByFacturaLegalId(facturaLegalId);
+    public Optional<DocumentoElectronico> findByFacturaLegalId(Long facturaLegalId, Long sucursalId) {
+        return repository.findByFacturaLegalId(facturaLegalId, sucursalId);
     }
 
     public List<DocumentoElectronico> findByEstado(EstadoDE estado) {
         return repository.findByEstado(estado);
     }
 
-    public List<DocumentoElectronico> findByLoteDeIdAndEstado(Long loteId, EstadoDE estado) {
-        return repository.findByLoteDeIdAndEstado(loteId, estado);
+    public List<DocumentoElectronico> findByLoteDeIdAndSucursalIdAndEstado(Long loteId, Long sucursalId, EstadoDE estado) {
+        return repository.findByLoteDeIdAndSucursalIdAndEstado(loteId, sucursalId, estado);
     }
 
     public List<DocumentoElectronico> findByLoteDeIdList(Long loteId) {
-        return repository.findByLoteDeIdAndEstado(loteId, null);
+        return repository.findByLoteDeIdAndSucursalIdAndEstado(loteId, null, null);
     }
 
     public List<DocumentoElectronico> findByIdIn(List<Long> ids) {
@@ -54,8 +55,9 @@ public class DocumentoElectronicoService extends CrudService<DocumentoElectronic
             EstadoDE estado,
             LocalDateTime fechaInicio,
             LocalDateTime fechaFin,
+            Long sucursalId,
             Pageable pageable) {
-        return repository.findByFilters(estado, fechaInicio, fechaFin, pageable);
+        return repository.findByFilters(estado, fechaInicio, fechaFin, sucursalId, pageable);
     }
 
     public List<DocumentoElectronico> findByLoteDe(LoteDE loteDe) {

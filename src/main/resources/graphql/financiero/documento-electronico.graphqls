@@ -41,10 +41,10 @@ input DocumentoElectronicoInput {
 
 extend type Query {
     documentoElectronicos(page: Int = 0, size: Int = 10): [DocumentoElectronico]!
-    documentoElectronico(id: ID!): DocumentoElectronico
+    documentoElectronico(id: ID!, sucursalId: ID!): DocumentoElectronico
     documentoElectronicoPorCdc(cdc: String!): DocumentoElectronico
     documentoElectronicosPorEstado(estado: EstadoDE!, page: Int = 0, size: Int = 10): [DocumentoElectronico]!
-    documentoElectronicosPorLote(loteId: ID!): [DocumentoElectronico]!
+    documentoElectronicosPorLote(loteId: ID!, sucursalId: ID!): [DocumentoElectronico]!
 }
 
 extend type Mutation {

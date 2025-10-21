@@ -83,6 +83,12 @@ extend type Mutation {
     # Enable or disable a replication
     toggleReplication(sucursalId: ID!, enabled: Boolean!, isSubscription: Boolean = true): ReplicationStatus!
     
+    # Refresh a specific subscription (sync with publication)
+    refreshSubscription(subscriptionName: String!): ReplicationStatus!
+    
+    # Refresh all subscriptions in the database
+    refreshAllSubscriptions: ReplicationStatus!
+    
     # Remote branch mutations
     # Toggle a subscription on a remote branch
     toggleRemoteSubscription(branchSucursalId: ID!, subscriptionName: String!, enabled: Boolean!): ReplicationStatus!
@@ -115,4 +121,10 @@ extend type Mutation {
         connectionString: String, 
         publicationName: String
     ): ReplicationStatus!
+    
+    # Refresh a specific subscription on a remote branch
+    refreshRemoteSubscription(branchSucursalId: ID!, subscriptionName: String!): ReplicationStatus!
+    
+    # Refresh all subscriptions on a remote branch
+    refreshAllRemoteSubscriptions(branchSucursalId: ID!): ReplicationStatus!
 } 

@@ -23,10 +23,10 @@ exec 2> >(tee -a "$ERR_LOG" >&2)
 REMOTE_DUMP_MODE="ssh"
 
 # Datos de la DB remota a respaldar
-REMOTE_DB_HOST="172.25.1.24"
+REMOTE_DB_HOST="172.25.1.200"
 REMOTE_DB_PORT="5551"
 REMOTE_DB_USER="franco"
-REMOTE_DB_NAME="general"
+REMOTE_DB_NAME="bodega"
 REMOTE_DB_PASSWORD="franco"
 
 # Si usas modo "ssh"
@@ -52,14 +52,14 @@ PGPASSWORD_VALUE="franco"
 PGDATABASE_FOR_MGMT="postgres"
 
 # Base de datos objetivo a recrear (LOCAL)
-DB_NAME="bodega-fact-test"
+DB_NAME="bodega_fact_test_2"
 DB_OWNER="franco"         # owner de la DB creada (puede ser el mismo usuario)
 
 # Opcional: Encoding/Locale al crear DB (dejar vacío para defaults del cluster)
 CREATE_DB_OPTS=""         # ej: "ENCODING 'UTF8' LC_COLLATE 'es_PY.UTF-8' LC_CTYPE 'es_PY.UTF-8'"
 
 # Política de stop en error para psql (1=detenerse en el primer error, recomendado)
-ON_ERROR_STOP="1"
+ON_ERROR_STOP="0"
 
 ###############################################################################
 # No editar desde aquí

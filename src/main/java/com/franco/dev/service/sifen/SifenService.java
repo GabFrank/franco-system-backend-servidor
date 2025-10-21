@@ -197,6 +197,7 @@ public class SifenService {
 
     /**
      * Vincula documentos electrónicos a un lote y actualiza sus estados a EN_LOTE.
+     * Asigna la sucursal del primer documento al lote si no tiene sucursal asignada.
      * 
      * @param lote El lote al cual vincular los documentos
      * @param documentos Lista de documentos a vincular
@@ -205,6 +206,25 @@ public class SifenService {
     public void vincularDocumentosALote(LoteDE lote, 
             List<com.franco.dev.domain.financiero.DocumentoElectronico> documentos) {
         log.info("🔗 Vinculando {} documentos al lote ID: {}", documentos.size(), lote.getId());
+        
+        if (documentos.isEmpty()) {
+            log.warn("⚠️ No hay documentos para vincular al lote");
+            return;
+        }
+        
+        // Asignar sucursal al lote desde el primer documento si no tiene sucursal
+        if (lote.getSucursal() == null && !documentos.isEmpty()) {
+            com.franco.dev.domain.financiero.DocumentoElectronico primerDocumento = documentos.get(0);
+            if (primerDocumento.getSucursal() != null) {
+                lote.setSucursal(primerDocumento.getSucursal());
+                lote.setSucursalId(primerDocumento.getSucursalId());
+                loteDEService.save(lote);
+                log.info("✅ Sucursal ID {} asignada al lote desde el primer documento", 
+                    primerDocumento.getSucursalId());
+            } else {
+                log.warn("⚠️ El primer documento no tiene sucursal asignada");
+            }
+        }
         
         for (com.franco.dev.domain.financiero.DocumentoElectronico documento : documentos) {
             documento.setLoteDe(lote);
@@ -720,7 +740,7 @@ public class SifenService {
             }
             
             // Si hay eventos aprobados, actualizar estado del DE
-            if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId())) {
+            if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId(), de.getSucursalId())) {
                 de.setEstado(EstadoDE.CANCELADO);
                 documentoElectronicoService.save(de);
                 log.info("   ✅ DE actualizado a estado CANCELADO por evento aprobado");
@@ -785,7 +805,7 @@ public class SifenService {
         try {
             // Buscar si el evento ya existe en BD
             EventoCancelacionDE eventoExistente = 
-                eventoCancelacionDEService.findByEventoId(eventoParsed.getEventoId()).orElse(null);
+                eventoCancelacionDEService.findByEventoId(eventoParsed.getEventoId(), de.getSucursalId()).orElse(null);
             
             if (eventoExistente != null) {
                 // Actualizar evento existente con datos de SIFEN
@@ -821,6 +841,8 @@ public class SifenService {
                 
                 EventoCancelacionDE nuevoEvento = new EventoCancelacionDE();
                 nuevoEvento.setDocumentoElectronico(de);
+                nuevoEvento.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
+                nuevoEvento.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
                 nuevoEvento.setEventoId(eventoParsed.getEventoId());
                 nuevoEvento.setFechaFirma(eventoParsed.getFechaFirma());
                 nuevoEvento.setCdcDocumento(eventoParsed.getCdcDocumento());
@@ -841,7 +863,8 @@ public class SifenService {
                 }
                 
                 eventoCancelacionDEService.save(nuevoEvento);
-                log.info("      ✅ Nuevo evento creado - ID: {}", nuevoEvento.getId());
+                log.info("      ✅ Nuevo evento creado - ID: {} con Sucursal ID: {}", 
+                    nuevoEvento.getId(), de.getSucursal() != null ? de.getSucursal().getId() : "NULL");
             }
             
         } catch (Exception e) {
@@ -862,7 +885,7 @@ public class SifenService {
         try {
             // Buscar si el evento ya existe en BD
             EventoNominacionDE eventoExistente = 
-                eventoNominacionDEService.findByEventoId(eventoParsed.getEventoId()).orElse(null);
+                eventoNominacionDEService.findByEventoId(eventoParsed.getEventoId(), de.getSucursalId()).orElse(null);
             
             if (eventoExistente != null) {
                 // Actualizar evento existente con datos de SIFEN
@@ -918,6 +941,8 @@ public class SifenService {
             // Crear nuevo evento de nominación
             EventoNominacionDE nuevoEvento = new EventoNominacionDE();
             nuevoEvento.setDocumentoElectronico(de);
+            nuevoEvento.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
+            nuevoEvento.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
             nuevoEvento.setEventoId(eventoParsed.getEventoId());
             nuevoEvento.setFechaFirma(eventoParsed.getFechaFirma());
             nuevoEvento.setCdcDocumento(eventoParsed.getCdcDocumento());

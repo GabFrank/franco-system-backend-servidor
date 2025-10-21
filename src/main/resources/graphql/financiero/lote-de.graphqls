@@ -1,5 +1,6 @@
 type LoteDE {
     id: ID!
+    sucursalId: Int
     estado: EstadoLoteDE
     fechaProcesado: Date
     fechaUltimoIntento: Date
@@ -14,6 +15,7 @@ type LoteDE {
 
 input LoteDEInput {
     id: ID
+    sucursalId: Int
     estado: EstadoLoteDE
     fechaProcesado: String
     fechaUltimoIntento: String
@@ -24,7 +26,7 @@ input LoteDEInput {
 }
 
 extend type Query {
-    loteDe(id: ID!): LoteDE
+    loteDe(id: ID!, sucursalId: ID!): LoteDE
     loteDes(page: Int = 0, size: Int = 10, estado: EstadoLoteDE, fechaInicio: String, fechaFin: String): PageLoteDE!
     loteDesPaginado(page: Int = 0, size: Int = 10): [LoteDE]!
     lotesPendientes: [LoteDE]!
@@ -34,9 +36,9 @@ extend type Query {
 extend type Mutation {
     saveLoteDe(input: LoteDEInput!): LoteDE!
     crearLote: LoteDE!
-    vincularDocumentosALote(loteId: ID!, documentoIds: [ID!]!): Boolean!
-    enviarLote(loteId: ID!): EnvioLoteResponse!
-    consultarLote(loteId: ID!): ConsultaLoteResponse!
+    vincularDocumentosALote(loteId: ID!, sucursalId: ID!, documentoIds: [ID!]!): Boolean!
+    enviarLote(loteId: ID!, sucursalId: ID!): EnvioLoteResponse!
+    consultarLote(loteId: ID!, sucursalId: ID!): ConsultaLoteResponse!
 }
 
 type PageLoteDE {

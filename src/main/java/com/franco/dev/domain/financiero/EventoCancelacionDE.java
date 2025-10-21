@@ -1,5 +1,7 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
@@ -24,18 +26,32 @@ import java.time.LocalDateTime;
 )
 @Entity
 @Table(name = "evento_cancelacion_de", schema = "financiero")
+@IdClass(EmbebedPrimaryKey.class)
 public class EventoCancelacionDE implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
+
+    @Id
+    @Column(name = "sucursal_id", nullable = false)
+    private Long sucursalId;
 
     // Relación con el documento electrónico cancelado
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "documento_electronico_id", nullable = false)
+    @JoinColumns({
+        @JoinColumn(name = "documento_electronico_id", referencedColumnName = "id", insertable = false, updatable = false),
+        @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id", insertable = false, updatable = false)
+    })
     private DocumentoElectronico documentoElectronico;
+
+    // Relación con la sucursal (para replicación)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_id", nullable = false, insertable = false, updatable = false)
+    private Sucursal sucursal;
 
     // Datos del evento de cancelación enviado
     @Column(name = "evento_id")

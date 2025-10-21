@@ -25,6 +25,7 @@ type FacturaLegal {
     sucursalId: Int
     facturaLegalItemList: [FacturaLegalItem]
     sucursal:Sucursal
+    activo: Boolean
 }
 
 input FacturaLegalInput {
@@ -49,6 +50,7 @@ input FacturaLegalInput {
     descuento:Float
     usuarioId: Int
     sucursalId: Int
+    activo: Boolean
 }
 
 type FacturaLegalPage {
@@ -75,8 +77,9 @@ type ResumenFacturasDto {
 
 extend type Query {
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
-    facturaLegales(page: Int, size: Int, fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):FacturaLegalPage!
+    facturaLegales(page: Int, size: Int, fechaInicio: String, fechaFin: String, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, isElectronico: Boolean, activo: Boolean):FacturaLegalPage!
     countFacturaLegal: Int
+    facturaLegalByCdc(cdc: String):FacturaLegal
     reimprimirFacturaLegal(id:ID!, sucId:ID!, printerName: String):Boolean
     findResumenFacturas(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):ResumenFacturasDto!
     generarExcelFacturas(fechaInicio: String!, fechaFin: String!, sucId: ID):String

@@ -6,4 +6,6 @@
 pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile restart
 pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile restart
 
--- donde me quede
+-- logs
+tail -f /usr/local/var/postgres/log/
+tail -f /usr/local/var/postgres2/log/

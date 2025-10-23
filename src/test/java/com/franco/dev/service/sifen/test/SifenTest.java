@@ -185,7 +185,7 @@ public class SifenTest {
         log.info("Iniciando prueba de consulta de Documento Electrónico (DE)...");
 
         // TODO: Reemplazar con un CDC válido para la prueba
-        String cdcPrueba = "01800994825001001000007822025091612643454517"; 
+        String cdcPrueba = "0180099482001001000007922025102210087356262"; 
 
         if ("CDC_DE_PRUEBA".equals(cdcPrueba)) {
             log.warn("ATENCIÓN: El CDC de prueba no ha sido modificado. La prueba no se ejecutará.");

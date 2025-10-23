@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.productos.Producto;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -45,6 +46,11 @@ public class FacturaLegalItem implements Serializable {
             @JoinColumnOrFormula(column = @JoinColumn(name = "venta_item_id", referencedColumnName = "id"))
     })
     private VentaItem ventaItem;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "producto_id", nullable = true)
+    private Producto producto;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "presentacion_id", nullable = true)
     private Presentacion presentacion;

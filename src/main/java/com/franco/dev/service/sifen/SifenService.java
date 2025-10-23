@@ -1522,7 +1522,7 @@ public class SifenService {
             TgCamItem gCamItem = new TgCamItem();
             gCamItem.setdCodInt(String.format("%03d", i + 1));
             gCamItem.setdDesProSer(item.getDescripcion());
-            Producto producto = item.getVentaItem() != null ? item.getVentaItem().getProducto() : null;
+            Producto producto = item.getProducto() != null ? item.getProducto() : (item.getVentaItem() != null ? item.getVentaItem().getProducto() : null);
 
             BigDecimal cantidad;
             float cantidadFloat = item.getCantidad() != null ? item.getCantidad() : 0.0f;
@@ -1544,9 +1544,26 @@ public class SifenService {
             gCamItem.setgValorItem(gValorItem);
 
             TgCamIVA gCamIVA = new TgCamIVA();
-            gCamIVA.setiAfecIVA(TiAfecIVA.GRAVADO);
-            gCamIVA.setdPropIVA(BigDecimal.valueOf(100));
-            gCamIVA.setdTasaIVA(BigDecimal.valueOf(10));
+            Integer iva = (producto != null && producto.getIva() != null) ? producto.getIva() : 10; // Default to 10
+
+            switch (iva) {
+                case 5:
+                    gCamIVA.setiAfecIVA(TiAfecIVA.GRAVADO);
+                    gCamIVA.setdPropIVA(BigDecimal.valueOf(100));
+                    gCamIVA.setdTasaIVA(BigDecimal.valueOf(5));
+                    gCamIVA.setdBasExe(BigDecimal.ZERO);
+                    break;
+                case 0:
+                    gCamIVA.setiAfecIVA(TiAfecIVA.EXENTO);
+                    break;
+                case 10:
+                default:
+                    gCamIVA.setiAfecIVA(TiAfecIVA.GRAVADO);
+                    gCamIVA.setdPropIVA(BigDecimal.valueOf(100));
+                    gCamIVA.setdTasaIVA(BigDecimal.valueOf(10));
+                    gCamIVA.setdBasExe(BigDecimal.ZERO);
+                    break;
+            }
             gCamItem.setgCamIVA(gCamIVA);
 
             gCamItemList.add(gCamItem);

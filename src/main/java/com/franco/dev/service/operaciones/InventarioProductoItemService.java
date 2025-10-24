@@ -6,14 +6,18 @@ import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 @Service
 @AllArgsConstructor
 public class InventarioProductoItemService extends CrudService<InventarioProductoItem, InventarioProductoItemRepository, Long> {
+
     private final InventarioProductoItemRepository repository;
 
     @Override
@@ -29,8 +33,8 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
         return repository.findByInventarioProductoId(id);
     }
 
-    public List<InventarioProductoItem> findByInventarioIdAndProductoId(Long invId, Long proId){
-        return repository.findByInventarioIdAndProductoId(invId, proId);
+    public List<InventarioProductoItem> findByInventarioIdAndProductoId(Long inventarioId, Long productoId) {
+        return repository.findByInventarioIdAndProductoId(inventarioId, productoId);
     }
 
     public Page<InventarioProductoItem> findItemsParaRevisar(Long inventarioId, String filtro, Pageable pageable) {
@@ -38,30 +42,132 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
     }
 
     public Page<InventarioProductoItem> findAllWithFilters(
-            List<Long> sucursalIdList,
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
             LocalDateTime startDate,
             LocalDateTime endDate,
-            List<Long> usuarioIdList,
-            List<Long> productoIdList,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
             Pageable pageable) {
         return repository.findAllWithFilters(
-                sucursalIdList,
-                startDate,
-                endDate,
-                usuarioIdList,
-                productoIdList,
-                pageable
-        );
+                sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidos(
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
+            Pageable pageable) {
+        return repository.findProductosVencidos(
+                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidosConFecha(
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            LocalDateTime startDate,
+            LocalDateTime endDate,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
+            Pageable pageable) {
+        return repository.findProductosVencidosConFecha(
+                sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosProximosAVencer(
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
+            LocalDateTime fechaProximoVencimiento,
+            Pageable pageable) {
+        return repository.findProductosProximosAVencer(
+                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, fechaProximoVencimiento, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidosCompleto(
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            @Nullable LocalDateTime startDate,
+            @Nullable LocalDateTime endDate,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
+            @Nullable Boolean incluirProximosVencer,
+            @Nullable Integer diasProximosVencer,
+            @Nullable Boolean soloRealmenteVencidos,
+            Pageable pageable) {
+
+        if (startDate != null && endDate != null) {
+            return findProductosVencidosConFecha(
+                    sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, pageable);
+        }
+
+        if (Boolean.TRUE.equals(incluirProximosVencer) && diasProximosVencer != null) {
+            LocalDateTime fechaLimite = LocalDateTime.now().plusDays(diasProximosVencer);
+            return findProductosProximosAVencer(
+                    sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, fechaLimite, pageable);
+        }
+
+        return findProductosVencidos(
+                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidosPorSucursal(
+            @Nullable Long sucursalId,
+            Pageable pageable) {
+        List<Long> sucursalIdList = sucursalId != null ? Collections.singletonList(sucursalId) : null;
+        return findProductosVencidos(sucursalIdList, null, null, null, null, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidosPorSector(
+            @Nullable Long sectorId,
+            Pageable pageable) {
+        List<Long> sectorIdList = sectorId != null ? Collections.singletonList(sectorId) : null;
+        return findProductosVencidos(null, sectorIdList, null, null, null, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidosPorZona(
+            @Nullable Long zonaId,
+            Pageable pageable) {
+        List<Long> zonaIdList = zonaId != null ? Collections.singletonList(zonaId) : null;
+        return findProductosVencidos(null, null, zonaIdList, null, null, pageable);
+    }
+
+    public Page<InventarioProductoItem> findProductosVencidosPorSucursalYSector(
+            @Nullable Long sucursalId,
+            @Nullable Long sectorId,
+            Pageable pageable) {
+        List<Long> sucursalIdList = sucursalId != null ? Collections.singletonList(sucursalId) : null;
+        List<Long> sectorIdList = sectorId != null ? Collections.singletonList(sectorId) : null;
+        return findProductosVencidos(sucursalIdList, sectorIdList, null, null, null, pageable);
+    }
+
+    public Long countProductosVencidos(
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList) {
+        return repository.countProductosVencidos(
+                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList);
     }
 
     @Override
     public InventarioProductoItem save(InventarioProductoItem entity) {
-        InventarioProductoItem e = new InventarioProductoItem();
-        if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        if (entity.getVerificado() != null && entity.getVerificado() == true && entity.getFechaVerificado() == null) {
+        if (entity.getCreadoEn() == null) {
+            entity.setCreadoEn(LocalDateTime.now());
+        }
+
+        if (Boolean.TRUE.equals(entity.getVerificado()) && entity.getFechaVerificado() == null) {
             entity.setFechaVerificado(LocalDateTime.now());
         }
-        e = super.save(entity);
-        return e;
+
+        return super.save(entity);
     }
 }

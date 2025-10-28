@@ -169,12 +169,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 ReporteInventarioDto dto = new ReporteInventarioDto();
                 dto.setProductoId(item.getPresentacion().getProducto().getId());
                 dto.setDescripcion(item.getPresentacion().getProducto().getDescripcion());
-
-                // Usar los valores originales del objeto sin conversión
                 dto.setCantidadEncontrada(item.getCantidadFisica());
                 dto.setCantidadSistema(item.getCantidad());
-
-                // CORRECCIÓN: Calcular saldo manteniendo el tipo Double
                 Double cantidad = item.getCantidad() != null ? item.getCantidad() : 0.0;
                 Double cantidadFisica = item.getCantidadFisica() != null ? item.getCantidadFisica() : 0.0;
                 Double saldo = cantidad - cantidadFisica;

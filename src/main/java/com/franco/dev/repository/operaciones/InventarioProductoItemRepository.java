@@ -70,7 +70,6 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
             "WHERE i.id = ?1 AND p2.id = ?2", nativeQuery = true)
     List<InventarioProductoItem> findByInventarioIdAndProductoId(Long inventarioId, Long productoId);
 
-    // Consulta corregida para productos vencidos
     @Query("SELECT i FROM InventarioProductoItem i " +
             "JOIN i.inventarioProducto ip " +
             "JOIN ip.inventario inv " +
@@ -106,8 +105,6 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
         return findProductosVencidos(sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList,
                 InventarioProductoEstado.VENCIDO, pageable);
     }
-
-    // Consulta corregida para productos vencidos con fecha
     @Query("SELECT i FROM InventarioProductoItem i " +
             "JOIN i.inventarioProducto ip " +
             "JOIN ip.inventario inv " +
@@ -133,8 +130,6 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
             @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
             @Param("productoIdList") @Nullable List<Long> productoIdList,
             Pageable pageable);
-
-    // Consulta corregida para productos próximos a vencer
     @Query("SELECT i FROM InventarioProductoItem i " +
             "JOIN i.inventarioProducto ip " +
             "JOIN ip.inventario inv " +
@@ -174,7 +169,6 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                 fechaProximoVencimiento, InventarioProductoEstado.VENCIDO, pageable);
     }
 
-    // Consulta corregida para contar productos vencidos
     @Query("SELECT COUNT(i) FROM InventarioProductoItem i " +
             "JOIN i.inventarioProducto ip " +
             "JOIN ip.inventario inv " +

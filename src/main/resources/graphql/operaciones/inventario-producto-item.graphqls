@@ -1,7 +1,8 @@
 type InventarioProductoItem {
-    id:ID!
+    id: ID!
     inventarioProducto: InventarioProducto
     zona: Zona
+    sector: Sector
     presentacion: Presentacion
     cantidad: Float
     cantidadFisica: Float
@@ -16,9 +17,10 @@ type InventarioProductoItem {
 }
 
 input InventarioProductoItemInput {
-    id:Int
+    id: Int
     inventarioProductoId: Int
     zonaId: Int
+    sectorId: Int
     presentacionId: Int
     cantidad: Float
     cantidadFisica: Float
@@ -44,9 +46,9 @@ type InventarioProductoItemPage {
 }
 
 extend type Query {
-    inventarioProductoItem(id:ID!):InventarioProductoItem
-    inventarioProductosItem(page:Int = 0, size:Int = 10):[InventarioProductoItem]!
-    inventarioProductosItemPorInventarioProducto(id:ID!, page:Int = 0, size:Int = 10):[InventarioProductoItem]!
+    inventarioProductoItem(id: ID!): InventarioProductoItem
+    inventarioProductosItem(page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+    inventarioProductosItemPorInventarioProducto(id: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
 
     inventarioProductoItemWithFilter(
         startDate: String,
@@ -54,8 +56,8 @@ extend type Query {
         sucursalIdList: [Int],
         sectorIdList: [Int],
         zonaIdList: [Int],
-        usuarioIdList:[ID],
-        productoIdList:[ID],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
         page: Int,
         size: Int,
         orderBy: String,
@@ -68,8 +70,8 @@ extend type Query {
         sucursalIdList: [Int],
         sectorIdList: [Int],
         zonaIdList: [Int],
-        usuarioIdList:[ID],
-        productoIdList:[ID],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
         page: Int,
         size: Int,
         orderBy: String,
@@ -83,8 +85,6 @@ extend type Query {
         page: Int!,
         size: Int!
     ): InventarioProductoItemPage
-
-    # Queries para productos vencidos
     productosVencidos(
         startDate: String,
         endDate: String,
@@ -159,12 +159,12 @@ extend type Query {
 }
 
 extend type Mutation {
-    saveInventarioProductoItem(inventarioProductoItem:InventarioProductoItemInput!):InventarioProductoItem!
-    deleteInventarioProductoItem(id:ID!):Boolean!
+    saveInventarioProductoItem(inventarioProductoItem: InventarioProductoItemInput!): InventarioProductoItem!
+    deleteInventarioProductoItem(id: ID!): Boolean!
 }
 
 enum InventarioProductoEstado {
-    BUENO,
-    AVERIADO,
+    BUENO
+    AVERIADO
     VENCIDO
 }

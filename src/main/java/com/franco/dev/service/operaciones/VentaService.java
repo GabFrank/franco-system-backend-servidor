@@ -2,6 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.VentaCredito;
@@ -13,9 +14,12 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.repository.operaciones.VentaRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
+import com.franco.dev.service.sifen.SifenEventoService;
+
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +66,12 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private VentaCreditoService ventaCreditoService;
+
+    @Autowired
+    private FacturaLegalService facturaLegalService;
+
+    @Autowired
+    private SifenEventoService sifenEventoService;
 
     @Override
     public VentaRepository getRepository() {
@@ -208,6 +218,23 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             if (ventaCredito != null) {
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
+
+            FacturaLegal facturaLegal = facturaLegalService.findByVentaIdAndSucursalId(venta.getId(), venta.getSucursalId());
+            if (facturaLegal != null) {
+                // Si la factura es electrónica, cancelar el documento electrónico
+                if (facturaLegal.getCdc() != null && !facturaLegal.getCdc().isEmpty()) {
+                    try {
+                        sifenEventoService.cancelarDE(facturaLegal.getCdc(), "Cancelación de venta");
+                        log.info("Documento electrónico cancelado para venta ID: " + venta.getId().toString());
+                    } catch (Exception e) {
+                        log.warning("Error al cancelar documento electrónico para venta ID: " + venta.getId().toString() + " " + e.getMessage());
+                        // No lanzamos excepción para no impedir la cancelación de la venta
+                    }
+                }
+                // Marcar factura como inactiva
+                facturaLegal.setActivo(false);
+                facturaLegalService.save(facturaLegal);
+            } 
             return true;
         } catch (Exception e) {
             e.printStackTrace();

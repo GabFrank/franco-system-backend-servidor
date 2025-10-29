@@ -109,6 +109,42 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return e;
     }
 
+    public FacturaLegal update(FacturaLegal entity) {
+        // Validate that the factura exists
+        if (entity.getId() == null || entity.getSucursalId() == null) {
+            throw new IllegalArgumentException("ID y SucursalId son requeridos para actualizar una factura");
+        }
+        
+        FacturaLegal existing = findByIdAndSucursalId(entity.getId(), entity.getSucursalId());
+        if (existing == null) {
+            throw new IllegalArgumentException("Factura no encontrada");
+        }
+        
+        // Validate electronic invoice editing rules
+        if (existing.getCdc() != null && !existing.getCdc().isEmpty()) {
+            // Es factura electrónica - solo permitir edición si no está nominada
+            if (existing.getCliente() != null) {
+                throw new IllegalStateException("No se puede editar una factura electrónica que ya está nominada");
+            }
+        }
+        
+        // Update allowed fields
+        if (entity.getCliente() != null) {
+            existing.setCliente(entity.getCliente());
+        }
+        if (entity.getNombre() != null) {
+            existing.setNombre(entity.getNombre());
+        }
+        if (entity.getRuc() != null) {
+            existing.setRuc(entity.getRuc());
+        }
+        if (entity.getDireccion() != null) {
+            existing.setDireccion(entity.getDireccion());
+        }
+        
+        return super.save(existing);
+    }
+
     public Cliente crearCliente(String nombre, String ruc, String direccion, Usuario usuario) {
         if (nombre != null && ruc != null) {
             Persona foundPersona = personaService.findByDocumento(ruc);

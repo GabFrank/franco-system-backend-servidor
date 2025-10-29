@@ -48,7 +48,13 @@ public final class FacturaLegalSpecification {
             }
 
             if (isElectronico != null) {
-                predicates.add(criteriaBuilder.equal(root.join("timbradoDetalle", JoinType.LEFT).join("timbrado", JoinType.LEFT).get("isElectronico"), isElectronico));
+                if (isElectronico) {
+                    // Filtrar facturas que tienen CDC (son electrónicas)
+                    predicates.add(criteriaBuilder.isNotNull(root.get("cdc")));
+                } else {
+                    // Filtrar facturas que NO tienen CDC (no son electrónicas)
+                    predicates.add(criteriaBuilder.isNull(root.get("cdc")));
+                }
             }
 
             if (activo != null) {

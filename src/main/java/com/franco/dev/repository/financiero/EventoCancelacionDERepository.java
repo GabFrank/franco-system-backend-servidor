@@ -49,5 +49,7 @@ public interface EventoCancelacionDERepository extends HelperRepository<EventoCa
     List<EventoCancelacionDE> findByCdcDocumentoAndActivo(String cdcDocumento, Boolean activo);
 
     Optional<EventoCancelacionDE> findByEventoIdAndSucursalId(String eventoId, Long sucursalId);
+
+    List<EventoCancelacionDE> findByEstadoAndActivo(EstadoEvento estado, Boolean activo);
 }
 

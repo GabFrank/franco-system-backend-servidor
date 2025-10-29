@@ -50,6 +50,10 @@ public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE,
         return repository.findByEventoIdAndSucursalId(eventoId, sucursalId);
     }
 
+    public List<EventoCancelacionDE> findEventosPendientes() {
+        return repository.findByEstadoAndActivo(EstadoEvento.PENDIENTE, true);
+    }
+
     @Override
     public EventoCancelacionDE save(EventoCancelacionDE entity) {
         return super.save(entity);

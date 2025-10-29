@@ -26,6 +26,7 @@ type FacturaLegal {
     facturaLegalItemList: [FacturaLegalItem]
     sucursal:Sucursal
     activo: Boolean
+    documentoElectronico: DocumentoElectronico
 }
 
 input FacturaLegalInput {
@@ -88,5 +89,8 @@ extend type Query {
 
 extend type Mutation {
     deleteFacturaLegal(id:ID!, sucId: ID):Boolean!
+    updateFacturaLegal(input: FacturaLegalInput!): FacturaLegal!
+    nominarFacturaElectronica(facturaLegalId: ID!, sucursalId: ID!, clienteId: ID!): Boolean!
+    cancelarFacturaLegal(facturaLegalId: ID!, sucursalId: ID!, cancelarVenta: Boolean!): String!
 }
 

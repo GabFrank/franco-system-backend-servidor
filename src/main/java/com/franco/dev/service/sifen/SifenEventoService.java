@@ -14,6 +14,7 @@ import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.sifen.util.SifenReceptorHelper;
 import com.roshka.sifen.Sifen;
 import com.roshka.sifen.core.beans.EventosDE;
+import com.roshka.sifen.core.beans.response.RespuestaConsultaDE;
 import com.roshka.sifen.core.beans.response.RespuestaRecepcionEvento;
 import com.roshka.sifen.core.exceptions.SifenException;
 import com.roshka.sifen.core.fields.request.event.TgGroupTiEvt;
@@ -53,7 +54,7 @@ public class SifenEventoService {
         this.facturaLegalService = facturaLegalService;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = {SifenException.class, IllegalStateException.class, IllegalArgumentException.class})
     public RespuestaRecepcionEvento cancelarDE(String cdc, String motivo) throws SifenException {
         log.info("🚫 Cancelando DE con CDC: {}", cdc);
         log.info("   Motivo: {}", motivo);
@@ -143,6 +144,9 @@ public class SifenEventoService {
             log.info("   📋 Protocolo: {}", protocolo);
         }
 
+        // Variable para controlar si debemos lanzar excepción
+        String errorMessage = null;
+
         if ("Aprobado".equalsIgnoreCase(estadoResultado)) {
             eventoCancelacion.setEstado(EstadoEvento.APROBADO);
             eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
@@ -161,6 +165,7 @@ public class SifenEventoService {
             log.error("   ❌ Evento RECHAZADO por SIFEN");
             log.error("   📋 Código: {} - {}", codigoRespuesta, mensajeRespuesta);
             log.error("   ℹ️ El DE mantiene su estado actual: {}", de.getEstado());
+            errorMessage = "SIFEN rechazó la cancelación: " + mensajeRespuesta;
         } else if (estadoResultado == null || estadoResultado.isEmpty()) {
             if ("0300".equals(codigoRespuesta)) {
                 eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
@@ -179,14 +184,22 @@ public class SifenEventoService {
             } else {
                 eventoCancelacion.setEstado(EstadoEvento.ERROR_ENVIO);
                 log.error("   ❌ Error en envío - Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+                errorMessage = "Error al enviar evento: " + codigoRespuesta + " - " + mensajeRespuesta;
             }
         } else {
             eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
             log.warn("   ⚠️ Estado desconocido: {} - marcando como PENDIENTE", estadoResultado);
         }
 
+        // Guardar el evento UNA sola vez al final
         eventoCancelacionDEService.save(eventoCancelacion);
         log.info("   💾 Evento guardado en BD - ID: {}, Estado: {}", eventoCancelacion.getId(), eventoCancelacion.getEstado());
+
+        // Si hubo error, lanzar excepción DESPUÉS de guardar
+        if (errorMessage != null) {
+            throw new IllegalStateException(errorMessage);
+        }
+
         return respuesta;
     }
 
@@ -436,6 +449,65 @@ public class SifenEventoService {
         eventoNominacionDEService.save(eventoNominacion);
         log.info("   💾 Evento guardado en BD - ID: {}, Estado: {}", eventoNominacion.getId(), eventoNominacion.getEstado());
         return respuesta;
+    }
+
+    @Transactional
+    public void consultarYActualizarEventoCancelacion(EventoCancelacionDE evento) throws SifenException {
+        if (evento.getProtocoloAutorizacion() == null || evento.getProtocoloAutorizacion().isEmpty()) {
+            log.warn("El evento ID {} no tiene protocolo para ser consultado. Se omite.", evento.getId());
+            return;
+        }
+
+        DocumentoElectronico de = evento.getDocumentoElectronico();
+        if (de == null || de.getCdc() == null) {
+            log.warn("El evento ID {} no tiene documento electrónico asociado o CDC. Se omite.", evento.getId());
+            return;
+        }
+
+        log.info("Consultando estado del DE con CDC {} para verificar evento de cancelación ID {}",
+                de.getCdc(), evento.getId());
+
+        // Consultar el estado del documento electrónico
+        // Cuando se consulta un DE, SIFEN puede devolver información sobre eventos asociados
+        RespuestaConsultaDE respuesta = Sifen.consultaDE(de.getCdc());
+
+        String xmlRespuesta = respuesta.getRespuestaBruta();
+        String estadoResultado = extraerValorXML(xmlRespuesta, "<dEstRes>", "</dEstRes>");
+
+        // Verificar si hay información sobre eventos asociados en la respuesta
+        // Si el DE está en estado CANCELADO, significa que el evento fue aprobado
+        if ("Cancelado".equalsIgnoreCase(extraerValorXML(xmlRespuesta, "<dEst>", "</dEst>"))) {
+            evento.setEstado(EstadoEvento.APROBADO);
+            evento.setFechaProcesamiento(LocalDateTime.now());
+
+            de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
+            documentoElectronicoService.save(de);
+
+            log.info("SCHEDULER: Evento ID {} APROBADO. DE con CDC {} actualizado a CANCELADO.", evento.getId(), de.getCdc());
+
+        } else if ("Aprobado".equalsIgnoreCase(estadoResultado) ||
+                   "Rechazado".equalsIgnoreCase(estadoResultado)) {
+            // Si hay un estado específico para el evento
+            if ("Aprobado".equalsIgnoreCase(estadoResultado)) {
+                evento.setEstado(EstadoEvento.APROBADO);
+                evento.setFechaProcesamiento(LocalDateTime.now());
+
+                de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
+                documentoElectronicoService.save(de);
+
+                log.info("SCHEDULER: Evento ID {} APROBADO. DE con CDC {} actualizado a CANCELADO.", evento.getId(), de.getCdc());
+            } else {
+                evento.setEstado(EstadoEvento.RECHAZADO);
+                evento.setFechaProcesamiento(LocalDateTime.now());
+                log.error("SCHEDULER: Evento ID {} RECHAZADO por SIFEN.", evento.getId());
+            }
+        } else {
+            log.info("SCHEDULER: Evento ID {} sigue PENDIENTE. Se reintentará.", evento.getId());
+            return;
+        }
+
+        evento.setRespuestaBruta(xmlRespuesta);
+        eventoCancelacionDEService.save(evento);
     }
 }
 

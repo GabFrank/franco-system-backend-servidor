@@ -49,6 +49,8 @@ extend type Query {
     inventarioProductoItem(id: ID!): InventarioProductoItem
     inventarioProductosItem(page: Int = 0, size: Int = 10): [InventarioProductoItem]!
     inventarioProductosItemPorInventarioProducto(id: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+    inventarioItemsPorInvProYPresentacion(invProId: ID!, presentacionId: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+    inventarioItemsDeInventariosAnteriores(invProId: ID!, presentacionId: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
 
     inventarioProductoItemWithFilter(
         startDate: String,

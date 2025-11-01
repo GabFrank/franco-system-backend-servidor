@@ -8,7 +8,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -16,7 +15,8 @@ import java.util.List;
 
 @Service
 @AllArgsConstructor
-public class InventarioProductoItemService extends CrudService<InventarioProductoItem, InventarioProductoItemRepository, Long> {
+public class InventarioProductoItemService
+        extends CrudService<InventarioProductoItem, InventarioProductoItemRepository, Long> {
 
     private final InventarioProductoItemRepository repository;
 
@@ -31,6 +31,23 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
 
     public List<InventarioProductoItem> findByInventarioProductoId(Long id) {
         return repository.findByInventarioProductoId(id);
+    }
+
+    public List<InventarioProductoItem> findByInventarioProductoIdAndPresentacionId(Long inventarioProductoId,
+            Long presentacionId, Pageable pageable) {
+        return repository.findByInventarioProductoIdAndPresentacionIdOrderByVencimientoDesc(inventarioProductoId,
+                presentacionId, pageable);
+    }
+
+    public List<InventarioProductoItem> findItemsDeInventariosAnteriores(Long presentacionId, Long sucursalId,
+            Long sectorId, Long zonaId, LocalDateTime fechaInicioInventarioActual, Pageable pageable) {
+        List<InventarioProductoItem> result = repository.findItemsDeInventariosAnteriores(presentacionId, sucursalId,
+                sectorId, zonaId, fechaInicioInventarioActual, pageable);
+        if (result.isEmpty() && pageable.getPageNumber() == 0) {
+            result = repository.findItemsDeInventariosAnterioresSoloSucursal(presentacionId, sucursalId,
+                    fechaInicioInventarioActual, pageable);
+        }
+        return result;
     }
 
     public List<InventarioProductoItem> findByInventarioIdAndProductoId(Long inventarioId, Long productoId) {
@@ -87,7 +104,8 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
             LocalDateTime fechaProximoVencimiento,
             Pageable pageable) {
         return repository.findProductosProximosAVencer(
-                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, fechaProximoVencimiento, pageable);
+                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, fechaProximoVencimiento,
+                pageable);
     }
 
     public Page<InventarioProductoItem> findProductosVencidosCompleto(
@@ -105,7 +123,8 @@ public class InventarioProductoItemService extends CrudService<InventarioProduct
 
         if (startDate != null && endDate != null) {
             return findProductosVencidosConFecha(
-                    sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, pageable);
+                    sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList,
+                    pageable);
         }
 
         if (Boolean.TRUE.equals(incluirProximosVencer) && diasProximosVencer != null) {

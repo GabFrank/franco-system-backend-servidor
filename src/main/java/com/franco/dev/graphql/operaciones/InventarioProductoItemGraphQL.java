@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.dto.ReporteInventarioDto;
@@ -77,6 +78,28 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     public List<InventarioProductoItem> inventarioProductosItemPorInventarioProducto(Long id, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findByInventarioProductoId(id, pageable);
+    }
+
+    public List<InventarioProductoItem> inventarioItemsPorInvProYPresentacion(Long invProId, Long presentacionId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findByInventarioProductoIdAndPresentacionId(invProId, presentacionId, pageable);
+    }
+
+    public List<InventarioProductoItem> inventarioItemsDeInventariosAnteriores(Long invProId, Long presentacionId, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        InventarioProducto invPro = inventarioProductoService.findById(invProId).orElse(null);
+        if (invPro == null || invPro.getInventario() == null || invPro.getZona() == null || invPro.getZona().getSector() == null || invPro.getInventario().getSucursal() == null) {
+            return Collections.emptyList();
+        }
+        LocalDateTime fechaInicioActual = invPro.getInventario().getFechaInicio();
+        if (fechaInicioActual == null) {
+            return Collections.emptyList();
+        }
+        Long sucursalId = invPro.getInventario().getSucursal().getId();
+        Long sectorId = invPro.getZona().getSector().getId();
+        Long zonaId = invPro.getZona().getId();
+        List<InventarioProductoItem> result = service.findItemsDeInventariosAnteriores(presentacionId, sucursalId, sectorId, zonaId, fechaInicioActual, pageable);
+        return result;
     }
 
     public Page<InventarioProductoItem> getInventarioItemsParaRevisar(Long inventarioId, String filtro, int page, int size) {

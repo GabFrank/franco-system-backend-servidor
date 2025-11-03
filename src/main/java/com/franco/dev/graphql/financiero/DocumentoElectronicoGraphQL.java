@@ -36,7 +36,7 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
   @Autowired
   private FacturaLegalService facturaLegalService;
 
-  @Autowired
+  @Autowired(required = false)
   private SifenService sifenService;
 
   public List<DocumentoElectronico> documentoElectronicos(int page, int size) {
@@ -77,6 +77,10 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
 
   @Transactional
   public DocumentoElectronico crearDocumentoElectronicoDesdeFactura(Long facturaId, Long sucursalId) {
+    if (sifenService == null) {
+      throw new RuntimeException("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
+    }
+
     FacturaLegal factura = facturaLegalService.findByIdAndSucursalId(facturaId, sucursalId);
     if (factura == null) {
       throw new RuntimeException("Factura no encontrada");
@@ -90,6 +94,15 @@ public class DocumentoElectronicoGraphQL implements GraphQLQueryResolver, GraphQ
   }
 
   public ConsultaDEResponse consultarDocumentoElectronico(String cdc) {
+    if (sifenService == null) {
+      ConsultaDEResponse errorResponse = new ConsultaDEResponse();
+      errorResponse.setEstadoSifen("ERROR");
+      errorResponse.setCodigoRespuesta("9999");
+      errorResponse.setMensajeRespuesta("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
+      errorResponse.setExitoso(false);
+      return errorResponse;
+    }
+
     try {
       RespuestaConsultaDE respuesta = sifenService.consultarDE(cdc);
 

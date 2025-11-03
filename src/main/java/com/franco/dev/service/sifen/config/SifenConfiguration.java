@@ -24,6 +24,26 @@ public class SifenConfiguration {
 
     @Bean
     public SifenConfig sifenConfig(SifenProperties properties) throws FileNotFoundException {
+        // Validaciones explícitas solo cuando SIFEN está habilitado
+        if (!properties.isEnabled()) {
+            // Aunque esta clase está condicionada por propiedad, mantenemos la verificación por robustez
+            return null;
+        }
+
+        if (properties.getCscId() == null || properties.getCscId().trim().isEmpty()) {
+            throw new IllegalArgumentException("sifen.cscId es requerido cuando sifen.enabled=true");
+        }
+        if (properties.getCsc() == null || properties.getCsc().trim().isEmpty()) {
+            throw new IllegalArgumentException("sifen.csc es requerido cuando sifen.enabled=true");
+        }
+        if (properties.getCertificado() == null ||
+            properties.getCertificado().getArchivo() == null || properties.getCertificado().getArchivo().trim().isEmpty()) {
+            throw new IllegalArgumentException("sifen.certificado.archivo es requerido cuando sifen.enabled=true");
+        }
+        if (properties.getCertificado().getContrasena() == null || properties.getCertificado().getContrasena().trim().isEmpty()) {
+            throw new IllegalArgumentException("sifen.certificado.contrasena es requerido cuando sifen.enabled=true");
+        }
+
         String certPath = properties.getCertificado().getArchivo();
 
         if (Files.notExists(Paths.get(certPath))) {

@@ -1,6 +1,5 @@
 package com.franco.dev.graphql.financiero;
 
-import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EventoCancelacionDE;
 import com.franco.dev.domain.financiero.EventoNominacionDE;
 import com.franco.dev.domain.financiero.Timbrado;
@@ -48,7 +47,7 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     // ========== QUERIES ==========
 
     public EventoCancelacionDE eventoCancelacion(Long id, Long sucursalId) {
-        return eventoCancelacionDEService.findById(new EmbebedPrimaryKey(id, sucursalId)).orElse(null);
+        return eventoCancelacionDEService.findByIdAndSucursalId(id, sucursalId).orElse(null);
     }
 
     public List<EventoCancelacionDE> eventosCancelacionPorDocumento(Long documentoId, Long sucursalId) {
@@ -60,7 +59,7 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public EventoNominacionDE eventoNominacion(Long id, Long sucursalId) {
-        return eventoNominacionDEService.findById(new EmbebedPrimaryKey(id, sucursalId)).orElse(null);
+        return eventoNominacionDEService.findByIdAndSucursalId(id, sucursalId).orElse(null);
     }
 
     public List<EventoNominacionDE> eventosNominacionPorDocumento(Long documentoId, Long sucursalId) {

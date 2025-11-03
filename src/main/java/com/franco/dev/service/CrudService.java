@@ -76,6 +76,7 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
             return false;
         }
     }
+    
 
     @Transactional
     public Boolean delete(T entity) {

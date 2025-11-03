@@ -45,7 +45,7 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     private MultiTenantService multiTenantService;
 
     public Optional<TimbradoDetalle> timbradoDetalle(Long id, Long sucId) {
-        return service.findById(new EmbebedPrimaryKey(id, sucId));
+        return service.findByIdAndSucursalId(id, sucId);
     }
 
     public List<TimbradoDetalle> timbradoDetalles(int page, int size) {
@@ -68,7 +68,7 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Boolean deleteTimbradoDetalle(Long id, Long sucId) {
-        Boolean ok = service.deleteById(new EmbebedPrimaryKey(id, sucId));
+        Boolean ok = service.deleteByIdAndSucursalId(id, sucId);
         return ok;
     }
 

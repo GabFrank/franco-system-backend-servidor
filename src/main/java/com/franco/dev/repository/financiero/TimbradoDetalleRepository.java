@@ -11,7 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 
-public interface TimbradoDetalleRepository extends HelperRepository<TimbradoDetalle, EmbebedPrimaryKey> {
+public interface TimbradoDetalleRepository extends HelperRepository<TimbradoDetalle, Long> {
 
     default Class<TimbradoDetalle> getEntityClass() {
         return TimbradoDetalle.class;
@@ -23,6 +23,9 @@ public interface TimbradoDetalleRepository extends HelperRepository<TimbradoDeta
 
     // findByIdAndSucursalId
     public Optional<TimbradoDetalle> findByIdAndSucursalId(Long id, Long sucId);
+
+    // deleteByIdAndSucursalId
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 
     List<TimbradoDetalle> findByPuntoDeVentaId(Long id);
 

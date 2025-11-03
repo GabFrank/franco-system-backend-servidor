@@ -1,6 +1,5 @@
 package com.franco.dev.service.financiero;
 
-import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EventoCancelacionDE;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.repository.financiero.EventoCancelacionDERepository;
@@ -13,7 +12,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE, EventoCancelacionDERepository, EmbebedPrimaryKey> {
+public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE, EventoCancelacionDERepository, Long> {
 
     private final EventoCancelacionDERepository repository;
 
@@ -52,6 +51,14 @@ public class EventoCancelacionDEService extends CrudService<EventoCancelacionDE,
 
     public List<EventoCancelacionDE> findEventosPendientes() {
         return repository.findByEstadoAndActivo(EstadoEvento.PENDIENTE, true);
+    }
+
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId) {
+        return repository.deleteByIdAndSucursalId(id, sucId);
+    }
+
+    public Optional<EventoCancelacionDE> findByIdAndSucursalId(Long id, Long sucId) {
+        return repository.findByIdAndSucursalId(id, sucId);
     }
 
     @Override

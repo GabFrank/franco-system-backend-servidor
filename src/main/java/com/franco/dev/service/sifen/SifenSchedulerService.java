@@ -8,6 +8,7 @@ import com.franco.dev.service.financiero.LoteDEService;
 import com.roshka.sifen.core.exceptions.SifenException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ import java.util.List;
 @Slf4j
 @Service
 @EnableScheduling
+@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = true)
 public class SifenSchedulerService {
 
     @Value("${sifen.scheduler.enabled:false}")

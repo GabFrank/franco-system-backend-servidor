@@ -42,7 +42,7 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 
     @Override
     public List<Sucursal> findAll(Pageable pageable) {
-        return repository.findAllByOrderByIdAsc();
+        return repository.findAllByActivoTrueOrderByIdAsc();
     }
 
     public List<Sucursal> findAllNotConfigured() {

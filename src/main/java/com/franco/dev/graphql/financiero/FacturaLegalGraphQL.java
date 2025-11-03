@@ -187,7 +187,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
         }
         if (input.getTimbradoDetalleId() != null)
-            e.setTimbradoDetalle(timbradoDetalleService.findById(new EmbebedPrimaryKey(input.getTimbradoDetalleId(), input.getSucursalId())).orElse(null));
+            e.setTimbradoDetalle(timbradoDetalleService.findByIdAndSucursalId(input.getTimbradoDetalleId(), input.getSucursalId()).orElse(null));
         if (e.getTimbradoDetalle() != null) {
             timbradoDetalleService.save(e.getTimbradoDetalle());
             e = service.save(e);

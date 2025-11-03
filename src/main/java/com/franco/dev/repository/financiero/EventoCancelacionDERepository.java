@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface EventoCancelacionDERepository extends HelperRepository<EventoCancelacionDE, EmbebedPrimaryKey> {
+public interface EventoCancelacionDERepository extends HelperRepository<EventoCancelacionDE, Long> {
 
     default Class<EventoCancelacionDE> getEntityClass() {
         return EventoCancelacionDE.class;
@@ -51,5 +51,9 @@ public interface EventoCancelacionDERepository extends HelperRepository<EventoCa
     Optional<EventoCancelacionDE> findByEventoIdAndSucursalId(String eventoId, Long sucursalId);
 
     List<EventoCancelacionDE> findByEstadoAndActivo(EstadoEvento estado, Boolean activo);
+
+    Boolean deleteByIdAndSucursalId(Long id, Long sucId);
+
+    Optional<EventoCancelacionDE> findByIdAndSucursalId(Long id, Long sucId);
 }
 

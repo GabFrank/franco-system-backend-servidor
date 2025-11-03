@@ -1,6 +1,6 @@
 package com.franco.dev.domain.financiero;
 
-import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.domain.personas.Usuario;
@@ -9,11 +9,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import javax.persistence.*;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -26,19 +28,26 @@ import java.time.LocalDateTime;
 )
 @Entity
 @Table(name = "evento_cancelacion_de", schema = "financiero")
-@IdClass(EmbebedPrimaryKey.class)
-public class EventoCancelacionDE implements Serializable {
+public class EventoCancelacionDE implements Identifiable<Long>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
+    @GenericGenerator(
+            name = "assigned-identity",
+            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
+    )
+    @GeneratedValue(
+            generator = "assigned-identity",
+            strategy = GenerationType.IDENTITY
+    )
     private Long id;
 
-    @Id
     @Column(name = "sucursal_id", nullable = false)
     private Long sucursalId;
+
+    @Column(name = "documento_electronico_id", nullable = false)
+    private Long documentoElectronicoId;
 
     // Relación con el documento electrónico cancelado
     @ManyToOne(fetch = FetchType.LAZY)

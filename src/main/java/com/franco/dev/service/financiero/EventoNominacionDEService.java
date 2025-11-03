@@ -13,7 +13,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class EventoNominacionDEService extends CrudService<EventoNominacionDE, EventoNominacionDERepository, EmbebedPrimaryKey> {
+public class EventoNominacionDEService extends CrudService<EventoNominacionDE, EventoNominacionDERepository, Long> {
 
     private final EventoNominacionDERepository repository;
 
@@ -48,6 +48,14 @@ public class EventoNominacionDEService extends CrudService<EventoNominacionDE, E
 
     public Optional<EventoNominacionDE> findByEventoId(String eventoId, Long sucursalId) {
         return repository.findByEventoIdAndSucursalId(eventoId, sucursalId);
+    }
+
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId) {
+        return repository.deleteByIdAndSucursalId(id, sucId);
+    }
+
+    public Optional<EventoNominacionDE> findByIdAndSucursalId(Long id, Long sucId) {
+        return repository.findByIdAndSucursalId(id, sucId);
     }
 
     @Override

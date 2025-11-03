@@ -101,6 +101,7 @@ public class SifenEventoService {
 
         EventoCancelacionDE eventoCancelacion = new EventoCancelacionDE();
         eventoCancelacion.setDocumentoElectronico(de);
+        eventoCancelacion.setDocumentoElectronicoId(de.getId());
         eventoCancelacion.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
         eventoCancelacion.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
         eventoCancelacion.setEventoId(eventoId);
@@ -352,6 +353,7 @@ public class SifenEventoService {
 
         EventoNominacionDE eventoNominacion = new EventoNominacionDE();
         eventoNominacion.setDocumentoElectronico(de);
+        eventoNominacion.setDocumentoElectronicoId(de.getId());
         eventoNominacion.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
         eventoNominacion.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
         eventoNominacion.setEventoId(eventoId);

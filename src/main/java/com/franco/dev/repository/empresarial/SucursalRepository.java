@@ -24,6 +24,8 @@ public interface SucursalRepository extends HelperRepository<Sucursal, Long> {
 
     public Page<Sucursal> findByNombreLike(String nombre, Pageable page);
 
+    public List<Sucursal> findAllByActivoTrueOrderByIdAsc();
+
 //    public List<Pais> findBySubFamiliaId(Long id);
 
 }

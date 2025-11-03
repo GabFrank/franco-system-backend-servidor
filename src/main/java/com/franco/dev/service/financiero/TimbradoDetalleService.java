@@ -18,7 +18,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class TimbradoDetalleService extends CrudService<TimbradoDetalle, TimbradoDetalleRepository, EmbebedPrimaryKey> {
+public class TimbradoDetalleService extends CrudService<TimbradoDetalle, TimbradoDetalleRepository, Long> {
 
     private final TimbradoDetalleRepository repository;
 
@@ -45,6 +45,11 @@ public class TimbradoDetalleService extends CrudService<TimbradoDetalle, Timbrad
 
     public Optional<TimbradoDetalle> findByIdAndSucursalId(Long id, Long sucId){
         return repository.findByIdAndSucursalId(id, sucId);
+    }
+
+    // delete by id and sucursal id
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
+        return repository.deleteByIdAndSucursalId(id, sucId);
     }
 
     @Override

@@ -32,7 +32,7 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
   @Autowired
   private DocumentoElectronicoService documentoElectronicoService;
 
-  @Autowired
+  @Autowired(required = false)
   private SifenService sifenService;
 
     public Page<LoteDE> loteDes(int page, int size, EstadoLoteDE estado, String fechaInicio, String fechaFin) {
@@ -71,6 +71,9 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public LoteDE crearLote() {
+        if (sifenService == null) {
+            throw new RuntimeException("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
+        }
         try {
             return sifenService.crearLote();
         } catch (Exception e) {
@@ -80,6 +83,9 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public Boolean vincularDocumentosALote(Long loteId, Long sucursalId, List<Long> documentoIds) {
+        if (sifenService == null) {
+            throw new RuntimeException("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
+        }
         try {
             LoteDE lote = service.findByIdAndSucursalId(loteId, sucursalId).orElse(null);
             if (lote == null) {
@@ -96,6 +102,12 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public EnvioLoteResponse enviarLote(Long loteId, Long sucursalId) {
+        if (sifenService == null) {
+            EnvioLoteResponse response = new EnvioLoteResponse();
+            response.setExitoso(false);
+            response.setMensaje("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
+            return response;
+        }
         try {
             LoteDE lote = service.findByIdAndSucursalId(loteId, sucursalId).orElse(null);
             if (lote == null) {
@@ -121,6 +133,12 @@ public class LoteDEGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public ConsultaLoteResponse consultarLote(Long loteId, Long sucursalId) {
+        if (sifenService == null) {
+            ConsultaLoteResponse response = new ConsultaLoteResponse();
+            response.setExitoso(false);
+            response.setMensaje("La funcionalidad SIFEN está deshabilitada. Configure sifen.enabled=true en application.properties");
+            return response;
+        }
         try {
             LoteDE lote = service.findByIdAndSucursalId(loteId, sucursalId).orElse(null);
             if (lote == null) {

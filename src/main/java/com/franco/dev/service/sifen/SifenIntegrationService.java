@@ -27,7 +27,7 @@ import java.util.Optional;
 @Service
 public class SifenIntegrationService {
 
-    @Autowired
+    @Autowired(required = false)
     private SifenService sifenService;
 
     @Autowired
@@ -57,6 +57,11 @@ public class SifenIntegrationService {
      */
     @Transactional
     public void crearDEAutomatico(FacturaLegal factura) {
+        if (sifenService == null) {
+            log.warn("La funcionalidad SIFEN está deshabilitada. No se creará el DE para factura ID: {}", factura.getId());
+            return;
+        }
+
         if (factura.getId() == null || factura.getSucursalId() == null) {
             log.error("ID de factura o sucursal es nulo. No se puede procesar.");
             return;

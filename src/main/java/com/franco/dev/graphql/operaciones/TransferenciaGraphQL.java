@@ -243,6 +243,13 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaId(transferencia.getId());
             switch (etapa) {
+                case PRE_TRANSFERENCIA_ORIGEN:
+                    transferencia.setUsuarioPreTransferencia(usuario);
+                    transferencia.setEstado(TransferenciaEstado.EN_ORIGEN);
+                    transferencia.setIsDestino(false);
+                    transferencia.setIsOrigen(true);
+                    transferencia.setEtapa(etapa);
+                    break;
                 case PREPARACION_MERCADERIA:
                     transferencia.setUsuarioPreparacion(usuario);
                     transferencia.setEtapa(etapa);

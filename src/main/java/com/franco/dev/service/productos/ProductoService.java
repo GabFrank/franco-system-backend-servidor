@@ -472,10 +472,22 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList, List<Long> usuarioIdList, List<Long> productoIdList) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
+        Map<Long, Double> totalVentaPacksMap = new HashMap<>();
+        
+        // Obtener datos de todas las sucursales
         for (Long sucId : sucIdList) {
             List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
             aggregatedResult.addAll(lucroPorProductosDtoList);
+            
+            // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular ventaMedia correctamente
+            List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+            for (Object[] row : totalVentaPacksList) {
+                Long productoId = ((Number) row[0]).longValue();
+                Double totalVentaPacks = ((Number) row[1]).doubleValue();
+                totalVentaPacksMap.merge(productoId, totalVentaPacks, Double::sum);
+            }
         }
+        
         Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
         for (LucroPorProductosDto dto : aggregatedResult) {
             combinedResults.merge(dto.getProductoId(), dto, (oldDto, newDto) -> {
@@ -497,8 +509,17 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 // Calcular costo unitario
                 dto.setCostoUnitario(dto.getCostoTotal() / dto.getCantidad());
                 
-                // Calcular venta media
-                dto.setVentaMedia(dto.getTotalVenta() / dto.getCantidad());
+                Double totalVentaPacks = totalVentaPacksMap.get(dto.getProductoId());
+                
+                if (totalVentaPacks != null) {
+                    dto.setTotalVenta(totalVentaPacks);
+                }
+            
+                if (totalVentaPacks != null && totalVentaPacks > 0 && dto.getCantidad() > 0) {
+                    dto.setVentaMedia(totalVentaPacks / dto.getCantidad());
+                } else {
+                    dto.setVentaMedia(0.0);
+                }
                 
                 // Calcular lucro (total venta - total costo)
                 dto.setLucro(dto.getTotalVenta() - dto.getCostoTotal());

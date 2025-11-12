@@ -1,0 +1,10 @@
+-- comando para exportar archivo jar a produccion
+./mvnw clean package -Dspring.profiles.active=prod -Dflyway.skip=true
+
+
+-- iniciar base de datos
+pg_ctl -D /usr/local/var/postgres -l /usr/local/var/postgres/logfile restart
+pg_ctl -D /usr/local/var/postgres2 -l /usr/local/var/postgres2/logfile restart
+
+-- ip del servidor
+159.203.86.103

@@ -13,3 +13,4 @@ tokens/
 
 .DS_Store
 .factorypath
+src/main/resources/application-dev.properties

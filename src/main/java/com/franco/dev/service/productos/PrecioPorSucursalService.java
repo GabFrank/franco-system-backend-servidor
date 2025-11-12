@@ -40,4 +40,8 @@ public class PrecioPorSucursalService extends CrudService<PrecioPorSucursal, Pre
     public PrecioPorSucursal findPrincipalByPrecionacionId(Long id) {
         return repository.findPrincipalByPresentacionId(id);
     }
+
+    public PrecioPorSucursal findBySucursalIdAndPresentacionId(Long sucId, Long preId) {
+        return repository.findBySucursalIdAndPresentacionId(sucId, preId);
+    }
 }

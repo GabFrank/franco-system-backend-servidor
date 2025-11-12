@@ -41,5 +41,5 @@ public interface InventarioRepository extends HelperRepository<Inventario, Long>
 
     public List<Inventario> findBySucursalIdAndEstado(Long id, InventarioEstado estado);
 
-    
+
 }

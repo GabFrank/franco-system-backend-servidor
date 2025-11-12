@@ -13,6 +13,10 @@ public class InventarioProductoItemInput {
     private Long zonaId;
     private Double cantidad;
     private Double cantidadFisica;
+    private Double cantidadAnterior;
+    private LocalDateTime fechaVerificado;
+    private Boolean verificado;
+    private Boolean revisado;
     private String vencimiento;
     private InventarioProductoEstado estado;
     private LocalDateTime creadoEn;

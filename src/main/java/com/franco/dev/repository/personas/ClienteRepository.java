@@ -33,4 +33,6 @@ public interface ClienteRepository extends HelperRepository<Cliente, Long> {
             "group by per.nombre, c.id " +
             "order by per.nombre asc")
     Page<Cliente> findByAll(String texto, TipoCliente tipoCliente, Pageable page);
+
+    Cliente findByPersonaDocumento(String texto);
 }

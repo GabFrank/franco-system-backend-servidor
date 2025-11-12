@@ -1,0 +1,71 @@
+type DocumentoElectronico {
+    id: ID!
+    sucursalId: Int
+    facturaLegal: FacturaLegal
+    cdc: String
+    urlQr: String
+    xmlFirmado: String
+    xmlOriginal: String
+    estado: EstadoDE
+    codigoRespuestaSifen: String
+    mensajeRespuestaSifen: String
+    numeroDocumento: String
+    tipoDocumento: String
+    fechaEmision: Date
+    fechaRecepcionSifen: Date
+    loteDe: LoteDE
+    activo: Boolean
+    creadoEn: Date
+    actualizadoEn: Date
+    usuario: Usuario
+}
+
+input DocumentoElectronicoInput {
+    id: ID
+    sucursalId: Int
+    facturaLegalId: ID
+    cdc: String
+    urlQr: String
+    xmlFirmado: String
+    xmlOriginal: String
+    estado: EstadoDE
+    codigoRespuestaSifen: String
+    mensajeRespuestaSifen: String
+    numeroDocumento: String
+    tipoDocumento: String
+    fechaEmision: String
+    fechaRecepcionSifen: String
+    loteDeId: ID
+    usuarioId: Int
+}
+
+extend type Query {
+    documentoElectronicos(page: Int = 0, size: Int = 10): [DocumentoElectronico]!
+    documentoElectronico(id: ID!, sucursalId: ID!): DocumentoElectronico
+    documentoElectronicoPorCdc(cdc: String!): DocumentoElectronico
+    documentoElectronicosPorEstado(estado: EstadoDE!, page: Int = 0, size: Int = 10): [DocumentoElectronico]!
+    documentoElectronicosPorLote(loteId: ID!, sucursalId: ID!): [DocumentoElectronico]!
+}
+
+extend type Mutation {
+    saveDocumentoElectronico(input: DocumentoElectronicoInput!): DocumentoElectronico!
+    crearDocumentoElectronicoDesdeFactura(facturaId: ID!, sucursalId: ID!): DocumentoElectronico!
+    consultarDocumentoElectronico(cdc: String!): ConsultaDEResponse!
+}
+
+enum EstadoDE {
+    PENDIENTE
+    EN_LOTE
+    APROBADO
+    RECHAZADO
+    CANCELADO
+}
+
+type ConsultaDEResponse {
+    documentoElectronico: DocumentoElectronico
+    estadoSifen: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    exitoso: Boolean
+}
+

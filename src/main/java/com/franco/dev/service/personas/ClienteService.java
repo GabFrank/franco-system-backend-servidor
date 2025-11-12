@@ -3,6 +3,7 @@ package com.franco.dev.service.personas;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.enums.TipoCliente;
+import com.franco.dev.graphql.personas.ConsultaRucResponse;
 import com.franco.dev.repository.personas.ClienteRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -51,5 +52,13 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
         return p;
     }
 
+    public ConsultaRucResponse consultaRuc(String ruc) {
+        // TODO: Implementar la consulta al RUC
+        return null;
+    }
+
+    public Cliente findByPersonaDocumento(String texto) {
+        return repository.findByPersonaDocumento(texto);
+    }
 
 }

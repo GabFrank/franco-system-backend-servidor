@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.TimbradoDetalleInput;
@@ -14,6 +15,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -42,8 +44,8 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Optional<TimbradoDetalle> timbradoDetalle(Long id) {
-        return service.findById(id);
+    public Optional<TimbradoDetalle> timbradoDetalle(Long id, Long sucId) {
+        return service.findByIdAndSucursalId(id, sucId);
     }
 
     public List<TimbradoDetalle> timbradoDetalles(int page, int size) {
@@ -51,9 +53,6 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return service.findAll(pageable);
     }
 
-    public List<TimbradoDetalle> timbradoDetallePorTimbradoId(Long id) {
-        return service.findByTimbradoId(id);
-    }
 
     public TimbradoDetalle saveTimbradoDetalle(TimbradoDetalleInput input) {
         ModelMapper m = new ModelMapper();
@@ -68,8 +67,8 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return e;
     }
 
-    public Boolean deleteTimbradoDetalle(Long id) {
-        Boolean ok = service.deleteById(id);
+    public Boolean deleteTimbradoDetalle(Long id, Long sucId) {
+        Boolean ok = service.deleteByIdAndSucursalId(id, sucId);
         return ok;
     }
 

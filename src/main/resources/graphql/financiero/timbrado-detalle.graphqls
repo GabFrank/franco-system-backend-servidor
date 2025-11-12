@@ -9,7 +9,15 @@ type TimbradoDetalle {
     numeroActual: Int
     activo: Boolean
     creadoEn: Date
+    sucursal: Sucursal
     usuario: Usuario
+    departamento: String
+    ciudad: String
+    codigoCiudad: String
+    localidad: String
+    barrio: String
+    direccion: String
+    telefono: String
 }
 
 input TimbradoDetalleInput {
@@ -23,16 +31,36 @@ input TimbradoDetalleInput {
     numeroActual: Int
     activo: Boolean
     usuarioId: Int
+    sucursalId: Int
+    departamento: String
+    ciudad: String
+    codigoCiudad: String
+    localidad: String
+    barrio: String
+    direccion: String
+    telefono: String
+}
+
+type TimbradoDetallePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TimbradoDetalle]
+    getPageable: Pageable
 }
 
 extend type Query {
-    timbradoDetalle(id:ID!):TimbradoDetalle
+    timbradoDetalle(id:ID!, sucId:ID!):TimbradoDetalle
     timbradoDetalles(page:Int = 0, size:Int = 10):[TimbradoDetalle]!
     countTimbradoDetalle: Int
 }
 
 extend type Mutation {
     saveTimbradoDetalle(timbradoDetalle:TimbradoDetalleInput!):TimbradoDetalle!
-    deleteTimbradoDetalle(id:ID!):Boolean!
+    deleteTimbradoDetalle(id:ID!, sucId:ID!):Boolean!
 }
 

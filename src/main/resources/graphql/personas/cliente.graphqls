@@ -43,6 +43,18 @@ type ClientePage {
     getPageable: Pageable
 }
 
+type ConsultaRucResponse {
+    procesamientoCorrecto: Boolean!
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    timestamp: String
+    ruc: String
+    razonSocial: String
+    estadoContribuyente: String
+    codigoEstadoContribuyente: String
+    esFacturadorElectronico: String
+}
+
 extend type Query {
     cliente(id:ID!):Cliente
     clientePorPersonaId(id:ID): Cliente
@@ -51,6 +63,7 @@ extend type Query {
     onSearchWithFilters(texto:String, tipo: TipoCliente, page: Int, size: Int): ClientePage
     clientes(page:Int = 0, size:Int = 10):[Cliente]!
     countCliente: Int
+    consultaRuc(ruc: String!): ConsultaRucResponse
 }
 
 extend type Mutation {

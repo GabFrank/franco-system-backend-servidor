@@ -151,4 +151,9 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByPersonaId(id);
     }
 
+    public ConsultaRucResponse consultaRuc(String ruc) {
+        // TODO: Implementar la consulta al RUC
+        return null;
+    }
+
 }

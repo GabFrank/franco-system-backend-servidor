@@ -5,6 +5,10 @@ type InventarioProductoItem {
     presentacion: Presentacion
     cantidad: Float
     cantidadFisica: Float
+    cantidadAnterior: Float
+    fechaVerificado: Date
+    verificado: Boolean
+    revisado: Boolean
     vencimiento: Date
     estado: InventarioProductoEstado
     creadoEn: Date
@@ -18,6 +22,10 @@ input InventarioProductoItemInput {
     presentacionId: Int
     cantidad: Float
     cantidadFisica: Float
+    cantidadAnterior: Float
+    fechaVerificado: Date
+    verificado: Boolean
+    revisado: Boolean
     vencimiento: String
     estado: InventarioProductoEstado
     usuarioId: Int
@@ -45,6 +53,8 @@ extend type Query {
     reporteInventario(
         startDate: String, endDate: String, sucursalIdList: [Int], usuarioIdList:[ID], productoIdList:[ID],
         page: Int, size: Int, orderBy: String, tipoOrder: String, nickname: String): String
+    getInventarioItemsParaRevisar(
+        inventarioId: ID!, filtro: String, page: Int!, size: Int!): InventarioProductoItemPage
 }
 
 extend type Mutation {

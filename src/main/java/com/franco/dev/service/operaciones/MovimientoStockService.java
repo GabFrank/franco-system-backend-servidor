@@ -7,6 +7,7 @@ import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.StockPorProductoSucursal;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
+import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
@@ -92,6 +93,11 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     public Double stockByProductoIdExecptMovStockId(Long proId, Long movId, Long sucId) {
         Float stock = repository.stockByProductoIdExeptMovimientoId(proId, movId, sucId);
+        return Double.valueOf(stock != null ? stock : 0);
+    }
+
+    public Double stockByProductoIdAndSucursalIdAntesDeFecha(Long proId, Long sucId, LocalDateTime fecha) {
+        Float stock = repository.stockByProductoIdAndSucursalIdAntesDeFecha(proId, sucId, fecha);
         return Double.valueOf(stock != null ? stock : 0);
     }
 
@@ -259,6 +265,16 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return res;
     }
 
+    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Pageable pageable) {
+        return repository.findProductosConCantidadPositiva(sucursalId, pageable);
+    }
 
+    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Pageable pageable) {
+        return repository.findProductosConCantidadNegativa(sucursalId, pageable);
+    }
+
+    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
+        return repository.findProductosFaltantes(sucursalId, fechaInicio, fechaFin, pageable);
+    }
 
 }

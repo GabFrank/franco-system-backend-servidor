@@ -1,7 +1,6 @@
 type InventarioProducto {
     id:ID!
     inventario: Inventario
-    producto: Producto
     zona: Zona
     concluido: Boolean
     usuario: Usuario
@@ -11,7 +10,6 @@ type InventarioProducto {
 input InventarioProductoInput {
     id:Int
     inventarioId: Int
-    productoId: Int
     zonaId: Int
     concluido: Boolean
     usuarioId: Int

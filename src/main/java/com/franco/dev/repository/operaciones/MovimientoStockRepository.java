@@ -3,6 +3,7 @@ package com.franco.dev.repository.operaciones;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
+import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,11 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "left outer join p.producto as pro " +
             "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2")
     public Float stockByProductoIdAndSucursalId(Long proId, Long sucId);
+
+    @Query("select SUM(p.cantidad) from MovimientoStock p " +
+            "left outer join p.producto as pro " +
+            "where p.estado = true and pro.id = ?1 and p.sucursalId = ?2 and p.creadoEn < ?3")
+    public Float stockByProductoIdAndSucursalIdAntesDeFecha(Long proId, Long sucId, LocalDateTime fecha);
 
     @Query("select new com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto(COALESCE(SUM(p.cantidad), 0), MAX(p.id), count(p.id)) " +
             "from MovimientoStock p " +
@@ -123,6 +129,46 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
 
     @Query("SELECT MAX(e.id) FROM MovimientoStock e WHERE e.sucursalId = :sucursalId")
     Long findMaxId(@Param("sucursalId") Long sucursalId);
+
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(ms.producto.id, ms.producto.descripcion, ms.sucursalId, SUM(ms.cantidad)) " +
+            "FROM MovimientoStock ms " +
+            "JOIN ms.producto p " +
+            "WHERE ms.estado = true " +
+            "AND (:sucursalId IS NULL OR ms.sucursalId = :sucursalId) " +
+            "GROUP BY ms.producto.id, ms.producto.descripcion, ms.sucursalId " +
+            "HAVING SUM(ms.cantidad) > 0 " +
+            "ORDER BY SUM(ms.cantidad) DESC")
+    Page<ProductoSaldoDto> findProductosConCantidadPositiva(@Param("sucursalId") Long sucursalId, Pageable pageable);
+
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(ms.producto.id, ms.producto.descripcion, ms.sucursalId, SUM(ms.cantidad)) " +
+            "FROM MovimientoStock ms " +
+            "JOIN ms.producto p " +
+            "WHERE ms.estado = true " +
+            "AND (:sucursalId IS NULL OR ms.sucursalId = :sucursalId) " +
+            "GROUP BY ms.producto.id, ms.producto.descripcion, ms.sucursalId " +
+            "HAVING SUM(ms.cantidad) < 0 " +
+            "ORDER BY SUM(ms.cantidad) ASC")
+    Page<ProductoSaldoDto> findProductosConCantidadNegativa(@Param("sucursalId") Long sucursalId, Pageable pageable);
+
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(p.id, p.descripcion, CAST(:sucursalId AS long), COALESCE(SUM(ms.cantidad), 0.0)) " +
+            "FROM Producto p " +
+            "LEFT JOIN MovimientoStock ms ON ms.producto.id = p.id AND ms.sucursalId = :sucursalId AND ms.estado = true " +
+            "WHERE p.activo = true " +
+            "AND p.id NOT IN (" +
+            "    SELECT DISTINCT ipi.presentacion.producto.id " +
+            "    FROM InventarioProductoItem ipi " +
+            "    JOIN ipi.inventarioProducto ip " +
+            "    JOIN ip.inventario inv " +
+            "    WHERE inv.sucursal.id = :sucursalId " +
+            "    AND ipi.creadoEn BETWEEN :fechaInicio AND :fechaFin" +
+            ") " +
+            "GROUP BY p.id, p.descripcion " +
+            "ORDER BY p.descripcion ASC")
+    Page<ProductoSaldoDto> findProductosFaltantes(
+            @Param("sucursalId") Long sucursalId, 
+            @Param("fechaInicio") LocalDateTime fechaInicio, 
+            @Param("fechaFin") LocalDateTime fechaFin, 
+            Pageable pageable);
 
 }
 

@@ -46,10 +46,30 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Persona savePersona(PersonaInput input){
-        ModelMapper m = new ModelMapper();
-        Persona e = m.map(input, Persona.class);
+        Persona e;
+        
+        // Si tiene ID, recuperar la entidad existente y actualizar campos
+        if(input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new Persona());
+        } else {
+            e = new Persona();
+        }
+        
+        // Actualizar todos los campos individualmente para asegurar que se persistan
+        if(input.getNombre() != null) e.setNombre(input.getNombre());
+        if(input.getApodo() != null) e.setApodo(input.getApodo());
+        if(input.getDocumento() != null) e.setDocumento(input.getDocumento());
+        if(input.getEmail() != null) e.setEmail(input.getEmail());
+        if(input.getDireccion() != null) e.setDireccion(input.getDireccion());
+        if(input.getTelefono() != null) e.setTelefono(input.getTelefono());
+        if(input.getSexo() != null) e.setSexo(input.getSexo());
+        if(input.getSocialMedia() != null) e.setSocialMedia(input.getSocialMedia());
+        if(input.getImagenes() != null) e.setImagenes(input.getImagenes());
+        
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getNacimiento()!=null) e.setNacimiento(stringToDate(input.getNacimiento()));
+        // Note: ciudadId handling would need to be added if CiudadService is available
+        
         e = service.save(e);
         return e;
     }

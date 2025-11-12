@@ -29,14 +29,17 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.franco.dev.repository.financiero.FacturaLegalSpecification.withFilters;
 import static com.franco.dev.utilitarios.DateUtils.dateToStringWithFormat;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -78,11 +81,14 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
-    public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
+    public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico, Boolean activo) {
         Pageable pageable = PageRequest.of(page, size);
-        return repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucId, nombre, ruc, pageable);
+        Page<FacturaLegal> response = repository.findAll(withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo), pageable);
+        return response;
+    }
+
+    public Optional<FacturaLegal> findByCdc(String cdc){
+        return repository.findByDocumentoElectronicoCdc(cdc);
     }
 
     public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
@@ -95,12 +101,48 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public FacturaLegal save(FacturaLegal entity) {
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        if (entity.getCliente() == null) {
-            Cliente newCliente = crearCliente(entity.getNombre(), entity.getRuc(), entity.getDireccion(), entity.getUsuario());
-            entity.setCliente(newCliente);
-        }
+        // NO crear cliente automáticamente aquí
+        // El GraphQL resolver (FacturaLegalGraphQL.saveFacturaLegal) es responsable de crear cliente si es necesario
+        // Esto permite que el frontend pueda crear facturas sin cliente cuando sea necesario
+        // Si se necesita crear cliente, debe hacerse en el GraphQL resolver antes de llamar a este método
         FacturaLegal e = super.save(entity);
         return e;
+    }
+
+    public FacturaLegal update(FacturaLegal entity) {
+        // Validate that the factura exists
+        if (entity.getId() == null || entity.getSucursalId() == null) {
+            throw new IllegalArgumentException("ID y SucursalId son requeridos para actualizar una factura");
+        }
+        
+        FacturaLegal existing = findByIdAndSucursalId(entity.getId(), entity.getSucursalId());
+        if (existing == null) {
+            throw new IllegalArgumentException("Factura no encontrada");
+        }
+        
+        // Validate electronic invoice editing rules
+        if (existing.getCdc() != null && !existing.getCdc().isEmpty()) {
+            // Es factura electrónica - solo permitir edición si no está nominada
+            if (existing.getCliente() != null) {
+                throw new IllegalStateException("No se puede editar una factura electrónica que ya está nominada");
+            }
+        }
+        
+        // Update allowed fields
+        if (entity.getCliente() != null) {
+            existing.setCliente(entity.getCliente());
+        }
+        if (entity.getNombre() != null) {
+            existing.setNombre(entity.getNombre());
+        }
+        if (entity.getRuc() != null) {
+            existing.setRuc(entity.getRuc());
+        }
+        if (entity.getDireccion() != null) {
+            existing.setDireccion(entity.getDireccion());
+        }
+        
+        return super.save(existing);
     }
 
     public Cliente crearCliente(String nombre, String ruc, String direccion, Usuario usuario) {

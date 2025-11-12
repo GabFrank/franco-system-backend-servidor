@@ -39,6 +39,9 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public List<Maletin> searchMaletin(String texto, Long sucId) {
+        if (texto == null || texto.isEmpty()) {
+            return service.findBySucursalIdOrAll(sucId);
+        }
         return service.searchByAll(texto, sucId);
     }
 

@@ -64,11 +64,12 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "JOIN CobroDetalle cd ON cd.cobro = c " +
             "join cd.formaPago fp " +
             "join cd.moneda m " +
-            "where ca.id = :id and v.sucursalId = :sucId and c = c2 and " +
+            "where ca.id = :id and v.sucursalId = :sucId and " +
             "(:formaPagoId is null or fp.id = :formaPagoId) and " +
             "(:monedaId is null or m.id = :monedaId) and " +
+            "(:conDescuento = false or cd.descuento = true) and " +
             "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
-    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Long monedaId);
+    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Long monedaId, @Param("conDescuento") Boolean conDescuento);
 
 //    @Query(value = "select v from Venta v, CobroDetalle cd, Delivery d " +
 //            "join v.caja ca " +

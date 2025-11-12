@@ -12,6 +12,7 @@ type Sucursal {
     isConfigured: Boolean
     sectorList: [Sector]
     codigoEstablecimientoFactura: String
+    activo: Boolean
     ip: String
     puerto: Int
     activo: Boolean
@@ -28,6 +29,7 @@ input SucursalInput {
     direccion: String
     nroDelivery: String
     isConfigured: Boolean
+    activo: Boolean
     codigoEstablecimientoFactura: String
     creadoEn: String
     ip: String

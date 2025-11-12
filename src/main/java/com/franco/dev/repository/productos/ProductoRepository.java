@@ -24,17 +24,25 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
-            "where (CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% or UPPER(p.descripcion_factura) like %?1% or c.codigo like %?1%) and p.activo = true " +
+            "where (CAST(p.id as text) like CONCAT('%', ?1, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(?1), '%') or UPPER(p.descripcion_factura) like CONCAT('%', UPPER(?1), '%') or c.codigo like CONCAT('%', ?1, '%')) and p.activo = true " +
             "ORDER BY p.descripcion asc  " +
             "limit 10 " +
             "offset ?2", nativeQuery = true)
     public List<Producto> findbyAll(String texto, int offset);
 
+    @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
+            "from productos.producto p  " +
+            "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
+            "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
+            "where (CAST(p.id as text) like CONCAT('%', ?1, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(?1), '%') or UPPER(p.descripcion_factura) like CONCAT('%', UPPER(?1), '%') or c.codigo like CONCAT('%', ?1, '%')) and p.activo = true " +
+            "ORDER BY p.descripcion asc", nativeQuery = true)
+    public List<Producto> findForReport(String texto);
+
     @Query(value = "select distinct on (p.id, p.descripcion) p.*   " +
             "from productos.producto p  " +
             "left outer join productos.presentacion p2 on p2.producto_id = p.id  " +
             "left outer join productos.codigo c on c.presentacion_id = p2.id  " +
-            "where p.is_envase = true and CAST(p.id as text) like %?1% or UPPER(p.descripcion) like %?1% " +
+            "where p.is_envase = true and (CAST(p.id as text) like CONCAT('%', ?1, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(?1), '%')) " +
             "ORDER BY p.descripcion asc  " +
             "limit 10 " +
             "offset ?2", nativeQuery = true)
@@ -75,9 +83,9 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
     @Query("SELECT Distinct new com.franco.dev.domain.operaciones.dto.LucroPorProductosDto(" +
             "pro.id as id, " +
             "pro.descripcion as descripcion, " +
-            "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, cpp.ultimoPrecioCompra, 0)) as costoUnitario, " +
+            "SUM(vi.cantidad * pre.cantidad * COALESCE(vi.precioCosto, cpp.ultimoPrecioCompra, 0)) as costoTotal, " +
             "SUM(vi.cantidad * pre.cantidad) as cantidad, " +
-            "SUM(vi.precio * vi.cantidad) as totalVenta," +
+            "SUM(vi.precio * vi.cantidad * pre.cantidad) as totalVenta," +
             "0.0, 0.0, 0.0, 0.0 " +
             ") " +
             "FROM VentaItem vi " +
@@ -95,7 +103,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
             "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
             "group by pro.id " +
-            "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
+            "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
     public List<LucroPorProductosDto> findLucroPorProducto(
             @Param("sucursalId") Long sucursalId,
             @Param("startDate") LocalDateTime startDate,
@@ -103,14 +111,33 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             @Param("usuarioIdList") List<Long> usuarioIdList,
             @Param("productoIdList") List<Long> productoIdList);
 
-    @Query("select p from Producto p " +
+    @Query("select distinct p from Producto p " +
             "join p.subfamilia sub " +
-            "where  (CAST(p.id as text) like %:texto% or UPPER(p.descripcion) like %:texto% or UPPER(p.descripcionFactura) like %:texto%) " +
+            "left join Presentacion pres on pres.producto.id = p.id " +
+            "left join Codigo cod on cod.presentacion.id = pres.id " +
+            "where  (CAST(p.id as string) like CONCAT('%', :texto, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') " + 
+            "or UPPER(p.descripcionFactura) like CONCAT('%', UPPER(:texto), '%')) " +
             "and ((:activo) is null or p.activo = :activo) " +
             "and ((:stock) is null or p.stock = :stock) " +
             "and ((:balanza) is null or p.balanza = :balanza) " +
             "and ((:vencimiento) is null or p.vencimiento = :vencimiento) " +
             "and ((:subfamiliaId) is null or sub.id = :subfamiliaId) " +
+            "and ((:costoCero) is null or " +
+            "     ((:costoCero) = true and (p.id IN (SELECT c1.producto.id FROM CostoPorProducto c1 " +
+            "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) " +
+            "FROM CostoPorProducto c2 WHERE c2.producto.id = c1.producto.id)) " + 
+            "OR p.id NOT IN (SELECT DISTINCT c4.producto.id FROM CostoPorProducto c4))) or " +
+            "     ((:costoCero) = false and p.id NOT IN (SELECT c1.producto.id FROM CostoPorProducto c1 " + 
+            "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) FROM CostoPorProducto c2 " + 
+            "WHERE c2.producto.id = c1.producto.id)) AND EXISTS (SELECT 1 FROM CostoPorProducto c3 " +
+            "WHERE c3.producto.id = p.id AND c3.costoMedio > 0))) " +
+            "and ((:stockFiltro) is null or :stockFiltro = 'todos' or " +
+            "     ((:stockFiltro) = 'positivo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms " + 
+            "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " + 
+            "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) > 0)) or " +
+            "     ((:stockFiltro) = 'negativo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms " +
+            "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
+            "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) < 0))) " +
             "order by p.id asc")
     public Page<Producto> searchWithFilters(
             @Param("texto") String texto,
@@ -119,6 +146,9 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             @Param("balanza") Boolean balanza,
             @Param("subfamiliaId") Long subfamiliaId,
             @Param("vencimiento") Boolean vencimiento,
+            @Param("costoCero") Boolean costoCero,
+            @Param("stockFiltro") String stockFiltro,
+            @Param("sucursalId") Long sucursalId,
             Pageable pageable
     );
 }

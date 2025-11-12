@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,11 +65,31 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public MovimientoStock saveMovimientoStock(MovimientoStockInput input) {
-        ModelMapper m = new ModelMapper();
-        MovimientoStock e = m.map(input, MovimientoStock.class);
+        try {
+            MovimientoStock e = new MovimientoStock();
+            if (input.getId() != null && input.getId() != 0) {
+                e.setId(input.getId());
+            }
+            e.setSucursalId(input.getSucursalId());
+            e.setTipoMovimiento(input.getTipoMovimiento());
+            e.setReferencia(input.getReferencia() != null ? input.getReferencia().longValue() : null);
+            e.setCantidad(input.getCantidad() != null ? input.getCantidad().doubleValue() : null);
+            e.setEstado(input.getEstado());
+        
+            if (input.getUsuarioId() != null) {
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+            }
+            if (input.getProductoId() != null) {
         e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
-        return service.save(e);
+            }
+            
+            MovimientoStock saved = service.save(e);
+            return saved;
+        } catch (Exception ex) {
+            System.out.println("Error in saveMovimientoStock: " + ex.getMessage());
+            ex.printStackTrace();
+            throw ex;
+        }
     }
 
     public Boolean deleteMovimientoStock(Long id, Long sucId) {
@@ -93,6 +114,15 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Double stockPorProducto(Long id, Long sucId) {
         if(sucId == null) return service.stockByProductoId(id);
         return service.stockByProductoIdAndSucursalId(id, sucId);
+    }
+
+    public Double stockByProductoIdExeptMovimientoId(Long productoId, Long movimientoId, Long sucursalId) {
+        return service.stockByProductoIdExecptMovStockId(productoId, movimientoId, sucursalId);
+    }
+
+    public Double stockByProductoIdAntesDeFecha(Long productoId, Long sucursalId, String fecha) {
+        LocalDateTime fechaDate = stringToDate(fecha);
+        return service.stockByProductoIdAndSucursalIdAntesDeFecha(productoId, sucursalId, fechaDate);
     }
 
     public Double findStockWithFilters(String inicio,

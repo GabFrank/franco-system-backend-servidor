@@ -1,0 +1,97 @@
+type EventoCancelacionDE {
+    id: ID!
+    sucursalId: Int
+    documentoElectronico: DocumentoElectronico!
+    eventoId: String!
+    fechaFirma: Date!
+    cdcDocumento: String!
+    motivoCancelacion: String
+    xmlEvento: String
+    estado: EstadoEvento!
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+type EventoNominacionDE {
+    id: ID!
+    sucursalId: Int
+    documentoElectronico: DocumentoElectronico!
+    eventoId: String
+    fechaFirma: Date
+    cdcDocumento: String
+    cliente: Cliente
+    nombreReceptor: String!
+    documentoReceptor: String!
+    tipoReceptor: String!
+    totalFactura: Float!
+    fechaEmision: Date!
+    fechaRecepcion: Date
+    xmlEvento: String
+    estado: EstadoEvento
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+input EventoCancelacionDEInput {
+    documentoElectronicoId: ID!
+    motivoCancelacion: String!
+    usuarioId: Int
+}
+
+input EventoNominacionDEInput {
+    documentoElectronicoId: ID!
+    clienteId: ID!
+    usuarioId: Int
+}
+
+extend type Query {
+    eventoCancelacion(id: ID!, sucursalId: ID!): EventoCancelacionDE
+    eventosCancelacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoCancelacionDE]!
+    eventosCancelacionPorEstado(estado: EstadoEvento!, sucursalId: ID!): [EventoCancelacionDE]!
+
+    eventoNominacion(id: ID!, sucursalId: ID!): EventoNominacionDE
+    eventosNominacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoNominacionDE]!
+    eventosNominacionPorEstado(estado: EstadoEvento!): [EventoNominacionDE]!
+}
+
+extend type Mutation {
+    # Cancela un Documento Electrónico previamente enviado a SIFEN
+    # Retorna el evento de cancelación con toda la información (estado, código respuesta, etc.)
+    cancelarDocumentoElectronico(cdc: String!, motivo: String!): EventoCancelacionDE!
+    
+    # Nomina un receptor para un DE innominado
+    # Retorna el evento de nominación con toda la información
+    nominarReceptorDocumento(cdc: String!, clienteId: ID!): EventoNominacionDE!
+    
+    # Declara un rango de números como inutilizados en SIFEN
+    # Retorna true si fue exitoso, lanza excepción si falla
+    inutilizarNumeros(
+        timbradoId: ID!
+        establecimiento: String!
+        puntoExpedicion: String!
+        numeroInicio: Int!
+        numeroFin: Int!
+        motivo: String!
+    ): Boolean!
+}
+
+enum EstadoEvento {
+    PENDIENTE
+    APROBADO
+    RECHAZADO
+    ERROR_ENVIO
+}

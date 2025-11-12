@@ -92,12 +92,12 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findByAll(texto, offset, isEnvase, activo);
     }
 
-    public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock, Boolean balanza, Long subfamilia, Boolean vencimiento, int page, int size) {
+    public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock, Boolean balanza, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        if(codigo!=null) {
+        
+        if(codigo != null && !codigo.trim().isEmpty()) {
             List<Codigo> foundCondigoList = codigoService.findByCodigo(codigo);
-            if(foundCondigoList !=null && foundCondigoList.size() > 0){
+            if(foundCondigoList != null && foundCondigoList.size() > 0){
                 if(foundCondigoList.size() == 1){
                     Producto foundProducto = foundCondigoList.get(0).getPresentacion().getProducto();
                     return new PageImpl<>(Arrays.asList(foundProducto), pageable, 1);
@@ -105,10 +105,13 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                     List<Producto> foundProductoList = foundCondigoList.stream().map(c -> c.getPresentacion().getProducto()).collect(Collectors.toList());
                     return new PageImpl<>(foundProductoList, pageable, foundProductoList.size());
                 }
-
+            } else {
+                return new PageImpl<>(new ArrayList<>(), pageable, 0);
             }
         }
-        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, vencimiento, pageable);
+        
+        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
+        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, vencimiento, costoCero, stockFiltro, sucursalId, pageable);
     }
 
     public List<Producto> productos(int page, int size) {
@@ -169,6 +172,26 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public String exportarReporte(String texto) throws FileNotFoundException {
         return service.exportarReporte(texto);
+    }
+
+    public String exportarReporteConFiltros(
+            String texto, 
+            Boolean codigo, 
+            Boolean activo, 
+            Boolean stock, 
+            Boolean balanza, 
+            Boolean vencimiento, 
+            Boolean costoCero, 
+            Long subfamiliaId, 
+            String stockFiltro, 
+            Long sucursalId, 
+            Long usuarioId, 
+            String usuario
+    ) throws FileNotFoundException {
+        return service.exportarReporteConFiltros(
+            texto, codigo, activo, stock, balanza, vencimiento, 
+            costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario
+        );
     }
 
     public List<Producto> findByPdvGrupoProducto(Long id) {

@@ -3,6 +3,7 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.dto.ResumenFacturasDto;
@@ -16,9 +17,11 @@ import com.franco.dev.rabbit.dto.SaveFacturaDto;
 import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CambioService;
+import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
+import com.franco.dev.service.sifen.SifenEventoService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.CobroDetalleService;
 import com.franco.dev.service.operaciones.DeliveryService;
@@ -56,6 +59,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -118,6 +124,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private DocumentoElectronicoService documentoElectronicoService;
+
+    @Autowired
+    private SifenEventoService sifenEventoService;
+
+
     public DecimalFormat df = new DecimalFormat("#,###.##");
 
     public FacturaLegal facturaLegal(Long id, Long sucId) {
@@ -144,43 +157,39 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getClienteId() != null) {
             e.setCliente(clienteService.findById(input.getClienteId()).orElse(null));
         } else {
+            // Solo crear cliente automáticamente si hay nombre y ruc Y no se especificó explícitamente que no se debe crear
+            // Si clienteId es null y hay nombre/ruc, intentar buscar o crear cliente
+            // PERO: si el frontend quiere crear factura sin cliente, simplemente no crear cliente aquí
+            // El servicio FacturaLegalService.save() también tiene lógica para crear cliente si es necesario
+            // Por lo tanto, aquí solo creamos cliente si realmente no existe y hay datos suficientes
             if (input.getNombre() != null && input.getRuc() != null) {
+                // Buscar persona existente por documento
                 Persona nuevaPersona = personaService.findByDocumento(input.getRuc());
-                if (nuevaPersona == null) {
-                    nuevaPersona = new Persona();
-                    nuevaPersona.setNombre(input.getNombre());
-                    nuevaPersona.setDocumento(input.getRuc());
-                    nuevaPersona.setUsuario(e.getUsuario());
-                    nuevaPersona.setDireccion(input.getDireccion());
-                    nuevaPersona = personaService.save(nuevaPersona);
-                }
                 if (nuevaPersona != null) {
-                    nuevaPersona = personaService.save(nuevaPersona);
+                    // Si existe persona, buscar cliente asociado
                     Cliente cli = clienteService.findByPersonaId(nuevaPersona.getId());
-                    if (cli == null) {
-                        cli = new Cliente();
-                        cli.setPersona(nuevaPersona);
-                        cli.setUsuario(e.getUsuario());
-                        cli.setCredito((float) 0);
-                        cli = clienteService.save(cli);
-                    }
                     if (cli != null) {
-                        cli = clienteService.save(cli);
                         e.setCliente(cli);
                     }
+                    // Si no hay cliente pero hay persona, NO crear cliente automáticamente aquí
+                    // Dejar que el servicio FacturaLegalService.save() decida si crear cliente
                 }
-
-
+                // Si no existe persona, NO crear persona/cliente aquí
+                // Dejar que el servicio FacturaLegalService.save() decida si crear cliente
             }
+            // Si no hay clienteId, la factura se guardará sin cliente (cliente = null)
+            // El servicio FacturaLegalService.save() puede crear cliente si es necesario
         }
         if (input.getTimbradoDetalleId() != null)
-            e.setTimbradoDetalle(timbradoDetalleService.findById(input.getTimbradoDetalleId()).orElse(null));
+            e.setTimbradoDetalle(timbradoDetalleService.findByIdAndSucursalId(input.getTimbradoDetalleId(), input.getSucursalId()).orElse(null));
         if (e.getTimbradoDetalle() != null) {
             timbradoDetalleService.save(e.getTimbradoDetalle());
             e = service.save(e);
             if (e.getId() != null) {
                 input.setId(e.getId());
-                input.setClienteId(e.getCliente().getId());
+                if (e.getCliente() != null) {
+                    input.setClienteId(e.getCliente().getId());
+                }
             }
             Long sucId = e.getTimbradoDetalle().getPuntoDeVenta().getSucursal().getId();
             e = service.save(e);
@@ -202,9 +211,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.count();
     }
 
-    public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+    public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico, Boolean activo) {
+        Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10, isElectronico, activo);
         return response;
+    }
+
+    public Optional<FacturaLegal> facturaLegalByCdc(String cdc){
+        return service.findByCdc(cdc);
     }
 
     public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
@@ -276,7 +289,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(factura, facturaLegal.getTimbradoDetalle().getTimbrado().getRazonSocial().toUpperCase());
             escpos.writeLF(factura, "RUC: " + facturaLegal.getTimbradoDetalle().getTimbrado().getRuc());
             escpos.writeLF(factura, "Timbrado: " + facturaLegal.getTimbradoDetalle().getTimbrado().getNumero());
-            escpos.writeLF(factura, "De " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaInicio().format(impresionService.shortDate) + " a " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaFin().format(impresionService.shortDate));
+            escpos.writeLF(factura, "De " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaInicio().format(impresionService.shortDate) + " a " + 
+            facturaLegal.getTimbradoDetalle().getTimbrado().getFechaFin().format(impresionService.shortDate));
             Long numeroFacturaAux = Long.valueOf(facturaLegal.getNumeroFactura());
             StringBuilder numeroFacturaString = new StringBuilder();
             for (int i = 7; i > numeroFacturaAux.toString().length(); i--) {
@@ -558,5 +572,146 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return "";
     }
 
+    // Field resolver for documentoElectronico
+    public DocumentoElectronico documentoElectronico(FacturaLegal facturaLegal) {
+        if (facturaLegal == null || facturaLegal.getId() == null || facturaLegal.getSucursalId() == null) {
+            return null;
+        }
+        Optional<DocumentoElectronico> de = documentoElectronicoService.findByFacturaLegalId(
+            facturaLegal.getId(), 
+            facturaLegal.getSucursalId()
+        );
+        return de.orElse(null);
+    }
 
+    // Mutation to update factura legal
+    @Transactional
+    public FacturaLegal updateFacturaLegal(FacturaLegalInput input) {
+        if (input.getId() == null || input.getSucursalId() == null) {
+            throw new IllegalArgumentException("ID y SucursalId son requeridos");
+        }
+
+        ModelMapper m = new ModelMapper();
+        FacturaLegal entity = m.map(input, FacturaLegal.class);
+        
+        // Set cliente if provided
+        if (input.getClienteId() != null) {
+            Cliente cliente = clienteService.findById(input.getClienteId()).orElse(null);
+            entity.setCliente(cliente);
+        }
+        
+        // Set usuario if provided
+        if (input.getUsuarioId() != null) {
+            entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        
+        return service.update(entity);
+    }
+
+    // Mutation to nominate electronic invoice
+    @Transactional
+    public Boolean nominarFacturaElectronica(Long facturaLegalId, Long sucursalId, Long clienteId) {
+        try {
+            // Get factura
+            FacturaLegal factura = service.findByIdAndSucursalId(facturaLegalId, sucursalId);
+            if (factura == null) {
+                throw new IllegalArgumentException("Factura no encontrada");
+            }
+            
+            // Validate it's electronic
+            if (factura.getCdc() == null || factura.getCdc().isEmpty()) {
+                throw new IllegalArgumentException("La factura no es electrónica");
+            }
+            
+            // Validate it's not already nominada
+            if (factura.getCliente() != null) {
+                throw new IllegalStateException("La factura ya está nominada");
+            }
+            
+            // Get cliente
+            Cliente cliente = clienteService.findById(clienteId).orElse(null);
+            if (cliente == null) {
+                throw new IllegalArgumentException("Cliente no encontrado");
+            }
+            
+            // Call SIFEN service to nominate
+            sifenEventoService.nominarReceptor(factura.getCdc(), cliente);
+            
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al nominar factura electrónica: " + e.getMessage());
+        }
+    }
+
+    public String cancelarFacturaLegal(Long facturaLegalId, Long sucursalId, Boolean cancelarVenta) {
+        try {
+            // Buscar la factura
+            FacturaLegal factura = service.findByIdAndSucursalId(facturaLegalId, sucursalId);
+            if (factura == null) {
+                return "ERROR: Factura no encontrada";
+            }
+
+            // Verificar si ya está cancelada
+            if (factura.getActivo() != null && !factura.getActivo()) {
+                return "ERROR: La factura ya está cancelada";
+            }
+
+            // Determinar si es factura electrónica
+            boolean esElectronica = factura.getCdc() != null && !factura.getCdc().isEmpty();
+
+            if (esElectronica) {
+                // Factura electrónica - usar SIFEN
+                // El método cancelarDE ya maneja su propia transacción y guarda el evento
+                try {
+                    sifenEventoService.cancelarDE(factura.getCdc(), "Cancelación solicitada por usuario");
+                    
+                    // SIFEN aceptó el evento (puede estar PENDIENTE o APROBADO)
+                    // Si también quiere cancelar la venta
+                    if (cancelarVenta && factura.getVenta() != null) {
+                        boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta());
+                        if (ventaCancelada) {
+                            return "EXITO: Factura electrónica cancelada y venta cancelada";
+                        } else {
+                            return "EXITO: Factura electrónica cancelada (venta no pudo ser cancelada)";
+                        }
+                    } else {
+                        // Solo cancelar factura - marcar como inactiva
+                        factura.setActivo(false);
+                        service.save(factura);
+                        return "EXITO: Factura electrónica cancelada (venta mantiene activa)";
+                    }
+
+                } catch (Exception e) {
+                    // SIFEN rechazó el evento - el evento ya fue guardado en la BD con estado RECHAZADO
+                    String mensajeError = e.getMessage() != null ? e.getMessage() : "Error desconocido";
+                    return "ERROR_SIFEN: " + mensajeError;
+                }
+
+            } else {
+                // Factura no electrónica
+                if (cancelarVenta && factura.getVenta() != null) {
+                    // Cancelar venta
+                    boolean ventaCancelada = ventaService.cancelarVenta(factura.getVenta());
+                    if (ventaCancelada) {
+                        // Marcar factura como inactiva
+                        factura.setActivo(false);
+                        service.save(factura);
+                        return "EXITO: Factura cancelada y venta cancelada";
+                    } else {
+                        return "ERROR: No se pudo cancelar la venta";
+                    }
+                } else {
+                    // Solo cancelar factura
+                    factura.setActivo(false);
+                    service.save(factura);
+                    return "EXITO: Factura cancelada (venta mantiene activa)";
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "ERROR: " + e.getMessage();
+        }
+    }
 }

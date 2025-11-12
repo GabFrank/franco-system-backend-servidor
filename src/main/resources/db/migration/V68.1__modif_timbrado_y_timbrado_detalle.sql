@@ -1,0 +1,25 @@
+-- Agregar campos para documento electrónico en tabla timbrado
+ALTER TABLE financiero.timbrado ADD COLUMN is_electronico BOOLEAN DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN csc VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN email VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN tipo_sociedad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN domicilio_fiscal_departamento VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN domicilio_fiscal_ciudad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN domicilio_fiscal_codigo_ciudad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN domicilio_fiscal_localidad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN domicilio_fiscal_barrio VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN domicilio_fiscal_direccion VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN telefono VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN cod_actividad_economica_principal VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN desc_actividad_economica_principal VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN list_codigo_actividad_economica_secundaria TEXT DEFAULT NULL;
+ALTER TABLE financiero.timbrado ADD COLUMN list_descripcion_actividad_economica_secundaria TEXT DEFAULT NULL;
+
+-- Agregar campos para documento electrónico en tabla timbrado_detalle
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN departamento VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN ciudad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN codigo_ciudad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN localidad VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN barrio VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN direccion VARCHAR(255) DEFAULT NULL;
+ALTER TABLE financiero.timbrado_detalle ADD COLUMN telefono VARCHAR(255) DEFAULT NULL;

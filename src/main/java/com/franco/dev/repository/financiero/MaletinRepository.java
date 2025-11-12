@@ -16,11 +16,12 @@ public interface MaletinRepository extends HelperRepository<Maletin, Long> {
 
     @Query("select m from Maletin m " +
             "join m.sucursal s " +
-            "where (?2 is null or s.id = ?2) and UPPER(CAST(id as text)) like %?1% or UPPER(descripcion) like %?1%")
+            "where (?2 is null or s.id = ?2) and (UPPER(CAST(m.id as text)) like %?1% or UPPER(m.descripcion) like %?1%)")
     public List<Maletin> findByAll(String texto, Long sucId);
 
     Maletin findByDescripcionIgnoreCase(String descripcion);
 
     Page<Maletin> findAll(Pageable pageable);
 
+    List<Maletin> findBySucursalId(Long id);
 }

@@ -1,0 +1,1 @@
+ALTER TABLE operaciones.inventario_producto DROP COLUMN producto_id;

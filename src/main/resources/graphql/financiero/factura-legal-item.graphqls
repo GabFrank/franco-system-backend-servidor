@@ -9,6 +9,7 @@ type FacturaLegalItem {
     creadoEn: Date
     usuario: Usuario
     sucursalId: Int
+    producto:Producto
 }
 
 input FacturaLegalItemInput {
@@ -21,6 +22,7 @@ input FacturaLegalItemInput {
     total:Float
     usuarioId: Int
     sucursalId: Int
+    productoId: Int
 }
 
 #extend type Query {

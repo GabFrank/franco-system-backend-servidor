@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../../frontend/desktop/frc-sistemas-informaticos"
+		},
+		{
+			"path": "../../.."
+		}
+	],
+	"settings": {
+		"java.compile.nullAnalysis.mode": "automatic"
+	}
+}

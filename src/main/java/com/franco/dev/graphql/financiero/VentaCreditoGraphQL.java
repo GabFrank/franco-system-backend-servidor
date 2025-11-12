@@ -76,6 +76,7 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 @Component
 public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver, GraphQLSubscriptionResolver {
 
+
     @Autowired
     private VentaCreditoService service;
 
@@ -127,6 +128,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private MultiTenantService multiTenantService;
 
+
     @Unsecured
     public Publisher<VentaCreditoQRAuthUpdate> ventaCreditoAuthQrSub() {
         return qrAuthPublisher.getPublisher();
@@ -147,6 +149,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Transactional
     public VentaCredito saveVentaCredito(VentaCreditoInput input, List<VentaCreditoCuotaInput> ventaCreditoCuotaInputList) {
+        
         ModelMapper m = new ModelMapper();
         VentaCredito e = m.map(input, VentaCredito.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -155,6 +158,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getFechaCobro() != null) e.setFechaCobro(stringToDate(input.getFechaCobro()));
         e = service.save(e);
         if (e.getId() != null) {
+            
             for (VentaCreditoCuotaInput vc : ventaCreditoCuotaInputList) {
                 vc.setVentaCreditoId(e.getId());
                 vc.setUsuarioId(input.getUsuarioId());
@@ -415,7 +419,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 sb.append(itens.get(x).getVencimiento().format(formatter));
                 sb.append(" pagare solidariamente al Sr. FRANCO AREVALOS S.A. la suma de G$ ");
                 sb.append(valorPagare);
-                sb.append("por el valor recibido a mi/nuestra entera satisfaccion. En caso de retardo o incumplimiento total o parcial a la fecha de su vencimiento quedara constituida la MORA automatica, sin necesidad de interpelacion alguna.");
+                sb.append(" por el valor recibido a mi/nuestra entera satisfaccion. En caso de retardo o incumplimiento total o parcial a la fecha de su vencimiento quedara constituida la MORA automatica, sin necesidad de interpelacion alguna.");
                 escpos.write(sb.toString());
                 escpos.feed(4);
                 escpos.writeLF("   --------------------------   ");

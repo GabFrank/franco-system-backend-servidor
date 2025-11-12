@@ -549,4 +549,102 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     public String generateCentralToBranchSubscriptionName(String sucursalId) {
         return replicationService.generateCentralToBranchSubscriptionName(Long.parseLong(sucursalId));
     }
+    
+    /**
+     * Refresh a specific subscription to sync with its publication
+     */
+    public ReplicationStatus refreshSubscription(String subscriptionName) {
+        ReplicationStatus status = new ReplicationStatus();
+        
+        try {
+            boolean success = replicationService.refreshSubscription(subscriptionName);
+            
+            status.setSuccess(success);
+            if (success) {
+                status.setMessage("Subscription " + subscriptionName + " successfully refreshed");
+            } else {
+                status.setMessage("Failed to refresh subscription " + subscriptionName);
+            }
+        } catch (Exception e) {
+            status.setSuccess(false);
+            status.setMessage("Error: " + e.getMessage());
+        }
+        
+        return status;
+    }
+    
+    /**
+     * Refresh all subscriptions in the database
+     */
+    public ReplicationStatus refreshAllSubscriptions() {
+        ReplicationStatus status = new ReplicationStatus();
+        
+        try {
+            boolean success = replicationService.refreshAllSubscriptions();
+            
+            status.setSuccess(success);
+            if (success) {
+                status.setMessage("All subscriptions successfully refreshed");
+            } else {
+                status.setMessage("Some subscriptions failed to refresh. Check logs for details.");
+            }
+        } catch (Exception e) {
+            status.setSuccess(false);
+            status.setMessage("Error: " + e.getMessage());
+        }
+        
+        return status;
+    }
+    
+    /**
+     * Refresh a specific subscription on a remote branch
+     */
+    public ReplicationStatus refreshRemoteSubscription(String branchSucursalId, String subscriptionName) {
+        ReplicationStatus status = new ReplicationStatus();
+        
+        try {
+            boolean success = replicationService.refreshRemoteSubscription(
+                Long.parseLong(branchSucursalId), subscriptionName);
+            
+            status.setSuccess(success);
+            if (success) {
+                status.setMessage("Remote subscription " + subscriptionName + 
+                    " successfully refreshed on branch " + branchSucursalId);
+            } else {
+                status.setMessage("Failed to refresh remote subscription " + 
+                    subscriptionName + " on branch " + branchSucursalId);
+            }
+        } catch (Exception e) {
+            status.setSuccess(false);
+            status.setMessage("Error: " + e.getMessage());
+        }
+        
+        return status;
+    }
+    
+    /**
+     * Refresh all subscriptions on a remote branch
+     */
+    public ReplicationStatus refreshAllRemoteSubscriptions(String branchSucursalId) {
+        ReplicationStatus status = new ReplicationStatus();
+        
+        try {
+            boolean success = replicationService.refreshAllRemoteSubscriptions(
+                Long.parseLong(branchSucursalId));
+            
+            status.setSuccess(success);
+            if (success) {
+                status.setMessage("All remote subscriptions successfully refreshed on branch " + 
+                    branchSucursalId);
+            } else {
+                status.setMessage("Some remote subscriptions failed to refresh on branch " + 
+                    branchSucursalId + ". Check logs for details.");
+            }
+        } catch (Exception e) {
+            status.setSuccess(false);
+            status.setMessage("Error: " + e.getMessage());
+        }
+        
+        return status;
+    }
 } 

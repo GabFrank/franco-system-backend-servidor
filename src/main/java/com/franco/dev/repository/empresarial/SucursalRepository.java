@@ -22,6 +22,7 @@ public interface SucursalRepository extends HelperRepository<Sucursal, Long> {
 
     public List<Sucursal> findByIsConfiguredFalse();
 
+    @Query("select s from Sucursal s where s.id != 0 and UPPER(s.nombre) like UPPER(?1) order by s.id asc")
     public Page<Sucursal> findByNombreLike(String nombre, Pageable page);
 
     public List<Sucursal> findAllByActivoTrueOrderByIdAsc();

@@ -3,43 +3,25 @@ package com.franco.dev.service.sifen.test;
 import com.franco.dev.domain.financiero.LoteDE;
 import com.franco.dev.service.financiero.LoteDEService;
 import com.franco.dev.service.sifen.SifenService;
-import com.roshka.sifen.Sifen;
 import com.roshka.sifen.core.beans.response.RespuestaConsultaDE;
 import com.roshka.sifen.core.beans.response.RespuestaConsultaLoteDE;
-import com.roshka.sifen.core.exceptions.SifenException;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.data.domain.PageRequest;
-
-import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegal;
-import com.franco.dev.domain.financiero.FacturaLegalItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.EstadoDE;
-import com.franco.dev.domain.personas.Cliente;
-import com.franco.dev.domain.productos.Presentacion;
-import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.service.financiero.DocumentoElectronicoService;
-import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
-import com.franco.dev.service.personas.ClienteService;
-import com.franco.dev.service.productos.PresentacionService;
-import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.sifen.SifenSchedulerService;
 import org.springframework.test.annotation.Commit;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import com.franco.dev.domain.financiero.enums.EstadoLoteDE;
-import org.springframework.data.domain.Page;
-import java.time.format.DateTimeFormatter;
 
 @Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -56,17 +38,12 @@ public class SifenTest {
     @Autowired
     private FacturaLegalService facturaLegalService;
 
-    @Autowired
-    private ClienteService clienteService;
 
     @Autowired
     private TimbradoDetalleService timbradoDetalleService;
 
     @Autowired
     private DocumentoElectronicoService documentoElectronicoService;
-
-    @Autowired
-    private Sifen sifen;
 
 
     /**

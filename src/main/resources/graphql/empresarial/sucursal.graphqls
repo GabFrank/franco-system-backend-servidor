@@ -51,7 +51,7 @@ extend type Query {
     sucursal(id:ID!):Sucursal
     sucursales(page:Int = 0, size:Int = 10):[Sucursal]!
     countSucursal: Int
-    sucursalesSearch(texto:String):[Sucursal]
+    sucursalesSearch(texto:String, activo:Boolean):[Sucursal]
     sucursalActual:Sucursal
     findByNombre(nombre: String, page: Int, size: Int): SucursalPage
 }

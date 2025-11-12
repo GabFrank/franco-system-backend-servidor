@@ -17,8 +17,8 @@ public interface SucursalRepository extends HelperRepository<Sucursal, Long> {
 
     List<Sucursal> findAllByOrderByIdAsc();
 
-    @Query("select p from Sucursal p where p.id != 0 and (cast(?1 as text) is null or (CAST(id as text) like %?1% or UPPER(p.nombre) like %?1%)) order by p.id asc")
-    public List<Sucursal> findByAll(String texto);
+    @Query("select p from Sucursal p where p.id != 0 and p.activo = ?2 and (?1 is null or ?1 = '' or CAST(p.id as string) like CONCAT('%', ?1, '%') or UPPER(p.nombre) like CONCAT('%', UPPER(?1), '%')) order by p.id asc")
+    public List<Sucursal> findByAll(String texto, Boolean activo);
 
     public List<Sucursal> findByIsConfiguredFalse();
 

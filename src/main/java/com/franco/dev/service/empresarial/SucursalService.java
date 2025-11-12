@@ -34,9 +34,9 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
         return repository;
     }
 
-    public List<Sucursal> findByAll(String texto) {
+    public List<Sucursal> findByAll(String texto, Boolean activo) {
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return repository.findByAll(texto);
+        return repository.findByAll(texto, activo != null ? activo : true);
 
     }
 

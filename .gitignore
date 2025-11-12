@@ -5,10 +5,14 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .DS_Store
+**/.DS_Store
 src/.DS_Store
 tokens/
 ### STS ###
 .apt_generated
 .vscode*/
+.classpath
+.factorypath
+informacion.txt
 
 src/main/resources/application-dev.properties

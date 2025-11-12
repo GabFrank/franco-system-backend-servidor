@@ -325,19 +325,45 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return false;
     }
 
-    public Page<Venta> ventasPorCajaId(Long idVenta, Long idCaja, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento) {
+    public Page<Venta> ventasPorCajaId(
+        Long idVenta, 
+        Long idCaja, 
+        Integer page, 
+        Integer size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento) {
+
         Pageable pageable;
         if (page != null) {
             pageable = PageRequest.of(page, size);
         } else {
             pageable = PageRequest.of(0, 15);
         }
-        return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento);
+        return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento, conAumento);
     }
 
-    public Page<Venta> searchVenta(Long idVenta, Long idCaja, int page, int size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento) {
+    public Page<Venta> searchVenta(
+        Long idVenta, 
+        Long idCaja, 
+        int page, 
+        int size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento) {
+            
         Pageable pageable = PageRequest.of(page, size);
-        return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento);
+        return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento, conAumento);
     }
 
 //    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {

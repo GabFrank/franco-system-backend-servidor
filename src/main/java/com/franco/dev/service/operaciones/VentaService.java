@@ -90,7 +90,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
         Pageable pagina = PageRequest.of(page, size);
-        return findWithFiltersCriteria(null, id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId, asc, null);
+        return findWithFiltersCriteria(null, id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId, asc, null, null);
     }
 
     public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
@@ -248,11 +248,11 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return null;
     }
 
-    public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento){
-        return findWithFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc, conDescuento);
+    public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento, Boolean conAumento){
+        return findWithFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc, conDescuento, conAumento);
     }
 
-    public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento) {
+    public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento, Boolean conAumento) {
         Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
@@ -268,7 +268,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 predicates.add(cb.equal(root.get("id"), idVenta));
             }
 
-            if (formaPagoId != null || monedaId != null || (conDescuento != null && conDescuento)) {
+            if (formaPagoId != null || monedaId != null || (conDescuento != null && conDescuento) || (conAumento != null && conAumento)) {
                 Subquery<Long> cobroDetalleSubquery = query.subquery(Long.class);
                 Root<CobroDetalle> cobroDetalleRoot = cobroDetalleSubquery.from(CobroDetalle.class);
 
@@ -287,6 +287,10 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
                 if (conDescuento != null && conDescuento == true){
                     subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("descuento")));
+                }
+
+                if (conAumento != null && conAumento == true){
+                    subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("aumento")));
                 }
 
                 cobroDetalleSubquery.select(cobroDetalleRoot.get("id"))

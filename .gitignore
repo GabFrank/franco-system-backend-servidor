@@ -11,3 +11,5 @@ tokens/
 .apt_generated
 .vscode*/
 
+.DS_Store
+.factorypath

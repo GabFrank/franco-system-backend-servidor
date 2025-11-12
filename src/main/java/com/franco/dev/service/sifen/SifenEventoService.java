@@ -26,6 +26,7 @@ import com.roshka.sifen.core.types.TiNatRec;
 import com.roshka.sifen.core.types.TTiDE;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -54,154 +55,218 @@ public class SifenEventoService {
         this.facturaLegalService = facturaLegalService;
     }
 
-    @Transactional(noRollbackFor = {SifenException.class, IllegalStateException.class, IllegalArgumentException.class})
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = {SifenException.class, IllegalStateException.class, IllegalArgumentException.class})
     public RespuestaRecepcionEvento cancelarDE(String cdc, String motivo) throws SifenException {
-        log.info("🚫 Cancelando DE con CDC: {}", cdc);
+        log.info("🚫 [INICIO] Cancelando DE con CDC: {}", cdc);
         log.info("   Motivo: {}", motivo);
 
-        DocumentoElectronico de = documentoElectronicoService.findByCdc(cdc)
-                .orElseThrow(() -> new IllegalArgumentException("No se encontró DE con CDC: " + cdc));
+        try {
+            log.info("   [PASO 1] Buscando documento electrónico en BD...");
+            DocumentoElectronico de = documentoElectronicoService.findByCdc(cdc)
+                    .orElseThrow(() -> new IllegalArgumentException("No se encontró DE con CDC: " + cdc));
+            log.info("   ✅ DE encontrado - ID: {}, Sucursal: {}, Estado: {}", de.getId(), de.getSucursalId(), de.getEstado());
 
-        if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId(), de.getSucursalId())) {
-            log.warn("⚠️ El DE ya tiene un evento de cancelación APROBADO");
-            log.warn("   Estado del DE: {}", de.getEstado());
-            throw new IllegalStateException("El DE ya fue cancelado exitosamente. No se puede cancelar nuevamente.");
-        }
-
-        List<EventoCancelacionDE> eventosActivos = eventoCancelacionDEService.findActivosByCdcDocumento(cdc);
-        if (!eventosActivos.isEmpty()) {
-            log.info("   🔄 Se encontraron {} evento(s) previo(s) - realizando reintento automático", eventosActivos.size());
-            for (EventoCancelacionDE eventoAnterior : eventosActivos) {
-                eventoAnterior.setActivo(false);
-                eventoCancelacionDEService.save(eventoAnterior);
-                log.info("      📝 Evento anterior ID {} marcado como inactivo (estado: {})", eventoAnterior.getId(), eventoAnterior.getEstado());
+            log.info("   [PASO 2] Verificando si ya tiene cancelación aprobada...");
+            if (eventoCancelacionDEService.tieneCancelacionAprobada(de.getId(), de.getSucursalId())) {
+                log.warn("⚠️ El DE ya tiene un evento de cancelación APROBADO");
+                log.warn("   Estado del DE: {}", de.getEstado());
+                throw new IllegalStateException("El DE ya fue cancelado exitosamente. No se puede cancelar nuevamente.");
             }
-        }
+            log.info("   ✅ No tiene cancelación aprobada previa");
 
-        TrGeVeCan cancelacion = new TrGeVeCan();
-        cancelacion.setId(cdc);
-        cancelacion.setmOtEve(motivo);
-
-        TgGroupTiEvt tipoEvento = new TgGroupTiEvt();
-        tipoEvento.setrGeVeCan(cancelacion);
-
-        TrGesEve gestionEvento = new TrGesEve();
-        int numeroRandom = new Random().nextInt(99999999) + 1;
-        String eventoId = String.valueOf(numeroRandom);
-        LocalDateTime fechaFirma = LocalDateTime.now();
-        gestionEvento.setId(eventoId);
-        gestionEvento.setdFecFirma(fechaFirma);
-        gestionEvento.setgGroupTiEvt(tipoEvento);
-
-        List<TrGesEve> listaEventos = new ArrayList<>();
-        listaEventos.add(gestionEvento);
-
-        EventosDE eventosDE = new EventosDE();
-        eventosDE.setrGesEveList(listaEventos);
-
-        EventoCancelacionDE eventoCancelacion = new EventoCancelacionDE();
-        eventoCancelacion.setDocumentoElectronico(de);
-        eventoCancelacion.setDocumentoElectronicoId(de.getId());
-        eventoCancelacion.setSucursal(de.getSucursal()); // Asignar sucursal desde DE
-        eventoCancelacion.setSucursalId(de.getSucursalId()); // Asignar sucursalId desde DE
-        eventoCancelacion.setEventoId(eventoId);
-        eventoCancelacion.setFechaFirma(fechaFirma);
-        eventoCancelacion.setCdcDocumento(cdc);
-        eventoCancelacion.setMotivoCancelacion(motivo);
-        eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
-        eventoCancelacion.setActivo(true);
-
-        log.info("   📤 Enviando evento de cancelación a SIFEN...");
-        RespuestaRecepcionEvento respuesta = Sifen.recepcionEvento(eventosDE);
-
-        String xmlRespuesta = respuesta.getRespuestaBruta();
-        String codigoRespuesta = extraerValorXML(xmlRespuesta, "<dCodRes>", "</dCodRes>");
-        if (codigoRespuesta == null) {
-            codigoRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dCodRes>", "</ns2:dCodRes>");
-        }
-        String mensajeRespuesta = extraerValorXML(xmlRespuesta, "<dMsgRes>", "</dMsgRes>");
-        if (mensajeRespuesta == null) {
-            mensajeRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dMsgRes>", "</ns2:dMsgRes>");
-        }
-        log.info("   📥 Respuesta recibida - Código: {}", codigoRespuesta);
-        log.info("   📥 Mensaje: {}", mensajeRespuesta);
-
-        eventoCancelacion.setRespuestaBruta(xmlRespuesta);
-        eventoCancelacion.setCodigoRespuesta(codigoRespuesta);
-        eventoCancelacion.setMensajeRespuesta(mensajeRespuesta);
-
-        String estadoResultado = extraerValorXML(xmlRespuesta, "<dEstRes>", "</dEstRes>");
-        if (estadoResultado == null) {
-            estadoResultado = extraerValorXML(xmlRespuesta, "<ns2:dEstRes>", "</ns2:dEstRes>");
-        }
-        log.info("   📊 Estado del evento en SIFEN: {}", estadoResultado);
-
-        String protocolo = extraerValorXML(xmlRespuesta, "<dProtAut>", "</dProtAut>");
-        if (protocolo == null) {
-            protocolo = extraerValorXML(xmlRespuesta, "<ns2:dProtAut>", "</ns2:dProtAut>");
-        }
-        if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
-            eventoCancelacion.setProtocoloAutorizacion(protocolo);
-            log.info("   📋 Protocolo: {}", protocolo);
-        }
-
-        // Variable para controlar si debemos lanzar excepción
-        String errorMessage = null;
-
-        if ("Aprobado".equalsIgnoreCase(estadoResultado)) {
-            eventoCancelacion.setEstado(EstadoEvento.APROBADO);
-            eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
-            de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
-            de.setCodigoRespuestaSifen(codigoRespuesta);
-            de.setMensajeRespuestaSifen(mensajeRespuesta);
-            documentoElectronicoService.save(de);
-            log.info("   ✅ Evento APROBADO - DE actualizado a estado CANCELADO");
-            log.info("   📋 Código SIFEN: {} - {}", codigoRespuesta, mensajeRespuesta);
-        } else if ("Rechazado".equalsIgnoreCase(estadoResultado)) {
-            eventoCancelacion.setEstado(EstadoEvento.RECHAZADO);
-            eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
-            de.setCodigoRespuestaSifen(codigoRespuesta);
-            de.setMensajeRespuestaSifen(mensajeRespuesta);
-            documentoElectronicoService.save(de);
-            log.error("   ❌ Evento RECHAZADO por SIFEN");
-            log.error("   📋 Código: {} - {}", codigoRespuesta, mensajeRespuesta);
-            log.error("   ℹ️ El DE mantiene su estado actual: {}", de.getEstado());
-            errorMessage = "SIFEN rechazó la cancelación: " + mensajeRespuesta;
-        } else if (estadoResultado == null || estadoResultado.isEmpty()) {
-            if ("0300".equals(codigoRespuesta)) {
-                eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
-                log.info("   ✅ Evento recibido (código 0300) - pendiente de procesamiento");
-            } else if ("0600".equals(codigoRespuesta)) {
-                if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
-                    eventoCancelacion.setEstado(EstadoEvento.APROBADO);
-                    eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
-                    de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
-                    documentoElectronicoService.save(de);
-                    log.info("   ✅ Evento APROBADO (código 0600 + protocolo) - DE actualizado a CANCELADO");
-                } else {
-                    eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
-                    log.info("   ✅ Evento registrado (código 0600) - estado pendiente");
+            log.info("   [PASO 3] Buscando eventos activos previos...");
+            List<EventoCancelacionDE> eventosActivos = eventoCancelacionDEService.findActivosByCdcDocumento(cdc);
+            if (!eventosActivos.isEmpty()) {
+                log.info("   🔄 Se encontraron {} evento(s) previo(s) - realizando reintento automático", eventosActivos.size());
+                for (EventoCancelacionDE eventoAnterior : eventosActivos) {
+                    eventoAnterior.setActivo(false);
+                    eventoCancelacionDEService.save(eventoAnterior);
+                    log.info("      📝 Evento anterior ID {} marcado como inactivo (estado: {})", eventoAnterior.getId(), eventoAnterior.getEstado());
                 }
             } else {
-                eventoCancelacion.setEstado(EstadoEvento.ERROR_ENVIO);
-                log.error("   ❌ Error en envío - Código: {} - {}", codigoRespuesta, mensajeRespuesta);
-                errorMessage = "Error al enviar evento: " + codigoRespuesta + " - " + mensajeRespuesta;
+                log.info("   ✅ No hay eventos activos previos");
             }
-        } else {
+
+            log.info("   [PASO 4] Construyendo XML del evento de cancelación...");
+            TrGeVeCan cancelacion = new TrGeVeCan();
+            cancelacion.setId(cdc);
+            cancelacion.setmOtEve(motivo);
+
+            TgGroupTiEvt tipoEvento = new TgGroupTiEvt();
+            tipoEvento.setrGeVeCan(cancelacion);
+
+            TrGesEve gestionEvento = new TrGesEve();
+            int numeroRandom = new Random().nextInt(99999999) + 1;
+            String eventoId = String.valueOf(numeroRandom);
+            LocalDateTime fechaFirma = LocalDateTime.now();
+            gestionEvento.setId(eventoId);
+            gestionEvento.setdFecFirma(fechaFirma);
+            gestionEvento.setgGroupTiEvt(tipoEvento);
+
+            List<TrGesEve> listaEventos = new ArrayList<>();
+            listaEventos.add(gestionEvento);
+
+            EventosDE eventosDE = new EventosDE();
+            eventosDE.setrGesEveList(listaEventos);
+            log.info("   ✅ XML construido - Evento ID: {}", eventoId);
+
+            log.info("   [PASO 5] Creando registro de EventoCancelacionDE...");
+            EventoCancelacionDE eventoCancelacion = new EventoCancelacionDE();
+            eventoCancelacion.setDocumentoElectronico(de);
+            eventoCancelacion.setDocumentoElectronicoId(de.getId());
+            eventoCancelacion.setSucursal(de.getSucursal());
+            eventoCancelacion.setSucursalId(de.getSucursalId());
+            eventoCancelacion.setEventoId(eventoId);
+            eventoCancelacion.setFechaFirma(fechaFirma);
+            eventoCancelacion.setCdcDocumento(cdc);
+            eventoCancelacion.setMotivoCancelacion(motivo);
             eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
-            log.warn("   ⚠️ Estado desconocido: {} - marcando como PENDIENTE", estadoResultado);
+            eventoCancelacion.setActivo(true);
+            log.info("   ✅ Registro de evento creado (aún no guardado en BD)");
+
+            log.info("   [PASO 6] 📤 Enviando evento de cancelación a SIFEN...");
+            RespuestaRecepcionEvento respuesta = null;
+            try {
+                respuesta = Sifen.recepcionEvento(eventosDE);
+                log.info("   ✅ Respuesta recibida de SIFEN");
+            } catch (Exception e) {
+                log.error("   ❌ ERROR al enviar a SIFEN: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+                e.printStackTrace();
+                throw e;
+            }
+
+            log.info("   [PASO 7] Procesando respuesta de SIFEN...");
+            String xmlRespuesta = respuesta.getRespuestaBruta();
+            log.info("   📄 Tamaño respuesta XML: {} bytes", xmlRespuesta != null ? xmlRespuesta.length() : 0);
+            
+            String codigoRespuesta = extraerValorXML(xmlRespuesta, "<dCodRes>", "</dCodRes>");
+            if (codigoRespuesta == null) {
+                codigoRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dCodRes>", "</ns2:dCodRes>");
+            }
+            String mensajeRespuesta = extraerValorXML(xmlRespuesta, "<dMsgRes>", "</dMsgRes>");
+            if (mensajeRespuesta == null) {
+                mensajeRespuesta = extraerValorXML(xmlRespuesta, "<ns2:dMsgRes>", "</ns2:dMsgRes>");
+            }
+            log.info("   📥 Respuesta recibida - Código: {}", codigoRespuesta);
+            log.info("   📥 Mensaje: {}", mensajeRespuesta);
+
+            eventoCancelacion.setRespuestaBruta(xmlRespuesta);
+            eventoCancelacion.setCodigoRespuesta(codigoRespuesta);
+            eventoCancelacion.setMensajeRespuesta(mensajeRespuesta);
+
+            String estadoResultado = extraerValorXML(xmlRespuesta, "<dEstRes>", "</dEstRes>");
+            if (estadoResultado == null) {
+                estadoResultado = extraerValorXML(xmlRespuesta, "<ns2:dEstRes>", "</ns2:dEstRes>");
+            }
+            log.info("   📊 Estado del evento en SIFEN: {}", estadoResultado);
+
+            String protocolo = extraerValorXML(xmlRespuesta, "<dProtAut>", "</dProtAut>");
+            if (protocolo == null) {
+                protocolo = extraerValorXML(xmlRespuesta, "<ns2:dProtAut>", "</ns2:dProtAut>");
+            }
+            if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
+                eventoCancelacion.setProtocoloAutorizacion(protocolo);
+                log.info("   📋 Protocolo: {}", protocolo);
+            }
+
+            log.info("   [PASO 8] Determinando estado del evento...");
+            // Variable para controlar si debemos lanzar excepción
+            String errorMessage = null;
+
+            if ("Aprobado".equalsIgnoreCase(estadoResultado)) {
+                log.info("   🎯 Estado: APROBADO");
+                eventoCancelacion.setEstado(EstadoEvento.APROBADO);
+                eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
+                de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
+                de.setCodigoRespuestaSifen(codigoRespuesta);
+                de.setMensajeRespuestaSifen(mensajeRespuesta);
+                try {
+                    documentoElectronicoService.save(de);
+                    log.info("   ✅ Evento APROBADO - DE actualizado a estado CANCELADO");
+                } catch (Exception e) {
+                    log.error("   ❌ ERROR al guardar DE con estado CANCELADO: {}", e.getMessage());
+                    e.printStackTrace();
+                }
+                log.info("   📋 Código SIFEN: {} - {}", codigoRespuesta, mensajeRespuesta);
+            } else if ("Rechazado".equalsIgnoreCase(estadoResultado)) {
+                log.info("   🎯 Estado: RECHAZADO");
+                eventoCancelacion.setEstado(EstadoEvento.RECHAZADO);
+                eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
+                de.setCodigoRespuestaSifen(codigoRespuesta);
+                de.setMensajeRespuestaSifen(mensajeRespuesta);
+                try {
+                    documentoElectronicoService.save(de);
+                } catch (Exception e) {
+                    log.error("   ❌ ERROR al guardar DE con respuesta de rechazo: {}", e.getMessage());
+                    e.printStackTrace();
+                }
+                log.error("   ❌ Evento RECHAZADO por SIFEN");
+                log.error("   📋 Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+                log.error("   ℹ️ El DE mantiene su estado actual: {}", de.getEstado());
+                errorMessage = "SIFEN rechazó la cancelación: " + mensajeRespuesta;
+            } else if (estadoResultado == null || estadoResultado.isEmpty()) {
+                log.info("   🎯 Estado resultado es null o vacío - evaluando código de respuesta");
+                if ("0300".equals(codigoRespuesta)) {
+                    eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
+                    log.info("   ✅ Evento recibido (código 0300) - pendiente de procesamiento");
+                } else if ("0600".equals(codigoRespuesta)) {
+                    if (protocolo != null && !protocolo.isEmpty() && !"0".equals(protocolo)) {
+                        eventoCancelacion.setEstado(EstadoEvento.APROBADO);
+                        eventoCancelacion.setFechaProcesamiento(LocalDateTime.now());
+                        de.setEstado(com.franco.dev.domain.financiero.enums.EstadoDE.CANCELADO);
+                        try {
+                            documentoElectronicoService.save(de);
+                            log.info("   ✅ Evento APROBADO (código 0600 + protocolo) - DE actualizado a CANCELADO");
+                        } catch (Exception e) {
+                            log.error("   ❌ ERROR al guardar DE con estado CANCELADO (0600): {}", e.getMessage());
+                            e.printStackTrace();
+                        }
+                    } else {
+                        eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
+                        log.info("   ✅ Evento registrado (código 0600) - estado pendiente");
+                    }
+                } else {
+                    eventoCancelacion.setEstado(EstadoEvento.ERROR_ENVIO);
+                    log.error("   ❌ Error en envío - Código: {} - {}", codigoRespuesta, mensajeRespuesta);
+                    errorMessage = "Error al enviar evento: " + codigoRespuesta + " - " + mensajeRespuesta;
+                }
+            } else {
+                log.info("   🎯 Estado desconocido: {}", estadoResultado);
+                eventoCancelacion.setEstado(EstadoEvento.PENDIENTE);
+                log.warn("   ⚠️ Estado desconocido: {} - marcando como PENDIENTE", estadoResultado);
+            }
+
+            log.info("   [PASO 9] Guardando evento en BD...");
+            try {
+                eventoCancelacionDEService.save(eventoCancelacion);
+                log.info("   ✅ 💾 Evento guardado en BD - ID: {}, Estado: {}", eventoCancelacion.getId(), eventoCancelacion.getEstado());
+            } catch (Exception e) {
+                log.error("   ❌ ERROR CRÍTICO al guardar EventoCancelacionDE: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+                e.printStackTrace();
+                throw new RuntimeException("Error al guardar evento de cancelación en BD", e);
+            }
+
+            // Si hubo error, lanzar excepción DESPUÉS de guardar
+            if (errorMessage != null) {
+                log.warn("   ⚠️ Lanzando excepción por error: {}", errorMessage);
+                throw new IllegalStateException(errorMessage);
+            }
+
+            log.info("   ✅ [FIN] Proceso de cancelación completado exitosamente");
+            return respuesta;
+            
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            log.error("❌ [ERROR CONTROLADO] {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            throw e;
+        } catch (SifenException e) {
+            log.error("❌ [ERROR SIFEN] {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            e.printStackTrace();
+            throw e;
+        } catch (Exception e) {
+            log.error("❌ [ERROR NO ESPERADO] {}: {}", e.getClass().getSimpleName(), e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error inesperado en cancelación de DE", e);
         }
-
-        // Guardar el evento UNA sola vez al final
-        eventoCancelacionDEService.save(eventoCancelacion);
-        log.info("   💾 Evento guardado en BD - ID: {}, Estado: {}", eventoCancelacion.getId(), eventoCancelacion.getEstado());
-
-        // Si hubo error, lanzar excepción DESPUÉS de guardar
-        if (errorMessage != null) {
-            throw new IllegalStateException(errorMessage);
-        }
-
-        return respuesta;
     }
 
     private String extraerValorXML(String xml, String tagInicio, String tagFin) {

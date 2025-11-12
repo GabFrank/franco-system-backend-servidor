@@ -157,34 +157,28 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getClienteId() != null) {
             e.setCliente(clienteService.findById(input.getClienteId()).orElse(null));
         } else {
+            // Solo crear cliente automáticamente si hay nombre y ruc Y no se especificó explícitamente que no se debe crear
+            // Si clienteId es null y hay nombre/ruc, intentar buscar o crear cliente
+            // PERO: si el frontend quiere crear factura sin cliente, simplemente no crear cliente aquí
+            // El servicio FacturaLegalService.save() también tiene lógica para crear cliente si es necesario
+            // Por lo tanto, aquí solo creamos cliente si realmente no existe y hay datos suficientes
             if (input.getNombre() != null && input.getRuc() != null) {
+                // Buscar persona existente por documento
                 Persona nuevaPersona = personaService.findByDocumento(input.getRuc());
-                if (nuevaPersona == null) {
-                    nuevaPersona = new Persona();
-                    nuevaPersona.setNombre(input.getNombre());
-                    nuevaPersona.setDocumento(input.getRuc());
-                    nuevaPersona.setUsuario(e.getUsuario());
-                    nuevaPersona.setDireccion(input.getDireccion());
-                    nuevaPersona = personaService.save(nuevaPersona);
-                }
                 if (nuevaPersona != null) {
-                    nuevaPersona = personaService.save(nuevaPersona);
+                    // Si existe persona, buscar cliente asociado
                     Cliente cli = clienteService.findByPersonaId(nuevaPersona.getId());
-                    if (cli == null) {
-                        cli = new Cliente();
-                        cli.setPersona(nuevaPersona);
-                        cli.setUsuario(e.getUsuario());
-                        cli.setCredito((float) 0);
-                        cli = clienteService.save(cli);
-                    }
                     if (cli != null) {
-                        cli = clienteService.save(cli);
                         e.setCliente(cli);
                     }
+                    // Si no hay cliente pero hay persona, NO crear cliente automáticamente aquí
+                    // Dejar que el servicio FacturaLegalService.save() decida si crear cliente
                 }
-
-
+                // Si no existe persona, NO crear persona/cliente aquí
+                // Dejar que el servicio FacturaLegalService.save() decida si crear cliente
             }
+            // Si no hay clienteId, la factura se guardará sin cliente (cliente = null)
+            // El servicio FacturaLegalService.save() puede crear cliente si es necesario
         }
         if (input.getTimbradoDetalleId() != null)
             e.setTimbradoDetalle(timbradoDetalleService.findByIdAndSucursalId(input.getTimbradoDetalleId(), input.getSucursalId()).orElse(null));
@@ -193,7 +187,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e = service.save(e);
             if (e.getId() != null) {
                 input.setId(e.getId());
-                input.setClienteId(e.getCliente().getId());
+                if (e.getCliente() != null) {
+                    input.setClienteId(e.getCliente().getId());
+                }
             }
             Long sucId = e.getTimbradoDetalle().getPuntoDeVenta().getSucursal().getId();
             e = service.save(e);

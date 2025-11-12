@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../../.."
+		},
+		{
+			"path": "../../../../../filial/frc-filial-server"
 		}
 	],
 	"settings": {

@@ -1,67 +1,293 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.Nullable;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public interface InventarioProductoItemRepository extends HelperRepository<InventarioProductoItem, Long> {
 
-    default Class<InventarioProductoItem> getEntityClass() {
-        return InventarioProductoItem.class;
-    }
+        default Class<InventarioProductoItem> getEntityClass() {
+                return InventarioProductoItem.class;
+        }
 
-    public List<InventarioProductoItem> findByInventarioProductoIdOrderByIdDesc(Long id, Pageable pageable);
+        List<InventarioProductoItem> findByInventarioProductoIdOrderByIdDesc(Long id, Pageable pageable);
 
-    public List<InventarioProductoItem> findByInventarioProductoId(Long id);
+        List<InventarioProductoItem> findByInventarioProductoId(Long id);
 
-    public List<InventarioProductoItem> findByInventarioProductoInventarioIdAndPresentacionProductoId(Long ipiProId, Long proId);
+        List<InventarioProductoItem> findByInventarioProductoIdAndPresentacionIdOrderByVencimientoDesc(
+                        Long inventarioProductoId, Long presentacionId, Pageable pageable);
 
-    @Query(value = "Select i from InventarioProductoItem i " +
-            "join i.inventarioProducto ip " +
-            "join ip.inventario inv " +
-            "where inv.id = :inventarioId " +
-            "order by CASE " +
-            "WHEN :filtro = 'cantidadExacta' AND i.verificado = true AND (i.revisado = false OR i.revisado is null) THEN 0 " +
-            "WHEN :filtro = 'modificado' AND i.revisado = true AND (i.verificado = false OR i.verificado is null) THEN 0 " +
-            "ELSE 1 END, i.id DESC")
-    public Page<InventarioProductoItem> findItemsParaRevisar(
-            @Param("inventarioId") Long inventarioId,
-            @Param("filtro") String filtro,
-            Pageable pageable);
+        List<InventarioProductoItem> findByInventarioProductoInventarioIdAndPresentacionProductoId(Long inventarioId,
+                        Long productoId);
 
-    @Query(value = "Select i from InventarioProductoItem i " +
-            "join i.presentacion pre " +
-            "join pre.producto pro " +
-            "join i.inventarioProducto ip " +
-            "join ip.inventario inv " +
-            "join inv.sucursal s " +
-            "join i.usuario u " +
-            "where " +
-            "i.creadoEn BETWEEN :startDate AND :endDate AND " +
-            "((:sucursalIdList) is null or s.id IN (:sucursalIdList)) AND " +
-            "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
-            "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
-            "")
-    public Page<InventarioProductoItem> findAllWithFilters(
-            @Param("sucursalIdList") List<Long> sucursalIdList,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate,
-            @Param("usuarioIdList") List<Long> usuarioIdList,
-            @Param("productoIdList") List<Long> productoIdList,
-            Pageable pageable);
+        @Query("SELECT i FROM InventarioProductoItem i " +
+                        "JOIN i.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "WHERE inv.id = :inventarioId " +
+                        "ORDER BY CASE " +
+                        "WHEN :filtro = 'cantidadExacta' AND i.verificado = true AND (i.revisado = false OR i.revisado IS NULL) THEN 0 "
+                        +
+                        "WHEN :filtro = 'modificado' AND i.revisado = true AND (i.verificado = false OR i.verificado IS NULL) THEN 0 "
+                        +
+                        "ELSE 1 END, i.id DESC")
+        Page<InventarioProductoItem> findItemsParaRevisar(
+                        @Param("inventarioId") Long inventarioId,
+                        @Param("filtro") String filtro,
+                        Pageable pageable);
 
-    @Query(value = "select ipi.* from operaciones.inventario_producto_item ipi " +
-            "left join operaciones.inventario_producto ip on ip.id = ipi.inventario_producto_id " +
-            "left join operaciones.inventario i on i.id = ip.inventario_id " +
-            "left join productos.presentacion p on p.id = ipi.presentacion_id " +
-            "left join productos.producto p2 on p2.id = p.producto_id " +
-            "where i.id = ?1 and p2.id = ?2", nativeQuery = true)
-    public List<InventarioProductoItem> findByInventarioIdAndProductoId(Long inventarioId, Long productoId);
+        @Query("SELECT i FROM InventarioProductoItem i " +
+                        "JOIN i.presentacion pre " +
+                        "JOIN pre.producto pro " +
+                        "JOIN i.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "JOIN inv.sucursal s " +
+                        "LEFT JOIN i.zona z " +
+                        "LEFT JOIN z.sector sec " +
+                        "JOIN i.usuario u " +
+                        "WHERE i.creadoEn BETWEEN :startDate AND :endDate " +
+                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
+                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
+                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
+                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
+                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList)")
+        Page<InventarioProductoItem> findAllWithFilters(
+                        @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
+                        @Param("sectorIdList") @Nullable List<Long> sectorIdList,
+                        @Param("zonaIdList") @Nullable List<Long> zonaIdList,
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate,
+                        @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
+                        @Param("productoIdList") @Nullable List<Long> productoIdList,
+                        Pageable pageable);
 
+        @Query(value = "SELECT ipi.* FROM operaciones.inventario_producto_item ipi " +
+                        "LEFT JOIN operaciones.inventario_producto ip ON ip.id = ipi.inventario_producto_id " +
+                        "LEFT JOIN operaciones.inventario i ON i.id = ip.inventario_id " +
+                        "LEFT JOIN productos.presentacion p ON p.id = ipi.presentacion_id " +
+                        "LEFT JOIN productos.producto p2 ON p2.id = p.producto_id " +
+                        "WHERE i.id = ?1 AND p2.id = ?2", nativeQuery = true)
+        List<InventarioProductoItem> findByInventarioIdAndProductoId(Long inventarioId, Long productoId);
+
+        @Query("SELECT i FROM InventarioProductoItem i " +
+                        "JOIN i.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "JOIN i.presentacion pre " +
+                        "JOIN pre.producto pro " +
+                        "JOIN inv.sucursal s " +
+                        "LEFT JOIN i.zona z " +
+                        "LEFT JOIN z.sector sec " +
+                        "JOIN i.usuario u " +
+                        "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
+                        // Filtra por stock actual positivo en la sucursal para reflejar transferencias
+                        "AND (SELECT COALESCE(SUM(ms.cantidad), 0) FROM MovimientoStock ms WHERE ms.estado = true AND ms.producto = pro AND ms.sucursalId = s.id) > 0 " +
+                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
+                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
+                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
+                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
+                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "ORDER BY i.vencimiento DESC")
+        Page<InventarioProductoItem> findProductosVencidos(
+                        @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
+                        @Param("sectorIdList") @Nullable List<Long> sectorIdList,
+                        @Param("zonaIdList") @Nullable List<Long> zonaIdList,
+                        @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
+                        @Param("productoIdList") @Nullable List<Long> productoIdList,
+                        @Param("estadoVencido") InventarioProductoEstado estadoVencido,
+                        Pageable pageable);
+
+        default Page<InventarioProductoItem> findProductosVencidos(
+                        List<Long> sucursalIdList,
+                        List<Long> sectorIdList,
+                        List<Long> zonaIdList,
+                        List<Long> usuarioIdList,
+                        List<Long> productoIdList,
+                        Pageable pageable) {
+                return findProductosVencidos(sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList,
+                                InventarioProductoEstado.VENCIDO, pageable);
+        }
+
+        @Query("SELECT i FROM InventarioProductoItem i " +
+                        "JOIN i.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "JOIN i.presentacion pre " +
+                        "JOIN pre.producto pro " +
+                        "JOIN inv.sucursal s " +
+                        "LEFT JOIN i.zona z " +
+                        "LEFT JOIN z.sector sec " +
+                        "JOIN i.usuario u " +
+                        "WHERE i.vencimiento BETWEEN :startDate AND :endDate " +
+                        "AND (SELECT COALESCE(SUM(ms.cantidad), 0) FROM MovimientoStock ms WHERE ms.estado = true AND ms.producto = pro AND ms.sucursalId = s.id) > 0 " +
+                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
+                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
+                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
+                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
+                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "ORDER BY i.vencimiento DESC")
+        Page<InventarioProductoItem> findProductosVencidosConFecha(
+                        @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
+                        @Param("sectorIdList") @Nullable List<Long> sectorIdList,
+                        @Param("zonaIdList") @Nullable List<Long> zonaIdList,
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate,
+                        @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
+                        @Param("productoIdList") @Nullable List<Long> productoIdList,
+                        Pageable pageable);
+
+        @Query("SELECT i FROM InventarioProductoItem i " +
+                        "JOIN i.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "JOIN i.presentacion pre " +
+                        "JOIN pre.producto pro " +
+                        "JOIN inv.sucursal s " +
+                        "LEFT JOIN i.zona z " +
+                        "LEFT JOIN z.sector sec " +
+                        "JOIN i.usuario u " +
+                        "WHERE (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
+                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
+                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
+                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
+                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "AND i.vencimiento BETWEEN CURRENT_TIMESTAMP AND :fechaProximoVencimiento " +
+                        "AND i.estado != :estadoVencido " +
+                        "ORDER BY i.vencimiento DESC")
+        Page<InventarioProductoItem> findProductosProximosAVencer(
+                        @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
+                        @Param("sectorIdList") @Nullable List<Long> sectorIdList,
+                        @Param("zonaIdList") @Nullable List<Long> zonaIdList,
+                        @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
+                        @Param("productoIdList") @Nullable List<Long> productoIdList,
+                        @Param("fechaProximoVencimiento") LocalDateTime fechaProximoVencimiento,
+                        @Param("estadoVencido") InventarioProductoEstado estadoVencido,
+                        Pageable pageable);
+
+        default Page<InventarioProductoItem> findProductosProximosAVencer(
+                        List<Long> sucursalIdList,
+                        List<Long> sectorIdList,
+                        List<Long> zonaIdList,
+                        List<Long> usuarioIdList,
+                        List<Long> productoIdList,
+                        LocalDateTime fechaProximoVencimiento,
+                        Pageable pageable) {
+                return findProductosProximosAVencer(sucursalIdList, sectorIdList, zonaIdList, usuarioIdList,
+                                productoIdList,
+                                fechaProximoVencimiento, InventarioProductoEstado.VENCIDO, pageable);
+        }
+
+        @Query("SELECT COUNT(i) FROM InventarioProductoItem i " +
+                        "JOIN i.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "JOIN i.presentacion pre " +
+                        "JOIN pre.producto pro " +
+                        "JOIN inv.sucursal s " +
+                        "LEFT JOIN i.zona z " +
+                        "LEFT JOIN z.sector sec " +
+                        "JOIN i.usuario u " +
+                        "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
+                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
+                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
+                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
+                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
+                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList)")
+        Long countProductosVencidos(
+                        @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
+                        @Param("sectorIdList") @Nullable List<Long> sectorIdList,
+                        @Param("zonaIdList") @Nullable List<Long> zonaIdList,
+                        @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
+                        @Param("productoIdList") @Nullable List<Long> productoIdList,
+                        @Param("estadoVencido") InventarioProductoEstado estadoVencido);
+
+        default Long countProductosVencidos(
+                        List<Long> sucursalIdList,
+                        List<Long> sectorIdList,
+                        List<Long> zonaIdList,
+                        List<Long> usuarioIdList,
+                        List<Long> productoIdList) {
+                return countProductosVencidos(sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList,
+                                InventarioProductoEstado.VENCIDO);
+        }
+
+        @Query(value = "SELECT DISTINCT ipi.* FROM operaciones.inventario_producto_item ipi " +
+                        "INNER JOIN operaciones.inventario_producto ip ON ip.id = ipi.inventario_producto_id " +
+                        "INNER JOIN operaciones.inventario inv ON inv.id = ip.inventario_id " +
+                        "LEFT JOIN empresarial.zona z_item ON z_item.id = ipi.zona_id " +
+                        "INNER JOIN empresarial.zona z_invpro ON z_invpro.id = ip.zona_id " +
+                        "WHERE ipi.presentacion_id = :presentacionId " +
+                        "AND inv.sucursal_id = :sucursalId " +
+                        "AND inv.fecha_inicio < CAST(:fechaInicioInventarioActual AS TIMESTAMP) " +
+                        "AND (" +
+                        "   (ipi.zona_id IS NOT NULL AND z_item.id = :zonaId AND z_item.sector_id = :sectorId) " +
+                        "   OR " +
+                        "   (ipi.zona_id IS NULL AND z_invpro.id = :zonaId AND z_invpro.sector_id = :sectorId)" +
+                        ") " +
+                        "AND inv.id = (" +
+                        "   SELECT MAX(inv2.id) FROM operaciones.inventario inv2 " +
+                        "   INNER JOIN operaciones.inventario_producto ip2 ON ip2.inventario_id = inv2.id " +
+                        "   LEFT JOIN operaciones.inventario_producto_item ipi2 ON ipi2.inventario_producto_id = ip2.id "
+                        +
+                        "   LEFT JOIN empresarial.zona z_item2 ON z_item2.id = ipi2.zona_id " +
+                        "   WHERE inv2.sucursal_id = :sucursalId " +
+                        "   AND inv2.fecha_inicio < CAST(:fechaInicioInventarioActual AS TIMESTAMP) " +
+                        "   AND ipi2.presentacion_id = :presentacionId " +
+                        "   AND (" +
+                        "      (ipi2.zona_id IS NOT NULL AND z_item2.id = :zonaId AND z_item2.sector_id = :sectorId) " +
+                        "      OR " +
+                        "      (ipi2.zona_id IS NULL AND ip2.zona_id = :zonaId)" +
+                        "   )" +
+                        ") " +
+                        "ORDER BY ipi.vencimiento DESC " +
+                        "LIMIT :limit OFFSET :offset", nativeQuery = true)
+        List<InventarioProductoItem> findItemsDeInventariosAnteriores(
+                        @Param("presentacionId") Long presentacionId,
+                        @Param("sucursalId") Long sucursalId,
+                        @Param("sectorId") Long sectorId,
+                        @Param("zonaId") Long zonaId,
+                        @Param("fechaInicioInventarioActual") LocalDateTime fechaInicioInventarioActual,
+                        @Param("limit") int limit,
+                        @Param("offset") int offset);
+
+        default List<InventarioProductoItem> findItemsDeInventariosAnteriores(
+                        Long presentacionId, Long sucursalId, Long sectorId, Long zonaId,
+                        LocalDateTime fechaInicioInventarioActual, Pageable pageable) {
+                return findItemsDeInventariosAnteriores(presentacionId, sucursalId, sectorId, zonaId,
+                                fechaInicioInventarioActual, pageable.getPageSize(), (int) pageable.getOffset());
+        }
+
+        @Query(value = "SELECT DISTINCT ipi.* FROM operaciones.inventario_producto_item ipi " +
+                        "INNER JOIN operaciones.inventario_producto ip ON ip.id = ipi.inventario_producto_id " +
+                        "INNER JOIN operaciones.inventario inv ON inv.id = ip.inventario_id " +
+                        "WHERE ipi.presentacion_id = :presentacionId " +
+                        "AND inv.sucursal_id = :sucursalId " +
+                        "AND inv.fecha_inicio < CAST(:fechaInicioInventarioActual AS TIMESTAMP) " +
+                        "AND inv.id = (" +
+                        "   SELECT MAX(inv2.id) FROM operaciones.inventario inv2 " +
+                        "   INNER JOIN operaciones.inventario_producto ip2 ON ip2.inventario_id = inv2.id " +
+                        "   INNER JOIN operaciones.inventario_producto_item ipi2 ON ipi2.inventario_producto_id = ip2.id "
+                        +
+                        "   WHERE inv2.sucursal_id = :sucursalId " +
+                        "   AND inv2.fecha_inicio < CAST(:fechaInicioInventarioActual AS TIMESTAMP) " +
+                        "   AND ipi2.presentacion_id = :presentacionId" +
+                        ") " +
+                        "ORDER BY ipi.vencimiento DESC " +
+                        "LIMIT :limit OFFSET :offset", nativeQuery = true)
+        List<InventarioProductoItem> findItemsDeInventariosAnterioresSoloSucursal(
+                        @Param("presentacionId") Long presentacionId,
+                        @Param("sucursalId") Long sucursalId,
+                        @Param("fechaInicioInventarioActual") LocalDateTime fechaInicioInventarioActual,
+                        @Param("limit") int limit,
+                        @Param("offset") int offset);
+
+        default List<InventarioProductoItem> findItemsDeInventariosAnterioresSoloSucursal(
+                        Long presentacionId, Long sucursalId, LocalDateTime fechaInicioInventarioActual,
+                        Pageable pageable) {
+                return findItemsDeInventariosAnterioresSoloSucursal(presentacionId, sucursalId,
+                                fechaInicioInventarioActual, pageable.getPageSize(), (int) pageable.getOffset());
+        }
 }

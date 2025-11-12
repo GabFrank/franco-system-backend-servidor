@@ -1,7 +1,8 @@
 type InventarioProductoItem {
-    id:ID!
+    id: ID!
     inventarioProducto: InventarioProducto
     zona: Zona
+    sector: Sector
     presentacion: Presentacion
     cantidad: Float
     cantidadFisica: Float
@@ -16,9 +17,10 @@ type InventarioProductoItem {
 }
 
 input InventarioProductoItemInput {
-    id:Int
+    id: Int
     inventarioProductoId: Int
     zonaId: Int
+    sectorId: Int
     presentacionId: Int
     cantidad: Float
     cantidadFisica: Float
@@ -44,28 +46,127 @@ type InventarioProductoItemPage {
 }
 
 extend type Query {
-    inventarioProductoItem(id:ID!):InventarioProductoItem
-    inventarioProductosItem(page:Int = 0, size:Int = 10):[InventarioProductoItem]!
-    inventarioProductosItemPorInventarioProducto(id:ID!, page:Int = 0, size:Int = 10):[InventarioProductoItem]!
+    inventarioProductoItem(id: ID!): InventarioProductoItem
+    inventarioProductosItem(page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+    inventarioProductosItemPorInventarioProducto(id: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+    inventarioItemsPorInvProYPresentacion(invProId: ID!, presentacionId: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+    inventarioItemsDeInventariosAnteriores(invProId: ID!, presentacionId: ID!, page: Int = 0, size: Int = 10): [InventarioProductoItem]!
+
     inventarioProductoItemWithFilter(
-        startDate: String, endDate: String, sucursalIdList: [Int], usuarioIdList:[ID], productoIdList:[ID],
-        page: Int, size: Int, orderBy: String, tipoOrder: String): InventarioProductoItemPage
+        startDate: String,
+        endDate: String,
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        page: Int,
+        size: Int,
+        orderBy: String,
+        tipoOrder: String
+    ): InventarioProductoItemPage
+
     reporteInventario(
-        startDate: String, endDate: String, sucursalIdList: [Int], usuarioIdList:[ID], productoIdList:[ID],
-        page: Int, size: Int, orderBy: String, tipoOrder: String, nickname: String): String
+        startDate: String,
+        endDate: String,
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        page: Int,
+        size: Int,
+        orderBy: String,
+        tipoOrder: String,
+        nickname: String
+    ): String
+
     getInventarioItemsParaRevisar(
-        inventarioId: ID!, filtro: String, page: Int!, size: Int!): InventarioProductoItemPage
+        inventarioId: ID!,
+        filtro: String,
+        page: Int!,
+        size: Int!
+    ): InventarioProductoItemPage
+    productosVencidos(
+        startDate: String,
+        endDate: String,
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        soloRealmenteVencidos: Boolean,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    productosVencidosPorSucursal(
+        sucursalId: ID!,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    productosVencidosPorSector(
+        sectorId: ID!,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    productosVencidosPorZona(
+        zonaId: ID!,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    productosVencidosPorSucursalYSector(
+        sucursalId: ID!,
+        sectorId: ID!,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    productosProximosAVencer(
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        diasProximos: Int,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    productosVencidosCompleto(
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        startDate: String,
+        endDate: String,
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        incluirProximosVencer: Boolean,
+        diasProximosVencer: Int,
+        soloRealmenteVencidos: Boolean,
+        page: Int,
+        size: Int
+    ): InventarioProductoItemPage
+
+    countProductosVencidos(
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID]
+    ): Int
 }
 
 extend type Mutation {
-    saveInventarioProductoItem(inventarioProductoItem:InventarioProductoItemInput!):InventarioProductoItem!
-    deleteInventarioProductoItem(id:ID!):Boolean!
+    saveInventarioProductoItem(inventarioProductoItem: InventarioProductoItemInput!): InventarioProductoItem!
+    deleteInventarioProductoItem(id: ID!): Boolean!
 }
 
 enum InventarioProductoEstado {
-  BUENO,
-  AVERIADO,
-  VENCIDO
+    BUENO
+    AVERIADO
+    VENCIDO
 }
-
-

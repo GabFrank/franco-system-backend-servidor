@@ -215,7 +215,6 @@ Create `GoogleDriveService.java` to handle Google Drive operations:
 ```java
 package com.franco.dev.service.utils;
 
-import com.franco.dev.config.BackupConfig;
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
@@ -250,15 +249,15 @@ public class GoogleDriveService {
     private static final JsonFactory JSON_FACTORY = GsonFactory.getDefaultInstance();
     private static final List<String> SCOPES = Collections.singletonList(DriveScopes.DRIVE_FILE);
     private static final String TOKENS_DIRECTORY_PATH = "tokens";
-    
+
     private final BackupConfig backupConfig;
     private Drive driveService;
-    
+
     @Autowired
     public GoogleDriveService(BackupConfig backupConfig) {
         this.backupConfig = backupConfig;
     }
-    
+
     @PostConstruct
     public void initializeOnStartup() {
         if (backupConfig.isEnabled()) {
@@ -274,28 +273,28 @@ public class GoogleDriveService {
             log.info("Database backup is disabled. Google Drive service will not be initialized at startup.");
         }
     }
-    
+
     public synchronized void initDriveService() throws GeneralSecurityException, IOException {
         initDriveService(false);
     }
-    
+
     public synchronized void initDriveService(boolean forceAuth) throws GeneralSecurityException, IOException {
         if (driveService != null && !forceAuth) {
             return; // Already initialized and no force auth requested
         }
-        
+
         // If force auth is requested, clear the tokens directory
         if (forceAuth) {
             clearTokens();
             driveService = null; // Reset the service
         }
-        
+
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
         driveService = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, getCredentials(HTTP_TRANSPORT))
                 .setApplicationName("Database Backup")
                 .build();
     }
-    
+
     /**
      * Clear stored tokens to force re-authentication
      */
@@ -316,7 +315,7 @@ public class GoogleDriveService {
             log.info("No tokens directory found at {}", tokensDir.getAbsolutePath());
         }
     }
-    
+
     private Credential getCredentials(final NetHttpTransport HTTP_TRANSPORT) throws IOException {
         // Create client secrets from config
         GoogleClientSecrets.Details details = new GoogleClientSecrets.Details()
@@ -325,19 +324,19 @@ public class GoogleDriveService {
                 .setAuthUri("https://accounts.google.com/o/oauth2/auth")
                 .setTokenUri("https://oauth2.googleapis.com/token")
                 .setRedirectUris(Collections.singletonList("http://localhost:8888/Callback"));
-        
+
         GoogleClientSecrets clientSecrets = new GoogleClientSecrets().setInstalled(details);
-        
+
         // Build flow and trigger user authorization request
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                 HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
                 .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
                 .setAccessType("offline")
                 .build();
-        
+
         // Set up the LocalServerReceiver
         LocalServerReceiver receiver = new LocalServerReceiver.Builder().setPort(8888).build();
-        
+
         // Create a custom AuthorizationCodeInstalledApp that ensures URL is displayed in logs
         AuthorizationCodeInstalledApp app = new AuthorizationCodeInstalledApp(flow, receiver) {
             @Override
@@ -347,15 +346,15 @@ public class GoogleDriveService {
                 log.info("Please open the following URL in a browser on any machine:");
                 log.info("{}", authorizationUrl);
                 log.info("***************************************************************");
-                
+
                 // Call the parent implementation which may attempt to open browser if not headless
                 super.onAuthorization(authorizationUrl);
             }
         };
-        
+
         return app.authorize("user");
     }
-    
+
     public File uploadFile(java.io.File fileToUpload, String mimeType) throws IOException {
         try {
             initDriveService();
@@ -363,16 +362,16 @@ public class GoogleDriveService {
             log.error("Failed to initialize Google Drive service", e);
             throw new IOException("Drive service not available", e);
         }
-        
+
         File fileMetadata = new File();
         fileMetadata.setName(fileToUpload.getName());
-        
+
         if (backupConfig.getGoogleDrive().getFolderId() != null && !backupConfig.getGoogleDrive().getFolderId().isEmpty()) {
             fileMetadata.setParents(Collections.singletonList(backupConfig.getGoogleDrive().getFolderId()));
         }
-        
+
         FileContent mediaContent = new FileContent(mimeType, fileToUpload);
-        
+
         try {
             return driveService.files().create(fileMetadata, mediaContent)
                     .setFields("id, name, createdTime")
@@ -382,7 +381,7 @@ public class GoogleDriveService {
             throw e;
         }
     }
-    
+
     public List<File> listFiles() throws IOException {
         try {
             initDriveService();
@@ -390,20 +389,20 @@ public class GoogleDriveService {
             log.error("Failed to initialize Google Drive service", e);
             throw new IOException("Drive service not available", e);
         }
-        
+
         String folderId = backupConfig.getGoogleDrive().getFolderId();
-        String query = folderId != null && !folderId.isEmpty() ? 
+        String query = folderId != null && !folderId.isEmpty() ?
                 String.format("'%s' in parents", folderId) : "";
-        
+
         FileList result = driveService.files().list()
                 .setQ(query)
                 .setOrderBy("createdTime")
                 .setFields("files(id, name, createdTime)")
                 .execute();
-                
+
         return result.getFiles();
     }
-    
+
     public void deleteFile(String fileId) throws IOException {
         try {
             initDriveService();
@@ -411,7 +410,7 @@ public class GoogleDriveService {
             log.error("Failed to initialize Google Drive service", e);
             throw new IOException("Drive service not available", e);
         }
-        
+
         try {
             driveService.files().delete(fileId).execute();
         } catch (IOException e) {
@@ -429,7 +428,6 @@ Create `DatabaseBackupService.java` to handle scheduled backups:
 ```java
 package com.franco.dev.service.utils;
 
-import com.franco.dev.config.BackupConfig;
 import com.google.api.services.drive.model.File;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -453,35 +451,35 @@ public class DatabaseBackupService {
 
     private static final Logger log = LoggerFactory.getLogger(DatabaseBackupService.class);
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss");
-    
+
     private final BackupConfig backupConfig;
     private final GoogleDriveService googleDriveService;
     private final Environment env;
-    
+
     @Value("${spring.datasource.url}")
     private String dbUrl;
-    
+
     @Value("${spring.datasource.username}")
     private String dbUsername;
-    
+
     @Value("${spring.datasource.password}")
     private String dbPassword;
-    
+
     // Add these new properties to extract parts of the JDBC URL
     private String dbHost;
     private String dbPort;
     private String dbName;
-    
+
     // Add a flag to check if this is first run after startup
     private boolean isFirstRun = true;
-    
+
     @Autowired
     public DatabaseBackupService(BackupConfig backupConfig, GoogleDriveService googleDriveService, Environment env) {
         this.backupConfig = backupConfig;
         this.googleDriveService = googleDriveService;
         this.env = env;
     }
-    
+
     @PostConstruct
     public void init() {
         // Parse the JDBC URL once during initialization
@@ -500,7 +498,7 @@ public class DatabaseBackupService {
                 dbPort = "5432"; // Default PostgreSQL port
                 log.info("Using default database port: {}", dbPort);
             }
-            
+
             // Extract database name
             String[] parts = urlWithoutPrefix.split("/");
             if (parts.length > 1) {
@@ -516,10 +514,10 @@ public class DatabaseBackupService {
         } else {
             log.warn("JDBC URL not in expected format: {}", dbUrl);
         }
-        
+
         log.info("Database backup scheduled to run at {}:00 every day", backupConfig.getBackupHour());
     }
-    
+
     // Using a dynamic cron expression based on the configured backup hour
     @Scheduled(cron = "#{@backupCronExpression}")
     public void performBackup() {
@@ -529,42 +527,42 @@ public class DatabaseBackupService {
             isFirstRun = false;
             return;
         }
-        
+
         if (!backupConfig.isEnabled()) {
             log.info("Database backup is disabled");
             return;
         }
-        
+
         if (dbName == null || dbHost == null || dbPort == null) {
-            log.error("Database connection information is incomplete. Host: {}, Port: {}, Name: {}", 
-                      dbHost, dbPort, dbName);
+            log.error("Database connection information is incomplete. Host: {}, Port: {}, Name: {}",
+                    dbHost, dbPort, dbName);
             return;
         }
-        
+
         try {
             log.info("Starting database backup...");
-            
+
             // Create local directory if it doesn't exist
             Path localBackupDir = Paths.get(backupConfig.getLocalPath());
             if (!Files.exists(localBackupDir)) {
                 Files.createDirectories(localBackupDir);
                 log.info("Created backup directory: {}", localBackupDir);
             }
-            
+
             // Generate backup file name with timestamp
             String timestamp = dateFormat.format(new Date());
             String backupFileName = String.format("%s_backup_%s.sql", dbName, timestamp);
             Path backupFilePath = Paths.get(backupConfig.getLocalPath(), backupFileName);
             log.info("Backup file path: {}", backupFilePath);
-            
+
             // Execute pg_dump command to create backup
             log.info("Executing pg_dump command for backup...");
             log.info("Database host: {}, port: {}, username: {}", dbHost, dbPort, dbUsername);
             boolean success = executeBackup(backupFilePath.toString());
-            
+
             if (success) {
                 log.info("Database backup created successfully: {}", backupFilePath);
-                
+
                 // Upload to Google Drive
                 uploadToGoogleDrive(backupFilePath.toFile());
             } else {
@@ -574,11 +572,11 @@ public class DatabaseBackupService {
             log.error("Error during database backup process", e);
         }
     }
-    
+
     private boolean executeBackup(String outputFilePath) {
         try {
             ProcessBuilder pb;
-            
+
             // Build pg_dump command
             if (dbPassword != null && !dbPassword.isEmpty()) {
                 // Using environment variable for password
@@ -590,7 +588,7 @@ public class DatabaseBackupService {
                         "-F", "p", // plain text format
                         "-f", outputFilePath,
                         dbName);
-                
+
                 pb.environment().put("PGPASSWORD", dbPassword);
             } else {
                 pb = new ProcessBuilder(
@@ -602,11 +600,11 @@ public class DatabaseBackupService {
                         "-f", outputFilePath,
                         dbName);
             }
-            
+
             // Capture process output for logging
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            
+
             // Log the process output
             try (java.io.BufferedReader reader = new java.io.BufferedReader(
                     new java.io.InputStreamReader(process.getInputStream()))) {
@@ -619,10 +617,10 @@ public class DatabaseBackupService {
                     log.info("pg_dump output: {}", output);
                 }
             }
-            
+
             int exitCode = process.waitFor();
             log.info("pg_dump exit code: {}", exitCode);
-            
+
             return exitCode == 0;
         } catch (IOException | InterruptedException e) {
             log.error("Error executing pg_dump", e);
@@ -632,32 +630,32 @@ public class DatabaseBackupService {
             return false;
         }
     }
-    
+
     private void uploadToGoogleDrive(java.io.File backupFile) {
         try {
             log.info("Uploading backup file to Google Drive: {}", backupFile.getName());
-            
+
             // Upload file to Google Drive
             File uploadedFile = googleDriveService.uploadFile(backupFile, "application/sql");
             log.info("File uploaded to Google Drive with ID: {}", uploadedFile.getId());
-            
+
             // Check if we need to delete old backups
             cleanupOldBackups();
-            
+
         } catch (IOException e) {
             log.error("Failed to upload backup to Google Drive", e);
         }
     }
-    
+
     private void cleanupOldBackups() throws IOException {
         // Get list of backup files in Google Drive
         List<File> files = googleDriveService.listFiles();
-        
+
         // If we have more than the max allowed, delete the oldest ones
         if (files.size() > backupConfig.getMaxFiles()) {
             int filesToDelete = files.size() - backupConfig.getMaxFiles();
             log.info("Found {} files, will delete {} oldest backups", files.size(), filesToDelete);
-            
+
             for (int i = 0; i < filesToDelete; i++) {
                 File fileToDelete = files.get(i); // Files are ordered by creation time (oldest first)
                 log.info("Deleting old backup file: {}", fileToDelete.getName());
@@ -675,7 +673,6 @@ Create `BackupController.java` for manual backup triggering:
 ```java
 package com.franco.dev.controller;
 
-import com.franco.dev.service.utils.DatabaseBackupService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -689,12 +686,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class BackupController {
 
     private final DatabaseBackupService databaseBackupService;
-    
+
     @Autowired
     public BackupController(DatabaseBackupService databaseBackupService) {
         this.databaseBackupService = databaseBackupService;
     }
-    
+
     @PostMapping("/trigger")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> triggerBackup() {
@@ -705,7 +702,7 @@ public class BackupController {
             return ResponseEntity.status(500).body("Error triggering backup: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/test-pg-dump")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> testPgDump() {
@@ -713,7 +710,7 @@ public class BackupController {
             ProcessBuilder pb = new ProcessBuilder("pg_dump", "--version");
             pb.redirectErrorStream(true);
             Process process = pb.start();
-            
+
             StringBuilder output = new StringBuilder();
             try (java.io.BufferedReader reader = new java.io.BufferedReader(
                     new java.io.InputStreamReader(process.getInputStream()))) {
@@ -722,9 +719,9 @@ public class BackupController {
                     output.append(line).append("\n");
                 }
             }
-            
+
             int exitCode = process.waitFor();
-            
+
             if (exitCode == 0) {
                 return ResponseEntity.ok("pg_dump is available: " + output.toString());
             } else {
@@ -744,7 +741,6 @@ Create `GoogleAuthController.java` for Google authentication management:
 ```java
 package com.franco.dev.controller;
 
-import com.franco.dev.service.utils.GoogleDriveService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -754,14 +750,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/auth/google")
 public class GoogleAuthController {
-    
+
     private final GoogleDriveService googleDriveService;
-    
+
     @Autowired
     public GoogleAuthController(GoogleDriveService googleDriveService) {
         this.googleDriveService = googleDriveService;
     }
-    
+
     @GetMapping("/init")
     public ResponseEntity<String> initAuth() {
         try {
@@ -771,7 +767,7 @@ public class GoogleAuthController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/force-init")
     public ResponseEntity<String> forceInitAuth() {
         try {
@@ -781,7 +777,7 @@ public class GoogleAuthController {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
     }
-    
+
     @GetMapping("/clear-tokens")
     public ResponseEntity<String> clearTokens() {
         try {

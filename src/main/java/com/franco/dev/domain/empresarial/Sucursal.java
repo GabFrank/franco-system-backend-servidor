@@ -51,8 +51,6 @@ public class Sucursal implements Identifiable<Long> {
     @Column(name = "deposito_predeterminado")
     private Boolean depositoPredeterminado;
 
-    private Boolean activo;
-
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 

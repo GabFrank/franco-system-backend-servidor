@@ -5,6 +5,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
@@ -48,10 +49,12 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.Base64;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 
@@ -79,6 +82,24 @@ public class ImpresionService {
     public static DateTimeFormatter shortDateTime = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+
+    /**
+     * Compila un reporte JRXML desde los recursos del classpath (dentro del JAR)
+     * @param jrxmlFileName Nombre del archivo JRXML (ej: "solicitud-pago.jrxml")
+     * @return JasperReport compilado
+     * @throws JRException Si hay error compilando el reporte
+     */
+    private JasperReport compileReportFromClasspath(String jrxmlFileName) throws JRException {
+        try {
+            InputStream jrxmlInputStream = this.getClass().getResourceAsStream("/" + jrxmlFileName);
+            if (jrxmlInputStream == null) {
+                throw new JRException("No se pudo encontrar el archivo JRXML: " + jrxmlFileName);
+            }
+            return JasperCompileManager.compileReport(jrxmlInputStream);
+        } catch (Exception e) {
+            throw new JRException("Error compilando reporte desde classpath: " + jrxmlFileName, e);
+        }
+    }
 
     public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent) throws GraphQLException {
         if (silent == null) silent = false;
@@ -887,6 +908,85 @@ public class ImpresionService {
         private String ventaCreditoId;
         private Double totalGs;
         private String creadoEn;
+    }
+
+    public String imprimirSolicitudPagoPDF(
+            SolicitudPago solicitudPago,
+            String proveedorNombre,
+            String fechaDePago,
+            String formaPago,
+            Boolean nominal,
+            String numerosFactura,
+            Double valorTotal) {
+        
+        try {
+            // Usar los parámetros pasados desde el GraphQL resolver
+            if (numerosFactura == null || numerosFactura.isEmpty()) {
+                numerosFactura = "---";
+            }
+            
+            // Crear DTO para el reporte
+            List<SolicitudPagoItemDto> solicitudPagoItemDtoList = new ArrayList<>();
+            SolicitudPagoItemDto itemDto = new SolicitudPagoItemDto();
+            itemDto.setSolicitudPagoId(String.valueOf(solicitudPago.getId()));
+            itemDto.setProveedorNombre(proveedorNombre);
+            itemDto.setFechaDePago(fechaDePago);
+            itemDto.setFormaPago(formaPago);
+            itemDto.setNominal(nominal != null ? nominal : false);
+            itemDto.setEstado(solicitudPago.getEstado().toString());
+            itemDto.setCreadoEn(solicitudPago.getCreadoEn().format(shortDateTime));
+            if (solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null) {
+                itemDto.setUsuario(solicitudPago.getUsuario().getPersona().getNombre());
+            } else if (solicitudPago.getUsuario() != null) {
+                itemDto.setUsuario(solicitudPago.getUsuario().getNickname());
+            } else {
+                itemDto.setUsuario("");
+            }
+            solicitudPagoItemDtoList.add(itemDto);
+            
+            JasperReport jasperReport = compileReportFromClasspath("solicitud-pago.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(solicitudPagoItemDtoList);
+            
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("solicitudPagoId", solicitudPago.getId());
+            parameters.put("proveedorNombre", proveedorNombre);
+            parameters.put("fechaDePago", fechaDePago);
+            parameters.put("formaPago", formaPago);
+            parameters.put("nominal", nominal != null ? nominal : false);
+            parameters.put("numerosFactura", numerosFactura);
+            parameters.put("valorTotal", valorTotal != null ? valorTotal : 0.0);
+            parameters.put("estado", solicitudPago.getEstado().toString());
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null ? 
+                solicitudPago.getUsuario().getPersona().getNombre() : 
+                (solicitudPago.getUsuario() != null ? solicitudPago.getUsuario().getNickname() : ""));
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            
+            JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+            
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class SolicitudPagoItemDto {
+        private String solicitudPagoId;
+        private String proveedorNombre;
+        private String fechaDePago;
+        private String formaPago;
+        private Boolean nominal;
+        private String grupoId;
+        private String estado;
+        private String creadoEn;
+        private String usuario;
+        private String observacion;
     }
 
 //    public void printVueltoGasto(GastoDto gastoDto){

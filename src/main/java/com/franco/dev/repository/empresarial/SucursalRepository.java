@@ -46,8 +46,4 @@ public interface SucursalRepository extends HelperRepository<Sucursal, Long> {
            "ORDER BY s.id ASC")
     public Page<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable);
 
-    public List<Sucursal> findAllByActivoTrueOrderByIdAsc();
-
-//    public List<Pais> findBySubFamiliaId(Long id);
-
 }

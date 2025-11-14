@@ -93,6 +93,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         }
     }
 
+    public boolean existsByDescripcion(String descripcion) {
+        if (descripcion == null) {
+            return false;
+        }
+        Producto existing = repository.findByDescripcion(descripcion.toUpperCase());
+        return existing != null;
+    }
+
     public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza, Long subfamiliaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId, Pageable page) {
         return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, costoCero, stockFiltro, sucursalId, page);
     }

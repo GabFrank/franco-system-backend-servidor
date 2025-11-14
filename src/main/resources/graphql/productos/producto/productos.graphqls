@@ -88,6 +88,7 @@ extend type Query {
     lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
     imprimirCodigoBarra(codigoId: Int): Boolean
     searchProductoWithFilters(texto: String, codigo: String, activo: Boolean, stock: Boolean, balanza: Boolean, subfamilia: Int, vencimiento: Boolean, costoCero: Boolean, stockFiltro: String, sucursalId: Int, page: Int, size: Int):ProductoPage
+    productoDescripcionExists(descripcion: String): Boolean
 }
 
 extend type Mutation {

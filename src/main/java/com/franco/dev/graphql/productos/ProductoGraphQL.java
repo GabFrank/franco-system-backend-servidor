@@ -161,8 +161,10 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Boolean productoDescripcionExists(String descripcion) {
-        Pageable pageable = PageRequest.of(1, 5);
-        return service.findByAll(descripcion, 0, false, false).isEmpty();
+        if (descripcion == null) {
+            return false;
+        }
+        return service.existsByDescripcion(descripcion);
     }
 
     public Producto printProducto(Long id) {

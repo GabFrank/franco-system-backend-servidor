@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -58,20 +59,22 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     @Autowired
     private PushNotificationService pushNotificationService;
 
-//    public List<Gasto> findByDenominacion(String texto){
-//        texto = texto.replace(' ', '%');
-//        return  repository.findByDenominacionIgnoreCaseLike(texto);
-//    }
+    // public List<Gasto> findByDenominacion(String texto){
+    // texto = texto.replace(' ', '%');
+    // return repository.findByDenominacionIgnoreCaseLike(texto);
+    // }
 
-    public List<Gasto> findByDate(String inicio, String fin, Long sucId){
+    public List<Gasto> findByDate(String inicio, String fin, Long sucId) {
         return repository.findBySucursalIdAndCreadoEnBetween(sucId, stringToDate(inicio), stringToDate(fin));
     }
 
-    public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable){
+    public List<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion,
+            Pageable pageable) {
         return repository.findByAll(id, cajaId, sucId, responsableId, descripcion, pageable);
     }
 
-    public Page<Gasto> filterGastosPage(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable){
+    public Page<Gasto> filterGastosPage(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion,
+            Pageable pageable) {
         return repository.findByAllPage(id, cajaId, sucId, responsableId, descripcion, pageable);
     }
 
@@ -79,46 +82,48 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         return repository.findByCajaIdAndSucursalId(id, sucId);
     }
 
-    public Gasto findByIdAndSucursalId(Long id, Long sucId){
+    public Gasto findByIdAndSucursalId(Long id, Long sucId) {
         return repository.findByIdAndSucursalId(id, sucId);
     }
-
 
     @Override
     public Gasto save(Gasto entity) {
         Gasto e = super.save(entity);
         Usuario usuario = usuarioService.findByPersonaId(entity.getResponsable().getPersona().getId());
-        Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), Long.valueOf(0), PageRequest.of(0, 1));
-        for(InicioSesion inicioSesion : inicioSesionPage.getContent()){
-            if(inicioSesion.getToken() != null){
-                PushNotificationRequest pNr = new PushNotificationRequest();
-                Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
-                pNr.setTitle("Gasto realizado");
-                StringBuilder stb = new StringBuilder();
-                stb.append("Se ha detectado un gasto a tu nombre en la sucursal ");
-                stb.append(sucursal.getNombre());
-                stb.append(" por el valor de ");
-                if(entity.getRetiroGs() > 0){
-                    stb.append(df.format(entity.getRetiroGs()));
-                    stb.append(" Gs. ");
-                }
-                if(entity.getRetiroRs() > 0){
-                    stb.append(df.format(entity.getRetiroRs()));
-                    stb.append(", Rs. ");
-                }
-                if(entity.getRetiroDs() > 0){
-                    stb.append(df.format(entity.getRetiroDs()));
-                    stb.append(", Ds. ");
-                }
-                stb.append("Si desconoce ésta acción contactar con el cajero ");
-                stb.append(entity.getUsuario().getNickname().toUpperCase());
-                stb.append(" al número ");
-                stb.append(sucursal.getNroDelivery());
-                pNr.setMessage(stb.toString());
-                pNr.setToken(inicioSesion.getToken());
-                pNr.setData("/");
-                pushNotificationService.sendPushNotificationToToken(pNr);
+        Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(
+                usuario.getId(), 0L, PageRequest.of(0, 50));
+        List<String> tokens = inicioSesionPage.getContent().stream()
+                .map(InicioSesion::getToken)
+                .filter(token -> token != null && !token.isEmpty())
+                .collect(Collectors.toList());
+        if (!tokens.isEmpty()) {
+            PushNotificationRequest pNr = new PushNotificationRequest();
+            Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
+            pNr.setTitle("Gasto realizado");
+            StringBuilder stb = new StringBuilder();
+            stb.append("Se ha detectado un gasto a tu nombre en la sucursal ");
+            stb.append(sucursal.getNombre());
+            stb.append(" por el valor de ");
+            if (entity.getRetiroGs() > 0) {
+                stb.append(df.format(entity.getRetiroGs()));
+                stb.append(" Gs. ");
             }
+            if (entity.getRetiroRs() > 0) {
+                stb.append(df.format(entity.getRetiroRs()));
+                stb.append(", Rs. ");
+            }
+            if (entity.getRetiroDs() > 0) {
+                stb.append(df.format(entity.getRetiroDs()));
+                stb.append(", Ds. ");
+            }
+            stb.append("Si desconoce ésta acción contactar con el cajero ");
+            stb.append(entity.getUsuario().getNickname().toUpperCase());
+            stb.append(" al número ");
+            stb.append(sucursal.getNroDelivery());
+            pNr.setMessage(stb.toString());
+            pNr.setTokens(tokens);
+            pNr.setData("/");
+            pushNotificationService.sendPushNotificationToToken(pNr);
         }
         return e;
     }

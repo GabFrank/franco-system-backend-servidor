@@ -20,10 +20,10 @@ public class PushNotificationController {
     }
 
     @PostMapping("/notification/token")
-    public ResponseEntity sendTokenNotification(@RequestBody PushNotificationRequest request) {
+    public ResponseEntity<PushNotificationResponse> sendTokenNotification(@RequestBody PushNotificationRequest request) {
         pushNotificationService.sendPushNotificationToToken(request);
-        System.out.println("princr");
-        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.OK.value(), "Notification has been sent."), HttpStatus.OK);
+        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                "Esta notificacion ahora esta en cola para envío asíncrono."), HttpStatus.ACCEPTED);
     }
 
 }

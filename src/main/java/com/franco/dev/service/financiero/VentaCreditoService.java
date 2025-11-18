@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -60,7 +61,6 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     @Autowired
     private VentaCreditoRepositoryImpl ventaCreditoRepository;
 
-    //Se tuvo que hacer de esta forma porque hay dependencia circular entre VentaService y VentaCreditoService
     @Autowired
     public VentaCreditoService(@Lazy VentaService ventaService, VentaCreditoRepository repository) {
         this.ventaService = ventaService;
@@ -72,20 +72,22 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         return repository;
     }
 
-//    public List<VentaCredito> findByDenominacion(String texto){
-//        texto = texto.replace(' ', '%');
-//        return  repository.findByDenominacionIgnoreCaseLike(texto);
-//    }
+    // public List<VentaCredito> findByDenominacion(String texto){
+    // texto = texto.replace(' ', '%');
+    // return repository.findByDenominacionIgnoreCaseLike(texto);
+    // }
 
     public List<VentaCredito> findByClienteAndVencimiento(Long id, LocalDateTime inicio, LocalDateTime fin) {
-        return repository.findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByCreadoEnDesc(id, inicio, fin);
+        return repository.findAllByClienteIdAndCreadoEnLessThanEqualAndCreadoEnGreaterThanEqualOrderByCreadoEnDesc(id,
+                inicio, fin);
     }
 
     public Page<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
         return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(id, estado, pageable);
     }
 
-    public List<VentaCredito> findWithFilters(Long id, LocalDateTime fechaInicio, LocalDateTime fechaFin, EstadoVentaCredito estado, Boolean cobro) {
+    public List<VentaCredito> findWithFilters(Long id, LocalDateTime fechaInicio, LocalDateTime fechaFin,
+            EstadoVentaCredito estado, Boolean cobro) {
         if (fechaInicio != null && fechaFin != null) {
             return repository.findAllWithDateAndFilters(id, fechaInicio, fechaFin, estado, cobro);
         } else {
@@ -109,23 +111,26 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     public VentaCredito save(VentaCredito entity) {
         Usuario usuario = usuarioService.findByPersonaId(entity.getCliente().getPersona().getId());
         if (usuario != null) {
-            Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), Long.valueOf(0), PageRequest.of(0, 1));
-            for (InicioSesion inicioSesion : inicioSesionPage.getContent()) {
-                if (inicioSesion.getToken() != null) {
-                    PushNotificationRequest pNr = new PushNotificationRequest();
-                    Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
-                    pNr.setTitle("Venta a crédito realizada");
-                    StringBuilder stb = new StringBuilder();
-                    stb.append("Se ha detectado una venta a crédito en la sucursal ");
-                    stb.append(sucursal.getNombre());
-                    stb.append(" por el valor de ");
-                    stb.append(df.format(entity.getValorTotal()));
-                    stb.append(" Gs. ");
-                    pNr.setMessage(stb.toString());
-                    pNr.setToken(inicioSesion.getToken());
-                    pNr.setData("/mis-finanzas/list-convenio/" + entity.getId() + "/" + entity.getSucursalId());
-                    pushNotificationService.sendPushNotificationToToken(pNr);
-                }
+            Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(
+                    usuario.getId(), 0L, PageRequest.of(0, 50));
+            List<String> tokens = inicioSesionPage.getContent().stream()
+                    .map(InicioSesion::getToken)
+                    .filter(token -> token != null && !token.isEmpty())
+                    .collect(Collectors.toList());
+            if (!tokens.isEmpty()) {
+                PushNotificationRequest pNr = new PushNotificationRequest();
+                Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
+                pNr.setTitle("Venta a crédito realizada");
+                StringBuilder stb = new StringBuilder();
+                stb.append("Se ha detectado una venta a crédito en la sucursal ");
+                stb.append(sucursal.getNombre());
+                stb.append(" por el valor de ");
+                stb.append(df.format(entity.getValorTotal()));
+                stb.append(" Gs. ");
+                pNr.setMessage(stb.toString());
+                pNr.setTokens(tokens);
+                pNr.setData("/mis-finanzas/list-convenio/" + entity.getId() + "/" + entity.getSucursalId());
+                pushNotificationService.sendPushNotificationToToken(pNr);
             }
         }
         VentaCredito e = super.save(entity);
@@ -137,7 +142,8 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         if (ventaCredito != null) {
             try {
                 if (venta == null) {
-                    venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId)).orElse(null);
+                    venta = ventaService.findById(new EmbebedPrimaryKey(ventaCredito.getVenta().getId(), sucId))
+                            .orElse(null);
                     if (venta.getEstado() != VentaEstado.CANCELADA) {
                         venta.setEstado(VentaEstado.CANCELADA);
                         venta = ventaService.save(venta);
@@ -148,7 +154,7 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
                         ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);
                     }
                 } else {
-                    if(venta.getEstado() == VentaEstado.CANCELADA){
+                    if (venta.getEstado() == VentaEstado.CANCELADA) {
                         ventaCredito.setEstado(EstadoVentaCredito.CANCELADO);
                     } else {
                         ventaCredito.setEstado(EstadoVentaCredito.ABIERTO);

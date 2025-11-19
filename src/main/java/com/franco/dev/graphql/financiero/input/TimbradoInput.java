@@ -20,6 +20,8 @@ public class TimbradoInput {
 
     private String csc;
 
+    private String cscId;
+
     private String email;
 
     private String tipoSociedad;

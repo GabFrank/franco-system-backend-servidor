@@ -44,6 +44,9 @@ public class Timbrado implements Identifiable<Long> {
 
     private String csc;
 
+    @Column(name = "csc_id")
+    private String cscId;
+
     private LocalDateTime fechaInicio;
     private LocalDateTime fechaFin;
 

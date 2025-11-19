@@ -20,7 +20,10 @@ import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.DocumentoElectronicoService;
 import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
+import com.franco.dev.service.financiero.FacturaLegalFilialService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
+import com.franco.dev.graphql.financiero.dto.SaveFacturaLegalToFilialResponse;
+import com.franco.dev.service.financiero.dto.FacturaLegalFilialResponse;
 import com.franco.dev.service.sifen.SifenEventoService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.CobroDetalleService;
@@ -129,6 +132,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private SifenEventoService sifenEventoService;
+
+    @Autowired
+    private FacturaLegalFilialService facturaLegalFilialService;
 
 
     public DecimalFormat df = new DecimalFormat("#,###.##");
@@ -716,6 +722,48 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         } catch (Exception e) {
             e.printStackTrace();
             return "ERROR: " + e.getMessage();
+        }
+    }
+
+    @Transactional
+    public SaveFacturaLegalToFilialResponse saveFacturaLegalToFilial(
+            FacturaLegalInput entity,
+            List<FacturaLegalItemInput> detalleList,
+            Long sucursalId,
+            Long timbradoDetalleId,
+            Long monedaId,
+            Double tipoCambio
+    ) {
+        try {
+            // Si se proporciona monedaId y tipoCambio, actualizar el input
+            if (monedaId != null && tipoCambio != null) {
+                // Aquí podrías obtener la denominación de la moneda si es necesario
+                // Por ahora, usamos el tipoCambio directamente
+                entity.setTipoCambio(tipoCambio);
+            }
+
+            // Llamar al servicio REST para crear la factura en el servidor filial
+            FacturaLegalFilialResponse response = facturaLegalFilialService.crearFacturaLegalEnFilial(
+                    entity,
+                    detalleList != null ? detalleList : new ArrayList<>(),
+                    sucursalId,
+                    timbradoDetalleId
+            );
+
+            // Mapear la respuesta del servidor filial a la respuesta GraphQL
+            SaveFacturaLegalToFilialResponse graphQLResponse = new SaveFacturaLegalToFilialResponse();
+            graphQLResponse.setFacturaId(response.getId());
+            graphQLResponse.setNumeroFactura(response.getNumeroFactura());
+            graphQLResponse.setCdc(response.getCdc());
+            graphQLResponse.setUrlQr(response.getUrlQr());
+            graphQLResponse.setEstadoDocumentoElectronico(response.getEstadoDocumentoElectronico());
+            graphQLResponse.setMensajeRespuestaSifen(response.getMensajeRespuestaSifen());
+            graphQLResponse.setDocumentoElectronicoGenerado(response.getDocumentoElectronicoGenerado());
+
+            return graphQLResponse;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al crear factura en servidor filial: " + e.getMessage(), e);
         }
     }
 }

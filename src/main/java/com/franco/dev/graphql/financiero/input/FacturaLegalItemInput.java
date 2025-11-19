@@ -13,6 +13,7 @@ public class FacturaLegalItemInput implements Serializable {
     private Long productoId;
     private Double cantidad;
     private String descripcion;
+    private String unidadMedida;
     private Double precioUnitario;
     private Integer iva;
     private Double total;

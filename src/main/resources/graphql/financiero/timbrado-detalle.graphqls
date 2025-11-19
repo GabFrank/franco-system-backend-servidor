@@ -57,6 +57,7 @@ extend type Query {
     timbradoDetalle(id:ID!, sucId:ID!):TimbradoDetalle
     timbradoDetalles(page:Int = 0, size:Int = 10):[TimbradoDetalle]!
     countTimbradoDetalle: Int
+    timbradoDetallesBySucursalId(sucursalId: ID!): [TimbradoDetalle]!
 }
 
 extend type Mutation {

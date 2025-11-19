@@ -76,5 +76,12 @@ public class TimbradoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return service.count();
     }
 
+    public List<TimbradoDetalle> timbradoDetallesBySucursalId(Long sucursalId) {
+        List<TimbradoDetalle> detalles = service.findBySucursalId(sucursalId);
+        // Filtrar solo los activos
+        return detalles.stream()
+                .filter(td -> td.getActivo() != null && td.getActivo())
+                .collect(java.util.stream.Collectors.toList());
+    }
 
 }

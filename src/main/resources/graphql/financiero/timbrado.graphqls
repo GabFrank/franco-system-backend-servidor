@@ -7,6 +7,7 @@ type Timbrado {
     fechaFin: Date
     isElectronico: Boolean
     csc: String
+    cscId: String
     email: String
     tipoSociedad: String
     domicilioFiscalDepartamento: String
@@ -34,6 +35,7 @@ input TimbradoInput {
     fechaFin: String
     isElectronico: Boolean
     csc: String
+    cscId: String
     email: String
     tipoSociedad: String
     domicilioFiscalDepartamento: String

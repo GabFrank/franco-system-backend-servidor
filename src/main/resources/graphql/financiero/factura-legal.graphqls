@@ -27,12 +27,17 @@ type FacturaLegal {
     sucursal:Sucursal
     activo: Boolean
     documentoElectronico: DocumentoElectronico
+    monedaExtranjera: String
+    tipoCambio: Float
 }
 
 input FacturaLegalInput {
     id:ID
     cajaId: Int
+    timbradoDetalleId: Int
+    autoimpreso: Boolean
     viaTributaria: Boolean
+    numeroFactura: Int
     clienteId: Int
     ventaId: Int
     fecha:String
@@ -52,6 +57,9 @@ input FacturaLegalInput {
     usuarioId: Int
     sucursalId: Int
     activo: Boolean
+    monedaExtranjera: String
+    tipoCambio: Float
+    email: String
 }
 
 type FacturaLegalPage {
@@ -76,6 +84,16 @@ type ResumenFacturasDto {
     total0: Float
 }
 
+type SaveFacturaLegalToFilialResponse {
+    facturaId: ID
+    numeroFactura: Int
+    cdc: String
+    urlQr: String
+    estadoDocumentoElectronico: String
+    mensajeRespuestaSifen: String
+    documentoElectronicoGenerado: Boolean
+}
+
 extend type Query {
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
     facturaLegales(page: Int, size: Int, fechaInicio: String, fechaFin: String, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, isElectronico: Boolean, activo: Boolean):FacturaLegalPage!
@@ -92,5 +110,6 @@ extend type Mutation {
     updateFacturaLegal(input: FacturaLegalInput!): FacturaLegal!
     nominarFacturaElectronica(facturaLegalId: ID!, sucursalId: ID!, clienteId: ID!): Boolean!
     cancelarFacturaLegal(facturaLegalId: ID!, sucursalId: ID!, cancelarVenta: Boolean!): String!
+    saveFacturaLegalToFilial(entity: FacturaLegalInput!, detalleList: [FacturaLegalItemInput], sucursalId: ID!, timbradoDetalleId: ID!, monedaId: ID, tipoCambio: Float): SaveFacturaLegalToFilialResponse!
 }
 

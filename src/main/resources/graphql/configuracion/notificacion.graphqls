@@ -25,6 +25,25 @@ input NotificacionPushInput {
 }
 
 extend type Query {
-    requestPushNotification(entity: NotificacionPushInput!):Boolean
+    requestPushNotification(entity: NotificacionPushInput!): Boolean
+    notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
+}
+
+type Notificacion {
+    id: Int
+    titulo: String
+    mensaje: String
+    tipo: String
+    data: String
+    creadoEn: Date
+}
+
+type NotificacionUsuario {
+    id: Int
+    notificacion: Notificacion
+    leida: Boolean
+    fechaLeida: Date
+    fechaEnvio: Date
+    estadoEnvio: String
 }
 

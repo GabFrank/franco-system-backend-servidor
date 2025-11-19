@@ -12,7 +12,6 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter;
-import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -27,7 +26,6 @@ import java.io.IOException;
 import java.util.Collections;
 
 @EnableRetry
-@EnableRabbit
 @SpringBootApplication
 @EnableAutoConfiguration(exclude = {DataSourceTransactionManagerAutoConfiguration.class})
 @EnableAsync

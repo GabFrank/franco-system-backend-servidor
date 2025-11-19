@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -34,7 +36,6 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             entity.setCreadoEn(LocalDateTime.now());
         }
         InicioSesion e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
     }
 
@@ -53,7 +54,24 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         }
 
         InicioSesion e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
+    }
+
+    public List<InicioSesion> findActiveSessionsByUsuarioIds(Collection<Long> usuarioIds) {
+        if (usuarioIds == null || usuarioIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return repository.findByUsuarioIdInAndHoraFinIsNullOrderByIdDesc(usuarioIds);
+    }
+
+    public void clearToken(String token) {
+        if (token == null || token.isEmpty()) {
+            return;
+        }
+        List<InicioSesion> sessions = repository.findByToken(token);
+        for (InicioSesion session : sessions) {
+            session.setToken(null);
+            super.save(session);
+        }
     }
 }

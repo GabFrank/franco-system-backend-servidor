@@ -1,25 +1,24 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
+import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -51,18 +50,12 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     private UsuarioService usuarioService;
 
     @Autowired
-    private InicioSesionService inicioSesionService;
-
-    @Autowired
     private SucursalService sucursalService;
 
     @Autowired
     private PushNotificationService pushNotificationService;
-
-    // public List<Gasto> findByDenominacion(String texto){
-    // texto = texto.replace(' ', '%');
-    // return repository.findByDenominacionIgnoreCaseLike(texto);
-    // }
+    @Autowired
+    private NotificationTemplateService notificationTemplateService;
 
     public List<Gasto> findByDate(String inicio, String fin, Long sucId) {
         return repository.findBySucursalIdAndCreadoEnBetween(sucId, stringToDate(inicio), stringToDate(fin));
@@ -90,41 +83,10 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     public Gasto save(Gasto entity) {
         Gasto e = super.save(entity);
         Usuario usuario = usuarioService.findByPersonaId(entity.getResponsable().getPersona().getId());
-        Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(
-                usuario.getId(), 0L, PageRequest.of(0, 50));
-        List<String> tokens = inicioSesionPage.getContent().stream()
-                .map(InicioSesion::getToken)
-                .filter(token -> token != null && !token.isEmpty())
-                .collect(Collectors.toList());
-        if (!tokens.isEmpty()) {
-            PushNotificationRequest pNr = new PushNotificationRequest();
-            Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
-            pNr.setTitle("Gasto realizado");
-            StringBuilder stb = new StringBuilder();
-            stb.append("Se ha detectado un gasto a tu nombre en la sucursal ");
-            stb.append(sucursal.getNombre());
-            stb.append(" por el valor de ");
-            if (entity.getRetiroGs() > 0) {
-                stb.append(df.format(entity.getRetiroGs()));
-                stb.append(" Gs. ");
-            }
-            if (entity.getRetiroRs() > 0) {
-                stb.append(df.format(entity.getRetiroRs()));
-                stb.append(", Rs. ");
-            }
-            if (entity.getRetiroDs() > 0) {
-                stb.append(df.format(entity.getRetiroDs()));
-                stb.append(", Ds. ");
-            }
-            stb.append("Si desconoce ésta acción contactar con el cajero ");
-            stb.append(entity.getUsuario().getNickname().toUpperCase());
-            stb.append(" al número ");
-            stb.append(sucursal.getNroDelivery());
-            pNr.setMessage(stb.toString());
-            pNr.setTokens(tokens);
-            pNr.setData("/");
-            pushNotificationService.sendPushNotificationToToken(pNr);
-        }
+        Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
+        PushNotificationRequest request = notificationTemplateService.gastoRealizado(entity, sucursal, df);
+        request.setUsuarioIds(Collections.singletonList(usuario.getId()));
+        pushNotificationService.sendPushNotificationToToken(request);
         return e;
     }
 }

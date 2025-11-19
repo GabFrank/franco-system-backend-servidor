@@ -1,78 +1,85 @@
 package com.franco.dev.fmc.service;
 
+import com.franco.dev.fmc.model.DeliveryResult;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.ApnsConfig;
 import com.google.firebase.messaging.Aps;
-import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.MulticastMessage;
+import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
+import com.google.gson.Gson;
 import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
 public class FCMService {
+
+    private static final String DEFAULT_DATA_PATH = "/";
     private final Logger logger = LoggerFactory.getLogger(FCMService.class);
+    private final Gson gson;
 
-    @Async("notificationExecutor")
-    public void dispatch(PushNotificationRequest request) {
+    public FCMService(Gson gson) {
+        this.gson = gson;
+    }
+
+    public DeliveryResult sendToToken(String token, PushNotificationRequest request) {
         try {
-            List<String> normalizedTokens = sanitizeTokens(request.getTokens());
-            if (!normalizedTokens.isEmpty()) {
-                request.setTokens(normalizedTokens);
+            Message message = baseMessageBuilder(request)
+                    .setToken(token)
+                    .putData("path", request.getData() != null ? request.getData() : DEFAULT_DATA_PATH)
+                    .build();
+            FirebaseMessaging.getInstance().send(message);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Notificación enviada a token {}", token);
             }
-            if (request.getTopic() != null && !request.getTopic().isEmpty()) {
-                sendMessageToTopic(request);
-            } else if (!normalizedTokens.isEmpty()) {
-                sendMessageToTokens(request);
-            } else if (request.getToken() != null && !request.getToken().isEmpty()) {
-                sendMessageToToken(request);
-            } else {
-                logger.warn("Push notification descartada: no se definió token ni topic. Payload: {}", request);
+            return DeliveryResult.success();
+        } catch (FirebaseMessagingException ex) {
+            MessagingErrorCode code = ex.getMessagingErrorCode();
+            if (logger.isDebugEnabled()) {
+                logger.debug("Error FCM [{}] al enviar a token {} payload {}", code, token,
+                        gson.toJson(safeLogPayload(request)));
             }
-        } catch (FirebaseMessagingException e) {
-            logger.error("Error enviando notificación push", e);
-            throw new IllegalStateException("No se pudo enviar la notificación push", e);
+            if (code == MessagingErrorCode.INVALID_ARGUMENT || code == MessagingErrorCode.UNREGISTERED) {
+                return DeliveryResult.invalidToken(ex.getMessage(), code);
+            }
+            if (code == MessagingErrorCode.UNAVAILABLE || code == MessagingErrorCode.INTERNAL) {
+                return DeliveryResult.transientError(ex.getMessage(), code);
+            }
+            return DeliveryResult.failure(ex.getMessage(), code);
+        } catch (Exception ex) {
+            logger.error("Error no controlado enviando notificación a token {}", token, ex);
+            return DeliveryResult.failure(ex.getMessage(), null);
         }
     }
 
-    private void sendMessageToToken(PushNotificationRequest request) throws FirebaseMessagingException {
-        Message message = getPreconfiguredMessageToToken(request);
-        String response = FirebaseMessaging.getInstance().send(message);
-        logger.info("Notificación enviada a token {}. Respuesta {}", request.getToken(), response);
-    }
-
-    private void sendMessageToTokens(PushNotificationRequest request) throws FirebaseMessagingException {
-        MulticastMessage message = getPreconfiguredMessageToTokens(request);
-        BatchResponse response = FirebaseMessaging.getInstance().sendMulticast(message);
-        logger.info("Notificación enviada a {} dispositivos. Éxitos: {}, Fallas: {}",
-                request.getTokens().size(), response.getSuccessCount(), response.getFailureCount());
-    }
-
-    private void sendMessageToTopic(PushNotificationRequest request) throws FirebaseMessagingException {
-        Message message = getPreconfiguredMessageToTopic(request);
-        String response = FirebaseMessaging.getInstance().send(message);
-        logger.info("Notificación enviada al tópico {}. Respuesta {}", request.getTopic(), response);
-    }
-
-    private List<String> sanitizeTokens(List<String> tokens) {
-        if (tokens == null) {
-            return Collections.emptyList();
+    public DeliveryResult sendToTopic(PushNotificationRequest request) {
+        try {
+            Message message = baseMessageBuilder(request)
+                    .setTopic(request.getTopic())
+                    .putData("path", request.getData() != null ? request.getData() : DEFAULT_DATA_PATH)
+                    .build();
+            FirebaseMessaging.getInstance().send(message);
+            return DeliveryResult.success();
+        } catch (FirebaseMessagingException ex) {
+            MessagingErrorCode code = ex.getMessagingErrorCode();
+            return DeliveryResult.failure(ex.getMessage(), code);
         }
-        return tokens.stream()
-                .filter(token -> token != null && !token.isEmpty())
-                .distinct()
-                .collect(Collectors.toList());
+    }
+
+    private Message.Builder baseMessageBuilder(PushNotificationRequest request) {
+        return Message.builder()
+                .setApnsConfig(getApnsConfig(request.getTopic()))
+                .setAndroidConfig(getAndroidConfig(request.getTopic()))
+                .setNotification(Notification.builder()
+                        .setTitle(request.getTitle())
+                        .setBody(request.getMessage())
+                        .build());
     }
 
     private AndroidConfig getAndroidConfig(String topic) {
@@ -92,40 +99,11 @@ public class FCMService {
                 .build();
     }
 
-    private Message getPreconfiguredMessageToToken(PushNotificationRequest request) {
-        return baseMessageBuilder(request)
-                .setToken(request.getToken())
-                .putData("path", request.getData() != null ? request.getData() : "/")
-                .build();
-    }
-
-    private MulticastMessage getPreconfiguredMessageToTokens(PushNotificationRequest request) {
-        return MulticastMessage.builder()
-                .addAllTokens(request.getTokens())
-                .setAndroidConfig(getAndroidConfig(request.getTopic()))
-                .setApnsConfig(getApnsConfig(request.getTopic()))
-                .putData("path", request.getData() != null ? request.getData() : "/")
-                .setNotification(Notification.builder()
-                        .setTitle(request.getTitle())
-                        .setBody(request.getMessage())
-                        .build())
-                .build();
-    }
-
-    private Message getPreconfiguredMessageToTopic(PushNotificationRequest request) {
-        return baseMessageBuilder(request)
-                .setTopic(request.getTopic())
-                .putData("path", request.getData() != null ? request.getData() : "/")
-                .build();
-    }
-
-    private Message.Builder baseMessageBuilder(PushNotificationRequest request) {
-        return Message.builder()
-                .setApnsConfig(getApnsConfig(request.getTopic()))
-                .setAndroidConfig(getAndroidConfig(request.getTopic()))
-                .setNotification(Notification.builder()
-                        .setTitle(request.getTitle())
-                        .setBody(request.getMessage())
-                        .build());
+    private Object safeLogPayload(PushNotificationRequest request) {
+        return new Object() {
+            final String title = request.getTitle();
+            final String type = request.getType();
+            final String topic = request.getTopic();
+        };
     }
 }

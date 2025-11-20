@@ -103,6 +103,8 @@ extend type Query {
     findResumenFacturas(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):ResumenFacturasDto!
     generarExcelFacturas(fechaInicio: String!, fechaFin: String!, sucId: ID):String
     generarExcelFacturasZip(fechaInicio: String!, fechaFin: String!, sucId: [ID]):String
+    descargarXmlFacturaElectronica(id: ID!, sucId: ID!): String!
+    descargarPdfFacturaElectronica(id: ID!, sucId: ID!): String!
 }
 
 extend type Mutation {

@@ -35,6 +35,8 @@ import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
+import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
@@ -76,6 +78,11 @@ import static com.franco.dev.service.impresion.ImpresionService.shortDate;
 import static com.franco.dev.service.impresion.ImpresionService.shortDateTime;
 import static com.franco.dev.service.utils.PrintingService.resize;
 import static com.franco.dev.utilitarios.CalcularVerificadorRuc.getDigitoVerificadorString;
+
+import net.sf.jasperreports.engine.*;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import org.springframework.util.ResourceUtils;
+import com.franco.dev.utilitarios.DateUtils;
 
 @Component
 public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -140,6 +147,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private FacturaLegalFilialService facturaLegalFilialService;
+
+    @Autowired
+    private CodigoService codigoService;
 
 
     public DecimalFormat df = new DecimalFormat("#,###.##");
@@ -1354,5 +1364,336 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.printStackTrace();
             throw new RuntimeException("Error al crear factura en servidor filial: " + e.getMessage(), e);
         }
+    }
+
+    public String descargarXmlFacturaElectronica(Long id, Long sucId) {
+        try {
+            // Obtener factura legal
+            FacturaLegal factura = service.findByIdAndSucursalId(id, sucId);
+            if (factura == null) {
+                throw new IllegalArgumentException("Factura no encontrada");
+            }
+
+            // Obtener documento electrónico
+            Optional<DocumentoElectronico> docOpt = documentoElectronicoService.findByFacturaLegalId(id, sucId);
+            if (!docOpt.isPresent()) {
+                throw new IllegalArgumentException("La factura no tiene documento electrónico asociado");
+            }
+
+            DocumentoElectronico documentoElectronico = docOpt.get();
+            String xmlOriginal = documentoElectronico.getXmlOriginal();
+            
+            if (xmlOriginal == null || xmlOriginal.isEmpty()) {
+                throw new IllegalArgumentException("El documento electrónico no tiene XML original");
+            }
+
+            // Convertir XML a Base64
+            String base64String = Base64.getEncoder().encodeToString(xmlOriginal.getBytes("UTF-8"));
+            return base64String;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al descargar XML: " + e.getMessage(), e);
+        }
+    }
+
+    public String descargarPdfFacturaElectronica(Long id, Long sucId) {
+        try {
+            // Obtener factura legal con todas las relaciones necesarias
+            FacturaLegal factura = service.findByIdAndSucursalId(id, sucId);
+            if (factura == null) {
+                throw new IllegalArgumentException("Factura no encontrada");
+            }
+
+            // Obtener documento electrónico
+            Optional<DocumentoElectronico> docOpt = documentoElectronicoService.findByFacturaLegalId(id, sucId);
+            if (!docOpt.isPresent()) {
+                throw new IllegalArgumentException("La factura no tiene documento electrónico asociado");
+            }
+
+            DocumentoElectronico documentoElectronico = docOpt.get();
+            
+            // Obtener sucursal
+            Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
+            
+            // Obtener items de la factura
+            List<FacturaLegalItem> items = facturaLegalItemService.findByFacturaLegalId(id, sucId);
+            
+            // Preparar datos para el reporte Jasper
+            // Verificar si tiene moneda extranjera
+            boolean tieneMonedaExtranjera = factura.getMonedaExtranjera() != null && !factura.getMonedaExtranjera().isEmpty();
+            Double tipoCambio = factura.getTipoCambio() != null ? factura.getTipoCambio() : 1.0;
+            
+            // Cargar y compilar el template Jasper
+            File file = ResourceUtils.getFile("classpath:factura-electronica-kude.jrxml");
+            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            
+            // Preparar datasource con items
+            List<FacturaItemDto> itemDtoList = new ArrayList<>();
+            for (FacturaLegalItem item : items) {
+                FacturaItemDto dto = new FacturaItemDto();
+                dto.setId(item.getId());
+                dto.setDescripcion(item.getDescripcion() != null ? item.getDescripcion() : "");
+                dto.setCantidad(item.getCantidad() != null ? item.getCantidad() : 0.0f);
+                dto.setPrecioUnitario(item.getPrecioUnitario() != null ? item.getPrecioUnitario() : 0.0);
+                dto.setIva(item.getIva() != null ? item.getIva() : 0);
+                dto.setTotal(item.getTotal() != null ? item.getTotal() : 0.0);
+                
+                // Obtener código principal de la presentación
+                String codigo = "";
+                if (item.getPresentacion() != null && item.getPresentacion().getId() != null) {
+                    Codigo codigoObj = codigoService.findPrincipalByPresentacionId(item.getPresentacion().getId());
+                    if (codigoObj != null && codigoObj.getCodigo() != null) {
+                        codigo = codigoObj.getCodigo();
+                    }
+                }
+                dto.setCodigo(codigo);
+                // Usar unidadMedida en lugar de descripción de presentación (UNIDAD, KILO, LITRO, etc.)
+                dto.setDescripcionPresentacion(item.getUnidadMedida() != null ? item.getUnidadMedida() : "");
+                
+                // Si tiene moneda extranjera, convertir valores
+                if (tieneMonedaExtranjera && tipoCambio > 0) {
+                    dto.setPrecioUnitario(dto.getPrecioUnitario() / tipoCambio);
+                    dto.setTotal(dto.getTotal() / tipoCambio);
+                }
+                
+                itemDtoList.add(dto);
+            }
+            
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(itemDtoList);
+            
+            // Preparar parámetros del reporte
+            Map<String, Object> parameters = new HashMap<>();
+            
+            // Logo - solo si NO tiene moneda extranjera
+            if (!tieneMonedaExtranjera) {
+                String logoPath = imageService.getImagePath() + File.separator + "logo.png";
+                File logoFile = new File(logoPath);
+                if (logoFile.exists()) {
+                    parameters.put("logo", logoPath);
+                } else {
+                    parameters.put("logo", "");
+                }
+            } else {
+                parameters.put("logo", "");
+            }
+            
+            // Datos del emisor (Timbrado)
+            if (factura.getTimbradoDetalle() != null && factura.getTimbradoDetalle().getTimbrado() != null) {
+                com.franco.dev.domain.financiero.Timbrado timbrado = factura.getTimbradoDetalle().getTimbrado();
+                parameters.put("razonSocial", timbrado.getRazonSocial() != null ? timbrado.getRazonSocial() : "");
+                parameters.put("rucEmisor", timbrado.getRuc() != null ? timbrado.getRuc() : "");
+                parameters.put("numeroTimbrado", timbrado.getNumero() != null ? timbrado.getNumero() : "");
+                parameters.put("fechaInicioVigencia", timbrado.getFechaInicio() != null ? 
+                    DateUtils.toString(timbrado.getFechaInicio()) : "");
+                
+                // Dirección del emisor: formatear como "{{direccion}}, {{ciudad}}, {{departamento}}"
+                StringBuilder direccionEmisorBuilder = new StringBuilder();
+                String direccion = factura.getTimbradoDetalle().getDireccion() != null 
+                    ? factura.getTimbradoDetalle().getDireccion() : "";
+                String ciudad = factura.getTimbradoDetalle().getCiudad() != null 
+                    ? factura.getTimbradoDetalle().getCiudad() : "";
+                String departamento = factura.getTimbradoDetalle().getDepartamento() != null 
+                    ? factura.getTimbradoDetalle().getDepartamento() : "";
+                
+                if (!direccion.isEmpty()) {
+                    direccionEmisorBuilder.append(direccion);
+                }
+                if (!ciudad.isEmpty()) {
+                    if (direccionEmisorBuilder.length() > 0) {
+                        direccionEmisorBuilder.append(", ");
+                    }
+                    direccionEmisorBuilder.append(ciudad);
+                }
+                if (!departamento.isEmpty()) {
+                    if (direccionEmisorBuilder.length() > 0) {
+                        direccionEmisorBuilder.append(", ");
+                    }
+                    direccionEmisorBuilder.append(departamento);
+                }
+                
+                // Si no hay datos en timbradoDetalle, usar datos del timbrado como fallback
+                if (direccionEmisorBuilder.length() == 0 && timbrado.getDomicilioFiscalDireccion() != null) {
+                    direccionEmisorBuilder.append(timbrado.getDomicilioFiscalDireccion());
+                }
+                
+                parameters.put("direccionEmisor", direccionEmisorBuilder.toString());
+                
+                if (factura.getTimbradoDetalle().getTelefono() != null) {
+                    parameters.put("telefonoEmisor", factura.getTimbradoDetalle().getTelefono());
+                } else if (timbrado.getTelefono() != null) {
+                    parameters.put("telefonoEmisor", timbrado.getTelefono());
+                } else {
+                    parameters.put("telefonoEmisor", "");
+                }
+                
+                parameters.put("emailEmisor", timbrado.getEmail() != null ? timbrado.getEmail() : "");
+                parameters.put("actividadEconomica", timbrado.getDescActividadEconomicaPrincipal() != null ? 
+                    timbrado.getDescActividadEconomicaPrincipal() : "");
+            } else {
+                parameters.put("razonSocial", "");
+                parameters.put("rucEmisor", "");
+                parameters.put("numeroTimbrado", "");
+                parameters.put("fechaInicioVigencia", "");
+                parameters.put("direccionEmisor", "");
+                parameters.put("telefonoEmisor", "");
+                parameters.put("emailEmisor", "");
+                parameters.put("actividadEconomica", "");
+            }
+            
+            // Datos de la factura
+            // Formatear número de factura: {codigoEstablecimiento}-{puntoExpedicion}-{numeroFactura}
+            String codigoEstablecimiento = sucursal != null && sucursal.getCodigoEstablecimientoFactura() != null 
+                ? sucursal.getCodigoEstablecimientoFactura() : "000";
+            String puntoExpedicion = factura.getTimbradoDetalle() != null && factura.getTimbradoDetalle().getPuntoExpedicion() != null
+                ? factura.getTimbradoDetalle().getPuntoExpedicion() : "000";
+            String numeroFacturaFormateado = "";
+            if (factura.getNumeroFactura() != null) {
+                // Formatear número con padding de 7 dígitos
+                String numeroStr = String.format("%07d", factura.getNumeroFactura());
+                numeroFacturaFormateado = codigoEstablecimiento + "-" + puntoExpedicion + "-" + numeroStr;
+            }
+            parameters.put("numeroFactura", numeroFacturaFormateado);
+            parameters.put("cdc", documentoElectronico.getCdc() != null ? documentoElectronico.getCdc() : "");
+            parameters.put("fechaEmision", factura.getFecha() != null ? DateUtils.toString(factura.getFecha()) : "");
+            parameters.put("presupuesto", ""); // No disponible en la entidad actual
+            parameters.put("ordenAsociada", ""); // No disponible en la entidad actual
+            
+            // Datos del cliente
+            parameters.put("rucCliente", factura.getRuc() != null ? factura.getRuc() : "");
+            parameters.put("nombreCliente", factura.getNombre() != null ? factura.getNombre() : "");
+            parameters.put("fantasiaCliente", factura.getNombre() != null ? factura.getNombre() : "");
+            parameters.put("direccionCliente", factura.getDireccion() != null ? factura.getDireccion() : "");
+            parameters.put("ciudadCliente", ""); // No disponible directamente
+            parameters.put("departamentoCliente", ""); // No disponible directamente
+            parameters.put("telefonoCliente", ""); // No disponible directamente
+            parameters.put("emailCliente", ""); // No disponible directamente
+            
+            // Condiciones de venta
+            parameters.put("contado", factura.getCredito() != null && !factura.getCredito());
+            parameters.put("credito", factura.getCredito() != null && factura.getCredito());
+            parameters.put("cuotas", "1"); // No disponible directamente
+            parameters.put("moneda", tieneMonedaExtranjera ? factura.getMonedaExtranjera() : "PYG");
+            parameters.put("tipoCambio", tieneMonedaExtranjera && tipoCambio != null ? tipoCambio.toString() : "");
+            parameters.put("plazo", ""); // No disponible directamente
+            
+            // Totales - convertir si tiene moneda extranjera
+            Double total0 = factura.getTotalParcial0() != null ? factura.getTotalParcial0() : 0.0;
+            Double total5 = factura.getTotalParcial5() != null ? factura.getTotalParcial5() : 0.0;
+            Double total10 = factura.getTotalParcial10() != null ? factura.getTotalParcial10() : 0.0;
+            Double iva5 = factura.getIvaParcial5() != null ? factura.getIvaParcial5() : 0.0;
+            Double iva10 = factura.getIvaParcial10() != null ? factura.getIvaParcial10() : 0.0;
+            Double totalFinal = factura.getTotalFinal() != null ? factura.getTotalFinal() : 0.0;
+            
+            if (tieneMonedaExtranjera && tipoCambio > 0) {
+                total0 = total0 / tipoCambio;
+                total5 = total5 / tipoCambio;
+                total10 = total10 / tipoCambio;
+                iva5 = iva5 / tipoCambio;
+                iva10 = iva10 / tipoCambio;
+                totalFinal = totalFinal / tipoCambio;
+            }
+            
+            parameters.put("subtotalExentas", total0);
+            parameters.put("subtotal5", total5);
+            parameters.put("subtotal10", total10);
+            parameters.put("totalOperacion", totalFinal);
+            parameters.put("totalIva5", iva5);
+            parameters.put("totalIva10", iva10);
+            parameters.put("totalIva", iva5 + iva10);
+            parameters.put("totalFinal", totalFinal);
+            
+            // Total en Guaraníes - si tiene moneda extranjera, calcular como totalFinal * tipoCambio
+            // El totalFinal original en guaraníes
+            Double totalFinalOriginal = factura.getTotalFinal() != null ? factura.getTotalFinal() : 0.0;
+            Double totalEnGuarani = totalFinalOriginal;
+            if (tieneMonedaExtranjera && tipoCambio > 0) {
+                // Si tiene moneda extranjera, totalEnGuarani = totalFinal en moneda extranjera * tipoCambio
+                totalEnGuarani = totalFinal * tipoCambio;
+            }
+            parameters.put("totalEnGuarani", totalEnGuarani);
+            
+            // URL de validación SET
+            parameters.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
+            
+            // QR Code - generar imagen del QR desde urlQr del documento electrónico
+            String urlQr = documentoElectronico.getUrlQr() != null ? documentoElectronico.getUrlQr() : "";
+            String qrImagePath = "";
+            if (urlQr != null && !urlQr.isEmpty()) {
+                try {
+                    // Generar imagen QR
+                    BufferedImage qrImage = QRCodeImageGenerator.generateQRCodeImage(urlQr, 200, 200);
+                    
+                    // Guardar imagen temporalmente
+                    File tempQrFile = File.createTempFile("qr_", ".png");
+                    ImageIO.write(qrImage, "PNG", tempQrFile);
+                    qrImagePath = tempQrFile.getAbsolutePath();
+                    
+                    // El archivo temporal se eliminará cuando se cierre el proceso o se puede eliminar después de generar el PDF
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    // Si falla la generación del QR, continuar sin él
+                    qrImagePath = "";
+                }
+            }
+            parameters.put("qrImagePath", qrImagePath);
+            
+            // Generar PDF
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            
+            // Limpiar archivo temporal del QR si existe
+            if (!qrImagePath.isEmpty()) {
+                try {
+                    File tempFile = new File(qrImagePath);
+                    if (tempFile.exists()) {
+                        tempFile.delete();
+                    }
+                } catch (Exception e) {
+                    // Ignorar errores al eliminar el archivo temporal
+                }
+            }
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error al generar PDF: " + e.getMessage(), e);
+        }
+    }
+
+    // DTO para items del reporte PDF
+    public static class FacturaItemDto {
+        private Long id;
+        private String codigo;
+        private String descripcion;
+        private Integer iva;
+        private String descripcionPresentacion;
+        private Float cantidad;
+        private Double precioUnitario;
+        private Double total;
+
+        public Long getId() { return id; }
+        public void setId(Long id) { this.id = id; }
+        
+        public String getCodigo() { return codigo; }
+        public void setCodigo(String codigo) { this.codigo = codigo; }
+        
+        public String getDescripcion() { return descripcion; }
+        public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
+        
+        public Integer getIva() { return iva; }
+        public void setIva(Integer iva) { this.iva = iva; }
+        
+        public String getDescripcionPresentacion() { return descripcionPresentacion; }
+        public void setDescripcionPresentacion(String descripcionPresentacion) { this.descripcionPresentacion = descripcionPresentacion; }
+        
+        public Float getCantidad() { return cantidad; }
+        public void setCantidad(Float cantidad) { this.cantidad = cantidad; }
+        
+        public Double getPrecioUnitario() { return precioUnitario; }
+        public void setPrecioUnitario(Double precioUnitario) { this.precioUnitario = precioUnitario; }
+        
+        public Double getTotal() { return total; }
+        public void setTotal(Double total) { this.total = total; }
     }
 }

@@ -1,8 +1,6 @@
 package com.franco.dev.repository.configuracion;
 
 import com.franco.dev.domain.configuracion.InicioSesion;
-import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.configuracion.input.InicioSesionInput;
 import com.franco.dev.service.configuracion.InicioSesionService;

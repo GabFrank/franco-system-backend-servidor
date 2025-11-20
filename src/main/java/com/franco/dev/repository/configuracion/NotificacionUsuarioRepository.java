@@ -4,6 +4,8 @@ import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
 import com.franco.dev.repository.HelperRepository;
 import java.util.List;
+import java.time.LocalDateTime;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -19,7 +21,11 @@ public interface NotificacionUsuarioRepository extends HelperRepository<Notifica
 
     List<NotificacionUsuario> findAllByTokenFcm(String tokenFcm);
 
+    Page<NotificacionUsuario> findAllByUsuarioId(Long usuarioId, Pageable pageable);
+
+    Page<NotificacionUsuario> findAllByUsuarioIdAndTokenFcm(Long usuarioId, String tokenFcm, Pageable pageable);
+
+    Long deleteByFechaEnvioBefore(LocalDateTime fecha);
+
     boolean existsByNotificacionIdAndEstadoEnvioIn(Long notificacionId, List<EstadoEnvio> estados);
 }
-
-

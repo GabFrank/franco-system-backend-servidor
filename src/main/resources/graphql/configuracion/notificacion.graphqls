@@ -27,6 +27,7 @@ input NotificacionPushInput {
 extend type Query {
     requestPushNotification(entity: NotificacionPushInput!): Boolean
     notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
+    getNotificacionesUsuario(usuarioId: Int!, tokenFcm: String, leidas: Boolean, page: Int, size: Int): NotificacionUsuarioPage
 }
 
 type Notificacion {
@@ -45,5 +46,21 @@ type NotificacionUsuario {
     fechaLeida: Date
     fechaEnvio: Date
     estadoEnvio: String
+    interactuada: Boolean
+    fechaInteraccion: Date
+    accionRealizada: String
+}
+
+type NotificacionUsuarioPage {
+    content: [NotificacionUsuario]
+    pageNumber: Int
+    pageSize: Int
+    totalElements: Int
+    totalPages: Int
+}
+
+extend type Mutation {
+    marcarNotificacionLeida(notificacionUsuarioId: Int!): Boolean
+    registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean
 }
 

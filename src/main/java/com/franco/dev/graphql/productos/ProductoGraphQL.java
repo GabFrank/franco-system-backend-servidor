@@ -88,8 +88,8 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findById(id);
     }
 
-    public List<Producto> productoSearch(String texto, int offset, Boolean isEnvase, Boolean activo) {
-        return service.findByAll(texto, offset, isEnvase, activo);
+    public List<Producto> productoSearch(String texto, int offset, Long sucursalId, Boolean conStock, Boolean isEnvase, Boolean activo) {
+        return service.findByAll(texto, offset, sucursalId, conStock, isEnvase, activo);
     }
 
     public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock, Boolean balanza, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId, int page, int size) {
@@ -162,7 +162,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Boolean productoDescripcionExists(String descripcion) {
         Pageable pageable = PageRequest.of(1, 5);
-        return service.findByAll(descripcion, 0, false, false).isEmpty();
+        return service.findByAll(descripcion, 0, 0L, false, false, false).isEmpty();
     }
 
     public Producto printProducto(Long id) {

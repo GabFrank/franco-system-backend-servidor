@@ -69,27 +69,29 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
 
-    public List<Producto> findByAll(String texto, Integer offset, Boolean isEnvase, Boolean activo) {
+    public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase, Boolean activo) {
         if (offset == null) {
             offset = 0;
         }
-        
-        // Si texto es null o vacío, buscar todos los productos activos
+
+        // Convertimos el Long a String para evitar el error 'bytea'
+        String sucursalIdStr = (sucursalId != null) ? String.valueOf(sucursalId) : "0";
+
         if (texto == null || texto.trim().isEmpty()) {
             if (isEnvase != null && isEnvase == true) {
                 return repository.findEnvases("", offset, true);
             } else {
-                // Buscar todos los productos con un comodín
-                return repository.findbyAll("%", offset);
+                // Pasamos el String convertido
+                return repository.findbyAll("%", offset, sucursalIdStr, conStock);
             }
         }
-        
+
         texto = texto.replace(' ', '%').toUpperCase();
-        log.info("texto: " + texto + ", offset: " + offset);
         if (isEnvase != null && isEnvase == true) {
             return repository.findEnvases(texto, offset, true);
         } else {
-            return repository.findbyAll(texto, offset);
+            // Pasamos el String convertido
+            return repository.findbyAll(texto, offset, sucursalIdStr, conStock);
         }
     }
 

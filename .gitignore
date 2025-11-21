@@ -11,3 +11,5 @@ tokens/
 .apt_generated
 .vscode*/
 
+bodega-franco-frc-firebase-admin.json
+src/main/resources/application-dev.propertiessrc/main/resources/bodega-franco-frc-firebase-admin.json

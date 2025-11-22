@@ -46,6 +46,45 @@ type EventoNominacionDE {
     usuario: Usuario
 }
 
+type EventoInutilizacionDE {
+    id: ID!
+    sucursalId: Int
+    sucursal: Sucursal
+    timbrado: Timbrado
+    timbradoDetalle: TimbradoDetalle
+    eventoId: String!
+    fechaFirma: Date!
+    establecimiento: String!
+    puntoExpedicion: String!
+    numeroInicio: Int!
+    numeroFin: Int!
+    tipoDE: String!
+    motivoInutilizacion: String!
+    xmlEvento: String
+    estado: EstadoEvento!
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+type EventoInutilizacionDEPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EventoInutilizacionDE]
+    getPageable: Pageable
+}
+
 input EventoCancelacionDEInput {
     documentoElectronicoId: ID!
     motivoCancelacion: String!
@@ -58,6 +97,18 @@ input EventoNominacionDEInput {
     usuarioId: Int
 }
 
+input EventoInutilizacionDEInput {
+    timbradoId: ID!
+    timbradoDetalleId: ID
+    sucursalId: ID!
+    establecimiento: String!
+    puntoExpedicion: String!
+    numeroInicio: Int!
+    numeroFin: Int!
+    motivo: String!
+    usuarioId: Int
+}
+
 extend type Query {
     eventoCancelacion(id: ID!, sucursalId: ID!): EventoCancelacionDE
     eventosCancelacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoCancelacionDE]!
@@ -66,6 +117,20 @@ extend type Query {
     eventoNominacion(id: ID!, sucursalId: ID!): EventoNominacionDE
     eventosNominacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoNominacionDE]!
     eventosNominacionPorEstado(estado: EstadoEvento!): [EventoNominacionDE]!
+
+    eventoInutilizacion(id: ID!, sucursalId: ID!): EventoInutilizacionDE
+    eventosInutilizacionPorTimbrado(timbradoId: ID!, sucursalId: ID!): [EventoInutilizacionDE]!
+    eventosInutilizacionPorEstado(estado: EstadoEvento!, sucursalId: ID!): [EventoInutilizacionDE]!
+    eventosInutilizacionPorSucursal(sucursalId: ID!): [EventoInutilizacionDE]!
+    eventosInutilizacionConFiltros(
+        sucursalId: ID
+        timbradoId: ID
+        estado: EstadoEvento
+        fechaInicio: String
+        fechaFin: String
+        page: Int
+        size: Int
+    ): EventoInutilizacionDEPage
 }
 
 extend type Mutation {
@@ -78,7 +143,7 @@ extend type Mutation {
     nominarReceptorDocumento(cdc: String!, clienteId: ID!): EventoNominacionDE!
     
     # Declara un rango de números como inutilizados en SIFEN
-    # Retorna true si fue exitoso, lanza excepción si falla
+    # Retorna el evento de inutilización con toda la información (estado, código respuesta, etc.)
     inutilizarNumeros(
         timbradoId: ID!
         establecimiento: String!
@@ -86,7 +151,9 @@ extend type Mutation {
         numeroInicio: Int!
         numeroFin: Int!
         motivo: String!
-    ): Boolean!
+        sucursalId: ID!
+        timbradoDetalleId: ID
+    ): EventoInutilizacionDE!
 }
 
 enum EstadoEvento {

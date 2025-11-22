@@ -560,4 +560,21 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
         return repository.deleteByIdAndSucursalId(id, sucId);
     }
+
+    /**
+     * Buscar facturas legales por timbrado detalle, sucursal y rango de números de factura.
+     * Útil para encontrar facturas afectadas por un evento de inutilización.
+     */
+    public List<FacturaLegal> findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+            Long timbradoDetalleId,
+            Long sucursalId,
+            Integer numeroInicio,
+            Integer numeroFin) {
+        return repository.findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+                timbradoDetalleId, 
+                sucursalId, 
+                numeroInicio, 
+                numeroFin
+        );
+    }
 }

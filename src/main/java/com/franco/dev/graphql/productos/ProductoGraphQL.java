@@ -6,7 +6,11 @@ import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.fmc.model.PushNotificationRequest;
+import com.franco.dev.fmc.service.NotificationTemplateService;
+import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.productos.input.ProductoInput;
+import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
@@ -32,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -83,6 +88,15 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private PushNotificationService pushNotificationService;
+
+    @Autowired
+    private NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
     @Unsecured
     public Optional<Producto> producto(Long id) {
         return service.findById(id);
@@ -92,26 +106,30 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findByAll(texto, offset, isEnvase, activo);
     }
 
-    public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock, Boolean balanza, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId, int page, int size) {
+    public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock,
+            Boolean balanza, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro,
+            Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        
-        if(codigo != null && !codigo.trim().isEmpty()) {
+
+        if (codigo != null && !codigo.trim().isEmpty()) {
             List<Codigo> foundCondigoList = codigoService.findByCodigo(codigo);
-            if(foundCondigoList != null && foundCondigoList.size() > 0){
-                if(foundCondigoList.size() == 1){
+            if (foundCondigoList != null && foundCondigoList.size() > 0) {
+                if (foundCondigoList.size() == 1) {
                     Producto foundProducto = foundCondigoList.get(0).getPresentacion().getProducto();
                     return new PageImpl<>(Arrays.asList(foundProducto), pageable, 1);
                 } else {
-                    List<Producto> foundProductoList = foundCondigoList.stream().map(c -> c.getPresentacion().getProducto()).collect(Collectors.toList());
+                    List<Producto> foundProductoList = foundCondigoList.stream()
+                            .map(c -> c.getPresentacion().getProducto()).collect(Collectors.toList());
                     return new PageImpl<>(foundProductoList, pageable, foundProductoList.size());
                 }
             } else {
                 return new PageImpl<>(new ArrayList<>(), pageable, 0);
             }
         }
-        
+
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, vencimiento, costoCero, stockFiltro, sucursalId, pageable);
+        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, vencimiento, costoCero, stockFiltro,
+                sucursalId, pageable);
     }
 
     public List<Producto> productos(int page, int size) {
@@ -120,8 +138,18 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Producto saveProducto(ProductoInput input) {
+        boolean isNewProduct = (input.getId() == null);
+
         Producto e = service.save(input);
-//        multiTenantService.compartir(null, (Producto s) -> service.save(s), e);
+        if (isNewProduct) {
+            try {
+                enviarNotificacionProductoCreado(e);
+            } catch (Throwable t) {
+                System.err.println(
+                        "[NOTIFICACION] Error al enviar notificación de producto creado"
+                                + t.getMessage());
+            }
+        }
         return e;
     }
 
@@ -168,7 +196,6 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Producto printProducto(Long id) {
-//        propagacionService.verficarConexion((long) 1);
         return null;
     }
 
@@ -177,30 +204,29 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public String exportarReporteConFiltros(
-            String texto, 
-            Boolean codigo, 
-            Boolean activo, 
-            Boolean stock, 
-            Boolean balanza, 
-            Boolean vencimiento, 
-            Boolean costoCero, 
-            Long subfamiliaId, 
-            String stockFiltro, 
-            Long sucursalId, 
-            Long usuarioId, 
-            String usuario
-    ) throws FileNotFoundException {
+            String texto,
+            Boolean codigo,
+            Boolean activo,
+            Boolean stock,
+            Boolean balanza,
+            Boolean vencimiento,
+            Boolean costoCero,
+            Long subfamiliaId,
+            String stockFiltro,
+            Long sucursalId,
+            Long usuarioId,
+            String usuario) throws FileNotFoundException {
         return service.exportarReporteConFiltros(
-            texto, codigo, activo, stock, balanza, vencimiento, 
-            costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario
-        );
+                texto, codigo, activo, stock, balanza, vencimiento,
+                costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario);
     }
 
     public List<Producto> findByPdvGrupoProducto(Long id) {
         return service.findByGrupoProductoId(id);
     }
 
-    public String lucroPorProducto(String fechaInicio, String fechaFin, List<Long> sucursalIdList, Long usuarioId, List<Long> usuarioIdList, List<Long> productoIdList) {
+    public String lucroPorProducto(String fechaInicio, String fechaFin, List<Long> sucursalIdList, Long usuarioId,
+            List<Long> usuarioIdList, List<Long> productoIdList) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         StringBuilder filtro = new StringBuilder();
         if (usuario != null) {
@@ -215,10 +241,13 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
         for (Long sucId : sucursalIdList) {
             Sucursal suc = sucursalService.findById(sucId).orElse(null);
-            if (suc != null) filtro.append(suc.getNombre() + " , ");
+            if (suc != null)
+                filtro.append(suc.getNombre() + " , ");
         }
-        List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin, sucursalIdList, usuarioIdList, productoIdList);
-        return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "", filtro.toString(), usuario);
+        List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin,
+                sucursalIdList, usuarioIdList, productoIdList);
+        return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "",
+                filtro.toString(), usuario);
     }
 
     public Boolean imprimirCodigoBarra(Long codigoId) {
@@ -228,6 +257,45 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             return true;
         } else {
             return false;
+        }
+    }
+
+    private void enviarNotificacionProductoCreado(Producto producto) {
+        if (producto == null) {
+            return;
+        }
+
+        try {
+            List<Long> usuarioIds = usuarioRepository.findAll()
+                    .stream()
+                    .map(Usuario::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+
+            if (usuarioIds.isEmpty()) {
+                return;
+            }
+            Sucursal sucursal = null;
+            if (env != null && sucursalService != null) {
+                try {
+                    String sucursalIdStr = env.getProperty("sucursalId");
+                    if (sucursalIdStr != null) {
+                        Long sucursalId = Long.valueOf(sucursalIdStr);
+                        Optional<Sucursal> optSuc = sucursalService.findById(sucursalId);
+                        if (optSuc != null && optSuc.isPresent()) {
+                            sucursal = optSuc.get();
+                        }
+                    }
+                } catch (Exception e) {
+                }
+            }
+            PushNotificationRequest request = notificationTemplateService.productoCreado(producto, sucursal);
+            if (request != null) {
+                request.setUsuarioIds(usuarioIds);
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception e) {
+            System.err.println("[NOTIFICACION] Error interno al procesar notificación de producto: " + e.getMessage());
         }
     }
 }

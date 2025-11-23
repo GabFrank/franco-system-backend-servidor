@@ -20,7 +20,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class NotificationDispatchService {
@@ -50,13 +49,11 @@ public class NotificationDispatchService {
     }
 
     @Scheduled(fixedDelayString = "${app.notifications.dispatch-interval:5000}")
-    @Transactional
     public void scheduledDispatch() {
         dispatchInternal();
     }
 
     @Async("notificationExecutor")
-    @Transactional
     public void dispatchAsync() {
         dispatchInternal();
     }
@@ -78,6 +75,7 @@ public class NotificationDispatchService {
 
             DeliveryResult result = fcmService.sendToToken(target.getTokenFcm(), request);
             handleResult(target, notificacion, result);
+            notificacionUsuarioRepository.save(target);
         }
     }
 
@@ -132,5 +130,3 @@ public class NotificationDispatchService {
         meterRegistry.ifPresent(registry -> registry.counter(name).increment());
     }
 }
-
-

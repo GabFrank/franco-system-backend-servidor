@@ -27,7 +27,7 @@ import java.util.Collections;
 
 @EnableRetry
 @SpringBootApplication
-@EnableAutoConfiguration(exclude = {DataSourceTransactionManagerAutoConfiguration.class})
+@EnableAutoConfiguration(exclude = { DataSourceTransactionManagerAutoConfiguration.class })
 @EnableAsync
 @EnableScheduling
 public class FrancoSystemsApplication {
@@ -86,7 +86,7 @@ public class FrancoSystemsApplication {
         return flyway -> {
             flyway.repair();
             flyway.migrate();
-            
+
         };
     }
 

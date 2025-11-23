@@ -1,8 +1,6 @@
 package com.franco.dev.service.configuracion;
 
-
 import com.franco.dev.domain.configuracion.InicioSesion;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.configuracion.InicioSesionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -39,8 +37,8 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         return e;
     }
 
-    public Page<InicioSesion> findByUsuarioIdAndHoraFinIsNul(Long id, Long sucId, Pageable pageable){
-        if(sucId!=null){
+    public Page<InicioSesion> findByUsuarioIdAndHoraFinIsNul(Long id, Long sucId, Pageable pageable) {
+        if (sucId != null) {
             return repository.findByUsuarioIdAndSucursalIdAndHoraFinIsNullOrderByIdDesc(id, sucId, pageable);
         } else {
             return repository.findByUsuarioIdAndHoraFinIsNullOrderByIdDesc(id, pageable);
@@ -64,14 +62,11 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         return repository.findByUsuarioIdInAndHoraFinIsNullOrderByIdDesc(usuarioIds);
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void clearToken(String token) {
         if (token == null || token.isEmpty()) {
             return;
         }
-        List<InicioSesion> sessions = repository.findByToken(token);
-        for (InicioSesion session : sessions) {
-            session.setToken(null);
-            super.save(session);
-        }
+        repository.clearTokenByToken(token);
     }
 }

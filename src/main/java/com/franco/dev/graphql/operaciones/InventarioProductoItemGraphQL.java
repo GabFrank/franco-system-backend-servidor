@@ -205,18 +205,18 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         }
     }
 
-    public Page<ProductoSaldoDto> productosConCantidadPositiva(Long sucursalId, Integer page, Integer size) {
+    public Page<ProductoSaldoDto> productosConCantidadPositiva(Long sucursalId, Long productoId, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
-        return movimientoStockService.findProductosConCantidadPositiva(sucursalId, pageable);
+        return movimientoStockService.findProductosConCantidadPositiva(sucursalId, productoId, pageable);
     }
 
-    public Page<ProductoSaldoDto> productosConCantidadNegativa(Long sucursalId, Integer page, Integer size) {
+    public Page<ProductoSaldoDto> productosConCantidadNegativa(Long sucursalId, Long productoId, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
-        return movimientoStockService.findProductosConCantidadNegativa(sucursalId, pageable);
+        return movimientoStockService.findProductosConCantidadNegativa(sucursalId, productoId, pageable);
     }
 
-    public Page<ProductoSaldoDto> productosFaltantes(Long sucursalId, String fechaInicio, String fechaFin, Integer page, Integer size) {
+    public Page<ProductoSaldoDto> productosFaltantes(Long sucursalId, Long productoId, String fechaInicio, String fechaFin, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
-        return movimientoStockService.findProductosFaltantes(sucursalId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
+        return movimientoStockService.findProductosFaltantes(sucursalId, productoId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
     }
 }

@@ -135,40 +135,44 @@ public interface MovimientoStockRepository extends HelperRepository<MovimientoSt
             "JOIN ms.producto p " +
             "WHERE ms.estado = true " +
             "AND (:sucursalId IS NULL OR ms.sucursalId = :sucursalId) " +
+            "AND (:productoId is NULL OR p.id = :productoId)" +
             "GROUP BY ms.producto.id, ms.producto.descripcion, ms.sucursalId " +
             "HAVING SUM(ms.cantidad) > 0 " +
             "ORDER BY SUM(ms.cantidad) DESC")
-    Page<ProductoSaldoDto> findProductosConCantidadPositiva(@Param("sucursalId") Long sucursalId, Pageable pageable);
+    Page<ProductoSaldoDto> findProductosConCantidadPositiva(@Param("sucursalId") Long sucursalId, @Param("productoId") Long productoId, Pageable pageable);
 
     @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(ms.producto.id, ms.producto.descripcion, ms.sucursalId, SUM(ms.cantidad)) " +
             "FROM MovimientoStock ms " +
             "JOIN ms.producto p " +
             "WHERE ms.estado = true " +
             "AND (:sucursalId IS NULL OR ms.sucursalId = :sucursalId) " +
+            "AND (:productoId is NULL OR p.id = :productoId)" +
             "GROUP BY ms.producto.id, ms.producto.descripcion, ms.sucursalId " +
             "HAVING SUM(ms.cantidad) < 0 " +
             "ORDER BY SUM(ms.cantidad) ASC")
-    Page<ProductoSaldoDto> findProductosConCantidadNegativa(@Param("sucursalId") Long sucursalId, Pageable pageable);
+    Page<ProductoSaldoDto> findProductosConCantidadNegativa(@Param("sucursalId") Long sucursalId, @Param("productoId") Long productoId, Pageable pageable);
 
     @Query("SELECT new com.franco.dev.domain.operaciones.dto.ProductoSaldoDto(p.id, p.descripcion, CAST(:sucursalId AS long), COALESCE(SUM(ms.cantidad), 0.0)) " +
-            "FROM Producto p " +
-            "LEFT JOIN MovimientoStock ms ON ms.producto.id = p.id AND ms.sucursalId = :sucursalId AND ms.estado = true " +
-            "WHERE p.activo = true " +
-            "AND p.id NOT IN (" +
-            "    SELECT DISTINCT ipi.presentacion.producto.id " +
-            "    FROM InventarioProductoItem ipi " +
-            "    JOIN ipi.inventarioProducto ip " +
-            "    JOIN ip.inventario inv " +
-            "    WHERE inv.sucursal.id = :sucursalId " +
-            "    AND ipi.creadoEn BETWEEN :fechaInicio AND :fechaFin" +
-            ") " +
-            "GROUP BY p.id, p.descripcion " +
-            "ORDER BY p.descripcion ASC")
-    Page<ProductoSaldoDto> findProductosFaltantes(
-            @Param("sucursalId") Long sucursalId, 
-            @Param("fechaInicio") LocalDateTime fechaInicio, 
-            @Param("fechaFin") LocalDateTime fechaFin, 
-            Pageable pageable);
+       "FROM Producto p " +
+       "LEFT JOIN MovimientoStock ms ON ms.producto.id = p.id AND ms.sucursalId = :sucursalId AND ms.estado = true " +
+       "WHERE p.activo = true " +
+       "AND (:productoId IS NULL OR p.id = :productoId) " +
+       "AND p.id NOT IN (" +
+       "    SELECT DISTINCT ipi.presentacion.producto.id " +
+       "    FROM InventarioProductoItem ipi " +
+       "    JOIN ipi.inventarioProducto ip " +
+       "    JOIN ip.inventario inv " +
+       "    WHERE inv.sucursal.id = :sucursalId " +
+       "    AND ipi.creadoEn BETWEEN :fechaInicio AND :fechaFin" +
+       ") " +
+       "GROUP BY p.id, p.descripcion " +
+       "ORDER BY p.descripcion ASC")
+Page<ProductoSaldoDto> findProductosFaltantes(
+    @Param("sucursalId") Long sucursalId,
+    @Param("productoId") Long productoId,
+    @Param("fechaInicio") LocalDateTime fechaInicio,
+    @Param("fechaFin") LocalDateTime fechaFin,
+    Pageable pageable);
 
 }
 

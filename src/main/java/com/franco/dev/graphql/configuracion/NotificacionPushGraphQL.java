@@ -44,7 +44,7 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public java.util.List<NotificacionUsuario> notificacionesPorToken(String tokenFcm) {
-        if (tokenFcm == null || tokenFcm.isBlank()) return java.util.Collections.emptyList();
+        if (tokenFcm == null || tokenFcm.trim().isEmpty()) return java.util.Collections.emptyList();
         java.util.List<NotificacionUsuario> list = notificacionUsuarioRepository.findAllByTokenFcm(tokenFcm);
         list.sort(java.util.Comparator.comparing(
                 (NotificacionUsuario nu) -> nu.getNotificacion() != null ? nu.getNotificacion().getCreadoEn() : null,

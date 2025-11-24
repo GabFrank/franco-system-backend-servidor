@@ -132,7 +132,7 @@ public class PushNotificationService {
             }
             directTokens.stream()
                     .filter(Objects::nonNull)
-                    .filter(token -> !token.isBlank())
+                    .filter(token -> token != null && !token.trim().isEmpty())
                     .filter(dedup::add)
                     .forEach(token -> targets.add(new Target(null, token)));
         }

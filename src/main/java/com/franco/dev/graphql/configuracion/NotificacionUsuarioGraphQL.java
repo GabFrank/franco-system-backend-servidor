@@ -3,6 +3,7 @@ package com.franco.dev.graphql.configuracion;
 import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.service.configuracion.NotificacionUsuarioService;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,7 +61,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         List<NotificacionUsuario> content = (leidas == null) ? result.getContent()
                 : result.getContent().stream()
                         .filter(nu -> Boolean.TRUE.equals(nu.getLeida()) == leidas)
-                        .toList();
+                        .collect(Collectors.toList());
 
         return new NotificacionUsuarioPage(content, result.getNumber(), result.getSize(), result.getTotalElements(),
                 result.getTotalPages());

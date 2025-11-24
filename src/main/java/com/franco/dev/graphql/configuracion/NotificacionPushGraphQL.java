@@ -1,17 +1,17 @@
 package com.franco.dev.graphql.configuracion;
 
-import com.franco.dev.domain.configuracion.InicioSesion;
+import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
+import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.configuracion.input.NotificacionPushInput;
-import com.franco.dev.service.configuracion.InicioSesionService;
+import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import java.util.Collections;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,29 +20,36 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private UsuarioService usuarioService;
     @Autowired
-    private InicioSesionService inicioSesionService;
-    @Autowired
     private PushNotificationService pushNotificationService;
+    @Autowired
+    private NotificationTemplateService notificationTemplateService;
+    @Autowired
+    private NotificacionUsuarioRepository notificacionUsuarioRepository;
 
     public Boolean requestPushNotification(NotificacionPushInput notificacionPushInput) {
         try {
             Usuario usuario = usuarioService.findByPersonaId(notificacionPushInput.getPersonaId());
-            Page<InicioSesion> inicioSesionPage = inicioSesionService.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), Long.valueOf(0), PageRequest.of(0, 1));
-            for (InicioSesion inicioSesion : inicioSesionPage.getContent()) {
-                if (inicioSesion.getToken() != null) {
-                    PushNotificationRequest pNr = new PushNotificationRequest();
-                    pNr.setTitle(notificacionPushInput.getTitulo());
-                    pNr.setMessage(notificacionPushInput.getMensaje());
-                    pNr.setToken(inicioSesion.getToken());
-                    pNr.setData(notificacionPushInput.getData() != null ? notificacionPushInput.getData() : "/");
-                    pushNotificationService.sendPushNotificationToToken(pNr);
-                }
-            }
+            PushNotificationRequest request = notificationTemplateService.manual(
+                    notificacionPushInput.getTitulo(),
+                    notificacionPushInput.getMensaje(),
+                    notificacionPushInput.getData(),
+                    "MANUAL");
+            request.setUsuarioIds(Collections.singletonList(usuario.getId()));
+            pushNotificationService.sendPushNotificationToToken(request);
             return true;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
+    }
 
+    public java.util.List<NotificacionUsuario> notificacionesPorToken(String tokenFcm) {
+        if (tokenFcm == null || tokenFcm.isBlank()) return java.util.Collections.emptyList();
+        java.util.List<NotificacionUsuario> list = notificacionUsuarioRepository.findAllByTokenFcm(tokenFcm);
+        list.sort(java.util.Comparator.comparing(
+                (NotificacionUsuario nu) -> nu.getNotificacion() != null ? nu.getNotificacion().getCreadoEn() : null,
+                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())
+        ).reversed());
+        return list;
     }
 }

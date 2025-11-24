@@ -47,8 +47,8 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findAll(pageable);
     }
 
-    public List<Sucursal> sucursalesSearch(String texto){
-        return service.findByAll(texto);
+    public List<Sucursal> sucursalesSearch(String texto, Boolean activo){
+        return service.findByAll(texto, activo);
     }
 
     public Sucursal sucursalActual(){
@@ -85,9 +85,13 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size){
         Pageable pageable = PageRequest.of(page, size);
-        if(nombre != null){
-            nombre = nombre.replace(' ', '%').toUpperCase();
+        // Si nombre es null, vacío o '%', retornar todos los resultados
+        if(nombre == null || nombre.trim().isEmpty() || "%".equals(nombre.trim())){
+            return service.getRepository().findAll(pageable);
         }
+        // Procesar el nombre para la búsqueda
+        // Convertir a mayúsculas y agregar comodines para la búsqueda
+        nombre = "%" + nombre.replace(' ', '%').toUpperCase() + "%";
         return service.getRepository().findByNombreLike(nombre, pageable);
     }
 

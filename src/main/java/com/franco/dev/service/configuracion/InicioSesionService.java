@@ -1,8 +1,6 @@
 package com.franco.dev.service.configuracion;
 
-
 import com.franco.dev.domain.configuracion.InicioSesion;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.configuracion.InicioSesionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -11,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -34,12 +34,11 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             entity.setCreadoEn(LocalDateTime.now());
         }
         InicioSesion e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
     }
 
-    public Page<InicioSesion> findByUsuarioIdAndHoraFinIsNul(Long id, Long sucId, Pageable pageable){
-        if(sucId!=null){
+    public Page<InicioSesion> findByUsuarioIdAndHoraFinIsNul(Long id, Long sucId, Pageable pageable) {
+        if (sucId != null) {
             return repository.findByUsuarioIdAndSucursalIdAndHoraFinIsNullOrderByIdDesc(id, sucId, pageable);
         } else {
             return repository.findByUsuarioIdAndHoraFinIsNullOrderByIdDesc(id, pageable);
@@ -53,7 +52,21 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         }
 
         InicioSesion e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
+    }
+
+    public List<InicioSesion> findActiveSessionsByUsuarioIds(Collection<Long> usuarioIds) {
+        if (usuarioIds == null || usuarioIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return repository.findByUsuarioIdInAndHoraFinIsNullOrderByIdDesc(usuarioIds);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void clearToken(String token) {
+        if (token == null || token.isEmpty()) {
+            return;
+        }
+        repository.clearTokenByToken(token);
     }
 }

@@ -17,11 +17,15 @@ public class VentaItemResolver implements GraphQLResolver<VentaItem> {
     @Autowired
     private VentaItemService ventaItemService;
 
-    public Double valorTotal(VentaItem v){
+    public Double valorTotal(VentaItem v) {
         Integer cantidad = 1;
-        if(v.getUnidadMedida() == UnidadMedida.CAJA){
+        if (v.getUnidadMedida() == UnidadMedida.CAJA) {
             cantidad = v.getProducto().getUnidadPorCaja();
         }
-        return (v.getPrecioVenta().getPrecio() * v.getCantidad() * cantidad);
+        if (v.getPrecio() != null && v.getCantidad() != null) {
+            return (v.getPrecio() * v.getCantidad() * cantidad);
+        } else {
+            return 0.0;
+        }
     }
 }

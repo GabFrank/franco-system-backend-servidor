@@ -124,6 +124,26 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
             @Param("endDate") LocalDateTime endDate,
             @Param("usuarioIdList") List<Long> usuarioIdList,
             @Param("productoIdList") List<Long> productoIdList);
+    
+    @Query("SELECT pro.id, SUM(vi.precio * vi.cantidad) " +
+            "FROM VentaItem vi " +
+            "JOIN vi.venta v " +
+            "JOIN v.usuario u " +
+            "JOIN vi.presentacion pre " +
+            "JOIN vi.producto pro " +
+            "WHERE " +
+            "v.estado = 'CONCLUIDA' AND " +
+            "v.creadoEn BETWEEN :startDate AND :endDate AND " +
+            "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
+            "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
+            "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
+            "GROUP BY pro.id")
+    public List<Object[]> findTotalVentaPacksPorProducto(
+            @Param("sucursalId") Long sucursalId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("usuarioIdList") List<Long> usuarioIdList,
+            @Param("productoIdList") List<Long> productoIdList);
 
     @Query("select distinct p from Producto p " +
             "join p.subfamilia sub " +

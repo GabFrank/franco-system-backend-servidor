@@ -10,8 +10,10 @@ tokens/
 ### STS ###
 .apt_generated
 .vscode*/
-.classpath
-.project
 
+.DS_Store
+.factorypath
 src/main/resources/application-dev.properties
+bodega-franco-frc-18e8c6ef35cf.json
+src/main/resources/bodega-franco-frc-18e8c6ef35cf.json
 src/main/resources/bodega-franco-frc-firebase-admin.json

@@ -68,3 +68,4 @@ public class EventoInutilizacionDEDocumentoElectronico implements Identifiable<L
     private LocalDateTime creadoEn;
 }
 
+

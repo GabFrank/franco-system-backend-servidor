@@ -101,10 +101,10 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public FacturaLegal save(FacturaLegal entity) {
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        if (entity.getCliente() == null) {
-            Cliente newCliente = crearCliente(entity.getNombre(), entity.getRuc(), entity.getDireccion(), entity.getUsuario());
-            entity.setCliente(newCliente);
-        }
+        // NO crear cliente automáticamente aquí
+        // El GraphQL resolver (FacturaLegalGraphQL.saveFacturaLegal) es responsable de crear cliente si es necesario
+        // Esto permite que el frontend pueda crear facturas sin cliente cuando sea necesario
+        // Si se necesita crear cliente, debe hacerse en el GraphQL resolver antes de llamar a este método
         FacturaLegal e = super.save(entity);
         return e;
     }
@@ -559,5 +559,22 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
         return repository.deleteByIdAndSucursalId(id, sucId);
+    }
+
+    /**
+     * Buscar facturas legales por timbrado detalle, sucursal y rango de números de factura.
+     * Útil para encontrar facturas afectadas por un evento de inutilización.
+     */
+    public List<FacturaLegal> findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+            Long timbradoDetalleId,
+            Long sucursalId,
+            Integer numeroInicio,
+            Integer numeroFin) {
+        return repository.findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+                timbradoDetalleId, 
+                sucursalId, 
+                numeroInicio, 
+                numeroFin
+        );
     }
 }

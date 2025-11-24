@@ -1,11 +1,13 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.domain.financiero.EventoCancelacionDE;
+import com.franco.dev.domain.financiero.EventoInutilizacionDE;
 import com.franco.dev.domain.financiero.EventoNominacionDE;
 import com.franco.dev.domain.financiero.Timbrado;
 import com.franco.dev.domain.financiero.enums.EstadoEvento;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.service.financiero.EventoCancelacionDEService;
+import com.franco.dev.service.financiero.EventoInutilizacionDEService;
 import com.franco.dev.service.financiero.EventoNominacionDEService;
 import com.franco.dev.service.financiero.TimbradoService;
 import com.franco.dev.service.personas.ClienteService;
@@ -16,10 +18,14 @@ import graphql.kickstart.tools.GraphQLQueryResolver;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import javax.transaction.Transactional;
+import java.time.LocalDateTime;
 import java.util.List;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 /**
  * GraphQL Resolver para eventos de SIFEN (cancelación, nominación, inutilización).
@@ -34,6 +40,9 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private EventoCancelacionDEService eventoCancelacionDEService;
+
+    @Autowired
+    private EventoInutilizacionDEService eventoInutilizacionDEService;
 
     @Autowired
     private EventoNominacionDEService eventoNominacionDEService;
@@ -68,6 +77,52 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public List<EventoNominacionDE> eventosNominacionPorEstado(EstadoEvento estado) {
         return eventoNominacionDEService.findByEstado(estado);
+    }
+
+    public EventoInutilizacionDE eventoInutilizacion(Long id, Long sucursalId) {
+        return eventoInutilizacionDEService.findByIdAndSucursalId(id, sucursalId).orElse(null);
+    }
+
+    public List<EventoInutilizacionDE> eventosInutilizacionPorTimbrado(Long timbradoId, Long sucursalId) {
+        return eventoInutilizacionDEService.findByTimbradoIdAndSucursalId(timbradoId, sucursalId);
+    }
+
+    public List<EventoInutilizacionDE> eventosInutilizacionPorEstado(EstadoEvento estado, Long sucursalId) {
+        return eventoInutilizacionDEService.findByEstadoAndSucursalId(estado, sucursalId);
+    }
+
+    public List<EventoInutilizacionDE> eventosInutilizacionPorSucursal(Long sucursalId) {
+        return eventoInutilizacionDEService.findBySucursalIdOrderByCreadoEnDesc(sucursalId);
+    }
+
+    public Page<EventoInutilizacionDE> eventosInutilizacionConFiltros(
+            Long sucursalId,
+            Long timbradoId,
+            EstadoEvento estado,
+            String fechaInicio,
+            String fechaFin,
+            Integer page,
+            Integer size) {
+        LocalDateTime fechaInicioLocal = fechaInicio != null && !fechaInicio.isEmpty() ? stringToDate(fechaInicio) : null;
+        LocalDateTime fechaFinLocal = fechaFin != null && !fechaFin.isEmpty() ? stringToDate(fechaFin) : null;
+        
+        // Si fechaFin está definida, establecerla al final del día
+        if (fechaFinLocal != null) {
+            fechaFinLocal = fechaFinLocal.withHour(23).withMinute(59).withSecond(59);
+        }
+        
+        int pageNum = page != null ? page : 0;
+        int sizeNum = size != null ? size : 25;
+        
+        return eventoInutilizacionDEService.findWithFilters(
+                sucursalId,
+                timbradoId,
+                estado,
+                fechaInicioLocal,
+                fechaFinLocal,
+                pageNum,
+                sizeNum
+        );
     }
 
     // ========== MUTATIONS ==========
@@ -128,13 +183,15 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     @Transactional
-    public Boolean inutilizarNumeros(
+    public EventoInutilizacionDE inutilizarNumeros(
             Long timbradoId,
             String establecimiento,
             String puntoExpedicion,
             Integer numeroInicio,
             Integer numeroFin,
-            String motivo) {
+            String motivo,
+            Long sucursalId,
+            Long timbradoDetalleId) {
         
         try {
             log.info("Iniciando inutilización de números del {} al {} para timbrado ID: {}", 
@@ -149,23 +206,49 @@ public class EventosSifenGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             // Determinar el tipo de documento (por defecto FACTURA)
             TTiDE tipoDocumento = TTiDE.FACTURA_ELECTRONICA;
             
-            // El servicio envía la inutilización a SIFEN
-            sifenEventoService.inutilizarNumeros(
-                timbrado,
-                establecimiento,
-                puntoExpedicion,
-                numeroInicio,
-                numeroFin,
-                tipoDocumento,
-                motivo
-            );
+            // El servicio envía la inutilización a SIFEN y crea el evento
+            // Nota: El servicio puede lanzar excepción solo en casos de error real (ERROR_ENVIO)
+            // Los rechazos de SIFEN se guardan con estado RECHAZADO pero no lanzan excepción
+            try {
+                sifenEventoService.inutilizarNumeros(
+                    timbrado,
+                    establecimiento,
+                    puntoExpedicion,
+                    numeroInicio,
+                    numeroFin,
+                    tipoDocumento,
+                    motivo,
+                    sucursalId,
+                    timbradoDetalleId
+                );
+            } catch (IllegalStateException e) {
+                // Si es un error de envío, propagar la excepción
+                log.error("Error al enviar evento a SIFEN: {}", e.getMessage(), e);
+                throw new RuntimeException("Error al enviar evento a SIFEN: " + e.getMessage(), e);
+            }
             
-            log.info("Inutilización completada exitosamente");
-            return true;
+            // Buscar el evento recién creado en la BD (puede estar APROBADO, RECHAZADO o PENDIENTE)
+            EventoInutilizacionDE evento = eventoInutilizacionDEService.findByTimbradoIdAndSucursalId(timbradoId, sucursalId)
+                .stream()
+                .filter(e -> e.getNumeroInicio().equals(numeroInicio) && e.getNumeroFin().equals(numeroFin))
+                .sorted((e1, e2) -> e2.getCreadoEn().compareTo(e1.getCreadoEn())) // Ordenar por fecha descendente
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("No se pudo recuperar el evento de inutilización creado"));
             
-        } catch (Exception e) {
+            log.info("Inutilización procesada. Estado: {}, Código: {}", 
+                evento.getEstado(), evento.getCodigoRespuesta());
+            
+            return evento;
+            
+        } catch (IllegalArgumentException e) {
+            log.error("Error de validación: {}", e.getMessage(), e);
+            throw e;
+        } catch (RuntimeException e) {
             log.error("Error al inutilizar números: {}", e.getMessage(), e);
-            throw new RuntimeException("Error al inutilizar números: " + e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Error inesperado al inutilizar números: {}", e.getMessage(), e);
+            throw new RuntimeException("Error inesperado al inutilizar números: " + e.getMessage(), e);
         }
     }
 }

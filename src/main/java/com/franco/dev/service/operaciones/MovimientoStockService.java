@@ -265,16 +265,16 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return res;
     }
 
-    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Pageable pageable) {
-        return repository.findProductosConCantidadPositiva(sucursalId, pageable);
+    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Long productoId, Pageable pageable) {
+        return repository.findProductosConCantidadPositiva(sucursalId, productoId, pageable);
     }
 
-    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Pageable pageable) {
-        return repository.findProductosConCantidadNegativa(sucursalId, pageable);
+    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Long productoId, Pageable pageable) {
+        return repository.findProductosConCantidadNegativa(sucursalId, productoId, pageable);
     }
 
-    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
-        return repository.findProductosFaltantes(sucursalId, fechaInicio, fechaFin, pageable);
+    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, Long productoId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
+        return repository.findProductosFaltantes(sucursalId, productoId, fechaInicio, fechaFin, pageable);
     }
 
 }

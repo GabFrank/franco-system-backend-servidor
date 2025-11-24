@@ -219,21 +219,36 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 ventaCreditoService.cancelarVentaCredito(ventaCredito.getId(), ventaCredito.getSucursalId(), venta);
             }
 
+            log.info("Buscando factura legal para venta ID: " + venta.getId() + ", Sucursal: " + venta.getSucursalId());
             FacturaLegal facturaLegal = facturaLegalService.findByVentaIdAndSucursalId(venta.getId(), venta.getSucursalId());
             if (facturaLegal != null) {
+                log.info("Factura legal encontrada - ID: " + facturaLegal.getId() + ", CDC: " + (facturaLegal.getCdc() != null ? facturaLegal.getCdc() : "null"));
                 // Si la factura es electrónica, cancelar el documento electrónico
                 if (facturaLegal.getCdc() != null && !facturaLegal.getCdc().isEmpty()) {
+                    log.info("Iniciando cancelación de documento electrónico con CDC: " + facturaLegal.getCdc());
                     try {
                         sifenEventoService.cancelarDE(facturaLegal.getCdc(), "Cancelación de venta");
-                        log.info("Documento electrónico cancelado para venta ID: " + venta.getId().toString());
+                        log.info("✅ Documento electrónico cancelado exitosamente para venta ID: " + venta.getId().toString());
                     } catch (Exception e) {
-                        log.warning("Error al cancelar documento electrónico para venta ID: " + venta.getId().toString() + " " + e.getMessage());
+                        String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                        log.warning("⚠️ Error al cancelar documento electrónico para venta ID: " + venta.getId().toString());
+                        log.warning("   Tipo de error: " + e.getClass().getName());
+                        log.warning("   Mensaje: " + errorMsg);
+                        e.printStackTrace();
                         // No lanzamos excepción para no impedir la cancelación de la venta
+                        // El evento de cancelación se guardará en BD y podrá ser procesado posteriormente
+                        log.info("La venta se cancelará de todas formas. El evento puede ser procesado posteriormente.");
                     }
+                } else {
+                    log.info("Factura legal no tiene CDC (no es electrónica)");
                 }
                 // Marcar factura como inactiva
+                log.info("Marcando factura legal como inactiva");
                 facturaLegal.setActivo(false);
                 facturaLegalService.save(facturaLegal);
+                log.info("✅ Factura legal marcada como inactiva");
+            } else {
+                log.info("No se encontró factura legal para esta venta");
             } 
             return true;
         } catch (Exception e) {

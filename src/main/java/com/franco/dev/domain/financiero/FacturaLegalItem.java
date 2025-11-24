@@ -56,6 +56,12 @@ public class FacturaLegalItem implements Serializable {
     private Presentacion presentacion;
     private Float cantidad;
     private String descripcion;
+    
+    @Column(name = "unidad_medida")
+    private String unidadMedida;
+    
+    private Integer iva;
+    
     private Double precioUnitario;
     private Double total;
 

@@ -32,4 +32,7 @@ public class FacturaLegalInput implements Serializable {
     private Long usuarioId;
     private Long sucursalId;
     private Double descuento;
+    private String monedaExtranjera;
+    private Double tipoCambio;
+    private String email;
 }

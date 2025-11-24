@@ -74,6 +74,12 @@ public class FacturaLegal implements Serializable {
     private String direccion;
     private String cdc;
 
+    @Column(name = "moneda_extranjera", length = 3)
+    private String monedaExtranjera;
+
+    @Column(name = "tipo_cambio", precision = 10, scale = 4)
+    private Double tipoCambio;
+
     @Column(name = "iva_parcial_0")
     private Double ivaParcial0;
     @Column(name = "iva_parcial_5")

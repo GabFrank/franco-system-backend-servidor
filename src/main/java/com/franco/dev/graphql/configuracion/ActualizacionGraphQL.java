@@ -3,7 +3,6 @@ package com.franco.dev.graphql.configuracion;
 import com.franco.dev.domain.configuracion.Actualizacion;
 import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
 import com.franco.dev.graphql.configuracion.input.ActualizacionInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.configuracion.ActualizacionService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
@@ -50,7 +49,6 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
         for (Long id : sucId) {
-//            propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION, id);
         }
         return e;
     }
@@ -60,13 +58,11 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Actualizacion e = m.map(input, Actualizacion.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.ACTUALIZACION);
         return e;
     }
 
     public Boolean deleteActualizacion(Long id) {
         Boolean ok = service.deleteById(id);
-//        if (ok) propagacionService.eliminarEntidad(id, TipoEntidad.CARGO);
         return ok;
     }
 

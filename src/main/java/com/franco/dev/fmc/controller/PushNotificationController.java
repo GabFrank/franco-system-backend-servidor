@@ -3,6 +3,7 @@ package com.franco.dev.fmc.controller;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.model.PushNotificationResponse;
 import com.franco.dev.fmc.service.PushNotificationService;
+import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,10 +21,10 @@ public class PushNotificationController {
     }
 
     @PostMapping("/notification/token")
-    public ResponseEntity sendTokenNotification(@RequestBody PushNotificationRequest request) {
+    public ResponseEntity<PushNotificationResponse> sendTokenNotification(@Valid @RequestBody PushNotificationRequest request) {
         pushNotificationService.sendPushNotificationToToken(request);
-        System.out.println("princr");
-        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.OK.value(), "Notification has been sent."), HttpStatus.OK);
+        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                "Notificación encolada para envío asíncrono."), HttpStatus.ACCEPTED);
     }
 
 }

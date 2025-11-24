@@ -50,6 +50,7 @@ type ProductoSaldoDto {
     productoDescripcion: String
     sucursalId: ID!
     saldoTotal: Float
+    imagenPrincipal: String
 }
 
 type ProductoSaldoPage {
@@ -75,9 +76,9 @@ extend type Query {
     findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int, page: Int, size: Int): MovimientoStockPage
     findStockWithFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): Float
     findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): [StockPorTipoMovimientoDto]
-    productosConCantidadPositiva(sucursalId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
-    productosConCantidadNegativa(sucursalId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
-    productosFaltantes(sucursalId: ID!, fechaInicio: String!, fechaFin: String!, page: Int = 0, size: Int = 10): ProductoSaldoPage
+    productosConCantidadPositiva(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
+    productosConCantidadNegativa(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
+    productosFaltantes(sucursalId: ID!, productoId: ID, fechaInicio: String!, fechaFin: String!, page: Int = 0, size: Int = 10): ProductoSaldoPage
 }
 
 extend type Mutation {
@@ -88,5 +89,3 @@ extend type Mutation {
 enum TipoMovimiento {
     COMPRA, VENTA, DEVOLUCION, DESCARTE, AJUSTE, TRANSFERENCIA, CALCULO, ENTRADA, SALIDA
 }
-
-

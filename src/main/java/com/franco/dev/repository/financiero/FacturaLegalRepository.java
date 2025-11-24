@@ -64,6 +64,23 @@ public interface FacturaLegalRepository extends HelperRepository<FacturaLegal, E
     @Query("select f from DocumentoElectronico de join de.facturaLegal f where de.cdc = :cdc")
     Optional<FacturaLegal> findByDocumentoElectronicoCdc(@Param("cdc") String cdc);
 
+    /**
+     * Buscar facturas legales por timbrado detalle, sucursal y rango de números de factura.
+     * Útil para encontrar facturas afectadas por un evento de inutilización.
+     */
+    @Query("SELECT f FROM FacturaLegal f WHERE " +
+           "f.timbradoDetalle.id = :timbradoDetalleId AND " +
+           "f.sucursalId = :sucursalId AND " +
+           "f.numeroFactura >= :numeroInicio AND " +
+           "f.numeroFactura <= :numeroFin AND " +
+           "f.activo = true")
+    List<FacturaLegal> findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+            @Param("timbradoDetalleId") Long timbradoDetalleId,
+            @Param("sucursalId") Long sucursalId,
+            @Param("numeroInicio") Integer numeroInicio,
+            @Param("numeroFin") Integer numeroFin
+    );
+
 //    @Query(value = "select " +
 //            "CAST('I' AS TEXT) as ven_tipimp, " +
 //            "CAST(sum(CASE WHEN f.total_parcial_5 IS NOT NULL THEN f.total_parcial_5 - f.total_parcial_5 / 21 ELSE 0 END) AS TEXT) as ven_gra05, " +

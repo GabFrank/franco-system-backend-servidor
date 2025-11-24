@@ -9,6 +9,9 @@ src/.DS_Store
 tokens/
 ### STS ###
 .apt_generated
+.classpath
+.project
+.factorypath
 .vscode*/
 
 .DS_Store

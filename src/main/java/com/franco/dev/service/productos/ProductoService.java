@@ -68,21 +68,22 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return repository;
     }
 
-
-    public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase, Boolean activo) {
+    public List<Producto> findByAll(String texto, Integer offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
+            Boolean activo) {
         if (offset == null) {
             offset = 0;
         }
 
         // Convertimos el Long a String para evitar el error 'bytea'
         String sucursalIdStr = (sucursalId != null) ? String.valueOf(sucursalId) : "0";
+        String conStockStr = (conStock != null) ? String.valueOf(conStock) : "false";
 
         if (texto == null || texto.trim().isEmpty()) {
             if (isEnvase != null && isEnvase == true) {
                 return repository.findEnvases("", offset, true);
             } else {
                 // Pasamos el String convertido
-                return repository.findbyAll("%", offset, sucursalIdStr, conStock);
+                return repository.findbyAll("%", offset, sucursalIdStr, conStockStr);
             }
         }
 
@@ -91,7 +92,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             return repository.findEnvases(texto, offset, true);
         } else {
             // Pasamos el String convertido
-            return repository.findbyAll(texto, offset, sucursalIdStr, conStock);
+            return repository.findbyAll(texto, offset, sucursalIdStr, conStockStr);
         }
     }
 
@@ -103,8 +104,11 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return existing != null;
     }
 
-    public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza, Long subfamiliaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId, Pageable page) {
-        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, costoCero, stockFiltro, sucursalId, page);
+    public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza,
+            Long subfamiliaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
+            Pageable page) {
+        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, costoCero,
+                stockFiltro, sucursalId, page);
     }
 
     public Producto save(ProductoInput entity) throws GraphQLException {
@@ -112,12 +116,16 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         ModelMapper m = new ModelMapper();
         m.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         Producto e = m.map(entity, Producto.class);
-        if (entity.getUsuarioId() != null) e.setUsuario(usuarioService.findById(entity.getUsuarioId()).orElse(null));
+        if (entity.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(entity.getUsuarioId()).orElse(null));
         if (entity.getSubfamiliaId() != null)
             e.setSubfamilia(subFamiliaService.findById(entity.getSubfamiliaId()).orElse(null));
-        if (e.getDescripcionFactura() != null) e.setDescripcionFactura(e.getDescripcionFactura().toUpperCase());
-        if (e.getImagenes() == null) e.setImagenes("/productos");
-        if (entity.getEnvaseId() != null) e.setEnvase(findById(entity.getEnvaseId()).orElse(null));
+        if (e.getDescripcionFactura() != null)
+            e.setDescripcionFactura(e.getDescripcionFactura().toUpperCase());
+        if (e.getImagenes() == null)
+            e.setImagenes("/productos");
+        if (entity.getEnvaseId() != null)
+            e.setEnvase(findById(entity.getEnvaseId()).orElse(null));
         e.setDescripcion(e.getDescripcion().toUpperCase());
         p = repository.save(e);
         return p;
@@ -145,39 +153,40 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         String filtroTexto = texto;
         if (texto == null || texto.trim().isEmpty()) {
             productoList = repository.findForReport("%");
-            filtroTexto = "Todos los productos";        
+            filtroTexto = "Todos los productos";
         } else {
             texto = texto.replace(' ', '%').toUpperCase();
             productoList = repository.findForReport(texto);
             filtroTexto = "Productos que contienen: " + filtroTexto;
         }
-        
+
         List<ProductoReportDto> productosDtoList = new ArrayList<>();
-        
+
         for (Producto p : productoList) {
             // Obtener stock real
             Double stock = movimientoStockService.stockByProductoId(p.getId());
-            
+
             // Obtener precios y código principal
             Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
             Double precioVenta = 0.0;
             Double precioCosto = 0.0;
             String codigoPrincipal = "";
-            
+
             if (presentacion != null) {
                 // Obtener precio de venta
-                PrecioPorSucursal precioVentaObj = precioPorSucursalService.findPrincipalByPrecionacionId(presentacion.getId());
+                PrecioPorSucursal precioVentaObj = precioPorSucursalService
+                        .findPrincipalByPrecionacionId(presentacion.getId());
                 if (precioVentaObj != null) {
                     precioVenta = precioVentaObj.getPrecio();
                 }
-                
+
                 // Obtener código principal
                 Codigo codigoObj = codigoService.findPrincipalByPresentacionId(presentacion.getId());
                 if (codigoObj != null) {
                     codigoPrincipal = codigoObj.getCodigo();
                 }
             }
-            
+
             // Obtener precio costo real desde CostoPorProducto
             CostoPorProducto costoPorProducto = costosPorProductoService.findLastByProductoId(p.getId());
             if (costoPorProducto != null) {
@@ -188,7 +197,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                     precioCosto = costoPorProducto.getUltimoPrecioCompra();
                 }
             }
-            
+
             ProductoReportDto dto = new ProductoReportDto();
             dto.setId(p.getId());
             dto.setDescripcion(p.getDescripcion());
@@ -203,10 +212,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             File file = ResourceUtils.getFile("classpath:productos.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
-            
+
             // Preparar parámetros del reporte
             Map<String, Object> parameters = new HashMap<>();
-            
+
             // Logo de la empresa (ruta al archivo de logo)
             String logoPath = imageService.getImagePath() + "logo.png";
             File logoFile = new File(logoPath);
@@ -216,30 +225,33 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 // Logo por defecto o vacío
                 parameters.put("logo", "");
             }
-            
+
             // Fecha actual formateada
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                    .ofPattern("dd/MM/yyyy HH:mm:ss");
             parameters.put("fechaReporte", now.format(formatter));
-            
-            // Usuario actual (por ahora genérico, después se puede obtener del contexto de seguridad)
+
+            // Usuario actual (por ahora genérico, después se puede obtener del contexto de
+            // seguridad)
             parameters.put("usuario", "Usuario del Sistema");
-            
+
             // Filtro aplicado
             parameters.put("filtroAplicado", filtroTexto);
-            
+
             // Total de productos encontrados
             parameters.put("totalProductos", productosDtoList.size());
-            
+
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-            JasperExportManager.exportReportToPdfFile(jasperPrint, imageService.getStorageDirectoryPathReports() + "productos.pdf");
-            
+            JasperExportManager.exportReportToPdfFile(jasperPrint,
+                    imageService.getStorageDirectoryPathReports() + "productos.pdf");
+
             // Leer el PDF generado y convertir a Base64
             File pdf = new File(imageService.getStorageDirectoryPathReports() + "productos.pdf");
             byte[] bytes = Files.readAllBytes(pdf.toPath());
             String b64 = Base64.getEncoder().encodeToString(bytes);
             return b64;
-            
+
         } catch (Exception e) {
             log.severe("Error generando reporte de productos: " + e.getMessage());
             e.printStackTrace();
@@ -248,38 +260,37 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public String exportarReporteConFiltros(
-            String texto, 
-            Boolean codigo, 
-            Boolean activo, 
-            Boolean stock, 
-            Boolean balanza, 
-            Boolean vencimiento, 
-            Boolean costoCero, 
-            Long subfamiliaId, 
-            String stockFiltro, 
-            Long sucursalId, 
-            Long usuarioId, 
-            String usuario
-    ) throws FileNotFoundException {
-        
+            String texto,
+            Boolean codigo,
+            Boolean activo,
+            Boolean stock,
+            Boolean balanza,
+            Boolean vencimiento,
+            Boolean costoCero,
+            Long subfamiliaId,
+            String stockFiltro,
+            Long sucursalId,
+            Long usuarioId,
+            String usuario) throws FileNotFoundException {
+
         // Usar el método de búsqueda con filtros existente
         Page<Producto> productoPage = repository.searchWithFilters(
-            texto != null ? texto.replace(' ', '%').toUpperCase() : "%",
-            activo,
-            stock,
-            balanza,
-            subfamiliaId,
-            vencimiento,
-            costoCero,
-            stockFiltro,
-            sucursalId,
-            null // No paginar para el reporte
+                texto != null ? texto.replace(' ', '%').toUpperCase() : "%",
+                activo,
+                stock,
+                balanza,
+                subfamiliaId,
+                vencimiento,
+                costoCero,
+                stockFiltro,
+                sucursalId,
+                null // No paginar para el reporte
         );
-        
+
         List<Producto> productoList = productoPage.getContent();
-        
+
         // Construir filtros: Búsqueda arriba + 4 columnas abajo
-        
+
         // Filtro de búsqueda (línea superior completa)
         StringBuilder filtroBusqueda = new StringBuilder();
         if (texto != null && !texto.trim().isEmpty()) {
@@ -288,7 +299,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } else {
             filtroBusqueda.append("Búsqueda: todos");
         }
-        
+
         // Columna 1: Estado y Pesable
         StringBuilder filtroColumna1 = new StringBuilder();
         if (activo != null) {
@@ -302,7 +313,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } else {
             filtroColumna1.append("Pesable: todos");
         }
-        
+
         // Columna 2: Movimiento stock y Costo cero
         StringBuilder filtroColumna2 = new StringBuilder();
         if (stock != null) {
@@ -316,7 +327,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } else {
             filtroColumna2.append("Costo cero: todos");
         }
-        
+
         // Columna 3: Solo Vencimiento
         StringBuilder filtroColumna3 = new StringBuilder();
         if (vencimiento != null) {
@@ -324,15 +335,17 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } else {
             filtroColumna3.append("Vencimiento: todos");
         }
-        
-        // Columna 4: Subfamilia (debajo de vencimiento en la misma columna 3 del template)
+
+        // Columna 4: Subfamilia (debajo de vencimiento en la misma columna 3 del
+        // template)
         StringBuilder filtroColumna4 = new StringBuilder();
         if (subfamiliaId != null) {
             try {
                 Subfamilia subfamilia = subFamiliaService.findById(subfamiliaId).orElse(null);
                 if (subfamilia != null) {
-                    String nombreCorto = subfamilia.getNombre().length() > 35 ? 
-                        subfamilia.getNombre().substring(0, 32) + "..." : subfamilia.getNombre();
+                    String nombreCorto = subfamilia.getNombre().length() > 35
+                            ? subfamilia.getNombre().substring(0, 32) + "..."
+                            : subfamilia.getNombre();
                     filtroColumna4.append("Subfamilia: ").append(nombreCorto);
                 } else {
                     filtroColumna4.append("Subfamilia ID: ").append(subfamiliaId);
@@ -343,7 +356,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } else {
             filtroColumna4.append("Subfamilia: todos");
         }
-        
+
         // Filtro de Stock (columna 4 del template - separado)
         StringBuilder filtroStock = new StringBuilder();
         if (stockFiltro != null && !stockFiltro.equals("todos")) {
@@ -353,8 +366,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                     Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
                     if (sucursal != null) {
                         // Mostrar nombre completo de sucursal, truncar solo si es muy largo
-                        String nombreSucursal = sucursal.getNombre().length() > 35 ? 
-                            sucursal.getNombre().substring(0, 32) + "..." : sucursal.getNombre();
+                        String nombreSucursal = sucursal.getNombre().length() > 35
+                                ? sucursal.getNombre().substring(0, 32) + "..."
+                                : sucursal.getNombre();
                         filtroStock.append(" (").append(nombreSucursal).append(")");
                     } else {
                         filtroStock.append(" (ID: ").append(sucursalId).append(")");
@@ -366,12 +380,13 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } else {
             filtroStock.append("Stock: todos");
         }
-        
+
         // Crear la lista de DTOs para el reporte
         List<ProductoReportDto> productosDtoList = new ArrayList<>();
-        
+
         for (Producto p : productoList) {
-            // Obtener stock real - usar stock por sucursal si se filtró por sucursal específica
+            // Obtener stock real - usar stock por sucursal si se filtró por sucursal
+            // específica
             Double stockCantidad;
             if (sucursalId != null && (stockFiltro != null && !stockFiltro.equals("todos"))) {
                 // Si hay filtro de sucursal y stock específico, usar stock de esa sucursal
@@ -380,33 +395,34 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 // Usar stock total (todas las sucursales)
                 stockCantidad = movimientoStockService.stockByProductoId(p.getId());
             }
-            
+
             // Obtener precios y código principal
             Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
             Double precioVenta = 0.0;
             Double precioCosto = 0.0;
             String codigoPrincipal = "";
-            
+
             if (presentacion != null) {
                 // Obtener precio de venta
-                PrecioPorSucursal precioVentaObj = precioPorSucursalService.findPrincipalByPrecionacionId(presentacion.getId());
+                PrecioPorSucursal precioVentaObj = precioPorSucursalService
+                        .findPrincipalByPrecionacionId(presentacion.getId());
                 if (precioVentaObj != null) {
                     precioVenta = precioVentaObj.getPrecio();
                 }
-                
+
                 // Obtener código principal
                 Codigo codigoData = codigoService.findPrincipalByPresentacionId(presentacion.getId());
                 if (codigoData != null) {
                     codigoPrincipal = codigoData.getCodigo();
                 }
             }
-            
+
             // Obtener precio costo real desde CostoPorProducto
             CostoPorProducto costoPorProducto = costosPorProductoService.findLastByProductoId(p.getId());
             if (costoPorProducto != null) {
                 precioCosto = costoPorProducto.getCostoMedio();
             }
-            
+
             ProductoReportDto dto = new ProductoReportDto();
             dto.setId(p.getId());
             dto.setDescripcion(p.getDescripcion());
@@ -414,7 +430,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             dto.setPrecioCosto(precioCosto != null ? precioCosto : 0.0);
             dto.setPrecioVenta(precioVenta != null ? precioVenta : 0.0);
             dto.setCodigoPrincipal(codigoPrincipal);
-            
+
             productosDtoList.add(dto);
         }
 
@@ -422,10 +438,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             File file = ResourceUtils.getFile("classpath:productos.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
-            
+
             // Preparar parámetros del reporte
             Map<String, Object> parameters = new HashMap<>();
-            
+
             // Logo de la empresa (ruta al archivo de logo)
             String logoPath = imageService.getImagePath() + "logo.png";
             File logoFile = new File(logoPath);
@@ -435,15 +451,16 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 // Logo por defecto o vacío
                 parameters.put("logo", "");
             }
-            
+
             // Fecha actual formateada
             java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
+                    .ofPattern("dd/MM/yyyy HH:mm:ss");
             parameters.put("fechaReporte", now.format(formatter));
-            
+
             // Usuario actual - usar el parámetro recibido
             parameters.put("usuario", usuario != null ? usuario : "Usuario del Sistema");
-            
+
             // Filtro de búsqueda y filtros en columnas
             parameters.put("filtroBusqueda", filtroBusqueda.toString());
             parameters.put("filtroColumna1", filtroColumna1.toString());
@@ -451,19 +468,20 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             parameters.put("filtroColumna3", filtroColumna3.toString());
             parameters.put("filtroColumna4", filtroColumna4.toString());
             parameters.put("filtroStock", filtroStock.toString());
-            
+
             // Total de productos encontrados
             parameters.put("totalProductos", productosDtoList.size());
-            
+
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-            JasperExportManager.exportReportToPdfFile(jasperPrint, imageService.getStorageDirectoryPathReports() + "productos.pdf");
-            
+            JasperExportManager.exportReportToPdfFile(jasperPrint,
+                    imageService.getStorageDirectoryPathReports() + "productos.pdf");
+
             // Leer el PDF generado y convertir a Base64
             File pdf = new File(imageService.getStorageDirectoryPathReports() + "productos.pdf");
             byte[] bytes = Files.readAllBytes(pdf.toPath());
             String b64 = Base64.getEncoder().encodeToString(bytes);
             return b64;
-            
+
         } catch (Exception e) {
             log.severe("Error generando reporte de productos con filtros: " + e.getMessage());
             e.printStackTrace();
@@ -475,29 +493,35 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return repository.findByPdvGrupoProductoId(id);
     }
 
-    public List<ProductoIdAndCantidadDto> findProductosAndCantidadVendidaPorPeriodoAndSucursal(String inicio, String fin, Long sucId) {
-        List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository.findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, stringToDate(inicio), stringToDate(fin));
+    public List<ProductoIdAndCantidadDto> findProductosAndCantidadVendidaPorPeriodoAndSucursal(String inicio,
+            String fin, Long sucId) {
+        List<ProductoIdAndCantidadDto> productoIdAndCantidadDtoList = repository
+                .findProductosAndCantidadVendidaPorPeriodoAndSucursal(sucId, stringToDate(inicio), stringToDate(fin));
         return productoIdAndCantidadDtoList;
     }
 
-    public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList, List<Long> usuarioIdList, List<Long> productoIdList) {
+    public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
+            List<Long> usuarioIdList, List<Long> productoIdList) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
         Map<Long, Double> totalVentaPacksMap = new HashMap<>();
-        
+
         // Obtener datos de todas las sucursales
         for (Long sucId : sucIdList) {
-            List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+            List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
+                    stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
             aggregatedResult.addAll(lucroPorProductosDtoList);
-            
-            // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular ventaMedia correctamente
-            List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+
+            // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
+            // ventaMedia correctamente
+            List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
+                    stringToDate(fin), usuarioIdList, productoIdList);
             for (Object[] row : totalVentaPacksList) {
                 Long productoId = ((Number) row[0]).longValue();
                 Double totalVentaPacks = ((Number) row[1]).doubleValue();
                 totalVentaPacksMap.merge(productoId, totalVentaPacks, Double::sum);
             }
         }
-        
+
         Map<Long, LucroPorProductosDto> combinedResults = new HashMap<>();
         for (LucroPorProductosDto dto : aggregatedResult) {
             combinedResults.merge(dto.getProductoId(), dto, (oldDto, newDto) -> {
@@ -506,54 +530,54 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             });
         }
         List<LucroPorProductosDto> result = new ArrayList<>(combinedResults.values());
-        
+
         // Calcular todos los campos derivados después de la agregación
         for (LucroPorProductosDto dto : result) {
             // Log para debug
-            log.info("DEBUG - Producto ID: " + dto.getProductoId() + 
-                    ", Cantidad: " + dto.getCantidad() + 
-                    ", CostoTotal: " + dto.getCostoTotal() + 
+            log.info("DEBUG - Producto ID: " + dto.getProductoId() +
+                    ", Cantidad: " + dto.getCantidad() +
+                    ", CostoTotal: " + dto.getCostoTotal() +
                     ", TotalVenta: " + dto.getTotalVenta());
-            
+
             if (dto.getCantidad() != null && dto.getCantidad() > 0) {
                 // Calcular costo unitario
                 dto.setCostoUnitario(dto.getCostoTotal() / dto.getCantidad());
-                
+
                 Double totalVentaPacks = totalVentaPacksMap.get(dto.getProductoId());
-                
+
                 if (totalVentaPacks != null) {
                     dto.setTotalVenta(totalVentaPacks);
                 }
-            
+
                 if (totalVentaPacks != null && totalVentaPacks > 0 && dto.getCantidad() > 0) {
                     dto.setVentaMedia(totalVentaPacks / dto.getCantidad());
                 } else {
                     dto.setVentaMedia(0.0);
                 }
-                
+
                 // Calcular lucro (total venta - total costo)
                 dto.setLucro(dto.getTotalVenta() - dto.getCostoTotal());
-                
+
                 // Calcular margen (lucro / costo total * 100) - porcentaje sobre costo
                 if (dto.getCostoTotal() > 0) {
                     dto.setMargen((dto.getLucro() / dto.getCostoTotal()) * 100);
                 } else {
                     dto.setMargen(0.0);
                 }
-                
+
                 // Calcular porcentaje (lucro / total venta * 100) - porcentaje sobre venta
                 if (dto.getTotalVenta() > 0) {
                     dto.setPercent((dto.getLucro() / dto.getTotalVenta()) * 100);
                 } else {
                     dto.setPercent(0.0);
                 }
-                
+
                 // Log para debug de cálculos
-                log.info("DEBUG - Cálculos para ID " + dto.getProductoId() + 
-                        ": CostoUnitario=" + dto.getCostoUnitario() + 
-                        ", VentaMedia=" + dto.getVentaMedia() + 
-                        ", Lucro=" + dto.getLucro() + 
-                        ", Margen=" + dto.getMargen() + 
+                log.info("DEBUG - Cálculos para ID " + dto.getProductoId() +
+                        ": CostoUnitario=" + dto.getCostoUnitario() +
+                        ", VentaMedia=" + dto.getVentaMedia() +
+                        ", Lucro=" + dto.getLucro() +
+                        ", Margen=" + dto.getMargen() +
                         ", Percent=" + dto.getPercent());
             } else {
                 // Si no hay cantidad, todos los valores son 0
@@ -564,16 +588,17 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 dto.setPercent(0.0);
             }
         }
-        
+
         result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
         return result;
     }
 
-    public Double findPrecioVentaPorProducto(Long productoId, Long sucursalId){
+    public Double findPrecioVentaPorProducto(Long productoId, Long sucursalId) {
         Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, productoId);
-        if(presentacion != null){
-            PrecioPorSucursal precioPorSucursal = precioPorSucursalService.findBySucursalIdAndPresentacionId(sucursalId, presentacion.getId());
-            if(precioPorSucursal != null){
+        if (presentacion != null) {
+            PrecioPorSucursal precioPorSucursal = precioPorSucursalService.findBySucursalIdAndPresentacionId(sucursalId,
+                    presentacion.getId());
+            if (precioPorSucursal != null) {
                 return precioPorSucursal.getPrecio();
             }
         }

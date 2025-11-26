@@ -57,4 +57,34 @@ public class NotificationRoleService {
                 "ANALISIS CONTABLE",
                 "ANALISIS DE CAJA");
     }
+
+    public List<String> getRolesForAjusteStock() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "ANALISIS DE VENTA");
+    }
+
+    public List<String> getRolesForProductoCreado() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "VER PRODUCTOS",
+                "ANALISIS DE VENTA");
+    }
+
+    public List<String> getRolesForTransferenciaIniciada() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "VER TRANSFERENCIA",
+                "ANALISIS DE VENTA");
+    }
+
+    public List<String> getRolesForCambioSucursalPreTransferencia() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "VER TRANSFERENCIA");
+    }
 }

@@ -193,4 +193,27 @@ public class NotificationTemplateService {
         request.setData("/operaciones/facturas/" + facturaId + "/" + sucursalId);
         return request;
     }
+
+    public PushNotificationRequest cambioSucursalPreTransferencia(Transferencia transferencia,
+            Sucursal sucursalAnterior,
+            Sucursal sucursalNueva, boolean esOrigen) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("CAMBIO DE SUCURSAL EN PRE-TRANSFERENCIA #").append(transferencia.getId());
+        builder.append(". ");
+        builder.append(esOrigen ? "ORIGEN" : "DESTINO");
+        builder.append(" CAMBIADO DE ");
+        builder.append(sucursalAnterior != null ? sucursalAnterior.getNombre() : "N/A");
+        builder.append(" A ");
+        builder.append(sucursalNueva != null ? sucursalNueva.getNombre() : "N/A");
+        builder.append(".");
+
+        if (transferencia.getUsuarioPreTransferencia() != null) {
+            builder.append(" USUARIO: ").append(transferencia.getUsuarioPreTransferencia().getNickname());
+        }
+
+        PushNotificationRequest request = base("CAMBIO DE SUCURSAL EN TRANSFERENCIA", builder.toString());
+        request.setType("CAMBIO_SUCURSAL_PRE_TRANSFERENCIA");
+        request.setData("/operaciones/transferencias");
+        return request;
+    }
 }

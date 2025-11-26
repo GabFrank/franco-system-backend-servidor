@@ -1424,7 +1424,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             Double tipoCambio = factura.getTipoCambio() != null ? factura.getTipoCambio() : 1.0;
             
             // Cargar y compilar el template Jasper
-            File file = ResourceUtils.getFile("classpath:factura-electronica-kude.jrxml");
+            File file = ResourceUtils.getFile("classpath:reports/factura-electronica-kude.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
             
             // Preparar datasource con items

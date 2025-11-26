@@ -35,7 +35,7 @@
             <staticText>
                 <reportElement x="150" y="2" width="300" height="18" uuid="c0c9f5b8-f0b7-4503-9428-2d7be98aa4e6"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="14" isBold="true"/>
+                    <font fontName="SansSerif" size="14" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Reporte de Productos]]></text>
             </staticText>
@@ -44,7 +44,7 @@
             <textField isStretchWithOverflow="true">
                 <reportElement x="130" y="27" width="415" height="10" uuid="f2a3b4c5-d6e7-8901-2345-678901bcdef2"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{filtroBusqueda}]]></textFieldExpression>
             </textField>
@@ -53,7 +53,7 @@
             <textField isStretchWithOverflow="true">
                 <reportElement x="130" y="42" width="100" height="12" uuid="a1b2c3d4-e5f6-7890-1234-567890abcdef"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{filtroColumna1}]]></textFieldExpression>
             </textField>
@@ -61,7 +61,7 @@
             <textField isStretchWithOverflow="true">
                 <reportElement x="202" y="42" width="100" height="12" uuid="b2c3d4e5-f6a7-8901-2345-678901bcdef0"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{filtroColumna2}]]></textFieldExpression>
             </textField>
@@ -69,7 +69,7 @@
             <textField isStretchWithOverflow="true">
                 <reportElement x="290" y="42" width="112" height="12" uuid="c3d4e5f6-a7b8-9012-3456-789012cdef01"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{filtroColumna3}]]></textFieldExpression>
             </textField>
@@ -78,7 +78,7 @@
             <textField isStretchWithOverflow="true">
                 <reportElement x="290" y="51" width="112" height="12" uuid="f4e5d6c7-a8b9-0123-4567-890123abcdef"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{filtroColumna4}]]></textFieldExpression>
             </textField>
@@ -86,7 +86,7 @@
             <textField isStretchWithOverflow="true">
                 <reportElement x="384" y="42" width="156" height="12" uuid="d4e5f6a7-b8c9-0123-4567-890123def012"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{filtroStock}]]></textFieldExpression>
             </textField>
@@ -95,7 +95,7 @@
             <staticText>
                 <reportElement x="130" y="60" width="70" height="14" uuid="4c91f639-4e4b-4bb2-965f-156eaed3a91c"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <text><![CDATA[Creado en:]]></text>
             </staticText>
@@ -103,7 +103,7 @@
             <textField>
                 <reportElement x="200" y="60" width="90" height="14" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{fechaReporte}]]></textFieldExpression>
             </textField>
@@ -111,7 +111,7 @@
             <staticText>
                 <reportElement x="290" y="60" width="50" height="14" uuid="186428af-f5d4-4389-8c9b-cadb45c47034"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <text><![CDATA[Usuario:]]></text>
             </staticText>
@@ -119,7 +119,7 @@
             <textField>
                 <reportElement x="340" y="60" width="100" height="14" uuid="09ce4efd-2860-4013-b158-a83a2fdcc811"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{usuario}]]></textFieldExpression>
             </textField>
@@ -128,7 +128,7 @@
             <staticText>
                 <reportElement x="450" y="60" width="70" height="14" uuid="b61efa33-0ea0-4fed-9d78-a768de817cb3"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8"/>
+                    <font fontName="SansSerif" size="8"/>
                 </textElement>
                 <text><![CDATA[Cantidad total:]]></text>
             </staticText>
@@ -136,7 +136,7 @@
             <textField>
                 <reportElement x="520" y="60" width="30" height="14" uuid="379411ab-dcc4-4b01-8c84-9d828909f10a"/>
                 <textElement>
-                    <font fontName="Liberation Sans" size="8" isBold="true"/>
+                    <font fontName="SansSerif" size="8" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{totalProductos}]]></textFieldExpression>
             </textField>
@@ -155,7 +155,7 @@
             <staticText>
                 <reportElement x="5" y="2" width="40" height="15" uuid="08dc1fb0-906c-4084-8135-fb291fb2a7c4"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <text><![CDATA[ID]]></text>
             </staticText>
@@ -163,7 +163,7 @@
             <staticText>
                 <reportElement x="50" y="2" width="180" height="15" uuid="61b9db21-b68f-456d-a027-5b8a5fa7752a"/>
                 <textElement textAlignment="Left">
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Descripción]]></text>
             </staticText>
@@ -171,7 +171,7 @@
             <staticText>
                 <reportElement x="235" y="2" width="60" height="15" uuid="4ca7cd51-a227-419c-9ba8-9f7386c52e03"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Cantidad]]></text>
             </staticText>
@@ -179,7 +179,7 @@
             <staticText>
                 <reportElement x="300" y="2" width="80" height="15" uuid="8d7bc123-4567-8901-2345-6789abcdef01"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Código]]></text>
             </staticText>
@@ -187,7 +187,7 @@
             <staticText>
                 <reportElement x="385" y="2" width="70" height="15" uuid="ae2f5ab0-6c66-490d-849d-3d1e68574946"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Costo Medio]]></text>
             </staticText>
@@ -195,7 +195,7 @@
             <staticText>
                 <reportElement x="460" y="2" width="80" height="15" uuid="418ff70c-c807-4714-b37f-c153978430c1"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="10" isBold="true"/>
+                    <font fontName="SansSerif" size="10" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Precio Venta]]></text>
             </staticText>
@@ -208,7 +208,7 @@
             <textField>
                 <reportElement x="5" y="1" width="40" height="15" uuid="b1abaa13-7b48-4130-859a-eeeaacbc0cf6"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="9"/>
+                    <font fontName="SansSerif" size="9"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{id}]]></textFieldExpression>
             </textField>
@@ -217,7 +217,7 @@
             <textField>
                 <reportElement x="50" y="1" width="180" height="15" uuid="1edb9846-46a2-4dc9-9a9d-9d3be5113abd"/>
                 <textElement textAlignment="Left">
-                    <font fontName="Liberation Sans" size="9"/>
+                    <font fontName="SansSerif" size="9"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{descripcion}]]></textFieldExpression>
             </textField>
@@ -226,7 +226,7 @@
             <textField pattern="#,##0.##">
                 <reportElement x="235" y="1" width="60" height="15" uuid="2f9144d6-83b8-4f1f-acf7-24d09ab3ce73"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="9"/>
+                    <font fontName="SansSerif" size="9"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
             </textField>
@@ -235,7 +235,7 @@
             <textField>
                 <reportElement x="300" y="1" width="80" height="15" uuid="9a8b7c6d-5e4f-3210-9876-543210fedcba"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="9"/>
+                    <font fontName="SansSerif" size="9"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{codigoPrincipal}]]></textFieldExpression>
             </textField>
@@ -244,7 +244,7 @@
             <textField pattern="#,##0">
                 <reportElement x="385" y="1" width="70" height="15" uuid="8fb71000-51f6-46e1-bb3f-48fa3024a081"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="9"/>
+                    <font fontName="SansSerif" size="9"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{precioCosto}]]></textFieldExpression>
             </textField>
@@ -253,7 +253,7 @@
             <textField pattern="#,##0">
                 <reportElement x="460" y="1" width="80" height="15" uuid="16091ed4-b9c8-4869-94d0-c0732c680193"/>
                 <textElement textAlignment="Center">
-                    <font fontName="Liberation Sans" size="9"/>
+                    <font fontName="SansSerif" size="9"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{precioVenta}]]></textFieldExpression>
             </textField>
@@ -265,4 +265,3 @@
         </band>
     </detail>
 </jasperReport>
-

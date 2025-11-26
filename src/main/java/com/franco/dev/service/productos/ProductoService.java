@@ -209,7 +209,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         }
 
         try {
-            File file = ResourceUtils.getFile("classpath:productos.jrxml");
+            File file = ResourceUtils.getFile("classpath:reports/productos.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
 
@@ -435,7 +435,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         }
 
         try {
-            File file = ResourceUtils.getFile("classpath:productos.jrxml");
+            File file = ResourceUtils.getFile("classpath:reports/productos.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
 

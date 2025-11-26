@@ -212,7 +212,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 reporteInventarioDtoList.add(dto);
             }
 
-            File file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "reporte-inventario.jrxml");
+            File file = ResourceUtils.getFile("classpath:reports/reporte-inventario.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(reporteInventarioDtoList);
 

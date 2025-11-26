@@ -614,7 +614,7 @@ public class ImpresionService {
                     }
                     transferenciaItemDtoList.add(tiDto);
                 }
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "transferencia.jrxml");
+                file = ResourceUtils.getFile("classpath:reports/transferencia.jrxml");
                 JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(transferenciaItemDtoList);
                 Map<String, Object> parameters = new HashMap<>();
@@ -709,7 +709,7 @@ public class ImpresionService {
                     tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
                     ventaCreditoItemDtoList.add(tiDto);
                 }
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "reporte-cobro-venta-credito.jrxml");
+                file = ResourceUtils.getFile("classpath:reports/reporte-cobro-venta-credito.jrxml");
                 JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(ventaCreditoItemDtoList);
                 Map<String, Object> parameters = new HashMap<>();
@@ -753,7 +753,7 @@ public class ImpresionService {
                 }
                 cantProductos = Long.valueOf(lucroPorProductosDtoList.size());
                 lucroTotalPorcentaje = ventaTotal > 0 ? ((ventaTotal-costoTotal) / ventaTotal) * 100 : 0.0;
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "lucro-por-producto.jrxml");
+                file = ResourceUtils.getFile("classpath:reports/lucro-por-producto.jrxml");
                 JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);
                 Map<String, Object> parameters = new HashMap<>();

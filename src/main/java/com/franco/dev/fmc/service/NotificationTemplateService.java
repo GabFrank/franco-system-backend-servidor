@@ -2,6 +2,7 @@ package com.franco.dev.fmc.service;
 
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
@@ -31,6 +32,20 @@ public class NotificationTemplateService {
         PushNotificationRequest request = base("VENTA A CRÉDITO REALIZADA", builder.toString());
         request.setType("VENTA_CREDITO");
         request.setData("/mis-finanzas/list-convenio/" + ventaCredito.getId() + "/" + ventaCredito.getSucursalId());
+        return request;
+    }
+
+    public PushNotificationRequest ventaConvenioRealizada(Venta venta, Sucursal sucursal, Double valor,
+            DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA DETECTADO UNA VENTA CON CONVENIO EN LA SUCURSAL ")
+                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(" POR EL VALOR DE ")
+                .append(decimalFormat.format(valor))
+                .append(" GS.");
+        PushNotificationRequest request = base("VENTA CON CONVENIO REALIZADA", builder.toString());
+        request.setType("VENTA_CONVENIO");
+        request.setData("/operaciones/ventas/" + venta.getId() + "/" + venta.getSucursalId());
         return request;
     }
 
@@ -99,19 +114,19 @@ public class NotificationTemplateService {
         }
 
         StringBuilder builder = new StringBuilder();
-        builder.append("Se ha iniciado una nueva transferencia");
+        builder.append("SE HA INICIADO UNA NUEVA TRANSFERENCIA");
         if (sucursalOrigen != null && sucursalOrigen.getNombre() != null) {
-            builder.append(" desde ").append(sucursalOrigen.getNombre());
+            builder.append(" DESDE ").append(sucursalOrigen.getNombre());
         }
         if (sucursalDestino != null && sucursalDestino.getNombre() != null) {
-            builder.append(" hacia ").append(sucursalDestino.getNombre());
+            builder.append(" HACIA ").append(sucursalDestino.getNombre());
         }
         if (transferencia.getUsuarioPreTransferencia() != null &&
                 transferencia.getUsuarioPreTransferencia().getNickname() != null) {
-            builder.append(". Iniciada por: ").append(transferencia.getUsuarioPreTransferencia().getNickname());
+            builder.append(". INICIADA POR: ").append(transferencia.getUsuarioPreTransferencia().getNickname());
         }
 
-        PushNotificationRequest request = base("Transferencia iniciada", builder.toString());
+        PushNotificationRequest request = base("TRANSFERENCIA INICIADA", builder.toString());
         request.setType("TRANSFERENCIA_INICIADA");
         request.setData("/operaciones/transferencias");
         return request;
@@ -128,9 +143,9 @@ public class NotificationTemplateService {
 
     private String buildGastoMessage(Gasto gasto, Sucursal sucursal, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
-        builder.append("Se ha detectado un gasto a tu nombre en la sucursal ")
+        builder.append("SE HA DETECTADO UN GASTO A TU NOMBRE EN LA SUCURSAL ")
                 .append(sucursal != null ? sucursal.getNombre() : "")
-                .append(" por el valor de ");
+                .append(" POR EL VALOR DE ");
         if (gasto.getRetiroGs() != null && gasto.getRetiroGs() > 0) {
             builder.append(decimalFormat.format(gasto.getRetiroGs())).append(" Gs. ");
         }
@@ -141,12 +156,41 @@ public class NotificationTemplateService {
             builder.append(decimalFormat.format(gasto.getRetiroDs())).append(" Ds. ");
         }
         if (sucursal != null && gasto.getUsuario() != null) {
-            builder.append("Si desconoce ésta acción contactar con el cajero ")
+            builder.append("SI DESCONECTA ÉSTA ACCIÓN CONTACTAR CON EL CAJERO ")
                     .append(gasto.getUsuario().getNickname() != null ? gasto.getUsuario().getNickname().toUpperCase()
                             : "")
-                    .append(" al número ")
+                    .append(" AL NÚMERO ")
                     .append(sucursal.getNroDelivery());
         }
         return builder.toString();
+    }
+
+    public PushNotificationRequest ventaCreditoRealizadaCliente(VentaCredito ventaCredito, Sucursal sucursal,
+            DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("REALIZASTE UNA COMPRA CON TU CONVENIO EN LA SUCURSAL ")
+                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(" POR ")
+                .append(decimalFormat.format(ventaCredito.getValorTotal()))
+                .append(" GS HA SIDO REGISTRADA EXITOSAMENTE.");
+        PushNotificationRequest request = base("COMPRA A CRÉDITO REGISTRADA", builder.toString());
+        request.setType("VENTA_CREDITO_CLIENTE");
+        request.setData("/mis-compras/credito/" + ventaCredito.getId() + "/" + ventaCredito.getSucursalId());
+        return request;
+    }
+
+    public PushNotificationRequest facturaAltoValor(Long facturaId, Long sucursalId, Sucursal sucursal,
+            Double valorTotal, String clienteNombre, DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA EMITIDO UNA FACTURA DE ALTO VALOR (≥3.000.000 Gs) EN LA SUCURSAL ")
+                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(" POR EL VALOR DE ")
+                .append(decimalFormat.format(valorTotal))
+                .append(" GS. CLIENTE: ")
+                .append(clienteNombre != null ? clienteNombre : "N/A");
+        PushNotificationRequest request = base("FACTURA DE ALTO VALOR EMITIDA", builder.toString());
+        request.setType("FACTURA_ALTO_VALOR");
+        request.setData("/operaciones/facturas/" + facturaId + "/" + sucursalId);
+        return request;
     }
 }

@@ -1,0 +1,60 @@
+package com.franco.dev.fmc.service;
+
+import com.franco.dev.domain.personas.Role;
+import com.franco.dev.domain.personas.UsuarioRole;
+import com.franco.dev.service.personas.RoleService;
+import com.franco.dev.service.personas.UsuarioRoleService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+
+@Service
+public class NotificationRoleService {
+
+    @Autowired
+    private RoleService roleService;
+
+    @Autowired
+    private UsuarioRoleService usuarioRoleService;
+
+    /**
+     * Obtiene los IDs de usuarios que tienen los roles especificados
+     * 
+     * @param roleNames Lista de nombres de roles
+     * @return Lista de IDs de usuarios unicos
+     */
+    public List<Long> getUserIdsByRoles(List<String> roleNames) {
+        Set<Long> userIds = new HashSet<>();
+
+        for (String roleName : roleNames) {
+            Role role = roleService.findByNombre(roleName);
+
+            if (role != null) {
+                List<UsuarioRole> usuarioRoles = usuarioRoleService.findByRoleId(role.getId());
+                usuarioRoles.stream()
+                        .filter(ur -> ur.getUser() != null)
+                        .map(ur -> ur.getUser().getId())
+                        .forEach(userIds::add);
+            }
+        }
+
+        return new ArrayList<>(userIds);
+    }
+
+    public List<String> getRolesForVentaCredito() {
+        return Arrays.asList(
+                "ADMIN",
+                "ANALISIS FINANCIERO",
+                "ANALISIS CONTABLE",
+                "VENTA TOUCH");
+    }
+
+    public List<String> getRolesForFacturaAltoValor() {
+        return Arrays.asList(
+                "ADMIN",
+                "ANALISIS FINANCIERO",
+                "ANALISIS CONTABLE",
+                "ANALISIS DE CAJA");
+    }
+}

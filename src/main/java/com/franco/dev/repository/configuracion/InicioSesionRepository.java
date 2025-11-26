@@ -21,6 +21,8 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
 
     List<InicioSesion> findByToken(String token);
 
+    boolean existsByUsuarioIdAndIdDispositivo(Long usuarioId, String idDispositivo);
+
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE InicioSesion s SET s.token = null WHERE s.token = :token")
     void clearTokenByToken(@org.springframework.data.repository.query.Param("token") String token);

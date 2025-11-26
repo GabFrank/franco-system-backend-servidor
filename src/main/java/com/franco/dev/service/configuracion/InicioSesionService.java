@@ -69,4 +69,45 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         }
         repository.clearTokenByToken(token);
     }
+
+    public void detectarYNotificarNuevoDispositivo(InicioSesion sesion,
+            com.franco.dev.fmc.service.PushNotificationService pushNotificationService,
+            com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService,
+            com.franco.dev.service.empresarial.SucursalService sucursalService) {
+
+        if (sesion == null || sesion.getUsuario() == null || sesion.getIdDispositivo() == null) {
+            return;
+        }
+
+        try {
+            boolean esDispositivoNuevo = !repository.existsByUsuarioIdAndIdDispositivo(
+                    sesion.getUsuario().getId(), sesion.getIdDispositivo());
+
+            if (!esDispositivoNuevo) {
+                return;
+            }
+
+            String tipoDispositivo = sesion.getTipoDespositivo() != null
+                    ? sesion.getTipoDespositivo().toString()
+                    : "DESCONOCIDO";
+
+            String nombreSucursal = null;
+            if (sesion.getSucursal() != null && sucursalService != null) {
+                com.franco.dev.domain.empresarial.Sucursal sucursal = sucursalService
+                        .findById(sesion.getSucursal().getId()).orElse(null);
+                if (sucursal != null) {
+                    nombreSucursal = sucursal.getNombre();
+                }
+            }
+
+            com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
+                    .nuevoDispositivoDetectado(tipoDispositivo, nombreSucursal);
+
+            request.setUsuarioIds(java.util.Collections.singletonList(sesion.getUsuario().getId()));
+            pushNotificationService.sendPushNotificationToToken(request);
+
+        } catch (Exception e) {
+            System.err.println("[SEGURIDAD] Error al detectar/notificar nuevo dispositivo: " + e.getMessage());
+        }
+    }
 }

@@ -216,4 +216,19 @@ public class NotificationTemplateService {
         request.setData("/operaciones/transferencias");
         return request;
     }
+
+    public PushNotificationRequest nuevoDispositivoDetectado(String tipoDispositivo, String nombreSucursal) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("ALERTA DE SEGURIDAD: Se ha detectado un inicio de sesión desde un nuevo dispositivo ");
+        builder.append(tipoDispositivo != null ? tipoDispositivo : "DESCONOCIDO");
+        if (nombreSucursal != null) {
+            builder.append(" en la sucursal ").append(nombreSucursal);
+        }
+        builder.append(". ¿Fuiste tú? Si no reconoces esta actividad, cambia tu contraseña inmediatamente.");
+
+        PushNotificationRequest request = base("Nuevo Dispositivo Detectado", builder.toString());
+        request.setType("NUEVO_DISPOSITIVO");
+        request.setData("/configuracion/seguridad");
+        return request;
+    }
 }

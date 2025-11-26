@@ -1,6 +1,7 @@
 package com.franco.dev.repository.configuracion;
 
 import com.franco.dev.domain.configuracion.InicioSesion;
+import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.configuracion.input.InicioSesionInput;
 import com.franco.dev.service.configuracion.InicioSesionService;
@@ -30,11 +31,16 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private UsuarioService usuarioService;
 
     @Autowired
-    private SucursalService sucursalService;
+    private SucursalService sucursalService2;
 
     @Autowired
     private PushNotificationService pushNotificationService;
 
+    @Autowired
+    private NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private SucursalService sucursalService;
 
     public Optional<InicioSesion> inicioSesion(Long id) {
         return service.findById(id);
@@ -49,16 +55,25 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findByUsuarioIdAndHoraFinIsNul(id, sucId, pageable);
     }
 
-
     public InicioSesion saveInicioSesion(InicioSesionInput input) {
         ModelMapper m = new ModelMapper();
         InicioSesion e = m.map(input, InicioSesion.class);
-        if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
-        if (input.getHoraInicio() != null) e.setHoraInicio(stringToDate(input.getHoraInicio()));
-        if (input.getHoraFin() != null) e.setHoraFin(stringToDate(input.getHoraFin()));
-        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
-        return service.save(e);
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getSucursalId() != null)
+            e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        if (input.getHoraInicio() != null)
+            e.setHoraInicio(stringToDate(input.getHoraInicio()));
+        if (input.getHoraFin() != null)
+            e.setHoraFin(stringToDate(input.getHoraFin()));
+        if (input.getCreadoEn() != null)
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+
+        InicioSesion saved = service.save(e);
+        service.detectarYNotificarNuevoDispositivo(saved, pushNotificationService,
+                notificationTemplateService, sucursalService);
+
+        return saved;
     }
 
     public Boolean deleteInicioSesion(Long id) {
@@ -68,6 +83,5 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     public Long countInicioSesion() {
         return service.count();
     }
-
 
 }

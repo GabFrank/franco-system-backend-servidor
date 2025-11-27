@@ -1,15 +1,19 @@
 package com.franco.dev.graphql.configuracion;
 
 import com.franco.dev.domain.configuracion.NotificacionUsuario;
+import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
 import com.franco.dev.service.configuracion.NotificacionUsuarioService;
-import java.util.List;
-import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.stream.Collectors;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 
@@ -40,8 +44,18 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         }
     }
 
+    public Boolean actualizarEstadoTableroNotificacion(Long notificacionUsuarioId, String estado) {
+        try {
+            EstadoNotificacionTablero nuevoEstado = EstadoNotificacionTablero.valueOf(estado);
+            return notificacionUsuarioService.actualizarEstadoTablero(notificacionUsuarioId, nuevoEstado);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public NotificacionUsuarioPage getNotificacionesUsuario(String tokenFcm, Boolean leidas,
-            Integer page, Integer size) {
+            Integer page, Integer size, String estadoTablero) {
 
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
@@ -56,14 +70,38 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 20 : size;
         Pageable pageable = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "creadoEn"));
-        Page<NotificacionUsuario> result = notificacionUsuarioService.findByUsuarioId(usuario.getId(), tokenFcm,
-                pageable);
-        List<NotificacionUsuario> content = (leidas == null) ? result.getContent()
-                : result.getContent().stream()
-                        .filter(nu -> Boolean.TRUE.equals(nu.getLeida()) == leidas)
-                        .collect(Collectors.toList());
+        
+        Page<NotificacionUsuario> result;
+        
+        if (estadoTablero != null && !estadoTablero.isEmpty()) {
+            try {
+                EstadoNotificacionTablero estado = EstadoNotificacionTablero.valueOf(estadoTablero);
+                result = notificacionUsuarioService.findByUsuarioIdAndEstadoTablero(
+                    usuario.getId(), tokenFcm, estado, pageable);
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Estado de tablero no válido: " + estadoTablero);
+            }
+        } else {
+            result = notificacionUsuarioService.findByUsuarioId(usuario.getId(), tokenFcm, pageable);
+            
+            if (leidas != null) {
+                List<NotificacionUsuario> filteredContent = result.getContent().stream()
+                    .filter(nu -> Boolean.TRUE.equals(nu.getLeida()) == leidas)
+                    .collect(Collectors.toList());
+                result = new PageImpl<>(
+                    filteredContent,
+                    pageable,
+                    filteredContent.size()
+                );
+            }
+        }
 
-        return new NotificacionUsuarioPage(content, result.getNumber(), result.getSize(), result.getTotalElements(),
-                result.getTotalPages());
+        return new NotificacionUsuarioPage(
+            result.getContent(), 
+            result.getNumber(), 
+            result.getSize(), 
+            result.getTotalElements(),
+            result.getTotalPages()
+        );
     }
 }

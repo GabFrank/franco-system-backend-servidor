@@ -2,6 +2,7 @@ package com.franco.dev.repository.configuracion;
 
 import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
+import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
 import com.franco.dev.repository.HelperRepository;
 import java.util.List;
 import java.time.LocalDateTime;
@@ -24,6 +25,14 @@ public interface NotificacionUsuarioRepository extends HelperRepository<Notifica
     Page<NotificacionUsuario> findAllByUsuarioId(Long usuarioId, Pageable pageable);
 
     Page<NotificacionUsuario> findAllByUsuarioIdAndTokenFcm(Long usuarioId, String tokenFcm, Pageable pageable);
+    
+    @Query("SELECT nu FROM NotificacionUsuario nu WHERE nu.usuario.id = :usuarioId AND (:tokenFcm IS NULL OR nu.tokenFcm = :tokenFcm) AND (:estado IS NULL OR nu.estadoTablero = :estado) ORDER BY nu.creadoEn DESC")
+    Page<NotificacionUsuario> findByUsuarioIdAndTokenFcmAndEstadoTablero(
+        @Param("usuarioId") Long usuarioId,
+        @Param("tokenFcm") String tokenFcm,
+        @Param("estado") EstadoNotificacionTablero estado,
+        Pageable pageable
+    );
 
     Long deleteByFechaEnvioBefore(LocalDateTime fecha);
 

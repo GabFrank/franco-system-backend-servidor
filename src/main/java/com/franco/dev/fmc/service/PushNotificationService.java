@@ -4,6 +4,7 @@ import com.franco.dev.domain.configuracion.Notificacion;
 import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
+import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.DeliveryResult;
 import com.franco.dev.fmc.model.PushNotificationRequest;
@@ -148,6 +149,7 @@ public class PushNotificationService {
         }
         entity.setTokenFcm(target.getToken());
         entity.setEstadoEnvio(EstadoEnvio.PENDIENTE);
+        entity.setEstadoTablero(EstadoNotificacionTablero.POR_VERIFICAR);
         return entity;
     }
 

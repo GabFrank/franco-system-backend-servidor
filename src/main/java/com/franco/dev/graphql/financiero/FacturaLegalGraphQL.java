@@ -151,7 +151,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private CodigoService codigoService;
 
-
     public DecimalFormat df = new DecimalFormat("#,###.##");
 
     public FacturaLegal facturaLegal(Long id, Long sucId) {
@@ -169,7 +168,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Unsecured
     @Transactional
-    public FacturaLegal saveFacturaLegal(FacturaLegalInput input, List<FacturaLegalItemInput> facturaLegalItemInputList) {
+    public FacturaLegal saveFacturaLegal(FacturaLegalInput input,
+            List<FacturaLegalItemInput> facturaLegalItemInputList) {
         ModelMapper m = new ModelMapper();
         FacturaLegal e = m.map(input, FacturaLegal.class);
         if (input.getUsuarioId() != null) {
@@ -178,11 +178,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getClienteId() != null) {
             e.setCliente(clienteService.findById(input.getClienteId()).orElse(null));
         } else {
-            // Solo crear cliente automáticamente si hay nombre y ruc Y no se especificó explícitamente que no se debe crear
+            // Solo crear cliente automáticamente si hay nombre y ruc Y no se especificó
+            // explícitamente que no se debe crear
             // Si clienteId es null y hay nombre/ruc, intentar buscar o crear cliente
-            // PERO: si el frontend quiere crear factura sin cliente, simplemente no crear cliente aquí
-            // El servicio FacturaLegalService.save() también tiene lógica para crear cliente si es necesario
-            // Por lo tanto, aquí solo creamos cliente si realmente no existe y hay datos suficientes
+            // PERO: si el frontend quiere crear factura sin cliente, simplemente no crear
+            // cliente aquí
+            // El servicio FacturaLegalService.save() también tiene lógica para crear
+            // cliente si es necesario
+            // Por lo tanto, aquí solo creamos cliente si realmente no existe y hay datos
+            // suficientes
             if (input.getNombre() != null && input.getRuc() != null) {
                 // Buscar persona existente por documento
                 Persona nuevaPersona = personaService.findByDocumento(input.getRuc());
@@ -202,7 +206,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             // El servicio FacturaLegalService.save() puede crear cliente si es necesario
         }
         if (input.getTimbradoDetalleId() != null)
-            e.setTimbradoDetalle(timbradoDetalleService.findByIdAndSucursalId(input.getTimbradoDetalleId(), input.getSucursalId()).orElse(null));
+            e.setTimbradoDetalle(timbradoDetalleService
+                    .findByIdAndSucursalId(input.getTimbradoDetalleId(), input.getSucursalId()).orElse(null));
         if (e.getTimbradoDetalle() != null) {
             timbradoDetalleService.save(e.getTimbradoDetalle());
             e = service.save(e);
@@ -216,7 +221,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e = service.save(e);
             for (FacturaLegalItemInput fi : facturaLegalItemInputList) {
                 fi.setFacturaLegalId(e.getId());
-                if (input.getUsuarioId() != null) fi.setUsuarioId(e.getUsuario().getId());
+                if (input.getUsuarioId() != null)
+                    fi.setUsuarioId(e.getUsuario().getId());
                 facturaLegalItemGraphQL.saveFacturaLegalItem(fi, sucId);
             }
         }
@@ -227,22 +233,26 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.deleteByIdAndSucursalId(id, sucId);
     }
 
-
     public Long countFacturaLegal() {
         return service.count();
     }
 
-    public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico, Boolean activo) {
-        Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10, isElectronico, activo);
+    public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin,
+            List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico,
+            Boolean activo, Boolean sinNombre) {
+        Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5,
+                iva10, isElectronico, activo, sinNombre);
         return response;
     }
 
-    public Optional<FacturaLegal> facturaLegalByCdc(String cdc){
+    public Optional<FacturaLegal> facturaLegalByCdc(String cdc) {
         return service.findByCdc(cdc);
     }
 
-    public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        ResumenFacturasDto response = service.findResumenFacturas(fechaInicio, fechaFin, sucId, ruc, nombre, iva5, iva10);
+    public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc,
+            String nombre, Boolean iva5, Boolean iva10, Boolean sinNombre) {
+        ResumenFacturasDto response = service.findResumenFacturas(fechaInicio, fechaFin, sucId, ruc, nombre, iva5,
+                iva10, sinNombre);
         return response;
     }
 
@@ -258,9 +268,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return false;
     }
 
-    public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal, List<FacturaLegalItem> facturaLegalItemList, String printerName) throws Exception {
+    public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal,
+            List<FacturaLegalItem> facturaLegalItemList, String printerName) throws Exception {
         // Verificar si es moneda extranjera y redirigir al método correspondiente
-        boolean esMonedaExtranjera = facturaLegal.getMonedaExtranjera() != null 
+        boolean esMonedaExtranjera = facturaLegal.getMonedaExtranjera() != null
                 && !facturaLegal.getMonedaExtranjera().trim().isEmpty()
                 && facturaLegal.getTipoCambio() != null;
 
@@ -268,8 +279,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             if (facturaLegalItemList == null) {
                 facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
             }
-            printTicket58mmFacturaMonedaExtranjera(venta, facturaLegal, 
-                    facturaLegalItemList, printerName, 
+            printTicket58mmFacturaMonedaExtranjera(venta, facturaLegal,
+                    facturaLegalItemList, printerName,
                     facturaLegal.getMonedaExtranjera(), facturaLegal.getTipoCambio());
             return;
         }
@@ -282,7 +293,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         printService = PrinterOutputStream.getPrintServiceByName(printerName);
         Sucursal sucursal = sucursalService.findById(facturaLegal.getSucursalId()).orElse(null);
         Delivery delivery = null;
-        if (venta != null) delivery = venta.getDelivery();
+        if (venta != null)
+            delivery = venta.getDelivery();
         Double aumento = 0.0;
         Double vueltoGs = 0.0;
         Double vueltoRs = 0.0;
@@ -310,11 +322,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         }
 
         if (printService != null) {
-            printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream : new PrinterOutputStream(printService);
+            printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
+                    : new PrinterOutputStream(printService);
             // creating the EscPosImage, need buffered image and algorithm.
-            //Styles
+            // Styles
             Style center = new Style().setJustification(EscPosConst.Justification.Center);
-            Style factura = new Style().setJustification(EscPosConst.Justification.Center).setFontSize(Style.FontSize._1, Style.FontSize._1);
+            Style factura = new Style().setJustification(EscPosConst.Justification.Center)
+                    .setFontSize(Style.FontSize._1, Style.FontSize._1);
             QRCode qrCode = new QRCode();
 
             BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
@@ -331,8 +345,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(factura, "Timbrado: " + facturaLegal.getTimbradoDetalle().getTimbrado().getNumero());
             // Si el timbrado es electrónico, no se imprime la fecha de inicio y fin
             if (facturaLegal.getTimbradoDetalle().getTimbrado().getIsElectronico() != Boolean.TRUE) {
-                escpos.writeLF(factura, "De " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaInicio().format(shortDate) + " a " + 
-                facturaLegal.getTimbradoDetalle().getTimbrado().getFechaFin().format(shortDate));
+                escpos.writeLF(factura,
+                        "De " + facturaLegal.getTimbradoDetalle().getTimbrado().getFechaInicio().format(shortDate)
+                                + " a " +
+                                facturaLegal.getTimbradoDetalle().getTimbrado().getFechaFin().format(shortDate));
             }
             Long numeroFacturaAux = Long.valueOf(facturaLegal.getNumeroFactura());
             StringBuilder numeroFacturaString = new StringBuilder();
@@ -344,7 +360,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             } else {
                 numeroFacturaString.append(numeroFacturaAux.toString());
             }
-            escpos.writeLF(factura, "Nro: " + sucursal.getCodigoEstablecimientoFactura() + "-" + facturaLegal.getTimbradoDetalle().getPuntoExpedicion() + "-" + numeroFacturaString.toString());
+            escpos.writeLF(factura, "Nro: " + sucursal.getCodigoEstablecimientoFactura() + "-"
+                    + facturaLegal.getTimbradoDetalle().getPuntoExpedicion() + "-" + numeroFacturaString.toString());
             escpos.writeLF(center, "Condición: " + (facturaLegal.getCredito() == false ? "Contado" : "Crédito"));
 
             if (sucursal != null) {
@@ -356,7 +373,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     }
                 }
             }
-            if (venta != null) escpos.writeLF(center.setBold(true), "Venta: " + venta.getId());
+            if (venta != null)
+                escpos.writeLF(center.setBold(true), "Venta: " + venta.getId());
             if (delivery != null) {
                 escpos.writeLF(center, "Modo: Delivery");
             }
@@ -395,7 +413,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             for (FacturaLegalItem vi : facturaLegalItemList) {
                 // Prioridad 1: IVA del item directamente
                 Integer iva = vi.getIva();
-                
+
                 // Prioridad 2: IVA del producto vinculado directamente
                 if (iva == null && vi.getProducto() != null) {
                     iva = vi.getProducto().getIva();
@@ -404,12 +422,12 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 else if (iva == null && vi.getPresentacion() != null) {
                     iva = vi.getPresentacion().getProducto().getIva();
                 }
-                
+
                 // Default 10% si no se puede determinar el IVA
                 if (iva == null) {
                     iva = 10;
                 }
-                
+
                 Double total = vi.getTotal();
                 switch (iva) {
                     case 10:
@@ -429,7 +447,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 String cantidad = vi.getCantidad().intValue() + " (" + vi.getCantidad() + ") " + iva + "%";
                 escpos.writeLF(vi.getDescripcion());
                 escpos.write(new Style().setBold(true), cantidad);
-                String valorUnitario = NumberFormat.getNumberInstance(Locale.GERMAN).format(vi.getPrecioUnitario().intValue());
+                String valorUnitario = NumberFormat.getNumberInstance(Locale.GERMAN)
+                        .format(vi.getPrecioUnitario().intValue());
                 String valorTotal = NumberFormat.getNumberInstance(Locale.GERMAN).format(total.intValue());
                 for (int i = 14; i > cantidad.length(); i--) {
                     escpos.write(" ");
@@ -442,7 +461,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
             escpos.writeLF("--------------------------------");
             String valorGs = df.format(totalFinal);
-            if(facturaLegal.getDescuento()!=null && facturaLegal.getDescuento().compareTo(0.0) > 0){
+            if (facturaLegal.getDescuento() != null && facturaLegal.getDescuento().compareTo(0.0) > 0) {
                 String descuento = df.format(facturaLegal.getDescuento());
                 escpos.write("Total parcial: ");
                 for (int i = 17; i > valorGs.length(); i--) {
@@ -469,7 +488,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
 
             escpos.writeLF("--------Liquidación IVA---------");
-            Double porcentajeDescuento = (facturaLegal.getDescuento() != null && facturaLegal.getDescuento().compareTo(0.0) != 0) ? (facturaLegal.getDescuento() / totalFinal) : null;
+            Double porcentajeDescuento = (facturaLegal.getDescuento() != null
+                    && facturaLegal.getDescuento().compareTo(0.0) != 0) ? (facturaLegal.getDescuento() / totalFinal)
+                            : null;
             escpos.write("Gravadas 10%:");
             Double desc10 = porcentajeDescuento != null ? (totalIva10 - (totalIva10 * porcentajeDescuento)) : null;
             String totalIva10S = df.format(desc10 == null ? totalIva10.intValue() : desc10.intValue());
@@ -490,29 +511,31 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
             escpos.writeLF("0");
             Double totalFinalIva = totalIva10 + totalIva5;
-            Double descFinal = porcentajeDescuento != null ? (totalFinalIva - (totalFinalIva * porcentajeDescuento)) : null;
+            Double descFinal = porcentajeDescuento != null ? (totalFinalIva - (totalFinalIva * porcentajeDescuento))
+                    : null;
             String totalFinalIvaS = df.format(descFinal == null ? totalFinalIva.intValue() : descFinal.intValue());
             escpos.write("Total IVA:   ");
             for (int i = 19; i > totalFinalIvaS.length(); i--) {
                 escpos.write(" ");
             }
             escpos.writeLF(totalFinalIvaS);
-//            escpos.writeLF("--------Liquidación IVA---------");
-//            escpos.write("Gravadas 10%:");
-//            Double totalIvaFinal = totalIva10 + totalIva5;
-//            String totalIvaFinalS = NumberFormat.getNumberInstance(Locale.GERMAN).format(totalIvaFinal.intValue());
-//            for (int i = 19; i > totalIvaFinalS.length(); i--) {
-//                escpos.write(" ");
-//            }
-//            escpos.writeLF(iva10s);
-//            escpos.write("Gravadas 5%: ");
-//            for (int i = 19; i > 1; i--) {
-//                escpos.write(" ");
-//            }
-//            escpos.writeLF("0");
+            // escpos.writeLF("--------Liquidación IVA---------");
+            // escpos.write("Gravadas 10%:");
+            // Double totalIvaFinal = totalIva10 + totalIva5;
+            // String totalIvaFinalS =
+            // NumberFormat.getNumberInstance(Locale.GERMAN).format(totalIvaFinal.intValue());
+            // for (int i = 19; i > totalIvaFinalS.length(); i--) {
+            // escpos.write(" ");
+            // }
+            // escpos.writeLF(iva10s);
+            // escpos.write("Gravadas 5%: ");
+            // for (int i = 19; i > 1; i--) {
+            // escpos.write(" ");
+            // }
+            // escpos.writeLF("0");
 
             escpos.writeLF("--------------------------------");
-            
+
             // Generar código QR si es documento electrónico
             if (facturaLegal.getTimbradoDetalle().getTimbrado().getIsElectronico() != null
                     && facturaLegal.getTimbradoDetalle().getTimbrado().getIsElectronico()) {
@@ -554,7 +577,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     String cdcFormateado = cdc.replaceAll("\\s+", "");
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < cdcFormateado.length(); i += 4) {
-                        if (i > 0) sb.append(" ");
+                        if (i > 0)
+                            sb.append(" ");
                         sb.append(cdcFormateado.substring(i, Math.min(i + 4, cdcFormateado.length())));
                     }
                     escpos.writeLF(center, sb.toString());
@@ -564,18 +588,19 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                         "ESTE DOCUMENTO ES UNA REPRESENTACION GRAFICA DE UN DOCUMENTO ELECTRONICO (XML)");
                 escpos.writeLF("--------------------------------");
             }
-            
+
             if (sucursal != null && sucursal.getNroDelivery() != null) {
                 escpos.write(center, "Delivery? Escaneá el código qr o escribinos al ");
                 escpos.writeLF(center, sucursal.getNroDelivery());
             }
             if (sucursal != null && sucursal.getNroDelivery() != null) {
-                escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), "wa.me/" + sucursal.getNroDelivery());
+                escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center),
+                        "wa.me/" + sucursal.getNroDelivery());
             }
             escpos.feed(1);
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
-//            escpos.writeLF("--------------------------------");
-//            escpos.write( "Conservar este papel ");
+            // escpos.writeLF("--------------------------------");
+            // escpos.write( "Conservar este papel ");
             escpos.feed(5);
 
             try {
@@ -586,25 +611,25 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 } else {
                     this.printerOutputStream = printerOutputStream;
                 }
-//                if (facturaLegal.getId() == null) {
-//                    Long numero = timbradoDetalleService.aumentarNumeroFactura(timbradoDetalle);
-//                    facturaLegal.setTimbradoDetalleId(timbradoDetalle.getId());
-//                    if(venta!=null){
-//                        facturaLegal.setVentaId(venta.getId());
-//                        facturaLegal.setFecha(venta.getCreadoEn());
-//                        facturaLegal.setClienteId(venta.getCliente().getId());
-//                        facturaLegal.setCajaId(venta.getCaja().getId());
-//                    }
-//                    facturaLegal.setTotalFinal(totalFinal);
-//                    facturaLegal.setIvaParcial5(totalIva5);
-//                    facturaLegal.setIvaParcial10(totalIva10);
-//                    facturaLegal.setViaTributaria(false);
-//                    facturaLegal.setAutoimpreso(true);
-//                    facturaLegal.setNumeroFactura(numero.intValue());
-//                    facturaLegal.setTotalParcial5(ventaIva5);
-//                    facturaLegal.setTotalParcial10(ventaIva10);
-//                    facturaLegal.setTotalParcial0(ventaIva0);
-//                }
+                // if (facturaLegal.getId() == null) {
+                // Long numero = timbradoDetalleService.aumentarNumeroFactura(timbradoDetalle);
+                // facturaLegal.setTimbradoDetalleId(timbradoDetalle.getId());
+                // if(venta!=null){
+                // facturaLegal.setVentaId(venta.getId());
+                // facturaLegal.setFecha(venta.getCreadoEn());
+                // facturaLegal.setClienteId(venta.getCliente().getId());
+                // facturaLegal.setCajaId(venta.getCaja().getId());
+                // }
+                // facturaLegal.setTotalFinal(totalFinal);
+                // facturaLegal.setIvaParcial5(totalIva5);
+                // facturaLegal.setIvaParcial10(totalIva10);
+                // facturaLegal.setViaTributaria(false);
+                // facturaLegal.setAutoimpreso(true);
+                // facturaLegal.setNumeroFactura(numero.intValue());
+                // facturaLegal.setTotalParcial5(ventaIva5);
+                // facturaLegal.setTotalParcial10(ventaIva10);
+                // facturaLegal.setTotalParcial0(ventaIva0);
+                // }
             } catch (IOException ioe) {
                 ioe.printStackTrace();
             }
@@ -613,17 +638,19 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     /**
      * Imprime un ticket de factura de 58mm en moneda extranjera.
-     * Todos los valores se muestran convertidos a la moneda extranjera seleccionada.
+     * Todos los valores se muestran convertidos a la moneda extranjera
+     * seleccionada.
      * 
-     * @param venta La venta asociada (opcional)
-     * @param facturaLegal La factura legal a imprimir
+     * @param venta                La venta asociada (opcional)
+     * @param facturaLegal         La factura legal a imprimir
      * @param facturaLegalItemList Lista de items de la factura
-     * @param printerName Nombre de la impresora
-     * @param monedaExtranjera Código de moneda extranjera (ej: "USD", "EUR")
-     * @param tipoCambio Tipo de cambio utilizado
+     * @param printerName          Nombre de la impresora
+     * @param monedaExtranjera     Código de moneda extranjera (ej: "USD", "EUR")
+     * @param tipoCambio           Tipo de cambio utilizado
      */
     public void printTicket58mmFacturaMonedaExtranjera(Venta venta, FacturaLegal facturaLegal,
-            List<FacturaLegalItem> facturaLegalItemList, String printerName, String monedaExtranjera, Double tipoCambio) throws Exception {
+            List<FacturaLegalItem> facturaLegalItemList, String printerName, String monedaExtranjera, Double tipoCambio)
+            throws Exception {
 
         if (facturaLegalItemList == null) {
             facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
@@ -635,13 +662,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (venta != null)
             delivery = venta.getDelivery();
         Double descuento = facturaLegal.getDescuento() != null ? facturaLegal.getDescuento() : 0.0;
-        
+
         // Convertir todos los valores a moneda extranjera
         Double totalFinal = facturaLegal.getTotalFinal();
         Double totalIva10 = facturaLegal.getIvaParcial10() != null ? facturaLegal.getIvaParcial10() : 0.0;
         Double totalIva5 = facturaLegal.getIvaParcial5() != null ? facturaLegal.getIvaParcial5() : 0.0;
         Double totalIva = totalIva10 + totalIva5;
-        
+
         // Convertir valores usando el tipo de cambio
         // Total parcial = total final + descuento (en guaraníes), luego convertir
         Double totalParcialGs = totalFinal + descuento;
@@ -651,7 +678,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         Double totalIva10Extranjera = totalIva10 / tipoCambio;
         Double totalIva5Extranjera = totalIva5 / tipoCambio;
         Double totalIvaExtranjera = totalIva / tipoCambio;
-        Double totalParcial0Extranjera = (facturaLegal.getTotalParcial0() != null ? facturaLegal.getTotalParcial0() : 0.0) / tipoCambio;
+        Double totalParcial0Extranjera = (facturaLegal.getTotalParcial0() != null ? facturaLegal.getTotalParcial0()
+                : 0.0) / tipoCambio;
 
         if (printService != null) {
             printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
@@ -664,7 +692,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             EscPos escpos = new EscPos(printerOutputStream);
             BitImageWrapper imageWrapper = new BitImageWrapper();
             Bitonal algorithm = new BitonalThreshold();
-            
+
             escpos.writeLF("--------------------------------");
             escpos.writeLF(factura, facturaLegal.getTimbradoDetalle().getTimbrado().getRazonSocial().toUpperCase());
             escpos.writeLF(factura, "RUC: " + facturaLegal.getTimbradoDetalle().getTimbrado().getRuc());
@@ -693,10 +721,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF(factura, "Nro: " + sucursal.getCodigoEstablecimientoFactura() + "-"
                     + facturaLegal.getTimbradoDetalle().getPuntoExpedicion() + "-" + numeroFacturaString.toString());
             escpos.writeLF(center, "Condicion: " + (facturaLegal.getCredito() == false ? "Contado" : "Crédito"));
-            
+
             // Mostrar cambio utilizado
-            escpos.writeLF(center.setBold(true), "Cambio: " + 
-                String.format(Locale.GERMAN, "%.2f", tipoCambio) + " Gs/" + monedaExtranjera.toUpperCase());
+            escpos.writeLF(center.setBold(true), "Cambio: " +
+                    String.format(Locale.GERMAN, "%.2f", tipoCambio) + " Gs/" + monedaExtranjera.toUpperCase());
 
             // Mostrar información de dirección del timbrado detalle
             TimbradoDetalle timbradoDetalle = facturaLegal.getTimbradoDetalle();
@@ -709,7 +737,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             if (timbradoDetalle.getDepartamento() != null && !timbradoDetalle.getDepartamento().trim().isEmpty()) {
                 escpos.writeLF(center, timbradoDetalle.getDepartamento());
             }
-            
+
             if (venta != null)
                 escpos.writeLF(center.setBold(true), "Venta: " + venta.getId());
             if (delivery != null) {
@@ -750,14 +778,14 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             List<String> cantidadStrList = new ArrayList<>();
             List<String> cantidadSinIvaList = new ArrayList<>();
             List<String> descripcionList = new ArrayList<>();
-            
+
             int maxValorUnitarioLength = 0;
             int maxValorTotalLength = 0;
-            
+
             for (FacturaLegalItem vi : facturaLegalItemList) {
                 // Prioridad 1: IVA del item directamente
                 Integer iva = vi.getIva();
-                
+
                 // Prioridad 2: IVA del producto vinculado directamente
                 if (iva == null && vi.getProducto() != null) {
                     iva = vi.getProducto().getIva();
@@ -766,12 +794,12 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 else if (iva == null && vi.getPresentacion() != null) {
                     iva = vi.getPresentacion().getProducto().getIva();
                 }
-                
+
                 // Default 10% si no se puede determinar el IVA
                 if (iva == null) {
                     iva = 10;
                 }
-                
+
                 // Construir string de cantidad con unidad de medida si está disponible
                 // Truncar "UNIDAD" a "UN"
                 String unidadMedida = vi.getUnidadMedida();
@@ -780,7 +808,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                         unidadMedida = "UN";
                     }
                 }
-                
+
                 // Cantidad sin IVA (para layout alternativo)
                 String cantidadSinIva;
                 if (unidadMedida != null && !unidadMedida.trim().isEmpty()) {
@@ -788,7 +816,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 } else {
                     cantidadSinIva = String.valueOf(vi.getCantidad().intValue());
                 }
-                
+
                 // Cantidad con IVA (para layout normal)
                 String cantidadStr;
                 if (unidadMedida != null && !unidadMedida.trim().isEmpty()) {
@@ -796,15 +824,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 } else {
                     cantidadStr = vi.getCantidad().intValue() + " " + iva + "%";
                 }
-                
+
                 // Convertir precios a moneda extranjera
                 Double precioUnitarioExtranjera = vi.getPrecioUnitario() / tipoCambio;
                 Double totalItemExtranjera = vi.getTotal() / tipoCambio;
-                
+
                 // Formatear con 2-3 decimales según necesidad
                 String valorUnitario = formatearMonedaExtranjera(precioUnitarioExtranjera);
                 String valorTotal = formatearMonedaExtranjera(totalItemExtranjera);
-                
+
                 valorUnitarioList.add(valorUnitario);
                 valorTotalList.add(valorTotal);
                 ivaList.add(iva);
@@ -813,11 +841,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 // Forzar mayúsculas en descripción
                 String descripcion = vi.getDescripcion() != null ? vi.getDescripcion().toUpperCase() : "";
                 descripcionList.add(descripcion);
-                
+
                 maxValorUnitarioLength = Math.max(maxValorUnitarioLength, valorUnitario.length());
                 maxValorTotalLength = Math.max(maxValorTotalLength, valorTotal.length());
             }
-            
+
             // Calcular longitudes de los totales para detectar overflow
             String parcialExtStr = formatearMonedaExtranjera(totalParcialExtranjera);
             String descExtStr = formatearMonedaExtranjera(descuentoExtranjera);
@@ -826,39 +854,43 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             String totalIva5ExtS = formatearMonedaExtranjera(totalIva5Extranjera);
             String totalIva0ExtS = formatearMonedaExtranjera(totalParcial0Extranjera);
             String totalFinalIvaExtS = formatearMonedaExtranjera(totalIvaExtranjera);
-            
-            int maxTotalLength = Math.max(Math.max(parcialExtStr.length(), descExtStr.length()), 
-                    Math.max(finalExtStr.length(), Math.max(totalIva10ExtS.length(), 
-                    Math.max(totalIva5ExtS.length(), Math.max(totalIva0ExtS.length(), totalFinalIvaExtS.length())))));
-            
+
+            int maxTotalLength = Math.max(Math.max(parcialExtStr.length(), descExtStr.length()),
+                    Math.max(finalExtStr.length(), Math.max(totalIva10ExtS.length(),
+                            Math.max(totalIva5ExtS.length(),
+                                    Math.max(totalIva0ExtS.length(), totalFinalIvaExtS.length())))));
+
             // Calcular ancho total de la línea de totales en layout normal
-            // Formato: "USD. " (5 chars) + parcial (9 espacios reservados) + desc (9 espacios) + final (10 espacios) = 33 caracteres
+            // Formato: "USD. " (5 chars) + parcial (9 espacios reservados) + desc (9
+            // espacios) + final (10 espacios) = 33 caracteres
             // Pero debemos verificar si los valores reales caben
-            int anchoLineaTotales = (monedaExtranjera.toUpperCase() + ". ").length() + 
-                                    Math.max(9, parcialExtStr.length()) + 
-                                    Math.max(9, descExtStr.length()) + 
-                                    Math.max(10, finalExtStr.length());
-            
+            int anchoLineaTotales = (monedaExtranjera.toUpperCase() + ". ").length() +
+                    Math.max(9, parcialExtStr.length()) +
+                    Math.max(9, descExtStr.length()) +
+                    Math.max(10, finalExtStr.length());
+
             // Calcular ancho de línea de IVA en layout normal
-            // Formato: "Gravadas 10%:" (14 chars) + valor (19 espacios reservados) = 33 caracteres
-            int anchoLineaIva = Math.max(14 + 19, 
+            // Formato: "Gravadas 10%:" (14 chars) + valor (19 espacios reservados) = 33
+            // caracteres
+            int anchoLineaIva = Math.max(14 + 19,
                     Math.max("Gravadas 10%:".length() + totalIva10ExtS.length(),
-                    Math.max("Gravadas 5%: ".length() + totalIva5ExtS.length(),
-                    Math.max("Exentas:     ".length() + totalIva0ExtS.length(),
-                             "Total IVA:   ".length() + totalFinalIvaExtS.length()))));
-            
-            // Detectar overflow: 
+                            Math.max("Gravadas 5%: ".length() + totalIva5ExtS.length(),
+                                    Math.max("Exentas:     ".length() + totalIva0ExtS.length(),
+                                            "Total IVA:   ".length() + totalFinalIvaExtS.length()))));
+
+            // Detectar overflow:
             // 1. Si algún valor formateado de items tiene más de 10 caracteres
-            // 2. Si el ancho total de la línea de totales excede 32 caracteres (ancho típico de 58mm)
+            // 2. Si el ancho total de la línea de totales excede 32 caracteres (ancho
+            // típico de 58mm)
             // 3. Si el ancho total de la línea de IVA excede 32 caracteres
             // 4. Si la suma de precio unitario + total + espacios excede 32 caracteres
-            boolean usarLayoutAlternativo = maxValorUnitarioLength > 10 || 
-                    maxValorTotalLength > 10 || 
-                    maxTotalLength > 10 || 
+            boolean usarLayoutAlternativo = maxValorUnitarioLength > 10 ||
+                    maxValorTotalLength > 10 ||
+                    maxTotalLength > 10 ||
                     anchoLineaTotales > 32 ||
                     anchoLineaIva > 32 ||
                     (maxValorUnitarioLength + maxValorTotalLength + 10) > 32;
-            
+
             if (usarLayoutAlternativo) {
                 // Layout alternativo: 2 líneas por producto
                 escpos.writeLF("Producto");
@@ -866,50 +898,55 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 for (int i = 0; i < facturaLegalItemList.size(); i++) {
                     FacturaLegalItem vi = facturaLegalItemList.get(i);
                     escpos.writeLF(descripcionList.get(i));
-                    
+
                     // Línea 1: Cantidad y IVA (32 caracteres totales)
                     escpos.write("Cantidad");
                     for (int j = 8; j < 25; j++) {
                         escpos.write(" ");
                     }
                     escpos.writeLF("Iva");
-                    
+
                     // Mostrar cantidad sin IVA (ej: "328 (UN)")
                     String cantidadSinIvaStr = cantidadSinIvaList.get(i);
                     escpos.write(cantidadSinIvaStr);
-                    // Rellenar espacios hasta la columna 25 (17 espacios después de "Cantidad" de 8 chars = 25)
+                    // Rellenar espacios hasta la columna 25 (17 espacios después de "Cantidad" de 8
+                    // chars = 25)
                     for (int j = cantidadSinIvaStr.length(); j < 25; j++) {
                         escpos.write(" ");
                     }
                     // Mostrar IVA separado
                     escpos.writeLF(ivaList.get(i) + "%");
-                    
-                    // Línea 2: Precio Unitario y Total (32 caracteres: 15 para P.U. y 17 para Total)
+
+                    // Línea 2: Precio Unitario y Total (32 caracteres: 15 para P.U. y 17 para
+                    // Total)
                     escpos.write("P.U.");
                     for (int j = 4; j < 15; j++) {
                         escpos.write(" ");
                     }
                     escpos.writeLF("Total");
-                    
-                    // P.U. con máximo 15 caracteres y Total alineado a la izquierda en la misma línea
+
+                    // P.U. con máximo 15 caracteres y Total alineado a la izquierda en la misma
+                    // línea
                     String puStr = valorUnitarioList.get(i);
                     escpos.write(puStr);
                     // Rellenar espacios hasta 15 caracteres
                     for (int j = puStr.length(); j < 15; j++) {
                         escpos.write(" ");
                     }
-                    
-                    // Total alineado a la izquierda en la misma línea (empieza en columna 16, sin espacios adicionales)
+
+                    // Total alineado a la izquierda en la misma línea (empieza en columna 16, sin
+                    // espacios adicionales)
                     String totalStr = valorTotalList.get(i);
                     // Si el total es muy largo, truncar o ajustar
                     if (totalStr.length() > 17) {
                         // Si excede, usar solo 17 caracteres
                         totalStr = totalStr.substring(0, Math.min(17, totalStr.length()));
                     }
-                    // Escribir el Total en la misma línea (alineado a la izquierda después del P.U.)
+                    // Escribir el Total en la misma línea (alineado a la izquierda después del
+                    // P.U.)
                     escpos.write(totalStr);
                     escpos.writeLF(""); // Nueva línea al final
-                    
+
                     escpos.writeLF("--------------------------------");
                 }
             } else {
@@ -921,7 +958,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     FacturaLegalItem vi = facturaLegalItemList.get(i);
                     escpos.writeLF(descripcionList.get(i));
                     escpos.write(new Style().setBold(true), cantidadStrList.get(i));
-                    
+
                     for (int j = 14; j > cantidadStrList.get(i).length(); j--) {
                         escpos.write(" ");
                     }
@@ -935,7 +972,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
             // Sección de totales en moneda extranjera
             escpos.writeLF("------------Totales-------------");
-            
+
             // Usar layout alternativo si hay overflow
             if (usarLayoutAlternativo) {
                 escpos.writeLF(monedaExtranjera.toUpperCase() + ".");
@@ -949,7 +986,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 escpos.write("Desc."); // 5 chars
                 escpos.write("     "); // 4 espacios = 9 total
                 escpos.writeLF("Final"); // 5 chars
-                
+
                 // Línea de moneda extranjera
                 escpos.write(monedaExtranjera.toUpperCase() + ". ");
                 int espaciosParcialExt = 9 - parcialExtStr.length();
@@ -957,13 +994,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     escpos.write(" ");
                 }
                 escpos.write(parcialExtStr);
-                
+
                 int espaciosDescExt = 9 - descExtStr.length();
                 for (int i = 0; i < espaciosDescExt; i++) {
                     escpos.write(" ");
                 }
                 escpos.write(descExtStr);
-                
+
                 int espaciosFinalExt = 10 - finalExtStr.length();
                 for (int i = 0; i < espaciosFinalExt; i++) {
                     escpos.write(" ");
@@ -1002,7 +1039,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
 
             escpos.writeLF("--------------------------------");
-            
+
             // Generar código QR si es documento electrónico
             if (facturaLegal.getTimbradoDetalle().getTimbrado().getIsElectronico() != null
                     && facturaLegal.getTimbradoDetalle().getTimbrado().getIsElectronico()) {
@@ -1077,29 +1114,32 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * Usa separadores de miles (punto) y coma decimal según Locale.GERMAN.
      * 
      * @param valor El valor a formatear
-     * @return String formateado con 2 o 3 decimales según necesidad, con separadores de miles
+     * @return String formateado con 2 o 3 decimales según necesidad, con
+     *         separadores de miles
      */
     private String formatearMonedaExtranjera(Double valor) {
         if (valor == null || valor.isNaN() || valor.isInfinite()) {
             return "0,00";
         }
-        
+
         // Usar BigDecimal para precisión
         BigDecimal valorBD = BigDecimal.valueOf(valor);
-        
+
         // Redondear a 2 decimales
         BigDecimal valor2Dec = valorBD.setScale(2, RoundingMode.HALF_UP);
-        
+
         // Verificar si el valor tiene más de 2 decimales significativos
-        // Si el valor original es diferente al redondeado a 2 decimales por más de 0.005,
+        // Si el valor original es diferente al redondeado a 2 decimales por más de
+        // 0.005,
         // significa que tiene decimales significativos más allá de 2
         BigDecimal diferencia = valorBD.subtract(valor2Dec).abs();
         BigDecimal umbral = new BigDecimal("0.005"); // Mitad del último decimal de 2 cifras
-        
+
         // Usar NumberFormat para obtener separadores de miles automáticamente
         NumberFormat numberFormat = NumberFormat.getNumberInstance(Locale.GERMAN);
-        
-        // Si la diferencia es mayor al umbral, usar 3 decimales redondeando hacia arriba
+
+        // Si la diferencia es mayor al umbral, usar 3 decimales redondeando hacia
+        // arriba
         if (diferencia.compareTo(umbral) > 0) {
             // Tiene más decimales significativos, usar 3 decimales redondeando hacia arriba
             BigDecimal valor3Dec = valorBD.setScale(3, RoundingMode.UP);
@@ -1143,8 +1183,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 e.printStackTrace();
             }
         }
-        try (FileOutputStream fos = new FileOutputStream("facturas-bodega-franco-" + fechaInicio.substring(0, 10) + ".zip");
-             ZipOutputStream zos = new ZipOutputStream(fos)) {
+        try (FileOutputStream fos = new FileOutputStream(
+                "facturas-bodega-franco-" + fechaInicio.substring(0, 10) + ".zip");
+                ZipOutputStream zos = new ZipOutputStream(fos)) {
 
             for (String fileName : sucursalNames) {
                 File fileToZip = new File(fileName + ".xlsx");
@@ -1187,9 +1228,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             return null;
         }
         Optional<DocumentoElectronico> de = documentoElectronicoService.findByFacturaLegalId(
-            facturaLegal.getId(), 
-            facturaLegal.getSucursalId()
-        );
+                facturaLegal.getId(),
+                facturaLegal.getSucursalId());
         return de.orElse(null);
     }
 
@@ -1202,18 +1242,18 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
         ModelMapper m = new ModelMapper();
         FacturaLegal entity = m.map(input, FacturaLegal.class);
-        
+
         // Set cliente if provided
         if (input.getClienteId() != null) {
             Cliente cliente = clienteService.findById(input.getClienteId()).orElse(null);
             entity.setCliente(cliente);
         }
-        
+
         // Set usuario if provided
         if (input.getUsuarioId() != null) {
             entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        
+
         return service.update(entity);
     }
 
@@ -1226,26 +1266,26 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             if (factura == null) {
                 throw new IllegalArgumentException("Factura no encontrada");
             }
-            
+
             // Validate it's electronic
             if (factura.getCdc() == null || factura.getCdc().isEmpty()) {
                 throw new IllegalArgumentException("La factura no es electrónica");
             }
-            
+
             // Validate it's not already nominada
             if (factura.getCliente() != null) {
                 throw new IllegalStateException("La factura ya está nominada");
             }
-            
+
             // Get cliente
             Cliente cliente = clienteService.findById(clienteId).orElse(null);
             if (cliente == null) {
                 throw new IllegalArgumentException("Cliente no encontrado");
             }
-            
+
             // Call SIFEN service to nominate
             sifenEventoService.nominarReceptor(factura.getCdc(), cliente);
-            
+
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -1274,7 +1314,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 // El método cancelarDE ya maneja su propia transacción y guarda el evento
                 try {
                     sifenEventoService.cancelarDE(factura.getCdc(), "Cancelación solicitada por usuario");
-                    
+
                     // SIFEN aceptó el evento (puede estar PENDIENTE o APROBADO)
                     // Si también quiere cancelar la venta
                     if (cancelarVenta && factura.getVenta() != null) {
@@ -1292,7 +1332,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     }
 
                 } catch (Exception e) {
-                    // SIFEN rechazó el evento - el evento ya fue guardado en la BD con estado RECHAZADO
+                    // SIFEN rechazó el evento - el evento ya fue guardado en la BD con estado
+                    // RECHAZADO
                     String mensajeError = e.getMessage() != null ? e.getMessage() : "Error desconocido";
                     return "ERROR_SIFEN: " + mensajeError;
                 }
@@ -1331,8 +1372,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             Long sucursalId,
             Long timbradoDetalleId,
             Long monedaId,
-            Double tipoCambio
-    ) {
+            Double tipoCambio) {
         try {
             // Si se proporciona monedaId y tipoCambio, actualizar el input
             if (monedaId != null && tipoCambio != null) {
@@ -1346,8 +1386,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     entity,
                     detalleList != null ? detalleList : new ArrayList<>(),
                     sucursalId,
-                    timbradoDetalleId
-            );
+                    timbradoDetalleId);
 
             // Mapear la respuesta del servidor filial a la respuesta GraphQL
             SaveFacturaLegalToFilialResponse graphQLResponse = new SaveFacturaLegalToFilialResponse();
@@ -1382,7 +1421,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
             DocumentoElectronico documentoElectronico = docOpt.get();
             String xmlOriginal = documentoElectronico.getXmlOriginal();
-            
+
             if (xmlOriginal == null || xmlOriginal.isEmpty()) {
                 throw new IllegalArgumentException("El documento electrónico no tiene XML original");
             }
@@ -1411,22 +1450,23 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
 
             DocumentoElectronico documentoElectronico = docOpt.get();
-            
+
             // Obtener sucursal
             Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
-            
+
             // Obtener items de la factura
             List<FacturaLegalItem> items = facturaLegalItemService.findByFacturaLegalId(id, sucId);
-            
+
             // Preparar datos para el reporte Jasper
             // Verificar si tiene moneda extranjera
-            boolean tieneMonedaExtranjera = factura.getMonedaExtranjera() != null && !factura.getMonedaExtranjera().isEmpty();
+            boolean tieneMonedaExtranjera = factura.getMonedaExtranjera() != null
+                    && !factura.getMonedaExtranjera().isEmpty();
             Double tipoCambio = factura.getTipoCambio() != null ? factura.getTipoCambio() : 1.0;
-            
+
             // Cargar y compilar el template Jasper
             File file = ResourceUtils.getFile("classpath:factura-electronica-kude.jrxml");
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
-            
+
             // Preparar datasource con items
             List<FacturaItemDto> itemDtoList = new ArrayList<>();
             for (FacturaLegalItem item : items) {
@@ -1437,7 +1477,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 dto.setPrecioUnitario(item.getPrecioUnitario() != null ? item.getPrecioUnitario() : 0.0);
                 dto.setIva(item.getIva() != null ? item.getIva() : 0);
                 dto.setTotal(item.getTotal() != null ? item.getTotal() : 0.0);
-                
+
                 // Obtener código principal de la presentación
                 String codigo = "";
                 if (item.getPresentacion() != null && item.getPresentacion().getId() != null) {
@@ -1447,23 +1487,24 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     }
                 }
                 dto.setCodigo(codigo);
-                // Usar unidadMedida en lugar de descripción de presentación (UNIDAD, KILO, LITRO, etc.)
+                // Usar unidadMedida en lugar de descripción de presentación (UNIDAD, KILO,
+                // LITRO, etc.)
                 dto.setDescripcionPresentacion(item.getUnidadMedida() != null ? item.getUnidadMedida() : "");
-                
+
                 // Si tiene moneda extranjera, convertir valores
                 if (tieneMonedaExtranjera && tipoCambio > 0) {
                     dto.setPrecioUnitario(dto.getPrecioUnitario() / tipoCambio);
                     dto.setTotal(dto.getTotal() / tipoCambio);
                 }
-                
+
                 itemDtoList.add(dto);
             }
-            
+
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(itemDtoList);
-            
+
             // Preparar parámetros del reporte
             Map<String, Object> parameters = new HashMap<>();
-            
+
             // Logo - solo si NO tiene moneda extranjera
             if (!tieneMonedaExtranjera) {
                 String logoPath = imageService.getImagePath() + File.separator + "logo.png";
@@ -1476,25 +1517,29 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             } else {
                 parameters.put("logo", "");
             }
-            
+
             // Datos del emisor (Timbrado)
             if (factura.getTimbradoDetalle() != null && factura.getTimbradoDetalle().getTimbrado() != null) {
                 com.franco.dev.domain.financiero.Timbrado timbrado = factura.getTimbradoDetalle().getTimbrado();
                 parameters.put("razonSocial", timbrado.getRazonSocial() != null ? timbrado.getRazonSocial() : "");
                 parameters.put("rucEmisor", timbrado.getRuc() != null ? timbrado.getRuc() : "");
                 parameters.put("numeroTimbrado", timbrado.getNumero() != null ? timbrado.getNumero() : "");
-                parameters.put("fechaInicioVigencia", timbrado.getFechaInicio() != null ? 
-                    DateUtils.toString(timbrado.getFechaInicio()) : "");
-                
-                // Dirección del emisor: formatear como "{{direccion}}, {{ciudad}}, {{departamento}}"
+                parameters.put("fechaInicioVigencia",
+                        timbrado.getFechaInicio() != null ? DateUtils.toString(timbrado.getFechaInicio()) : "");
+
+                // Dirección del emisor: formatear como "{{direccion}}, {{ciudad}},
+                // {{departamento}}"
                 StringBuilder direccionEmisorBuilder = new StringBuilder();
-                String direccion = factura.getTimbradoDetalle().getDireccion() != null 
-                    ? factura.getTimbradoDetalle().getDireccion() : "";
-                String ciudad = factura.getTimbradoDetalle().getCiudad() != null 
-                    ? factura.getTimbradoDetalle().getCiudad() : "";
-                String departamento = factura.getTimbradoDetalle().getDepartamento() != null 
-                    ? factura.getTimbradoDetalle().getDepartamento() : "";
-                
+                String direccion = factura.getTimbradoDetalle().getDireccion() != null
+                        ? factura.getTimbradoDetalle().getDireccion()
+                        : "";
+                String ciudad = factura.getTimbradoDetalle().getCiudad() != null
+                        ? factura.getTimbradoDetalle().getCiudad()
+                        : "";
+                String departamento = factura.getTimbradoDetalle().getDepartamento() != null
+                        ? factura.getTimbradoDetalle().getDepartamento()
+                        : "";
+
                 if (!direccion.isEmpty()) {
                     direccionEmisorBuilder.append(direccion);
                 }
@@ -1510,14 +1555,14 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     }
                     direccionEmisorBuilder.append(departamento);
                 }
-                
+
                 // Si no hay datos en timbradoDetalle, usar datos del timbrado como fallback
                 if (direccionEmisorBuilder.length() == 0 && timbrado.getDomicilioFiscalDireccion() != null) {
                     direccionEmisorBuilder.append(timbrado.getDomicilioFiscalDireccion());
                 }
-                
+
                 parameters.put("direccionEmisor", direccionEmisorBuilder.toString());
-                
+
                 if (factura.getTimbradoDetalle().getTelefono() != null) {
                     parameters.put("telefonoEmisor", factura.getTimbradoDetalle().getTelefono());
                 } else if (timbrado.getTelefono() != null) {
@@ -1525,10 +1570,12 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 } else {
                     parameters.put("telefonoEmisor", "");
                 }
-                
+
                 parameters.put("emailEmisor", timbrado.getEmail() != null ? timbrado.getEmail() : "");
-                parameters.put("actividadEconomica", timbrado.getDescActividadEconomicaPrincipal() != null ? 
-                    timbrado.getDescActividadEconomicaPrincipal() : "");
+                parameters.put("actividadEconomica",
+                        timbrado.getDescActividadEconomicaPrincipal() != null
+                                ? timbrado.getDescActividadEconomicaPrincipal()
+                                : "");
             } else {
                 parameters.put("razonSocial", "");
                 parameters.put("rucEmisor", "");
@@ -1539,13 +1586,17 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 parameters.put("emailEmisor", "");
                 parameters.put("actividadEconomica", "");
             }
-            
+
             // Datos de la factura
-            // Formatear número de factura: {codigoEstablecimiento}-{puntoExpedicion}-{numeroFactura}
-            String codigoEstablecimiento = sucursal != null && sucursal.getCodigoEstablecimientoFactura() != null 
-                ? sucursal.getCodigoEstablecimientoFactura() : "000";
-            String puntoExpedicion = factura.getTimbradoDetalle() != null && factura.getTimbradoDetalle().getPuntoExpedicion() != null
-                ? factura.getTimbradoDetalle().getPuntoExpedicion() : "000";
+            // Formatear número de factura:
+            // {codigoEstablecimiento}-{puntoExpedicion}-{numeroFactura}
+            String codigoEstablecimiento = sucursal != null && sucursal.getCodigoEstablecimientoFactura() != null
+                    ? sucursal.getCodigoEstablecimientoFactura()
+                    : "000";
+            String puntoExpedicion = factura.getTimbradoDetalle() != null
+                    && factura.getTimbradoDetalle().getPuntoExpedicion() != null
+                            ? factura.getTimbradoDetalle().getPuntoExpedicion()
+                            : "000";
             String numeroFacturaFormateado = "";
             if (factura.getNumeroFactura() != null) {
                 // Formatear número con padding de 7 dígitos
@@ -1557,7 +1608,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             parameters.put("fechaEmision", factura.getFecha() != null ? DateUtils.toString(factura.getFecha()) : "");
             parameters.put("presupuesto", ""); // No disponible en la entidad actual
             parameters.put("ordenAsociada", ""); // No disponible en la entidad actual
-            
+
             // Datos del cliente
             parameters.put("rucCliente", factura.getRuc() != null ? factura.getRuc() : "");
             parameters.put("nombreCliente", factura.getNombre() != null ? factura.getNombre() : "");
@@ -1567,7 +1618,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             parameters.put("departamentoCliente", ""); // No disponible directamente
             parameters.put("telefonoCliente", ""); // No disponible directamente
             parameters.put("emailCliente", ""); // No disponible directamente
-            
+
             // Condiciones de venta
             parameters.put("contado", factura.getCredito() != null && !factura.getCredito());
             parameters.put("credito", factura.getCredito() != null && factura.getCredito());
@@ -1575,7 +1626,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             parameters.put("moneda", tieneMonedaExtranjera ? factura.getMonedaExtranjera() : "PYG");
             parameters.put("tipoCambio", tieneMonedaExtranjera && tipoCambio != null ? tipoCambio.toString() : "");
             parameters.put("plazo", ""); // No disponible directamente
-            
+
             // Totales - convertir si tiene moneda extranjera
             Double total0 = factura.getTotalParcial0() != null ? factura.getTotalParcial0() : 0.0;
             Double total5 = factura.getTotalParcial5() != null ? factura.getTotalParcial5() : 0.0;
@@ -1583,7 +1634,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             Double iva5 = factura.getIvaParcial5() != null ? factura.getIvaParcial5() : 0.0;
             Double iva10 = factura.getIvaParcial10() != null ? factura.getIvaParcial10() : 0.0;
             Double totalFinal = factura.getTotalFinal() != null ? factura.getTotalFinal() : 0.0;
-            
+
             if (tieneMonedaExtranjera && tipoCambio > 0) {
                 total0 = total0 / tipoCambio;
                 total5 = total5 / tipoCambio;
@@ -1592,7 +1643,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 iva10 = iva10 / tipoCambio;
                 totalFinal = totalFinal / tipoCambio;
             }
-            
+
             parameters.put("subtotalExentas", total0);
             parameters.put("subtotal5", total5);
             parameters.put("subtotal10", total10);
@@ -1601,20 +1652,22 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             parameters.put("totalIva10", iva10);
             parameters.put("totalIva", iva5 + iva10);
             parameters.put("totalFinal", totalFinal);
-            
-            // Total en Guaraníes - si tiene moneda extranjera, calcular como totalFinal * tipoCambio
+
+            // Total en Guaraníes - si tiene moneda extranjera, calcular como totalFinal *
+            // tipoCambio
             // El totalFinal original en guaraníes
             Double totalFinalOriginal = factura.getTotalFinal() != null ? factura.getTotalFinal() : 0.0;
             Double totalEnGuarani = totalFinalOriginal;
             if (tieneMonedaExtranjera && tipoCambio > 0) {
-                // Si tiene moneda extranjera, totalEnGuarani = totalFinal en moneda extranjera * tipoCambio
+                // Si tiene moneda extranjera, totalEnGuarani = totalFinal en moneda extranjera
+                // * tipoCambio
                 totalEnGuarani = totalFinal * tipoCambio;
             }
             parameters.put("totalEnGuarani", totalEnGuarani);
-            
+
             // URL de validación SET
             parameters.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
-            
+
             // QR Code - generar imagen del QR desde urlQr del documento electrónico
             String urlQr = documentoElectronico.getUrlQr() != null ? documentoElectronico.getUrlQr() : "";
             String qrImagePath = "";
@@ -1622,13 +1675,14 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 try {
                     // Generar imagen QR
                     BufferedImage qrImage = QRCodeImageGenerator.generateQRCodeImage(urlQr, 200, 200);
-                    
+
                     // Guardar imagen temporalmente
                     File tempQrFile = File.createTempFile("qr_", ".png");
                     ImageIO.write(qrImage, "PNG", tempQrFile);
                     qrImagePath = tempQrFile.getAbsolutePath();
-                    
-                    // El archivo temporal se eliminará cuando se cierre el proceso o se puede eliminar después de generar el PDF
+
+                    // El archivo temporal se eliminará cuando se cierre el proceso o se puede
+                    // eliminar después de generar el PDF
                 } catch (Exception e) {
                     e.printStackTrace();
                     // Si falla la generación del QR, continuar sin él
@@ -1636,10 +1690,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 }
             }
             parameters.put("qrImagePath", qrImagePath);
-            
+
             // Generar PDF
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-            
+
             // Limpiar archivo temporal del QR si existe
             if (!qrImagePath.isEmpty()) {
                 try {
@@ -1654,7 +1708,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
             String base64String = Base64.getEncoder().encodeToString(pdfBytes);
             return base64String;
-            
+
         } catch (Exception e) {
             e.printStackTrace();
             throw new RuntimeException("Error al generar PDF: " + e.getMessage(), e);
@@ -1672,28 +1726,68 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         private Double precioUnitario;
         private Double total;
 
-        public Long getId() { return id; }
-        public void setId(Long id) { this.id = id; }
-        
-        public String getCodigo() { return codigo; }
-        public void setCodigo(String codigo) { this.codigo = codigo; }
-        
-        public String getDescripcion() { return descripcion; }
-        public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-        
-        public Integer getIva() { return iva; }
-        public void setIva(Integer iva) { this.iva = iva; }
-        
-        public String getDescripcionPresentacion() { return descripcionPresentacion; }
-        public void setDescripcionPresentacion(String descripcionPresentacion) { this.descripcionPresentacion = descripcionPresentacion; }
-        
-        public Float getCantidad() { return cantidad; }
-        public void setCantidad(Float cantidad) { this.cantidad = cantidad; }
-        
-        public Double getPrecioUnitario() { return precioUnitario; }
-        public void setPrecioUnitario(Double precioUnitario) { this.precioUnitario = precioUnitario; }
-        
-        public Double getTotal() { return total; }
-        public void setTotal(Double total) { this.total = total; }
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getCodigo() {
+            return codigo;
+        }
+
+        public void setCodigo(String codigo) {
+            this.codigo = codigo;
+        }
+
+        public String getDescripcion() {
+            return descripcion;
+        }
+
+        public void setDescripcion(String descripcion) {
+            this.descripcion = descripcion;
+        }
+
+        public Integer getIva() {
+            return iva;
+        }
+
+        public void setIva(Integer iva) {
+            this.iva = iva;
+        }
+
+        public String getDescripcionPresentacion() {
+            return descripcionPresentacion;
+        }
+
+        public void setDescripcionPresentacion(String descripcionPresentacion) {
+            this.descripcionPresentacion = descripcionPresentacion;
+        }
+
+        public Float getCantidad() {
+            return cantidad;
+        }
+
+        public void setCantidad(Float cantidad) {
+            this.cantidad = cantidad;
+        }
+
+        public Double getPrecioUnitario() {
+            return precioUnitario;
+        }
+
+        public void setPrecioUnitario(Double precioUnitario) {
+            this.precioUnitario = precioUnitario;
+        }
+
+        public Double getTotal() {
+            return total;
+        }
+
+        public void setTotal(Double total) {
+            this.total = total;
+        }
     }
 }

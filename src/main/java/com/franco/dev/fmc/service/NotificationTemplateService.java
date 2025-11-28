@@ -6,7 +6,10 @@ import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.domain.productos.TipoPrecio;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import java.text.DecimalFormat;
 import org.springframework.stereotype.Service;
@@ -84,6 +87,40 @@ public class NotificationTemplateService {
         return request;
     }
 
+    public PushNotificationRequest ajusteCosto(Producto producto,
+            Sucursal sucursal,
+            Double nuevoCosto,
+            Double costoAnterior,
+            Double ultimoPrecioCompra,
+            Usuario usuario,
+            DecimalFormat decimalFormat) {
+        if (producto == null || nuevoCosto == null) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE AJUSTÓ EL COSTO DEL PRODUCTO ")
+                .append(producto.getDescripcion() != null ? producto.getDescripcion() : "#" + producto.getId());
+        if (sucursal != null && sucursal.getNombre() != null) {
+            builder.append(" EN LA SUCURSAL ").append(sucursal.getNombre());
+        }
+        builder.append(". NUEVO COSTO: ").append(formatGs(nuevoCosto, decimalFormat));
+        if (costoAnterior != null) {
+            builder.append(" | ANTES: ").append(formatGs(costoAnterior, decimalFormat));
+        }
+        if (ultimoPrecioCompra != null) {
+            builder.append(" | ÚLTIMA COMPRA: ").append(formatGs(ultimoPrecioCompra, decimalFormat));
+        }
+        if (usuario != null && usuario.getNickname() != null) {
+            builder.append(". RESPONSABLE: ").append(usuario.getNickname());
+        }
+
+        PushNotificationRequest request = base("AJUSTE DE COSTO REALIZADO", builder.toString());
+        request.setType("AJUSTE_COSTO");
+        request.setData("/productos");
+        return request;
+    }
+
     public PushNotificationRequest productoCreado(Producto producto, Sucursal sucursal) {
         if (producto == null) {
             return null;
@@ -103,6 +140,46 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("NUEVO PRODUCTO CREADO", builder.toString());
         request.setType("PRODUCTO_CREADO");
+        request.setData("/productos");
+        return request;
+    }
+
+    public PushNotificationRequest precioVentaActualizado(Producto producto,
+            Presentacion presentacion,
+            TipoPrecio tipoPrecio,
+            Double nuevoPrecio,
+            Double precioAnterior,
+            Usuario usuario,
+            Sucursal sucursal,
+            DecimalFormat decimalFormat) {
+        if (producto == null || nuevoPrecio == null) {
+            return null;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE ACTUALIZÓ EL PRECIO DE VENTA");
+        if (producto.getDescripcion() != null) {
+            builder.append(" DEL PRODUCTO ").append(producto.getDescripcion());
+        }
+        if (presentacion != null && presentacion.getDescripcion() != null) {
+            builder.append(" | PRESENTACIÓN: ").append(presentacion.getDescripcion());
+        }
+        if (tipoPrecio != null && tipoPrecio.getDescripcion() != null) {
+            builder.append(" | TIPO: ").append(tipoPrecio.getDescripcion());
+        }
+        builder.append(". NUEVO PRECIO: ").append(formatGs(nuevoPrecio, decimalFormat));
+        if (precioAnterior != null) {
+            builder.append(" | ANTERIOR: ").append(formatGs(precioAnterior, decimalFormat));
+        }
+        if (sucursal != null && sucursal.getNombre() != null) {
+            builder.append(" | SUCURSAL: ").append(sucursal.getNombre());
+        }
+        if (usuario != null && usuario.getNickname() != null) {
+            builder.append(" | ACTUALIZADO POR: ").append(usuario.getNickname());
+        }
+
+        PushNotificationRequest request = base("PRECIO ACTUALIZADO", builder.toString());
+        request.setType("PRECIO_ACTUALIZADO");
         request.setData("/productos");
         return request;
     }
@@ -230,5 +307,13 @@ public class NotificationTemplateService {
         request.setType("NUEVO_DISPOSITIVO");
         request.setData("/configuracion/seguridad");
         return request;
+    }
+
+    private String formatGs(Double valor, DecimalFormat decimalFormat) {
+        if (valor == null) {
+            return "-";
+        }
+        DecimalFormat formatter = decimalFormat != null ? decimalFormat : new DecimalFormat("#,###.##");
+        return formatter.format(valor) + " Gs";
     }
 }

@@ -87,4 +87,23 @@ public class NotificationRoleService {
                 "SOPORTE",
                 "VER TRANSFERENCIA");
     }
+
+    public List<String> getRolesForAjusteCosto() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "ANALISIS DE VENTA",
+                "VER PRECIO COSTO",
+                "EDITAR PRODUCTOS");
+    }
+
+    public List<String> getRolesForPrecioActualizado() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "ANALISIS DE VENTA",
+                "VENTA TOUCH",
+                "CREAR PRECIOS",
+                "EDITAR PRECIOS");
+    }
 }

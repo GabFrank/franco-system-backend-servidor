@@ -28,6 +28,7 @@ extend type Query {
     requestPushNotification(entity: NotificacionPushInput!): Boolean
     notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
     getNotificacionesUsuario(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage
+    getConteoNotificacionesNoLeidas(tokenFcm: String!): Int
 }
 
 type Notificacion {

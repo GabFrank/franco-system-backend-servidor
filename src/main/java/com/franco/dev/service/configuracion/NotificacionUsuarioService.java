@@ -55,13 +55,31 @@ public class NotificacionUsuarioService {
         }
         return notificacionUsuarioRepository.findAllByUsuarioId(usuarioId, pageable);
     }
-    
-    public Page<NotificacionUsuario> findByUsuarioIdAndEstadoTablero(Long usuarioId, String tokenFcm, EstadoNotificacionTablero estado, Pageable pageable) {
+
+    public Page<NotificacionUsuario> findByUsuarioIdAndEstadoTablero(Long usuarioId, String tokenFcm,
+            EstadoNotificacionTablero estado, Pageable pageable) {
         return notificacionUsuarioRepository.findByUsuarioIdAndTokenFcmAndEstadoTablero(
-            usuarioId, 
-            tokenFcm,
-            estado,
-            pageable
-        );
+                usuarioId,
+                tokenFcm,
+                estado,
+                pageable);
+    }
+
+    public Page<NotificacionUsuario> findByFilters(Long usuarioId, String tokenFcm, EstadoNotificacionTablero estado,
+            Boolean leida, Pageable pageable) {
+        return notificacionUsuarioRepository.findByFilters(
+                usuarioId,
+                tokenFcm,
+                estado,
+                leida,
+                pageable);
+    }
+
+    public Long countByFilters(Long usuarioId, String tokenFcm, EstadoNotificacionTablero estado, Boolean leida) {
+        return notificacionUsuarioRepository.countByFilters(
+                usuarioId,
+                tokenFcm,
+                estado,
+                leida);
     }
 }

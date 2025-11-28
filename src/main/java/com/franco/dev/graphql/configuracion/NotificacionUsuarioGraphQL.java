@@ -70,38 +70,54 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 20 : size;
         Pageable pageable = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "creadoEn"));
-        
+
         Page<NotificacionUsuario> result;
-        
+
         if (estadoTablero != null && !estadoTablero.isEmpty()) {
             try {
                 EstadoNotificacionTablero estado = EstadoNotificacionTablero.valueOf(estadoTablero);
                 result = notificacionUsuarioService.findByUsuarioIdAndEstadoTablero(
-                    usuario.getId(), tokenFcm, estado, pageable);
+                        usuario.getId(), tokenFcm, estado, pageable);
             } catch (IllegalArgumentException e) {
                 throw new RuntimeException("Estado de tablero no válido: " + estadoTablero);
             }
         } else {
             result = notificacionUsuarioService.findByUsuarioId(usuario.getId(), tokenFcm, pageable);
-            
+
             if (leidas != null) {
                 List<NotificacionUsuario> filteredContent = result.getContent().stream()
-                    .filter(nu -> Boolean.TRUE.equals(nu.getLeida()) == leidas)
-                    .collect(Collectors.toList());
+                        .filter(nu -> Boolean.TRUE.equals(nu.getLeida()) == leidas)
+                        .collect(Collectors.toList());
                 result = new PageImpl<>(
-                    filteredContent,
-                    pageable,
-                    filteredContent.size()
-                );
+                        filteredContent,
+                        pageable,
+                        filteredContent.size());
             }
         }
 
         return new NotificacionUsuarioPage(
-            result.getContent(), 
-            result.getNumber(), 
-            result.getSize(), 
-            result.getTotalElements(),
-            result.getTotalPages()
-        );
+                result.getContent(),
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalElements(),
+                result.getTotalPages());
+    }
+
+    public Long getConteoNotificacionesNoLeidas(String tokenFcm) {
+        org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("Usuario no autenticado");
+        }
+
+        String username = authentication.getName();
+        com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        return notificacionUsuarioService.countByFilters(
+                usuario.getId(),
+                tokenFcm,
+                null,
+                false);
     }
 }

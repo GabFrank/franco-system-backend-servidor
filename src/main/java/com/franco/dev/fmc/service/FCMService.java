@@ -30,17 +30,29 @@ public class FCMService {
 
     public DeliveryResult sendToToken(String token, PushNotificationRequest request) {
         try {
+            logger.info("[FCM-DEBUG] Preparando envío a token: {}", token);
+            logger.info("[FCM-DEBUG] Payload Data: title={}, message={}, type={}",
+                    request.getTitle(), request.getMessage(), request.getType());
+
             Message message = baseMessageBuilder(request)
                     .setToken(token)
                     .putData("path", request.getData() != null ? request.getData() : DEFAULT_DATA_PATH)
+                    .putData("title", request.getTitle())
+                    .putData("message", request.getMessage())
+                    .putData("type", request.getType() != null ? request.getType() : "GENERAL")
                     .build();
-            FirebaseMessaging.getInstance().send(message);
+
+            String response = FirebaseMessaging.getInstance().send(message);
+            logger.info("[FCM-DEBUG] ✅ Envío exitoso. MessageID: {}", response);
+
             if (logger.isDebugEnabled()) {
                 logger.debug("Notificación enviada a token {}", token);
             }
             return DeliveryResult.success();
         } catch (FirebaseMessagingException ex) {
             MessagingErrorCode code = ex.getMessagingErrorCode();
+            logger.error("[FCM-DEBUG] ❌ Error FCM enviando a token {}: {} - {}", token, code, ex.getMessage());
+
             if (logger.isDebugEnabled()) {
                 logger.debug("Error FCM [{}] al enviar a token {} payload {}", code, token,
                         gson.toJson(safeLogPayload(request)));
@@ -53,7 +65,7 @@ public class FCMService {
             }
             return DeliveryResult.failure(ex.getMessage(), code);
         } catch (Exception ex) {
-            logger.error("Error no controlado enviando notificación a token {}", token, ex);
+            logger.error("[FCM-DEBUG] ❌ Error no controlado enviando a token {}: {}", token, ex.getMessage(), ex);
             return DeliveryResult.failure(ex.getMessage(), null);
         }
     }
@@ -63,6 +75,9 @@ public class FCMService {
             Message message = baseMessageBuilder(request)
                     .setTopic(request.getTopic())
                     .putData("path", request.getData() != null ? request.getData() : DEFAULT_DATA_PATH)
+                    .putData("title", request.getTitle())
+                    .putData("message", request.getMessage())
+                    .putData("type", request.getType() != null ? request.getType() : "GENERAL")
                     .build();
             FirebaseMessaging.getInstance().send(message);
             return DeliveryResult.success();

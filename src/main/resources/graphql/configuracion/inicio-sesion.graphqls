@@ -40,7 +40,9 @@ extend type Query {
 
 extend type Mutation {
     saveInicioSesion(entity:InicioSesionInput!):InicioSesion
+    actualizarTokenFcm(tokenFcm: String!): Boolean
 }
+
 
 enum TipoDispositivo {
     ANDROID,

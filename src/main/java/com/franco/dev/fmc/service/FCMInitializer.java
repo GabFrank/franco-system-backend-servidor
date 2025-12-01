@@ -20,13 +20,16 @@ public class FCMInitializer {
     public void initialize() {
         try {
             FirebaseOptions options = new FirebaseOptions.Builder()
-                    .setCredentials(GoogleCredentials.fromStream(new ClassPathResource(firebaseConfigPath).getInputStream())).build();
+                    .setCredentials(GoogleCredentials.fromStream(new ClassPathResource(firebaseConfigPath).getInputStream()))
+                    .setProjectId("bodega-franco-frc")
+                    .build();
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options);
-                logger.info("Firebase application has been initialized");
+                logger.info("Firebase application has been initialized with project: bodega-franco-frc");
+                logger.info("Firebase Sender ID: 170136643206");
             }
         } catch (IOException e) {
-            logger.error(e.getMessage());
+            logger.error("Error initializing Firebase: " + e.getMessage());
         }
     }
 }

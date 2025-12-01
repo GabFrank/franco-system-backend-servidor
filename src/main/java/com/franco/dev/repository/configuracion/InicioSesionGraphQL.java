@@ -84,4 +84,47 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.count();
     }
 
+    public Boolean actualizarTokenFcm(String tokenFcm) {
+        try {
+            org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication();
+
+            if (authentication == null || !authentication.isAuthenticated()) {
+                System.err.println("[FCM] Usuario no autenticado al intentar actualizar token");
+                return false;
+            }
+
+            String username = authentication.getName();
+            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username)
+                    .orElse(null);
+
+            if (usuario == null) {
+                System.err.println("[FCM] Usuario no encontrado: " + username);
+                return false;
+            }
+            Pageable pageable = PageRequest.of(0, 1);
+            Page\u003cInicioSesion\u003e sesionesActivas = service.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), null,
+                    pageable);
+
+            if (sesionesActivas.isEmpty()) {
+                System.err.println("[FCM] No se encontró sesión activa para el usuario: " + username);
+                return false;
+            }
+
+            InicioSesion sesionActiva = sesionesActivas.getContent().get(0);
+            sesionActiva.setToken(tokenFcm);
+            service.save(sesionActiva);
+
+            System.out.println("[FCM] ✅ Token FCM actualizado correctamente para usuario: " + username);
+            System.out.println("[FCM] Token: " + tokenFcm);
+            System.out.println("[FCM] Sesión ID: " + sesionActiva.getId());
+
+            return true;
+        } catch (Exception e) {
+            System.err.println("[FCM] ❌ Error al actualizar token FCM: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 }

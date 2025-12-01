@@ -62,11 +62,6 @@ public class PushNotificationService {
             throw new ValidationException("Debe definir el topic para enviar la notificación");
         }
         DeliveryResult result = fcmService.sendToTopic(request);
-        if (result.getOutcome() != DeliveryResult.DeliveryOutcome.SUCCESS) {
-            LOGGER.warn("Fallo envío a tópico {} - {}", request.getTopic(), result.getMessage());
-        } else {
-            LOGGER.info("Notificación enviada al tópico {}", request.getTopic());
-        }
     }
 
     private void enqueue(PushNotificationRequest request) {
@@ -85,7 +80,6 @@ public class PushNotificationService {
             notificacion.setEstado(EstadoNotificacion.CANCELADA);
             notificacion.setUltimoError("No existen tokens activos para la solicitud");
             notificacionRepository.save(notificacion);
-            LOGGER.warn("No se encontraron tokens para la notificación {}", request.getTitle());
             return;
         }
 
@@ -95,7 +89,6 @@ public class PushNotificationService {
                 .collect(Collectors.toList());
         notificacionUsuarioRepository.saveAll(usuarios);
         dispatchService.dispatchAsync();
-        LOGGER.debug("Notificación {} encolada para {} destinatarios", notificacion.getId(), usuarios.size());
     }
 
     private Notificacion buildNotification(PushNotificationRequest request) {

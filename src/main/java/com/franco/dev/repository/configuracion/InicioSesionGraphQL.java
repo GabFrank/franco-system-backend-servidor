@@ -90,7 +90,6 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     .getContext().getAuthentication();
 
             if (authentication == null || !authentication.isAuthenticated()) {
-                System.err.println("[FCM] Usuario no autenticado al intentar actualizar token");
                 return false;
             }
 
@@ -99,15 +98,13 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     .orElse(null);
 
             if (usuario == null) {
-                System.err.println("[FCM] Usuario no encontrado: " + username);
                 return false;
             }
             Pageable pageable = PageRequest.of(0, 1);
-            Page\u003cInicioSesion\u003e sesionesActivas = service.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), null,
+            Page<InicioSesion> sesionesActivas = service.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), null,
                     pageable);
 
             if (sesionesActivas.isEmpty()) {
-                System.err.println("[FCM] No se encontró sesión activa para el usuario: " + username);
                 return false;
             }
 
@@ -115,13 +112,8 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             sesionActiva.setToken(tokenFcm);
             service.save(sesionActiva);
 
-            System.out.println("[FCM] ✅ Token FCM actualizado correctamente para usuario: " + username);
-            System.out.println("[FCM] Token: " + tokenFcm);
-            System.out.println("[FCM] Sesión ID: " + sesionActiva.getId());
-
             return true;
         } catch (Exception e) {
-            System.err.println("[FCM] ❌ Error al actualizar token FCM: " + e.getMessage());
             e.printStackTrace();
             return false;
         }

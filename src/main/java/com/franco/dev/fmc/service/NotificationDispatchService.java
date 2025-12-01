@@ -64,7 +64,11 @@ public class NotificationDispatchService {
         if (pendientes.isEmpty()) {
             return;
         }
-        LOGGER.debug("Procesando {} notificaciones pendientes", pendientes.size());
+        for (NotificacionUsuario target : pendientes) {
+            target.setEstadoEnvio(EstadoEnvio.EN_PROCESO);
+        }
+        notificacionUsuarioRepository.saveAll(pendientes);
+
         for (NotificacionUsuario target : pendientes) {
             Notificacion notificacion = target.getNotificacion();
             PushNotificationRequest request = new PushNotificationRequest();

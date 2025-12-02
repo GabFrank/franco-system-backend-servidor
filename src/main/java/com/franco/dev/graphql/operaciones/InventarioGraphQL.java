@@ -18,6 +18,9 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
+import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.fmc.service.NotificationRoleService;
+import com.franco.dev.fmc.model.PushNotificationRequest;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -66,6 +69,12 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private PushNotificationService pushNotificationService;
+
+    @Autowired
+    private NotificationRoleService notificationRoleService;
+
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
     }
@@ -90,12 +99,52 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public Inventario saveInventario(InventarioInput input) {
         ModelMapper m = new ModelMapper();
         Inventario e = m.map(input, Inventario.class);
+        boolean esNuevo = input.getId() == null;
         if (input.getFechaInicio() != null) e.setFechaInicio(stringToDate(input.getFechaInicio()));
         if (input.getFechaFin() != null) e.setFechaFin(stringToDate(input.getFechaFin()));
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
+        if (esNuevo && e.getId() != null) {
+            enviarNotificacionInventarioIniciado(e);
+        }
+        
         return e;
+    }
+    private void enviarNotificacionInventarioIniciado(Inventario inventario) {
+        try {
+            List<String> roles = notificationRoleService.getRolesForInventarioIniciado();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+
+            if (!usuarioIds.isEmpty()) {
+                PushNotificationRequest request = new PushNotificationRequest();
+                request.setTitle("INVENTARIO INICIADO");
+                
+                String sucursalNombre = inventario.getSucursal() != null 
+                    ? inventario.getSucursal().getNombre() 
+                    : "Sucursal no especificada";
+                String usuarioNombre = inventario.getUsuario() != null 
+                    ? inventario.getUsuario().getPersona().getNombre() 
+                    : "Usuario";
+                String tipoInventario = inventario.getTipo() != null 
+                    ? inventario.getTipo().name() 
+                    : "";
+                
+                request.setMessage(String.format(
+                    "Se ha iniciado un nuevo inventario %s en %s por %s",
+                    tipoInventario,
+                    sucursalNombre,
+                    usuarioNombre
+                ));
+                request.setType("INVENTARIO_INICIADO");
+                request.setData("/inventario/" + inventario.getId());
+                request.setUsuarioIds(usuarioIds);
+
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception ex) {
+            System.err.println("Error enviando notificación de inventario iniciado: " + ex.getMessage());
+        }
     }
 
     public Boolean deleteInventario(Long id) {

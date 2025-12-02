@@ -107,13 +107,34 @@ public class PushNotificationService {
         List<Target> targets = new ArrayList<>();
 
         if (request.hasUsuarios()) {
-            inicioSesionService.findActiveSessionsByUsuarioIds(request.getUsuarioIds()).forEach(session -> {
+            LOGGER.info("[PushNotification] Buscando sesiones con tokens válidos para {} usuarios",
+                    request.getUsuarioIds().size());
+            List<com.franco.dev.domain.configuracion.InicioSesion> sesiones = inicioSesionService
+                    .findSessionsWithValidTokensByUsuarioIds(request.getUsuarioIds());
+            LOGGER.info(
+                    "[PushNotification] Se encontraron {} sesiones con tokens válidos (incluyendo sesiones cerradas)",
+                    sesiones.size());
+
+            sesiones.forEach(session -> {
                 String token = session.getToken();
+                Long usuarioId = session.getUsuario() != null ? session.getUsuario().getId() : null;
+                String tipoDispositivo = session.getTipoDespositivo() != null ? session.getTipoDespositivo().toString()
+                        : "DESCONOCIDO";
+
                 if (token != null && dedup.add(token)) {
-                    Long usuarioId = session.getUsuario() != null ? session.getUsuario().getId() : null;
                     targets.add(new Target(usuarioId, token));
+                    LOGGER.info("[PushNotification] ✓ Token agregado - Usuario: {}, Dispositivo: {}, Token: {}...",
+                            usuarioId, tipoDispositivo, token.substring(0, Math.min(20, token.length())));
+                } else if (token == null) {
+                    LOGGER.warn("[PushNotification] ✗ Sesión sin token - Usuario: {}, Dispositivo: {}",
+                            usuarioId, tipoDispositivo);
+                } else {
+                    LOGGER.warn("[PushNotification] ✗ Token duplicado ignorado - Usuario: {}, Dispositivo: {}",
+                            usuarioId, tipoDispositivo);
                 }
             });
+
+            LOGGER.info("[PushNotification] Total de tokens únicos resueltos: {}", targets.size());
         }
 
         if (request.hasDirectTokens()) {

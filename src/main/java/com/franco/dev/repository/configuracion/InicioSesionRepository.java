@@ -26,4 +26,10 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE InicioSesion s SET s.token = null WHERE s.token = :token")
     void clearTokenByToken(@org.springframework.data.repository.query.Param("token") String token);
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM InicioSesion s WHERE s.usuario.id IN :usuarioIds " +
+            "AND s.token IS NOT NULL AND s.token != '' " +
+            "ORDER BY s.id DESC")
+    List<InicioSesion> findByUsuarioIdInWithValidTokens(
+            @org.springframework.data.repository.query.Param("usuarioIds") Collection<Long> usuarioIds);
 }

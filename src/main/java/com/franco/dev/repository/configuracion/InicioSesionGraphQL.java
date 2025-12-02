@@ -100,17 +100,38 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             if (usuario == null) {
                 return false;
             }
-            Pageable pageable = PageRequest.of(0, 1);
+
+            List<InicioSesion> sesionesConToken = service.getRepository().findByToken(tokenFcm);
+
+            if (!sesionesConToken.isEmpty()) {
+                InicioSesion sesionExistente = sesionesConToken.get(0);
+                if (sesionExistente.getUsuario() != null &&
+                        sesionExistente.getUsuario().getId().equals(usuario.getId()) &&
+                        sesionExistente.getHoraFin() == null) {
+                    return true;
+                }
+            }
+            Pageable pageable = PageRequest.of(0, 100);
             Page<InicioSesion> sesionesActivas = service.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), null,
                     pageable);
 
             if (sesionesActivas.isEmpty()) {
                 return false;
             }
+            InicioSesion sesionParaActualizar = null;
 
-            InicioSesion sesionActiva = sesionesActivas.getContent().get(0);
-            sesionActiva.setToken(tokenFcm);
-            service.save(sesionActiva);
+            for (InicioSesion sesion : sesionesActivas.getContent()) {
+                if (sesion.getToken() == null || sesion.getToken().trim().isEmpty()) {
+                    sesionParaActualizar = sesion;
+                    break;
+                }
+            }
+            if (sesionParaActualizar == null) {
+                sesionParaActualizar = sesionesActivas.getContent().get(0);
+            }
+
+            sesionParaActualizar.setToken(tokenFcm);
+            service.save(sesionParaActualizar);
 
             return true;
         } catch (Exception e) {

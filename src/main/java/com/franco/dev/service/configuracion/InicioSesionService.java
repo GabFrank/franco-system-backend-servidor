@@ -62,6 +62,19 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         return repository.findByUsuarioIdInAndHoraFinIsNullOrderByIdDesc(usuarioIds);
     }
 
+    /**
+     * Busca todas las sesiones con tokens FCM válidos para los usuarios
+     * especificados,
+     * independientemente de si la sesión está activa o cerrada.
+     * Esto permite enviar notificaciones push incluso cuando la app no está en uso.
+     */
+    public List<InicioSesion> findSessionsWithValidTokensByUsuarioIds(Collection<Long> usuarioIds) {
+        if (usuarioIds == null || usuarioIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return repository.findByUsuarioIdInWithValidTokens(usuarioIds);
+    }
+
     @org.springframework.transaction.annotation.Transactional
     public void clearToken(String token) {
         if (token == null || token.isEmpty()) {

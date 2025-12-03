@@ -20,6 +20,7 @@ import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.fmc.service.NotificationRoleService;
+import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -75,6 +76,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private NotificationRoleService notificationRoleService;
 
+    @Autowired
+    private NotificationTemplateService notificationTemplateService;
+
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
     }
@@ -113,13 +117,17 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
     private void enviarNotificacionInventarioIniciado(Inventario inventario) {
         try {
-            List<String> roles = notificationRoleService.getRolesForInventarioIniciado();
+            // Roles que deben recibir la notificación de inventario iniciado
+            List<String> roles = Arrays.asList(
+                "ADMIN",
+                "SOPORTE", 
+                "CREAR INVENTARIO",
+                "VER INVENTARIO",
+                "PARTICIPAR DEL INVENTARIO"
+            );
             List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
             if (!usuarioIds.isEmpty()) {
-                PushNotificationRequest request = new PushNotificationRequest();
-                request.setTitle("INVENTARIO INICIADO");
-                
                 String sucursalNombre = inventario.getSucursal() != null 
                     ? inventario.getSucursal().getNombre() 
                     : "Sucursal no especificada";
@@ -130,14 +138,13 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                     ? inventario.getTipo().name() 
                     : "";
                 
-                request.setMessage(String.format(
-                    "Se ha iniciado un nuevo inventario %s en %s por %s",
+                // Usar el template genérico
+                PushNotificationRequest request = notificationTemplateService.inventarioIniciado(
                     tipoInventario,
                     sucursalNombre,
-                    usuarioNombre
-                ));
-                request.setType("INVENTARIO_INICIADO");
-                request.setData("/inventario/" + inventario.getId());
+                    usuarioNombre,
+                    inventario.getId()
+                );
                 request.setUsuarioIds(usuarioIds);
 
                 pushNotificationService.sendPushNotificationToToken(request);

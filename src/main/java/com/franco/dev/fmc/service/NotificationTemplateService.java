@@ -209,6 +209,30 @@ public class NotificationTemplateService {
         return request;
     }
 
+    public PushNotificationRequest inventarioIniciado(String tipoInventario, String sucursalNombre, String usuarioNombre, Long inventarioId) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA INICIADO UN NUEVO INVENTARIO");
+        
+        if (tipoInventario != null && !tipoInventario.isEmpty()) {
+            builder.append(" TIPO ").append(tipoInventario);
+        }
+        
+        if (sucursalNombre != null && !sucursalNombre.isEmpty()) {
+            builder.append(" EN ").append(sucursalNombre.toUpperCase());
+        }
+        
+        if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
+            builder.append(". RESPONSABLE: ").append(usuarioNombre.toUpperCase());
+        }
+        
+        builder.append(". REQUIERE PARTICIPACIÓN DEL PERSONAL AUTORIZADO.");
+
+        PushNotificationRequest request = base("INVENTARIO INICIADO", builder.toString());
+        request.setType("INVENTARIO_INICIADO");
+        request.setData("/inventario/" + (inventarioId != null ? inventarioId : ""));
+        return request;
+    }
+
     private PushNotificationRequest base(String title, String message) {
         PushNotificationRequest request = new PushNotificationRequest();
         request.setTitle(title);
@@ -296,14 +320,14 @@ public class NotificationTemplateService {
 
     public PushNotificationRequest nuevoDispositivoDetectado(String tipoDispositivo, String nombreSucursal) {
         StringBuilder builder = new StringBuilder();
-        builder.append("ALERTA DE SEGURIDAD: Se ha detectado un inicio de sesión desde un nuevo dispositivo ");
+        builder.append("ALERTA DE SEGURIDAD: SE HA DETECTADO UN INICIO DE SESIÓN DESDE UN NUEVO DISPOSITIVO ");
         builder.append(tipoDispositivo != null ? tipoDispositivo : "DESCONOCIDO");
         if (nombreSucursal != null) {
             builder.append(" en la sucursal ").append(nombreSucursal);
         }
-        builder.append(". ¿Fuiste tú? Si no reconoces esta actividad, cambia tu contraseña inmediatamente.");
+        builder.append(". ¿FUE TÚ? SI NO RECONOCE ESTA ACTIVIDAD, CAMBIA TU CONTRASEÑA INMEDIATAMENTE.");
 
-        PushNotificationRequest request = base("Nuevo Dispositivo Detectado", builder.toString());
+        PushNotificationRequest request = base("NUEVO DISPOSITIVO DETECTADO", builder.toString());
         request.setType("NUEVO_DISPOSITIVO");
         request.setData("/configuracion/seguridad");
         return request;

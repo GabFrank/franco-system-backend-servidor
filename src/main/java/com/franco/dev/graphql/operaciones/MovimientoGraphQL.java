@@ -111,9 +111,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             try {
                 enviarNotificacionAjusteStock(saved);
             } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de ajuste de stock"
-                                + t.getMessage());
+                // Silent notification error
             }
 
             return saved;
@@ -203,7 +201,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println("[NOTIFICACION] Error interno al procesar notificación: " + e.getMessage());
+            // Silent notification error
         }
     }
 

@@ -150,9 +150,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             try {
                 enviarNotificacionProductoCreado(e);
             } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de producto creado"
-                                + t.getMessage());
+                // Silent notification error
             }
         }
         return e;
@@ -297,7 +295,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println("[NOTIFICACION] Error interno al procesar notificación de producto: " + e.getMessage());
+            // Silent notification error
         }
     }
 }

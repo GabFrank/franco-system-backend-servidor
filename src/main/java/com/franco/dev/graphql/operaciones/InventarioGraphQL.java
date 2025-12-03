@@ -143,7 +143,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception ex) {
-            System.err.println("Error enviando notificación de inventario iniciado: " + ex.getMessage());
+            // Silent notification error
         }
     }
 

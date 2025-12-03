@@ -66,13 +66,12 @@ public class PushNotificationController {
                         @PathVariable Double valorTotal) {
                 try {
 
-                        Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
+                Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
 
-                        if (usuarioCliente == null) {
-                                log.warn("⚠️ No se encontró usuario para persona ID: {}", personaId);
-                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
-                                                "Usuario no encontrado para el cliente"), HttpStatus.NOT_FOUND);
-                        }
+                if (usuarioCliente == null) {
+                        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                        "Usuario no encontrado para el cliente"), HttpStatus.NOT_FOUND);
+                }
 
                         Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
                         VentaCredito ventaCreditoTemp = new VentaCredito();
@@ -85,12 +84,10 @@ public class PushNotificationController {
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest requestAdmin = notificationTemplateService
                                                 .ventaCreditoRealizada(ventaCreditoTemp, sucursal, df);
-                                requestAdmin.setType("VENTA_CREDITO_ADMIN");
-                                requestAdmin.setUsuarioIds(usuariosRelevantes);
-                                pushNotificationService.sendPushNotificationToToken(requestAdmin);
-                        } else {
-                                log.warn("⚠️ No se encontraron usuarios con roles relevantes para VentaCredito");
-                        }
+                        requestAdmin.setType("VENTA_CREDITO_ADMIN");
+                        requestAdmin.setUsuarioIds(usuariosRelevantes);
+                        pushNotificationService.sendPushNotificationToToken(requestAdmin);
+                }
 
                         PushNotificationRequest requestCliente = notificationTemplateService
                                         .ventaCreditoRealizadaCliente(ventaCreditoTemp, sucursal, df);
@@ -101,7 +98,6 @@ public class PushNotificationController {
                                         "Notificaciones enviadas exitosamente"), HttpStatus.ACCEPTED);
 
                 } catch (Exception e) {
-                        log.error("❌ Error al enviar notificación de VentaCredito: {}", e.getMessage(), e);
                         return new ResponseEntity<>(
                                         new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                                         "Error al enviar notificación: " + e.getMessage()),
@@ -117,7 +113,6 @@ public class PushNotificationController {
                         @PathVariable String clienteNombre) {
                 try {
                         if (valorTotal < 3000000) {
-                                log.warn("⚠️ Factura no cumple el mínimo de 3.000.000 Gs. Valor: {}", valorTotal);
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.BAD_REQUEST.value(),
                                                 "Factura no cumple el mínimo de 3.000.000 Gs"), HttpStatus.BAD_REQUEST);
                         }
@@ -134,14 +129,12 @@ public class PushNotificationController {
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
                                                 "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
                         } else {
-                                log.warn("⚠️ No se encontraron usuarios con roles relevantes para factura de alto valor");
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
                                                 "No se encontraron usuarios con roles relevantes"),
                                                 HttpStatus.NOT_FOUND);
                         }
 
                 } catch (Exception e) {
-                        log.error("❌ Error al enviar notificación de factura de alto valor: {}", e.getMessage(), e);
                         return new ResponseEntity<>(
                                         new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                                                         "Error al enviar notificación: " + e.getMessage()),

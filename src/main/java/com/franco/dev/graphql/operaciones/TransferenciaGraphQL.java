@@ -152,9 +152,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             try {
                 enviarNotificacionTransferenciaIniciada(e);
             } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de transferencia iniciada"
-                                + t.getMessage());
+                // Silent notification error
             }
         } else {
             // Verificar cambio de sucursal en etapa PRE_TRANSFERENCIA_CREACION
@@ -415,8 +413,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println(
-                    "[NOTIFICACION] Error interno al procesar notificación de transferencia: " + e.getMessage());
+            // Silent notification error
         }
     }
 
@@ -440,7 +437,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println("[NOTIFICACION] Error interno al notificar cambio de sucursal: " + e.getMessage());
+            // Silent notification error
         }
     }
 }

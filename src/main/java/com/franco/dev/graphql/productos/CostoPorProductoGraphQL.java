@@ -139,7 +139,7 @@ public class CostoPorProductoGraphQL implements GraphQLQueryResolver, GraphQLMut
             request.setUsuarioIds(usuarioIds);
             pushNotificationService.sendPushNotificationToToken(request);
         } catch (Exception e) {
-            log.error("Error al enviar notificación de ajuste de costo: {}", e.getMessage(), e);
+            // Silent notification error
         }
     }
 

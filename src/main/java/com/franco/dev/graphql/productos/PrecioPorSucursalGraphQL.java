@@ -143,7 +143,7 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
             request.setUsuarioIds(usuarioIds);
             pushNotificationService.sendPushNotificationToToken(request);
         } catch (Exception e) {
-            log.error("Error al enviar notificación de precio actualizado: {}", e.getMessage(), e);
+            // Silent notification error
         }
     }
 

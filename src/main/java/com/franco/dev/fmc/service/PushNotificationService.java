@@ -1,6 +1,8 @@
 package com.franco.dev.fmc.service;
 
 import com.franco.dev.domain.configuracion.Notificacion;
+import com.franco.dev.domain.configuracion.NotificacionDestinatario;
+import com.franco.dev.domain.configuracion.NotificacionEnvioLog;
 import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
@@ -8,12 +10,16 @@ import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.DeliveryResult;
 import com.franco.dev.fmc.model.PushNotificationRequest;
+import com.franco.dev.repository.configuracion.NotificacionDestinatarioRepository;
+import com.franco.dev.repository.configuracion.NotificacionEnvioLogRepository;
 import com.franco.dev.repository.configuracion.NotificacionRepository;
 import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
 import com.franco.dev.service.configuracion.InicioSesionService;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -33,6 +39,8 @@ public class PushNotificationService {
     private static final Logger LOGGER = LoggerFactory.getLogger(PushNotificationService.class);
     private final NotificacionRepository notificacionRepository;
     private final NotificacionUsuarioRepository notificacionUsuarioRepository;
+    private final NotificacionDestinatarioRepository notificacionDestinatarioRepository;
+    private final NotificacionEnvioLogRepository notificacionEnvioLogRepository;
     private final NotificationDispatchService dispatchService;
     private final InicioSesionService inicioSesionService;
     private final FCMService fcmService;
@@ -43,11 +51,15 @@ public class PushNotificationService {
     public PushNotificationService(
             NotificacionRepository notificacionRepository,
             NotificacionUsuarioRepository notificacionUsuarioRepository,
+            NotificacionDestinatarioRepository notificacionDestinatarioRepository,
+            NotificacionEnvioLogRepository notificacionEnvioLogRepository,
             NotificationDispatchService dispatchService,
             InicioSesionService inicioSesionService,
             FCMService fcmService) {
         this.notificacionRepository = notificacionRepository;
         this.notificacionUsuarioRepository = notificacionUsuarioRepository;
+        this.notificacionDestinatarioRepository = notificacionDestinatarioRepository;
+        this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
         this.dispatchService = dispatchService;
         this.inicioSesionService = inicioSesionService;
         this.fcmService = fcmService;
@@ -73,7 +85,10 @@ public class PushNotificationService {
             return;
         }
 
+        // 1. Crear notificación con estado compartido
         Notificacion notificacion = buildNotification(request);
+        
+        // 2. Resolver targets (usuarios + tokens)
         List<Target> targets = resolveTargets(request);
 
         if (targets.isEmpty()) {
@@ -83,11 +98,35 @@ public class PushNotificationService {
             return;
         }
 
+        // 3. Guardar notificación
         notificacionRepository.save(notificacion);
-        List<NotificacionUsuario> usuarios = targets.stream()
+        
+        // 4. Crear registros de destinatarios (UN registro por usuario)
+        Map<Long, Usuario> usuariosMap = new LinkedHashMap<>();
+        for (Target target : targets) {
+            if (target.getUsuarioId() != null && !usuariosMap.containsKey(target.getUsuarioId())) {
+                Usuario usuario = entityManager.getReference(Usuario.class, target.getUsuarioId());
+                usuariosMap.put(target.getUsuarioId(), usuario);
+            }
+        }
+        
+        List<NotificacionDestinatario> destinatarios = usuariosMap.values().stream()
+            .map(usuario -> buildNotificacionDestinatario(notificacion, usuario))
+            .collect(Collectors.toList());
+        notificacionDestinatarioRepository.saveAll(destinatarios);
+        
+        // 5. Crear logs de envío FCM (para cada token)
+        List<NotificacionEnvioLog> logs = targets.stream()
+            .map(target -> buildNotificacionEnvioLog(notificacion, target))
+            .collect(Collectors.toList());
+        notificacionEnvioLogRepository.saveAll(logs);
+        
+        // 6. Mantener tabla antigua para compatibilidad temporal
+        List<NotificacionUsuario> usuariosLegacy = targets.stream()
                 .map(target -> buildNotificacionUsuario(notificacion, target))
                 .collect(Collectors.toList());
-        notificacionUsuarioRepository.saveAll(usuarios);
+        notificacionUsuarioRepository.saveAll(usuariosLegacy);
+        
         dispatchService.dispatchAsync();
     }
 
@@ -98,6 +137,7 @@ public class PushNotificationService {
         notificacion.setData(request.getData());
         notificacion.setTipo(request.getType() != null ? request.getType() : "GENERAL");
         notificacion.setEstado(EstadoNotificacion.ACTIVA);
+        notificacion.setEstadoTablero(EstadoNotificacionTablero.POR_VERIFICAR);
         notificacion.setIntentosEnvio(0);
         return notificacion;
     }
@@ -107,34 +147,17 @@ public class PushNotificationService {
         List<Target> targets = new ArrayList<>();
 
         if (request.hasUsuarios()) {
-            LOGGER.info("[PushNotification] Buscando sesiones con tokens válidos para {} usuarios",
-                    request.getUsuarioIds().size());
             List<com.franco.dev.domain.configuracion.InicioSesion> sesiones = inicioSesionService
                     .findSessionsWithValidTokensByUsuarioIds(request.getUsuarioIds());
-            LOGGER.info(
-                    "[PushNotification] Se encontraron {} sesiones con tokens válidos (incluyendo sesiones cerradas)",
-                    sesiones.size());
 
             sesiones.forEach(session -> {
                 String token = session.getToken();
                 Long usuarioId = session.getUsuario() != null ? session.getUsuario().getId() : null;
-                String tipoDispositivo = session.getTipoDespositivo() != null ? session.getTipoDespositivo().toString()
-                        : "DESCONOCIDO";
 
                 if (token != null && dedup.add(token)) {
                     targets.add(new Target(usuarioId, token));
-                    LOGGER.info("[PushNotification] ✓ Token agregado - Usuario: {}, Dispositivo: {}, Token: {}...",
-                            usuarioId, tipoDispositivo, token.substring(0, Math.min(20, token.length())));
-                } else if (token == null) {
-                    LOGGER.warn("[PushNotification] ✗ Sesión sin token - Usuario: {}, Dispositivo: {}",
-                            usuarioId, tipoDispositivo);
-                } else {
-                    LOGGER.warn("[PushNotification] ✗ Token duplicado ignorado - Usuario: {}, Dispositivo: {}",
-                            usuarioId, tipoDispositivo);
                 }
             });
-
-            LOGGER.info("[PushNotification] Total de tokens únicos resueltos: {}", targets.size());
         }
 
         if (request.hasDirectTokens()) {
@@ -152,6 +175,26 @@ public class PushNotificationService {
                     .forEach(token -> targets.add(new Target(null, token)));
         }
         return targets;
+    }
+
+    private NotificacionDestinatario buildNotificacionDestinatario(Notificacion notificacion, Usuario usuario) {
+        NotificacionDestinatario entity = new NotificacionDestinatario();
+        entity.setNotificacion(notificacion);
+        entity.setUsuario(usuario);
+        entity.setLeida(false);
+        return entity;
+    }
+    
+    private NotificacionEnvioLog buildNotificacionEnvioLog(Notificacion notificacion, Target target) {
+        NotificacionEnvioLog log = new NotificacionEnvioLog();
+        log.setNotificacion(notificacion);
+        if (target.getUsuarioId() != null) {
+            Usuario usuario = entityManager.getReference(Usuario.class, target.getUsuarioId());
+            log.setUsuario(usuario);
+        }
+        log.setTokenFcm(target.getToken());
+        log.setEstadoEnvio(EstadoEnvio.PENDIENTE);
+        return log;
     }
 
     private NotificacionUsuario buildNotificacionUsuario(Notificacion notificacion, Target target) {

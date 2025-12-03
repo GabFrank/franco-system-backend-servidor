@@ -35,28 +35,21 @@ public class NotificacionCleanupService {
     @Transactional
     public void limpiarNotificacionesAntiguas() {
         if (!cleanupEnabled) {
-            logger.debug("Limpieza de notificaciones deshabilitada por configuración");
             return;
         }
 
         LocalDateTime fechaLimite = LocalDateTime.now().minusDays(retentionDays);
 
-        Long eliminadosUsuarios = 0L;
-        Long eliminados = 0L;
-
         try {
-            eliminadosUsuarios = notificacionUsuarioRepository.deleteByFechaEnvioBefore(fechaLimite);
+            notificacionUsuarioRepository.deleteByFechaEnvioBefore(fechaLimite);
         } catch (Exception e) {
-            logger.error("Error eliminando notificacion_usuario antes de {}", fechaLimite, e);
+            // Silent cleanup
         }
 
         try {
-            eliminados = notificacionRepository.deleteByCreadoEnBefore(fechaLimite);
+            notificacionRepository.deleteByCreadoEnBefore(fechaLimite);
         } catch (Exception e) {
-            logger.error("Error eliminando notificacion antes de {}", fechaLimite, e);
+            // Silent cleanup
         }
-
-        logger.info("Limpieza de notificaciones: {} registros de usuario eliminados y {} notificaciones eliminadas (antes de {})",
-                eliminadosUsuarios, eliminados, fechaLimite);
     }
 }

@@ -51,7 +51,6 @@ public class FCMService {
             }
             return DeliveryResult.failure(ex.getMessage(), code);
         } catch (Exception ex) {
-            logger.error("Error no controlado enviando notificación: {}", ex.getMessage());
             return DeliveryResult.failure(ex.getMessage(), null);
         }
     }

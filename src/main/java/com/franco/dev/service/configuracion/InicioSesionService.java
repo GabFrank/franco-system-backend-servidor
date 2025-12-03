@@ -61,13 +61,6 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         }
         return repository.findByUsuarioIdInAndHoraFinIsNullOrderByIdDesc(usuarioIds);
     }
-
-    /**
-     * Busca todas las sesiones con tokens FCM válidos para los usuarios
-     * especificados,
-     * independientemente de si la sesión está activa o cerrada.
-     * Esto permite enviar notificaciones push incluso cuando la app no está en uso.
-     */
     public List<InicioSesion> findSessionsWithValidTokensByUsuarioIds(Collection<Long> usuarioIds) {
         if (usuarioIds == null || usuarioIds.isEmpty()) {
             return Collections.emptyList();
@@ -88,21 +81,29 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService,
             com.franco.dev.service.empresarial.SucursalService sucursalService) {
 
-        if (sesion == null || sesion.getUsuario() == null || sesion.getIdDispositivo() == null) {
+        System.out.println("[DEBUG] ===== INICIO detectarYNotificarNuevoDispositivo =====");
+        
+        if (sesion == null) {
+            System.out.println("[DEBUG] Sesión es null, retornando...");
             return;
         }
+        
+        if (sesion.getUsuario() == null) {
+            System.out.println("[DEBUG] Usuario es null, retornando...");
+            return;
+        }
+        
+        System.out.println("[DEBUG] Usuario ID: " + sesion.getUsuario().getId());
+        System.out.println("[DEBUG] Usuario Nombre: " + 
+                (sesion.getUsuario().getPersona() != null ? sesion.getUsuario().getPersona().getNombre() : "Sin persona"));
+        System.out.println("[DEBUG] Usuario Nickname: " + sesion.getUsuario().getNickname());
 
         try {
-            boolean esDispositivoNuevo = !repository.existsByUsuarioIdAndIdDispositivo(
-                    sesion.getUsuario().getId(), sesion.getIdDispositivo());
+            boolean esDispositivoNuevo = sesion.getIdDispositivo() != null && 
+                    !repository.existsByUsuarioIdAndIdDispositivo(
+                            sesion.getUsuario().getId(), sesion.getIdDispositivo());
 
-            if (!esDispositivoNuevo) {
-                return;
-            }
-
-            String tipoDispositivo = sesion.getTipoDespositivo() != null
-                    ? sesion.getTipoDespositivo().toString()
-                    : "DESCONOCIDO";
+            System.out.println("[DEBUG] Es dispositivo nuevo: " + esDispositivoNuevo);
 
             String nombreSucursal = null;
             if (sesion.getSucursal() != null && sucursalService != null) {
@@ -112,15 +113,43 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
                     nombreSucursal = sucursal.getNombre();
                 }
             }
+            if (esDispositivoNuevo) {
+                System.out.println("[DEBUG] Enviando notificación de dispositivo nuevo...");
+                String tipoDispositivo = sesion.getTipoDespositivo() != null
+                        ? sesion.getTipoDespositivo().toString()
+                        : "DESCONOCIDO";
 
-            com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
-                    .nuevoDispositivoDetectado(tipoDispositivo, nombreSucursal);
+                com.franco.dev.fmc.model.PushNotificationRequest requestSeguridad = notificationTemplateService
+                        .nuevoDispositivoDetectado(tipoDispositivo, nombreSucursal);
 
-            request.setUsuarioIds(java.util.Collections.singletonList(sesion.getUsuario().getId()));
-            pushNotificationService.sendPushNotificationToToken(request);
+                requestSeguridad.setUsuarioIds(java.util.Collections.singletonList(sesion.getUsuario().getId()));
+                pushNotificationService.sendPushNotificationToToken(requestSeguridad);
+                System.out.println("[DEBUG] Notificación de dispositivo nuevo enviada");
+            }
+            System.out.println("[DEBUG] Preparando notificación de bienvenida...");
+            String nombreUsuario = sesion.getUsuario().getPersona() != null && sesion.getUsuario().getPersona().getNombre() != null
+                    ? sesion.getUsuario().getPersona().getNombre() 
+                    : sesion.getUsuario().getNickname();
+            
+            System.out.println("[DEBUG] Nombre usuario para notificación: " + nombreUsuario);
+            
+            com.franco.dev.fmc.model.PushNotificationRequest requestBienvenida = 
+                    new com.franco.dev.fmc.model.PushNotificationRequest();
+            requestBienvenida.setTitle("SE HA INICIADO SESION EN SU CUENTA");
+            requestBienvenida.setMessage("BIENVENIDO " + (nombreUsuario != null ? nombreUsuario.toUpperCase() : "USUARIO"));
+            requestBienvenida.setData("/");
+            requestBienvenida.setType("LOGIN");
+            requestBienvenida.setUsuarioIds(java.util.Collections.singletonList(sesion.getUsuario().getId()));
+            
+            System.out.println("[DEBUG] Enviando notificación de bienvenida al usuario ID: " + sesion.getUsuario().getId());
+            pushNotificationService.sendPushNotificationToToken(requestBienvenida);
+            System.out.println("[DEBUG] Notificación de bienvenida enviada exitosamente");
 
         } catch (Exception e) {
-            System.err.println("[SEGURIDAD] Error al detectar/notificar nuevo dispositivo: " + e.getMessage());
+            System.err.println("[ERROR] Error al detectar/notificar inicio de sesión: " + e.getMessage());
+            e.printStackTrace();
         }
+        
+        System.out.println("[DEBUG] ===== FIN detectarYNotificarNuevoDispositivo =====");
     }
 }

@@ -26,10 +26,8 @@ input NotificacionPushInput {
 
 extend type Query {
     requestPushNotification(entity: NotificacionPushInput!): Boolean
-    # Nueva API con estado compartido (sin tokenFcm)
     getNotificacionesUsuario(leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionDestinatarioPage
     getConteoNotificacionesNoLeidas: Int
-    # API legacy (mantener para compatibilidad)
     notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
     getNotificacionesUsuarioLegacy(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage
 }
@@ -40,7 +38,6 @@ type Notificacion {
     mensaje: String
     tipo: String
     data: String
-    # Campos nuevos: estado compartido
     estadoTablero: String
     verificadoPorUsuario: Usuario
     fechaVerificacion: Date
@@ -48,12 +45,10 @@ type Notificacion {
     creadoEn: Date
 }
 
-# Nueva entidad: NotificacionDestinatario (reemplaza NotificacionUsuario)
 type NotificacionDestinatario {
     id: Int
     notificacion: Notificacion
     usuario: Usuario
-    # Propiedades individuales
     leida: Boolean
     fechaLeida: Date
     fechaEntrega: Date
@@ -68,7 +63,6 @@ type NotificacionDestinatarioPage {
     totalPages: Int
 }
 
-# Entidad legacy (mantener para compatibilidad)
 type NotificacionUsuario {
     id: Int
     notificacion: Notificacion
@@ -91,10 +85,9 @@ type NotificacionUsuarioPage {
 }
 
 extend type Mutation {
-    # Nueva API
     marcarNotificacionLeida(notificacionId: Int!): Boolean
     cambiarEstadoTableroNotificacion(notificacionId: Int!, estado: String!): Boolean
-    # API legacy (mantener para compatibilidad)
+    enviarNotificacionPersonalizada(mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
     registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean
     actualizarEstadoTableroNotificacion(notificacionUsuarioId: Int!, estado: String!): Boolean
 }

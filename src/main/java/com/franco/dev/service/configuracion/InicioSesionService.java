@@ -68,6 +68,14 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         return repository.findByUsuarioIdInWithValidTokens(usuarioIds);
     }
 
+    /**
+     * Obtiene todas las sesiones con tokens válidos (para envío masivo de notificaciones)
+     * @return Lista de sesiones con tokens válidos
+     */
+    public List<InicioSesion> findSessionsWithValidTokens() {
+        return repository.findAllWithValidTokens();
+    }
+
     @org.springframework.transaction.annotation.Transactional
     public void clearToken(String token) {
         if (token == null || token.isEmpty()) {

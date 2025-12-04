@@ -83,6 +83,14 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         return repository.findByNicknameIgnoreCase(nickname.toUpperCase());
     }
 
+    /**
+     * Obtiene todos los usuarios activos ordenados por nombre
+     * @return Lista de usuarios activos
+     */
+    public List<Usuario> findAllActivos() {
+        return repository.findAllActivos();
+    }
+
     @Override
     public Usuario save(Usuario entity) {
         if (entity.getId() == null) {

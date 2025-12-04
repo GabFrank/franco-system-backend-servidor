@@ -32,4 +32,9 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
             "ORDER BY s.id DESC")
     List<InicioSesion> findByUsuarioIdInWithValidTokens(
             @org.springframework.data.repository.query.Param("usuarioIds") Collection<Long> usuarioIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM InicioSesion s WHERE " +
+            "s.token IS NOT NULL AND s.token != '' AND s.usuario IS NOT NULL " +
+            "ORDER BY s.id DESC")
+    List<InicioSesion> findAllWithValidTokens();
 }

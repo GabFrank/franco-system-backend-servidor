@@ -84,11 +84,7 @@ public class PushNotificationService {
             sendPushNotificationToTopic(request);
             return;
         }
-
-        // 1. Crear notificación con estado compartido
         Notificacion notificacion = buildNotification(request);
-
-        // 2. Resolver targets (usuarios + tokens)
         List<Target> targets = resolveTargets(request);
 
         if (targets.isEmpty()) {
@@ -97,11 +93,8 @@ public class PushNotificationService {
             notificacionRepository.save(notificacion);
             return;
         }
-
-        // 3. Guardar notificación
         notificacionRepository.save(notificacion);
 
-        // 4. Crear registros de destinatarios (UN registro por usuario)
         Map<Long, Usuario> usuariosMap = new LinkedHashMap<>();
         for (Target target : targets) {
             if (target.getUsuarioId() != null && !usuariosMap.containsKey(target.getUsuarioId())) {
@@ -109,7 +102,6 @@ public class PushNotificationService {
                 usuariosMap.put(target.getUsuarioId(), usuario);
             }
         }
-
         List<NotificacionDestinatario> destinatarios = usuariosMap.values().stream()
                 .map(usuario -> buildNotificacionDestinatario(notificacion, usuario))
                 .collect(Collectors.toList());
@@ -200,6 +192,73 @@ public class PushNotificationService {
         entity.setEstadoEnvio(EstadoEnvio.PENDIENTE);
         entity.setEstadoTablero(EstadoNotificacionTablero.POR_VERIFICAR);
         return entity;
+    }
+
+    /**
+     * Envía una notificación personalizada a usuarios específicos o a todos los usuarios activos
+     * @param mensaje Contenido del mensaje de la notificación
+     * @param tipoEnvio Tipo de envío: "TODOS" o "ESPECIFICOS"
+     * @param usuariosIds Lista de IDs de usuarios (requerido si tipoEnvio es "ESPECIFICOS")
+     * @return true si se envió exitosamente, false en caso contrario
+     */
+    public Boolean enviarNotificacionPersonalizada(String mensaje, String tipoEnvio, List<Long> usuariosIds) {
+        try {
+            if (mensaje == null || mensaje.trim().isEmpty()) {
+                LOGGER.warn("El mensaje no puede estar vacío");
+                return false;
+            }
+
+            if (tipoEnvio == null || tipoEnvio.trim().isEmpty()) {
+                LOGGER.warn("El tipo de envío no puede estar vacío");
+                return false;
+            }
+            tipoEnvio = tipoEnvio.toUpperCase().trim();
+
+            if (!"TODOS".equals(tipoEnvio) && !"ESPECIFICOS".equals(tipoEnvio)) {
+                LOGGER.warn("Tipo de envío inválido: {}. Debe ser 'TODOS' o 'ESPECIFICOS'", tipoEnvio);
+                return false;
+            }
+
+            if ("ESPECIFICOS".equals(tipoEnvio) && (usuariosIds == null || usuariosIds.isEmpty())) {
+                LOGGER.warn("Debe especificar al menos un usuario cuando tipoEnvio es 'ESPECIFICOS'");
+                return false;
+            }
+
+            PushNotificationRequest request = new PushNotificationRequest();
+            request.setTitle("Notificación del Sistema");
+            request.setMessage(mensaje);
+            request.setType("PERSONALIZADA");
+            
+            List<Long> destinatariosIds;
+            if ("TODOS".equals(tipoEnvio)) {
+                List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = 
+                    inicioSesionService.findSessionsWithValidTokens();
+                destinatariosIds = sesionesActivas.stream()
+                    .filter(s -> s.getUsuario() != null)
+                    .map(s -> s.getUsuario().getId())
+                    .distinct()
+                    .collect(Collectors.toList());
+                
+                if (destinatariosIds.isEmpty()) {
+                    LOGGER.warn("No hay usuarios activos en el sistema");
+                    return false;
+                }
+            } else {
+                destinatariosIds = usuariosIds;
+            }
+
+            request.setUsuarioIds(destinatariosIds);
+
+            sendPushNotificationToToken(request);
+
+            LOGGER.info("Notificación personalizada enviada exitosamente. Tipo: {}, Destinatarios: {}", 
+                tipoEnvio, destinatariosIds.size());
+            return true;
+
+        } catch (Exception e) {
+            LOGGER.error("Error al enviar notificación personalizada", e);
+            return false;
+        }
     }
 
     private static class Target {

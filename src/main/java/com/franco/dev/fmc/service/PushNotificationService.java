@@ -195,14 +195,24 @@ public class PushNotificationService {
     }
 
     /**
-     * Envía una notificación personalizada a usuarios específicos o a todos los usuarios activos
-     * @param mensaje Contenido del mensaje de la notificación
-     * @param tipoEnvio Tipo de envío: "TODOS" o "ESPECIFICOS"
-     * @param usuariosIds Lista de IDs de usuarios (requerido si tipoEnvio es "ESPECIFICOS")
+     * Envía una notificación personalizada a usuarios específicos o a todos los
+     * usuarios activos
+     * 
+     * @param titulo      Título de la notificación
+     * @param mensaje     Contenido del mensaje de la notificación
+     * @param tipoEnvio   Tipo de envío: "TODOS" o "ESPECIFICOS"
+     * @param usuariosIds Lista de IDs de usuarios (requerido si tipoEnvio es
+     *                    "ESPECIFICOS")
      * @return true si se envió exitosamente, false en caso contrario
      */
-    public Boolean enviarNotificacionPersonalizada(String mensaje, String tipoEnvio, List<Long> usuariosIds) {
+    public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio,
+            List<Long> usuariosIds) {
         try {
+            if (titulo == null || titulo.trim().isEmpty()) {
+                LOGGER.warn("El título no puede estar vacío");
+                return false;
+            }
+
             if (mensaje == null || mensaje.trim().isEmpty()) {
                 LOGGER.warn("El mensaje no puede estar vacío");
                 return false;
@@ -225,20 +235,20 @@ public class PushNotificationService {
             }
 
             PushNotificationRequest request = new PushNotificationRequest();
-            request.setTitle("Notificación del Sistema");
+            request.setTitle(titulo);
             request.setMessage(mensaje);
             request.setType("PERSONALIZADA");
-            
+
             List<Long> destinatariosIds;
             if ("TODOS".equals(tipoEnvio)) {
-                List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = 
-                    inicioSesionService.findSessionsWithValidTokens();
+                List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = inicioSesionService
+                        .findSessionsWithValidTokens();
                 destinatariosIds = sesionesActivas.stream()
-                    .filter(s -> s.getUsuario() != null)
-                    .map(s -> s.getUsuario().getId())
-                    .distinct()
-                    .collect(Collectors.toList());
-                
+                        .filter(s -> s.getUsuario() != null)
+                        .map(s -> s.getUsuario().getId())
+                        .distinct()
+                        .collect(Collectors.toList());
+
                 if (destinatariosIds.isEmpty()) {
                     LOGGER.warn("No hay usuarios activos en el sistema");
                     return false;
@@ -251,8 +261,8 @@ public class PushNotificationService {
 
             sendPushNotificationToToken(request);
 
-            LOGGER.info("Notificación personalizada enviada exitosamente. Tipo: {}, Destinatarios: {}", 
-                tipoEnvio, destinatariosIds.size());
+            LOGGER.info("Notificación personalizada enviada exitosamente. Título: {}, Tipo: {}, Destinatarios: {}",
+                    titulo, tipoEnvio, destinatariosIds.size());
             return true;
 
         } catch (Exception e) {

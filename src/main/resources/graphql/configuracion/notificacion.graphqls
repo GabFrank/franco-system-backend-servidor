@@ -84,11 +84,11 @@ type NotificacionUsuarioPage {
     totalPages: Int
 }
 
-extend type Mutation {
-    marcarNotificacionLeida(notificacionId: Int!): Boolean
-    cambiarEstadoTableroNotificacion(notificacionId: Int!, estado: String!): Boolean
-    enviarNotificacionPersonalizada(mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
-    registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean
-    actualizarEstadoTableroNotificacion(notificacionUsuarioId: Int!, estado: String!): Boolean
-}
+  extend type Mutation {
+      marcarNotificacionLeida(notificacionId: Int!): Boolean
+      cambiarEstadoTableroNotificacion(notificacionId: Int!, estado: String!): Boolean
+      enviarNotificacionPersonalizada(titulo: String!, mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
+      registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean
+      actualizarEstadoTableroNotificacion(notificacionUsuarioId: Int!, estado: String!): Boolean
+  }
 

@@ -55,12 +55,13 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     /**
      * Envía una notificación personalizada a usuarios específicos o a todos los usuarios activos
+     * @param titulo Título de la notificación
      * @param mensaje Contenido del mensaje de la notificación
      * @param tipoEnvio Tipo de envío: "TODOS" o "ESPECIFICOS"
      * @param usuariosIds Lista de IDs de usuarios (requerido si tipoEnvio es "ESPECIFICOS")
      * @return true si se envió exitosamente, false en caso contrario
      */
-    public Boolean enviarNotificacionPersonalizada(String mensaje, String tipoEnvio, java.util.List<Integer> usuariosIds) {
+    public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio, java.util.List<Integer> usuariosIds) {
         try {
             java.util.List<Long> usuariosIdsLong = null;
             if (usuariosIds != null) {
@@ -69,7 +70,7 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
                     .collect(java.util.stream.Collectors.toList());
             }
             
-            return pushNotificationService.enviarNotificacionPersonalizada(mensaje, tipoEnvio, usuariosIdsLong);
+            return pushNotificationService.enviarNotificacionPersonalizada(titulo, mensaje, tipoEnvio, usuariosIdsLong);
         } catch (Exception e) {
             e.printStackTrace();
             return false;

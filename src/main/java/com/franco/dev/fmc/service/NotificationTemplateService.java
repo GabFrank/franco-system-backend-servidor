@@ -117,7 +117,7 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("AJUSTE DE COSTO REALIZADO", builder.toString());
         request.setType("AJUSTE_COSTO");
-        request.setData("/productos");
+        request.setData("/productos/" + (producto != null && producto.getId() != null ? producto.getId() : ""));
         return request;
     }
 
@@ -140,7 +140,7 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("NUEVO PRODUCTO CREADO", builder.toString());
         request.setType("PRODUCTO_CREADO");
-        request.setData("/productos");
+        request.setData("/productos/" + (producto.getId() != null ? producto.getId() : ""));
         return request;
     }
 
@@ -180,7 +180,7 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("PRECIO ACTUALIZADO", builder.toString());
         request.setType("PRECIO_ACTUALIZADO");
-        request.setData("/productos");
+        request.setData("/productos/" + (producto.getId() != null ? producto.getId() : ""));
         return request;
     }
 
@@ -205,7 +205,7 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("TRANSFERENCIA INICIADA", builder.toString());
         request.setType("TRANSFERENCIA_INICIADA");
-        request.setData("/operaciones/transferencias");
+        request.setData("/operaciones/transferencias/" + transferencia.getId());
         return request;
     }
 
@@ -314,7 +314,7 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("CAMBIO DE SUCURSAL EN TRANSFERENCIA", builder.toString());
         request.setType("CAMBIO_SUCURSAL_PRE_TRANSFERENCIA");
-        request.setData("/operaciones/transferencias");
+        request.setData("/operaciones/transferencias/" + transferencia.getId());
         return request;
     }
 

@@ -87,7 +87,7 @@ public class PushNotificationService {
 
         // 1. Crear notificación con estado compartido
         Notificacion notificacion = buildNotification(request);
-        
+
         // 2. Resolver targets (usuarios + tokens)
         List<Target> targets = resolveTargets(request);
 
@@ -100,7 +100,7 @@ public class PushNotificationService {
 
         // 3. Guardar notificación
         notificacionRepository.save(notificacion);
-        
+
         // 4. Crear registros de destinatarios (UN registro por usuario)
         Map<Long, Usuario> usuariosMap = new LinkedHashMap<>();
         for (Target target : targets) {
@@ -109,24 +109,16 @@ public class PushNotificationService {
                 usuariosMap.put(target.getUsuarioId(), usuario);
             }
         }
-        
+
         List<NotificacionDestinatario> destinatarios = usuariosMap.values().stream()
-            .map(usuario -> buildNotificacionDestinatario(notificacion, usuario))
-            .collect(Collectors.toList());
-        notificacionDestinatarioRepository.saveAll(destinatarios);
-        
-        // 5. Crear logs de envío FCM (para cada token)
-        List<NotificacionEnvioLog> logs = targets.stream()
-            .map(target -> buildNotificacionEnvioLog(notificacion, target))
-            .collect(Collectors.toList());
-        notificacionEnvioLogRepository.saveAll(logs);
-        
-        // 6. Mantener tabla antigua para compatibilidad temporal
-        List<NotificacionUsuario> usuariosLegacy = targets.stream()
-                .map(target -> buildNotificacionUsuario(notificacion, target))
+                .map(usuario -> buildNotificacionDestinatario(notificacion, usuario))
                 .collect(Collectors.toList());
-        notificacionUsuarioRepository.saveAll(usuariosLegacy);
-        
+        notificacionDestinatarioRepository.saveAll(destinatarios);
+        List<NotificacionEnvioLog> logs = targets.stream()
+                .map(target -> buildNotificacionEnvioLog(notificacion, target))
+                .collect(Collectors.toList());
+        notificacionEnvioLogRepository.saveAll(logs);
+
         dispatchService.dispatchAsync();
     }
 
@@ -184,7 +176,7 @@ public class PushNotificationService {
         entity.setLeida(false);
         return entity;
     }
-    
+
     private NotificacionEnvioLog buildNotificacionEnvioLog(Notificacion notificacion, Target target) {
         NotificacionEnvioLog log = new NotificacionEnvioLog();
         log.setNotificacion(notificacion);

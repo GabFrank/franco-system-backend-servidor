@@ -13,10 +13,9 @@ public interface NotificacionRoleRepository extends HelperRepository<Notificacio
         return NotificacionRole.class;
     }
 
-    @Query("SELECT nr FROM NotificacionRole nr WHERE nr.notificacion.id = :notificacionId")
+    @Query("SELECT nr FROM NotificacionRole nr JOIN FETCH nr.role WHERE nr.notificacion.id = :notificacionId")
     List<NotificacionRole> findByNotificacionId(@Param("notificacionId") Long notificacionId);
 
     @Query("SELECT nr FROM NotificacionRole nr WHERE nr.role.id = :roleId")
     List<NotificacionRole> findByRoleId(@Param("roleId") Long roleId);
 }
-

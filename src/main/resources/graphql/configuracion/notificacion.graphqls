@@ -30,6 +30,10 @@ extend type Query {
     getConteoNotificacionesNoLeidas: Int
     notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
     getNotificacionesUsuarioLegacy(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage
+    getComentariosNotificacion(notificacionId: Int!): [NotificacionComentario]
+    getConteoComentariosNotificacion(notificacionId: Int!): Int
+    getUsuariosDestinatariosNotificacion(notificacionId: Int!): [Usuario]
+    getUsuariosConAccesoNotificacion(notificacionId: Int!): [Usuario]
 }
 
 type Notificacion {
@@ -43,6 +47,17 @@ type Notificacion {
     fechaVerificacion: Date
     usuarioCreador: Usuario
     creadoEn: Date
+    conteoComentarios: Int
+}
+
+type NotificacionComentario {
+    id: Int
+    notificacion: Notificacion
+    usuario: Usuario
+    comentario: String
+    comentarioPadre: NotificacionComentario
+    creadoEn: Date
+    actualizadoEn: Date
 }
 
 type NotificacionDestinatario {
@@ -90,5 +105,6 @@ type NotificacionUsuarioPage {
       enviarNotificacionPersonalizada(titulo: String!, mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
       registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean
       actualizarEstadoTableroNotificacion(notificacionUsuarioId: Int!, estado: String!): Boolean
+      crearComentarioNotificacion(notificacionId: Int!, comentario: String!, comentarioPadreId: Int): NotificacionComentario
   }
 

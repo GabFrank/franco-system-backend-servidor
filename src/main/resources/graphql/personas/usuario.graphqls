@@ -29,7 +29,7 @@ extend type Query {
     saveUsuarioImage(id:ID!, type:String!, image:String!):Boolean
     getUsuarioImages(id:ID!, type:String!):[String]
     isUserFaceAuth(id:ID!):Int
-    getUsuariosActivos:[Usuario]
+    usuariosActivos:[Usuario]
 }
 
 extend type Mutation {

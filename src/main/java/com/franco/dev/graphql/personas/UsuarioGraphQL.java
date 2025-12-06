@@ -99,7 +99,7 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
      * Obtiene todos los usuarios activos del sistema
      * @return Lista de usuarios activos ordenados por nombre
      */
-    public List<Usuario> getUsuariosActivos() {
+    public List<Usuario> usuariosActivos() {
         return service.findAllActivos();
     }
 }

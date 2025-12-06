@@ -26,14 +26,14 @@ input NotificacionPushInput {
 
 extend type Query {
     requestPushNotification(entity: NotificacionPushInput!): Boolean
-    getNotificacionesUsuario(leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionDestinatarioPage
-    getConteoNotificacionesNoLeidas: Int
+    notificacionesUsuario(leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionDestinatarioPage
+    conteoNotificacionesNoLeidas: Int
     notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
-    getNotificacionesUsuarioLegacy(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage
-    getComentariosNotificacion(notificacionId: Int!): [NotificacionComentario]
-    getConteoComentariosNotificacion(notificacionId: Int!): Int
-    getUsuariosDestinatariosNotificacion(notificacionId: Int!): [Usuario]
-    getUsuariosConAccesoNotificacion(notificacionId: Int!): [Usuario]
+    notificacionesUsuarioLegacy(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage
+    comentariosNotificacion(notificacionId: Int!): [NotificacionComentario]
+    conteoComentariosNotificacion(notificacionId: Int!): Int
+    usuariosDestinatariosNotificacion(notificacionId: Int!): [Usuario]
+    usuariosConAccesoNotificacion(notificacionId: Int!): [Usuario]
 }
 
 type Notificacion {

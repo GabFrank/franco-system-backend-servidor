@@ -109,7 +109,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         }
     }
 
-    public NotificacionDestinatarioPage getNotificacionesUsuario(Boolean leidas,
+    public NotificacionDestinatarioPage notificacionesUsuario(Boolean leidas,
             Integer page, Integer size, String estadoTablero) {
 
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
@@ -149,7 +149,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     @Deprecated
-    public NotificacionUsuarioPage getNotificacionesUsuarioLegacy(String tokenFcm, Boolean leidas,
+    public NotificacionUsuarioPage notificacionesUsuarioLegacy(String tokenFcm, Boolean leidas,
             Integer page, Integer size, String estadoTablero) {
 
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
@@ -198,7 +198,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
                 result.getTotalPages());
     }
 
-    public Long getConteoNotificacionesNoLeidas() {
+    public Long conteoNotificacionesNoLeidas() {
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -212,7 +212,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         return notificacionDestinatarioService.countNoLeidasByUsuarioId(usuario.getId());
     }
 
-    public List<NotificacionComentario> getComentariosNotificacion(Long notificacionId) {
+    public List<NotificacionComentario> comentariosNotificacion(Long notificacionId) {
         try {
             return notificacionComentarioService.obtenerComentariosPorNotificacion(notificacionId);
         } catch (Exception e) {
@@ -221,7 +221,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         }
     }
 
-    public Long getConteoComentariosNotificacion(Long notificacionId) {
+    public Long conteoComentariosNotificacion(Long notificacionId) {
         try {
             return notificacionComentarioService.contarComentariosPorNotificacion(notificacionId);
         } catch (Exception e) {
@@ -230,7 +230,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         }
     }
 
-    public List<Usuario> getUsuariosDestinatariosNotificacion(Long notificacionId) {
+    public List<Usuario> usuariosDestinatariosNotificacion(Long notificacionId) {
         try {
             return notificacionDestinatarioService.obtenerUsuariosDestinatarios(notificacionId);
         } catch (Exception e) {
@@ -239,7 +239,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         }
     }
 
-    public List<Usuario> getUsuariosConAccesoNotificacion(Long notificacionId) {
+    public List<Usuario> usuariosConAccesoNotificacion(Long notificacionId) {
         try {
             LOGGER.info("Obteniendo usuarios con acceso para notificación: {}", notificacionId);
             if (notificacionId == null) {

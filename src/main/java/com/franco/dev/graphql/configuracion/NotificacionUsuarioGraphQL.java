@@ -306,15 +306,19 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
                             String mensaje = nombreUsuario + " te mencionó en un comentario sobre: "
                                     + tituloNotificacion;
 
+                            String dataJson = "{\"notificacionId\":" + notificacionId + ",\"comentarioId\":"
+                                    + comentarioEntity.getId() + "}";
+
                             System.out.println(
                                     "DEBUG: Enviando notificación push - Título: Mencionado en comentario, Mensaje: "
-                                            + mensaje);
+                                            + mensaje + ", Data: " + dataJson);
 
                             Boolean resultado = pushNotificationService.enviarNotificacionPersonalizada(
                                     "Mencionado en comentario",
                                     mensaje,
                                     "ESPECIFICOS",
-                                    usuariosIds);
+                                    usuariosIds,
+                                    dataJson);
 
                             System.out.println("DEBUG: Resultado del envío: " + resultado);
                         }

@@ -207,6 +207,11 @@ public class PushNotificationService {
      */
     public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio,
             List<Long> usuariosIds) {
+        return enviarNotificacionPersonalizada(titulo, mensaje, tipoEnvio, usuariosIds, null);
+    }
+
+    public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio,
+            List<Long> usuariosIds, String data) {
         try {
             if (titulo == null || titulo.trim().isEmpty()) {
                 LOGGER.warn("El título no puede estar vacío");
@@ -238,6 +243,9 @@ public class PushNotificationService {
             request.setTitle(titulo);
             request.setMessage(mensaje);
             request.setType("PERSONALIZADA");
+            if (data != null && !data.trim().isEmpty()) {
+                request.setData(data);
+            }
 
             List<Long> destinatariosIds;
             if ("TODOS".equals(tipoEnvio)) {

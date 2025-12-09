@@ -21,6 +21,8 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
 
     @Autowired
     private ImageService imageService;
+    @Autowired
+    private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
     @Override
     public PresentacionRepository getRepository() {
@@ -43,10 +45,61 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
     @Override
     public Presentacion save(Presentacion entity){
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
+        
+        // Obtener entidad anterior para comparar cambios (si es actualización)
+        // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
+        Presentacion entidadAnterior = null;
+        boolean esNuevo = (entity.getId() == null);
+        if (!esNuevo) {
+            java.util.Optional<Presentacion> presentacionOpt = repository.findById(entity.getId());
+            if (presentacionOpt != null && presentacionOpt.isPresent()) {
+                entidadAnterior = presentacionOpt.get();
+            }
+        }
+        
         Presentacion e = super.save(entity);
 //        personaPublisher.publish(p);
-        repository.flush();
+        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        
+        // Registrar modificación sin afectar la lógica existente
+        try {
+            if (esNuevo) {
+                // Es una inserción
+                modificacionService.registrarInsercion(e, "PRESENTACION", "productos", "presentacion");
+            } else if (entidadAnterior != null) {
+                // Es una actualización
+                modificacionService.registrarActualizacion(entidadAnterior, e, "PRESENTACION", "productos", "presentacion");
+            }
+        } catch (Exception ex) {
+            // No interrumpir el flujo si falla el registro de modificación
+            System.err.println("Error registrando modificación de presentación: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
         return e;
+    }
+
+    @Override
+    @javax.transaction.Transactional
+    public Boolean deleteById(Long id) {
+        try {
+            // Obtener entidad antes de eliminar para registrar la modificación
+            Presentacion entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                // Registrar eliminación sin afectar la lógica existente
+                try {
+                    modificacionService.registrarEliminacion(entidad, "PRESENTACION", "productos", "presentacion");
+                } catch (Exception ex) {
+                    // No interrumpir el flujo si falla el registro de modificación
+                    System.err.println("Error registrando eliminación de presentación: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public Presentacion findByPrincipalAndProductoId(Boolean principal, Long id){

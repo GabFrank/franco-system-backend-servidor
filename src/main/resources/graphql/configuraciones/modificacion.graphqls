@@ -1,0 +1,64 @@
+type ModificacionRegistro {
+    id: ID
+    tipoEntidad: String
+    entidadId: Int
+    entidadSucursalId: Int
+    schemaNombre: String
+    tablaNombre: String
+    tipoOperacion: TipoOperacion
+    usuario: Usuario
+    sucursal: Sucursal
+    modificadoEn: Date
+    creadoEn: Date
+    ipAddress: String
+    userAgent: String
+    observacion: String
+    activo: Boolean
+    detalles: [ModificacionDetalle]
+}
+
+type ModificacionDetalle {
+    id: ID
+    modificacionRegistro: ModificacionRegistro
+    campoNombre: String
+    campoTipo: String
+    valorAnterior: String
+    valorNuevo: String
+    valorAnteriorId: Int
+    valorNuevoId: Int
+    orden: Int
+    esCampoSensible: Boolean
+}
+
+enum TipoOperacion {
+    INSERT
+    UPDATE
+    DELETE
+    SOFT_DELETE
+}
+
+type ModificacionRegistroPage {
+    content: [ModificacionRegistro]
+    pageNumber: Int
+    pageSize: Int
+    totalElements: Int
+    totalPages: Int
+}
+
+extend type Query {
+    modificacionRegistro(id: ID!): ModificacionRegistro
+    modificacionesPorSchema(
+        schemaNombre: String!
+        inicio: Date!
+        fin: Date!
+        page: Int = 0
+        size: Int = 15
+    ): ModificacionRegistroPage
+    modificacionesPorTipoEntidad(
+        tipoEntidad: String!
+        page: Int = 0
+        size: Int = 15
+    ): ModificacionRegistroPage
+    detallesModificacion(modificacionRegistroId: Int!): [ModificacionDetalle]
+}
+

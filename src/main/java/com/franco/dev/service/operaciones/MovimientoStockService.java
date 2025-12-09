@@ -43,6 +43,8 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
     @Override
     public MovimientoStockRepository getRepository() {
@@ -121,7 +123,11 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public MovimientoStock save(MovimientoStock entity) {
-        if (entity.getId() == null) {
+        // Verificar si es nuevo ANTES de asignar ID
+        boolean esNuevo = (entity.getId() == null);
+        MovimientoStock entidadAnterior = null;
+        
+        if (esNuevo) {
             entity.setCreadoEn(LocalDateTime.now());
             Long newId = Long.valueOf(1);
             Long lastId = repository.findMaxId(entity.getSucursalId());
@@ -132,8 +138,35 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 newId = lastId + 1;
             }
             entity.setId(newId);
+        } else {
+            // Obtener entidad anterior para comparar cambios (si es actualización)
+            java.util.Optional<MovimientoStock> movimientoOpt = repository.findById(entity.getId());
+            if (movimientoOpt != null && movimientoOpt.isPresent()) {
+                entidadAnterior = movimientoOpt.get();
+            }
         }
+        
         MovimientoStock e = super.save(entity);
+        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        
+        // Registrar modificación solo para ajustes de stock (sin afectar la lógica existente)
+        try {
+            // Solo registrar ajustes de stock, no todos los movimientos
+            if (entity.getTipoMovimiento() != null && entity.getTipoMovimiento() == TipoMovimiento.AJUSTE) {
+                if (esNuevo) {
+                    // Es una inserción (ajuste de stock)
+                    modificacionService.registrarInsercion(e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
+                } else if (entidadAnterior != null) {
+                    // Es una actualización
+                    modificacionService.registrarActualizacion(entidadAnterior, e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
+                }
+            }
+        } catch (Exception ex) {
+            // No interrumpir el flujo si falla el registro de modificación
+            System.err.println("Error registrando modificación de ajuste de stock: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
         return e;
     }
 

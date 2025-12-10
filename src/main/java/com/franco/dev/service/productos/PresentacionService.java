@@ -46,32 +46,33 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
     public Presentacion save(Presentacion entity){
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
         
-        // Obtener entidad anterior para comparar cambios (si es actualización)
-        // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
         Presentacion entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
             java.util.Optional<Presentacion> presentacionOpt = repository.findById(entity.getId());
             if (presentacionOpt != null && presentacionOpt.isPresent()) {
-                entidadAnterior = presentacionOpt.get();
+                Presentacion original = presentacionOpt.get();
+                entidadAnterior = new Presentacion();
+                entidadAnterior.setId(original.getId());
+                entidadAnterior.setDescripcion(original.getDescripcion());
+                entidadAnterior.setCantidad(original.getCantidad());
+                entidadAnterior.setPrincipal(original.getPrincipal());
+                entidadAnterior.setActivo(original.getActivo());
+                entidadAnterior.setCreadoEn(original.getCreadoEn());
+                entidadAnterior.setProducto(original.getProducto());
             }
         }
         
         Presentacion e = super.save(entity);
-//        personaPublisher.publish(p);
-        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        repository.flush();
         
-        // Registrar modificación sin afectar la lógica existente
         try {
             if (esNuevo) {
-                // Es una inserción
                 modificacionService.registrarInsercion(e, "PRESENTACION", "productos", "presentacion");
             } else if (entidadAnterior != null) {
-                // Es una actualización
                 modificacionService.registrarActualizacion(entidadAnterior, e, "PRESENTACION", "productos", "presentacion");
             }
         } catch (Exception ex) {
-            // No interrumpir el flujo si falla el registro de modificación
             System.err.println("Error registrando modificación de presentación: " + ex.getMessage());
             ex.printStackTrace();
         }
@@ -83,15 +84,12 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
     @javax.transaction.Transactional
     public Boolean deleteById(Long id) {
         try {
-            // Obtener entidad antes de eliminar para registrar la modificación
             Presentacion entidad = repository.findById(id).orElse(null);
             if (entidad != null) {
                 Boolean resultado = super.deleteById(id);
-                // Registrar eliminación sin afectar la lógica existente
                 try {
                     modificacionService.registrarEliminacion(entidad, "PRESENTACION", "productos", "presentacion");
                 } catch (Exception ex) {
-                    // No interrumpir el flujo si falla el registro de modificación
                     System.err.println("Error registrando eliminación de presentación: " + ex.getMessage());
                 }
                 return resultado;
@@ -112,9 +110,7 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
             String image = imageService.getImageWithMediaType(p.getId()+".jpg", imageService.getImagePresentaciones());
             if(image!="") {
                 log.info("Imagen encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
-//                propagacionService.propagarImagen(image, p.getId() + ".jpg", TipoEntidad.PRESENTACION, sucId);
             } else {
-//                log.info("Imagen no encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
             }
         }
     }

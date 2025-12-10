@@ -34,37 +34,43 @@ public class PrecioPorSucursalService extends CrudService<PrecioPorSucursal, Pre
 
     @Override
     public PrecioPorSucursal save(PrecioPorSucursal entity) {
-        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
-        
-        // Obtener entidad anterior para comparar cambios (si es actualización)
-        // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
+        if (entity.getId() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+
         PrecioPorSucursal entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
             java.util.Optional<PrecioPorSucursal> precioOpt = repository.findById(entity.getId());
             if (precioOpt != null && precioOpt.isPresent()) {
-                entidadAnterior = precioOpt.get();
+                PrecioPorSucursal original = precioOpt.get();
+                entidadAnterior = new PrecioPorSucursal();
+                entidadAnterior.setId(original.getId());
+                entidadAnterior.setPrecio(original.getPrecio());
+                entidadAnterior.setPrincipal(original.getPrincipal());
+                entidadAnterior.setActivo(original.getActivo());
+                entidadAnterior.setCreadoEn(original.getCreadoEn());
+                entidadAnterior.setPresentacion(original.getPresentacion());
+                entidadAnterior.setTipoPrecio(original.getTipoPrecio());
+                entidadAnterior.setSucursal(original.getSucursal());
+                entidadAnterior.setUsuario(original.getUsuario());
             }
         }
-        
+
         PrecioPorSucursal p = super.save(entity);
-        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
-        
-        // Registrar modificación sin afectar la lógica existente
+        repository.flush();
+
         try {
             if (esNuevo) {
-                // Es una inserción
                 modificacionService.registrarInsercion(p, "PRECIO_POR_SUCURSAL", "productos", "precio_por_sucursal");
             } else if (entidadAnterior != null) {
-                // Es una actualización
-                modificacionService.registrarActualizacion(entidadAnterior, p, "PRECIO_POR_SUCURSAL", "productos", "precio_por_sucursal");
+                modificacionService.registrarActualizacion(entidadAnterior, p, "PRECIO_POR_SUCURSAL", "productos",
+                        "precio_por_sucursal");
             }
         } catch (Exception ex) {
-            // No interrumpir el flujo si falla el registro de modificación
             System.err.println("Error registrando modificación de precio por sucursal: " + ex.getMessage());
             ex.printStackTrace();
         }
-        
+
         return p;
     }
 
@@ -72,15 +78,13 @@ public class PrecioPorSucursalService extends CrudService<PrecioPorSucursal, Pre
     @javax.transaction.Transactional
     public Boolean deleteById(Long id) {
         try {
-            // Obtener entidad antes de eliminar para registrar la modificación
             PrecioPorSucursal entidad = repository.findById(id).orElse(null);
             if (entidad != null) {
                 Boolean resultado = super.deleteById(id);
-                // Registrar eliminación sin afectar la lógica existente
                 try {
-                    modificacionService.registrarEliminacion(entidad, "PRECIO_POR_SUCURSAL", "productos", "precio_por_sucursal");
+                    modificacionService.registrarEliminacion(entidad, "PRECIO_POR_SUCURSAL", "productos",
+                            "precio_por_sucursal");
                 } catch (Exception ex) {
-                    // No interrumpir el flujo si falla el registro de modificación
                     System.err.println("Error registrando eliminación de precio por sucursal: " + ex.getMessage());
                 }
                 return resultado;

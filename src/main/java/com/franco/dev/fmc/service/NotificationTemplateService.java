@@ -333,6 +333,30 @@ public class NotificationTemplateService {
         return request;
     }
 
+    public PushNotificationRequest cotizacionActualizada(String denominacionMoneda, String simboloMoneda, Double valorEnGs) {
+        if (denominacionMoneda == null || valorEnGs == null) {
+            return null;
+        }
+
+        java.text.DecimalFormatSymbols symbols = new java.text.DecimalFormatSymbols(java.util.Locale.US);
+        symbols.setGroupingSeparator('.');
+        symbols.setDecimalSeparator(',');
+        DecimalFormat formatter = new DecimalFormat("#,##0.00", symbols);
+        String valorFormateado = formatter.format(valorEnGs);
+
+        StringBuilder builder = new StringBuilder();
+        builder.append(denominacionMoneda);
+        if (simboloMoneda != null && !simboloMoneda.isEmpty()) {
+            builder.append(" (").append(simboloMoneda).append(")");
+        }
+        builder.append(": Gs. ").append(valorFormateado);
+
+        PushNotificationRequest request = base("ACTUALIZACIÓN DE COTIZACIÓN", builder.toString());
+        request.setType("COTIZACION_ACTUALIZADA");
+        request.setData("list-cotizacion");
+        return request;
+    }
+
     private String formatGs(Double valor, DecimalFormat decimalFormat) {
         if (valor == null) {
             return "-";

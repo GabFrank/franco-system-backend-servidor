@@ -79,11 +79,36 @@ public class ModificacionGraphQL implements GraphQLQueryResolver {
         return result;
     }
 
+    public ModificacionRegistroPage modificacionesPorTipoEntidadAndSchema(
+            String tipoEntidad,
+            String schemaNombre,
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Integer page,
+            Integer size
+    ) {
+        if (page == null) page = 0;
+        if (size == null) size = 15;
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ModificacionRegistro> pageResult = registroRepository.findByTipoEntidadAndSchemaAndFechaBetween(
+                tipoEntidad, schemaNombre, inicio, fin, pageable
+        );
+        
+        ModificacionRegistroPage result = new ModificacionRegistroPage();
+        result.setContent(pageResult.getContent());
+        result.setPageNumber(page);
+        result.setPageSize(size);
+        result.setTotalElements((int) pageResult.getTotalElements());
+        result.setTotalPages(pageResult.getTotalPages());
+        
+        return result;
+    }
+
     public List<ModificacionDetalle> detallesModificacion(Integer modificacionRegistroId) {
         return detalleRepository.findByModificacionRegistroId(modificacionRegistroId.longValue());
     }
 
-    // Clase interna para el resultado paginado
     public static class ModificacionRegistroPage {
         private List<ModificacionRegistro> content;
         private Integer pageNumber;

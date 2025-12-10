@@ -59,6 +59,14 @@ extend type Query {
         page: Int = 0
         size: Int = 15
     ): ModificacionRegistroPage
+    modificacionesPorTipoEntidadAndSchema(
+        tipoEntidad: String!
+        schemaNombre: String!
+        inicio: Date!
+        fin: Date!
+        page: Int = 0
+        size: Int = 15
+    ): ModificacionRegistroPage
     detallesModificacion(modificacionRegistroId: Int!): [ModificacionDetalle]
 }
 

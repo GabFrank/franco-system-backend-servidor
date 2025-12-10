@@ -4,9 +4,7 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
-import com.franco.dev.domain.operaciones.StockPorProductoSucursal;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
-import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
@@ -52,33 +50,6 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public Double stockByProductoIdAndSucursalId(Long proId, Long sucId) {
-//        StockPorProductoSucursal sps = stockPorProductoSucursalService.getRepository().findByIdAndSucursalId(proId, sucId);
-//        if (sps != null) {
-//            MovimientoStockCantidadAndIdDto dto = repository.stockByProductoIdAndSucursalIdAndLastId(proId, sucId, sps.getLastMovimientoStockId());
-//            if (dto != null && dto.getCantidad() != null && dto.getCantidad() != 0) {
-//                Double cantidadParcial = dto.getCantidad();
-//                sps.sumarCantidad(Double.valueOf(cantidadParcial));
-//                sps.setLastMovimientoStockId(dto.getLastId());
-//                if(dto.getCantItens() > env.getProperty("calculoStockLimite", Long.class)){
-//                    stockPorProductoSucursalService.save(sps);
-//                }
-//            }
-//            return sps.getCantidad();
-//        } else {
-//            MovimientoStockCantidadAndIdDto dto = repository.stockByProductoIdAndSucursalIdAndLastId(proId, sucId, Long.valueOf(0));
-//            if (dto != null && dto.getLastId() != null) {
-//                Double cantidadParcial = dto.getCantidad() != null ? dto.getCantidad() : 0.0;
-//                sps = new StockPorProductoSucursal();
-//                sps.setId(proId);
-//                sps.setSucursalId(sucId);
-//                sps.setCantidad(cantidadParcial);
-//                sps.setLastMovimientoStockId(dto.getLastId());
-//                stockPorProductoSucursalService.save(sps);
-//                return sps.getCantidad();
-//            } else {
-//                return 0.0;
-//            }
-//        }
         Float stock = repository.stockByProductoIdAndSucursalId(proId, sucId);
         if(stock == null) stock = Float.valueOf(0);
         return Double.valueOf(stock);
@@ -123,7 +94,6 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public MovimientoStock save(MovimientoStock entity) {
-        // Verificar si es nuevo ANTES de asignar ID
         boolean esNuevo = (entity.getId() == null);
         MovimientoStock entidadAnterior = null;
         
@@ -139,30 +109,34 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             }
             entity.setId(newId);
         } else {
-            // Obtener entidad anterior para comparar cambios (si es actualización)
             java.util.Optional<MovimientoStock> movimientoOpt = repository.findById(entity.getId());
             if (movimientoOpt != null && movimientoOpt.isPresent()) {
-                entidadAnterior = movimientoOpt.get();
+                MovimientoStock original = movimientoOpt.get();
+                entidadAnterior = new MovimientoStock();
+                entidadAnterior.setId(original.getId());
+                entidadAnterior.setSucursalId(original.getSucursalId());
+                entidadAnterior.setCantidad(original.getCantidad());
+                entidadAnterior.setReferencia(original.getReferencia());
+                entidadAnterior.setEstado(original.getEstado());
+                entidadAnterior.setTipoMovimiento(original.getTipoMovimiento());
+                entidadAnterior.setCreadoEn(original.getCreadoEn());
+                entidadAnterior.setProducto(original.getProducto());
+                entidadAnterior.setUsuario(original.getUsuario());
             }
         }
         
         MovimientoStock e = super.save(entity);
-        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        repository.flush();
         
-        // Registrar modificación solo para ajustes de stock (sin afectar la lógica existente)
         try {
-            // Solo registrar ajustes de stock, no todos los movimientos
             if (entity.getTipoMovimiento() != null && entity.getTipoMovimiento() == TipoMovimiento.AJUSTE) {
                 if (esNuevo) {
-                    // Es una inserción (ajuste de stock)
                     modificacionService.registrarInsercion(e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
                 } else if (entidadAnterior != null) {
-                    // Es una actualización
                     modificacionService.registrarActualizacion(entidadAnterior, e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
                 }
             }
         } catch (Exception ex) {
-            // No interrumpir el flujo si falla el registro de modificación
             System.err.println("Error registrando modificación de ajuste de stock: " + ex.getMessage());
             ex.printStackTrace();
         }

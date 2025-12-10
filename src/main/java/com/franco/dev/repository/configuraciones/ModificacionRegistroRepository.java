@@ -35,6 +35,19 @@ public interface ModificacionRegistroRepository extends HelperRepository<Modific
             Pageable pageable
     );
 
+    @Query("SELECT m FROM ModificacionRegistro m WHERE m.tipoEntidad = :tipoEntidad " +
+            "AND m.schemaNombre = :schemaNombre " +
+            "AND m.modificadoEn BETWEEN :inicio AND :fin " +
+            "AND m.activo = true " +
+            "ORDER BY m.modificadoEn DESC")
+    Page<ModificacionRegistro> findByTipoEntidadAndSchemaAndFechaBetween(
+            @Param("tipoEntidad") String tipoEntidad,
+            @Param("schemaNombre") String schemaNombre,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fin") LocalDateTime fin,
+            Pageable pageable
+    );
+
     @Query("SELECT m FROM ModificacionRegistro m WHERE m.entidadId = :entidadId " +
             "AND m.tipoEntidad = :tipoEntidad " +
             "AND m.activo = true " +

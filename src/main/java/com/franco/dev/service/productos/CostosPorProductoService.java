@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -26,7 +25,6 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     private MovimientoStockService movimientoStockService;
     @Autowired
     private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
-//    private final PersonaPublisher personaPublisher;
 
 
     @Override
@@ -51,31 +49,38 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     public CostoPorProducto save(CostoPorProducto entity) {
         if(entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         
-        // Obtener entidad anterior para comparar cambios (si es actualización)
-        // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
         CostoPorProducto entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
             java.util.Optional<CostoPorProducto> costoOpt = repository.findById(entity.getId());
             if (costoOpt != null && costoOpt.isPresent()) {
-                entidadAnterior = costoOpt.get();
+                CostoPorProducto original = costoOpt.get();
+                entidadAnterior = new CostoPorProducto();
+                entidadAnterior.setId(original.getId());
+                entidadAnterior.setCostoMedio(original.getCostoMedio());
+                entidadAnterior.setUltimoPrecioCompra(original.getUltimoPrecioCompra());
+                entidadAnterior.setUltimoPrecioVenta(original.getUltimoPrecioVenta());
+                entidadAnterior.setExistencia(original.getExistencia());
+                entidadAnterior.setCotizacion(original.getCotizacion());
+                entidadAnterior.setCreadoEn(original.getCreadoEn());
+                entidadAnterior.setProducto(original.getProducto());
+                entidadAnterior.setSucursal(original.getSucursal());
+                entidadAnterior.setMoneda(original.getMoneda());
+                entidadAnterior.setMovimientoStock(original.getMovimientoStock());
+                entidadAnterior.setUsuario(original.getUsuario());
             }
         }
         
         CostoPorProducto e = super.save(entity);
-        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        repository.flush();
         
-        // Registrar modificación sin afectar la lógica existente
         try {
             if (esNuevo) {
-                // Es una inserción (ajuste de costo)
                 modificacionService.registrarInsercion(e, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
             } else if (entidadAnterior != null) {
-                // Es una actualización
                 modificacionService.registrarActualizacion(entidadAnterior, e, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
             }
         } catch (Exception ex) {
-            // No interrumpir el flujo si falla el registro de modificación
             System.err.println("Error registrando modificación de costo por producto: " + ex.getMessage());
             ex.printStackTrace();
         }
@@ -87,15 +92,12 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     @javax.transaction.Transactional
     public Boolean deleteById(Long id) {
         try {
-            // Obtener entidad antes de eliminar para registrar la modificación
             CostoPorProducto entidad = repository.findById(id).orElse(null);
             if (entidad != null) {
                 Boolean resultado = super.deleteById(id);
-                // Registrar eliminación sin afectar la lógica existente
                 try {
                     modificacionService.registrarEliminacion(entidad, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
                 } catch (Exception ex) {
-                    // No interrumpir el flujo si falla el registro de modificación
                     System.err.println("Error registrando eliminación de costo por producto: " + ex.getMessage());
                 }
                 return resultado;

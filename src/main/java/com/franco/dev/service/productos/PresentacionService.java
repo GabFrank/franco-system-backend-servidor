@@ -60,6 +60,8 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
                 entidadAnterior.setActivo(original.getActivo());
                 entidadAnterior.setCreadoEn(original.getCreadoEn());
                 entidadAnterior.setProducto(original.getProducto());
+                entidadAnterior.setTipoPresentacion(original.getTipoPresentacion());
+                entidadAnterior.setUsuario(original.getUsuario());
             }
         }
         

@@ -40,26 +40,36 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
                      "WHERE nd.usuario.id = :usuarioId " +
                      "AND (:estadoTablero IS NULL OR n.estadoTablero = CAST(:estadoTablero AS text)) " +
                      "AND (:leida IS NULL OR nd.leida = :leida) " +
+                     "AND (CAST(:fechaInicio AS timestamp) IS NULL OR n.creadoEn >= CAST(:fechaInicio AS timestamp)) " +
+                     "AND (CAST(:fechaFin AS timestamp) IS NULL OR n.creadoEn <= CAST(:fechaFin AS timestamp)) " +
                      "ORDER BY n.creadoEn DESC", countQuery = "SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
                                    "JOIN nd.notificacion n " +
                                    "WHERE nd.usuario.id = :usuarioId " +
                                    "AND (:estadoTablero IS NULL OR n.estadoTablero = CAST(:estadoTablero AS text)) " +
-                                   "AND (:leida IS NULL OR nd.leida = :leida)")
+                                   "AND (:leida IS NULL OR nd.leida = :leida) " +
+                                   "AND (CAST(:fechaInicio AS timestamp) IS NULL OR n.creadoEn >= CAST(:fechaInicio AS timestamp)) " +
+                                   "AND (CAST(:fechaFin AS timestamp) IS NULL OR n.creadoEn <= CAST(:fechaFin AS timestamp))")
        Page<NotificacionDestinatario> findByUsuarioIdAndFilters(
                      @Param("usuarioId") Long usuarioId,
                      @Param("estadoTablero") String estadoTablero,
                      @Param("leida") Boolean leida,
+                     @Param("fechaInicio") java.time.LocalDateTime fechaInicio,
+                     @Param("fechaFin") java.time.LocalDateTime fechaFin,
                      Pageable pageable);
 
        @Query("SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
                      "JOIN nd.notificacion n " +
                      "WHERE nd.usuario.id = :usuarioId " +
                      "AND (:estadoTablero IS NULL OR n.estadoTablero = CAST(:estadoTablero AS text)) " +
-                     "AND (:leida IS NULL OR nd.leida = :leida)")
+                     "AND (:leida IS NULL OR nd.leida = :leida) " +
+                     "AND (CAST(:fechaInicio AS timestamp) IS NULL OR n.creadoEn >= CAST(:fechaInicio AS timestamp)) " +
+                     "AND (CAST(:fechaFin AS timestamp) IS NULL OR n.creadoEn <= CAST(:fechaFin AS timestamp))")
        Long countByUsuarioIdAndFilters(
                      @Param("usuarioId") Long usuarioId,
                      @Param("estadoTablero") String estadoTablero,
-                     @Param("leida") Boolean leida);
+                     @Param("leida") Boolean leida,
+                     @Param("fechaInicio") java.time.LocalDateTime fechaInicio,
+                     @Param("fechaFin") java.time.LocalDateTime fechaFin);
 
        @Query("SELECT COUNT(nd) FROM NotificacionDestinatario nd " +
                      "WHERE nd.usuario.id = :usuarioId " +

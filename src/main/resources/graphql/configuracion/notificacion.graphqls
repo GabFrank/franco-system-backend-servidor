@@ -26,7 +26,7 @@ input NotificacionPushInput {
 
 extend type Query {
     requestPushNotification(entity: NotificacionPushInput!): Boolean
-    notificacionesUsuario(leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionDestinatarioPage
+    notificacionesUsuario(leidas: Boolean, page: Int, size: Int, estadoTablero: String, fechaInicio: String, fechaFin: String): NotificacionDestinatarioPage
     conteoNotificacionesNoLeidas: Int
     notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
     notificacionesUsuarioLegacy(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage

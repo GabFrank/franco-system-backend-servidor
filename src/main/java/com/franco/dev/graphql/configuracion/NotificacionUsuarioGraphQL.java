@@ -110,7 +110,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public NotificacionDestinatarioPage notificacionesUsuario(Boolean leidas,
-            Integer page, Integer size, String estadoTablero) {
+            Integer page, Integer size, String estadoTablero, String fechaInicio, String fechaFin) {
 
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
@@ -126,18 +126,38 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         int s = (size == null || size <= 0) ? 20 : size;
         Pageable pageable = PageRequest.of(p, s, Sort.by(Sort.Direction.DESC, "notificacion.creadoEn"));
 
+        java.time.LocalDateTime fechaInicioLdt = null;
+        java.time.LocalDateTime fechaFinLdt = null;
+
+        if (fechaInicio != null && !fechaInicio.isEmpty()) {
+            try {
+                fechaInicioLdt = java.time.LocalDateTime.parse(fechaInicio, java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+            } catch (Exception e) {
+                LOGGER.warn("Error parsing fechaInicio: " + fechaInicio, e);
+            }
+        }
+
+        if (fechaFin != null && !fechaFin.isEmpty()) {
+            try {
+                fechaFinLdt = java.time.LocalDateTime.parse(fechaFin, java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+            } catch (Exception e) {
+                LOGGER.warn("Error parsing fechaFin: " + fechaFin, e);
+            }
+        }
+
         Page<NotificacionDestinatario> result;
 
         if (estadoTablero != null && !estadoTablero.isEmpty()) {
             try {
                 EstadoNotificacionTablero estado = EstadoNotificacionTablero.valueOf(estadoTablero);
                 result = notificacionDestinatarioService.findByUsuarioIdAndFilters(
-                        usuario.getId(), estado, leidas, pageable);
+                        usuario.getId(), estado, leidas, fechaInicioLdt, fechaFinLdt, pageable);
             } catch (IllegalArgumentException e) {
                 throw new RuntimeException("Estado de tablero no válido: " + estadoTablero);
             }
         } else {
-            result = notificacionDestinatarioService.findByUsuarioId(usuario.getId(), leidas, pageable);
+            result = notificacionDestinatarioService.findByUsuarioIdAndFilters(
+                    usuario.getId(), null, leidas, fechaInicioLdt, fechaFinLdt, pageable);
         }
 
         return new NotificacionDestinatarioPage(

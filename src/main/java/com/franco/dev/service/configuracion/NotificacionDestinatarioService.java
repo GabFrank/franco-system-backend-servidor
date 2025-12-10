@@ -60,17 +60,21 @@ public class NotificacionDestinatarioService
             Long usuarioId,
             EstadoNotificacionTablero estadoTablero,
             Boolean leida,
+            LocalDateTime fechaInicio,
+            LocalDateTime fechaFin,
             Pageable pageable) {
         String estadoStr = estadoTablero != null ? estadoTablero.name() : null;
-        return repository.findByUsuarioIdAndFilters(usuarioId, estadoStr, leida, pageable);
+        return repository.findByUsuarioIdAndFilters(usuarioId, estadoStr, leida, fechaInicio, fechaFin, pageable);
     }
 
     public Long countByUsuarioIdAndFilters(
             Long usuarioId,
             EstadoNotificacionTablero estadoTablero,
-            Boolean leida) {
+            Boolean leida,
+            LocalDateTime fechaInicio,
+            LocalDateTime fechaFin) {
         String estadoStr = estadoTablero != null ? estadoTablero.name() : null;
-        return repository.countByUsuarioIdAndFilters(usuarioId, estadoStr, leida);
+        return repository.countByUsuarioIdAndFilters(usuarioId, estadoStr, leida, fechaInicio, fechaFin);
     }
 
     public Long countNoLeidasByUsuarioId(Long usuarioId) {

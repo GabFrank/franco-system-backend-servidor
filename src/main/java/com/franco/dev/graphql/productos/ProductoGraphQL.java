@@ -9,6 +9,7 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.security.Unsecured;
@@ -95,6 +96,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private NotificationTemplateService notificationTemplateService;
 
     @Autowired
+    private NotificationRoleService notificationRoleService;
+
+    @Autowired
     private UsuarioRepository usuarioRepository;
 
     @Unsecured
@@ -102,7 +106,8 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findById(id);
     }
 
-    public List<Producto> productoSearch(String texto, int offset, Long sucursalId, Boolean conStock, Boolean isEnvase, Boolean activo) {
+    public List<Producto> productoSearch(String texto, int offset, Long sucursalId, Boolean conStock, Boolean isEnvase,
+            Boolean activo) {
         return service.findByAll(texto, offset, sucursalId, conStock, isEnvase, activo);
     }
 
@@ -145,9 +150,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             try {
                 enviarNotificacionProductoCreado(e);
             } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de producto creado"
-                                + t.getMessage());
+                // Silent notification error
             }
         }
         return e;
@@ -266,11 +269,8 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
 
         try {
-            List<Long> usuarioIds = usuarioRepository.findAll()
-                    .stream()
-                    .map(Usuario::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            List<String> roles = notificationRoleService.getRolesForProductoCreado();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
             if (usuarioIds.isEmpty()) {
                 return;
@@ -295,7 +295,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println("[NOTIFICACION] Error interno al procesar notificación de producto: " + e.getMessage());
+            // Silent notification error
         }
     }
 }

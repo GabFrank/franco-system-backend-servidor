@@ -19,8 +19,7 @@ import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -37,7 +36,7 @@ import java.util.List;
 public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoRepository, EmbebedPrimaryKey> {
 
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
-    private final Logger log = LoggerFactory.getLogger(VentaCreditoService.class);
+
     private VentaCreditoRepository repository = null;
 
     @Autowired
@@ -101,14 +100,29 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
 
     @Override
     public VentaCredito save(VentaCredito entity) {
+
         VentaCredito saved = super.save(entity);
-        Usuario usuario = usuarioService.findByPersonaId(saved.getCliente().getPersona().getId());
-        if (usuario != null) {
-            Sucursal sucursal = sucursalService.findById(saved.getSucursalId()).orElse(null);
-            PushNotificationRequest request = notificationTemplateService.ventaCreditoRealizada(saved, sucursal, df);
-            request.setUsuarioIds(Collections.singletonList(usuario.getId()));
-            pushNotificationService.sendPushNotificationToToken(request);
+
+        if (saved.getCliente() != null && saved.getCliente().getPersona() != null) {
+
+            Usuario usuario = usuarioService.findByPersonaId(saved.getCliente().getPersona().getId());
+
+            if (usuario != null) {
+                try {
+                    Sucursal sucursal = sucursalService.findById(saved.getSucursalId()).orElse(null);
+
+                    PushNotificationRequest request = notificationTemplateService.ventaCreditoRealizada(saved, sucursal,
+                            df);
+                    request.setUsuarioIds(Collections.singletonList(usuario.getId()));
+
+                    pushNotificationService.sendPushNotificationToToken(request);
+
+                } catch (Exception e) {
+
+                }
+            }
         }
+
         return saved;
     }
 

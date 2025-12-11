@@ -35,6 +35,8 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
 
     @Autowired
     private TipoPrecioService tipoPrecioService;
+    @Autowired
+    private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
     @Override
     public CodigoRepository getRepository() {
@@ -59,8 +61,60 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
         if(e.getCodigo()!=null) e.setCodigo(e.getCodigo().toUpperCase());
         if(input.getUsuarioId()!=null)e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if(input.getPresentacionId()!=null) e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
+        
+        // Obtener entidad anterior para comparar cambios (si es actualización)
+        // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
+        Codigo entidadAnterior = null;
+        boolean esNuevo = (e.getId() == null);
+        if (!esNuevo) {
+            java.util.Optional<Codigo> codigoOpt = repository.findById(e.getId());
+            if (codigoOpt != null && codigoOpt.isPresent()) {
+                entidadAnterior = codigoOpt.get();
+            }
+        }
+        
         p = repository.save(e);
+        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        
+        // Registrar modificación sin afectar la lógica existente
+        try {
+            if (esNuevo) {
+                // Es una inserción
+                modificacionService.registrarInsercion(p, "CODIGO", "productos", "codigo");
+            } else if (entidadAnterior != null) {
+                // Es una actualización
+                modificacionService.registrarActualizacion(entidadAnterior, p, "CODIGO", "productos", "codigo");
+            }
+        } catch (Exception ex) {
+            // No interrumpir el flujo si falla el registro de modificación
+            System.err.println("Error registrando modificación de código: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
         return p;
+    }
+
+    @Override
+    @javax.transaction.Transactional
+    public Boolean deleteById(Long id) {
+        try {
+            // Obtener entidad antes de eliminar para registrar la modificación
+            Codigo entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                // Registrar eliminación sin afectar la lógica existente
+                try {
+                    modificacionService.registrarEliminacion(entidad, "CODIGO", "productos", "codigo");
+                } catch (Exception ex) {
+                    // No interrumpir el flujo si falla el registro de modificación
+                    System.err.println("Error registrando eliminación de código: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
 //    @Override

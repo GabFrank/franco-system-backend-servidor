@@ -1,6 +1,7 @@
 package com.franco.dev.domain.configuracion;
 
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
+import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -32,6 +33,9 @@ public class NotificacionUsuario {
 
     @Enumerated(EnumType.STRING)
     private EstadoEnvio estadoEnvio;
+
+    @Enumerated(EnumType.STRING)
+    private EstadoNotificacionTablero estadoTablero;
 
     private LocalDateTime fechaEnvio;
     private LocalDateTime fechaEntrega;

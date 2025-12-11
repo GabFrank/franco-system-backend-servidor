@@ -94,4 +94,12 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     public Boolean deleteUserImage(){
         return false;
     }
+
+    /**
+     * Obtiene todos los usuarios activos del sistema
+     * @return Lista de usuarios activos ordenados por nombre
+     */
+    public List<Usuario> usuariosActivos() {
+        return service.findAllActivos();
+    }
 }

@@ -62,6 +62,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final CostosPorProductoService costosPorProductoService;
     @Autowired
     private final SucursalService sucursalService;
+    @Autowired
+    private final com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
     @Override
     public ProductoRepository getRepository() {
@@ -127,8 +129,60 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         if (entity.getEnvaseId() != null)
             e.setEnvase(findById(entity.getEnvaseId()).orElse(null));
         e.setDescripcion(e.getDescripcion().toUpperCase());
+        
+        // Obtener entidad anterior para comparar cambios (si es actualización)
+        // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
+        Producto entidadAnterior = null;
+        boolean esNuevo = (e.getId() == null);
+        if (!esNuevo) {
+            Optional<Producto> productoOpt = repository.findById(e.getId());
+            if (productoOpt != null && productoOpt.isPresent()) {
+                entidadAnterior = productoOpt.get();
+            }
+        }
+        
         p = repository.save(e);
+        repository.flush(); // Asegurar que se guarde antes de registrar la modificación
+        
+        // Registrar modificación sin afectar la lógica existente
+        try {
+            if (esNuevo) {
+                // Es una inserción
+                modificacionService.registrarInsercion(p, "PRODUCTO", "productos", "producto");
+            } else if (entidadAnterior != null) {
+                // Es una actualización
+                modificacionService.registrarActualizacion(entidadAnterior, p, "PRODUCTO", "productos", "producto");
+            }
+        } catch (Exception ex) {
+            // No interrumpir el flujo si falla el registro de modificación
+            System.err.println("Error registrando modificación de producto: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
         return p;
+    }
+
+    @Override
+    @javax.transaction.Transactional
+    public Boolean deleteById(Long id) {
+        try {
+            // Obtener entidad antes de eliminar para registrar la modificación
+            Producto entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                // Registrar eliminación sin afectar la lógica existente
+                try {
+                    modificacionService.registrarEliminacion(entidad, "PRODUCTO", "productos", "producto");
+                } catch (Exception ex) {
+                    // No interrumpir el flujo si falla el registro de modificación
+                    System.err.println("Error registrando eliminación de producto: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public List<Producto> findByProveedorId(Long id, String text) {

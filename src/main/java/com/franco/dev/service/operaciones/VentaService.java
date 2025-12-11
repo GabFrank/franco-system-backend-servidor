@@ -78,19 +78,20 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return repository;
     }
 
-
-//    public List<Venta> findByAll(String texto){
-//        texto = texto.replace(' ', '%');
-//        return  repository.findByProveedor(texto.toLowerCase());
-//    }
+    // public List<Venta> findByAll(String texto){
+    // texto = texto.replace(' ', '%');
+    // return repository.findByProveedor(texto.toLowerCase());
+    // }
 
     public Venta findByIdAndSucursalId(Long id, Long sucId) {
         return repository.findByIdAndSucursalId(id, sucId);
     }
 
-    public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
+    public Page<Venta> findByCajaId(EmbebedPrimaryKey id, Integer page, Integer size, Boolean asc, Long formaPago,
+            VentaEstado estado, Boolean isDelivery, Long monedaId) {
         Pageable pagina = PageRequest.of(page, size);
-        return findWithFiltersCriteria(null, id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery, monedaId, asc, null, null);
+        return findWithFiltersCriteria(null, id.getId(), id.getSucursalId(), formaPago, estado, pagina, isDelivery,
+                monedaId, asc, null, null);
     }
 
     public List<Venta> findAllByCajaId(EmbebedPrimaryKey id) {
@@ -135,11 +136,13 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             ventaPorPeriodoList.add(ventaPorPeriodoV1Dto);
         }
         for (VentaPorPeriodoV1Dto ventaPorPeriodo : ventaPorPeriodoList) {
-            List<Venta> ventaList = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(), ventaPorPeriodo.getCreadoEn().plusDays(1));
+            List<Venta> ventaList = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(),
+                    ventaPorPeriodo.getCreadoEn().plusDays(1));
             ventaPorPeriodo.setCantVenta(ventaList.size());
             for (Venta venta : ventaList) {
                 if (venta.getEstado() != VentaEstado.CANCELADA || venta.getEstado() != VentaEstado.ABIERTA) {
-                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(venta.getCobro().getId(), venta.getSucursalId());
+                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(venta.getCobro().getId(),
+                            venta.getSucursalId());
                     for (CobroDetalle cobroDetalle : cobroDetalleList) {
                         if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
                             if (cobroDetalle.getPago()) {
@@ -184,7 +187,8 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 venta.setEstado(VentaEstado.CANCELADA);
             }
             venta = this.save(venta);
-            List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId());
+            List<MovimientoCaja> movimientoCajaList = movimientoCajaService.findByTipoMovimientoAndReferencia(
+                    PdvCajaTipoMovimiento.VENTA, venta.getCobro().getId(), venta.getSucursalId());
             for (MovimientoCaja mov : movimientoCajaList) {
                 if (venta.getEstado() == VentaEstado.CANCELADA) {
                     mov.setActivo(false);
@@ -195,7 +199,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             }
             List<VentaItem> ventaItemList = ventaItemService.findByVentaId(venta.getId(), venta.getSucursalId());
             for (VentaItem vi : ventaItemList) {
-                MovimientoStock movStock = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.VENTA, vi.getId(), vi.getSucursalId(), vi.getProducto().getId());
+                MovimientoStock movStock = movimientoStockService
+                        .findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.VENTA, vi.getId(),
+                                vi.getSucursalId(), vi.getProducto().getId());
                 if (movStock != null) {
                     if (venta.getEstado() == VentaEstado.CANCELADA) {
                         movStock.setEstado(false);
@@ -220,24 +226,30 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             }
 
             log.info("Buscando factura legal para venta ID: " + venta.getId() + ", Sucursal: " + venta.getSucursalId());
-            FacturaLegal facturaLegal = facturaLegalService.findByVentaIdAndSucursalId(venta.getId(), venta.getSucursalId());
+            FacturaLegal facturaLegal = facturaLegalService.findByVentaIdAndSucursalId(venta.getId(),
+                    venta.getSucursalId());
             if (facturaLegal != null) {
-                log.info("Factura legal encontrada - ID: " + facturaLegal.getId() + ", CDC: " + (facturaLegal.getCdc() != null ? facturaLegal.getCdc() : "null"));
+                log.info("Factura legal encontrada - ID: " + facturaLegal.getId() + ", CDC: "
+                        + (facturaLegal.getCdc() != null ? facturaLegal.getCdc() : "null"));
                 // Si la factura es electrónica, cancelar el documento electrónico
                 if (facturaLegal.getCdc() != null && !facturaLegal.getCdc().isEmpty()) {
                     log.info("Iniciando cancelación de documento electrónico con CDC: " + facturaLegal.getCdc());
                     try {
                         sifenEventoService.cancelarDE(facturaLegal.getCdc(), "Cancelación de venta");
-                        log.info("✅ Documento electrónico cancelado exitosamente para venta ID: " + venta.getId().toString());
+                        log.info("✅ Documento electrónico cancelado exitosamente para venta ID: "
+                                + venta.getId().toString());
                     } catch (Exception e) {
                         String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-                        log.warning("⚠️ Error al cancelar documento electrónico para venta ID: " + venta.getId().toString());
+                        log.warning("⚠️ Error al cancelar documento electrónico para venta ID: "
+                                + venta.getId().toString());
                         log.warning("   Tipo de error: " + e.getClass().getName());
                         log.warning("   Mensaje: " + errorMsg);
                         e.printStackTrace();
                         // No lanzamos excepción para no impedir la cancelación de la venta
-                        // El evento de cancelación se guardará en BD y podrá ser procesado posteriormente
-                        log.info("La venta se cancelará de todas formas. El evento puede ser procesado posteriormente.");
+                        // El evento de cancelación se guardará en BD y podrá ser procesado
+                        // posteriormente
+                        log.info(
+                                "La venta se cancelará de todas formas. El evento puede ser procesado posteriormente.");
                     }
                 } else {
                     log.info("Factura legal no tiene CDC (no es electrónica)");
@@ -249,7 +261,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 log.info("✅ Factura legal marcada como inactiva");
             } else {
                 log.info("No se encontró factura legal para esta venta");
-            } 
+            }
             return true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -263,11 +275,15 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return null;
     }
 
-    public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento, Boolean conAumento){
-        return findWithFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc, conDescuento, conAumento);
+    public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago,
+            VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento, Boolean conAumento) {
+        return findWithFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc,
+                conDescuento, conAumento);
     }
 
-    public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento, Boolean conAumento) {
+    public Page<Venta> findWithFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado,
+            Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
+            Boolean conAumento) {
         Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
@@ -279,11 +295,12 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             predicates.add(cb.equal(cajaJoin.get("id"), id));
             predicates.add(cb.equal(root.get("sucursalId"), sucId));
 
-            if(idVenta != null){
+            if (idVenta != null) {
                 predicates.add(cb.equal(root.get("id"), idVenta));
             }
 
-            if (formaPagoId != null || monedaId != null || (conDescuento != null && conDescuento) || (conAumento != null && conAumento)) {
+            if (formaPagoId != null || monedaId != null || (conDescuento != null && conDescuento)
+                    || (conAumento != null && conAumento)) {
                 Subquery<Long> cobroDetalleSubquery = query.subquery(Long.class);
                 Root<CobroDetalle> cobroDetalleRoot = cobroDetalleSubquery.from(CobroDetalle.class);
 
@@ -300,11 +317,11 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                     subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("moneda").get("id"), monedaId));
                 }
 
-                if (conDescuento != null && conDescuento == true){
+                if (conDescuento != null && conDescuento == true) {
                     subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("descuento")));
                 }
 
-                if (conAumento != null && conAumento == true){
+                if (conAumento != null && conAumento == true) {
                     subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("aumento")));
                 }
 

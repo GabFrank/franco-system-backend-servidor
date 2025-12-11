@@ -8,6 +8,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.graphql.operaciones.input.MovimientoStockInput;
 import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -55,6 +56,9 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private NotificationRoleService notificationRoleService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -107,9 +111,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             try {
                 enviarNotificacionAjusteStock(saved);
             } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de ajuste de stock"
-                                + t.getMessage());
+                // Silent notification error
             }
 
             return saved;
@@ -177,11 +179,8 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
 
         try {
-            List<Long> usuarioIds = usuarioRepository.findAll()
-                    .stream()
-                    .map(Usuario::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            List<String> roles = notificationRoleService.getRolesForAjusteStock();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
             if (usuarioIds.isEmpty()) {
                 return;
@@ -202,7 +201,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println("[NOTIFICACION] Error interno al procesar notificación: " + e.getMessage());
+            // Silent notification error
         }
     }
 

@@ -14,6 +14,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
 import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -35,7 +36,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.logging.Logger;
@@ -79,6 +79,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private NotificationRoleService notificationRoleService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -153,9 +156,29 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             try {
                 enviarNotificacionTransferenciaIniciada(e);
             } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de transferencia iniciada"
-                                + t.getMessage());
+                // Silent notification error
+            }
+        } else {
+            // Verificar cambio de sucursal en etapa PRE_TRANSFERENCIA_CREACION
+            if (e.getEtapa() == EtapaTransferencia.PRE_TRANSFERENCIA_CREACION) {
+                if (newSucursalOrigenId != null) {
+                    try {
+                        Sucursal sucAnterior = sucursalService.findById(oldSucursalOrigenId).orElse(null);
+                        enviarNotificacionCambioSucursal(e, sucAnterior, e.getSucursalOrigen(), true);
+                    } catch (Exception ex) {
+                        System.err.println(
+                                "[NOTIFICACION] Error al notificar cambio sucursal origen: " + ex.getMessage());
+                    }
+                }
+                if (newSucursalDestinoId != null) {
+                    try {
+                        Sucursal sucAnterior = sucursalService.findById(oldSucursalDestinoId).orElse(null);
+                        enviarNotificacionCambioSucursal(e, sucAnterior, e.getSucursalDestino(), false);
+                    } catch (Exception ex) {
+                        System.err.println(
+                                "[NOTIFICACION] Error al notificar cambio sucursal destino: " + ex.getMessage());
+                    }
+                }
             }
         }
 
@@ -426,11 +449,8 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
 
         try {
-            List<Long> usuarioIds = usuarioRepository.findAll()
-                    .stream()
-                    .map(Usuario::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            List<String> roles = notificationRoleService.getRolesForTransferenciaIniciada();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
             if (usuarioIds.isEmpty()) {
                 return;
@@ -452,8 +472,31 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            System.err.println(
-                    "[NOTIFICACION] Error interno al procesar notificación de transferencia: " + e.getMessage());
+            // Silent notification error
+        }
+    }
+
+    private void enviarNotificacionCambioSucursal(Transferencia transferencia, Sucursal sucAnterior, Sucursal sucNueva,
+            boolean esOrigen) {
+        if (transferencia == null)
+            return;
+
+        try {
+            List<String> roles = notificationRoleService.getRolesForCambioSucursalPreTransferencia();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+
+            if (usuarioIds.isEmpty())
+                return;
+
+            PushNotificationRequest request = notificationTemplateService.cambioSucursalPreTransferencia(
+                    transferencia, sucAnterior, sucNueva, esOrigen);
+
+            if (request != null) {
+                request.setUsuarioIds(usuarioIds);
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception e) {
+            // Silent notification error
         }
     }
 }

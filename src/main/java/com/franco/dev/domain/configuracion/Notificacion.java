@@ -1,6 +1,8 @@
 package com.franco.dev.domain.configuracion;
 
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
+import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
+import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,6 +28,20 @@ public class Notificacion {
 
     @Enumerated(EnumType.STRING)
     private EstadoNotificacion estado;
+
+    // Estado compartido entre todos los usuarios destinatarios
+    @Enumerated(EnumType.STRING)
+    private EstadoNotificacionTablero estadoTablero;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verificado_por_usuario_id")
+    private Usuario verificadoPorUsuario;
+
+    private LocalDateTime fechaVerificacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_creador_id")
+    private Usuario usuarioCreador;
 
     private Integer intentosEnvio;
     private String ultimoError;

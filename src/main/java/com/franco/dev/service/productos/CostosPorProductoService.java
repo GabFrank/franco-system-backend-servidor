@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -24,7 +23,8 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
 
     @Autowired
     private MovimientoStockService movimientoStockService;
-//    private final PersonaPublisher personaPublisher;
+    @Autowired
+    private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
 
     @Override
@@ -48,7 +48,64 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     @Override
     public CostoPorProducto save(CostoPorProducto entity) {
         if(entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        return super.save(entity);
+        
+        CostoPorProducto entidadAnterior = null;
+        boolean esNuevo = (entity.getId() == null);
+        if (!esNuevo) {
+            java.util.Optional<CostoPorProducto> costoOpt = repository.findById(entity.getId());
+            if (costoOpt != null && costoOpt.isPresent()) {
+                CostoPorProducto original = costoOpt.get();
+                entidadAnterior = new CostoPorProducto();
+                entidadAnterior.setId(original.getId());
+                entidadAnterior.setCostoMedio(original.getCostoMedio());
+                entidadAnterior.setUltimoPrecioCompra(original.getUltimoPrecioCompra());
+                entidadAnterior.setUltimoPrecioVenta(original.getUltimoPrecioVenta());
+                entidadAnterior.setExistencia(original.getExistencia());
+                entidadAnterior.setCotizacion(original.getCotizacion());
+                entidadAnterior.setCreadoEn(original.getCreadoEn());
+                entidadAnterior.setProducto(original.getProducto());
+                entidadAnterior.setSucursal(original.getSucursal());
+                entidadAnterior.setMoneda(original.getMoneda());
+                entidadAnterior.setMovimientoStock(original.getMovimientoStock());
+                entidadAnterior.setUsuario(original.getUsuario());
+            }
+        }
+        
+        CostoPorProducto e = super.save(entity);
+        repository.flush();
+        
+        try {
+            if (esNuevo) {
+                modificacionService.registrarInsercion(e, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
+            } else if (entidadAnterior != null) {
+                modificacionService.registrarActualizacion(entidadAnterior, e, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
+            }
+        } catch (Exception ex) {
+            System.err.println("Error registrando modificación de costo por producto: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
+        return e;
+    }
+
+    @Override
+    @javax.transaction.Transactional
+    public Boolean deleteById(Long id) {
+        try {
+            CostoPorProducto entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                try {
+                    modificacionService.registrarEliminacion(entidad, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
+                } catch (Exception ex) {
+                    System.err.println("Error registrando eliminación de costo por producto: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public Double calcularCostoMedio(Long productoId, Double cantidad, Double precioCompra){

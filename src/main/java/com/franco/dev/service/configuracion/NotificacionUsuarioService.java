@@ -1,6 +1,7 @@
 package com.franco.dev.service.configuracion;
 
 import com.franco.dev.domain.configuracion.NotificacionUsuario;
+import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
 import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
 import java.time.LocalDateTime;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,16 @@ public class NotificacionUsuarioService {
     }
 
     @Transactional
+    public boolean actualizarEstadoTablero(Long notificacionUsuarioId, EstadoNotificacionTablero estado) {
+        return notificacionUsuarioRepository.findById(notificacionUsuarioId)
+                .map(nu -> {
+                    nu.setEstadoTablero(estado);
+                    notificacionUsuarioRepository.save(nu);
+                    return true;
+                }).orElse(Boolean.FALSE);
+    }
+
+    @Transactional
     public boolean registrarInteraccion(Long notificacionUsuarioId, String accion) {
         return notificacionUsuarioRepository.findById(notificacionUsuarioId)
                 .map(nu -> {
@@ -43,5 +54,32 @@ public class NotificacionUsuarioService {
             return notificacionUsuarioRepository.findAllByUsuarioIdAndTokenFcm(usuarioId, tokenFcm, pageable);
         }
         return notificacionUsuarioRepository.findAllByUsuarioId(usuarioId, pageable);
+    }
+
+    public Page<NotificacionUsuario> findByUsuarioIdAndEstadoTablero(Long usuarioId, String tokenFcm,
+            EstadoNotificacionTablero estado, Pageable pageable) {
+        return notificacionUsuarioRepository.findByUsuarioIdAndTokenFcmAndEstadoTablero(
+                usuarioId,
+                tokenFcm,
+                estado,
+                pageable);
+    }
+
+    public Page<NotificacionUsuario> findByFilters(Long usuarioId, String tokenFcm, EstadoNotificacionTablero estado,
+            Boolean leida, Pageable pageable) {
+        return notificacionUsuarioRepository.findByFilters(
+                usuarioId,
+                tokenFcm,
+                estado,
+                leida,
+                pageable);
+    }
+
+    public Long countByFilters(Long usuarioId, String tokenFcm, EstadoNotificacionTablero estado, Boolean leida) {
+        return notificacionUsuarioRepository.countByFilters(
+                usuarioId,
+                tokenFcm,
+                estado,
+                leida);
     }
 }

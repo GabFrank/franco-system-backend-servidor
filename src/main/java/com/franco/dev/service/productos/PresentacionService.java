@@ -21,6 +21,8 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
 
     @Autowired
     private ImageService imageService;
+    @Autowired
+    private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
     @Override
     public PresentacionRepository getRepository() {
@@ -43,10 +45,61 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
     @Override
     public Presentacion save(Presentacion entity){
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
+        
+        Presentacion entidadAnterior = null;
+        boolean esNuevo = (entity.getId() == null);
+        if (!esNuevo) {
+            java.util.Optional<Presentacion> presentacionOpt = repository.findById(entity.getId());
+            if (presentacionOpt != null && presentacionOpt.isPresent()) {
+                Presentacion original = presentacionOpt.get();
+                entidadAnterior = new Presentacion();
+                entidadAnterior.setId(original.getId());
+                entidadAnterior.setDescripcion(original.getDescripcion());
+                entidadAnterior.setCantidad(original.getCantidad());
+                entidadAnterior.setPrincipal(original.getPrincipal());
+                entidadAnterior.setActivo(original.getActivo());
+                entidadAnterior.setCreadoEn(original.getCreadoEn());
+                entidadAnterior.setProducto(original.getProducto());
+                entidadAnterior.setTipoPresentacion(original.getTipoPresentacion());
+                entidadAnterior.setUsuario(original.getUsuario());
+            }
+        }
+        
         Presentacion e = super.save(entity);
-//        personaPublisher.publish(p);
         repository.flush();
+        
+        try {
+            if (esNuevo) {
+                modificacionService.registrarInsercion(e, "PRESENTACION", "productos", "presentacion");
+            } else if (entidadAnterior != null) {
+                modificacionService.registrarActualizacion(entidadAnterior, e, "PRESENTACION", "productos", "presentacion");
+            }
+        } catch (Exception ex) {
+            System.err.println("Error registrando modificación de presentación: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+        
         return e;
+    }
+
+    @Override
+    @javax.transaction.Transactional
+    public Boolean deleteById(Long id) {
+        try {
+            Presentacion entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                try {
+                    modificacionService.registrarEliminacion(entidad, "PRESENTACION", "productos", "presentacion");
+                } catch (Exception ex) {
+                    System.err.println("Error registrando eliminación de presentación: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public Presentacion findByPrincipalAndProductoId(Boolean principal, Long id){
@@ -59,9 +112,7 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
             String image = imageService.getImageWithMediaType(p.getId()+".jpg", imageService.getImagePresentaciones());
             if(image!="") {
                 log.info("Imagen encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
-//                propagacionService.propagarImagen(image, p.getId() + ".jpg", TipoEntidad.PRESENTACION, sucId);
             } else {
-//                log.info("Imagen no encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
             }
         }
     }

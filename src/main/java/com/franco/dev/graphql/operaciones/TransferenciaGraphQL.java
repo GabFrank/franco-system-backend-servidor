@@ -38,11 +38,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.logging.Logger;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    private static final Logger log = Logger.getLogger(TransferenciaGraphQL.class.getName());
 
     @Autowired
     private TransferenciaService service;
@@ -349,11 +352,66 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public String imprimirTransferencia(Long id, Boolean ticket, String printerName) {
-        Transferencia transferencia = service.findById(id).orElse(null);
-        if (transferencia != null) {
+        log.info("========== TransferenciaGraphQL.imprimirTransferencia INICIO ==========");
+        log.info("ID Transferencia: " + id);
+        log.info("Ticket: " + ticket);
+        log.info("Printer Name: " + printerName);
+        
+        try {
+            log.info("Buscando Transferencia con ID: " + id);
+            Transferencia transferencia = service.findById(id).orElse(null);
+            
+            if (transferencia == null) {
+                log.severe("ERROR: No se encontró Transferencia con ID: " + id);
+                log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN (Transferencia no encontrada) ==========");
+                return "";
+            }
+            
+            log.info("Transferencia encontrada - ID: " + transferencia.getId());
+            log.info("Estado: " + transferencia.getEstado());
+            log.info("Etapa: " + transferencia.getEtapa());
+            log.info("Creado en: " + transferencia.getCreadoEn());
+            
+            log.info("Buscando TransferenciaItems para transferencia ID: " + id);
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemIdAsc(id);
-            return impresionService.imprimirTransferencia(transferencia, transferenciaItemList, ticket, printerName);
-        } else {
+            
+            if (transferenciaItemList == null) {
+                log.severe("ERROR: transferenciaItemService.findByTransferenciaItemIdAsc retornó NULL");
+                log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN (Items NULL) ==========");
+                return "";
+            }
+            
+            log.info("TransferenciaItems encontrados: " + transferenciaItemList.size());
+            
+            if (transferenciaItemList.isEmpty()) {
+                log.warning("ADVERTENCIA: No se encontraron TransferenciaItems para transferencia ID: " + id);
+            } else {
+                log.info("Lista de TransferenciaItem IDs encontrados:");
+                for (int i = 0; i < transferenciaItemList.size(); i++) {
+                    TransferenciaItem ti = transferenciaItemList.get(i);
+                    log.info("  [" + (i + 1) + "] ID: " + (ti != null ? ti.getId() : "NULL") + 
+                            ", PresentacionPreTransferencia ID: " + 
+                            (ti != null && ti.getPresentacionPreTransferencia() != null ? ti.getPresentacionPreTransferencia().getId() : "NULL"));
+                }
+            }
+            
+            log.info("Llamando a impresionService.imprimirTransferencia...");
+            String result = impresionService.imprimirTransferencia(transferencia, transferenciaItemList, ticket, printerName);
+            
+            if (result == null || result.isEmpty()) {
+                log.severe("ERROR: impresionService.imprimirTransferencia retornó NULL o vacío");
+            } else {
+                log.info("Reporte generado exitosamente - Longitud Base64: " + result.length() + " caracteres");
+            }
+            
+            log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN ==========");
+            return result != null ? result : "";
+            
+        } catch (Exception e) {
+            log.severe("ERROR EXCEPCIONAL en imprimirTransferencia: " + e.getMessage());
+            log.severe("Tipo de excepción: " + e.getClass().getName());
+            e.printStackTrace();
+            log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN (ERROR) ==========");
             return "";
         }
     }

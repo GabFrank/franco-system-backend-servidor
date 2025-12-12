@@ -14,7 +14,6 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
-import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
 import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -36,16 +35,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.logging.Logger;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
 public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
-
-    private static final Logger log = Logger.getLogger(TransferenciaGraphQL.class.getName());
 
     @Autowired
     private TransferenciaService service;
@@ -79,9 +76,6 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private NotificationTemplateService notificationTemplateService;
-
-    @Autowired
-    private NotificationRoleService notificationRoleService;
 
     @Autowired
     private UsuarioRepository usuarioRepository;
@@ -156,29 +150,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             try {
                 enviarNotificacionTransferenciaIniciada(e);
             } catch (Throwable t) {
-                // Silent notification error
-            }
-        } else {
-            // Verificar cambio de sucursal en etapa PRE_TRANSFERENCIA_CREACION
-            if (e.getEtapa() == EtapaTransferencia.PRE_TRANSFERENCIA_CREACION) {
-                if (newSucursalOrigenId != null) {
-                    try {
-                        Sucursal sucAnterior = sucursalService.findById(oldSucursalOrigenId).orElse(null);
-                        enviarNotificacionCambioSucursal(e, sucAnterior, e.getSucursalOrigen(), true);
-                    } catch (Exception ex) {
-                        System.err.println(
-                                "[NOTIFICACION] Error al notificar cambio sucursal origen: " + ex.getMessage());
-                    }
-                }
-                if (newSucursalDestinoId != null) {
-                    try {
-                        Sucursal sucAnterior = sucursalService.findById(oldSucursalDestinoId).orElse(null);
-                        enviarNotificacionCambioSucursal(e, sucAnterior, e.getSucursalDestino(), false);
-                    } catch (Exception ex) {
-                        System.err.println(
-                                "[NOTIFICACION] Error al notificar cambio sucursal destino: " + ex.getMessage());
-                    }
-                }
+                System.err.println(
+                        "[NOTIFICACION] Error al enviar notificación de transferencia iniciada"
+                                + t.getMessage());
             }
         }
 
@@ -375,66 +349,11 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public String imprimirTransferencia(Long id, Boolean ticket, String printerName) {
-        log.info("========== TransferenciaGraphQL.imprimirTransferencia INICIO ==========");
-        log.info("ID Transferencia: " + id);
-        log.info("Ticket: " + ticket);
-        log.info("Printer Name: " + printerName);
-        
-        try {
-            log.info("Buscando Transferencia con ID: " + id);
-            Transferencia transferencia = service.findById(id).orElse(null);
-            
-            if (transferencia == null) {
-                log.severe("ERROR: No se encontró Transferencia con ID: " + id);
-                log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN (Transferencia no encontrada) ==========");
-                return "";
-            }
-            
-            log.info("Transferencia encontrada - ID: " + transferencia.getId());
-            log.info("Estado: " + transferencia.getEstado());
-            log.info("Etapa: " + transferencia.getEtapa());
-            log.info("Creado en: " + transferencia.getCreadoEn());
-            
-            log.info("Buscando TransferenciaItems para transferencia ID: " + id);
+        Transferencia transferencia = service.findById(id).orElse(null);
+        if (transferencia != null) {
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService.findByTransferenciaItemIdAsc(id);
-            
-            if (transferenciaItemList == null) {
-                log.severe("ERROR: transferenciaItemService.findByTransferenciaItemIdAsc retornó NULL");
-                log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN (Items NULL) ==========");
-                return "";
-            }
-            
-            log.info("TransferenciaItems encontrados: " + transferenciaItemList.size());
-            
-            if (transferenciaItemList.isEmpty()) {
-                log.warning("ADVERTENCIA: No se encontraron TransferenciaItems para transferencia ID: " + id);
-            } else {
-                log.info("Lista de TransferenciaItem IDs encontrados:");
-                for (int i = 0; i < transferenciaItemList.size(); i++) {
-                    TransferenciaItem ti = transferenciaItemList.get(i);
-                    log.info("  [" + (i + 1) + "] ID: " + (ti != null ? ti.getId() : "NULL") + 
-                            ", PresentacionPreTransferencia ID: " + 
-                            (ti != null && ti.getPresentacionPreTransferencia() != null ? ti.getPresentacionPreTransferencia().getId() : "NULL"));
-                }
-            }
-            
-            log.info("Llamando a impresionService.imprimirTransferencia...");
-            String result = impresionService.imprimirTransferencia(transferencia, transferenciaItemList, ticket, printerName);
-            
-            if (result == null || result.isEmpty()) {
-                log.severe("ERROR: impresionService.imprimirTransferencia retornó NULL o vacío");
-            } else {
-                log.info("Reporte generado exitosamente - Longitud Base64: " + result.length() + " caracteres");
-            }
-            
-            log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN ==========");
-            return result != null ? result : "";
-            
-        } catch (Exception e) {
-            log.severe("ERROR EXCEPCIONAL en imprimirTransferencia: " + e.getMessage());
-            log.severe("Tipo de excepción: " + e.getClass().getName());
-            e.printStackTrace();
-            log.info("========== TransferenciaGraphQL.imprimirTransferencia FIN (ERROR) ==========");
+            return impresionService.imprimirTransferencia(transferencia, transferenciaItemList, ticket, printerName);
+        } else {
             return "";
         }
     }
@@ -449,8 +368,11 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
 
         try {
-            List<String> roles = notificationRoleService.getRolesForTransferenciaIniciada();
-            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+            List<Long> usuarioIds = usuarioRepository.findAll()
+                    .stream()
+                    .map(Usuario::getId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
 
             if (usuarioIds.isEmpty()) {
                 return;
@@ -472,31 +394,8 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            // Silent notification error
-        }
-    }
-
-    private void enviarNotificacionCambioSucursal(Transferencia transferencia, Sucursal sucAnterior, Sucursal sucNueva,
-            boolean esOrigen) {
-        if (transferencia == null)
-            return;
-
-        try {
-            List<String> roles = notificationRoleService.getRolesForCambioSucursalPreTransferencia();
-            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
-
-            if (usuarioIds.isEmpty())
-                return;
-
-            PushNotificationRequest request = notificationTemplateService.cambioSucursalPreTransferencia(
-                    transferencia, sucAnterior, sucNueva, esOrigen);
-
-            if (request != null) {
-                request.setUsuarioIds(usuarioIds);
-                pushNotificationService.sendPushNotificationToToken(request);
-            }
-        } catch (Exception e) {
-            // Silent notification error
+            System.err.println(
+                    "[NOTIFICACION] Error interno al procesar notificación de transferencia: " + e.getMessage());
         }
     }
 }

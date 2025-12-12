@@ -37,7 +37,6 @@ import net.sf.jasperreports.export.SimplePrintServiceExporterConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ResourceUtils;
 
 import javax.imageio.ImageIO;
 import javax.print.PrintService;
@@ -54,15 +53,12 @@ import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.logging.Logger;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 
 @Service
 public class ImpresionService {
 
-    private static final Logger log = Logger.getLogger(ImpresionService.class.getName());
-    
     PrintService selectedPrintService = null;
     @Autowired
     private ImageService imageService;
@@ -548,14 +544,7 @@ public class ImpresionService {
     }
 
     public String imprimirTransferencia(Transferencia transferencia, List<TransferenciaItem> transferenciaItemList, Boolean ticket, String printerName) {
-        log.info("========== INICIO GENERACIÓN REPORTE TRANSFERENCIA ==========");
-        log.info("Transferencia ID: " + (transferencia != null ? transferencia.getId() : "NULL"));
-        log.info("Ticket: " + ticket);
-        log.info("Printer Name: " + printerName);
-        log.info("TransferenciaItemList size: " + (transferenciaItemList != null ? transferenciaItemList.size() : "NULL"));
-        
         if(ticket!=null && ticket==true){
-            log.info("Generando reporte tipo TICKET");
             try {
                 selectedPrintService = printingService.getPrintService(printerName);
                 if (selectedPrintService != null) {
@@ -604,414 +593,58 @@ public class ImpresionService {
                     printerOutputStream.close();
                 }
             } catch (IOException e) {
-                log.severe("ERROR al generar ticket: " + e.getMessage());
-                e.printStackTrace();
+
             }
-            log.info("========== FIN GENERACIÓN REPORTE TRANSFERENCIA (TICKET) ==========");
             return null;
         } else {
-            log.info("Generando reporte tipo PDF");
             try {
-                // Validación inicial de parámetros
-                if (transferencia == null) {
-                    log.severe("ERROR CRÍTICO: Transferencia es NULL");
-                    return null;
-                }
-                log.info("Transferencia validada - ID: " + transferencia.getId());
-                
-                if (transferenciaItemList == null) {
-                    log.severe("ERROR CRÍTICO: transferenciaItemList es NULL");
-                    return null;
-                }
-                log.info("transferenciaItemList validada - Tamaño: " + transferenciaItemList.size());
-                
-                if (transferenciaItemList.isEmpty()) {
-                    log.warning("ADVERTENCIA: transferenciaItemList está VACÍA - El reporte se generará sin datos");
-                }
-                
-                // Validación de relaciones de Transferencia
-                try {
-                    if (transferencia.getSucursalOrigen() == null) {
-                        log.severe("ERROR: transferencia.getSucursalOrigen() es NULL");
-                    } else {
-                        log.info("Sucursal Origen ID: " + transferencia.getSucursalOrigen().getId() + ", Nombre: " + transferencia.getSucursalOrigen().getNombre());
-                    }
-                    
-                    if (transferencia.getSucursalDestino() == null) {
-                        log.severe("ERROR: transferencia.getSucursalDestino() es NULL");
-                    } else {
-                        log.info("Sucursal Destino ID: " + transferencia.getSucursalDestino().getId() + ", Nombre: " + transferencia.getSucursalDestino().getNombre());
-                    }
-                    
-                    if (transferencia.getUsuarioPreTransferencia() == null) {
-                        log.severe("ERROR: transferencia.getUsuarioPreTransferencia() es NULL");
-                    } else {
-                        log.info("Usuario PreTransferencia ID: " + transferencia.getUsuarioPreTransferencia().getId() + ", Nickname: " + transferencia.getUsuarioPreTransferencia().getNickname());
-                    }
-                } catch (Exception e) {
-                    log.severe("ERROR al acceder a relaciones de Transferencia: " + e.getMessage());
-                    e.printStackTrace();
-                }
-                
                 List<TransferenciaItemDto> transferenciaItemDtoList = new ArrayList<>();
-                log.info("Iniciando procesamiento de " + transferenciaItemList.size() + " TransferenciaItems");
-                
-                int itemsProcesadosExitosamente = 0;
-                int itemsConErrores = 0;
-                
                 for (int i = 0; i < transferenciaItemList.size(); i++) {
-                    try {
-                        TransferenciaItem ti = transferenciaItemList.get(i);
-                        log.info("--- Procesando TransferenciaItem #" + (i + 1) + " (ID: " + (ti != null ? ti.getId() : "NULL") + ") ---");
-                        
-                        if (ti == null) {
-                            log.severe("ERROR: TransferenciaItem en índice " + i + " es NULL");
-                            itemsConErrores++;
-                            continue;
-                        }
-                        
-                        TransferenciaItemDto tiDto = new TransferenciaItemDto();
-                        
-                        // Validar y obtener cantidadPreTransferencia
-                        if (ti.getCantidadPreTransferencia() == null) {
-                            log.warning("TransferenciaItem #" + (i + 1) + ": cantidadPreTransferencia es NULL");
-                            tiDto.setCantidad(null);
-                        } else {
-                            tiDto.setCantidad(ti.getCantidadPreTransferencia());
-                            log.info("TransferenciaItem #" + (i + 1) + ": cantidadPreTransferencia = " + ti.getCantidadPreTransferencia());
-                        }
-                        
-                        // Validar presentacionPreTransferencia
-                        if (ti.getPresentacionPreTransferencia() == null) {
-                            log.severe("ERROR CRÍTICO TransferenciaItem #" + (i + 1) + ": presentacionPreTransferencia es NULL");
-                            itemsConErrores++;
-                            continue;
-                        }
-                        
-                        Long presentacionId = ti.getPresentacionPreTransferencia().getId();
-                        log.info("TransferenciaItem #" + (i + 1) + ": presentacionPreTransferencia ID = " + presentacionId);
-                        
-                        // Buscar código
-                        try {
-                            Codigo codigo = codigoService.findPrincipalByPresentacionId(presentacionId);
-                            if (codigo == null) {
-                                log.warning("TransferenciaItem #" + (i + 1) + ": No se encontró código principal para presentacionId " + presentacionId);
-                                tiDto.setCodBarra("");
-                            } else {
-                                tiDto.setCodBarra(codigo.getCodigo() != null ? codigo.getCodigo() : "");
-                                log.info("TransferenciaItem #" + (i + 1) + ": codBarra = " + tiDto.getCodBarra());
-                            }
-                        } catch (Exception e) {
-                            log.severe("ERROR al buscar código para TransferenciaItem #" + (i + 1) + ": " + e.getMessage());
-                            e.printStackTrace();
-                            tiDto.setCodBarra("");
-                        }
-                        
-                        // Validar producto
-                        if (ti.getPresentacionPreTransferencia().getProducto() == null) {
-                            log.severe("ERROR CRÍTICO TransferenciaItem #" + (i + 1) + ": presentacionPreTransferencia.getProducto() es NULL");
-                            itemsConErrores++;
-                            continue;
-                        }
-                        
-                        String descripcionProducto = ti.getPresentacionPreTransferencia().getProducto().getDescripcion();
-                        if (descripcionProducto == null) {
-                            log.warning("TransferenciaItem #" + (i + 1) + ": producto.descripcion es NULL");
-                            descripcionProducto = "";
-                        }
-                        tiDto.setDescripcion((i + 1) + " - " + descripcionProducto);
-                        log.info("TransferenciaItem #" + (i + 1) + ": descripcion = " + tiDto.getDescripcion());
-                        
-                        // Buscar precio
-                        try {
-                            PrecioPorSucursal precio = precioPorSucursalService.findPrincipalByPrecionacionId(presentacionId);
-                            if (precio == null) {
-                                log.warning("TransferenciaItem #" + (i + 1) + ": No se encontró precio principal para presentacionId " + presentacionId);
-                                tiDto.setPrecio(null);
-                            } else {
-                                tiDto.setPrecio(precio.getPrecio());
-                                log.info("TransferenciaItem #" + (i + 1) + ": precio = " + tiDto.getPrecio());
-                            }
-                        } catch (Exception e) {
-                            log.severe("ERROR al buscar precio para TransferenciaItem #" + (i + 1) + ": " + e.getMessage());
-                            e.printStackTrace();
-                            tiDto.setPrecio(null);
-                        }
-                        
-                        // Obtener presentacion cantidad
-                        if (ti.getPresentacionPreTransferencia().getCantidad() == null) {
-                            log.warning("TransferenciaItem #" + (i + 1) + ": presentacion.cantidad es NULL");
-                            tiDto.setPresentacion(null);
-                        } else {
-                            tiDto.setPresentacion(ti.getPresentacionPreTransferencia().getCantidad());
-                            log.info("TransferenciaItem #" + (i + 1) + ": presentacion = " + tiDto.getPresentacion());
-                        }
-                        
-                        // Vencimiento
-                        if (ti.getVencimientoPreTransferencia() != null) {
-                            tiDto.setVencimiento(DateUtils.toStringOnlyDate(ti.getVencimientoPreTransferencia()));
-                            log.info("TransferenciaItem #" + (i + 1) + ": vencimiento = " + tiDto.getVencimiento());
-                        } else {
-                            log.info("TransferenciaItem #" + (i + 1) + ": vencimiento es NULL");
-                        }
-                        
-                        transferenciaItemDtoList.add(tiDto);
-                        itemsProcesadosExitosamente++;
-                        
-                        // Log detallado del DTO creado
-                        log.info("TransferenciaItem #" + (i + 1) + " DTO creado - " +
-                                "descripcion: '" + tiDto.getDescripcion() + "', " +
-                                "codBarra: '" + tiDto.getCodBarra() + "', " +
-                                "presentacion: " + tiDto.getPresentacion() + ", " +
-                                "cantidad: " + tiDto.getCantidad() + ", " +
-                                "precio: " + tiDto.getPrecio() + ", " +
-                                "vencimiento: " + (tiDto.getVencimiento() != null ? "'" + tiDto.getVencimiento() + "'" : "null"));
-                        log.info("TransferenciaItem #" + (i + 1) + " procesado EXITOSAMENTE");
-                        
-                    } catch (NullPointerException npe) {
-                        log.severe("ERROR NullPointerException en TransferenciaItem #" + (i + 1) + ": " + npe.getMessage());
-                        log.severe("Stack trace: " + getStackTraceAsString(npe));
-                        itemsConErrores++;
-                    } catch (Exception e) {
-                        log.severe("ERROR inesperado procesando TransferenciaItem #" + (i + 1) + ": " + e.getMessage());
-                        e.printStackTrace();
-                        itemsConErrores++;
+                    TransferenciaItem ti = transferenciaItemList.get(i);
+                    TransferenciaItemDto tiDto = new TransferenciaItemDto();
+                    tiDto.setCantidad(ti.getCantidadPreTransferencia());
+                    Codigo codigo = codigoService.findPrincipalByPresentacionId(ti.getPresentacionPreTransferencia().getId());
+                    tiDto.setCodBarra(codigo != null ? codigo.getCodigo() : "");
+                    tiDto.setDescripcion(i + 1 + " - " + ti.getPresentacionPreTransferencia().getProducto().getDescripcion());
+                    PrecioPorSucursal precio = precioPorSucursalService.findPrincipalByPrecionacionId(ti.getPresentacionPreTransferencia().getId());
+                    tiDto.setPrecio(precio != null ? precio.getPrecio() : null);
+                    tiDto.setPresentacion(ti.getPresentacionPreTransferencia().getCantidad());
+                    if(ti.getVencimientoPreTransferencia()!=null){
+                        tiDto.setVencimiento(DateUtils.toStringOnlyDate(ti.getVencimientoPreTransferencia()));
                     }
+                    transferenciaItemDtoList.add(tiDto);
                 }
-                
-                log.info("========== RESUMEN PROCESAMIENTO ==========");
-                log.info("Total items en lista: " + transferenciaItemList.size());
-                log.info("Items procesados exitosamente: " + itemsProcesadosExitosamente);
-                log.info("Items con errores: " + itemsConErrores);
-                log.info("Total DTOs creados: " + transferenciaItemDtoList.size());
-                log.info("===========================================");
-                
-                if (transferenciaItemDtoList.isEmpty()) {
-                    log.severe("ERROR CRÍTICO: transferenciaItemDtoList está VACÍA - El reporte no tendrá datos");
-                }
-                
-                // Cargar y compilar reporte
-                log.info("Cargando archivo de reporte: reports/transferencia.jrxml");
+                // file = ResourceUtils.getFile("classpath:reports/transferencia.jrxml");
                 ClassPathResource resource = new ClassPathResource("reports/transferencia.jrxml");
-                
-                if (!resource.exists()) {
-                    log.severe("ERROR CRÍTICO: El archivo reports/transferencia.jrxml NO EXISTE en el classpath");
-                }
-                
                 InputStream inputStream = resource.getInputStream();
-                log.info("Archivo de reporte cargado exitosamente");
-                
-                log.info("Compilando reporte...");
                 JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
-                log.info("Reporte compilado exitosamente");
-                
-                log.info("Creando datasource con " + transferenciaItemDtoList.size() + " items");
-                
-                // Log detallado de cada DTO antes de crear el datasource
-                log.info("========== CONTENIDO COMPLETO DE DTOs ANTES DE CREAR DATASOURCE ==========");
-                for (int idx = 0; idx < transferenciaItemDtoList.size(); idx++) {
-                    TransferenciaItemDto dto = transferenciaItemDtoList.get(idx);
-                    log.info("DTO #" + (idx + 1) + ": " +
-                            "descripcion=" + (dto.getDescripcion() != null ? "'" + dto.getDescripcion() + "'" : "null") + ", " +
-                            "codBarra=" + (dto.getCodBarra() != null ? "'" + dto.getCodBarra() + "'" : "null") + ", " +
-                            "presentacion=" + dto.getPresentacion() + ", " +
-                            "cantidad=" + dto.getCantidad() + ", " +
-                            "precio=" + dto.getPrecio() + ", " +
-                            "vencimiento=" + (dto.getVencimiento() != null ? "'" + dto.getVencimiento() + "'" : "null"));
-                }
-                log.info("================================================================");
-                
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(transferenciaItemDtoList);
-                log.info("Datasource creado exitosamente");
-                
-                // Verificar que el datasource tiene datos
-                try {
-                    if (dataSource.next()) {
-                        log.info("Datasource verificado - Primer registro accesible");
-                        dataSource.moveFirst(); // Reset para que JasperReports pueda iterar desde el inicio
-                    } else {
-                        log.severe("ERROR: Datasource está vacío - No hay registros disponibles");
-                    }
-                    
-                    // Contar registros en el datasource
-                    int recordCount = 0;
-                    dataSource.moveFirst();
-                    while (dataSource.next()) {
-                        recordCount++;
-                    }
-                    dataSource.moveFirst(); // Reset al inicio
-                    log.info("Datasource contiene " + recordCount + " registros accesibles");
-                } catch (Exception e) {
-                    log.warning("Error al verificar datasource: " + e.getMessage());
-                }
-                
-                // Preparar parámetros
-                log.info("Preparando parámetros del reporte...");
                 Map<String, Object> parameters = new HashMap<>();
-                
-                try {
-                    parameters.put("idTransferencia", transferencia.getId());
-                    log.info("Parámetro idTransferencia: " + transferencia.getId());
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener idTransferencia: " + e.getMessage());
-                }
-                
-                try {
-                    String qr = "frc-" + transferencia.getSucursalOrigen().getId().toString() + "-TRF-" + transferencia.getId() + "-" + transferencia.getSucursalOrigen().getId().toString() + "-EditTransferenciaComponent-null-null";
-                    parameters.put("qr", qr);
-                    log.info("Parámetro qr: " + qr);
-                } catch (Exception e) {
-                    log.severe("ERROR al construir QR: " + e.getMessage());
-                }
-                
-                try {
-                    String sucursalOrigen = transferencia.getSucursalOrigen().getId() + " - " + transferencia.getSucursalOrigen().getNombre();
-                    parameters.put("sucursalOrigen", sucursalOrigen);
-                    log.info("Parámetro sucursalOrigen: " + sucursalOrigen);
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener sucursalOrigen: " + e.getMessage());
-                }
-                
-                try {
-                    String sucursalDestino = transferencia.getSucursalDestino().getId() + " - " + transferencia.getSucursalDestino().getNombre();
-                    parameters.put("sucursalDestino", sucursalDestino);
-                    log.info("Parámetro sucursalDestino: " + sucursalDestino);
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener sucursalDestino: " + e.getMessage());
-                }
-                
-                try {
-                    String fechaReporte = DateUtils.toString(LocalDateTime.now());
-                    parameters.put("fechaReporte", fechaReporte);
-                    log.info("Parámetro fechaReporte: " + fechaReporte);
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener fechaReporte: " + e.getMessage());
-                }
-                
-                try {
-                    String responsable = transferencia.getUsuarioPreTransferencia().getNickname();
-                    parameters.put("responsable", responsable);
-                    log.info("Parámetro responsable: " + responsable);
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener responsable: " + e.getMessage());
-                }
-                
-                try {
-                    String usuario = transferencia.getUsuarioPreTransferencia().getNickname();
-                    parameters.put("usuario", usuario);
-                    log.info("Parámetro usuario: " + usuario);
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener usuario: " + e.getMessage());
-                }
-                
-                try {
-                    String creadoEn = DateUtils.toString(transferencia.getCreadoEn());
-                    parameters.put("creadoEn", creadoEn);
-                    log.info("Parámetro creadoEn: " + creadoEn);
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener creadoEn: " + e.getMessage());
-                }
-                
-                try {
-                    String logoPath = imageService.getImagePath() + File.separator + "logo.png";
-                    parameters.put("logo", logoPath);
-                    log.info("Parámetro logo: " + logoPath);
-                    File logoFile = new File(logoPath);
-                    if (logoFile.exists()) {
-                        log.info("Logo existe en: " + logoPath);
-                    } else {
-                        log.warning("Logo NO existe en: " + logoPath);
-                    }
-                } catch (Exception e) {
-                    log.severe("ERROR al obtener ruta del logo: " + e.getMessage());
-                }
-                
-                log.info("Total de parámetros configurados: " + parameters.size());
-                
-                // Generar reporte
-                log.info("Generando JasperPrint con reporte y datos...");
-                log.info("Parámetros a pasar a fillReport: " + parameters.keySet().size() + " parámetros");
-                log.info("Datasource ready - " + transferenciaItemDtoList.size() + " items");
-                
-                JasperPrint jasperPrint1 = null;
-                try {
-                    jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-                    log.info("JasperPrint generado exitosamente");
-                    
-                    // Verificar elementos en las páginas generadas
-                    if (jasperPrint1 != null && jasperPrint1.getPages() != null) {
-                        log.info("JasperPrint tiene " + jasperPrint1.getPages().size() + " páginas");
-                        if (!jasperPrint1.getPages().isEmpty()) {
-                            java.util.List<?> elements = jasperPrint1.getPages().get(0).getElements();
-                            if (elements != null) {
-                                log.info("Primera página tiene " + elements.size() + " elementos");
-                            } else {
-                                log.warning("Primera página NO tiene elementos (elements es null)");
-                            }
-                        }
-                    }
-                } catch (JRException jre) {
-                    log.severe("ERROR JRException durante fillReport: " + jre.getMessage());
-                    if (jre.getCause() != null) {
-                        log.severe("Causa: " + jre.getCause().getMessage());
-                    }
-                    throw jre;
-                }
-                
-                log.info("Número de páginas generadas: " + (jasperPrint1 != null ? jasperPrint1.getPages().size() : "NULL"));
-                if (jasperPrint1 != null && !jasperPrint1.getPages().isEmpty()) {
-                    log.info("Primera página existe - Total páginas: " + jasperPrint1.getPages().size());
-                }
-                
-                log.info("Exportando a PDF...");
+                parameters.put("idTransferencia", transferencia.getId());
+                parameters.put("qr", "frc-" + transferencia.getSucursalOrigen().getId().toString() + "-TRF-" + transferencia.getId() + "-" + transferencia.getSucursalOrigen().getId().toString() + "-EditTransferenciaComponent-null-null");
+                parameters.put("sucursalOrigen", transferencia.getSucursalOrigen().getId() + " - " + transferencia.getSucursalOrigen().getNombre());
+                parameters.put("sucursalDestino", transferencia.getSucursalDestino().getId() + " - " + transferencia.getSucursalDestino().getNombre());
+                parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+                parameters.put("responsable", transferencia.getUsuarioPreTransferencia().getNickname());
+                parameters.put("usuario", transferencia.getUsuarioPreTransferencia().getNickname());
+                parameters.put("creadoEn", DateUtils.toString(transferencia.getCreadoEn()));
+                parameters.put("logo", imageService.getImagePath()+File.separator+"logo.png");
+                JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
                 byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
-                log.info("PDF generado exitosamente - Tamaño: " + pdfBytes.length + " bytes");
-                
-                log.info("Convirtiendo a Base64...");
                 String base64String = Base64.getEncoder().encodeToString(pdfBytes);
-                log.info("Base64 generado exitosamente - Longitud: " + base64String.length() + " caracteres");
-                
-                log.info("========== REPORTE GENERADO EXITOSAMENTE ==========");
                 return base64String;
-                
             } catch (FileNotFoundException e) {
-                log.severe("ERROR FileNotFoundException: " + e.getMessage());
-                log.severe("Stack trace: " + getStackTraceAsString(e));
                 e.printStackTrace();
                 return null;
             } catch (JRException e) {
-                log.severe("ERROR JRException al generar reporte: " + e.getMessage());
-                log.severe("Stack trace: " + getStackTraceAsString(e));
                 e.printStackTrace();
                 return null;
             } catch (IOException e) {
-                log.severe("ERROR IOException: " + e.getMessage());
-                log.severe("Stack trace: " + getStackTraceAsString(e));
                 e.printStackTrace();
                 return null;
-            } catch (NullPointerException npe) {
-                log.severe("ERROR NullPointerException CRÍTICO: " + npe.getMessage());
-                log.severe("Stack trace: " + getStackTraceAsString(npe));
-                npe.printStackTrace();
-                return null;
-            } catch (Exception e) {
-                log.severe("ERROR inesperado: " + e.getMessage());
-                log.severe("Tipo de excepción: " + e.getClass().getName());
-                log.severe("Stack trace: " + getStackTraceAsString(e));
-                e.printStackTrace();
-                return null;
-            } finally {
-                log.info("========== FIN GENERACIÓN REPORTE TRANSFERENCIA ==========");
             }
         }
 
-    }
-    
-    private String getStackTraceAsString(Exception e) {
-        java.io.StringWriter sw = new java.io.StringWriter();
-        java.io.PrintWriter pw = new java.io.PrintWriter(sw);
-        e.printStackTrace(pw);
-        return sw.toString();
     }
 
     public String imprimirReporteCobroVentaCredito(Cliente cliente, List<VentaCredito> ventaCreditoList, Double totalCobrado, Usuario usuario, Boolean ticket, String printerName) {

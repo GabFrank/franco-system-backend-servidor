@@ -35,8 +35,8 @@ import net.sf.jasperreports.engine.export.JRPrintServiceExporter;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimplePrintServiceExporterConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ResourceUtils;
 
 import javax.imageio.ImageIO;
 import javax.print.PrintService;
@@ -48,6 +48,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -596,7 +597,6 @@ public class ImpresionService {
             }
             return null;
         } else {
-            File file = null;
             try {
                 List<TransferenciaItemDto> transferenciaItemDtoList = new ArrayList<>();
                 for (int i = 0; i < transferenciaItemList.size(); i++) {
@@ -614,8 +614,10 @@ public class ImpresionService {
                     }
                     transferenciaItemDtoList.add(tiDto);
                 }
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "transferencia.jrxml");
-                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                // file = ResourceUtils.getFile("classpath:reports/transferencia.jrxml");
+                ClassPathResource resource = new ClassPathResource("reports/transferencia.jrxml");
+                InputStream inputStream = resource.getInputStream();
+                JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(transferenciaItemDtoList);
                 Map<String, Object> parameters = new HashMap<>();
                 parameters.put("idTransferencia", transferencia.getId());
@@ -635,6 +637,9 @@ public class ImpresionService {
                 e.printStackTrace();
                 return null;
             } catch (JRException e) {
+                e.printStackTrace();
+                return null;
+            } catch (IOException e) {
                 e.printStackTrace();
                 return null;
             }
@@ -696,7 +701,6 @@ public class ImpresionService {
 //            }
             return null;
         } else {
-            File file = null;
             try {
                 List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
                 for (VentaCredito ti : ventaCreditoList) {
@@ -709,8 +713,10 @@ public class ImpresionService {
                     tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
                     ventaCreditoItemDtoList.add(tiDto);
                 }
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "reporte-cobro-venta-credito.jrxml");
-                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                // file = ResourceUtils.getFile("classpath:reports/reporte-cobro-venta-credito.jrxml");
+                ClassPathResource resource = new ClassPathResource("reports/reporte-cobro-venta-credito.jrxml");
+                InputStream inputStream = resource.getInputStream();
+                JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(ventaCreditoItemDtoList);
                 Map<String, Object> parameters = new HashMap<>();
                 parameters.put("documento", cliente.getPersona().getDocumento());
@@ -729,13 +735,15 @@ public class ImpresionService {
             } catch (JRException e) {
                 e.printStackTrace();
                 return null;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
             }
         }
 
     }
 
     public String imprimirReporteLucroPorProducto(List<LucroPorProductosDto> lucroPorProductosDtoList, String fechaInicio, String fechaFin, String sucursales, String filtro, Usuario usuario) {
-            File file = null;
             Long cantProductos = Long.valueOf(0);
             Double lucroTotalPorcentaje = 0.0;
             Double lucroTotalGs = 0.0;
@@ -753,8 +761,9 @@ public class ImpresionService {
                 }
                 cantProductos = Long.valueOf(lucroPorProductosDtoList.size());
                 lucroTotalPorcentaje = ventaTotal > 0 ? ((ventaTotal-costoTotal) / ventaTotal) * 100 : 0.0;
-                file = ResourceUtils.getFile(imageService.getResourcesPath() + File.separator + "lucro-por-producto.jrxml");
-                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+                ClassPathResource resource = new ClassPathResource("reports/lucro-por-producto.jrxml");
+                InputStream inputStream = resource.getInputStream();
+                JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);
                 Map<String, Object> parameters = new HashMap<>();
                 parameters.put("filtroFechaInicio", fechaInicio);
@@ -777,6 +786,9 @@ public class ImpresionService {
                 e.printStackTrace();
                 return null;
             } catch (JRException e) {
+                e.printStackTrace();
+                return null;
+            } catch (IOException e) {
                 e.printStackTrace();
                 return null;
             }
@@ -971,3 +983,4 @@ public class ImpresionService {
 //        }
 //    }
 }
+

@@ -4,6 +4,8 @@ import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.repository.personas.PersonaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import graphql.GraphQLException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -34,16 +36,24 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
         }
-        if (entity.getNombre() != null) entity.setNombre(entity.getNombre().toUpperCase());
-        if (entity.getApodo() != null) entity.setApodo(entity.getApodo().toUpperCase());
-        if (entity.getDireccion() != null) entity.setDireccion(entity.getDireccion().toUpperCase());
-        if (entity.getEmail() != null) entity.setEmail(entity.getEmail().toUpperCase());
-        if(entity.getDocumento().contains("-")){
+        if (entity.getNombre() != null)
+            entity.setNombre(entity.getNombre().toUpperCase());
+        if (entity.getApodo() != null)
+            entity.setApodo(entity.getApodo().toUpperCase());
+        if (entity.getDireccion() != null)
+            entity.setDireccion(entity.getDireccion().toUpperCase());
+        if (entity.getEmail() != null)
+            entity.setEmail(entity.getEmail().toUpperCase());
+        if (entity.getDocumento().contains("-")) {
             int index = entity.getDocumento().indexOf("-");
             entity.setDocumento(entity.getDocumento().substring(0, index));
         }
-        Persona p = super.save(entity);
-//        personaPublisher.publish(p);
-        return p;
+        try {
+            Persona p = super.save(entity);
+            // personaPublisher.publish(p);
+            return p;
+        } catch (DataIntegrityViolationException e) {
+            throw new GraphQLException("El CI o RUC ya existe");
+        }
     }
 }

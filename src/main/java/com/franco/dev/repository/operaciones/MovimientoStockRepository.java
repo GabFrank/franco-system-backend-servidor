@@ -14,7 +14,7 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface MovimientoStockRepository extends HelperRepository<MovimientoStock, Long> {
+public interface MovimientoStockRepository extends HelperRepository<MovimientoStock, com.franco.dev.domain.EmbebedPrimaryKey> {
     default Class<MovimientoStock> getEntityClass() {
         return MovimientoStock.class;
     }

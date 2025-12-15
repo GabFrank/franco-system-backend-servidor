@@ -1,6 +1,6 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
@@ -13,7 +13,6 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -27,22 +26,11 @@ import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
-public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, Long> {
+public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, EmbebedPrimaryKey> {
     private final MovimientoStockRepository repository;
 
     @Autowired
-    private MultiTenantService multiTenantService;
-
-    @Autowired
-    private StockPorProductoSucursalService stockPorProductoSucursalService;
-
-    @Autowired
-    private Environment env;
-
-    @Autowired
     private SucursalService sucursalService;
-    @Autowired
-    private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
     @Override
     public MovimientoStockRepository getRepository() {
@@ -94,10 +82,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public MovimientoStock save(MovimientoStock entity) {
-        boolean esNuevo = (entity.getId() == null);
-        MovimientoStock entidadAnterior = null;
-        
-        if (esNuevo) {
+        if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
             Long newId = Long.valueOf(1);
             Long lastId = repository.findMaxId(entity.getSucursalId());
@@ -108,39 +93,8 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 newId = lastId + 1;
             }
             entity.setId(newId);
-        } else {
-            java.util.Optional<MovimientoStock> movimientoOpt = repository.findById(entity.getId());
-            if (movimientoOpt != null && movimientoOpt.isPresent()) {
-                MovimientoStock original = movimientoOpt.get();
-                entidadAnterior = new MovimientoStock();
-                entidadAnterior.setId(original.getId());
-                entidadAnterior.setSucursalId(original.getSucursalId());
-                entidadAnterior.setCantidad(original.getCantidad());
-                entidadAnterior.setReferencia(original.getReferencia());
-                entidadAnterior.setEstado(original.getEstado());
-                entidadAnterior.setTipoMovimiento(original.getTipoMovimiento());
-                entidadAnterior.setCreadoEn(original.getCreadoEn());
-                entidadAnterior.setProducto(original.getProducto());
-                entidadAnterior.setUsuario(original.getUsuario());
-            }
         }
-        
         MovimientoStock e = super.save(entity);
-        repository.flush();
-        
-        try {
-            if (entity.getTipoMovimiento() != null && entity.getTipoMovimiento() == TipoMovimiento.AJUSTE) {
-                if (esNuevo) {
-                    modificacionService.registrarInsercion(e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
-                } else if (entidadAnterior != null) {
-                    modificacionService.registrarActualizacion(entidadAnterior, e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
-                }
-            }
-        } catch (Exception ex) {
-            System.err.println("Error registrando modificación de ajuste de stock: " + ex.getMessage());
-            ex.printStackTrace();
-        }
-        
         return e;
     }
 
@@ -151,7 +105,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public List<MovimientoStock> ultimosMovimientos(Long proId, TipoMovimiento tm, Integer limit) {
-        if (tm != null) {
+        if (tm == null) {
             tm = TipoMovimiento.COMPRA;
         }
         if (limit < 1) {
@@ -209,12 +163,20 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     public List<MovimientoStock> createMovimientoFromTransferenciaItem(TransferenciaItem e) {
         TransferenciaItem finalE = e;
-        MovimientoStock movimientoStockSalida = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalOrigen().getId(), finalE.getPresentacionPreTransferencia().getProducto().getId());
-        MovimientoStock movimientoStockEntrada = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.TRANSFERENCIA, finalE.getId(), finalE.getTransferencia().getSucursalDestino().getId(), finalE.getPresentacionPreTransferencia().getProducto().getId());
+        MovimientoStock movimientoStockSalida = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
+                TipoMovimiento.TRANSFERENCIA, 
+                finalE.getId(), 
+                finalE.getTransferencia().getSucursalOrigen().getId(), 
+                finalE.getPresentacionPreTransferencia().getProducto().getId()
+        );
+        MovimientoStock movimientoStockEntrada = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
+                TipoMovimiento.TRANSFERENCIA, 
+                finalE.getId(), 
+                finalE.getTransferencia().getSucursalDestino().getId(), 
+                finalE.getPresentacionPreTransferencia().getProducto().getId()
+        );
         Boolean esRechazado = false;
-        Boolean esModificado = false;
         esRechazado = e.getMotivoRechazoPreparacion() != null || e.getMotivoRechazoPreTransferencia() != null || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;
-        esModificado = e.getMotivoModificacionPreparacion() != null || e.getMotivoModificacionPreTransferencia() != null || e.getMotivoModificacionRecepcion() != null || e.getMotivoModificacionTransporte() != null;
         MovimientoStock ms = null;
 
         switch (e.getTransferencia().getEtapa()) {
@@ -249,7 +211,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 if (movimientoStockSalida != null) {
                     ms = movimientoStockSalida;
                     ms.setCantidad(e.getCantidadTransporte() * e.getPresentacionTransporte().getCantidad() * -1);
-                    ms = movimientoStockSalida;
+                    ms.setProducto(e.getPresentacionTransporte().getProducto());
                     ms.setEstado(!esRechazado);
                     movimientoStockSalida = save(ms);
                 }
@@ -272,16 +234,16 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return res;
     }
 
-    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Long productoId, Pageable pageable) {
-        return repository.findProductosConCantidadPositiva(sucursalId, productoId, pageable);
+    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Pageable pageable) {
+        return repository.findProductosConCantidadPositiva(sucursalId, null, pageable);
     }
 
-    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Long productoId, Pageable pageable) {
-        return repository.findProductosConCantidadNegativa(sucursalId, productoId, pageable);
+    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Pageable pageable) {
+        return repository.findProductosConCantidadNegativa(sucursalId, null, pageable);
     }
 
-    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, Long productoId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
-        return repository.findProductosFaltantes(sucursalId, productoId, fechaInicio, fechaFin, pageable);
+    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
+        return repository.findProductosFaltantes(sucursalId, null, fechaInicio, fechaFin, pageable);
     }
 
 }

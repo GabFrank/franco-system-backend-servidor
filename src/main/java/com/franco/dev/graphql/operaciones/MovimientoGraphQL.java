@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
@@ -80,7 +81,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Optional<MovimientoStock> movimientoStock(Long id, Long sucId) {
-        return service.findById(id);
+        return service.findById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public List<MovimientoStock> movimientosStock(int page, int size, Long sucId) {
@@ -123,7 +124,7 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteMovimientoStock(Long id, Long sucId) {
-        return service.deleteById(id);
+        return service.deleteById(new EmbebedPrimaryKey(id, sucId));
     }
 
     public Long countMovimientoStock() {

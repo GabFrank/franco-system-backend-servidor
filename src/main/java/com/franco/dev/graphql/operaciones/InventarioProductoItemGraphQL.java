@@ -178,9 +178,10 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             String nickname) {
 
         try {
+            Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : DEFAULT_PAGE_SIZE);
             Page<InventarioProductoItem> inventarioProductoItemPage = service.findAllWithFilters(
                     sucursalIdList, sectorIdList, zonaIdList, stringToDate(startDate), stringToDate(endDate),
-                    usuarioIdList, productoIdList, null);
+                    usuarioIdList, productoIdList, pageable);
 
             List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemPage.getContent();
             if (inventarioProductoItemList.isEmpty()) {

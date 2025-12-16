@@ -152,8 +152,85 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public ConsultaRucResponse consultaRuc(String ruc) {
-        // TODO: Implementar la consulta al RUC
-        return null;
+        // Delegar al servicio SIFEN si está disponible
+        // Este método se mantiene para compatibilidad con queries GraphQL existentes
+        return null; // Por ahora retornar null, usar clientePorPersonaDocumentoDetallado para nueva funcionalidad
+    }
+
+    /**
+     * Método legacy: Busca cliente por documento de persona.
+     * Retorna Cliente si fue guardado exitosamente, null si no se pudo guardar.
+     * Mantiene compatibilidad con frontend legacy.
+     */
+    public Cliente clientePorPersonaDocumento(String texto) {
+        if (texto == null || texto.trim().isEmpty()) {
+            return null;
+        }
+
+        // Limpiar documento (remover guiones y caracteres especiales)
+        String documentoLimpio = texto.trim().replaceAll("[^0-9]", "");
+
+        try {
+            // Usar el método del servicio que consulta SIFEN si es necesario
+            Cliente cliente = service.buscarOCrearClientePorDocumento(documentoLimpio);
+            return cliente;
+        } catch (Exception e) {
+            // Si hay error (ej: no es contribuyente), retornar null para mantener compatibilidad legacy
+            return null;
+        }
+    }
+
+    /**
+     * Método nuevo: Busca cliente por documento de persona con información detallada.
+     * Retorna ClienteResponse con información completa, incluyendo datos básicos cuando no se puede guardar.
+     */
+    public ClienteResponse clientePorPersonaDocumentoDetallado(String texto) {
+        ClienteResponse response = new ClienteResponse();
+        response.setWarnings(new ArrayList<>());
+        response.setErrores(new ArrayList<>());
+        response.setExito(false);
+
+        if (texto == null || texto.trim().isEmpty()) {
+            response.getErrores().add("El documento no puede estar vacío");
+            return response;
+        }
+
+        // Limpiar documento (remover guiones y caracteres especiales)
+        String documentoLimpio = texto.trim().replaceAll("[^0-9]", "");
+
+        try {
+            // Intentar buscar o crear cliente usando SIFEN
+            Cliente cliente = service.buscarOCrearClientePorDocumento(documentoLimpio);
+            
+            if (cliente != null && cliente.getId() != null) {
+                response.setCliente(cliente);
+                response.setExito(true);
+                return response;
+            }
+
+            // Si no se pudo crear cliente, intentar obtener datos básicos de SIFEN
+            // (esto puede pasar si SIFEN está disponible pero hay algún problema al guardar)
+            ClienteDatosBasicos datosBasicos = new ClienteDatosBasicos();
+            datosBasicos.setRuc(documentoLimpio);
+            response.setDatosBasicos(datosBasicos);
+            response.getWarnings().add("No se pudo guardar el cliente, pero se puede generar la factura con los datos básicos.");
+            response.setExito(false);
+
+        } catch (RuntimeException e) {
+            // Error conocido (ej: no es contribuyente)
+            String mensajeError = e.getMessage();
+            if (mensajeError != null && mensajeError.contains("no es contribuyente")) {
+                response.getErrores().add(mensajeError);
+            } else {
+                response.getErrores().add("Error al buscar cliente: " + mensajeError);
+            }
+            response.setExito(false);
+        } catch (Exception e) {
+            response.getErrores().add("Error al buscar cliente: " + e.getMessage());
+            response.setExito(false);
+        }
+
+        return response;
     }
 
 }

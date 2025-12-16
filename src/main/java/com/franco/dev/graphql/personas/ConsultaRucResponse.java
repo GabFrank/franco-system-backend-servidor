@@ -17,4 +17,14 @@ public class ConsultaRucResponse {
     String estadoContribuyente;
     String codigoEstadoContribuyente;
     String esFacturadorElectronico;
+    String mensajeProcesamiento;
+    String dv;
+    String estado;
+    String nombre;
+    String nombreFantasia;
+    String telefono;
+    String direccion;
+    Integer codigoEstablecimiento;
+    Boolean validacionCorrecta;
+    String mensajeValidacion;
 }

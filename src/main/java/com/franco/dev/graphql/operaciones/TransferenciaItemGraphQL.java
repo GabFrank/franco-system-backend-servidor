@@ -77,7 +77,8 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         return res;
     }
 
-    public Page<TransferenciaItem> transferenciaItensPorTransferenciaIdWithFilter(Long id, String name, Integer page, Integer size) {
+    public Page<TransferenciaItem> transferenciaItensPorTransferenciaIdWithFilter(Long id, String name, Integer page,
+            Integer size) {
         Page<TransferenciaItem> res = service.findByTransferenciaItemIdWithFilter(id, name, page, size);
         return res;
     }
@@ -96,9 +97,11 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (input.getVencimientoRecepcion() != null)
             e.setVencimientoRecepcion(stringToDate(input.getVencimientoRecepcion()));
         if (input.getPresentacionPreTransferenciaId() != null)
-            e.setPresentacionPreTransferencia(presentacionService.findById(input.getPresentacionPreTransferenciaId()).orElse(null));
+            e.setPresentacionPreTransferencia(
+                    presentacionService.findById(input.getPresentacionPreTransferenciaId()).orElse(null));
         if (input.getPresentacionPreparacionId() != null)
-            e.setPresentacionPreparacion(presentacionService.findById(input.getPresentacionPreparacionId()).orElse(null));
+            e.setPresentacionPreparacion(
+                    presentacionService.findById(input.getPresentacionPreparacionId()).orElse(null));
         if (input.getPresentacionTransporteId() != null)
             e.setPresentacionTransporte(presentacionService.findById(input.getPresentacionTransporteId()).orElse(null));
         if (input.getPresentacionRecepcionId() != null)
@@ -111,26 +114,40 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         movimientoStockService.createMovimientoFromTransferenciaItem(e);
 
         if (e != null && precioCosto != null) {
-            Producto producto = e.getPresentacionPreTransferencia().getProducto();
-            CostoPorProducto costoPorProducto = new CostoPorProducto();
-            CostoPorProducto lastCostoPorProducto = costosPorProductoService.findLastByProductoId(producto.getId());
-            if (lastCostoPorProducto != null && lastCostoPorProducto.getUltimoPrecioCompra() != null && lastCostoPorProducto.getUltimoPrecioCompra() != precioCosto) {
-                if (lastCostoPorProducto != null && lastCostoPorProducto.getCostoMedio() == null) {
-                    costoPorProducto.setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);
-                } else {
-                    costoPorProducto.setCostoMedio(precioCosto);
-                }
-                costoPorProducto.setProducto(producto);
-                costoPorProducto.setCotizacion(1.0);
-                costoPorProducto.setUltimoPrecioCompra(precioCosto);
-                costoPorProducto.setUsuario(e.getUsuario());
-                costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
-                costoPorProducto.setCreadoEn(e.getCreadoEn());
-                costoPorProducto = costosPorProductoService.save(costoPorProducto);
-                if (costoPorProducto != null)
-                    costosPorProductoService.save(costoPorProducto);
-            }
+            try {
+                if (e.getPresentacionPreTransferencia() != null
+                        && e.getPresentacionPreTransferencia().getProducto() != null) {
+                    Producto producto = e.getPresentacionPreTransferencia().getProducto();
+                    CostoPorProducto costoPorProducto = new CostoPorProducto();
+                    CostoPorProducto lastCostoPorProducto = costosPorProductoService
+                            .findLastByProductoId(producto.getId());
+                    if (lastCostoPorProducto != null && lastCostoPorProducto.getUltimoPrecioCompra() != null
+                            && !lastCostoPorProducto.getUltimoPrecioCompra().equals(precioCosto)) {
+                        if (lastCostoPorProducto.getCostoMedio() == null) {
+                            costoPorProducto
+                                    .setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);
+                        } else {
+                            costoPorProducto.setCostoMedio(precioCosto);
+                        }
+                        costoPorProducto.setProducto(producto);
+                        costoPorProducto.setCotizacion(1.0);
+                        costoPorProducto.setUltimoPrecioCompra(precioCosto);
+                        costoPorProducto.setUsuario(e.getUsuario());
 
+                        try {
+                            costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
+                        } catch (Exception ex) {
+                            System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
+                        }
+
+                        costoPorProducto.setCreadoEn(e.getCreadoEn());
+                        costosPorProductoService.save(costoPorProducto);
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error al actualizar CostoPorProducto en saveTransferenciaItem: " + ex.getMessage());
+                ex.printStackTrace();
+            }
         }
         return e;
     }
@@ -142,9 +159,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public TransferenciaItem verificarProducto(Long id, Boolean vencimientoVerificado) {
-        System.out.println("Received request to verify product: ID=" + id + ", vencimientoVerificado=" + vencimientoVerificado);
+        System.out.println(
+                "Received request to verify product: ID=" + id + ", vencimientoVerificado=" + vencimientoVerificado);
         return service.verificarProducto(id, vencimientoVerificado);
     }
 
 }
-

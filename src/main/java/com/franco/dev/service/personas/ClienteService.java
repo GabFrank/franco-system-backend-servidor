@@ -28,25 +28,24 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
     @Lazy
     private final SifenService sifenService;
 
-
     @Override
     public ClienteRepository getRepository() {
         return repository;
     }
 
-    public Cliente findByPersonaId(Long id){
+    public Cliente findByPersonaId(Long id) {
         return repository.findByPersonaId(id);
     }
 
-    public List<Cliente> findByAll(String texto){
+    public List<Cliente> findByAll(String texto) {
         texto = texto.replace(' ', '%');
-        return  repository.findByPersona(texto);
+        return repository.findByPersona(texto);
     }
 
-    public Page<Cliente> findByAll2(String texto, TipoCliente tipoCliente, Integer page, Integer size){
-        texto = texto != null ? texto.replace(' ', '%').toUpperCase(): "%";
+    public Page<Cliente> findByAll2(String texto, TipoCliente tipoCliente, Integer page, Integer size) {
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "%";
         Pageable pagina = PageRequest.of(page, size);
-        return  repository.findByAll(texto, tipoCliente, pagina);
+        return repository.findByAll(texto, tipoCliente, pagina);
     }
 
     @Override
@@ -55,7 +54,7 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
             entity.setCreadoEn(LocalDateTime.now());
         }
         Cliente p = super.save(entity);
-//        personaPublisher.publish(p);
+        // personaPublisher.publish(p);
         return p;
     }
 

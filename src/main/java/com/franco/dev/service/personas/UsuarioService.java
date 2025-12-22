@@ -80,6 +80,10 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public Optional<Usuario> findByNickname(String nickname) {
+        // si el nickname es null, return null
+        if (nickname == null) {
+            return Optional.empty();
+        }
         return repository.findByNicknameIgnoreCase(nickname.toUpperCase());
     }
 

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @AllArgsConstructor
@@ -176,9 +177,11 @@ public class InventarioProductoItemService
         return repository.countProductosVencidos(
                 sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList);
     }
+
     @Override
     public InventarioProductoItem save(InventarioProductoItem entity) {
-        if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getCreadoEn() == null)
+            entity.setCreadoEn(LocalDateTime.now());
 
         Long inventarioId = null;
         Long productoId = null;
@@ -191,8 +194,12 @@ public class InventarioProductoItemService
 
         if (inventarioId != null && productoId != null) {
             List<InventarioProductoItem> existingItems = findByInventarioIdAndProductoId(inventarioId, productoId);
-            if (!existingItems.isEmpty()) {
-                throw new IllegalStateException("El producto ya fue registrado en este inventario");
+            for (InventarioProductoItem item : existingItems) {
+                if (!Objects.equals(item.getId(), entity.getId())
+                        && Objects.equals(item.getVencimiento(), entity.getVencimiento())) {
+                    throw new IllegalStateException(
+                            "El producto ya fue registrado en este inventario con el mismo vencimiento");
+                }
             }
         }
 

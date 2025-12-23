@@ -284,18 +284,19 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
 
                 if (field.isAnnotationPresent(javax.persistence.ManyToOne.class)) {
                     if (value != null) {
-                        try {
-                            Field idField = value.getClass().getDeclaredField("id");
-                            idField.setAccessible(true);
-                            Object idValue = idField.get(value);
+                        // Usamos la interfaz Identifiable que ya implementan las entidades
+                        // Esto es seguro para Proxies de Hibernate y evita usar reflexión sobre campos privados
+                        if (value instanceof com.franco.dev.config.Identifiable) {
+                            Object idValue = ((com.franco.dev.config.Identifiable<?>) value).getId();
                             if (idValue != null) {
                                 detalle.setValorNuevoId(((Number) idValue).longValue());
-                                detalle.setValorNuevo(value.getClass().getSimpleName() + " (ID: " + idValue + ")");
+                                detalle.setValorNuevo(value.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
                             } else {
-                                detalle.setValorNuevo(value.getClass().getSimpleName() + " (sin ID)");
+                                detalle.setValorNuevo(value.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
                             }
-                        } catch (Exception e) {
-                            detalle.setValorNuevo(value != null ? value.toString() : null);
+                        } else {
+                            // Si no es Identifiable, intentamos un toString limitado o el nombre de la clase
+                            detalle.setValorNuevo(value.getClass().getSimpleName().split("\\$")[0]);
                         }
                     } else {
                         detalle.setValorNuevo(null);
@@ -346,38 +347,32 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
 
                     if (field.isAnnotationPresent(javax.persistence.ManyToOne.class)) {
                         if (valorAnterior != null) {
-                            try {
-                                Field idField = valorAnterior.getClass().getDeclaredField("id");
-                                idField.setAccessible(true);
-                                Object idValue = idField.get(valorAnterior);
+                            if (valorAnterior instanceof com.franco.dev.config.Identifiable) {
+                                Object idValue = ((com.franco.dev.config.Identifiable<?>) valorAnterior).getId();
                                 if (idValue != null) {
                                     detalle.setValorAnteriorId(((Number) idValue).longValue());
-                                    detalle.setValorAnterior(
-                                            valorAnterior.getClass().getSimpleName() + " (ID: " + idValue + ")");
+                                    detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
                                 } else {
-                                    detalle.setValorAnterior(valorAnterior.getClass().getSimpleName() + " (sin ID)");
+                                    detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
                                 }
-                            } catch (Exception e) {
-                                detalle.setValorAnterior(valorAnterior != null ? valorAnterior.toString() : null);
+                            } else {
+                                detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0]);
                             }
                         } else {
                             detalle.setValorAnterior(null);
                         }
 
                         if (valorNuevo != null) {
-                            try {
-                                Field idField = valorNuevo.getClass().getDeclaredField("id");
-                                idField.setAccessible(true);
-                                Object idValue = idField.get(valorNuevo);
+                            if (valorNuevo instanceof com.franco.dev.config.Identifiable) {
+                                Object idValue = ((com.franco.dev.config.Identifiable<?>) valorNuevo).getId();
                                 if (idValue != null) {
                                     detalle.setValorNuevoId(((Number) idValue).longValue());
-                                    detalle.setValorNuevo(
-                                            valorNuevo.getClass().getSimpleName() + " (ID: " + idValue + ")");
+                                    detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
                                 } else {
-                                    detalle.setValorNuevo(valorNuevo.getClass().getSimpleName() + " (sin ID)");
+                                    detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
                                 }
-                            } catch (Exception e) {
-                                detalle.setValorNuevo(valorNuevo != null ? valorNuevo.toString() : null);
+                            } else {
+                                detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0]);
                             }
                         } else {
                             detalle.setValorNuevo(null);
@@ -431,7 +426,14 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                 ModificacionDetalle detalle = new ModificacionDetalle();
                 detalle.setCampoNombre(field.getName());
                 detalle.setCampoTipo(field.getType().getSimpleName());
-                detalle.setValorAnterior(value != null ? value.toString() : null);
+                
+                if (value instanceof com.franco.dev.config.Identifiable) {
+                    Object idValue = ((com.franco.dev.config.Identifiable<?>) value).getId();
+                    detalle.setValorAnterior(value.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
+                } else {
+                    detalle.setValorAnterior(value != null ? value.toString() : null);
+                }
+                
                 detalle.setOrden(orden++);
                 detalle.setEsCampoSensible(esCampoSensible(field.getName()));
 

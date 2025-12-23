@@ -10,10 +10,15 @@ import com.franco.dev.service.personas.UsuarioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.criteria.Join;
+import javax.persistence.criteria.JoinType;
+import javax.persistence.criteria.Predicate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -63,8 +68,45 @@ public class NotificacionDestinatarioService
             LocalDateTime fechaInicio,
             LocalDateTime fechaFin,
             Pageable pageable) {
-        String estadoStr = estadoTablero != null ? estadoTablero.name() : null;
-        return repository.findByUsuarioIdAndFilters(usuarioId, estadoStr, leida, fechaInicio, fechaFin, pageable);
+        return repository.findAll(getSpecification(usuarioId, estadoTablero, leida, fechaInicio, fechaFin), pageable);
+    }
+
+    private Specification<NotificacionDestinatario> getSpecification(
+            Long usuarioId,
+            EstadoNotificacionTablero estadoTablero,
+            Boolean leida,
+            LocalDateTime fechaInicio,
+            LocalDateTime fechaFin) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            Join<NotificacionDestinatario, Notificacion> notificacionJoin = root.join("notificacion", JoinType.INNER);
+
+            if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                root.fetch("notificacion", JoinType.INNER);
+                query.orderBy(cb.desc(notificacionJoin.get("creadoEn")));
+            }
+
+            predicates.add(cb.equal(root.get("usuario").get("id"), usuarioId));
+
+            if (estadoTablero != null) {
+                predicates.add(cb.equal(notificacionJoin.get("estadoTablero"), estadoTablero));
+            }
+
+            if (leida != null) {
+                predicates.add(cb.equal(root.get("leida"), leida));
+            }
+
+            if (fechaInicio != null) {
+                predicates.add(cb.greaterThanOrEqualTo(notificacionJoin.get("creadoEn"), fechaInicio));
+            }
+
+            if (fechaFin != null) {
+                predicates.add(cb.lessThanOrEqualTo(notificacionJoin.get("creadoEn"), fechaFin));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     public Long countByUsuarioIdAndFilters(
@@ -73,8 +115,7 @@ public class NotificacionDestinatarioService
             Boolean leida,
             LocalDateTime fechaInicio,
             LocalDateTime fechaFin) {
-        String estadoStr = estadoTablero != null ? estadoTablero.name() : null;
-        return repository.countByUsuarioIdAndFilters(usuarioId, estadoStr, leida, fechaInicio, fechaFin);
+        return repository.count(getSpecification(usuarioId, estadoTablero, leida, fechaInicio, fechaFin));
     }
 
     public Long countNoLeidasByUsuarioId(Long usuarioId) {
@@ -94,6 +135,7 @@ public class NotificacionDestinatarioService
                 .distinct()
                 .collect(java.util.stream.Collectors.toList());
     }
+
     @Transactional(readOnly = true)
     public List<Usuario> obtenerUsuariosConAcceso(Long notificacionId) {
         List<Long> usuarioIds = repository.findUsuarioIdsConAccesoNotificacion(notificacionId);

@@ -10,7 +10,10 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface NotificacionDestinatarioRepository extends HelperRepository<NotificacionDestinatario, Long> {
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
+public interface NotificacionDestinatarioRepository extends HelperRepository<NotificacionDestinatario, Long>,
+              JpaSpecificationExecutor<NotificacionDestinatario> {
 
        default Class<NotificacionDestinatario> getEntityClass() {
               return NotificacionDestinatario.class;
@@ -47,7 +50,8 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
                                    "WHERE nd.usuario.id = :usuarioId " +
                                    "AND (:estadoTablero IS NULL OR n.estadoTablero = CAST(:estadoTablero AS text)) " +
                                    "AND (:leida IS NULL OR nd.leida = :leida) " +
-                                   "AND (CAST(:fechaInicio AS timestamp) IS NULL OR n.creadoEn >= CAST(:fechaInicio AS timestamp)) " +
+                                   "AND (CAST(:fechaInicio AS timestamp) IS NULL OR n.creadoEn >= CAST(:fechaInicio AS timestamp)) "
+                                   +
                                    "AND (CAST(:fechaFin AS timestamp) IS NULL OR n.creadoEn <= CAST(:fechaFin AS timestamp))")
        Page<NotificacionDestinatario> findByUsuarioIdAndFilters(
                      @Param("usuarioId") Long usuarioId,

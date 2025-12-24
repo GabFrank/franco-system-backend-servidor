@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.enums.InventarioEstado;
 import com.franco.dev.print.operaciones.MovimientoPrintService;
 import com.franco.dev.repository.operaciones.InventarioRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.configuraciones.ModificacionService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,8 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
     private MovimientoStockService movimientoStockService;
     @Autowired
     private MovimientoPrintService movimientoPrintService;
+    @Autowired
+    private ModificacionService modificacionService;
 
     @Override
     public InventarioRepository getRepository() {
@@ -38,13 +41,49 @@ public class InventarioService extends CrudService<Inventario, InventarioReposit
 
     @Override
     public Inventario save(Inventario entity) {
-        if (entity.getFechaInicio() == null) entity.setFechaInicio(LocalDateTime.now());
-        if(entity.getId()!=null){
-            Long id = entity.getId();
-            entity.setId(id);
+        if (entity.getFechaInicio() == null)
+            entity.setFechaInicio(LocalDateTime.now());
+
+        Inventario entidadAnterior = null;
+        boolean esNuevo = (entity.getId() == null);
+        if (!esNuevo) {
+            entidadAnterior = repository.findById(entity.getId()).orElse(null);
         }
+
         Inventario e = super.save(entity);
+        repository.flush();
+
+        try {
+            if (esNuevo) {
+                modificacionService.registrarInsercion(e, "INVENTARIO", "operaciones", "inventario");
+            } else if (entidadAnterior != null) {
+                modificacionService.registrarActualizacion(entidadAnterior, e, "INVENTARIO", "operaciones",
+                        "inventario");
+            }
+        } catch (Exception ex) {
+            log.warn("Error registrando auditoría de inventario: " + ex.getMessage());
+        }
+
         return e;
+    }
+
+    @Override
+    public Boolean deleteById(Long id) {
+        try {
+            Inventario entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                try {
+                    modificacionService.registrarEliminacion(entidad, "INVENTARIO", "operaciones", "inventario");
+                } catch (Exception ex) {
+                    log.warn("Error registrando eliminación de inventario: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public List<Inventario> findByDate(String inicio, String fin) {

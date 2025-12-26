@@ -20,6 +20,7 @@ import org.hibernate.annotations.TypeDefs;
 
 import javax.persistence.*;
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -112,6 +113,9 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     @Column(name = "estado_verificacion", nullable = false)
     @Type(type = "estado_verificacion")
     private EstadoVerificacion estadoVerificacion = EstadoVerificacion.PENDIENTE;
+
+    @OneToMany(mappedBy = "recepcionMercaderiaItem", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RecepcionMercaderiaItemVariacion> variaciones;
 
     /**
      * Obtiene el ID de la recepción de mercadería

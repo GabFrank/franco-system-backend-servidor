@@ -1,2 +1,0 @@
-ALTER TABLE operaciones.recepcion_mercaderia_item DROP CONSTRAINT fk_recepcion_item_recepcion;
-ALTER TABLE operaciones.recepcion_mercaderia_item ADD CONSTRAINT fk_recepcion_item_recepcion FOREIGN KEY (recepcion_mercaderia_id) REFERENCES operaciones.recepcion_mercaderia(id) ON DELETE CASCADE;

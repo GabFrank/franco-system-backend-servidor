@@ -44,6 +44,7 @@ extend type Query {
     personaSearch(texto:String):[Persona]
     personas(page:Int = 0, size:Int = 10):[Persona]!
     countPersona:Int
+    personaPorDocumento(texto:String):Persona
 }
 
 extend type Mutation {

@@ -88,7 +88,7 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         texto = texto != null ? "%" + texto.replace(" ", "%") + "%": "";
-        return service.getRepository().findByPersonaNombreLike(texto, pageable);
+        return service.getRepository().findByPersonaNombreLikeOrPersonaApodoLikeOrPersonaDocumentoLike(texto, texto, texto, pageable);
     }
 
 }

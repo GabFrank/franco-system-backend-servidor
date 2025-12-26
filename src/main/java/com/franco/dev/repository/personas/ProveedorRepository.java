@@ -19,7 +19,7 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
 
     @Query("select distinct p from Proveedor p " +
             "left outer join p.persona as per " +
-            "where UPPER(per.nombre) like %?1% or cast(p.id as text) like %?1%")
+            "where UPPER(per.nombre) like %?1% or cast(p.id as text) like %?1% or UPPER(per.apodo) like %?1% or UPPER(per.documento) like %?1%")
     public List<Proveedor> findByPersona(String texto);
 
     @Query("select distinct pro FROM VendedorProveedor v " +
@@ -28,6 +28,6 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
             "where ven.id = ?1")
     public List<Proveedor> findByVendedorId(Long id);
 
-    public Page<Proveedor> findByPersonaNombreLike(String nombre, Pageable page);
+    public Page<Proveedor> findByPersonaNombreLikeOrPersonaApodoLikeOrPersonaDocumentoLike(String nombre, String apodo, String documento, Pageable page);
 
 }

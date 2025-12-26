@@ -59,6 +59,7 @@ public class Producto implements Identifiable<Long> {
     private String imagenes;
     private Boolean isEnvase;
     private Boolean activo;
+    private Boolean lote;
 
 
 

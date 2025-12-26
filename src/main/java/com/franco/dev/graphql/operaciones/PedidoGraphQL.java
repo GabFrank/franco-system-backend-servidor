@@ -2,23 +2,19 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.*;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
-import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.graphql.operaciones.input.PedidoInput;
 import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.*;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.personas.VendedorService;
-import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.ProductoProveedorService;
 import graphql.GraphQLException;
-import graphql.GraphqlErrorException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -31,10 +27,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.HashSet;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -60,9 +58,6 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     private PedidoItemService pedidoItemService;
 
     @Autowired
-    private PedidoItemGraphQL pedidoItemGraphQL;
-
-    @Autowired
     private PedidoFechaEntregaService pedidoFechaEntregaService;
 
     @Autowired
@@ -72,19 +67,18 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     private PedidoSucursalInfluenciaService pedidoSucursalInfluenciaService;
 
     @Autowired
-    private MovimientoStockService movimientoStockService;
-
-    @Autowired
     private SucursalService sucursalService;
 
     @Autowired
     private ProductoProveedorService productoProveedorService;
 
     @Autowired
-    private CostosPorProductoService costosPorProductoService;
+    private ProcesoEtapaService procesoEtapaService;
 
     @Autowired
-    private CambioService cambioService;
+    private NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
+
+    // ===== BASIC CRUD OPERATIONS =====
 
     public Optional<Pedido> pedido(Long id) {
         return service.findById(id);
@@ -95,72 +89,98 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findAll(pageable);
     }
 
-    public Page<Pedido> filterPedidos(Long idPedido,
-                                      Integer numeroNotaRecepcion, PedidoEstado estado, Long sucursalId, String inicio, String fin, Long proveedorId, Long vendedorId, Long formaPagoId, Long productoId, Integer page, Integer size) {
-        return service.filterPedidos(idPedido,
-                numeroNotaRecepcion, estado, sucursalId, inicio, fin, proveedorId, vendedorId, formaPagoId, productoId, page, size);
+    // public Page<Pedido> filterPedidos(Long idPedido, Integer numeroNotaRecepcion,
+    // PedidoEstado estado,
+    // Long sucursalId, String inicio, String fin, Long proveedorId,
+    // Long vendedorId, Long formaPagoId, Long productoId,
+    // Integer page, Integer size) {
+    // return service.filterPedidos(idPedido, numeroNotaRecepcion, estado,
+    // sucursalId, inicio, fin,
+    // proveedorId, vendedorId, formaPagoId, productoId, page, size);
+    // }
+
+    public Long countPedido() {
+        return service.count();
     }
+
+    public Boolean deletePedido(Long id) {
+        return service.deleteById(id);
+    }
+
+    // ===== SAVE OPERATIONS =====
 
     public Pedido savePedido(PedidoInput input) {
         ModelMapper m = new ModelMapper();
         Pedido e = m.map(input, Pedido.class);
+
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        if (input.getMonedaId() != null)
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getProveedorId() != null)
             e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
-        if (input.getVendedorId() != null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
-        Pedido pedido = service.save(e);
-        return pedido;
+        if (input.getVendedorId() != null)
+            e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+
+        return service.save(e);
     }
 
-    public Pedido savePedidoFull(PedidoInput input, List<String> fechaEntregaList, List<Long> sucursalEntregaList, List<Long> sucursalInfluenciaList, Long usuarioId) {
+    public Pedido savePedidoFull(PedidoInput input, List<String> fechaEntregaList,
+            List<Long> sucursalEntregaList, List<Long> sucursalInfluenciaList,
+            Long usuarioId) {
         ModelMapper m = new ModelMapper();
+        Boolean isNew = input.getId() == null;
         Pedido e = m.map(input, Pedido.class);
+
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        if (input.getMonedaId() != null)
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getProveedorId() != null)
             e.setProveedor(proveedorService.findById(input.getProveedorId()).orElse(null));
-        if (input.getVendedorId() != null) e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+        if (input.getVendedorId() != null)
+            e.setVendedor(vendedorService.findById(input.getVendedorId()).orElse(null));
+
         Pedido pedido = service.save(e);
+
         if (fechaEntregaList != null) {
             updatePedidoFechaEntrega(pedido, fechaEntregaList, usuarioId);
         }
         if (sucursalEntregaList != null) {
             updatePedidoSucursalEntrega(pedido, sucursalEntregaList, usuarioId);
         }
-        if (sucursalEntregaList != null) {
+        if (sucursalInfluenciaList != null) {
             updatePedidoSucursalInfluencia(pedido, sucursalInfluenciaList, usuarioId);
         }
-        return pedido;
+
+        if (isNew) {
+            inicializarEtapas(pedido);
+        }
+
+        return service.findById(pedido.getId()).orElse(null);
     }
+
+    // ===== RELATED ENTITY UPDATES =====
 
     @Transactional
     public void updatePedidoFechaEntrega(Pedido pedido, List<String> newDates, Long usuarioId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
-        // Convert newDates to a Set of LocalDateTime for easier comparison
         Set<LocalDateTime> newDatesSet = newDates.stream()
                 .map(dateStr -> stringToDate(dateStr))
                 .collect(Collectors.toSet());
 
-        // Retrieve current PedidoFechaEntrega entries from the database
         List<PedidoFechaEntrega> currentEntries = pedidoFechaEntregaService.findByPedido(pedido.getId());
 
-        // Determine entries to delete (existing in database but not in newDatesSet)
         List<PedidoFechaEntrega> toDelete = currentEntries.stream()
                 .filter(entry -> !newDatesSet.contains(entry.getFechaEntrega()))
                 .collect(Collectors.toList());
 
-        // Delete entries
         pedidoFechaEntregaService.deleteAll(toDelete);
 
-        // Find which dates are new by removing all dates already present
         currentEntries.forEach(entry -> newDatesSet.remove(entry.getFechaEntrega()));
 
-        // Create new PedidoFechaEntrega entries for remaining new dates
         newDatesSet.forEach(date -> {
             PedidoFechaEntrega newEntry = new PedidoFechaEntrega();
             newEntry.setPedido(pedido);
@@ -178,24 +198,18 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Transactional
     public void updatePedidoSucursalEntrega(Pedido pedido, List<Long> newSucursalesList, Long usuarioId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
-        // Convert newDates to a Set of LocalDateTime for easier comparison
         List<Long> newDatesSet = newSucursalesList;
 
-        // Retrieve current PedidoFechaEntrega entries from the database
         List<PedidoSucursalEntrega> currentEntries = pedidoSucursalEntregaService.findByPedidoId(pedido.getId());
 
-        // Determine entries to delete (existing in database but not in newDatesSet)
         List<PedidoSucursalEntrega> toDelete = currentEntries.stream()
                 .filter(entry -> !newDatesSet.contains(entry.getSucursal().getId()))
                 .collect(Collectors.toList());
 
-        // Delete entries
         pedidoSucursalEntregaService.deleteAll(toDelete);
 
-        // Find which dates are new by removing all dates already present
         currentEntries.forEach(entry -> newDatesSet.remove(entry.getSucursal().getId()));
 
-        // Create new PedidoFechaEntrega entries for remaining new dates
         newDatesSet.forEach(data -> {
             PedidoSucursalEntrega newEntry = new PedidoSucursalEntrega();
             Sucursal sucursal = sucursalService.findById(data).orElse(null);
@@ -214,24 +228,18 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Transactional
     public void updatePedidoSucursalInfluencia(Pedido pedido, List<Long> newSucursalesList, Long usuarioId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
-        // Convert newDates to a Set of LocalDateTime for easier comparison
         List<Long> newDatesSet = newSucursalesList;
 
-        // Retrieve current PedidoFechaEntrega entries from the database
         List<PedidoSucursalInfluencia> currentEntries = pedidoSucursalInfluenciaService.findByPedidoId(pedido.getId());
 
-        // Determine entries to delete (existing in database but not in newDatesSet)
         List<PedidoSucursalInfluencia> toDelete = currentEntries.stream()
                 .filter(entry -> !newDatesSet.contains(entry.getSucursal().getId()))
                 .collect(Collectors.toList());
 
-        // Delete entries
         pedidoSucursalInfluenciaService.deleteAll(toDelete);
 
-        // Find which dates are new by removing all dates already present
         currentEntries.forEach(entry -> newDatesSet.remove(entry.getSucursal().getId()));
 
-        // Create new PedidoFechaEntrega entries for remaining new dates
         newDatesSet.forEach(data -> {
             PedidoSucursalInfluencia newEntry = new PedidoSucursalInfluencia();
             Sucursal sucursal = sucursalService.findById(data).orElse(null);
@@ -247,36 +255,26 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         });
     }
 
-    public Boolean deletePedido(Long id) {
-        return service.deleteById(id);
-    }
+    // ===== WORKFLOW OPERATIONS =====
 
-    public Long countPedido() {
-        return service.count();
-    }
+    // public Pedido finalizarPedido(Long id, PedidoEstado estado) {
+    // Pedido pedido = service.findById(id).orElse(null);
+    // if (pedido == null) {
+    // throw new GraphQLException("No se puedo encontrar el pedido");
+    // }
 
-    public Pedido finalizarPedido(Long id, PedidoEstado estado) {
-        Pedido pedido = service.findById(id).orElse(null);
-        if (pedido == null) {
-            throw new GraphQLException("No se puedo encontrar el pedido");
-        }
-        if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
-            List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
-            procesarPedidoItems(pedido, pedidoItemList);
-        } else if (estado == PedidoEstado.CONCLUIDO) {
-            List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
-            for (PedidoItem pi : pedidoItemList) {
+    // if (estado == PedidoEstado.EN_RECEPCION_MERCADERIA) {
+    // List<PedidoItem> pedidoItemList = pedidoItemService.findByPedidoId(id);
+    // procesarPedidoItems(pedido, pedidoItemList);
+    // }
 
-            }
-        }
-        pedido.setEstado(estado);
-        return service.save(pedido);
-    }
+    // pedido.setEstado(estado);
+    // return service.save(pedido);
+    // }
 
     @Async
     public void procesarPedidoItems(Pedido pedido, List<PedidoItem> pedidoItemList) {
         for (PedidoItem pi : pedidoItemList) {
-            // Crear producto proveedor
             ProductoProveedor productoProveedor = new ProductoProveedor();
             productoProveedor.setProveedor(pedido.getProveedor());
             productoProveedor.setPedido(pedido);
@@ -284,30 +282,211 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             productoProveedor.setProducto(pi.getProducto());
             productoProveedor.setCreadoEn(LocalDateTime.now());
             productoProveedorService.save(productoProveedor);
-
-            // Crear precio de costo
-            Double precioCosto = pi.getPrecioUnitarioRecepcionNota();
-            Double costoMedio = costosPorProductoService.calcularCostoMedio(
-                    pi.getProducto().getId(),
-                    pi.getCantidadRecepcionNota(),
-                    precioCosto);
-
-            CostoPorProducto costoPorProducto = new CostoPorProducto();
-            costoPorProducto.setProducto(pi.getProducto());
-            costoPorProducto.setUltimoPrecioCompra(precioCosto);
-            costoPorProducto.setCostoMedio(costoMedio);
-            costoPorProducto.setCreadoEn(LocalDateTime.now());
-            costoPorProducto.setMoneda(pi.getPedido().getMoneda());
-            costoPorProducto.setCotizacion(
-                    cambioService.findLastByMonedaId(costoPorProducto.getMoneda().getId()).getValorEnGs());
-            costoPorProducto.setUsuario(pedido.getUsuario());
-            costosPorProductoService.save(costoPorProducto);
         }
-
     }
 
-    public Boolean verificarDistribucionSucursales(Long id){
-        return pedidoItemService.getRepository().findDistribucionSucursalRecepcionByPedidoId(id);
+    // ===== NEW STEP TRACKING FUNCTIONALITY =====
+
+    /**
+     * Get current stage of the pedido
+     */
+    public String etapaActualDelPedido(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            Object etapaActual = procesoEtapaService.getEtapaTipoActual(pedidoId);
+            return etapaActual != null ? etapaActual.toString() : "CREACION";
+
+        } catch (Exception e) {
+            System.err.println("Error obteniendo etapa actual para pedido " + pedidoId + ": " + e.getMessage());
+            return "CREACION";
+        }
     }
 
+    /**
+     * Finalize pedido creation and update stages
+     */
+    @Transactional
+    public Pedido finalizarCreacionPedido(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            Pedido pedido = service.finalizarCreacion(pedidoId);
+            return pedido;
+
+        } catch (Exception e) {
+            System.err.println("Error finalizando creación del pedido " + pedidoId + ": " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al finalizar creación del pedido: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Finalize reception notes stage and advance to next stage
+     */
+    @Transactional
+    public Pedido finalizarRecepcionNotas(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            Pedido pedido = service.finalizarRecepcionNotas(pedidoId);
+            return pedido;
+
+        } catch (Exception e) {
+            System.err.println("Error finalizando recepción de notas para pedido " + pedidoId + ": " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al finalizar recepción de notas: " + e.getMessage());
+        }
+    }
+
+    @Transactional
+    private void inicializarEtapas(Pedido pedido) {
+        List<ProcesoEtapa> etapas = new ArrayList<>();
+
+        // Etapa de Creación
+        ProcesoEtapa etapaCreacion = new ProcesoEtapa();
+        etapaCreacion.setPedido(pedido);
+        etapaCreacion.setTipoEtapa(ProcesoEtapaTipo.CREACION);
+        etapaCreacion.setEstadoEtapa(ProcesoEtapaEstado.EN_PROCESO);
+        etapaCreacion.setFechaInicio(LocalDateTime.now());
+        etapaCreacion.setUsuarioInicio(pedido.getUsuario());
+        etapaCreacion.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaCreacion);
+
+        // Etapa de Recepción de Nota
+        ProcesoEtapa etapaRecepcionNota = new ProcesoEtapa();
+        etapaRecepcionNota.setPedido(pedido);
+        etapaRecepcionNota.setTipoEtapa(ProcesoEtapaTipo.RECEPCION_NOTA);
+        etapaRecepcionNota.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+        etapaRecepcionNota.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaRecepcionNota);
+
+        // Etapa de Recepción de Mercadería
+        ProcesoEtapa etapaRecepcionMercaderia = new ProcesoEtapa();
+        etapaRecepcionMercaderia.setPedido(pedido);
+        etapaRecepcionMercaderia.setTipoEtapa(ProcesoEtapaTipo.RECEPCION_MERCADERIA);
+        etapaRecepcionMercaderia.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+        etapaRecepcionMercaderia.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaRecepcionMercaderia);
+
+        // Etapa de Solicitud de Pago
+        ProcesoEtapa etapaSolicitudPago = new ProcesoEtapa();
+        etapaSolicitudPago.setPedido(pedido);
+        etapaSolicitudPago.setTipoEtapa(ProcesoEtapaTipo.SOLICITUD_PAGO);
+        etapaSolicitudPago.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+        etapaSolicitudPago.setCreadoEn(LocalDateTime.now());
+        etapas.add(etapaSolicitudPago);
+
+        procesoEtapaService.saveAll(etapas);
+    }
+
+    /**
+     * Get overall pedido progress (percentage of completed stages)
+     */
+    public Integer progresoPedido(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            java.util.List<com.franco.dev.domain.operaciones.ProcesoEtapa> etapas = procesoEtapaService
+                    .getEtapasByPedidoId(pedidoId);
+
+            if (etapas.isEmpty()) {
+                return 0;
+            }
+
+            long etapasCompletadas = etapas.stream()
+                    .filter(etapa -> etapa
+                            .getEstadoEtapa() == com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado.COMPLETADA)
+                    .count();
+
+            return (int) ((etapasCompletadas * 100) / etapas.size());
+
+        } catch (Exception e) {
+            System.err.println("Error calculando progreso para pedido " + pedidoId + ": " + e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Obtiene el resumen del pedido con información actualizada
+     */
+    public PedidoResumen getPedidoResumen(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            return service.getPedidoResumen(pedidoId);
+
+        } catch (Exception e) {
+            System.err.println("Error obteniendo resumen del pedido " + pedidoId + ": " + e.getMessage());
+            throw new GraphQLException("Error al obtener resumen del pedido: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene las sucursales disponibles para recepción física basadas en las
+     * distribuciones
+     * de los items de las notas de recepción del pedido
+     */
+    public List<Sucursal> getSucursalesDisponiblesRecepcionFisica(Long pedidoId) {
+        try {
+            System.out.println("=== INICIO getSucursalesDisponiblesRecepcionFisica ===");
+            System.out.println("Pedido ID recibido: " + pedidoId);
+
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            // Usar el método simplificado que retorna directamente Sucursal
+            List<Sucursal> sucursales = notaRecepcionItemDistribucionService
+                    .findSucursalesUnicasByPedidoId(pedidoId);
+
+            System.out.println("Sucursales encontradas: " + sucursales.size());
+            System.out.println("=== FIN getSucursalesDisponiblesRecepcionFisica ===");
+
+            return sucursales;
+
+        } catch (Exception e) {
+            System.err.println("=== ERROR en getSucursalesDisponiblesRecepcionFisica ===");
+            System.err.println("Error: " + e.getMessage());
+            System.err.println("Tipo de excepción: " + e.getClass().getSimpleName());
+            e.printStackTrace();
+            throw new GraphQLException("Error al obtener sucursales disponibles: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Método alternativo más simple para obtener sucursales disponibles
+     * Usando una aproximación diferente para debugging
+     */
+    public List<Sucursal> getSucursalesDisponiblesRecepcionFisicaSimple(Long pedidoId) {
+        try {
+            System.out.println("=== INICIO getSucursalesDisponiblesRecepcionFisicaSimple ===");
+            System.out.println("Pedido ID recibido: " + pedidoId);
+
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+
+            // Por ahora, retornar una lista vacía para testing
+            System.out.println("Retornando lista vacía para testing");
+            System.out.println("=== FIN getSucursalesDisponiblesRecepcionFisicaSimple ===");
+            return new ArrayList<>();
+
+        } catch (Exception e) {
+            System.err.println("=== ERROR en getSucursalesDisponiblesRecepcionFisicaSimple ===");
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al obtener sucursales disponibles: " + e.getMessage());
+        }
+    }
 }

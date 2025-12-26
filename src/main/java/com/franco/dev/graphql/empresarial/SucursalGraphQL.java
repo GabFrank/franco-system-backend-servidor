@@ -95,5 +95,9 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.getRepository().findByNombreLike(nombre, pageable);
     }
 
+    public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 1000);
+        return service.findByNombreConFiltros(nombre, deposito, activo, pageable);
+    }
 
 }

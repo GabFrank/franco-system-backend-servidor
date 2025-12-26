@@ -1,0 +1,33 @@
+type PedidoItemDistribucion {
+    id: ID
+    pedidoItem: PedidoItem
+    sucursalInfluencia: Sucursal
+    sucursalEntrega: Sucursal
+    cantidadAsignada: Float
+}
+
+input PedidoItemDistribucionInput {
+    id: ID
+    pedidoItemId: Int
+    sucursalInfluenciaId: Int
+    sucursalEntregaId: Int
+    cantidadAsignada: Float
+}
+
+extend type Query {
+    pedidoItemDistribucion(id: ID!): PedidoItemDistribucion
+    pedidoItemDistribucionPorPedidoItem(pedidoItemId: ID!): [PedidoItemDistribucion]
+    pedidoItemDistribucionPorSucursal(sucursalId: ID!): [PedidoItemDistribucion]
+    pedidoItemDistribucionPorSucursalInfluencia(sucursalId: ID!): [PedidoItemDistribucion]
+    countPedidoItemDistribucion: Int
+    isDistribucionConcluida(pedidoItemId: ID!): Boolean!
+}
+
+extend type Mutation {
+    savePedidoItemDistribucion(entity: PedidoItemDistribucionInput!): PedidoItemDistribucion!
+    savePedidoItemDistribuciones(pedidoItemId: ID!, inputs: [PedidoItemDistribucionInput]!): [PedidoItemDistribucion]!
+    replacePedidoItemDistribuciones(pedidoItemId: ID!, inputs: [PedidoItemDistribucionInput]!): [PedidoItemDistribucion]!
+    deletePedidoItemDistribucion(id: ID!): Boolean!
+    deletePedidoItemDistribucionesByPedidoItemId(pedidoItemId: ID!): Boolean!
+    deletePedidoItemDistribucionesByIds(ids: [ID]!): Boolean!
+} 

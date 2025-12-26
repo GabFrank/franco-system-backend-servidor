@@ -2,8 +2,6 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
-import com.franco.dev.domain.operaciones.NotaRecepcionAgrupada;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,14 +33,22 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
     @Query(value = "select sum((pi.precio_unitario_recepcion_nota - pi.descuento_unitario_recepcion_nota) * (pi.cantidad_recepcion_nota * p.cantidad)) from operaciones.nota_recepcion nr " +
             "join operaciones.pedido_item pi on nr.id = pi.nota_recepcion_id " +
             "join productos.presentacion p on p.id = pi.presentacion_recepcion_nota_id " +
-            "where (pi.cancelado is null or pi.cancelado = false) and nr.id = ?1", nativeQuery = true)
+            "where (pi.cancelado is null or pi.cancelado = false) " +
+            "and (pi.motivo_rechazo_recepcion_nota is null or pi.motivo_rechazo_recepcion_nota = '') " +
+            "and nr.id = ?1", nativeQuery = true)
     public Double valor(Long id);
-//
-//    @Query("select p from Pedido p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")
-//    public List<Pedido> findByProveedor(String texto);
-//
-//    //@Query("select p from Producto p where CAST(id as text) like %?1% or LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
-//    //public List<Producto> findbyAll(String texto);
+
+    /**
+     * Calcula el valor total de una nota de recepción usando la nueva estructura
+     * Suma: cantidadEnNota * precioUnitarioEnNota de todos los ítems de la nota
+     * Excluye ítems rechazados y bonificaciones (esBonificacion = true)
+     */
+    @Query(value = "SELECT COALESCE(SUM(nri.cantidad_en_nota * nri.precio_unitario_en_nota), 0.0) " +
+            "FROM operaciones.nota_recepcion_item nri " +
+            "WHERE nri.nota_recepcion_id = :notaRecepcionId " +
+            "AND (nri.es_bonificacion IS NULL OR nri.es_bonificacion = false) " +
+            "AND (nri.estado != 'RECHAZADO' OR nri.estado IS NULL)", nativeQuery = true)
+    public Double valorTotal(@Param("notaRecepcionId") Long notaRecepcionId);
 
     public Integer countByPedidoId(Long id);
 
@@ -58,9 +64,64 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             , nativeQuery = true)
     public Boolean areAllNotasPagadasTrue(@Param("pedidoId") Long pedidoId);
 
-    public List<NotaRecepcion> findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(Long id, Integer numero, PedidoEstado estado);
+//     public List<NotaRecepcion> findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(Long id, Integer numero, PedidoEstado estado);
 
-    public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
+//     @Query(value = "SELECT nr FROM NotaRecepcion nr " +
+//             "WHERE nr.numero = :numero " +
+//             "AND nr.pedido.estado != :estado " +
+//             "ORDER BY nr.id DESC")
+//     public List<NotaRecepcion> findByNumeroAndPedidoEstadoNot(@Param("numero") Integer numero, @Param("estado") PedidoEstado estado);
 
-    public Long countByNotaRecepcionAgrupadaId(Long id);
+    // REMOVED - Methods related to NotaRecepcionAgrupada (deleted entity):
+    // public List<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id);
+    // public Page<NotaRecepcion> findByNotaRecepcionAgrupadaId(Long id, Pageable page);
+    // public Long countByNotaRecepcionAgrupadaId(Long id);
+
+    /**
+     * Find NotaRecepcion available for reception with filtering criteria
+     * UPDATED: Simplified query since NotaRecepcionAgrupada was removed in refactor
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided)
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
+     * @return List of available NotaRecepcion for reception
+     */
+    @Query("SELECT DISTINCT nr FROM NotaRecepcion nr " +
+           "LEFT JOIN nr.pedido p " +
+           "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
+           "LEFT JOIN PedidoItemDistribucion pis ON pis.pedidoItem = pi " +
+           "WHERE " +
+           "(:numero IS NULL OR nr.numero = :numero) " +
+           "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +
+           "AND (:sucursalId IS NULL OR pis.sucursalEntrega.id = :sucursalId) " +
+           "ORDER BY nr.id DESC")
+    List<NotaRecepcion> findNotasDisponiblesParaRecepcion(
+            @Param("numero") Integer numero,
+            @Param("proveedorId") Long proveedorId,
+            @Param("sucursalId") Long sucursalId
+    );
+
+    /**
+     * Find NotaRecepcion available for reception with filtering criteria and pagination
+     * UPDATED: Simplified query since NotaRecepcionAgrupada was removed in refactor
+     * @param numero Optional nota number (can be null if proveedor is provided)
+     * @param proveedorId Optional proveedor ID (can be null if numero is provided)
+     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion
+     * @param pageable Pagination parameters
+     * @return Page of available NotaRecepcion for reception
+     */
+    @Query("SELECT DISTINCT nr FROM NotaRecepcion nr " +
+           "LEFT JOIN nr.pedido p " +
+           "LEFT JOIN PedidoItem pi ON pi.pedido = p " +
+           "LEFT JOIN PedidoItemDistribucion pis ON pis.pedidoItem = pi " +
+           "WHERE " +
+           "(:numero IS NULL OR nr.numero = :numero) " +
+           "AND (:proveedorId IS NULL OR p.proveedor.id = :proveedorId) " +
+           "AND (:sucursalId IS NULL OR pis.sucursalEntrega.id = :sucursalId) " +
+           "ORDER BY nr.id DESC")
+    Page<NotaRecepcion> findNotasDisponiblesParaRecepcionPage(
+            @Param("numero") Integer numero,
+            @Param("proveedorId") Long proveedorId,
+            @Param("sucursalId") Long sucursalId,
+            Pageable pageable
+    );
 }

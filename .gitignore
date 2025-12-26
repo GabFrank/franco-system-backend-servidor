@@ -5,6 +5,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .DS_Store
+**/.DS_Store
 src/.DS_Store
 tokens/
 ### STS ###
@@ -13,6 +14,9 @@ tokens/
 .project
 .factorypath
 .vscode*/
+.classpath
+.factorypath
+informacion.txt
 
 .DS_Store
 .factorypath

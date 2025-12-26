@@ -1,0 +1,32 @@
+type DevolucionItem {
+    id: ID
+    devolucion: Devolucion
+    producto: Producto
+    recepcionMercaderiaItem: RecepcionMercaderiaItem
+    cantidad: Float
+    lote: String
+}
+
+input DevolucionItemInput {
+    id: ID
+    devolucionId: Int
+    productoId: Int
+    recepcionMercaderiaItemId: Int
+    cantidad: Float
+    motivo: String
+    lote: String
+    creadoEn: String
+}
+
+extend type Query {
+    devolucionItem(id: ID!): DevolucionItem
+    devolucionItemsPorDevolucion(devolucionId: ID!): [DevolucionItem]
+    devolucionItemsPorProducto(productoId: ID!): [DevolucionItem]
+    devolucionItemsPorRecepcionItem(recepcionItemId: ID!): [DevolucionItem]
+    countDevolucionItem: Int
+}
+
+extend type Mutation {
+    saveDevolucionItem(entity: DevolucionItemInput!): DevolucionItem!
+    deleteDevolucionItem(id: ID!): Boolean!
+} 

@@ -1,20 +1,26 @@
 type SolicitudPago {
-    id: ID
+    id: ID!
+    proveedor: Proveedor!
+    numeroSolicitud: String!
+    fechaSolicitud: String!
+    fechaPagoPropuesta: String
+    montoTotal: Float!
+    moneda: Moneda!
+    formaPago: FormaPago!
+    estado: SolicitudPagoEstado!
+    observaciones: String
+    creadoEn: String
     usuario: Usuario
-    creadoEn: Date
-    estado: SolicitudPagoEstado
-    tipo: TipoSolicitudPago
-    referenciaId: ID
     pago: Pago
+    notasRecepcion: [SolicitudPagoNotaRecepcion]
 }
 
-input SolicitudPagoInput {
-    id: ID
-    usuarioId: Int
-    creadoEn: Date
-    estado: SolicitudPagoEstado
-    tipo: TipoSolicitudPago
-    referenciaId: ID
+type SolicitudPagoNotaRecepcion {
+    id: ID!
+    solicitudPago: SolicitudPago!
+    notaRecepcion: NotaRecepcion!
+    montoIncluido: Float!
+    creadoEn: String
 }
 
 type SolicitudPagoPage {
@@ -29,23 +35,77 @@ type SolicitudPagoPage {
     getPageable: Pageable
 }
 
+input SolicitudPagoInput {
+    id: ID
+    proveedorId: Int!
+    numeroSolicitud: String
+    fechaSolicitud: String
+    fechaPagoPropuesta: String
+    montoTotal: Float!
+    monedaId: Int!
+    formaPagoId: Int!
+    estado: SolicitudPagoEstado!
+    observaciones: String
+    notaRecepcionIds: [ID!]!
+}
+
+input SolicitudPagoNotaRecepcionInput {
+    id: ID
+    solicitudPagoId: Int!
+    notaRecepcionId: Int!
+    montoIncluido: Float!
+}
+
 extend type Query {
-    solicitudPagoPorUsuarioId(id: ID!): [SolicitudPago]
+    # Get single solicitud pago by ID
     solicitudPago(id: ID!): SolicitudPago
-    solicitudPagoConFiltros(
-        solicitudPagoId: ID, 
-        referenciaId: ID, 
-        tipo: TipoSolicitudPago, 
-        estado: SolicitudPagoEstado, 
-        fechaInicio: String, 
-        fechaFin: String, 
-        page: Int = 0, 
-        size: Int = 20
+    
+    # Get all solicitudes pago for a specific pedido
+    solicitudesPagoPorPedido(pedidoId: ID!): [SolicitudPago]
+    
+    # Get solicitudes pago with pagination
+    solicitudesPagoPaginated(
+        page: Int = 0
+        size: Int = 10
+        proveedorId: ID
+        estado: SolicitudPagoEstado
     ): SolicitudPagoPage
+    
+    # Get notas de recepcion available for payment for a specific pedido
+    notasDisponiblesParaPago(pedidoId: ID!): [NotaRecepcion]
+    
+    # Get all notas asociadas with a solicitud pago
+    notasAsociadasASolicitud(solicitudPagoId: ID!): [NotaRecepcion]
+    
+    # Check if a nota is already included in any solicitud
+    isNotaIncludedInSolicitud(notaId: ID!): Boolean
 }
 
 extend type Mutation {
+    # Save/create solicitud pago
     saveSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
+    
+    # Delete solicitud pago (only if in PENDIENTE state)
+    deleteSolicitudPago(id: ID!): Boolean!
+    
+    # Update estado of solicitud pago
+    actualizarEstadoSolicitudPago(id: ID!, estado: SolicitudPagoEstado!): SolicitudPago!
+    
+    # Add nota recepcion to solicitud pago
+    agregarNotaASolicitudPago(
+        solicitudPagoId: ID!
+        notaRecepcionId: ID!
+        montoIncluido: Float!
+    ): SolicitudPagoNotaRecepcion!
+    
+    # Remove nota recepcion from solicitud pago
+    removerNotaDeSolicitudPago(
+        solicitudPagoId: ID!
+        notaRecepcionId: ID!
+    ): Boolean!
+    
+    # Print solicitud pago PDF
+    imprimirSolicitudPagoPDF(solicitudPagoId: ID!): String!
 }
 
 enum SolicitudPagoEstado {
@@ -53,10 +113,4 @@ enum SolicitudPagoEstado {
     PARCIAL
     CONCLUIDO
     CANCELADO
-}
-
-enum TipoSolicitudPago {
-    COMPRA
-    GASTO
-    RRHH
 }

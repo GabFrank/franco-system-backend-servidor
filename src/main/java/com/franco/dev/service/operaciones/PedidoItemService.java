@@ -2,8 +2,10 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.CompraItem;
 import com.franco.dev.domain.operaciones.PedidoItem;
+import com.franco.dev.domain.operaciones.PedidoItemDistribucion;
+import com.franco.dev.domain.operaciones.PedidoSucursalEntrega;
+import com.franco.dev.domain.operaciones.PedidoSucursalInfluencia;
 import com.franco.dev.domain.operaciones.enums.CompraItemEstado;
-import com.franco.dev.domain.operaciones.enums.PedidoEstado;
 import com.franco.dev.domain.operaciones.enums.PedidoItemEstado;
 import com.franco.dev.repository.operaciones.PedidoItemRepository;
 import com.franco.dev.service.CrudService;
@@ -29,54 +31,114 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
     @Autowired
     public CompraItemService compraItemService;
 
-    //public List<PedidoItem> findByAll(String texto){
-    //    texto = texto.replace(' ', '%');
-    //    return  repository.findByAll(texto);
-    //}
+    @Autowired
+    private PedidoSucursalInfluenciaService pedidoSucursalInfluenciaService;
 
-    public List<PedidoItem> findByProductoId(Long id) { return repository.findByProductoId(id); }
+    @Autowired
+    private PedidoSucursalEntregaService pedidoSucursalEntregaService;
 
-    public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { return repository.findByPedidoIdOrderByIdDesc(id, page); }
+    @Autowired
+    private PedidoItemDistribucionService pedidoItemDistribucionService;
+
+    // ===== BASIC METHODS =====
+    public List<PedidoItem> findByProductoId(Long id) { 
+        return repository.findByProductoId(id); 
+    }
+
+    public Page<PedidoItem> findByPedidoId(Long id, Pageable page) { 
+        return repository.findByPedidoIdOrderByIdDesc(id, page); 
+    }
 
     public Page<PedidoItem> findByPedidoIdAndTexto(Long id, String texto, Pageable page) {
-        return repository.findByPedidoIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
+        return repository.findByPedidoIdAndProductoDescripcionLikeOrderByIdDesc(id, texto, page);
     }
 
-    public List<PedidoItem> findByPedidoId(Long id) { return repository.findByPedidoId(id); }
-
-    public Page<PedidoItem> findByPedidoIdSobrantes(Long id, Pageable page){
-        return repository.findByPedidoIdAndNotaRecepcionIdIsNull(id, page);
+    public List<PedidoItem> findByPedidoId(Long id) { 
+        return repository.findByPedidoId(id); 
     }
-
-    public Page<PedidoItem> findByPedidoIdAndDescripcionSobrantes(Long id, String texto, Pageable page){
-        return repository.findByPedidoIdAndNotaRecepcionIdIsNullAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
-    }
-
-    public Page<PedidoItem> findByNotaRecepcionId(Long id, Pageable page) {
-        return repository.findByNotaRecepcionId(id, page);
-    }
-
-    public Page<PedidoItem> findByNotaRecepcionIdAndDescripcion(Long id, String texto, Pageable page) {
-        return repository.findByNotaRecepcionIdAndProductoDescripcionLikeOrderByProductoDescripcionDesc(id, texto, page);
-    }
-
-    public List<PedidoItem> findByNotaRecepcionId(Long id) {
-        return repository.findByNotaRecepcionId(id);
-    }
-
-    public Integer countByNotaRecepcionId(Long id) {
-        return repository.countByNotaRecepcionId(id);
-    }
-
-//    public Double cantidadSegunMovimiento(Long sucId, Long prodId, LocalDateTime inicio, LocalDateTime){
-//
-//    }
 
     @Override
     public PedidoItem save(PedidoItem entity) {
         PedidoItem e = null;
-        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
-            e = super.save(entity);
+        boolean isNewItem = entity.getId() == null;
+        
+        if(isNewItem) {
+            entity.setCreadoEn(LocalDateTime.now());
+        }
+        
+        e = super.save(entity);
+        
+        // **NEW LOGIC**: Create PedidoItemDistribucion automatically for new items
+        if(isNewItem && entity.getPedido() != null) {
+            createPedidoItemDistribucionForNewItem(e);
+        }
+        
         return e;
+    }
+
+    /**
+     * Creates PedidoItemDistribucion records automatically for a new PedidoItem
+     * based on the pedido's sucursales de influencia and entrega
+     */
+    private void createPedidoItemDistribucionForNewItem(PedidoItem pedidoItem) {
+        try {
+            Long pedidoId = pedidoItem.getPedido().getId();
+            
+            // Get sucursales de influencia (for which sucursals the pedido is being made)
+            List<PedidoSucursalInfluencia> sucursalesInfluencia = 
+                pedidoSucursalInfluenciaService.findByPedidoId(pedidoId);
+                
+            // Get sucursales de entrega (where the pedido will be delivered by the provider)
+            List<PedidoSucursalEntrega> sucursalesEntrega = 
+                pedidoSucursalEntregaService.findByPedidoId(pedidoId);
+            
+            // Calculate cantidadAsignada based on business rules using basic fields
+            Double cantidadAsignada = 0.0;
+            
+            // Using basic PedidoItem fields instead of step-specific ones
+            if(sucursalesInfluencia.size() == 1 && sucursalesEntrega.size() == 1) {
+                // If there's exactly one sucursal de influencia and one sucursal de entrega
+                // cantidadAsignada = presentacionCreacion.cantidad * cantidadSolicitada
+                Double presentacionCantidad = pedidoItem.getPresentacionCreacion() != null 
+                    ? pedidoItem.getPresentacionCreacion().getCantidad() : 1.0;
+                Double cantidadSolicitada = pedidoItem.getCantidadSolicitada() != null 
+                    ? pedidoItem.getCantidadSolicitada() : 0.0;
+                cantidadAsignada = presentacionCantidad * cantidadSolicitada;
+            }
+            // Otherwise cantidadAsignada remains 0.0 (for manual distribution)
+            
+            // Create PedidoItemDistribucion for each combination of sucursal influencia and sucursal entrega
+            for(PedidoSucursalInfluencia sucursalInfluencia : sucursalesInfluencia) {
+                for(PedidoSucursalEntrega sucursalEntrega : sucursalesEntrega) {
+                    PedidoItemDistribucion pedidoItemDistribucion = new PedidoItemDistribucion();
+                    pedidoItemDistribucion.setPedidoItem(pedidoItem);
+                    pedidoItemDistribucion.setSucursalInfluencia(sucursalInfluencia.getSucursal());
+                    pedidoItemDistribucion.setSucursalEntrega(sucursalEntrega.getSucursal());
+                    pedidoItemDistribucion.setCantidadAsignada(cantidadAsignada);
+                    
+                    // Save the PedidoItemDistribucion
+                    pedidoItemDistribucionService.save(pedidoItemDistribucion);
+                }
+            }
+            
+        } catch (Exception ex) {
+            // Log the error but don't break the main PedidoItem saving process
+            System.err.println("Error creating PedidoItemDistribucion for PedidoItem " + pedidoItem.getId() + ": " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * Calcula la cantidad pendiente de conciliar para un PedidoItem
+     * @param pedidoItemId ID del pedido item
+     * @return Cantidad pendiente (cantidadSolicitada - sum(cantidadEnNota))
+     */
+    public Double getCantidadPendiente(Long pedidoItemId) {
+        if (pedidoItemId == null) {
+            return 0.0;
+        }
+        
+        Double cantidadPendiente = repository.getCantidadPendienteByPedidoItemId(pedidoItemId);
+        return cantidadPendiente != null ? Math.max(0.0, cantidadPendiente) : 0.0;
     }
 }

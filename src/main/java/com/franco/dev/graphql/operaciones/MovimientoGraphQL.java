@@ -145,9 +145,12 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.stockByProductoIdExecptMovStockId(productoId, movimientoId, sucursalId);
     }
 
-    public Double stockByProductoIdAntesDeFecha(Long productoId, Long sucursalId, String fecha) {
-        LocalDateTime fechaDate = stringToDate(fecha);
-        return service.stockByProductoIdAndSucursalIdAntesDeFecha(productoId, sucursalId, fechaDate);
+    public Double stockByProductoIdAntesDeFecha(Long productoId, Long sucursalId, String fecha, Long movimientoId) {
+        return service.stockByProductoIdAndSucursalIdAntesDeFecha(
+                productoId,
+                sucursalId,
+                LocalDateTime.parse(fecha),
+                movimientoId);
     }
 
     public Double findStockWithFilters(String inicio,

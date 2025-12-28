@@ -10,6 +10,7 @@ type MovimientoStock {
     proveedor: Proveedor
     sucursalId: Int
     sucursal: Sucursal
+    creadoEnIso: String
 }
 
 input MovimientoStockInput {
@@ -72,7 +73,7 @@ extend type Query {
     movimientoStockByFecha(inicio: String, fin: String, sucId: ID):[MovimientoStock]
     stockPorProducto(id:ID!, sucId: ID):Float
     stockByProductoIdExeptMovimientoId(productoId: ID!, movimientoId: ID!, sucursalId: ID!): Float
-    stockByProductoIdAntesDeFecha(productoId: ID!, sucursalId: ID!, fecha: String!): Float
+    stockByProductoIdAntesDeFecha(productoId: ID!, sucursalId: ID!, fecha: String!, movimientoId: ID): Float
     findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int, page: Int, size: Int): MovimientoStockPage
     findStockWithFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): Float
     findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): [StockPorTipoMovimientoDto]

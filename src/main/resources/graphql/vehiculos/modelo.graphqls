@@ -1,0 +1,28 @@
+type Modelo {
+    id:ID!
+    descripcion: String
+    marca: Marca
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input ModeloInput {
+    id:ID
+    descripcion: String
+    marcaId: Int
+    usuarioId: Int
+}
+
+extend type Query {
+    modelo(id:ID!):Modelo
+    modelos(page:Int = 0, size:Int = 10):[Modelo]!
+    countModelo: Int
+    modeloSearch(texto:String):[Modelo]
+    modelosByMarca(marcaId:ID!, texto:String, page:Int = 0, size:Int = 10):[Modelo]
+}
+
+extend type Mutation {
+    saveModelo(modelo:ModeloInput!):Modelo!
+    deleteModelo(id:ID!):Boolean!
+}
+

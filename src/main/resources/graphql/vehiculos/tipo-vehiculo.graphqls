@@ -1,0 +1,25 @@
+type TipoVehiculo {
+    id:ID!
+    descripcion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input TipoVehiculoInput {
+    id:ID
+    descripcion: String
+    usuarioId: Int
+}
+
+extend type Query {
+    tipoVehiculo(id:ID!):TipoVehiculo
+    tiposVehiculo(page:Int = 0, size:Int = 10):[TipoVehiculo]!
+    countTipoVehiculo: Int
+    tipoVehiculoSearch(texto:String):[TipoVehiculo]
+}
+
+extend type Mutation {
+    saveTipoVehiculo(tipoVehiculo:TipoVehiculoInput!):TipoVehiculo!
+    deleteTipoVehiculo(id:ID!):Boolean!
+}
+

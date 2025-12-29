@@ -7,6 +7,7 @@ import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.vehiculos.Vehiculo;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -52,8 +53,9 @@ public class Delivery implements Serializable {
     @JoinColumn(name = "barrio_id", nullable = true)
     private Barrio barrio;
 
-    @Column(name = "vehiculo_id")
-    private Integer vehiculo;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vehiculo_id", nullable = true)
+    private Vehiculo vehiculo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "precio_delivery_id", nullable = true)

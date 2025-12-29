@@ -1,6 +1,8 @@
 package com.franco.dev.domain.vehiculos;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -9,16 +11,14 @@ import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "vehiculo", schema = "vehiculos")
-public class Vehiculo implements Identifiable<Long> {
+@Table(name = "vehiculo_sucursal", schema = "vehiculos")
+public class VehiculoSucursal implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
@@ -34,43 +34,16 @@ public class Vehiculo implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "modelo_id", nullable = true)
-    private Modelo modelo;
+    @JoinColumn(name = "vehiculo_id", nullable = true)
+    private Vehiculo vehiculo;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "tipo_vehiculo", nullable = true)
-    private TipoVehiculo tipoVehiculo;
+    @JoinColumn(name = "sucursal_id", nullable = true)
+    private Sucursal sucursal;
 
-    private String chapa;
-
-    private String color;
-
-    @Column(name = "anho")
-    private Integer anho;
-
-    private Boolean documentacion;
-
-    private Boolean refrigerado;
-
-    private Boolean nuevo;
-
-    @Column(name = "fecha_adquisicion")
-    private LocalDate fechaAdquisicion;
-
-    @Column(name = "primer_kilometraje")
-    private BigDecimal primerKilometraje;
-
-    @Column(name = "capacidad_kg")
-    private BigDecimal capacidadKg;
-
-    @Column(name = "capacidad_pasajeros")
-    private Integer capacidadPasajeros;
-
-    @Column(name = "imagenes_vehiculo")
-    private String imagenesVehiculo;
-
-    @Column(name = "imagenes_documentos")
-    private String imagenesDocumentos;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id", nullable = true)
+    private Funcionario responsable;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
@@ -79,6 +52,4 @@ public class Vehiculo implements Identifiable<Long> {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 }
-
-
 

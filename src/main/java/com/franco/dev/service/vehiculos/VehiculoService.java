@@ -1,0 +1,86 @@
+package com.franco.dev.service.vehiculos;
+
+import com.franco.dev.domain.vehiculos.Vehiculo;
+import com.franco.dev.repository.vehiculos.VehiculoRepository;
+import com.franco.dev.service.CrudService;
+import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@AllArgsConstructor
+public class VehiculoService extends CrudService<Vehiculo, VehiculoRepository, Long> {
+
+    private final VehiculoRepository repository;
+
+    @Override
+    public VehiculoRepository getRepository() {
+        return repository;
+    }
+
+    public Vehiculo findByChapa(String chapa) {
+        return repository.findByChapa(chapa);
+    }
+
+    public List<Vehiculo> findByAll(String texto) {
+        texto = texto.replace(' ', '%');
+        return repository.findByAll(texto.toUpperCase());
+    }
+
+    public Page<Vehiculo> findByAllWithPage(String texto, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        return repository.findByAllWithPage(texto, pageable);
+    }
+
+    public List<Vehiculo> findByMarcaId(Long marcaId) {
+        return repository.findByMarcaId(marcaId);
+    }
+
+    public List<Vehiculo> findByModeloId(Long modeloId) {
+        return repository.findByModeloId(modeloId);
+    }
+
+    public List<Vehiculo> findByTipoVehiculoId(Long tipoVehiculoId) {
+        return repository.findByTipoVehiculoId(tipoVehiculoId);
+    }
+
+    @Override
+    public Vehiculo save(Vehiculo entity) {
+        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
+        
+        // Validación: chapa única
+        if(entity.getChapa() != null && !entity.getChapa().isEmpty()) {
+            Vehiculo existente = repository.findByChapa(entity.getChapa());
+            if(existente != null && !existente.getId().equals(entity.getId())) {
+                throw new RuntimeException("Ya existe un vehículo con la chapa: " + entity.getChapa());
+            }
+            entity.setChapa(entity.getChapa().toUpperCase());
+        }
+        
+        // Validación: año entre 1900 y año actual+1
+        if(entity.getAnho() != null) {
+            int anhoActual = LocalDateTime.now().getYear();
+            if(entity.getAnho() < 1900 || entity.getAnho() > (anhoActual + 1)) {
+                throw new RuntimeException("El año debe estar entre 1900 y " + (anhoActual + 1));
+            }
+        }
+        
+        // Validación: capacidades >= 0
+        if(entity.getCapacidadKg() != null && entity.getCapacidadKg().doubleValue() < 0) {
+            throw new RuntimeException("La capacidad en kg debe ser mayor o igual a 0");
+        }
+        if(entity.getCapacidadPasajeros() != null && entity.getCapacidadPasajeros() < 0) {
+            throw new RuntimeException("La capacidad de pasajeros debe ser mayor o igual a 0");
+        }
+        
+        Vehiculo e = super.save(entity);
+        return e;
+    }
+}
+

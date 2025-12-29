@@ -1,7 +1,7 @@
 package com.franco.dev.domain.vehiculos;
 
 import com.franco.dev.config.Identifiable;
-import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -35,7 +35,7 @@ public class Marca implements Identifiable<Long> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
-    private Marca usuarioId;
+    private Usuario usuario;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

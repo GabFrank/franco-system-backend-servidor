@@ -19,9 +19,10 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
     public Funcionario findByPersonaId(Long id);
 
-    @Query("select u from Funcionario u " +
-            "join u.persona p " +
-            "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1%")
+    @Query("select f from Funcionario f " +
+            "join f.persona p " +
+            "left join Usuario usr with usr.persona = p " +
+            "where CAST(f.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(usr.nickname) like %?1%")
     public List<Funcionario> findByIdOrPersonaNombre(String texto);
 
     @Query("select u from Funcionario u " +

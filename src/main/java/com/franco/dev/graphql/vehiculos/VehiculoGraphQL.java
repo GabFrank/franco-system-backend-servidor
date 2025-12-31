@@ -6,6 +6,7 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.vehiculos.ModeloService;
 import com.franco.dev.service.vehiculos.TipoVehiculoService;
 import com.franco.dev.service.vehiculos.VehiculoService;
+import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -72,7 +74,10 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if(input.getModeloId() != null) e.setModelo(modeloService.findById(input.getModeloId()).orElse(null));
         if(input.getTipoVehiculoId() != null) e.setTipoVehiculo(tipoVehiculoService.findById(input.getTipoVehiculoId()).orElse(null));
         if(input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getFechaAdquisicion() != null) e.setFechaAdquisicion(input.getFechaAdquisicion());
+        if(input.getFechaAdquisicion() != null && !input.getFechaAdquisicion().isEmpty()) {
+            LocalDate fecha = DateUtils.stringToDate(input.getFechaAdquisicion()).toLocalDate();
+            e.setFechaAdquisicion(fecha);
+        }
         try {
             e = service.save(e);
         } catch (Exception err) {

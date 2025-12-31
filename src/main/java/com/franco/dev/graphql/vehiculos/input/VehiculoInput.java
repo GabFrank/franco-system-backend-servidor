@@ -3,7 +3,6 @@ package com.franco.dev.graphql.vehiculos.input;
 import lombok.Data;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Data
 public class VehiculoInput {
@@ -16,7 +15,7 @@ public class VehiculoInput {
     private Boolean documentacion;
     private Boolean refrigerado;
     private Boolean nuevo;
-    private LocalDate fechaAdquisicion;
+    private String fechaAdquisicion;
     private BigDecimal primerKilometraje;
     private BigDecimal capacidadKg;
     private Integer capacidadPasajeros;

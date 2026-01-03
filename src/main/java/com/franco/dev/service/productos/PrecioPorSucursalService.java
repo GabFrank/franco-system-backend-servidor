@@ -67,8 +67,7 @@ public class PrecioPorSucursalService extends CrudService<PrecioPorSucursal, Pre
                         "precio_por_sucursal");
             }
         } catch (Exception ex) {
-            System.err.println("Error registrando modificación de precio por sucursal: " + ex.getMessage());
-            ex.printStackTrace();
+            // No interrumpir el flujo si falla el registro de modificación
         }
 
         return p;
@@ -85,7 +84,7 @@ public class PrecioPorSucursalService extends CrudService<PrecioPorSucursal, Pre
                     modificacionService.registrarEliminacion(entidad, "PRECIO_POR_SUCURSAL", "productos",
                             "precio_por_sucursal");
                 } catch (Exception ex) {
-                    System.err.println("Error registrando eliminación de precio por sucursal: " + ex.getMessage());
+                    // No interrumpir el flujo si falla el registro de modificación
                 }
                 return resultado;
             }

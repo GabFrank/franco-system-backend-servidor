@@ -48,8 +48,8 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
 
     private Sender sender;
 
-    //funcion para buscar un Codigo por su codigo de barra
-    public List<Codigo> findByCodigo(String texto){
+    // funcion para buscar un Codigo por su codigo de barra
+    public List<Codigo> findByCodigo(String texto) {
         texto = texto.replace(' ', '%');
         return repository.findByCodigo(texto.toUpperCase());
     }
@@ -58,10 +58,13 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
         Codigo p = null;
         ModelMapper m = new ModelMapper();
         Codigo e = m.map(input, Codigo.class);
-        if(e.getCodigo()!=null) e.setCodigo(e.getCodigo().toUpperCase());
-        if(input.getUsuarioId()!=null)e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getPresentacionId()!=null) e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
-        
+        if (e.getCodigo() != null)
+            e.setCodigo(e.getCodigo().toUpperCase());
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getPresentacionId() != null)
+            e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
+
         // Obtener entidad anterior para comparar cambios (si es actualización)
         // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
         Codigo entidadAnterior = null;
@@ -72,10 +75,10 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
                 entidadAnterior = codigoOpt.get();
             }
         }
-        
+
         p = repository.save(e);
         repository.flush(); // Asegurar que se guarde antes de registrar la modificación
-        
+
         // Registrar modificación sin afectar la lógica existente
         try {
             if (esNuevo) {
@@ -87,10 +90,8 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
             }
         } catch (Exception ex) {
             // No interrumpir el flujo si falla el registro de modificación
-            System.err.println("Error registrando modificación de código: " + ex.getMessage());
-            ex.printStackTrace();
         }
-        
+
         return p;
     }
 
@@ -107,7 +108,6 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
                     modificacionService.registrarEliminacion(entidad, "CODIGO", "productos", "codigo");
                 } catch (Exception ex) {
                     // No interrumpir el flujo si falla el registro de modificación
-                    System.err.println("Error registrando eliminación de código: " + ex.getMessage());
                 }
                 return resultado;
             }
@@ -117,56 +117,58 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
         }
     }
 
-//    @Override
-//    public Boolean deleteById(Long id) {
-//        Long idCentral = findById(id).get().getIdCentral();
-//        if(idCentral!=null) {
-//            propagarDelete(idCentral);
-//            return super.deleteById(id);
-//        }
-//        return false;
-//    }
+    // @Override
+    // public Boolean deleteById(Long id) {
+    // Long idCentral = findById(id).get().getIdCentral();
+    // if(idCentral!=null) {
+    // propagarDelete(idCentral);
+    // return super.deleteById(id);
+    // }
+    // return false;
+    // }
 
-//    public String propagar(CodigoInput input){
-//        log.info("enviando codigo a central");
-//        log.info(input.toString());
-//        RabbitDto<CodigoInput> dto = new RabbitDto();
-//        dto.setAccion(GUARDAR);
-////        dto.setTipo(Receiver.CODIGO);
-//        dto.setEntidad(input);
-////        sender.send(dto, "central");
-//        return "Success";
-//    }
+    // public String propagar(CodigoInput input){
+    // log.info("enviando codigo a central");
+    // log.info(input.toString());
+    // RabbitDto<CodigoInput> dto = new RabbitDto();
+    // dto.setAccion(GUARDAR);
+    //// dto.setTipo(Receiver.CODIGO);
+    // dto.setEntidad(input);
+    //// sender.send(dto, "central");
+    // return "Success";
+    // }
 
-//    public String propagarDelete(Long idCentral){
-//        log.info("enviando delete codigo a central");
-//        log.info(idCentral.toString());
-//        RabbitDto<CodigoInput> dto = new RabbitDto();
-//        dto.setAccion(ELIMINAR);
-////        dto.setTipo(Receiver.CODIGO);
-//        CodigoInput input = new CodigoInput();
-//        input.setIdCentral(idCentral);
-//        dto.setEntidad(input);
-////        sender.send(dto, "central");
-//        return "Success";
-//    }
-//
-//    public void receive(RabbitDto<CodigoInput> dto) {
-//        log.info("recibiendo codigo");
-//        log.info("accion: " + dto.getAccion());
-//        switch (dto.getAccion()){
-//            case GUARDAR:
-//                save(dto.getEntidad());
-//            case ELIMINAR:
-//                deleteById(dto.getEntidad().getIdCentral());
-//            case ACTUALIZAR:
-//        }
-//    }
+    // public String propagarDelete(Long idCentral){
+    // log.info("enviando delete codigo a central");
+    // log.info(idCentral.toString());
+    // RabbitDto<CodigoInput> dto = new RabbitDto();
+    // dto.setAccion(ELIMINAR);
+    //// dto.setTipo(Receiver.CODIGO);
+    // CodigoInput input = new CodigoInput();
+    // input.setIdCentral(idCentral);
+    // dto.setEntidad(input);
+    //// sender.send(dto, "central");
+    // return "Success";
+    // }
+    //
+    // public void receive(RabbitDto<CodigoInput> dto) {
+    // log.info("recibiendo codigo");
+    // log.info("accion: " + dto.getAccion());
+    // switch (dto.getAccion()){
+    // case GUARDAR:
+    // save(dto.getEntidad());
+    // case ELIMINAR:
+    // deleteById(dto.getEntidad().getIdCentral());
+    // case ACTUALIZAR:
+    // }
+    // }
 
-    public List<Codigo> findByPresentacionId(Long id){
+    public List<Codigo> findByPresentacionId(Long id) {
         return repository.findByPresentacionId(id);
     }
 
-    public Codigo findPrincipalByPresentacionId(Long id) { return repository.findPrincipalByPresentacionId(id);}
+    public Codigo findPrincipalByPresentacionId(Long id) {
+        return repository.findPrincipalByPresentacionId(id);
+    }
 
 }

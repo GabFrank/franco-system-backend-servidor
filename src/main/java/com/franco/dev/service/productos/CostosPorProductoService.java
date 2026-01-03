@@ -26,18 +26,17 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     @Autowired
     private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
 
-
     @Override
     public CostosPorProductoRepository getRepository() {
         return repository;
     }
 
-    public CostoPorProducto findLastByProductoId(Long prdoId){
-        List<CostoPorProducto> c = repository.findLastByProductoId(prdoId, PageRequest.of(0,1));
+    public CostoPorProducto findLastByProductoId(Long prdoId) {
+        List<CostoPorProducto> c = repository.findLastByProductoId(prdoId, PageRequest.of(0, 1));
         return c.size() > 0 ? c.get(0) : null;
     }
 
-    public Page<CostoPorProducto> findByProductoId(Long id, Pageable page){
+    public Page<CostoPorProducto> findByProductoId(Long id, Pageable page) {
         return repository.findByProductoId(id, page);
     }
 
@@ -47,8 +46,9 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
 
     @Override
     public CostoPorProducto save(CostoPorProducto entity) {
-        if(entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        
+        if (entity.getCreadoEn() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+
         CostoPorProducto entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
@@ -70,21 +70,20 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
                 entidadAnterior.setUsuario(original.getUsuario());
             }
         }
-        
+
         CostoPorProducto e = super.save(entity);
         repository.flush();
-        
+
         try {
             if (esNuevo) {
                 modificacionService.registrarInsercion(e, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
             } else if (entidadAnterior != null) {
-                modificacionService.registrarActualizacion(entidadAnterior, e, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
+                modificacionService.registrarActualizacion(entidadAnterior, e, "COSTO_POR_PRODUCTO", "productos",
+                        "costo_por_producto");
             }
         } catch (Exception ex) {
-            System.err.println("Error registrando modificación de costo por producto: " + ex.getMessage());
-            ex.printStackTrace();
         }
-        
+
         return e;
     }
 
@@ -96,9 +95,9 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
             if (entidad != null) {
                 Boolean resultado = super.deleteById(id);
                 try {
-                    modificacionService.registrarEliminacion(entidad, "COSTO_POR_PRODUCTO", "productos", "costo_por_producto");
+                    modificacionService.registrarEliminacion(entidad, "COSTO_POR_PRODUCTO", "productos",
+                            "costo_por_producto");
                 } catch (Exception ex) {
-                    System.err.println("Error registrando eliminación de costo por producto: " + ex.getMessage());
                 }
                 return resultado;
             }
@@ -108,12 +107,12 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         }
     }
 
-    public Double calcularCostoMedio(Long productoId, Double cantidad, Double precioCompra){
+    public Double calcularCostoMedio(Long productoId, Double cantidad, Double precioCompra) {
         CostoPorProducto costo = findLastByProductoId(productoId);
-        if(costo != null){
+        if (costo != null) {
             Double ultimoCostoMedio = costo.getCostoMedio();
             Double stockActual = movimientoStockService.stockByProductoId(productoId);
-            if(ultimoCostoMedio != null && stockActual != null && stockActual > 0){
+            if (ultimoCostoMedio != null && stockActual != null && stockActual > 0) {
                 return ((ultimoCostoMedio * stockActual) + (cantidad * precioCompra)) / (stockActual + cantidad);
             } else {
                 return precioCompra;

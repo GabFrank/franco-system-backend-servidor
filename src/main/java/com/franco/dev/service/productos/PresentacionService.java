@@ -28,24 +28,28 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
     public PresentacionRepository getRepository() {
         return repository;
     }
-    public List<Presentacion> findByAll(String texto){
+
+    public List<Presentacion> findByAll(String texto) {
         texto = texto.replace(' ', '%');
-        return  repository.findByAll(texto.toUpperCase())
+        return repository.findByAll(texto.toUpperCase())
                 .stream()
                 .sorted(Comparator.comparing(Presentacion::getCantidad))
                 .collect(Collectors.toList());
     }
-    public List<Presentacion> findByProductoIdOrderByCantidadAsc(Long id){
+
+    public List<Presentacion> findByProductoIdOrderByCantidadAsc(Long id) {
         return repository.findByProductoIdOrderByCantidadAsc(id);
     }
-    public List<Presentacion> findByProductoId(Long id){
+
+    public List<Presentacion> findByProductoId(Long id) {
         return findByProductoIdOrderByCantidadAsc(id);
     }
 
     @Override
-    public Presentacion save(Presentacion entity){
-        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
-        
+    public Presentacion save(Presentacion entity) {
+        if (entity.getId() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+
         Presentacion entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
         if (!esNuevo) {
@@ -64,21 +68,21 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
                 entidadAnterior.setUsuario(original.getUsuario());
             }
         }
-        
+
         Presentacion e = super.save(entity);
         repository.flush();
-        
+
         try {
             if (esNuevo) {
                 modificacionService.registrarInsercion(e, "PRESENTACION", "productos", "presentacion");
             } else if (entidadAnterior != null) {
-                modificacionService.registrarActualizacion(entidadAnterior, e, "PRESENTACION", "productos", "presentacion");
+                modificacionService.registrarActualizacion(entidadAnterior, e, "PRESENTACION", "productos",
+                        "presentacion");
             }
         } catch (Exception ex) {
-            System.err.println("Error registrando modificación de presentación: " + ex.getMessage());
-            ex.printStackTrace();
+            // No interrumpir el flujo si falla el registro de modificación
         }
-        
+
         return e;
     }
 
@@ -92,7 +96,7 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
                 try {
                     modificacionService.registrarEliminacion(entidad, "PRESENTACION", "productos", "presentacion");
                 } catch (Exception ex) {
-                    System.err.println("Error registrando eliminación de presentación: " + ex.getMessage());
+                    // No interrumpir el flujo si falla el registro de modificación
                 }
                 return resultado;
             }
@@ -102,16 +106,17 @@ public class PresentacionService extends CrudService<Presentacion, PresentacionR
         }
     }
 
-    public Presentacion findByPrincipalAndProductoId(Boolean principal, Long id){
+    public Presentacion findByPrincipalAndProductoId(Boolean principal, Long id) {
         return repository.findByPrincipalAndProductoId(principal, id);
     }
 
-    public void enviarImagenes(Long sucId){
+    public void enviarImagenes(Long sucId) {
         List<Presentacion> presentacionList = findAll2();
-        for(Presentacion p: presentacionList){
-            String image = imageService.getImageWithMediaType(p.getId()+".jpg", imageService.getImagePresentaciones());
-            if(image!="") {
-                log.info("Imagen encontrada: " + imageService.getImagePresentaciones()+p.getId()+".jpg");
+        for (Presentacion p : presentacionList) {
+            String image = imageService.getImageWithMediaType(p.getId() + ".jpg",
+                    imageService.getImagePresentaciones());
+            if (image != "") {
+                log.info("Imagen encontrada: " + imageService.getImagePresentaciones() + p.getId() + ".jpg");
             } else {
             }
         }

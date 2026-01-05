@@ -115,12 +115,16 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("Usuario no autenticado");
+            return new NotificacionDestinatarioPage(new java.util.ArrayList<>(), 0, 20, 0L, 0);
         }
 
         String username = authentication.getName();
-        com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username).orElse(null);
+
+        if (usuario == null) {
+            int s = (size == null || size <= 0) ? 20 : size;
+            return new NotificacionDestinatarioPage(new java.util.ArrayList<>(), 0, s, 0L, 0);
+        }
 
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 20 : size;
@@ -131,7 +135,8 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
 
         if (fechaInicio != null && !fechaInicio.isEmpty()) {
             try {
-                fechaInicioLdt = java.time.LocalDateTime.parse(fechaInicio, java.time.format.DateTimeFormatter.ISO_DATE_TIME);
+                fechaInicioLdt = java.time.LocalDateTime.parse(fechaInicio,
+                        java.time.format.DateTimeFormatter.ISO_DATE_TIME);
             } catch (Exception e) {
                 LOGGER.warn("Error parsing fechaInicio: " + fechaInicio, e);
             }
@@ -222,12 +227,14 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("Usuario no autenticado");
+            return 0L;
         }
 
         String username = authentication.getName();
-        com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username)
-                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username).orElse(null);
+        if (usuario == null) {
+            return 0L;
+        }
 
         return notificacionDestinatarioService.countNoLeidasByUsuarioId(usuario.getId());
     }

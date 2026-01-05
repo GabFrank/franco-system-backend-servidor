@@ -65,34 +65,30 @@ public class PushNotificationController {
                         @PathVariable Long personaId,
                         @PathVariable Double valorTotal) {
                 try {
-
-                Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
-
-                if (usuarioCliente == null) {
-                        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
-                                        "Usuario no encontrado para el cliente"), HttpStatus.NOT_FOUND);
-                }
-
                         Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
                         VentaCredito ventaCreditoTemp = new VentaCredito();
                         ventaCreditoTemp.setId(ventaCreditoId);
                         ventaCreditoTemp.setSucursalId(sucursalId);
                         ventaCreditoTemp.setValorTotal(valorTotal);
+
                         List<String> rolesRelevantes = notificationRoleService.getRolesForVentaCredito();
                         List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
 
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest requestAdmin = notificationTemplateService
                                                 .ventaCreditoRealizada(ventaCreditoTemp, sucursal, df);
-                        requestAdmin.setType("VENTA_CREDITO_ADMIN");
-                        requestAdmin.setUsuarioIds(usuariosRelevantes);
-                        pushNotificationService.sendPushNotificationToToken(requestAdmin);
-                }
+                                requestAdmin.setType("VENTA_CREDITO_ADMIN");
+                                requestAdmin.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(requestAdmin);
+                        }
 
-                        PushNotificationRequest requestCliente = notificationTemplateService
-                                        .ventaCreditoRealizadaCliente(ventaCreditoTemp, sucursal, df);
-                        requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
-                        pushNotificationService.sendPushNotificationToToken(requestCliente);
+                        Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
+                        if (usuarioCliente != null) {
+                                PushNotificationRequest requestCliente = notificationTemplateService
+                                                .ventaCreditoRealizadaCliente(ventaCreditoTemp, sucursal, df);
+                                requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
+                                pushNotificationService.sendPushNotificationToToken(requestCliente);
+                        }
 
                         return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
                                         "Notificaciones enviadas exitosamente"), HttpStatus.ACCEPTED);

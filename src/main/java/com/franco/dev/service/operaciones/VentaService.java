@@ -19,6 +19,7 @@ import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.sifen.SifenEventoService;
+import com.franco.dev.service.empresarial.SucursalService;
 
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -72,6 +73,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private SifenEventoService sifenEventoService;
+
+    @Autowired
+    private SucursalService sucursalService;
 
     @Override
     public VentaRepository getRepository() {
@@ -273,6 +277,39 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
         return null;
+    }
+
+    public List<VentaPorSucursal> ventaPorSucursalAndUsuario(Long usuarioId, String inicio, String fin) {
+        LocalDateTime fechaInicio = stringToDate(inicio);
+        LocalDateTime fechaFin = stringToDate(fin);
+        List<VentaPorSucursal> ventaPorSucursales = new ArrayList<>();
+        List<Venta> ventas = repository.findByUsuarioIdAndCreadoEnBetweenOrderByIdDesc(usuarioId, fechaInicio,
+                fechaFin);
+        for (Venta v : ventas) {
+            VentaPorSucursal vps = null;
+            for (VentaPorSucursal vpsAux : ventaPorSucursales) {
+                if (vpsAux.getSucId().equals(v.getSucursalId())) {
+                    vps = vpsAux;
+                }
+            }
+            if (vps == null) {
+                vps = new VentaPorSucursal();
+                vps.setSucId(v.getSucursalId());
+                vps.setNombre("Sucursal " + v.getSucursalId());
+                if (sucursalService != null) {
+                    java.util.Optional<com.franco.dev.domain.empresarial.Sucursal> s = sucursalService
+                            .findById(v.getSucursalId());
+                    if (s.isPresent())
+                        vps.setNombre(s.get().getNombre());
+                }
+                vps.setTotal(0.0);
+                ventaPorSucursales.add(vps);
+            }
+            if (v.getEstado().equals(VentaEstado.CONCLUIDA)) {
+                vps.setTotal(vps.getTotal() + v.getTotalGs());
+            }
+        }
+        return ventaPorSucursales;
     }
 
     public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago,

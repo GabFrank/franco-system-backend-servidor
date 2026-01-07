@@ -65,6 +65,7 @@ extend type Query {
     ):VentaPage
 #    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
 #    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
+    ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
 }
 
 extend type Mutation {
@@ -88,7 +89,7 @@ type VentaPorPeriodo {
 
 type VentaPorSucursal {
     sucId: ID,
-    nombre: Float
+    nombre: String
     total: Float
 }
 

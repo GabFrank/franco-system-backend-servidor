@@ -31,11 +31,20 @@ input VentaItemInput {
     sucursalId: Int
 }
 
+type ProductoVendidoEstadistica {
+    productoId: ID
+    descripcion: String
+    cantidad: Float
+    totalMonto: Float
+    porcentaje: Float
+}
+
 extend type Query {
     ventaItem(id:ID!, sucId: ID):VentaItem
     ventaItems(page:Int = 0, size:Int = 10, sucId: ID):[VentaItem]!
     countVentaItem: Int
     ventaItemListPorVentaId(id:ID!, sucId: ID):[VentaItem]
+    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID): [ProductoVendidoEstadistica]
 }
 
 extend type Mutation {

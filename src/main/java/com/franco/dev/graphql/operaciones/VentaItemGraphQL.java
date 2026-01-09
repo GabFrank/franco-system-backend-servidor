@@ -106,7 +106,7 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public List<ProductoVendidoEstadistica> productosMasVendidos(String inicio, String fin, Integer limit,
-            Long sucursalId) {
+            Long sucursalId, Long familiaId) {
         if (limit == null)
             limit = 10;
         LocalDateTime fechaInicio = null;
@@ -119,6 +119,6 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
         }
 
-        return service.obtenerProductosMasVendidos(fechaInicio, fechaFin, limit, sucursalId);
+        return service.obtenerProductosMasVendidos(fechaInicio, fechaFin, limit, sucursalId, familiaId);
     }
 }

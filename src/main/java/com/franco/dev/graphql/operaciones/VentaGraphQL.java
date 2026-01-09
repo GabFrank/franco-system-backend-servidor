@@ -6,8 +6,11 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FacturaLegal;
 import com.franco.dev.domain.operaciones.Cobro;
 import com.franco.dev.domain.operaciones.Venta;
+
 import com.franco.dev.domain.operaciones.VentaItem;
+import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
+import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
 import com.franco.dev.graphql.financiero.VentaCreditoGraphQL;
@@ -381,10 +384,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 conDescuento, conAumento);
     }
 
-    // public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin,
-    // Long sucId) {
-    // return service.ventaPorPeriodo(inicio, fin);
-    // }
+    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {
+        return service.ventaPorPeriodo(inicio, fin, sucId);
+    }
 
     // public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin) {
     // return service.ventaPorSucursal(inicio, fin);
@@ -392,6 +394,10 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     public List<VentaPorSucursal> ventasPorSucursalAndUsuario(Long usuarioId, String inicio, String fin) {
         return service.ventaPorSucursalAndUsuario(usuarioId, inicio, fin);
+    }
+
+    public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId) {
+        return service.ventasPorFuncionario(inicio, fin, sucId);
     }
 
     public Boolean cancelarVenta(Long id, Long sucId) {

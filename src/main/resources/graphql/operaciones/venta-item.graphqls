@@ -44,7 +44,7 @@ extend type Query {
     ventaItems(page:Int = 0, size:Int = 10, sucId: ID):[VentaItem]!
     countVentaItem: Int
     ventaItemListPorVentaId(id:ID!, sucId: ID):[VentaItem]
-    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID): [ProductoVendidoEstadistica]
+    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID, familiaId: ID): [ProductoVendidoEstadistica]
 }
 
 extend type Mutation {

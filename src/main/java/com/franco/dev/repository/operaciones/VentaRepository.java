@@ -1,7 +1,9 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+
 import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.graphql.financiero.input.PdvCajaSumarioDto;
@@ -16,126 +18,152 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryKey>, JpaSpecificationExecutor {
-    default Class<Venta> getEntityClass() {
-        return Venta.class;
-    }
+        default Class<Venta> getEntityClass() {
+                return Venta.class;
+        }
 
-    public Venta findByIdAndSucursalId(Long id, Long sucId);
+        public Venta findByIdAndSucursalId(Long id, Long sucId);
 
-    public Venta findByDeliveryIdAndSucursalId(Long deliveryId, Long sucursalId);
+        public Venta findByDeliveryIdAndSucursalId(Long deliveryId, Long sucursalId);
 
-    // public List<Venta> findByProveedorPersonaNombreContainingIgnoreCase(String
-    // texto);
+        // public List<Venta> findByProveedorPersonaNombreContainingIgnoreCase(String
+        // texto);
 
-    // @Query("select p from Venta p left outer join p.proveedor as pro left outer
-    // join pro.persona as per where LOWER(per.nombre) like %?1%")
-    // public List<Venta> findByProveedor(String texto);
+        // @Query("select p from Venta p left outer join p.proveedor as pro left outer
+        // join pro.persona as per where LOWER(per.nombre) like %?1%")
+        // public List<Venta> findByProveedor(String texto);
 
-    // @Query("select p from Producto p where CAST(id as text) like %?1% or
-    // LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
-    // public List<Producto> findbyAll(String texto);
+        // @Query("select p from Producto p where CAST(id as text) like %?1% or
+        // LOWER(p.descripcion) like %?1% or LOWER(p.descripcionFactura) like %?1%")
+        // public List<Producto> findbyAll(String texto);
 
-    public Page<Venta> findAllByCajaIdAndSucursalIdOrderByIdAsc(Long id, Long sucId, Pageable pageable);
+        public Page<Venta> findAllByCajaIdAndSucursalIdOrderByIdAsc(Long id, Long sucId, Pageable pageable);
 
-    public Page<Venta> findAllByCajaIdAndSucursalIdOrderByIdDesc(Long id, Long sucId, Pageable pageable);
+        public Page<Venta> findAllByCajaIdAndSucursalIdOrderByIdDesc(Long id, Long sucId, Pageable pageable);
 
-    // public List<Venta> findByCajaIdAndCajaSucursalId(Long id, Long sucId);
-    // @Query(value = "select * from operaciones.venta v where v.caja_id = ?1 and
-    // v.sucursal_id = ?2", nativeQuery = true)
-    @Query("SELECT v FROM Venta v " +
-            "JOIN FETCH v.cobro " +
-            "join v.caja ca " +
-            "WHERE ca.id = :id AND v.sucursalId = :sucId")
-    List<Venta> findByCajaIdAndCajaSucursalId(Long id, Long sucId);
+        // public List<Venta> findByCajaIdAndCajaSucursalId(Long id, Long sucId);
+        // @Query(value = "select * from operaciones.venta v where v.caja_id = ?1 and
+        // v.sucursal_id = ?2", nativeQuery = true)
+        @Query("SELECT v FROM Venta v " +
+                        "JOIN FETCH v.cobro " +
+                        "join v.caja ca " +
+                        "WHERE ca.id = :id AND v.sucursalId = :sucId")
+        List<Venta> findByCajaIdAndCajaSucursalId(Long id, Long sucId);
 
-    public List<Venta> findAllByCajaIdAndSucursalIdAndEstadoIn(Long id, Long sucId, List<DeliveryEstado> estadoList);
+        public List<Venta> findAllByCajaIdAndSucursalIdAndEstadoIn(Long id, Long sucId,
+                        List<DeliveryEstado> estadoList);
 
-    @Query(value = "select " +
-            "* " +
-            "from " +
-            "operaciones.venta v " +
-            "where " +
-            "v.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp)" +
-            "order by " +
-            "v.id", nativeQuery = true)
-    public List<Venta> ventaPorPeriodo(LocalDateTime inicio, LocalDateTime fin);
+        @Query(value = "select " +
+                        "* " +
+                        "from " +
+                        "operaciones.venta v " +
+                        "where " +
+                        "v.creado_en between cast(?1 as timestamp) and cast(?2 as timestamp)" +
+                        "order by " +
+                        "v.id", nativeQuery = true)
+        public List<Venta> ventaPorPeriodo(LocalDateTime inicio, LocalDateTime fin);
 
-    public List<Venta> findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(Long sucId, LocalDateTime inicio,
-            LocalDateTime fin);
+        public List<Venta> findBySucursalIdAndCreadoEnBetweenOrderByIdDesc(Long sucId, LocalDateTime inicio,
+                        LocalDateTime fin);
 
-    public List<Venta> findByUsuarioIdAndCreadoEnBetweenOrderByIdDesc(Long usuarioId, LocalDateTime inicio,
-            LocalDateTime fin);
+        public List<Venta> findByUsuarioIdAndCreadoEnBetweenOrderByIdDesc(Long usuarioId, LocalDateTime inicio,
+                        LocalDateTime fin);
 
-    @Query(value = "select v from Venta v " +
-            "join v.caja ca " +
-            "join v.cobro c " +
-            "JOIN CobroDetalle cd ON cd.cobro = c " +
-            "join cd.formaPago fp " +
-            "join cd.moneda m " +
-            "where ca.id = :id and v.sucursalId = :sucId and " +
-            "(:formaPagoId is null or fp.id = :formaPagoId) and " +
-            "(:monedaId is null or m.id = :monedaId) and " +
-            "(:conDescuento = false or cd.descuento = true) and " +
-            "(:conAumento = false or cd.aumento = true) and " +
-            "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
-    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable,
-            Long monedaId, @Param("conDescuento") Boolean conDescuento, @Param("conAumento") Boolean conAumento);
+        @Query("SELECT new com.franco.dev.domain.operaciones.VentaPorFuncionario(u.id, p.nombre, SUM(v.totalGs), COUNT(v)) "
+                        +
+                        "FROM Venta v " +
+                        "JOIN v.usuario u " +
+                        "JOIN u.persona p " +
+                        "WHERE v.creadoEn BETWEEN :inicio AND :fin " +
+                        "AND (:sucId IS NULL OR v.sucursalId = :sucId) " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY u.id, p.nombre " +
+                        "ORDER BY SUM(v.totalGs) DESC")
+        List<VentaPorFuncionario> getVentasPorFuncionario(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId,
+                        org.springframework.data.domain.Pageable pageable);
 
-    // @Query(value = "select v from Venta v, CobroDetalle cd, Delivery d " +
-    // "join v.caja ca " +
-    // "join v.cobro c " +
-    // "join cd.cobro c2 " +
-    // "join cd.formaPago fp " +
-    // "join d.venta v2 " +
-    // "join cd.moneda m " +
-    // "where ca.id = :id and v.sucursalId = :sucId and c = c2 and " +
-    // "(:isDelivery = true and v2.id = v.id) and " +
-    // "(:formaPagoId is null or fp.id = :formaPagoId) and " +
-    // "(:monedaId is null or m.id = :monedaId) and " +
-    // "(v.estado = :estado or cast(:estado as
-    // com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id,
-    // v.sucursalId)")
-    // public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId,
-    // VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
+        @Query("SELECT DISTINCT CAST(v.sucursalId AS string) FROM Venta v WHERE v.usuario.id = :usuarioId AND v.creadoEn BETWEEN :inicio AND :fin AND v.estado = 'CONCLUIDA'")
+        List<String> findSucursalesByUsuario(@Param("usuarioId") Long usuarioId, @Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
 
-    // @Query(value = "select s.id as sucId, s.nombre as nombre, sum(v.totalGs) as
-    // total from Venta v " +
-    // "join v.sucursalId s " +
-    // "where (fl.creadoEn between :inicio and :fin) " +
-    // "group by nombre order by total desc")
-    // public List<VentaPorSucursal> ventasPorSucursal(LocalDateTime inicio,
-    // LocalDateTime fin);
+        @Query(value = "select v from Venta v " +
+                        "join v.caja ca " +
+                        "join v.cobro c " +
+                        "JOIN CobroDetalle cd ON cd.cobro = c " +
+                        "join cd.formaPago fp " +
+                        "join cd.moneda m " +
+                        "where ca.id = :id and v.sucursalId = :sucId and " +
+                        "(:formaPagoId is null or fp.id = :formaPagoId) and " +
+                        "(:monedaId is null or m.id = :monedaId) and " +
+                        "(:conDescuento = false or cd.descuento = true) and " +
+                        "(:conAumento = false or cd.aumento = true) and " +
+                        "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
+        public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable,
+                        Long monedaId, @Param("conDescuento") Boolean conDescuento,
+                        @Param("conAumento") Boolean conAumento);
 
-    public List<Venta> findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(Long id, Long sucId,
-            List<DeliveryEstado> estadoList);
+        // @Query(value = "select v from Venta v, CobroDetalle cd, Delivery d " +
+        // "join v.caja ca " +
+        // "join v.cobro c " +
+        // "join cd.cobro c2 " +
+        // "join cd.formaPago fp " +
+        // "join d.venta v2 " +
+        // "join cd.moneda m " +
+        // "where ca.id = :id and v.sucursalId = :sucId and c = c2 and " +
+        // "(:isDelivery = true and v2.id = v.id) and " +
+        // "(:formaPagoId is null or fp.id = :formaPagoId) and " +
+        // "(:monedaId is null or m.id = :monedaId) and " +
+        // "(v.estado = :estado or cast(:estado as
+        // com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id,
+        // v.sucursalId)")
+        // public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId,
+        // VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
 
-    @Query(value = "SELECT \n" +
-            "SUM(CASE WHEN m.denominacion = 'GUARANI' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaGs, \n"
-            +
-            "SUM(CASE WHEN m.denominacion = 'REAL' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaRs, \n"
-            +
-            "SUM(CASE WHEN m.denominacion = 'DOLAR' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaDs, \n"
-            +
-            "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
-            "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, \n" +
-            "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, \n" +
-            "SUM(CASE WHEN cd.aumento THEN cd.valor ELSE 0 END) AS totalAumento, \n" +
-            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS vueltoGs, \n" +
-            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS vueltoRs, \n" +
-            "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS vueltoDs, \n" +
-            "(SELECT SUM(v2.total_gs + coalesce(pd.valor, 0)) FROM operaciones.venta v2 \n" +
-            "\tleft join operaciones.delivery d on v2.delivery_id = d.id and v2.sucursal_id = d.sucursal_id \n" +
-            "\tleft join operaciones.precio_delivery pd on d.precio_delivery_id = pd.id\n" +
-            "\tWHERE v2.caja_id = :cajaId AND v2.sucursal_id = :sucursalId AND v2.estado IN ('CONCLUIDA', 'EN_VERIFICACION')) AS totalGeneral \n"
-            +
-            "FROM operaciones.venta v \n" +
-            "JOIN operaciones.cobro c ON v.cobro_id = c.id AND v.sucursal_id = c.sucursal_id \n" +
-            "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = c.id AND cd.sucursal_id = c.sucursal_id \n" +
-            "JOIN financiero.moneda m ON cd.moneda_id = m.id \n" +
-            "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id \n" +
-            "WHERE v.caja_id = :cajaId \n" +
-            "AND v.sucursal_id = :sucursalId \n" +
-            "AND v.estado IN ('CONCLUIDA', 'EN_VERIFICACION')", nativeQuery = true)
-    List<Object[]> sumarioVentasPorCajaAndSurusal(@Param("cajaId") Long cajaId, @Param("sucursalId") Long sucursalId);
+        // @Query(value = "select s.id as sucId, s.nombre as nombre, sum(v.totalGs) as
+        // total from Venta v " +
+        // "join v.sucursalId s " +
+        // "where (fl.creadoEn between :inicio and :fin) " +
+        // "group by nombre order by total desc")
+        // public List<VentaPorSucursal> ventasPorSucursal(LocalDateTime inicio,
+        // LocalDateTime fin);
+
+        public List<Venta> findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(Long id, Long sucId,
+                        List<DeliveryEstado> estadoList);
+
+        @Query(value = "SELECT \n" +
+                        "SUM(CASE WHEN m.denominacion = 'GUARANI' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaGs, \n"
+                        +
+                        "SUM(CASE WHEN m.denominacion = 'REAL' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaRs, \n"
+                        +
+                        "SUM(CASE WHEN m.denominacion = 'DOLAR' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaDs, \n"
+                        +
+                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
+                        "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, \n" +
+                        "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, \n" +
+                        "SUM(CASE WHEN cd.aumento THEN cd.valor ELSE 0 END) AS totalAumento, \n" +
+                        "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS vueltoGs, \n"
+                        +
+                        "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS vueltoRs, \n"
+                        +
+                        "SUM(CASE WHEN cd.vuelto AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS vueltoDs, \n"
+                        +
+                        "(SELECT SUM(v2.total_gs + coalesce(pd.valor, 0)) FROM operaciones.venta v2 \n" +
+                        "\tleft join operaciones.delivery d on v2.delivery_id = d.id and v2.sucursal_id = d.sucursal_id \n"
+                        +
+                        "\tleft join operaciones.precio_delivery pd on d.precio_delivery_id = pd.id\n" +
+                        "\tWHERE v2.caja_id = :cajaId AND v2.sucursal_id = :sucursalId AND v2.estado IN ('CONCLUIDA', 'EN_VERIFICACION')) AS totalGeneral \n"
+                        +
+                        "FROM operaciones.venta v \n" +
+                        "JOIN operaciones.cobro c ON v.cobro_id = c.id AND v.sucursal_id = c.sucursal_id \n" +
+                        "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = c.id AND cd.sucursal_id = c.sucursal_id \n"
+                        +
+                        "JOIN financiero.moneda m ON cd.moneda_id = m.id \n" +
+                        "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id \n" +
+                        "WHERE v.caja_id = :cajaId \n" +
+                        "AND v.sucursal_id = :sucursalId \n" +
+                        "AND v.estado IN ('CONCLUIDA', 'EN_VERIFICACION')", nativeQuery = true)
+        List<Object[]> sumarioVentasPorCajaAndSurusal(@Param("cajaId") Long cajaId,
+                        @Param("sucursalId") Long sucursalId);
 
 }

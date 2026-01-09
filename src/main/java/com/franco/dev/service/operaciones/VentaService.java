@@ -31,10 +31,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
 import javax.persistence.criteria.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import static java.time.temporal.ChronoUnit.DAYS;
@@ -43,6 +46,9 @@ import static java.time.temporal.ChronoUnit.DAYS;
 @AllArgsConstructor
 public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPrimaryKey> {
     private final VentaRepository repository;
+
+    @Autowired
+    private EntityManager em;
 
     @Autowired
     private MovimientoCajaService movimientoCajaService;
@@ -129,57 +135,121 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return ventaList;
     }
 
-    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin) {
-        List<VentaPorPeriodoV1Dto> ventaPorPeriodoList = new ArrayList<>();
-        LocalDateTime fechaInicio = LocalDateTime.parse(inicio);
-        LocalDateTime fechaFin = LocalDateTime.parse(fin);
-        Long cantDias = DAYS.between(fechaInicio, fechaFin);
-        for (int i = 0; i < cantDias; i++) {
-            VentaPorPeriodoV1Dto ventaPorPeriodoV1Dto = new VentaPorPeriodoV1Dto();
-            ventaPorPeriodoV1Dto.setCreadoEn(fechaInicio.plusDays(i));
-            ventaPorPeriodoList.add(ventaPorPeriodoV1Dto);
+    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {
+        LocalDateTime fechaInicio = stringToDate(inicio);
+        LocalDateTime fechaFin = stringToDate(fin);
+        if (fechaInicio == null || fechaFin == null)
+            return new ArrayList<>();
+
+        List<VentaPorPeriodoV1Dto> res = new ArrayList<>();
+        Map<String, VentaPorPeriodoV1Dto> map = new HashMap<>();
+        long days = DAYS.between(fechaInicio, fechaFin);
+        for (int i = 0; i < days; i++) {
+            LocalDateTime d = fechaInicio.plusDays(i);
+            VentaPorPeriodoV1Dto dto = new VentaPorPeriodoV1Dto();
+            dto.setCreadoEn(d);
+            dto.setCantVenta(0);
+            String key = d.toLocalDate().toString();
+            map.put(key, dto);
+            res.add(dto);
         }
-        for (VentaPorPeriodoV1Dto ventaPorPeriodo : ventaPorPeriodoList) {
-            List<Venta> ventaList = repository.ventaPorPeriodo(ventaPorPeriodo.getCreadoEn(),
-                    ventaPorPeriodo.getCreadoEn().plusDays(1));
-            ventaPorPeriodo.setCantVenta(ventaList.size());
-            for (Venta venta : ventaList) {
-                if (venta.getEstado() != VentaEstado.CANCELADA || venta.getEstado() != VentaEstado.ABIERTA) {
-                    List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(venta.getCobro().getId(),
-                            venta.getSucursalId());
-                    for (CobroDetalle cobroDetalle : cobroDetalleList) {
-                        if (cobroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
-                            if (cobroDetalle.getPago()) {
-                                ventaPorPeriodo.addGs(cobroDetalle.getValor());
-                                ventaPorPeriodo.addTotalGs(cobroDetalle.getValor());
-                            } else if (cobroDetalle.getDescuento()) {
-                                ventaPorPeriodo.addGs(cobroDetalle.getValor() * -1);
-                                ventaPorPeriodo.addTotalGs(cobroDetalle.getValor() * -1);
-                            }
-                        }
-                        if (cobroDetalle.getMoneda().getDenominacion().contains("REAL")) {
-                            if (cobroDetalle.getPago()) {
-                                ventaPorPeriodo.addRs(cobroDetalle.getValor());
-                                ventaPorPeriodo.addTotalGs(cobroDetalle.getValor() * cobroDetalle.getCambio());
-                            } else if (cobroDetalle.getDescuento()) {
-                                ventaPorPeriodo.addRs(cobroDetalle.getValor() * -1);
-                                ventaPorPeriodo.addTotalGs(cobroDetalle.getValor() * -1 * cobroDetalle.getCambio());
-                            }
-                        }
-                        if (cobroDetalle.getMoneda().getDenominacion().contains("DOLAR")) {
-                            if (cobroDetalle.getPago()) {
-                                ventaPorPeriodo.addDs(cobroDetalle.getValor());
-                                ventaPorPeriodo.addTotalGs(cobroDetalle.getValor() * cobroDetalle.getCambio());
-                            } else if (cobroDetalle.getDescuento()) {
-                                ventaPorPeriodo.addDs(cobroDetalle.getValor() * -1);
-                                ventaPorPeriodo.addTotalGs(cobroDetalle.getValor() * -1 * cobroDetalle.getCambio());
-                            }
-                        }
+
+        // OPTIMIZACIÓN: Usar JOIN FETCH para traer CobroDetalle en una sola consulta
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Venta> cq = cb.createQuery(Venta.class);
+        Root<Venta> root = cq.from(Venta.class);
+
+        // Hacer JOIN FETCH con cobro
+        Fetch<Venta, Cobro> cobroFetch = root.fetch("cobro", JoinType.LEFT);
+
+        List<Predicate> predicates = new ArrayList<>();
+        predicates.add(cb.between(root.get("creadoEn"), fechaInicio, fechaFin));
+        if (sucId != null)
+            predicates.add(cb.equal(root.get("sucursalId"), sucId));
+        predicates.add(cb.notEqual(root.get("estado"), VentaEstado.CANCELADA));
+        predicates.add(cb.notEqual(root.get("estado"), VentaEstado.ABIERTA));
+        cq.where(predicates.toArray(new Predicate[0]));
+        cq.distinct(true); // Evitar duplicados por el JOIN
+
+        List<Venta> allVentas = em.createQuery(cq).getResultList();
+
+        // Obtener todos los IDs de cobros para hacer una sola consulta de CobroDetalle
+        List<Long> cobroIds = new ArrayList<>();
+        for (Venta v : allVentas) {
+            if (v.getCobro() != null && v.getCobro().getId() != null) {
+                cobroIds.add(v.getCobro().getId());
+            }
+        }
+
+        // OPTIMIZACIÓN: Una sola consulta para todos los CobroDetalle
+        Map<Long, List<CobroDetalle>> cobroDetalleMap = new HashMap<>();
+        if (!cobroIds.isEmpty()) {
+            // Dividir en lotes de 1000 para evitar problemas con IN clause muy grandes
+            int batchSize = 1000;
+            for (int i = 0; i < cobroIds.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, cobroIds.size());
+                List<Long> batch = cobroIds.subList(i, end);
+
+                CriteriaBuilder cb2 = em.getCriteriaBuilder();
+                CriteriaQuery<CobroDetalle> cq2 = cb2.createQuery(CobroDetalle.class);
+                Root<CobroDetalle> cdRoot = cq2.from(CobroDetalle.class);
+                cdRoot.fetch("moneda", JoinType.LEFT); // Traer moneda también
+
+                List<Predicate> cdPredicates = new ArrayList<>();
+                cdPredicates.add(cdRoot.get("cobroId").in(batch));
+                if (sucId != null) {
+                    cdPredicates.add(cb2.equal(cdRoot.get("sucursalId"), sucId));
+                }
+                cq2.where(cdPredicates.toArray(new Predicate[0]));
+
+                List<CobroDetalle> batchDetalles = em.createQuery(cq2).getResultList();
+
+                // Agrupar por cobroId
+                for (CobroDetalle cd : batchDetalles) {
+                    Long cobroId = cd.getCobro().getId();
+                    cobroDetalleMap.computeIfAbsent(cobroId, k -> new ArrayList<>()).add(cd);
+                }
+            }
+        }
+
+        // Procesar ventas con los datos ya cargados
+        for (Venta v : allVentas) {
+            String key = v.getCreadoEn().toLocalDate().toString();
+            VentaPorPeriodoV1Dto dto = map.get(key);
+            if (dto == null)
+                continue;
+
+            dto.setCantVenta(dto.getCantVenta() + 1);
+
+            if (v.getCobro() != null && v.getCobro().getId() != null) {
+                List<CobroDetalle> detalles = cobroDetalleMap.get(v.getCobro().getId());
+                if (detalles != null) {
+                    for (CobroDetalle cd : detalles) {
+                        procesarCobroDetalle(dto, cd);
                     }
                 }
             }
         }
-        return ventaPorPeriodoList;
+        return res;
+    }
+
+    private void procesarCobroDetalle(VentaPorPeriodoV1Dto dto, CobroDetalle cd) {
+        Double cambio = cd.getCambio() != null ? cd.getCambio() : 1.0;
+        double valor = cd.getValor() != null ? cd.getValor() : 0.0;
+        if (cd.getDescuento() != null && cd.getDescuento())
+            valor *= -1;
+
+        String den = cd.getMoneda().getDenominacion();
+        if (den.contains("GUARANI")) {
+            dto.addGs(valor);
+            dto.addTotalGs(valor);
+        } else if (den.contains("REAL")) {
+            dto.addRs(valor);
+            dto.addTotalGs(valor * cambio);
+        } else if (den.contains("DOLAR")) {
+            dto.addDs(valor);
+            dto.addTotalGs(valor * cambio);
+        }
     }
 
     @Transactional()
@@ -309,7 +379,37 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 vps.setTotal(vps.getTotal() + v.getTotalGs());
             }
         }
+
         return ventaPorSucursales;
+    }
+
+    public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId) {
+        LocalDateTime fechaInicio = stringToDate(inicio);
+        LocalDateTime fechaFin = stringToDate(fin);
+        List<VentaPorFuncionario> list = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId,
+                PageRequest.of(0, 20));
+
+        for (VentaPorFuncionario vpf : list) {
+
+            // Fetch Sucursales
+            if (sucId != null) {
+                sucursalService.findById(sucId).ifPresent(s -> vpf.setSucursales(s.getNombre()));
+            } else {
+                List<String> sucursalIds = repository.findSucursalesByUsuario(vpf.getId(), fechaInicio, fechaFin);
+                if (sucursalIds != null && !sucursalIds.isEmpty()) {
+                    List<String> nombres = new ArrayList<>();
+                    for (String sId : sucursalIds) {
+                        try {
+                            Long susIdLong = Long.parseLong(sId);
+                            sucursalService.findById(susIdLong).ifPresent(s -> nombres.add(s.getNombre()));
+                        } catch (Exception e) {
+                        }
+                    }
+                    vpf.setSucursales(String.join(", ", nombres));
+                }
+            }
+        }
+        return list;
     }
 
     public Page<Venta> onSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago,

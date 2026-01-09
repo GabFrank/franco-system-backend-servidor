@@ -45,6 +45,17 @@ type VentaPage {
     getPageable: Pageable
 }
 
+
+
+type VentaPorFuncionario {
+    id: ID
+    funcionario: String
+    total: Float
+    cantidad: Int
+    productoMasVendido: String
+    sucursales: String
+}
+
 extend type Query {
     venta(id:ID!, sucId: ID):Venta
     ventas(page:Int = 0, size:Int = 10, sucId: ID):[Venta]!
@@ -63,9 +74,9 @@ extend type Query {
         conDescuento: Boolean, 
         conAumento: Boolean
     ):VentaPage
-#    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
-#    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
+    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
     ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
+    ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID): [VentaPorFuncionario]
 }
 
 extend type Mutation {
@@ -85,6 +96,7 @@ type VentaPorPeriodo {
     valorDs: Float
     valorTotalGs: Float
     creadoEn: Date
+    cantVenta: Int
 }
 
 type VentaPorSucursal {

@@ -7,7 +7,6 @@ import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Query;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 public interface VentaItemRepository extends HelperRepository<VentaItem, EmbebedPrimaryKey> {
@@ -37,33 +36,19 @@ public interface VentaItemRepository extends HelperRepository<VentaItem, Embebed
                         "where vi.venta_id = ?1 and vi.sucursal_id = ?2", nativeQuery = true)
         Double totalByVentaIdAndSucId(Long id, Long sucId);
 
-        @Query(value = "SELECT p.id, p.descripcion, SUM(vi.cantidad) as total_cantidad, " +
-                        "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto "
+        @Query("SELECT  new com.franco.dev.domain.operaciones.VentaPorFuncionario(p.id, p.descripcion, SUM(vi.precio), SUM(CAST(vi.cantidad AS long))) "
                         +
-                        "FROM operaciones.venta_item vi " +
-                        "JOIN productos.producto p ON vi.producto_id = p.id " +
-                        "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
-                        "WHERE v.estado = 'CONCLUIDA' " +
-                        "AND vi.creado_en >= ?1 AND vi.creado_en < ?2 " +
-                        "AND vi.activo = true " +
+                        "FROM VentaItem vi " +
+                        "JOIN vi.venta v " +
+                        "JOIN vi.producto p " +
+                        "WHERE v.usuario.id = :usuarioId " +
+                        "AND v.creadoEn BETWEEN :inicio AND :fin " +
+                        "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY p.id, p.descripcion " +
-                        "ORDER BY total_monto DESC " +
-                        "LIMIT ?3", nativeQuery = true)
-        List<Object[]> obtenerProductosMasVendidos(LocalDateTime inicio, LocalDateTime fin, Integer limit);
-
-        @Query(value = "SELECT p.id, p.descripcion, SUM(vi.cantidad) as total_cantidad, " +
-                        "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto "
-                        +
-                        "FROM operaciones.venta_item vi " +
-                        "JOIN productos.producto p ON vi.producto_id = p.id " +
-                        "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
-                        "WHERE v.estado = 'CONCLUIDA' " +
-                        "AND vi.creado_en >= ?1 AND vi.creado_en < ?2 " +
-                        "AND vi.sucursal_id = ?4 " +
-                        "AND vi.activo = true " +
-                        "GROUP BY p.id, p.descripcion " +
-                        "ORDER BY total_monto DESC " +
-                        "LIMIT ?3", nativeQuery = true)
-        List<Object[]> obtenerProductosMasVendidosPorSucursal(LocalDateTime inicio, LocalDateTime fin, Integer limit,
-                        Long sucursalId);
+                        "ORDER BY SUM(vi.cantidad) DESC")
+        List<java.lang.Object> findTopProductoByUsuario(
+                        @org.springframework.data.repository.query.Param("usuarioId") Long usuarioId,
+                        @org.springframework.data.repository.query.Param("inicio") java.time.LocalDateTime inicio,
+                        @org.springframework.data.repository.query.Param("fin") java.time.LocalDateTime fin,
+                        org.springframework.data.domain.Pageable pageable);
 }

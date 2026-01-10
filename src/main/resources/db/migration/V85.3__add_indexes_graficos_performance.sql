@@ -1,11 +1,4 @@
 -- Flyway:executeInTransaction=false
-
--- =====================================================
--- Migración V85.3: Índices CRÍTICOS para gráficos
--- =====================================================
--- Solo los índices más importantes para resolver el problema N+1
-
--- CRÍTICO: Elimina el problema N+1 en ventaPorPeriodo
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_cobro_detalle_cobro_sucursal 
     ON operaciones.cobro_detalle(cobro_id, sucursal_id);
 

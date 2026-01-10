@@ -388,9 +388,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return service.ventaPorPeriodo(inicio, fin, sucId);
     }
 
-    // public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin) {
-    // return service.ventaPorSucursal(inicio, fin);
-    // }
+    public List<VentaPorSucursal> ventasPorSucursal(String inicio, String fin) {
+        return service.ventaPorSucursal(inicio, fin);
+    }
 
     public List<VentaPorSucursal> ventasPorSucursalAndUsuario(Long usuarioId, String inicio, String fin) {
         return service.ventaPorSucursalAndUsuario(usuarioId, inicio, fin);

@@ -76,6 +76,7 @@ extend type Query {
     ):VentaPage
     ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
     ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
+    ventasPorSucursal(inicio: String!, fin: String!): [VentaPorSucursal]
     ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID): [VentaPorFuncionario]
 }
 

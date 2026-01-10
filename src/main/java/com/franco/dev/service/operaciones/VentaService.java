@@ -346,7 +346,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
-        return null;
+        return repository.getVentasPorSucursal(inicio, fin);
     }
 
     public List<VentaPorSucursal> ventaPorSucursalAndUsuario(Long usuarioId, String inicio, String fin) {

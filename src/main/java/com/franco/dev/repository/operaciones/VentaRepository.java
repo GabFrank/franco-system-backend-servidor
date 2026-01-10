@@ -3,7 +3,9 @@ package com.franco.dev.repository.operaciones;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 
 import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.VentaPorFuncionario;
+import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.graphql.financiero.input.PdvCajaSumarioDto;
@@ -120,13 +122,15 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         // public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId,
         // VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
 
-        // @Query(value = "select s.id as sucId, s.nombre as nombre, sum(v.totalGs) as
-        // total from Venta v " +
-        // "join v.sucursalId s " +
-        // "where (fl.creadoEn between :inicio and :fin) " +
-        // "group by nombre order by total desc")
-        // public List<VentaPorSucursal> ventasPorSucursal(LocalDateTime inicio,
-        // LocalDateTime fin);
+        @Query("SELECT new com.franco.dev.domain.operaciones.VentaPorSucursal(s.id, s.nombre, SUM(v.totalGs)) " +
+                        "FROM Venta v, Sucursal s " +
+                        "WHERE v.sucursalId = s.id " +
+                        "AND v.creadoEn BETWEEN :inicio AND :fin " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY s.id, s.nombre " +
+                        "ORDER BY SUM(v.totalGs) DESC")
+        List<VentaPorSucursal> getVentasPorSucursal(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
 
         public List<Venta> findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(Long id, Long sucId,
                         List<DeliveryEstado> estadoList);

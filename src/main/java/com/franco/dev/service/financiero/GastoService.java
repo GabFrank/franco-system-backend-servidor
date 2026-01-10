@@ -89,4 +89,17 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         pushNotificationService.sendPushNotificationToToken(request);
         return e;
     }
+
+    public List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(String inicio, String fin,
+            Long sucId) {
+        java.time.LocalDateTime fechaInicio = stringToDate(inicio);
+        java.time.LocalDateTime fechaFin = stringToDate(fin);
+        return repository.gastosPorCategoria(fechaInicio, fechaFin, sucId);
+    }
+
+    public List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(Integer anio, Long sucId) {
+        java.time.LocalDateTime inicio = java.time.LocalDateTime.of(anio, 1, 1, 0, 0);
+        java.time.LocalDateTime fin = java.time.LocalDateTime.of(anio, 12, 31, 23, 59, 59);
+        return repository.gastosPorMes(inicio, fin, sucId);
+    }
 }

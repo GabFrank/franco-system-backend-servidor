@@ -400,6 +400,14 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return service.ventasPorFuncionario(inicio, fin, sucId);
     }
 
+    public List<com.franco.dev.domain.operaciones.VentaPorHora> ventasPorHora(String fecha, Long sucId) {
+        return service.ventasPorHora(fecha, sucId);
+    }
+
+    public List<com.franco.dev.domain.operaciones.VentaPorMes> ventasPorMes(Integer anio, Long sucId) {
+        return service.ventasPorMes(anio, sucId);
+    }
+
     public Boolean cancelarVenta(Long id, Long sucId) {
         Venta venta = service.findByIdAndSucursalId(id, sucId);
         return service.cancelarVenta(venta);

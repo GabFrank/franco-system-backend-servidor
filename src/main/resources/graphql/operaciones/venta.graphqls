@@ -99,10 +99,28 @@ type VentaPorPeriodo {
     cantVenta: Int
 }
 
+
 type VentaPorSucursal {
     sucId: ID,
     nombre: String
     total: Float
+}
+
+type VentaPorHora {
+    hora: Int
+    total: Float
+    cantidad: Int
+}
+
+extend type Query {
+    ventasPorHora(fecha: String!, sucId: ID): [VentaPorHora]
+    ventasPorMes(anio: Int!, sucId: ID): [VentaPorMes]
+}
+
+type VentaPorMes {
+    mes: Int
+    total: Float
+    cantidad: Int
 }
 
 

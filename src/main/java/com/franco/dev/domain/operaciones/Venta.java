@@ -1,7 +1,6 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
@@ -19,81 +18,72 @@ import javax.persistence.Table;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Set;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "venta", schema = "operaciones")
-@TypeDef(
-        name = "venta_tipo_venta",
-        typeClass = PostgreSQLEnumType.class
-)
-@TypeDef(
-        name = "venta_estado",
-        typeClass = PostgreSQLEnumType.class
-)
+@TypeDef(name = "venta_tipo_venta", typeClass = PostgreSQLEnumType.class)
+@TypeDef(name = "venta_estado", typeClass = PostgreSQLEnumType.class)
 @IdClass(EmbebedPrimaryKey.class)
 public class Venta implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = 1L;
 
-    @Id
-    private Long id;
+        @Id
+        private Long id;
 
-    @Id
-    @Column(name = "sucursal_id", insertable = false, updatable = false)
-    private Long sucursalId;
+        @Id
+        @Column(name = "sucursal_id", insertable = false, updatable = false)
+        private Long sucursalId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = true)
-    private Cliente cliente;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "cliente_id", nullable = true)
+        private Cliente cliente;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "forma_pago_id", nullable = true)
-    private FormaPago formaPago;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "forma_pago_id", nullable = true)
+        private FormaPago formaPago;
 
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "cobro_id", referencedColumnName = "id"))
-    })
-    private Cobro cobro;
+        @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+        @JoinColumnsOrFormulas(value = {
+                        @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+                        @JoinColumnOrFormula(column = @JoinColumn(name = "cobro_id", referencedColumnName = "id"))
+        })
+        private Cobro cobro;
 
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "delivery_id", referencedColumnName = "id"))
-    })
-    private Delivery delivery;
+        @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+        @JoinColumnsOrFormulas(value = {
+                        @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+                        @JoinColumnOrFormula(column = @JoinColumn(name = "delivery_id", referencedColumnName = "id"))
+        })
+        private Delivery delivery;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))
-    })
-    private PdvCaja caja;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumnsOrFormulas(value = {
+                        @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+                        @JoinColumnOrFormula(column = @JoinColumn(name = "caja_id", referencedColumnName = "id"))
+        })
+        private PdvCaja caja;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "estado")
-    @Type(type = "venta_estado")
-    private VentaEstado estado;
+        @Enumerated(EnumType.STRING)
+        @Column(name = "estado")
+        @Type(type = "venta_estado")
+        private VentaEstado estado;
 
-    @Column(name = "creado_en")
-    private LocalDateTime creadoEn;
+        @Column(name = "creado_en")
+        private LocalDateTime creadoEn;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuario;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "usuario_id", nullable = true)
+        private Usuario usuario;
 
-    @Column(name = "total_gs")
-    private Double totalGs;
-    @Column(name = "total_rs")
-    private Double totalRs;
-    @Column(name = "total_ds")
-    private Double totalDs;
+        @Column(name = "total_gs")
+        private Double totalGs;
+        @Column(name = "total_rs")
+        private Double totalRs;
+        @Column(name = "total_ds")
+        private Double totalDs;
 
 }
-

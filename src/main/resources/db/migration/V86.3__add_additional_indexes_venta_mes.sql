@@ -67,4 +67,11 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_moneda_id
 
 -- Índice covering para venta (incluye todas las columnas necesarias)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_venta_covering 
-    ON operaciones.venta(creado_en, sucursal_id, estado, cobro_id, id);
+
+-- =====================================================
+-- ÍNDICES ADICIONALES PARA GASTO
+-- =====================================================
+
+-- Índice para optimizar filtros de gastos por fecha y sucursal
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_gasto_fecha_sucursal_activo 
+    ON financiero.gasto(creado_en, sucursal_id, activo);

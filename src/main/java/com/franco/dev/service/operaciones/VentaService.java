@@ -485,6 +485,19 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             return cb.and(predicates.toArray(new Predicate[0]));
         }, newPageable);
     }
+
+    public List<com.franco.dev.domain.operaciones.VentaPorHora> ventasPorHora(String fecha, Long sucId) {
+        java.time.LocalDate date = java.time.LocalDate.parse(fecha);
+        LocalDateTime inicio = date.atStartOfDay();
+        LocalDateTime fin = date.atTime(java.time.LocalTime.MAX);
+        return repository.ventasPorHora(inicio, fin, sucId);
+    }
+
+    public List<com.franco.dev.domain.operaciones.VentaPorMes> ventasPorMes(Integer anio, Long sucId) {
+        LocalDateTime inicio = LocalDateTime.of(anio, 1, 1, 0, 0);
+        LocalDateTime fin = LocalDateTime.of(anio, 12, 31, 23, 59, 59);
+        return repository.ventasPorMes(inicio, fin, sucId);
+    }
 }
 
 // dropdown de moneda no aparece (revisar porque)

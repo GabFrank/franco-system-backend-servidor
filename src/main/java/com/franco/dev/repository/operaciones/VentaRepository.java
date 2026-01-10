@@ -166,4 +166,26 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         List<Object[]> sumarioVentasPorCajaAndSurusal(@Param("cajaId") Long cajaId,
                         @Param("sucursalId") Long sucursalId);
 
+        @Query("SELECT new com.franco.dev.domain.operaciones.VentaPorHora(CAST(extract(hour from v.creadoEn) as integer), SUM(v.totalGs), COUNT(v)) "
+                        +
+                        "FROM Venta v " +
+                        "WHERE v.creadoEn BETWEEN :inicio AND :fin " +
+                        "AND (:sucId IS NULL OR v.sucursalId = :sucId) " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY extract(hour from v.creadoEn) " +
+                        "ORDER BY extract(hour from v.creadoEn)")
+        List<com.franco.dev.domain.operaciones.VentaPorHora> ventasPorHora(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
+
+        @Query("SELECT new com.franco.dev.domain.operaciones.VentaPorMes(CAST(extract(month from v.creadoEn) as integer), SUM(v.totalGs), COUNT(v)) "
+                        +
+                        "FROM Venta v " +
+                        "WHERE v.creadoEn BETWEEN :inicio AND :fin " +
+                        "AND (:sucId IS NULL OR v.sucursalId = :sucId) " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY extract(month from v.creadoEn) " +
+                        "ORDER BY extract(month from v.creadoEn)")
+        List<com.franco.dev.domain.operaciones.VentaPorMes> ventasPorMes(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
+
 }

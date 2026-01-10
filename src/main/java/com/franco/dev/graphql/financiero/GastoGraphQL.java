@@ -69,21 +69,22 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
-//        e = service.save(e);
-//        multiTenantService.compartir(null, (Gasto s) -> service.save(s), e);
+        // e = service.save(e);
+        // multiTenantService.compartir(null, (Gasto s) -> service.save(s), e);
         return e;
     }
 
-    public Page<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Integer page, Integer size) {
+    public Page<Gasto> filterGastos(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion,
+            Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         descripcion = StringUtils.convertToCustomFormat(descripcion);
         String finalDescripcion = descripcion;
         return service.filterGastosPage(id, cajaId, sucId, responsableId, finalDescripcion, pageable);
     }
 
-//    public List<Gasto> gastosSearch(String texto){
-//        return service.findByAll(texto);
-//    }
+    // public List<Gasto> gastosSearch(String texto){
+    // return service.findByAll(texto);
+    // }
 
     public Boolean deleteGasto(Long id, Long sucId) {
         Gasto gasto = service.findByIdAndSucursalId(id, sucId);
@@ -98,5 +99,13 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return service.count();
     }
 
+    public List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(String inicio, String fin,
+            Long sucId) {
+        return service.gastosPorCategoria(inicio, fin, sucId);
+    }
+
+    public List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(Integer anio, Long sucId) {
+        return service.gastosPorMes(anio, sucId);
+    }
 
 }

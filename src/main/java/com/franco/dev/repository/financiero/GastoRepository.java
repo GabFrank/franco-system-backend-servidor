@@ -56,23 +56,13 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
         public Gasto findByIdAndSucursalId(Long id, Long sucId);
 
         @Query("SELECT new com.franco.dev.domain.financiero.GastoPorCategoria(" +
-                        "CASE " +
-                        "   WHEN LOWER(g.observacion) LIKE '%almuerzo%' OR LOWER(g.observacion) LIKE '%cena%' OR LOWER(g.observacion) LIKE '%desayuno%' OR LOWER(g.observacion) LIKE '%merienda%' OR LOWER(g.observacion) LIKE '%super%' THEN 'Alimentación' "
-                        +
-                        "   ELSE 'Gastos Operativos' " +
-                        "END, " +
+                        "COALESCE(g.tipoGasto.descripcion, 'Sin Categoría'), " +
                         "SUM(g.retiroGs), COUNT(g)) " +
                         "FROM Gasto g " +
                         "WHERE g.creadoEn BETWEEN :inicio AND :fin " +
                         "AND (:sucId IS NULL OR g.sucursalId = :sucId) " +
                         "AND g.activo = true " +
-                        "GROUP BY (" +
-                        "   CASE " +
-                        "       WHEN LOWER(g.observacion) LIKE '%almuerzo%' OR LOWER(g.observacion) LIKE '%cena%' OR LOWER(g.observacion) LIKE '%desayuno%' OR LOWER(g.observacion) LIKE '%merienda%' OR LOWER(g.observacion) LIKE '%super%' THEN 'Alimentación' "
-                        +
-                        "       ELSE 'Gastos Operativos' " +
-                        "   END" +
-                        ") " +
+                        "GROUP BY g.tipoGasto.descripcion " +
                         "ORDER BY SUM(g.retiroGs) DESC")
         List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(
                         @Param("inicio") LocalDateTime inicio,

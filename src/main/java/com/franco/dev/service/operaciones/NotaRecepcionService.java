@@ -1,15 +1,14 @@
 package com.franco.dev.service.operaciones;
 
-import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
 import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.graphql.operaciones.dto.AsignacionError;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
-import com.franco.dev.repository.operaciones.NotaPedidoRepository;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -219,6 +218,112 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
             result.setMessage("Algunos ítems no pudieron ser asignados");
         }
 
+        // Actualizar estado de los ítems y de la nota después de crear distribuciones automáticamente
+        actualizarEstadosDespuesDeDistribucion(notaRecepcionId);
+
         return result;
+    }
+
+    /**
+     * Actualiza el estado de una nota de recepción basándose en los estados de sus ítems
+     * Reglas:
+     * - Si todos los ítems están CONCILIADOS → Nota = CONCILIADA
+     * - Si hay algún ítem PENDIENTE_CONCILIACION → Nota = PENDIENTE_CONCILIACION
+     * - Si hay algún ítem RECHAZADO o DISCREPANCIA → Nota permanece en su estado actual (no cambia automáticamente)
+     * 
+     * @param notaRecepcionId ID de la nota de recepción
+     */
+    @Transactional
+    public void actualizarEstadoNota(Long notaRecepcionId) {
+        if (notaRecepcionId == null) {
+            return;
+        }
+
+        Optional<NotaRecepcion> notaOpt = findById(notaRecepcionId);
+        if (!notaOpt.isPresent()) {
+            return;
+        }
+
+        NotaRecepcion nota = notaOpt.get();
+        
+        // Si la nota ya está en un estado final (CERRADA, RECEPCION_COMPLETA), no actualizar
+        if (nota.getEstado() == NotaRecepcionEstado.CERRADA || 
+            nota.getEstado() == NotaRecepcionEstado.RECEPCION_COMPLETA) {
+            return;
+        }
+
+        // Obtener todos los ítems de la nota
+        List<NotaRecepcionItem> items = notaRecepcionItemService.findByNotaRecepcionId(notaRecepcionId);
+        
+        if (items.isEmpty()) {
+            // Si no hay ítems, mantener el estado actual
+            return;
+        }
+
+        // Verificar si todos los ítems están conciliados
+        boolean todosConciliados = items.stream()
+            .allMatch(item -> {
+                // Verificar que el ítem esté conciliado Y que su distribución esté concluida
+                boolean estadoConciliado = item.getEstado() == NotaRecepcionItemEstado.CONCILIADO;
+                boolean distribucionConcluida = notaRecepcionItemDistribucionService.isDistribucionConcluida(
+                    item.getId(), 
+                    item.getCantidadEnNota()
+                );
+                return estadoConciliado && distribucionConcluida;
+            });
+
+        // Verificar si hay algún ítem pendiente
+        boolean hayPendientes = items.stream()
+            .anyMatch(item -> item.getEstado() == NotaRecepcionItemEstado.PENDIENTE_CONCILIACION);
+
+        // Actualizar estado de la nota
+        if (todosConciliados && !hayPendientes) {
+            // Todos los ítems están conciliados → Nota = CONCILIADA
+            if (nota.getEstado() != NotaRecepcionEstado.CONCILIADA) {
+                nota.setEstado(NotaRecepcionEstado.CONCILIADA);
+                save(nota);
+            }
+        } else if (hayPendientes) {
+            // Hay ítems pendientes → Nota = PENDIENTE_CONCILIACION
+            if (nota.getEstado() != NotaRecepcionEstado.PENDIENTE_CONCILIACION) {
+                nota.setEstado(NotaRecepcionEstado.PENDIENTE_CONCILIACION);
+                save(nota);
+            }
+        }
+    }
+
+    /**
+     * Actualiza los estados de ítems y nota después de guardar distribuciones
+     * Este método se llama después de crear o actualizar distribuciones
+     * 
+     * @param notaRecepcionId ID de la nota de recepción
+     */
+    @Transactional
+    public void actualizarEstadosDespuesDeDistribucion(Long notaRecepcionId) {
+        if (notaRecepcionId == null) {
+            return;
+        }
+
+        // Obtener todos los ítems de la nota
+        List<NotaRecepcionItem> items = notaRecepcionItemService.findByNotaRecepcionId(notaRecepcionId);
+        
+        // Actualizar estado de cada ítem si su distribución está concluida
+        for (NotaRecepcionItem item : items) {
+            if (item.getCantidadEnNota() != null && item.getCantidadEnNota() > 0) {
+                boolean distribucionConcluida = notaRecepcionItemDistribucionService.isDistribucionConcluida(
+                    item.getId(), 
+                    item.getCantidadEnNota()
+                );
+                
+                // Si la distribución está concluida y el ítem no está conciliado, actualizarlo
+                if (distribucionConcluida && item.getEstado() == NotaRecepcionItemEstado.PENDIENTE_CONCILIACION) {
+                    item.setEstado(NotaRecepcionItemEstado.CONCILIADO);
+                    notaRecepcionItemService.save(item);
+                }
+            }
+        }
+
+        // Actualizar estado de la nota
+        actualizarEstadoNota(notaRecepcionId);
     }
 }

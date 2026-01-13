@@ -20,7 +20,7 @@ type NotaRecepcionItem {
     # Campos de recepción física (calculados por el resolver)
     cantidadRecibida: Float
     cantidadRechazada: Float
-    estadoRecepcion: String
+    estadoRecepcion(sucursalesIds: [ID!]): String
     recepcionMercaderiaItems: [RecepcionMercaderiaItem]
 }
 

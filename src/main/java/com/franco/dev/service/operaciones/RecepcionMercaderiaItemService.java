@@ -119,7 +119,31 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
      */
     public String getEstadoRecepcion(Long notaRecepcionItemId) {
         List<RecepcionMercaderiaItem> items = repository.findByNotaRecepcionItemId(notaRecepcionItemId);
+        return calcularEstadoRecepcion(items);
+    }
+
+    /**
+     * Obtiene el estado de recepción filtrando por sucursales específicas
+     * @param notaRecepcionItemId ID del NotaRecepcionItem
+     * @param sucursalesIds Lista de IDs de sucursales para filtrar
+     * @return Estado de recepción física: PENDIENTE, VERIFICADO, RECHAZADO, PARCIAL
+     */
+    public String getEstadoRecepcion(Long notaRecepcionItemId, List<Long> sucursalesIds) {
+        if (sucursalesIds == null || sucursalesIds.isEmpty()) {
+            // Si no se proporcionan sucursales, usar el método sin filtro
+            return getEstadoRecepcion(notaRecepcionItemId);
+        }
         
+        List<RecepcionMercaderiaItem> items = repository.findByNotaRecepcionItemIdAndSucursalesIds(notaRecepcionItemId, sucursalesIds);
+        return calcularEstadoRecepcion(items);
+    }
+
+    /**
+     * Calcula el estado de recepción basado en una lista de RecepcionMercaderiaItem
+     * @param items Lista de items de recepción de mercadería
+     * @return Estado de recepción física: PENDIENTE, VERIFICADO, RECHAZADO, PARCIAL
+     */
+    private String calcularEstadoRecepcion(List<RecepcionMercaderiaItem> items) {
         if (items.isEmpty()) {
             return "PENDIENTE";
         }

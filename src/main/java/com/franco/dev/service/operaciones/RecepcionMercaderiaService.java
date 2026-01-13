@@ -156,8 +156,10 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         recepcion.setEstado(RecepcionMercaderiaEstado.FINALIZADA);
         RecepcionMercaderia recepcionFinalizada = save(recepcion);
         
-        // Actualizar las etapas del proceso para todos los pedidos relacionados
-        actualizarEtapasProceso(recepcion);
+        // NO actualizar etapas del proceso aquí automáticamente
+        // La actualización de etapas se hace en finalizarRecepcionFisicaPorPedido()
+        // después de verificar que TODAS las recepciones del pedido estén finalizadas
+        // Esto permite finalizar recepciones por sucursales sin bloquear otras sucursales
         
         return recepcionFinalizada;
     }
@@ -251,12 +253,29 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     private void actualizarCostoPorProducto(RecepcionMercaderiaItem item, Double costoUnitario, 
                                           RecepcionMercaderia recepcion) {
         
+        // Validaciones de campos requeridos
+        if (item == null || item.getProducto() == null || item.getProducto().getId() == null) {
+            throw new IllegalStateException("Item de recepción o producto no válido para actualizar costo");
+        }
+        
+        if (item.getSucursalEntrega() == null || item.getSucursalEntrega().getId() == null) {
+            throw new IllegalStateException("Sucursal de entrega no válida para actualizar costo");
+        }
+        
+        if (recepcion == null || recepcion.getMoneda() == null) {
+            throw new IllegalStateException("Recepción o moneda no válida para actualizar costo");
+        }
+        
         // Use existing method to find last cost for product
         // TODO: Need to create a method to find by producto and sucursal, or modify existing logic
         CostoPorProducto costoExistente = costoPorProductoService.findLastByProductoId(item.getProducto().getId());
         
         CostoPorProducto costo;
-        if (costoExistente != null && costoExistente.getSucursal().getId().equals(item.getSucursalEntrega().getId())) {
+        // Verificar que costoExistente tenga sucursal y que coincida con la sucursal de entrega del item
+        if (costoExistente != null && 
+            costoExistente.getSucursal() != null && 
+            costoExistente.getSucursal().getId() != null &&
+            costoExistente.getSucursal().getId().equals(item.getSucursalEntrega().getId())) {
             // Update existing cost
             costo = costoExistente;
             // Calcular nuevo costo medio ponderado
@@ -286,7 +305,10 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         // Actualizar último precio de compra
         costo.setUltimoPrecioCompra(costoUnitario);
         costo.setCotizacion(recepcion.getCotizacion());
-        costo.setUsuario(recepcion.getUsuario());
+        // Usuario puede ser null, solo asignar si existe
+        if (recepcion.getUsuario() != null) {
+            costo.setUsuario(recepcion.getUsuario());
+        }
         
         costoPorProductoService.save(costo);
     }

@@ -83,14 +83,20 @@ public class NotaRecepcionItemResolver implements GraphQLResolver<NotaRecepcionI
     /**
      * Resolver para el campo estadoRecepcion
      * @param notaRecepcionItem El nota recepcion item
+     * @param sucursalesIds Lista opcional de IDs de sucursales para filtrar el cálculo del estado
      * @return Estado de recepción física: PENDIENTE, VERIFICADO, RECHAZADO, PARCIAL
      */
-    public String estadoRecepcion(NotaRecepcionItem notaRecepcionItem) {
+    public String estadoRecepcion(NotaRecepcionItem notaRecepcionItem, java.util.List<Long> sucursalesIds) {
         if (notaRecepcionItem == null || notaRecepcionItem.getId() == null) {
             return "PENDIENTE";
         }
         
-        return recepcionMercaderiaItemService.getEstadoRecepcion(notaRecepcionItem.getId());
+        // Si se proporcionan sucursales, filtrar por ellas; si no, calcular para todas
+        if (sucursalesIds != null && !sucursalesIds.isEmpty()) {
+            return recepcionMercaderiaItemService.getEstadoRecepcion(notaRecepcionItem.getId(), sucursalesIds);
+        } else {
+            return recepcionMercaderiaItemService.getEstadoRecepcion(notaRecepcionItem.getId());
+        }
     }
 
     /**

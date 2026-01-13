@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
@@ -25,6 +26,14 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.persistence.Query;
+import javax.persistence.TypedQuery;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Join;
+import javax.persistence.criteria.JoinType;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
+import javax.persistence.criteria.Subquery;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -113,7 +122,8 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
 
     @Override
     public Pedido save(Pedido entity) {
-        if (entity.getId() == null) {
+        // Establecer creadoEn si es null (para nuevos pedidos o pedidos existentes sin fecha)
+        if (entity.getCreadoEn() == null) {
             entity.setCreadoEn(LocalDateTime.now());
         }
         Pedido e = super.save(entity);
@@ -227,5 +237,173 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         procesoEtapaService.crearEtapaSiguiente(pedido, ProcesoEtapaTipo.RECEPCION_NOTA);
         
         return pedido;
+    }
+
+    /**
+     * Busca pedidos con filtros usando Criteria Builder
+     */
+    public Page<Pedido> findPedidosWithFilters(Long sucursalId, Long productoId, Long proveedorId, 
+                                                String estado, LocalDateTime creadoDesde, LocalDateTime creadoHasta,
+                                                Pageable pageable) {
+        
+        // Construir query usando CriteriaBuilder
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Pedido> query = cb.createQuery(Pedido.class);
+        Root<Pedido> root = query.from(Pedido.class);
+        
+        // Lista de predicados para los filtros
+        List<Predicate> predicates = new ArrayList<>();
+        
+        // Filtro por proveedor
+        if (proveedorId != null) {
+            predicates.add(cb.equal(root.get("proveedor").get("id"), proveedorId));
+        }
+        
+        // Filtro por fecha inicio
+        if (creadoDesde != null) {
+            predicates.add(cb.greaterThanOrEqualTo(root.get("creadoEn"), creadoDesde));
+        }
+        
+        // Filtro por fecha fin
+        if (creadoHasta != null) {
+            predicates.add(cb.lessThanOrEqualTo(root.get("creadoEn"), creadoHasta));
+        }
+        
+        // Filtro por producto - usar subquery desde PedidoItem
+        if (productoId != null) {
+            Subquery<Long> subquery = query.subquery(Long.class);
+            Root<com.franco.dev.domain.operaciones.PedidoItem> pedidoItemRoot = subquery.from(com.franco.dev.domain.operaciones.PedidoItem.class);
+            subquery.select(pedidoItemRoot.get("pedido").get("id"));
+            subquery.where(cb.equal(pedidoItemRoot.get("producto").get("id"), productoId));
+            predicates.add(cb.in(root.get("id")).value(subquery));
+            query.distinct(true);
+        }
+        
+        // Filtro por sucursal - buscar en PedidoSucursalEntrega o PedidoSucursalInfluencia
+        if (sucursalId != null) {
+            // Subquery para PedidoSucursalEntrega
+            Subquery<Long> subqueryEntrega = query.subquery(Long.class);
+            Root<com.franco.dev.domain.operaciones.PedidoSucursalEntrega> entregaRoot = subqueryEntrega.from(com.franco.dev.domain.operaciones.PedidoSucursalEntrega.class);
+            subqueryEntrega.select(entregaRoot.get("pedido").get("id"));
+            subqueryEntrega.where(cb.equal(entregaRoot.get("sucursal").get("id"), sucursalId));
+            
+            // Subquery para PedidoSucursalInfluencia
+            Subquery<Long> subqueryInfluencia = query.subquery(Long.class);
+            Root<com.franco.dev.domain.operaciones.PedidoSucursalInfluencia> influenciaRoot = subqueryInfluencia.from(com.franco.dev.domain.operaciones.PedidoSucursalInfluencia.class);
+            subqueryInfluencia.select(influenciaRoot.get("pedido").get("id"));
+            subqueryInfluencia.where(cb.equal(influenciaRoot.get("sucursal").get("id"), sucursalId));
+            
+            // Combinar ambas subqueries con OR usando union
+            Predicate entregaPredicate = cb.in(root.get("id")).value(subqueryEntrega);
+            Predicate influenciaPredicate = cb.in(root.get("id")).value(subqueryInfluencia);
+            predicates.add(cb.or(entregaPredicate, influenciaPredicate));
+            query.distinct(true);
+        }
+        
+        // Filtro por estado (tipo de etapa actual) - usar subquery desde ProcesoEtapa
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                ProcesoEtapaTipo tipoEtapa = ProcesoEtapaTipo.valueOf(estado);
+                Subquery<Long> subquery = query.subquery(Long.class);
+                Root<ProcesoEtapa> procesoEtapaRoot = subquery.from(ProcesoEtapa.class);
+                subquery.select(procesoEtapaRoot.get("pedido").get("id"));
+                subquery.where(cb.and(
+                    cb.equal(procesoEtapaRoot.get("tipoEtapa"), tipoEtapa),
+                    cb.equal(procesoEtapaRoot.get("estadoEtapa"), ProcesoEtapaEstado.COMPLETADA)
+                ));
+                predicates.add(cb.in(root.get("id")).value(subquery));
+                query.distinct(true);
+            } catch (IllegalArgumentException e) {
+                // Si el estado no es válido, ignorar el filtro
+                System.err.println("Estado de etapa no válido: " + estado);
+            }
+        }
+        
+        // Aplicar todos los predicados
+        if (!predicates.isEmpty()) {
+            query.where(predicates.toArray(new Predicate[0]));
+        }
+        
+        // Ordenar por id descendente
+        query.orderBy(cb.desc(root.get("id")));
+        
+        // Ejecutar query con paginación
+        TypedQuery<Pedido> typedQuery = entityManager.createQuery(query);
+        typedQuery.setFirstResult((int) pageable.getOffset());
+        typedQuery.setMaxResults(pageable.getPageSize());
+        
+        List<Pedido> content = typedQuery.getResultList();
+        
+        // Contar total de resultados para paginación
+        CriteriaQuery<Long> countQuery = cb.createQuery(Long.class);
+        Root<Pedido> countRoot = countQuery.from(Pedido.class);
+        countQuery.select(cb.countDistinct(countRoot));
+        
+        // Reconstruir predicados para el count query
+        List<Predicate> countPredicates = new ArrayList<>();
+        
+        if (proveedorId != null) {
+            countPredicates.add(cb.equal(countRoot.get("proveedor").get("id"), proveedorId));
+        }
+        
+        if (creadoDesde != null) {
+            countPredicates.add(cb.greaterThanOrEqualTo(countRoot.get("creadoEn"), creadoDesde));
+        }
+        
+        if (creadoHasta != null) {
+            countPredicates.add(cb.lessThanOrEqualTo(countRoot.get("creadoEn"), creadoHasta));
+        }
+        
+        if (productoId != null) {
+            Subquery<Long> subquery = countQuery.subquery(Long.class);
+            Root<com.franco.dev.domain.operaciones.PedidoItem> pedidoItemRoot = subquery.from(com.franco.dev.domain.operaciones.PedidoItem.class);
+            subquery.select(pedidoItemRoot.get("pedido").get("id"));
+            subquery.where(cb.equal(pedidoItemRoot.get("producto").get("id"), productoId));
+            countPredicates.add(cb.in(countRoot.get("id")).value(subquery));
+        }
+        
+        if (sucursalId != null) {
+            // Subquery para PedidoSucursalEntrega
+            Subquery<Long> subqueryEntrega = countQuery.subquery(Long.class);
+            Root<com.franco.dev.domain.operaciones.PedidoSucursalEntrega> entregaRoot = subqueryEntrega.from(com.franco.dev.domain.operaciones.PedidoSucursalEntrega.class);
+            subqueryEntrega.select(entregaRoot.get("pedido").get("id"));
+            subqueryEntrega.where(cb.equal(entregaRoot.get("sucursal").get("id"), sucursalId));
+            
+            // Subquery para PedidoSucursalInfluencia
+            Subquery<Long> subqueryInfluencia = countQuery.subquery(Long.class);
+            Root<com.franco.dev.domain.operaciones.PedidoSucursalInfluencia> influenciaRoot = subqueryInfluencia.from(com.franco.dev.domain.operaciones.PedidoSucursalInfluencia.class);
+            subqueryInfluencia.select(influenciaRoot.get("pedido").get("id"));
+            subqueryInfluencia.where(cb.equal(influenciaRoot.get("sucursal").get("id"), sucursalId));
+            
+            // Combinar ambas subqueries con OR
+            Predicate entregaPredicate = cb.in(countRoot.get("id")).value(subqueryEntrega);
+            Predicate influenciaPredicate = cb.in(countRoot.get("id")).value(subqueryInfluencia);
+            countPredicates.add(cb.or(entregaPredicate, influenciaPredicate));
+        }
+        
+        if (estado != null && !estado.isEmpty()) {
+            try {
+                ProcesoEtapaTipo tipoEtapa = ProcesoEtapaTipo.valueOf(estado);
+                Subquery<Long> subquery = countQuery.subquery(Long.class);
+                Root<ProcesoEtapa> procesoEtapaRoot = subquery.from(ProcesoEtapa.class);
+                subquery.select(procesoEtapaRoot.get("pedido").get("id"));
+                subquery.where(cb.and(
+                    cb.equal(procesoEtapaRoot.get("tipoEtapa"), tipoEtapa),
+                    cb.equal(procesoEtapaRoot.get("estadoEtapa"), ProcesoEtapaEstado.COMPLETADA)
+                ));
+                countPredicates.add(cb.in(countRoot.get("id")).value(subquery));
+            } catch (IllegalArgumentException e) {
+                // Ignorar si el estado no es válido
+            }
+        }
+        
+        if (!countPredicates.isEmpty()) {
+            countQuery.where(countPredicates.toArray(new Predicate[0]));
+        }
+        
+        Long totalElements = entityManager.createQuery(countQuery).getSingleResult();
+        
+        // Crear objeto Page
+        return new PageImpl<>(content, pageable, totalElements);
     }
 }

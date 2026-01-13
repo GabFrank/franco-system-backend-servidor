@@ -1,11 +1,14 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
+import com.franco.dev.domain.operaciones.NotaRecepcionItem;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.repository.operaciones.NotaRecepcionItemDistribucionRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.graphql.operaciones.dto.ProductoAgrupadoDTO;
-import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,10 +18,23 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-@AllArgsConstructor
 public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepcionItemDistribucion, NotaRecepcionItemDistribucionRepository, Long> {
     
     private final NotaRecepcionItemDistribucionRepository repository;
+    private final com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService;
+    
+    // Usar @Lazy para resolver dependencia circular con NotaRecepcionService
+    @Autowired
+    @Lazy
+    private com.franco.dev.service.operaciones.NotaRecepcionService notaRecepcionService;
+    
+    // Constructor con dependencias finales
+    public NotaRecepcionItemDistribucionService(
+            NotaRecepcionItemDistribucionRepository repository,
+            com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService) {
+        this.repository = repository;
+        this.notaRecepcionItemService = notaRecepcionItemService;
+    }
 
     @Override
     public NotaRecepcionItemDistribucionRepository getRepository() {
@@ -158,24 +174,96 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
 
     /**
      * Guardar múltiples distribuciones para un NotaRecepcionItem
+     * Actualiza automáticamente el estado del ítem y de la nota si la distribución está concluida
      */
     @Transactional
     public List<NotaRecepcionItemDistribucion> saveDistribuciones(List<NotaRecepcionItemDistribucion> distribuciones) {
-        return distribuciones.stream()
+        if (distribuciones == null || distribuciones.isEmpty()) {
+            return distribuciones;
+        }
+
+        // Guardar las distribuciones
+        List<NotaRecepcionItemDistribucion> saved = distribuciones.stream()
                 .map(this::save)
                 .collect(java.util.stream.Collectors.toList());
+
+        // Obtener el primer ítem para actualizar estados (todos pertenecen al mismo ítem)
+        NotaRecepcionItemDistribucion primeraDistribucion = saved.get(0);
+        if (primeraDistribucion.getNotaRecepcionItem() != null && 
+            primeraDistribucion.getNotaRecepcionItem().getId() != null) {
+            
+            Long itemId = primeraDistribucion.getNotaRecepcionItem().getId();
+            
+            // Cargar el ítem desde el servicio para asegurar que tenga todas las relaciones
+            java.util.Optional<NotaRecepcionItem> itemOpt = notaRecepcionItemService.findById(itemId);
+            if (itemOpt.isPresent()) {
+                NotaRecepcionItem item = itemOpt.get();
+                Long notaRecepcionId = item.getNotaRecepcion() != null ? item.getNotaRecepcion().getId() : null;
+                
+                // Actualizar estado del ítem si la distribución está concluida
+                if (item.getCantidadEnNota() != null && item.getCantidadEnNota() > 0) {
+                    boolean distribucionConcluida = isDistribucionConcluida(itemId, item.getCantidadEnNota());
+                    
+                    if (distribucionConcluida && item.getEstado() == NotaRecepcionItemEstado.PENDIENTE_CONCILIACION) {
+                        item.setEstado(NotaRecepcionItemEstado.CONCILIADO);
+                        notaRecepcionItemService.save(item);
+                    }
+                }
+                
+                // Actualizar estado de la nota
+                if (notaRecepcionId != null) {
+                    notaRecepcionService.actualizarEstadoNota(notaRecepcionId);
+                }
+            }
+        }
+
+        return saved;
     }
 
     /**
      * Reemplazar todas las distribuciones de un NotaRecepcionItem
+     * Actualiza automáticamente el estado del ítem y de la nota si la distribución está concluida
      */
     @Transactional
     public List<NotaRecepcionItemDistribucion> replaceDistribuciones(Long notaRecepcionItemId, List<NotaRecepcionItemDistribucion> nuevasDistribuciones) {
+        if (notaRecepcionItemId == null) {
+            throw new IllegalArgumentException("notaRecepcionItemId no puede ser null");
+        }
+
+        // Obtener el ítem antes de eliminar distribuciones para poder actualizar su estado después
+        NotaRecepcionItem item = notaRecepcionItemService.findById(notaRecepcionItemId)
+            .orElseThrow(() -> new IllegalArgumentException("NotaRecepcionItem no encontrado con ID: " + notaRecepcionItemId));
+        
+        Long notaRecepcionId = item.getNotaRecepcion() != null ? item.getNotaRecepcion().getId() : null;
+
         // Eliminar distribuciones existentes
         deleteByNotaRecepcionItemId(notaRecepcionItemId);
         
         // Guardar nuevas distribuciones
-        return saveDistribuciones(nuevasDistribuciones);
+        List<NotaRecepcionItemDistribucion> saved = nuevasDistribuciones != null && !nuevasDistribuciones.isEmpty()
+            ? saveDistribuciones(nuevasDistribuciones)
+            : new java.util.ArrayList<>();
+
+        // Actualizar estado del ítem si la distribución está concluida
+        if (item.getCantidadEnNota() != null && item.getCantidadEnNota() > 0) {
+            boolean distribucionConcluida = isDistribucionConcluida(notaRecepcionItemId, item.getCantidadEnNota());
+            
+            if (distribucionConcluida && item.getEstado() == NotaRecepcionItemEstado.PENDIENTE_CONCILIACION) {
+                item.setEstado(NotaRecepcionItemEstado.CONCILIADO);
+                notaRecepcionItemService.save(item);
+            } else if (!distribucionConcluida && item.getEstado() == NotaRecepcionItemEstado.CONCILIADO) {
+                // Si la distribución ya no está concluida, volver a pendiente
+                item.setEstado(NotaRecepcionItemEstado.PENDIENTE_CONCILIACION);
+                notaRecepcionItemService.save(item);
+            }
+        }
+        
+        // Actualizar estado de la nota
+        if (notaRecepcionId != null) {
+            notaRecepcionService.actualizarEstadoNota(notaRecepcionId);
+        }
+
+        return saved;
     }
 
     /**

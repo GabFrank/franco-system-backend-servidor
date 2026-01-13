@@ -98,12 +98,11 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
             // Using basic PedidoItem fields instead of step-specific ones
             if(sucursalesInfluencia.size() == 1 && sucursalesEntrega.size() == 1) {
                 // If there's exactly one sucursal de influencia and one sucursal de entrega
-                // cantidadAsignada = presentacionCreacion.cantidad * cantidadSolicitada
-                Double presentacionCantidad = pedidoItem.getPresentacionCreacion() != null 
-                    ? pedidoItem.getPresentacionCreacion().getCantidad() : 1.0;
+                // cantidadAsignada = cantidadSolicitada (ya está en unidades base)
+                // cantidadSolicitada is already in base units (calculated in frontend as cantidadPorPresentacion * presentacion.cantidad)
                 Double cantidadSolicitada = pedidoItem.getCantidadSolicitada() != null 
                     ? pedidoItem.getCantidadSolicitada() : 0.0;
-                cantidadAsignada = presentacionCantidad * cantidadSolicitada;
+                cantidadAsignada = cantidadSolicitada;
             }
             // Otherwise cantidadAsignada remains 0.0 (for manual distribution)
             

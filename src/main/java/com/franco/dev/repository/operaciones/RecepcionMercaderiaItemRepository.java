@@ -23,6 +23,16 @@ public interface RecepcionMercaderiaItemRepository extends HelperRepository<Rece
     @Query("SELECT rmi FROM RecepcionMercaderiaItem rmi WHERE rmi.notaRecepcionItem.id = :notaRecepcionItemId")
     List<RecepcionMercaderiaItem> findByNotaRecepcionItemId(@Param("notaRecepcionItemId") Long notaRecepcionItemId);
 
+    /**
+     * Busca RecepcionMercaderiaItem por notaRecepcionItemId y múltiples sucursales
+     */
+    @Query("SELECT rmi FROM RecepcionMercaderiaItem rmi " +
+            "WHERE rmi.notaRecepcionItem.id = :notaRecepcionItemId " +
+            "AND rmi.sucursalEntrega.id IN :sucursalesIds")
+    List<RecepcionMercaderiaItem> findByNotaRecepcionItemIdAndSucursalesIds(
+            @Param("notaRecepcionItemId") Long notaRecepcionItemId,
+            @Param("sucursalesIds") List<Long> sucursalesIds);
+
     @Query("SELECT rmi FROM RecepcionMercaderiaItem rmi WHERE rmi.producto.id = :productoId AND rmi.sucursalEntrega.id = :sucursalId")
     List<RecepcionMercaderiaItem> findByProductoIdAndSucursalEntregaId(@Param("productoId") Long productoId,
             @Param("sucursalId") Long sucursalId);

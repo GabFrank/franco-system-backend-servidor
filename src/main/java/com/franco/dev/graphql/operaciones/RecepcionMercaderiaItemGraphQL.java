@@ -21,9 +21,11 @@ import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.ProcesoEtapa;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
+import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.productos.Producto;
@@ -178,76 +180,236 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
     /**
      * Guarda un ítem de recepción de mercadería
+     * Soporta tanto creación (ID == null) como actualización (ID != null)
      */
     @Transactional
     public RecepcionMercaderiaItem saveRecepcionMercaderiaItem(RecepcionMercaderiaItemInput input) {
-        if (input == null || input.getId() == null) {
-            throw new GraphQLException("Input o ID de ítem de recepción es requerido para la actualización");
+        if (input == null) {
+            throw new GraphQLException("Input es requerido");
         }
 
         try {
-            // 1. Obtener el RecepcionMercaderiaItem existente
-            RecepcionMercaderiaItem item = service.findById(input.getId())
-                    .orElseThrow(() -> new GraphQLException("RecepcionMercaderiaItem no encontrado con ID: " + input.getId()));
-
-            // 2. Mapear campos opcionales del item principal
-            if(input.getUsuarioId() != null){
-                item.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+            // DETECTAR SI ES CREACIÓN O ACTUALIZACIÓN
+            if (input.getId() == null) {
+                // ========== LÓGICA DE CREACIÓN ==========
+                return crearRecepcionMercaderiaItem(input);
+            } else {
+                // ========== LÓGICA DE ACTUALIZACIÓN ==========
+                return actualizarRecepcionMercaderiaItem(input);
             }
-            item.setObservaciones(input.getObservaciones());
-            item.setMetodoVerificacion(input.getMetodoVerificacion());
-            item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
-
-            // 3. Eliminar variaciones anteriores
-            recepcionMercaderiaItemVariacionService.deleteByRecepcionMercaderiaItemId(item.getId());
-
-            Double cantidadRecibidaTotal = 0.0;
-            Double cantidadRechazadaTotal = 0.0;
-
-            // 4. Procesar y crear las nuevas variaciones
-            if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
-                for (RecepcionMercaderiaItemVariacionInput varInput : input.getVariaciones()) {
-                    RecepcionMercaderiaItemVariacion variacion = new RecepcionMercaderiaItemVariacion();
-                    variacion.setRecepcionMercaderiaItem(item);
-
-                    if (varInput.getPresentacionId() != null) {
-                        variacion.setPresentacion(presentacionService.findById(varInput.getPresentacionId()).orElse(null));
-                    }
-                    if (varInput.getVencimiento() != null && !varInput.getVencimiento().isEmpty()) {
-                        variacion.setVencimiento(stringToDate(varInput.getVencimiento()));
-                    }
-
-                    variacion.setCantidad(varInput.getCantidad());
-                    variacion.setLote(varInput.getLote());
-                    variacion.setRechazado(varInput.getRechazado() != null && varInput.getRechazado());
-                    variacion.setMotivoRechazo(varInput.getMotivoRechazo());
-
-                    recepcionMercaderiaItemVariacionService.save(variacion);
-
-                    // 5. Sumarizar totales
-                    if (variacion.getRechazado()) {
-                        cantidadRechazadaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
-                    } else {
-                        cantidadRecibidaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
-                    }
-                }
-            }
-
-            // 6. Actualizar el item principal con los totales sumados
-            item.setCantidadRecibida(cantidadRecibidaTotal);
-            item.setCantidadRechazada(cantidadRechazadaTotal);
-
-            // 7. Calcular y actualizar el estado de verificación
-            actualizarEstadoVerificacion(item);
-
-            // 8. Guardar el ítem principal actualizado
-            return service.save(item);
             
         } catch (Exception e) {
             e.printStackTrace();
             throw new GraphQLException("Error al guardar ítem de recepción: " + e.getMessage());
         }
+    }
+
+    /**
+     * Crea un nuevo ítem de recepción de mercadería
+     */
+    @Transactional
+    private RecepcionMercaderiaItem crearRecepcionMercaderiaItem(RecepcionMercaderiaItemInput input) {
+        // 1. Validar campos obligatorios
+        if (input.getNotaRecepcionItemId() == null) {
+            throw new GraphQLException("NotaRecepcionItemId es requerido para crear un ítem de recepción");
         }
+        if (input.getSucursalEntregaId() == null) {
+            throw new GraphQLException("SucursalEntregaId es requerido para crear un ítem de recepción");
+        }
+        if (input.getUsuarioId() == null) {
+            throw new GraphQLException("UsuarioId es requerido para crear un ítem de recepción");
+        }
+
+        // 2. Validar que el ítem de nota no esté ya verificado para esta sucursal
+        List<RecepcionMercaderiaItem> itemsExistentes = service.getRepository().findByNotaRecepcionItemIdAndSucursalId(
+            input.getNotaRecepcionItemId(), 
+            input.getSucursalEntregaId()
+        );
+        
+        // Filtrar solo ítems que no estén rechazados (excluir rechazos)
+        List<RecepcionMercaderiaItem> itemsVerificados = itemsExistentes.stream()
+            .filter(item -> item.getCantidadRechazada() == null || item.getCantidadRechazada() == 0)
+            .collect(Collectors.toList());
+        
+        if (!itemsVerificados.isEmpty()) {
+            throw new GraphQLException("El ítem de nota ya está verificado para esta sucursal. Use actualización para modificar.");
+        }
+
+        // 3. Obtener el NotaRecepcionItem
+        NotaRecepcionItem notaItem = notaRecepcionItemService.findById(input.getNotaRecepcionItemId())
+            .orElseThrow(() -> new GraphQLException("NotaRecepcionItem no encontrado con ID: " + input.getNotaRecepcionItemId()));
+
+        // 4. Obtener o crear RecepcionMercaderia automáticamente
+        RecepcionMercaderia recepcion = crearRecepcionAutomatica(input);
+
+        // 5. Obtener entidades relacionadas
+        Producto producto = null;
+        if (input.getProductoId() != null) {
+            producto = productoService.findById(input.getProductoId())
+                .orElseThrow(() -> new GraphQLException("Producto no encontrado con ID: " + input.getProductoId()));
+        } else {
+            // Si no se proporciona productoId, obtener del NotaRecepcionItem
+            producto = notaItem.getProducto();
+            if (producto == null) {
+                throw new GraphQLException("Producto no encontrado en NotaRecepcionItem");
+            }
+        }
+
+        Sucursal sucursalEntrega = sucursalService.findById(input.getSucursalEntregaId())
+            .orElseThrow(() -> new GraphQLException("Sucursal no encontrada con ID: " + input.getSucursalEntregaId()));
+
+        Usuario usuario = usuarioService.findById(input.getUsuarioId())
+            .orElseThrow(() -> new GraphQLException("Usuario no encontrado con ID: " + input.getUsuarioId()));
+
+        Presentacion presentacionRecibida = null;
+        if (input.getPresentacionRecibidaId() != null) {
+            presentacionRecibida = presentacionService.findById(input.getPresentacionRecibidaId())
+                .orElse(null);
+        }
+
+        // 6. Vincular NotaRecepcionItemDistribucion si se proporciona
+        NotaRecepcionItemDistribucion distribucion = null;
+        if (input.getNotaRecepcionItemDistribucionId() != null) {
+            distribucion = notaRecepcionItemDistribucionService.findById(input.getNotaRecepcionItemDistribucionId())
+                .orElse(null);
+        } else {
+            // Si no se proporciona, buscar por sucursal y nota item
+            List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
+                .findByNotaRecepcionItemId(notaItem.getId());
+            distribucion = distribuciones.stream()
+                .filter(dist -> dist.getSucursalEntrega().getId().equals(input.getSucursalEntregaId()))
+                .findFirst()
+                .orElse(null);
+        }
+
+        // 7. Crear nuevo RecepcionMercaderiaItem
+        RecepcionMercaderiaItem item = new RecepcionMercaderiaItem();
+        item.setRecepcionMercaderia(recepcion);
+        item.setNotaRecepcionItem(notaItem);
+        item.setNotaRecepcionItemDistribucion(distribucion);
+        item.setProducto(producto);
+        item.setPresentacionRecibida(presentacionRecibida);
+        item.setSucursalEntrega(sucursalEntrega);
+        item.setUsuario(usuario);
+        item.setEsBonificacion(input.getEsBonificacion() != null ? input.getEsBonificacion() : false);
+        item.setMetodoVerificacion(input.getMetodoVerificacion());
+        item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
+        item.setObservaciones(input.getObservaciones());
+        item.setMotivoRechazo(input.getMotivoRechazo());
+
+        // 8. Procesar variaciones si existen
+        Double cantidadRecibidaTotal = input.getCantidadRecibida() != null ? input.getCantidadRecibida() : 0.0;
+        Double cantidadRechazadaTotal = input.getCantidadRechazada() != null ? input.getCantidadRechazada() : 0.0;
+
+        if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
+            // Si hay variaciones, recalcular totales desde las variaciones
+            cantidadRecibidaTotal = 0.0;
+            cantidadRechazadaTotal = 0.0;
+            
+            for (RecepcionMercaderiaItemVariacionInput varInput : input.getVariaciones()) {
+                RecepcionMercaderiaItemVariacion variacion = new RecepcionMercaderiaItemVariacion();
+                variacion.setRecepcionMercaderiaItem(item);
+
+                if (varInput.getPresentacionId() != null) {
+                    variacion.setPresentacion(presentacionService.findById(varInput.getPresentacionId()).orElse(null));
+                }
+                if (varInput.getVencimiento() != null && !varInput.getVencimiento().isEmpty()) {
+                    variacion.setVencimiento(stringToDate(varInput.getVencimiento()));
+                }
+
+                variacion.setCantidad(varInput.getCantidad());
+                variacion.setLote(varInput.getLote());
+                variacion.setRechazado(varInput.getRechazado() != null && varInput.getRechazado());
+                variacion.setMotivoRechazo(varInput.getMotivoRechazo());
+
+                recepcionMercaderiaItemVariacionService.save(variacion);
+
+                // Sumarizar totales
+                if (variacion.getRechazado()) {
+                    cantidadRechazadaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
+                } else {
+                    cantidadRecibidaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
+                }
+            }
+        }
+
+        // 9. Establecer cantidades
+        item.setCantidadRecibida(cantidadRecibidaTotal);
+        item.setCantidadRechazada(cantidadRechazadaTotal);
+
+        // 10. Calcular y establecer el estado de verificación
+        actualizarEstadoVerificacion(item);
+
+        // 11. Guardar el nuevo ítem
+        return service.save(item);
+    }
+
+    /**
+     * Actualiza un ítem de recepción de mercadería existente
+     */
+    @Transactional
+    private RecepcionMercaderiaItem actualizarRecepcionMercaderiaItem(RecepcionMercaderiaItemInput input) {
+        // 1. Obtener el RecepcionMercaderiaItem existente
+        RecepcionMercaderiaItem item = service.findById(input.getId())
+                .orElseThrow(() -> new GraphQLException("RecepcionMercaderiaItem no encontrado con ID: " + input.getId()));
+
+        // 2. Mapear campos opcionales del item principal
+        if(input.getUsuarioId() != null){
+            item.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        item.setObservaciones(input.getObservaciones());
+        item.setMetodoVerificacion(input.getMetodoVerificacion());
+        item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
+
+        // 3. Eliminar variaciones anteriores
+        recepcionMercaderiaItemVariacionService.deleteByRecepcionMercaderiaItemId(item.getId());
+
+        Double cantidadRecibidaTotal = 0.0;
+        Double cantidadRechazadaTotal = 0.0;
+
+        // 4. Procesar y crear las nuevas variaciones
+        if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
+            for (RecepcionMercaderiaItemVariacionInput varInput : input.getVariaciones()) {
+                RecepcionMercaderiaItemVariacion variacion = new RecepcionMercaderiaItemVariacion();
+                variacion.setRecepcionMercaderiaItem(item);
+
+                if (varInput.getPresentacionId() != null) {
+                    variacion.setPresentacion(presentacionService.findById(varInput.getPresentacionId()).orElse(null));
+                }
+                if (varInput.getVencimiento() != null && !varInput.getVencimiento().isEmpty()) {
+                    variacion.setVencimiento(stringToDate(varInput.getVencimiento()));
+                }
+
+                variacion.setCantidad(varInput.getCantidad());
+                variacion.setLote(varInput.getLote());
+                variacion.setRechazado(varInput.getRechazado() != null && varInput.getRechazado());
+                variacion.setMotivoRechazo(varInput.getMotivoRechazo());
+
+                recepcionMercaderiaItemVariacionService.save(variacion);
+
+                // 5. Sumarizar totales
+                if (variacion.getRechazado()) {
+                    cantidadRechazadaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
+                } else {
+                    cantidadRecibidaTotal += variacion.getCantidad() != null ? variacion.getCantidad() : 0.0;
+                }
+            }
+        } else {
+            // Si no hay variaciones, usar las cantidades directas del input
+            cantidadRecibidaTotal = input.getCantidadRecibida() != null ? input.getCantidadRecibida() : item.getCantidadRecibida();
+            cantidadRechazadaTotal = input.getCantidadRechazada() != null ? input.getCantidadRechazada() : item.getCantidadRechazada();
+        }
+
+        // 6. Actualizar el item principal con los totales sumados
+        item.setCantidadRecibida(cantidadRecibidaTotal);
+        item.setCantidadRechazada(cantidadRechazadaTotal);
+
+        // 7. Calcular y actualizar el estado de verificación
+        actualizarEstadoVerificacion(item);
+
+        // 8. Guardar el ítem principal actualizado
+        return service.save(item);
+    }
 
     /**
      * Cancela la verificación de un ítem de recepción
@@ -429,6 +591,21 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             recepcionMercaderiaNotaService.asociarNotaARecepcion(recepcion, nota.getId());
         }
         
+        // Iniciar la etapa RECEPCION_MERCADERIA si está en PENDIENTE
+        // Esto ocurre cuando se crea el primer ítem de recepción automáticamente
+        if (pedido != null && pedido.getId() != null) {
+            try {
+                procesoEtapaService.actualizarEtapaAEnProceso(
+                    pedido.getId(), 
+                    ProcesoEtapaTipo.RECEPCION_MERCADERIA
+                );
+            } catch (Exception e) {
+                // Si la etapa no existe o ya está en proceso, no es un error crítico
+                // Solo loguear para debugging
+                System.out.println("No se pudo iniciar etapa RECEPCION_MERCADERIA: " + e.getMessage());
+            }
+        }
+        
         return recepcion;
     }
 
@@ -588,6 +765,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
     /**
      * Finaliza la recepción física por pedido
+     * Refactorizado para usar finalizarRecepcion() del service y manejar correctamente múltiples sucursales
      */
     @Transactional
     public Boolean finalizarRecepcionFisicaPorPedido(Long pedidoId, List<Long> sucursalesIds) {
@@ -604,98 +782,99 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         }
         
         try {
-            // 1. Validar que se puede finalizar
+            // 1. Validar estado de etapa
+            ProcesoEtapa etapa = procesoEtapaService.getEtapaByPedidoAndTipo(
+                pedidoId, 
+                ProcesoEtapaTipo.RECEPCION_MERCADERIA
+            ).orElseThrow(() -> new GraphQLException("Etapa de recepción de mercadería no encontrada para el pedido: " + pedidoId));
+            
+            if (etapa.getEstadoEtapa() != ProcesoEtapaEstado.EN_PROCESO) {
+                throw new GraphQLException("La etapa de recepción de mercadería debe estar en proceso para finalizar. Estado actual: " + etapa.getEstadoEtapa());
+            }
+            
+            // 2. Validar que se puede finalizar (verificar items pendientes)
             ValidacionFinalizacionRecepcion validacion = validarFinalizacionRecepcionPorPedido(pedidoId, sucursalesIds);
             
             if (!validacion.getPuedeFinalizar()) {
                 throw new GraphQLException("No se puede finalizar la recepción física: " + validacion.getMensaje());
             }
             
-            // 2. Obtener el pedido para verificar que existe
+            // 3. Obtener el pedido para verificar que existe
             Pedido pedido = pedidoService.findById(pedidoId)
                 .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
             
-            // 3. Verificar que todos los items estén completos
-            System.out.println("=== VERIFICANDO COMPLETITUD DE ITEMS ===");
-            // Buscar todas las recepciones del pedido y obtener sus items
+            // 4. Obtener todas las recepciones del pedido
             List<RecepcionMercaderia> recepciones = recepcionMercaderiaService.findByPedidoId(pedidoId);
-            List<RecepcionMercaderiaItem> itemsVerificados = new ArrayList<>();
+            
+            if (recepciones.isEmpty()) {
+                throw new GraphQLException("No se encontraron recepciones para el pedido: " + pedidoId);
+            }
+            
+            System.out.println("Recepciones encontradas: " + recepciones.size());
+            
+            // 5. Identificar recepciones que tienen items en las sucursales seleccionadas
+            // Una recepción puede tener items para múltiples sucursales, así que necesitamos
+            // identificar qué recepciones tienen items en las sucursales seleccionadas
+            List<RecepcionMercaderia> recepcionesAProcesar = new ArrayList<>();
             
             for (RecepcionMercaderia recepcion : recepciones) {
+                // Si la recepción ya está finalizada, no procesarla
+                if (recepcion.getEstado() == RecepcionMercaderiaEstado.FINALIZADA) {
+                    System.out.println("Recepción " + recepcion.getId() + " ya está finalizada, omitiendo");
+                    continue;
+                }
+                
+                // Verificar si esta recepción tiene items en las sucursales seleccionadas
                 List<RecepcionMercaderiaItem> itemsRecepcion = service.findByRecepcionMercaderiaId(recepcion.getId());
-                // Filtrar por sucursales seleccionadas
-                itemsRecepcion = itemsRecepcion.stream()
-                    .filter(item -> sucursalesIds.contains(item.getSucursalEntrega().getId()))
-                    .collect(Collectors.toList());
-                itemsVerificados.addAll(itemsRecepcion);
-            }
-            
-            if (itemsVerificados.isEmpty()) {
-                throw new GraphQLException("No se encontraron items verificados para finalizar la recepción física");
-            }
-            
-            System.out.println("Items verificados encontrados: " + itemsVerificados.size());
-            
-            // 4. Generar MovimientoStock para todos los items verificados
-            System.out.println("=== GENERANDO MOVIMIENTOS DE STOCK ===");
-            
-            for (RecepcionMercaderiaItem item : itemsVerificados) {
-                if (item.getCantidadRecibida() > 0) {
-                    // Crear movimiento de entrada para cantidad recibida
-                    try {
-                        // Crear MovimientoStock de entrada
-                        MovimientoStock movimiento = new MovimientoStock();
-                        movimiento.setId(item.getId()); // Usar el ID del item como ID del movimiento
-                        movimiento.setSucursalId(item.getSucursalEntrega().getId());
-                        movimiento.setProducto(item.getProducto());
-                        movimiento.setCantidad(item.getCantidadRecibida());
-                        movimiento.setTipoMovimiento(TipoMovimiento.COMPRA);
-                        movimiento.setReferencia(item.getId());
-                        movimiento.setEstado(true);
-                        movimiento.setUsuario(item.getUsuario());
-                        movimiento.setCreadoEn(LocalDateTime.now());
-                        
-                        // Guardar el movimiento
-                        MovimientoStock movimientoGuardado = movimientoStockService.save(movimiento);
-                        
-                        System.out.println("Movimiento creado: " + item.getProducto().getDescripcion() + 
-                                         " - Cantidad: " + item.getCantidadRecibida() + 
-                                         " - Sucursal ID: " + item.getSucursalEntrega().getId() +
-                                         " - ID: " + movimientoGuardado.getId());
-                    } catch (Exception e) {
-                        System.err.println("Error al crear MovimientoStock para item " + item.getId() + ": " + e.getMessage());
-                        throw new GraphQLException("Error al crear MovimientoStock: " + e.getMessage());
-                    }
+                boolean tieneItemsEnSucursalesSeleccionadas = itemsRecepcion.stream()
+                    .anyMatch(item -> sucursalesIds.contains(item.getSucursalEntrega().getId()));
+                
+                if (tieneItemsEnSucursalesSeleccionadas) {
+                    recepcionesAProcesar.add(recepcion);
+                    System.out.println("Recepción " + recepcion.getId() + " tiene items en sucursales seleccionadas");
                 }
             }
             
-            // 5. Recalcular costos basados en cantidades realmente recibidas
-            System.out.println("=== RECALCULANDO COSTOS ===");
-            double costoTotalRecibido = 0.0;
-            for (RecepcionMercaderiaItem item : itemsVerificados) {
-                if (item.getCantidadRecibida() > 0) {
-                    // Obtener precio del NotaRecepcionItem asociado
-                    double precioUnitario = 0.0;
-                    if (item.getNotaRecepcionItem() != null && item.getNotaRecepcionItem().getPrecioUnitarioEnNota() != null) {
-                        precioUnitario = item.getNotaRecepcionItem().getPrecioUnitarioEnNota();
-                    }
-                    
-                    double costoItem = item.getCantidadRecibida() * precioUnitario;
-                    costoTotalRecibido += costoItem;
-                    System.out.println("Costo item " + item.getProducto().getDescripcion() + ": " + costoItem + " (precio: " + precioUnitario + ")");
-                }
+            if (recepcionesAProcesar.isEmpty()) {
+                throw new GraphQLException("No se encontraron recepciones con items en las sucursales seleccionadas");
             }
-            System.out.println("Costo total recibido: " + costoTotalRecibido);
             
-            // 6. Finalizar etapa de recepción física usando ProcesoEtapa
-            procesoEtapaService.finalizarEtapa(pedidoId, ProcesoEtapaTipo.RECEPCION_MERCADERIA);
+            System.out.println("Recepciones a procesar: " + recepcionesAProcesar.size());
+            
+            // 6. Finalizar cada recepción usando el método del service
+            // Este método genera movimientos de stock, actualiza costos con prorrateo,
+            // y cambia el estado a FINALIZADA, pero NO actualiza etapas del proceso
+            for (RecepcionMercaderia recepcion : recepcionesAProcesar) {
+                System.out.println("Finalizando recepción ID: " + recepcion.getId());
+                recepcionMercaderiaService.finalizarRecepcion(recepcion.getId());
+                System.out.println("Recepción " + recepcion.getId() + " finalizada exitosamente");
+            }
+            
+            // 7. Verificar si TODAS las recepciones del pedido están finalizadas
+            // Solo si todas están finalizadas, entonces finalizar la etapa del pedido
+            List<RecepcionMercaderia> todasRecepciones = recepcionMercaderiaService.findByPedidoId(pedidoId);
+            boolean todasFinalizadas = todasRecepciones.stream()
+                .allMatch(rm -> rm.getEstado() == RecepcionMercaderiaEstado.FINALIZADA);
+            
+            System.out.println("Todas las recepciones finalizadas: " + todasFinalizadas);
+            System.out.println("Total recepciones: " + todasRecepciones.size());
+            
+            if (todasFinalizadas) {
+                // Finalizar etapa RECEPCION_MERCADERIA del pedido
+                procesoEtapaService.finalizarEtapa(pedidoId, ProcesoEtapaTipo.RECEPCION_MERCADERIA);
+                System.out.println("Etapa RECEPCION_MERCADERIA finalizada para el pedido " + pedidoId);
+                
+                // Crear etapa SOLICITUD_PAGO (crearEtapaSiguiente verifica si ya existe)
+                procesoEtapaService.crearEtapaSiguiente(pedido, ProcesoEtapaTipo.RECEPCION_MERCADERIA);
+                System.out.println("Etapa SOLICITUD_PAGO creada/verificada para el pedido " + pedidoId);
+            } else {
+                System.out.println("Aún hay recepciones pendientes. La etapa se mantiene en EN_PROCESO");
+            }
             
             System.out.println("=== RECEPCIÓN FÍSICA FINALIZADA EXITOSAMENTE ===");
             System.out.println("Pedido ID: " + pedidoId);
-            System.out.println("Etapa RECEPCION_MERCADERIA finalizada");
-            System.out.println("ProcesoEtapa actualizado a COMPLETADA");
-            System.out.println("Movimientos de stock generados: " + itemsVerificados.size());
-            System.out.println("Costo total recalculado: " + costoTotalRecibido);
+            System.out.println("Recepciones finalizadas: " + recepcionesAProcesar.size());
+            System.out.println("Todas las recepciones finalizadas: " + todasFinalizadas);
             
             return true;
             

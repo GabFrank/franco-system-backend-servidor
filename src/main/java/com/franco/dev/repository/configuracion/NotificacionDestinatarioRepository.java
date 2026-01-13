@@ -80,6 +80,13 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
                      "AND nd.leida = false")
        Long countNoLeidasByUsuarioId(@Param("usuarioId") Long usuarioId);
 
+       @Query("SELECT nd FROM NotificacionDestinatario nd " +
+                     "WHERE nd.usuario.id = :usuarioId " +
+                     "AND nd.leida = :leida")
+       List<NotificacionDestinatario> findByUsuarioIdAndLeida(
+                     @Param("usuarioId") Long usuarioId,
+                     @Param("leida") Boolean leida);
+
        @Query("SELECT DISTINCT nd FROM NotificacionDestinatario nd " +
                      "JOIN FETCH nd.usuario u " +
                      "LEFT JOIN FETCH u.persona p " +

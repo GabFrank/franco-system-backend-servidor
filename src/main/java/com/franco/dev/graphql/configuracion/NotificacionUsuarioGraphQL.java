@@ -68,6 +68,25 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
         }
     }
 
+    public Boolean marcarTodasNotificacionesLeidas() {
+        try {
+            org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
+                    .getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return false;
+            }
+            String username = authentication.getName();
+            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findByNickname(username).orElse(null);
+            if (usuario == null) {
+                return false;
+            }
+            return notificacionDestinatarioService.marcarTodasComoLeidas(usuario.getId());
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     public Boolean cambiarEstadoTableroNotificacion(Long notificacionId, String estado) {
         try {
             org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder

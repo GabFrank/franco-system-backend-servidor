@@ -101,6 +101,7 @@ type NotificacionUsuarioPage {
 
   extend type Mutation {
       marcarNotificacionLeida(notificacionId: Int!): Boolean
+      marcarTodasNotificacionesLeidas: Boolean
       cambiarEstadoTableroNotificacion(notificacionId: Int!, estado: String!): Boolean
       enviarNotificacionPersonalizada(titulo: String!, mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
       registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean

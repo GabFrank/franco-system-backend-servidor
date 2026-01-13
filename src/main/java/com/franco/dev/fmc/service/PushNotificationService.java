@@ -15,6 +15,7 @@ import com.franco.dev.repository.configuracion.NotificacionEnvioLogRepository;
 import com.franco.dev.repository.configuracion.NotificacionRepository;
 import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
 import com.franco.dev.service.configuracion.InicioSesionService;
+import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -45,6 +46,8 @@ public class PushNotificationService {
     private final InicioSesionService inicioSesionService;
     private final FCMService fcmService;
 
+    private final NotificacionPreferenciaService preferenciaService;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -55,7 +58,8 @@ public class PushNotificationService {
             NotificacionEnvioLogRepository notificacionEnvioLogRepository,
             NotificationDispatchService dispatchService,
             InicioSesionService inicioSesionService,
-            FCMService fcmService) {
+            FCMService fcmService,
+            com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService) {
         this.notificacionRepository = notificacionRepository;
         this.notificacionUsuarioRepository = notificacionUsuarioRepository;
         this.notificacionDestinatarioRepository = notificacionDestinatarioRepository;
@@ -63,6 +67,7 @@ public class PushNotificationService {
         this.dispatchService = dispatchService;
         this.inicioSesionService = inicioSesionService;
         this.fcmService = fcmService;
+        this.preferenciaService = preferenciaService;
     }
 
     public void sendPushNotificationToToken(@Valid PushNotificationRequest request) {
@@ -89,7 +94,7 @@ public class PushNotificationService {
 
         if (targets.isEmpty()) {
             notificacion.setEstado(EstadoNotificacion.CANCELADA);
-            notificacion.setUltimoError("No existen tokens activos para la solicitud");
+            notificacion.setUltimoError("No existen tokens activos o destinatarios válidos para la solicitud");
             notificacionRepository.save(notificacion);
             return;
         }
@@ -129,6 +134,7 @@ public class PushNotificationService {
     private List<Target> resolveTargets(PushNotificationRequest request) {
         Set<String> dedup = new LinkedHashSet<>();
         List<Target> targets = new ArrayList<>();
+        String tipoNotificacion = request.getType() != null ? request.getType() : "GENERAL";
 
         if (request.hasUsuarios()) {
             List<com.franco.dev.domain.configuracion.InicioSesion> sesiones = inicioSesionService
@@ -138,8 +144,19 @@ public class PushNotificationService {
                 String token = session.getToken();
                 Long usuarioId = session.getUsuario() != null ? session.getUsuario().getId() : null;
 
-                if (token != null && dedup.add(token)) {
-                    targets.add(new Target(usuarioId, token));
+                if (usuarioId != null) {
+                    // VERIFICAR PREFERENCIAS DEL USUARIO
+                    if (preferenciaService.isNotificacionHabilitada(usuarioId, tipoNotificacion)) {
+                        if (token != null && dedup.add(token)) {
+                            targets.add(new Target(usuarioId, token));
+                        }
+                    } else {
+                        LOGGER.info("Notificación tipo '{}' bloqueada por preferencia de usuario id: {}",
+                                tipoNotificacion, usuarioId);
+                    }
+                } else if (token != null && dedup.add(token)) {
+                    // Caso borde: Sesión sin usuario asignado pero con token
+                    targets.add(new Target(null, token));
                 }
             });
         }

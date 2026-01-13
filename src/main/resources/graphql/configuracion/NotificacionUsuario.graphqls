@@ -1,0 +1,30 @@
+type NotificacionUsuario {
+    id: Int
+    notificacion: Notificacion
+    leida: Boolean
+    fechaLeida: Date
+    fechaEnvio: Date
+    estadoEnvio: String
+    interactuada: Boolean
+    fechaInteraccion: Date
+    accionRealizada: String
+    estadoTablero: String
+}
+
+type NotificacionUsuarioPage {
+    content: [NotificacionUsuario]
+    pageNumber: Int
+    pageSize: Int
+    totalElements: Int
+    totalPages: Int
+}
+
+extend type Query {
+    notificacionesPorToken(tokenFcm: String!): [NotificacionUsuario]
+    notificacionesUsuarioLegacy(tokenFcm: String, leidas: Boolean, page: Int, size: Int, estadoTablero: String): NotificacionUsuarioPage
+}
+
+extend type Mutation {
+    registrarInteraccionNotificacion(notificacionUsuarioId: Int!, accion: String!): Boolean
+    actualizarEstadoTableroNotificacion(notificacionUsuarioId: Int!, estado: String!): Boolean
+}

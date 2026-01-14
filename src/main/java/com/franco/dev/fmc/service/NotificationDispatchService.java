@@ -2,13 +2,13 @@ package com.franco.dev.fmc.service;
 
 import com.franco.dev.domain.configuracion.Notificacion;
 import com.franco.dev.domain.configuracion.NotificacionEnvioLog;
-import com.franco.dev.domain.configuracion.NotificacionUsuario;
+
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
 import com.franco.dev.fmc.model.DeliveryResult;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.repository.configuracion.NotificacionEnvioLogRepository;
-import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
+
 import com.franco.dev.service.configuracion.InicioSesionService;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.LocalDateTime;
@@ -29,7 +29,7 @@ public class NotificationDispatchService {
     private static final Logger LOGGER = LoggerFactory.getLogger(NotificationDispatchService.class);
 
     private final NotificacionEnvioLogRepository notificacionEnvioLogRepository;
-    private final NotificacionUsuarioRepository notificacionUsuarioRepository;
+
     private final FCMService fcmService;
     private final InicioSesionService inicioSesionService;
     private final Optional<MeterRegistry> meterRegistry;
@@ -42,12 +42,10 @@ public class NotificationDispatchService {
 
     public NotificationDispatchService(
             NotificacionEnvioLogRepository notificacionEnvioLogRepository,
-            NotificacionUsuarioRepository notificacionUsuarioRepository,
             FCMService fcmService,
             InicioSesionService inicioSesionService,
             Optional<MeterRegistry> meterRegistry) {
         this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
-        this.notificacionUsuarioRepository = notificacionUsuarioRepository;
         this.fcmService = fcmService;
         this.inicioSesionService = inicioSesionService;
         this.meterRegistry = meterRegistry;

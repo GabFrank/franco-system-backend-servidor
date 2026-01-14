@@ -209,23 +209,22 @@ public class NotificationTemplateService {
         return request;
     }
 
-    public PushNotificationRequest inventarioIniciado(String tipoInventario, String sucursalNombre, String usuarioNombre, Long inventarioId) {
+    public PushNotificationRequest inventarioIniciado(String tipoInventario, String sucursalNombre,
+            String usuarioNombre, Long inventarioId) {
         StringBuilder builder = new StringBuilder();
         builder.append("SE HA INICIADO UN NUEVO INVENTARIO");
-        
+
         if (tipoInventario != null && !tipoInventario.isEmpty()) {
             builder.append(" TIPO ").append(tipoInventario);
         }
-        
+
         if (sucursalNombre != null && !sucursalNombre.isEmpty()) {
             builder.append(" EN ").append(sucursalNombre.toUpperCase());
         }
-        
+
         if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
             builder.append(". RESPONSABLE: ").append(usuarioNombre.toUpperCase());
         }
-        
-        builder.append(". REQUIERE PARTICIPACIÓN DEL PERSONAL AUTORIZADO.");
 
         PushNotificationRequest request = base("INVENTARIO INICIADO", builder.toString());
         request.setType("INVENTARIO_INICIADO");
@@ -257,7 +256,7 @@ public class NotificationTemplateService {
             builder.append(decimalFormat.format(gasto.getRetiroDs())).append(" Ds. ");
         }
         if (sucursal != null && gasto.getUsuario() != null) {
-            builder.append("SI DESCONECTA ÉSTA ACCIÓN CONTACTAR CON EL CAJERO ")
+            builder.append("SI DESCONECE ÉSTA ACCIÓN CONTACTAR CON EL CAJERO ")
                     .append(gasto.getUsuario().getNickname() != null ? gasto.getUsuario().getNickname().toUpperCase()
                             : "")
                     .append(" AL NÚMERO ")
@@ -333,7 +332,8 @@ public class NotificationTemplateService {
         return request;
     }
 
-    public PushNotificationRequest cotizacionActualizada(String denominacionMoneda, String simboloMoneda, Double valorEnGs) {
+    public PushNotificationRequest cotizacionActualizada(String denominacionMoneda, String simboloMoneda,
+            Double valorEnGs) {
         if (denominacionMoneda == null || valorEnGs == null) {
             return null;
         }

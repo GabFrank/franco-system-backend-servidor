@@ -1,7 +1,7 @@
 package com.franco.dev.service.configuracion;
 
 import com.franco.dev.repository.configuracion.NotificacionRepository;
-import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
+
 import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +18,6 @@ public class NotificacionCleanupService {
 
     @Autowired
     private NotificacionRepository notificacionRepository;
-
-    @Autowired
-    private NotificacionUsuarioRepository notificacionUsuarioRepository;
 
     @Value("${notificacion.cleanup.enabled:true}")
     private boolean cleanupEnabled;
@@ -39,12 +36,6 @@ public class NotificacionCleanupService {
         }
 
         LocalDateTime fechaLimite = LocalDateTime.now().minusDays(retentionDays);
-
-        try {
-            notificacionUsuarioRepository.deleteByFechaEnvioBefore(fechaLimite);
-        } catch (Exception e) {
-            // Silent cleanup
-        }
 
         try {
             notificacionRepository.deleteByCreadoEnBefore(fechaLimite);

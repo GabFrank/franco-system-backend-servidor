@@ -3,7 +3,7 @@ package com.franco.dev.fmc.service;
 import com.franco.dev.domain.configuracion.Notificacion;
 import com.franco.dev.domain.configuracion.NotificacionDestinatario;
 import com.franco.dev.domain.configuracion.NotificacionEnvioLog;
-import com.franco.dev.domain.configuracion.NotificacionUsuario;
+
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
@@ -13,7 +13,7 @@ import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.repository.configuracion.NotificacionDestinatarioRepository;
 import com.franco.dev.repository.configuracion.NotificacionEnvioLogRepository;
 import com.franco.dev.repository.configuracion.NotificacionRepository;
-import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
+
 import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ public class PushNotificationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PushNotificationService.class);
     private final NotificacionRepository notificacionRepository;
-    private final NotificacionUsuarioRepository notificacionUsuarioRepository;
+
     private final NotificacionDestinatarioRepository notificacionDestinatarioRepository;
     private final NotificacionEnvioLogRepository notificacionEnvioLogRepository;
     private final NotificationDispatchService dispatchService;
@@ -53,7 +53,6 @@ public class PushNotificationService {
 
     public PushNotificationService(
             NotificacionRepository notificacionRepository,
-            NotificacionUsuarioRepository notificacionUsuarioRepository,
             NotificacionDestinatarioRepository notificacionDestinatarioRepository,
             NotificacionEnvioLogRepository notificacionEnvioLogRepository,
             NotificationDispatchService dispatchService,
@@ -61,7 +60,6 @@ public class PushNotificationService {
             FCMService fcmService,
             com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService) {
         this.notificacionRepository = notificacionRepository;
-        this.notificacionUsuarioRepository = notificacionUsuarioRepository;
         this.notificacionDestinatarioRepository = notificacionDestinatarioRepository;
         this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
         this.dispatchService = dispatchService;
@@ -196,19 +194,6 @@ public class PushNotificationService {
         log.setTokenFcm(target.getToken());
         log.setEstadoEnvio(EstadoEnvio.PENDIENTE);
         return log;
-    }
-
-    private NotificacionUsuario buildNotificacionUsuario(Notificacion notificacion, Target target) {
-        NotificacionUsuario entity = new NotificacionUsuario();
-        entity.setNotificacion(notificacion);
-        if (target.getUsuarioId() != null) {
-            Usuario reference = entityManager.getReference(Usuario.class, target.getUsuarioId());
-            entity.setUsuario(reference);
-        }
-        entity.setTokenFcm(target.getToken());
-        entity.setEstadoEnvio(EstadoEnvio.PENDIENTE);
-        entity.setEstadoTablero(EstadoNotificacionTablero.POR_VERIFICAR);
-        return entity;
     }
 
     /**

@@ -40,53 +40,55 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PropagacionService propagacionService;
 
-    public Optional<Sucursal> sucursal(Long id) {return service.findById(id);}
+    public Optional<Sucursal> sucursal(Long id) {
+        return service.findById(id);
+    }
 
-    public List<Sucursal> sucursales(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Sucursal> sucursales(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<Sucursal> sucursalesSearch(String texto, Boolean activo){
+    public List<Sucursal> sucursalesSearch(String texto, Boolean activo) {
         return service.findByAll(texto, activo);
     }
 
-    public Sucursal sucursalActual(){
+    public Sucursal sucursalActual() {
         return service.findById(Long.valueOf(env.getProperty("sucursalId"))).orElse(null);
     }
 
-    public Sucursal saveSucursal(SucursalInput input){
+    public Sucursal saveSucursal(SucursalInput input) {
         ModelMapper m = new ModelMapper();
         Sucursal e = m.map(input, Sucursal.class);
-        if(input.getCreadoEn() != null){
+        if (input.getCreadoEn() != null) {
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
         }
-        if(input.getUsuarioId() != null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if(input.getCiudadId() != null){
+        if (input.getCiudadId() != null) {
             e.setCiudad(ciudadService.findById(input.getCiudadId()).orElse(null));
         }
 
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.SUCURSAL);
+        // propagacionService.propagarEntidad(e, TipoEntidad.SUCURSAL);
         return e;
     }
 
-    public Boolean deleteSucursal(Long id){
+    public Boolean deleteSucursal(Long id) {
         Boolean ok = service.deleteById(id);
-//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
+        // if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
         return ok;
     }
 
-    public Long countSucursal(){
+    public Long countSucursal() {
         return service.count();
     }
 
-    public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size){
+    public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         // Si nombre es null, vacío o '%', retornar todos los resultados
-        if(nombre == null || nombre.trim().isEmpty() || "%".equals(nombre.trim())){
+        if (nombre == null || nombre.trim().isEmpty() || "%".equals(nombre.trim())) {
             return service.getRepository().findAll(pageable);
         }
         // Procesar el nombre para la búsqueda
@@ -94,6 +96,5 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         nombre = "%" + nombre.replace(' ', '%').toUpperCase() + "%";
         return service.getRepository().findByNombreLike(nombre, pageable);
     }
-
 
 }

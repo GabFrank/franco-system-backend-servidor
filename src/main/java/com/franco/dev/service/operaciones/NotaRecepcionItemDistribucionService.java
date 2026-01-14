@@ -174,7 +174,9 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
 
     /**
      * Guardar múltiples distribuciones para un NotaRecepcionItem
-     * Actualiza automáticamente el estado del ítem y de la nota si la distribución está concluida
+     * Actualiza automáticamente el estado del ítem si la distribución está concluida
+     * NOTA: NO actualiza el estado de la nota aquí para evitar crear vínculos prematuramente
+     * El estado de la nota se actualiza al final de asignarItemsANota
      */
     @Transactional
     public List<NotaRecepcionItemDistribucion> saveDistribuciones(List<NotaRecepcionItemDistribucion> distribuciones) {
@@ -187,7 +189,7 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
                 .map(this::save)
                 .collect(java.util.stream.Collectors.toList());
 
-        // Obtener el primer ítem para actualizar estados (todos pertenecen al mismo ítem)
+        // Obtener el primer ítem para actualizar estado del ítem (todos pertenecen al mismo ítem)
         NotaRecepcionItemDistribucion primeraDistribucion = saved.get(0);
         if (primeraDistribucion.getNotaRecepcionItem() != null && 
             primeraDistribucion.getNotaRecepcionItem().getId() != null) {
@@ -198,9 +200,10 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
             java.util.Optional<NotaRecepcionItem> itemOpt = notaRecepcionItemService.findById(itemId);
             if (itemOpt.isPresent()) {
                 NotaRecepcionItem item = itemOpt.get();
-                Long notaRecepcionId = item.getNotaRecepcion() != null ? item.getNotaRecepcion().getId() : null;
                 
                 // Actualizar estado del ítem si la distribución está concluida
+                // PERO NO actualizar el estado de la nota aquí para evitar crear vínculos
+                // cuando solo se ha asignado el primer item
                 if (item.getCantidadEnNota() != null && item.getCantidadEnNota() > 0) {
                     boolean distribucionConcluida = isDistribucionConcluida(itemId, item.getCantidadEnNota());
                     
@@ -210,10 +213,8 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
                     }
                 }
                 
-                // Actualizar estado de la nota
-                if (notaRecepcionId != null) {
-                    notaRecepcionService.actualizarEstadoNota(notaRecepcionId);
-                }
+                // NO llamar a actualizarEstadoNota aquí
+                // Se llamará al final de asignarItemsANota cuando todos los items estén asignados
             }
         }
 

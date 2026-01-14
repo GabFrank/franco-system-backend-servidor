@@ -16,7 +16,8 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
         return NotaRecepcionItem.class;
     }
 
-    public List<NotaRecepcionItem> findByNotaRecepcionId(Long id);
+    @Query("SELECT nri FROM NotaRecepcionItem nri WHERE nri.notaRecepcion.id = :id ORDER BY nri.id")
+    List<NotaRecepcionItem> findByNotaRecepcionId(@Param("id") Long id);
 //
 //    @Query("select p from Pedido p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")
 //    public List<Pedido> findByProveedor(String texto);

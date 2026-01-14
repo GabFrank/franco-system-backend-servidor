@@ -7,30 +7,42 @@ import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
+import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.domain.productos.ProductoProveedor;
 import com.franco.dev.graphql.operaciones.dto.AsignacionError;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.productos.ProductoProveedorService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @AllArgsConstructor
 public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepcionRepository, Long> {
+
+    private static final Logger logger = LoggerFactory.getLogger(NotaRecepcionService.class);
 
     private final NotaRecepcionRepository repository;
     private final NotaRecepcionItemService notaRecepcionItemService;
     private final NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
     private final PedidoItemService pedidoItemService;
     private final ProcesoEtapaService procesoEtapaService;
+    private final ProductoProveedorService productoProveedorService;
 
     @Override
     public NotaRecepcionRepository getRepository() {
@@ -219,6 +231,8 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         }
 
         // Actualizar estado de los ítems y de la nota después de crear distribuciones automáticamente
+        // IMPORTANTE: Esto se hace DESPUÉS de que todos los items hayan sido asignados
+        // para asegurar que cuando se creen los vínculos ProductoProveedor, todos los items ya estén en la BD
         actualizarEstadosDespuesDeDistribucion(notaRecepcionId);
 
         return result;
@@ -282,6 +296,12 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
             if (nota.getEstado() != NotaRecepcionEstado.CONCILIADA) {
                 nota.setEstado(NotaRecepcionEstado.CONCILIADA);
                 save(nota);
+                
+                // Crear vínculos ProductoProveedor cuando la nota se concilia
+                crearVinculosProductoProveedor(nota);
+            } else {
+                // La nota ya estaba CONCILIADA, verificar si hay nuevos items que requieren vínculos
+                crearVinculosProductoProveedor(nota);
             }
         } else if (hayPendientes) {
             // Hay ítems pendientes → Nota = PENDIENTE_CONCILIACION
@@ -289,6 +309,103 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                 nota.setEstado(NotaRecepcionEstado.PENDIENTE_CONCILIACION);
                 save(nota);
             }
+        }
+    }
+
+    /**
+     * Crea vínculos ProductoProveedor para todos los productos de la nota de recepción
+     * cuando esta se concilia. Solo crea vínculos que no existan previamente.
+     * 
+     * @param nota Nota de recepción conciliada
+     */
+    @Transactional
+    private void crearVinculosProductoProveedor(NotaRecepcion nota) {
+        // Verificar que la nota tenga un pedido asociado
+        if (nota.getPedido() == null || nota.getPedido().getProveedor() == null) {
+            logger.warn("La nota {} no tiene pedido o el pedido no tiene proveedor. Abortando creación de vínculos.", nota.getId());
+            return;
+        }
+
+        // Obtener el proveedor del pedido
+        Proveedor proveedor = nota.getPedido().getProveedor();
+        
+        // Obtener el usuario (de la nota o del pedido como fallback)
+        Usuario usuario = nota.getUsuario();
+        if (usuario == null && nota.getPedido() != null) {
+            usuario = nota.getPedido().getUsuario();
+        }
+
+        // Obtener todos los ítems de la nota
+        List<NotaRecepcionItem> items = notaRecepcionItemService.findByNotaRecepcionId(nota.getId());
+        
+        if (items.isEmpty()) {
+            logger.warn("No se encontraron items en la nota {}. Abortando creación de vínculos.", nota.getId());
+            return;
+        }
+
+        // Usar un Set para evitar duplicados de productos
+        Set<Long> productosProcesados = new HashSet<>();
+        int vinculosCreados = 0;
+        int vinculosReactivos = 0;
+        int errores = 0;
+        
+        // Crear vínculos para cada producto único
+        for (NotaRecepcionItem item : items) {
+            try {
+                Producto producto = item.getProducto();
+                
+                if (producto == null) {
+                    continue;
+                }
+                
+                Long productoId = producto.getId();
+                
+                if (productoId == null) {
+                    continue;
+                }
+
+                // Evitar procesar el mismo producto múltiples veces
+                if (productosProcesados.contains(productoId)) {
+                    continue;
+                }
+                productosProcesados.add(productoId);
+
+                // Verificar si ya existe un vínculo para este producto y proveedor
+                ProductoProveedor vinculoExistente = productoProveedorService.getRepository()
+                    .findByProductoIdAndProveedorId(productoId, proveedor.getId());
+
+                if (vinculoExistente == null) {
+                    // Crear nuevo vínculo ProductoProveedor
+                    ProductoProveedor nuevoVinculo = new ProductoProveedor();
+                    nuevoVinculo.setProducto(producto);
+                    nuevoVinculo.setProveedor(proveedor);
+                    nuevoVinculo.setPedido(nota.getPedido());
+                    nuevoVinculo.setCreadoEn(LocalDateTime.now());
+                    nuevoVinculo.setUsuario(usuario);
+                    nuevoVinculo.setActivo(true);
+                    nuevoVinculo.setMotivoDesvinculacion(null);
+                    
+                    productoProveedorService.save(nuevoVinculo);
+                    vinculosCreados++;
+                } else {
+                    // Si el vínculo existe pero estaba desactivado, reactivarlo y limpiar motivo
+                    if (vinculoExistente.getActivo() == null || !vinculoExistente.getActivo()) {
+                        vinculoExistente.setActivo(true);
+                        vinculoExistente.setMotivoDesvinculacion(null);
+                        productoProveedorService.save(vinculoExistente);
+                        vinculosReactivos++;
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error procesando item {} para crear vínculo ProductoProveedor: {}", 
+                    item.getId(), e.getMessage(), e);
+                errores++;
+            }
+        }
+        
+        if (errores > 0) {
+            logger.warn("Se encontraron {} errores al crear vínculos ProductoProveedor para la nota {}", 
+                errores, nota.getId());
         }
     }
 
@@ -302,6 +419,16 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     public void actualizarEstadosDespuesDeDistribucion(Long notaRecepcionId) {
         if (notaRecepcionId == null) {
             return;
+        }
+
+        // IMPORTANTE: Forzar flush del repositorio para asegurar que todos los items
+        // guardados en asignarItemsANota estén visibles en la siguiente query
+        // Esto es necesario porque estamos dentro de una transacción y los items pueden
+        // no estar aún "flushed" a la base de datos
+        try {
+            notaRecepcionItemService.getRepository().flush();
+        } catch (Exception e) {
+            logger.warn("No se pudo hacer flush explícito, continuando de todas formas: {}", e.getMessage());
         }
 
         // Obtener todos los ítems de la nota
@@ -323,7 +450,8 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
             }
         }
 
-        // Actualizar estado de la nota
+        // Actualizar estado de la nota después de que todos los items hayan sido procesados
+        // Esto asegura que cuando se creen los vínculos ProductoProveedor, todos los items ya estén asignados
         actualizarEstadoNota(notaRecepcionId);
     }
 }

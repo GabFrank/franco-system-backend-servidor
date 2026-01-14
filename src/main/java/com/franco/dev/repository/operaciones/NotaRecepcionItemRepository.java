@@ -202,4 +202,15 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
            "FROM NotaRecepcionItem nri " +
            "WHERE nri.notaRecepcion.id IN :notaIds")
     Object[] getResumenGeneralItems(@Param("notaIds") List<Long> notaIds);
+
+    /**
+     * Obtiene las últimas compras de un producto desde NotaRecepcionItem
+     * Ordenado por fecha de creación descendente
+     */
+    @Query(value = "SELECT nri FROM NotaRecepcionItem nri " +
+           "WHERE nri.producto.id = :productoId " +
+           "ORDER BY nri.creadoEn DESC",
+           countQuery = "SELECT COUNT(nri) FROM NotaRecepcionItem nri " +
+           "WHERE nri.producto.id = :productoId")
+    Page<NotaRecepcionItem> findUltimasComprasByProductoId(@Param("productoId") Long productoId, Pageable pageable);
 }

@@ -2,6 +2,7 @@ package com.franco.dev.domain.productos;
 
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.domain.productos.Presentacion;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,5 +19,6 @@ public class ProductoCompra {
     private Double precio;
     private Pedido pedido;
     private LocalDateTime creadoEn;
+    private Presentacion presentacionEnNota;
 
 }

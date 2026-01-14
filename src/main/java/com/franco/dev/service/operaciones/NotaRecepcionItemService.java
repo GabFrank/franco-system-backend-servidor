@@ -121,4 +121,12 @@ public class NotaRecepcionItemService extends CrudService<NotaRecepcionItem, Not
     public Object[] getResumenGeneralItems(List<Long> notaIds) {
         return repository.getResumenGeneralItems(notaIds);
     }
+
+    /**
+     * Obtiene las últimas compras de un producto desde NotaRecepcionItem
+     * Ordenado por fecha de creación descendente
+     */
+    public Page<NotaRecepcionItem> findUltimasComprasByProductoId(Long productoId, Pageable pageable) {
+        return repository.findUltimasComprasByProductoId(productoId, pageable);
+    }
 }

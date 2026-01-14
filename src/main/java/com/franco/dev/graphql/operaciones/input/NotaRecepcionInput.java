@@ -19,4 +19,5 @@ public class NotaRecepcionInput {
     private Boolean pagado;
     private String creadoEn;
     private Long usuarioId;
+    private Boolean assignAllItems;
 }

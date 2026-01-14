@@ -33,6 +33,7 @@ input NotaRecepcionInput {
     esNotaRechazo: Boolean
     creadoEn: String
     usuarioId: Int
+    assignAllItems: Boolean
 }
 
 type NotaRecepcionPage {

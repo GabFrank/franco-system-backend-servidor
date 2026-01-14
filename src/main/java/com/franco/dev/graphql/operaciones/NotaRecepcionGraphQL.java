@@ -140,8 +140,15 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (input.getFecha() != null) e.setFecha(stringToDate(input.getFecha()));
         if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
         if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        return service.save(e);
-
+        
+        NotaRecepcion notaGuardada = service.save(e);
+        
+        // Si assignAllItems = true, asignar automáticamente todos los items pendientes del pedido
+        if (Boolean.TRUE.equals(input.getAssignAllItems()) && notaGuardada.getPedido() != null) {
+            service.asignarTodosLosItemsPendientes(notaGuardada.getId(), notaGuardada.getPedido().getId());
+        }
+        
+        return notaGuardada;
     }
 
     public Boolean deleteNotaRecepcion(Long id) {

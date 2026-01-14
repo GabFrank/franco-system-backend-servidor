@@ -239,6 +239,31 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     }
 
     /**
+     * Asigna automáticamente todos los ítems pendientes del pedido a la nota de recepción
+     * @param notaRecepcionId ID de la nota de recepción
+     * @param pedidoId ID del pedido
+     */
+    @Transactional
+    public void asignarTodosLosItemsPendientes(Long notaRecepcionId, Long pedidoId) {
+        // Obtener todos los ítems del pedido
+        List<PedidoItem> todosLosItems = pedidoItemService.findByPedidoId(pedidoId);
+        
+        // Filtrar solo los ítems que tienen cantidad pendiente > 0
+        List<Long> pedidoItemIds = new ArrayList<>();
+        for (PedidoItem item : todosLosItems) {
+            Double cantidadPendiente = pedidoItemService.getCantidadPendiente(item.getId());
+            if (cantidadPendiente != null && cantidadPendiente > 0) {
+                pedidoItemIds.add(item.getId());
+            }
+        }
+        
+        // Si hay items pendientes, asignarlos a la nota
+        if (!pedidoItemIds.isEmpty()) {
+            asignarItemsANota(notaRecepcionId, pedidoItemIds);
+        }
+    }
+
+    /**
      * Actualiza el estado de una nota de recepción basándose en los estados de sus ítems
      * Reglas:
      * - Si todos los ítems están CONCILIADOS → Nota = CONCILIADA

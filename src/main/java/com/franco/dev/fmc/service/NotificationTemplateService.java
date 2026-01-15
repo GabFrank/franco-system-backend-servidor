@@ -2,6 +2,7 @@ package com.franco.dev.fmc.service;
 
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
@@ -20,7 +21,7 @@ public class NotificationTemplateService {
     public PushNotificationRequest gastoRealizado(Gasto gasto, Sucursal sucursal, DecimalFormat decimalFormat) {
         PushNotificationRequest request = base("Gasto realizado", buildGastoMessage(gasto, sucursal, decimalFormat));
         request.setType("GASTO");
-        request.setData("/");
+        request.setData("/financiero/gastos/" + (gasto.getId() != null ? gasto.getId() : ""));
         return request;
     }
 
@@ -243,7 +244,7 @@ public class NotificationTemplateService {
 
     private String buildGastoMessage(Gasto gasto, Sucursal sucursal, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
-        builder.append("SE HA DETECTADO UN GASTO A TU NOMBRE EN LA SUCURSAL ")
+        builder.append("SE HA DETECTADO UN GASTO EN LA SUCURSAL ")
                 .append(sucursal != null ? sucursal.getNombre() : "")
                 .append(" POR EL VALOR DE ");
         if (gasto.getRetiroGs() != null && gasto.getRetiroGs() > 0) {
@@ -255,12 +256,10 @@ public class NotificationTemplateService {
         if (gasto.getRetiroDs() != null && gasto.getRetiroDs() > 0) {
             builder.append(decimalFormat.format(gasto.getRetiroDs())).append(" Ds. ");
         }
-        if (sucursal != null && gasto.getUsuario() != null) {
-            builder.append("SI DESCONECE ÉSTA ACCIÓN CONTACTAR CON EL CAJERO ")
+        if (gasto.getUsuario() != null) {
+            builder.append("REALIZADO POR: ")
                     .append(gasto.getUsuario().getNickname() != null ? gasto.getUsuario().getNickname().toUpperCase()
-                            : "")
-                    .append(" AL NÚMERO ")
-                    .append(sucursal.getNroDelivery());
+                            : "");
         }
         return builder.toString();
     }
@@ -363,5 +362,21 @@ public class NotificationTemplateService {
         }
         DecimalFormat formatter = decimalFormat != null ? decimalFormat : new DecimalFormat("#,###.##");
         return formatter.format(valor) + " Gs";
+    }
+
+    public PushNotificationRequest retiroRealizado(Retiro retiro, Sucursal sucursal) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA REALIZADO UN RETIRO EN LA SUCURSAL ")
+                .append(sucursal != null ? sucursal.getNombre() : "");
+
+        if (retiro.getUsuario() != null) {
+            builder.append(" REALIZADO POR: ")
+                    .append(retiro.getUsuario().getNickname() != null ? retiro.getUsuario().getNickname().toUpperCase()
+                            : "");
+        }
+        PushNotificationRequest request = base("RETIRO REALIZADO", builder.toString());
+        request.setType("RETIRO");
+        request.setData("/financiero/retiros/" + (retiro.getId() != null ? retiro.getId() : ""));
+        return request;
     }
 }

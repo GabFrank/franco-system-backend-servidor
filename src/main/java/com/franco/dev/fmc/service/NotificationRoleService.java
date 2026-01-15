@@ -107,12 +107,6 @@ public class NotificationRoleService {
                 "EDITAR PRECIOS");
     }
 
-    /**
-     * Obtiene los roles que deben recibir notificaciones cuando se inicia un inventario
-     * ADMIN siempre debe recibir la notificación
-     * 
-     * @return Lista de roles que deben ser notificados
-     */
     public List<String> getRolesForInventarioIniciado() {
         return Arrays.asList(
                 "ADMIN",
@@ -122,5 +116,15 @@ public class NotificationRoleService {
                 "PARTICIPAR DEL INVENTARIO",
                 "VER MOVIMIENTO DE STOCK",
                 "ANALISIS DE VENTA");
+    }
+
+    public List<String> getRolesForGastoRetiro() {
+        return Arrays.asList(
+                "CANCELACION DE VENTA",
+                "ANALISIS DE CAJA",
+                "ANALISIS DE VENTA ADMIN",
+                "SOPORTE",
+                "ANALISIS FINANCIERO",
+                "ANALISIS CONTABLE");
     }
 }

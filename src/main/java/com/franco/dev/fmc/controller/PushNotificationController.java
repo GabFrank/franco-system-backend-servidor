@@ -138,4 +138,93 @@ public class PushNotificationController {
                 }
         }
 
+        @Autowired
+        private com.franco.dev.service.financiero.GastoService gastoService;
+
+        @Autowired
+        private com.franco.dev.service.financiero.RetiroService retiroService;
+
+        @PostMapping("/notification/gasto/{gastoId}/{sucursalId}/{personaId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendGastoNotification(
+                        @PathVariable Long gastoId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Long personaId,
+                        @PathVariable Double valorTotal) {
+                try {
+                        com.franco.dev.domain.financiero.Gasto gasto = gastoService.findByIdAndSucursalId(gastoId,
+                                        sucursalId);
+                        if (gasto == null) {
+                                gasto = new com.franco.dev.domain.financiero.Gasto();
+                                gasto.setId(gastoId);
+                                gasto.setRetiroGs(valorTotal);
+                                Usuario u = usuarioService.findByPersonaId(personaId);
+                                gasto.setUsuario(u);
+                        }
+                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForGastoRetiro();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.gastoRealizado(gasto,
+                                                sucursal, df);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @PostMapping("/notification/retiro/{retiroId}/{sucursalId}/{personaId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendRetiroNotification(
+                        @PathVariable Long retiroId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Long personaId,
+                        @PathVariable Double valorTotal) {
+                try {
+                        com.franco.dev.domain.financiero.Retiro retiro = retiroService.findByIdAndSucursalId(retiroId,
+                                        sucursalId);
+                        if (retiro == null) {
+                                retiro = new com.franco.dev.domain.financiero.Retiro();
+                                retiro.setId(retiroId);
+                                Usuario u = usuarioService.findByPersonaId(personaId);
+                                retiro.setUsuario(u);
+                        }
+                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForGastoRetiro();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.retiroRealizado(retiro,
+                                                sucursal);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
 }

@@ -82,11 +82,19 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     @Override
     public Gasto save(Gasto entity) {
         Gasto e = super.save(entity);
-        Usuario usuario = usuarioService.findByPersonaId(entity.getResponsable().getPersona().getId());
-        Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
-        PushNotificationRequest request = notificationTemplateService.gastoRealizado(entity, sucursal, df);
-        request.setUsuarioIds(Collections.singletonList(usuario.getId()));
-        pushNotificationService.sendPushNotificationToToken(request);
+        if (entity.getResponsable() != null && entity.getResponsable().getPersona() != null) {
+            Usuario usuario = usuarioService.findByPersonaId(entity.getResponsable().getPersona().getId());
+            if (usuario != null) {
+                try {
+                    Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
+                    PushNotificationRequest request = notificationTemplateService.gastoRealizado(entity, sucursal, df);
+                    request.setUsuarioIds(Collections.singletonList(usuario.getId()));
+                    pushNotificationService.sendPushNotificationToToken(request);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        }
         return e;
     }
 }

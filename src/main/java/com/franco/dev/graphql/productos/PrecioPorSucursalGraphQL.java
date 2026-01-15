@@ -68,31 +68,40 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private PushNotificationService pushNotificationService;
 
-    public Optional<PrecioPorSucursal> precioPorSucursal(Long id) {return service.findById(id);}
+    public Optional<PrecioPorSucursal> precioPorSucursal(Long id) {
+        return service.findById(id);
+    }
 
-    public List<PrecioPorSucursal> precioPorSucursalPorPresentacionId(Long id) {return service.findByPresentacionId(id);}
+    public List<PrecioPorSucursal> precioPorSucursalPorPresentacionId(Long id) {
+        return service.findByPresentacionId(id);
+    }
 
-    public List<PrecioPorSucursal> preciosPorSucursalPorSucursalId(Long id){ return service.findBySucursalId(id);}
+    public List<PrecioPorSucursal> preciosPorSucursalPorSucursalId(Long id) {
+        return service.findBySucursalId(id);
+    }
 
-    public List<PrecioPorSucursal> preciosPorSucursal(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<PrecioPorSucursal> preciosPorSucursal(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public PrecioPorSucursal savePrecioPorSucursal(PrecioPorSucursalInput input){
-        PrecioPorSucursal precioAnterior = null;
+    public PrecioPorSucursal savePrecioPorSucursal(PrecioPorSucursalInput input) {
+        Double precioAnterior = null;
         if (input.getId() != null) {
-            precioAnterior = service.findById(input.getId()).orElse(null);
+            PrecioPorSucursal p = service.findById(input.getId()).orElse(null);
+            if (p != null) {
+                precioAnterior = p.getPrecio();
+            }
         }
         ModelMapper m = new ModelMapper();
         PrecioPorSucursal e = m.map(input, PrecioPorSucursal.class);
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
-        if(input.getPresentacionId()!=null){
+        if (input.getPresentacionId() != null) {
             e.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
         }
-        if(input.getTipoPrecioId()!=null){
+        if (input.getTipoPrecioId() != null) {
             e.setTipoPrecio(tipoPrecioService.findById(input.getTipoPrecioId()).orElse(null));
         }
         input.setSucursalId(Long.valueOf(env.getProperty("sucursalId")));
@@ -102,16 +111,17 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
         return e;
     }
 
-    public Boolean deletePrecioPorSucursal(Long id){
+    public Boolean deletePrecioPorSucursal(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
-    public Long countPrecioPorSucursal(){
+    public Long countPrecioPorSucursal() {
         return service.count();
     }
 
-    private void enviarNotificacionPrecioActualizado(PrecioPorSucursal precioActualizado, PrecioPorSucursal precioAnterior) {
+    private void enviarNotificacionPrecioActualizado(PrecioPorSucursal precioActualizado,
+            Double precioAnterior) {
         if (precioActualizado == null || precioActualizado.getPrecio() == null
                 || precioActualizado.getPresentacion() == null) {
             return;
@@ -133,7 +143,7 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
                     precioActualizado.getPresentacion(),
                     precioActualizado.getTipoPrecio(),
                     precioActualizado.getPrecio(),
-                    precioAnterior != null ? precioAnterior.getPrecio() : null,
+                    precioAnterior,
                     precioActualizado.getUsuario(),
                     precioActualizado.getSucursal(),
                     df);
@@ -160,7 +170,8 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
                     .map(p -> p.getProducto())
                     .orElse(null);
         } catch (Exception e) {
-            log.warn("No se pudo obtener el producto para la presentación {}: {}", precio.getPresentacion().getId(), e.getMessage());
+            log.warn("No se pudo obtener el producto para la presentación {}: {}", precio.getPresentacion().getId(),
+                    e.getMessage());
             return null;
         }
     }

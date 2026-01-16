@@ -33,6 +33,7 @@ type Producto {
     activo: Boolean
     lote: Boolean
     creadoEn: Date
+    productoUltimasCompras: [ProductoCompra]
 }
 
 input ProductoInput {

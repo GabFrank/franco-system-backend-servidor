@@ -50,7 +50,7 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
     }
 
     public Page<PedidoItem> findByPedidoIdAndTexto(Long id, String texto, Pageable page) {
-        return repository.findByPedidoIdAndProductoDescripcionLikeOrderByIdDesc(id, texto, page);
+        return repository.findByPedidoIdAndProductoFilterOrderByIdDesc(id, texto, page);
     }
 
     public List<PedidoItem> findByPedidoId(Long id) { 

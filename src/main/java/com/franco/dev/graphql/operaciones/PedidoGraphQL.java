@@ -489,4 +489,48 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             throw new GraphQLException("Error al obtener sucursales disponibles: " + e.getMessage());
         }
     }
+
+    /**
+     * Obtiene pedidos con filtros avanzados usando Criteria Builder
+     */
+    public Page<Pedido> pedidosWithFilters(Long sucursalId, Long productoId, Long proveedorId,
+                                           String estado, String creadoDesde, String creadoHasta,
+                                           Integer page, Integer size) {
+        try {
+            // Valores por defecto
+            if (page == null) page = 0;
+            if (size == null) size = 25;
+
+            Pageable pageable = PageRequest.of(page, size);
+
+            // Convertir fechas String a LocalDateTime
+            LocalDateTime fechaDesde = null;
+            LocalDateTime fechaHasta = null;
+
+            // Si no se proporcionan fechas, usar última semana por defecto
+            if (creadoDesde == null && creadoHasta == null) {
+                fechaHasta = LocalDateTime.now();
+                fechaDesde = fechaHasta.minusDays(7);
+            } else {
+                if (creadoDesde != null) {
+                    fechaDesde = stringToDate(creadoDesde);
+                }
+                if (creadoHasta != null) {
+                    fechaHasta = stringToDate(creadoHasta);
+                    // Si solo se proporciona fecha hasta, establecer hora al final del día
+                    if (fechaHasta != null) {
+                        fechaHasta = fechaHasta.withHour(23).withMinute(59).withSecond(59);
+                    }
+                }
+            }
+
+            return service.findPedidosWithFilters(sucursalId, productoId, proveedorId, estado,
+                    fechaDesde, fechaHasta, pageable);
+
+        } catch (Exception e) {
+            System.err.println("Error en pedidosWithFilters: " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al obtener pedidos con filtros: " + e.getMessage());
+        }
+    }
 }

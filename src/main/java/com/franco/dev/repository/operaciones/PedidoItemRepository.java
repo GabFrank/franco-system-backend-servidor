@@ -23,10 +23,41 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
     
     // ===== BASIC FILTERING METHODS =====
     public Page<PedidoItem> findByPedidoIdAndProductoDescripcionLikeOrderByIdDesc(Long id, String texto, Pageable page);
+    
+    /**
+     * Busca PedidoItems por pedidoId filtrando por id, descripción o código del producto
+     * @param id ID del pedido
+     * @param texto Texto para buscar en id, descripción o cualquier código del producto
+     * @param page Paginación
+     * @return Página de PedidoItems
+     */
+    @Query("SELECT DISTINCT pi FROM PedidoItem pi " +
+           "WHERE pi.pedido.id = :pedidoId " +
+           "AND (CAST(pi.producto.id AS string) LIKE :texto " +
+           "     OR UPPER(pi.producto.descripcion) LIKE UPPER(:texto) " +
+           "     OR EXISTS (SELECT 1 FROM Presentacion pres " +
+           "                WHERE pres.producto = pi.producto " +
+           "                AND EXISTS (SELECT 1 FROM Codigo c " +
+           "                           WHERE c.presentacion = pres " +
+           "                           AND UPPER(c.codigo) LIKE UPPER(:texto)))) " +
+           "ORDER BY pi.id DESC")
+    Page<PedidoItem> findByPedidoIdAndProductoFilterOrderByIdDesc(
+        @Param("pedidoId") Long id, 
+        @Param("texto") String texto, 
+        Pageable page
+    );
     // public Page<PedidoItem> findByProductoIdAndPedidoEstado(Long productoId, PedidoEstado estado, Pageable pageable);
     
     // ===== BASIC COUNTING METHODS =====
     public Integer countByPedidoId(Long id);
+    
+    /**
+     * Obtiene la lista de IDs de productos que ya están en el pedido
+     * @param pedidoId ID del pedido
+     * @return Lista de IDs de productos
+     */
+    @Query("SELECT DISTINCT pi.producto.id FROM PedidoItem pi WHERE pi.pedido.id = :pedidoId")
+    List<Long> findProductoIdsByPedidoId(@Param("pedidoId") Long pedidoId);
 
     // ===== DISTRIBUTION METHODS (PedidoItemDistribucion) =====
     /**

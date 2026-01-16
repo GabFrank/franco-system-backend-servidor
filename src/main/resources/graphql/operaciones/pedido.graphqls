@@ -51,6 +51,7 @@ extend type Query {
     pedidos(page:Int = 0, size:Int = 10):[Pedido]!
     # filterPedidos(idPedido:ID, numeroNotaRecepcion:Int, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
+    pedidosWithFilters(sucursalId: Int, productoId: Int, proveedorId: Int, estado: String, creadoDesde: String, creadoHasta: String, page: Int, size: Int): PedidoPage
     
     # New step tracking queries
     etapaActualDelPedido(pedidoId:ID!): String

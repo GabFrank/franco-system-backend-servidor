@@ -15,7 +15,9 @@ public class PedidoResumen {
 
     private Long cantidadItems;
 
-    private Double valorTotal;
+    private Double valorTotal; // Valor total de las notas de recepción (facturas recibidas)
+
+    private Double valorTotalPedido; // Valor total del pedido (suma de items × precios)
 
     // Nuevos campos para distribución
     private Long cantidadItemsConDistribucionCompleta;

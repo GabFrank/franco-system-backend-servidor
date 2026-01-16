@@ -148,7 +148,8 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         
         // Obtener datos básicos desde el repositorio
         Long cantidadItems = repository.getCantidadItemsByPedidoId(pedidoId);
-        Double valorTotal = repository.getValorTotalNotasRecepcionByPedidoId(pedidoId); // Usar valor de notas de recepción
+        Double valorTotal = repository.getValorTotalNotasRecepcionByPedidoId(pedidoId); // Valor de notas de recepción (facturas recibidas)
+        Double valorTotalPedido = repository.getValorTotalByPedidoId(pedidoId); // Valor total del pedido (suma de items × precios)
         
         // Obtener estadísticas de distribución
         Long cantidadItemsConDistribucionCompleta = repository.getCantidadItemsConDistribucionCompleta(pedidoId);
@@ -160,6 +161,7 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         resumen.setEtapaActual(etapaActual);
         resumen.setCantidadItems(cantidadItems != null ? cantidadItems : 0L);
         resumen.setValorTotal(valorTotal != null ? valorTotal : 0.0);
+        resumen.setValorTotalPedido(valorTotalPedido != null ? valorTotalPedido : 0.0);
         resumen.setCantidadItemsConDistribucionCompleta(cantidadItemsConDistribucionCompleta != null ? cantidadItemsConDistribucionCompleta : 0L);
         resumen.setCantidadItemsPendientesDistribucion(cantidadItemsPendientesDistribucion != null ? cantidadItemsPendientesDistribucion : 0L);
         

@@ -18,6 +18,7 @@ type PedidoResumen {
     etapaActual: ProcesoEtapa
     cantidadItems: Int
     valorTotal: Float
+    valorTotalPedido: Float
     cantidadItemsConDistribucionCompleta: Int
     cantidadItemsPendientesDistribucion: Int
 }

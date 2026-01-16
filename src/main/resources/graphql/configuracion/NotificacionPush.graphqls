@@ -27,3 +27,7 @@ input NotificacionPushInput {
 extend type Query {
     requestPushNotification(entity: NotificacionPushInput!): Boolean
 }
+
+extend type Mutation {
+    enviarNotificacionPersonalizada(titulo: String!, mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
+}

@@ -45,9 +45,11 @@ public class NotificationRoleService {
     public List<String> getRolesForVentaCredito() {
         return Arrays.asList(
                 "ADMIN",
+                "SOPORTE",
                 "ANALISIS FINANCIERO",
                 "ANALISIS CONTABLE",
-                "VENTA TOUCH");
+                "ANALISIS DE CAJA",
+                "ANALISIS DE VENTA");
     }
 
     public List<String> getRolesForFacturaAltoValor() {
@@ -55,14 +57,21 @@ public class NotificationRoleService {
                 "ADMIN",
                 "ANALISIS FINANCIERO",
                 "ANALISIS CONTABLE",
-                "ANALISIS DE CAJA");
+                "ANALISIS DE CAJA",
+                "ANALISIS DE VENTA");
     }
 
     public List<String> getRolesForAjusteStock() {
         return Arrays.asList(
                 "ADMIN",
                 "SOPORTE",
-                "ANALISIS DE VENTA");
+                "VER PRODUCTOS",
+                "CREAR INVENTARIO",
+                "VER MOVIMIENTO DE STOCK",
+                "EDITAR PRODUCTOS",
+                "CREAR PRECIOS",
+                "EDITAR PRECIOS",
+                "VER PRECIO COSTO");
     }
 
     public List<String> getRolesForProductoCreado() {
@@ -70,7 +79,12 @@ public class NotificationRoleService {
                 "ADMIN",
                 "SOPORTE",
                 "VER PRODUCTOS",
-                "ANALISIS DE VENTA");
+                "CREAR INVENTARIO",
+                "VER MOVIMIENTO DE STOCK",
+                "EDITAR PRODUCTOS",
+                "CREAR PRECIOS",
+                "EDITAR PRECIOS",
+                "VER PRECIO COSTO");
     }
 
     public List<String> getRolesForTransferenciaIniciada() {
@@ -78,14 +92,19 @@ public class NotificationRoleService {
                 "ADMIN",
                 "SOPORTE",
                 "VER TRANSFERENCIA",
-                "ANALISIS DE VENTA");
+                "VENTA TOUCH",
+                "CREAR TRANSFERENCIA",
+                "VER MOVIMIENTO DE STOCK");
     }
 
     public List<String> getRolesForCambioSucursalPreTransferencia() {
         return Arrays.asList(
                 "ADMIN",
                 "SOPORTE",
-                "VER TRANSFERENCIA");
+                "VER TRANSFERENCIA",
+                "VENTA TOUCH",
+                "CREAR TRANSFERENCIA",
+                "VER MOVIMIENTO DE STOCK");
     }
 
     public List<String> getRolesForAjusteCosto() {
@@ -94,7 +113,10 @@ public class NotificationRoleService {
                 "SOPORTE",
                 "ANALISIS DE VENTA",
                 "VER PRECIO COSTO",
-                "EDITAR PRODUCTOS");
+                "EDITAR PRODUCTOS",
+                "CREAR PRECIOS",
+                "EDITAR PRECIOS",
+                "VER PRECIO COSTO");
     }
 
     public List<String> getRolesForPrecioActualizado() {
@@ -104,7 +126,8 @@ public class NotificationRoleService {
                 "ANALISIS DE VENTA",
                 "VENTA TOUCH",
                 "CREAR PRECIOS",
-                "EDITAR PRECIOS");
+                "EDITAR PRECIOS",
+                "VER PRECIO COSTO");
     }
 
     public List<String> getRolesForInventarioIniciado() {
@@ -115,15 +138,19 @@ public class NotificationRoleService {
                 "CREAR INVENTARIO",
                 "PARTICIPAR DEL INVENTARIO",
                 "VER MOVIMIENTO DE STOCK",
-                "ANALISIS DE VENTA");
+                "EDITAR PRODUCTOS",
+                "CREAR PRECIOS",
+                "EDITAR PRECIOS",
+                "VER PRECIO COSTO");
     }
 
     public List<String> getRolesForGastoRetiro() {
         return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
                 "CANCELACION DE VENTA",
                 "ANALISIS DE CAJA",
                 "ANALISIS DE VENTA ADMIN",
-                "SOPORTE",
                 "ANALISIS FINANCIERO",
                 "ANALISIS CONTABLE");
     }

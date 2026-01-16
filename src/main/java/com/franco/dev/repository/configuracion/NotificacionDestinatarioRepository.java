@@ -95,35 +95,9 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
        List<NotificacionDestinatario> findNotificacionesDestinatariosByNotificacionId(
                      @Param("notificacionId") Long notificacionId);
 
-       @Query(value = "WITH notificacion_info AS (" +
-                     "    SELECT tipo " +
-                     "    FROM configuraciones.notificacion " +
-                     "    WHERE id = :notificacionId" +
-                     ")," +
-                     "roles_permitidos AS (" +
-                     "    SELECT role_id " +
-                     "    FROM configuraciones.notificacion_tipo_role ntr" +
-                     "    JOIN notificacion_info ni ON ntr.tipo_notificacion = ni.tipo" +
-                     ")," +
-                     "usuarios_por_roles AS (" +
-                     "    SELECT DISTINCT COALESCE(ur.user_id, ur.usuario_id) AS usuario_id" +
-                     "    FROM personas.usuario_role ur" +
-                     "    WHERE ur.role_id IN (SELECT role_id FROM roles_permitidos)" +
-                     "      AND (ur.user_id IS NOT NULL OR ur.usuario_id IS NOT NULL)" +
-                     ")," +
-                     "usuarios_destinatarios AS (" +
-                     "    SELECT DISTINCT usuario_id" +
-                     "    FROM configuraciones.notificacion_destinatario" +
-                     "    WHERE notificacion_id = :notificacionId" +
-                     ")" +
-                     "SELECT DISTINCT u.id " +
-                     "FROM personas.usuario u " +
-                     "WHERE u.id IN (" +
-                     "    SELECT usuario_id FROM usuarios_por_roles" +
-                     "    UNION" +
-                     "    SELECT usuario_id FROM usuarios_destinatarios" +
-                     ") " +
-                     "ORDER BY u.id", nativeQuery = true)
+       @Query(value = "SELECT DISTINCT usuario_id " +
+                     "FROM configuraciones.notificacion_destinatario " +
+                     "WHERE notificacion_id = :notificacionId", nativeQuery = true)
        List<Long> findUsuarioIdsConAccesoNotificacion(@Param("notificacionId") Long notificacionId);
 
 }

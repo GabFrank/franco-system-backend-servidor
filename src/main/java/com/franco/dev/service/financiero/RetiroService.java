@@ -75,20 +75,28 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
     @Autowired
     private NotificationTemplateService notificationTemplateService;
 
+    @Autowired
+    private com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService;
+
     @Override
     public Retiro save(Retiro entity) {
         Retiro e = super.save(entity);
         if (e.getResponsable() != null && e.getResponsable().getPersona() != null) {
-            Usuario usuario = usuarioService.findByPersonaId(e.getResponsable().getPersona().getId());
-            if (usuario != null) {
-                try {
-                    Sucursal sucursal = sucursalService.findById(e.getSucursalId()).orElse(null);
+            try {
+                Sucursal sucursal = sucursalService.findById(e.getSucursalId()).orElse(null);
+
+                List<Usuario> usuariosDestino = preferenciaService.obtenerUsuariosPorTipoNotificacion("RETIRO");
+
+                if (!usuariosDestino.isEmpty()) {
                     PushNotificationRequest request = notificationTemplateService.retiroRealizado(e, sucursal);
-                    request.setUsuarioIds(Collections.singletonList(usuario.getId()));
+                    List<Long> ids = usuariosDestino.stream().map(Usuario::getId)
+                            .collect(java.util.stream.Collectors.toList());
+                    request.setUsuarioIds(ids);
                     pushNotificationService.sendPushNotificationToToken(request);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
                 }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
         }
         return e;

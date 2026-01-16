@@ -17,6 +17,8 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
+import java.util.stream.Collectors;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 
@@ -53,6 +55,9 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     private PushNotificationService pushNotificationService;
     @Autowired
     private NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private NotificacionPreferenciaService preferenciaService;
 
     @Autowired
     private VentaCreditoRepositoryImpl ventaCreditoRepository;
@@ -111,11 +116,23 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
                 try {
                     Sucursal sucursal = sucursalService.findById(saved.getSucursalId()).orElse(null);
 
-                    PushNotificationRequest request = notificationTemplateService.ventaCreditoRealizada(saved, sucursal,
-                            df);
-                    request.setUsuarioIds(Collections.singletonList(usuario.getId()));
+                    // 1. Notificacion al Cliente (Compra a credito) - Solo al usuario especifico
+                    PushNotificationRequest requestCliente = notificationTemplateService
+                            .ventaCreditoRealizadaCliente(saved, sucursal, df);
+                    requestCliente.setUsuarioIds(Collections.singletonList(usuario.getId()));
+                    pushNotificationService.sendPushNotificationToToken(requestCliente);
 
-                    pushNotificationService.sendPushNotificationToToken(request);
+                    // 2. Notificacion a Roles Administrativos (Venta a credito) - A todo el mundo
+                    // con rol
+                    List<Usuario> usuariosAdmin = preferenciaService
+                            .obtenerUsuariosPorTipoNotificacion("VENTA_CREDITO");
+                    if (!usuariosAdmin.isEmpty()) {
+                        PushNotificationRequest requestAdmin = notificationTemplateService.ventaCreditoRealizada(saved,
+                                sucursal, df);
+                        List<Long> adminIds = usuariosAdmin.stream().map(Usuario::getId).collect(Collectors.toList());
+                        requestAdmin.setUsuarioIds(adminIds);
+                        pushNotificationService.sendPushNotificationToToken(requestAdmin);
+                    }
 
                 } catch (Exception e) {
 

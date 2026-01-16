@@ -11,4 +11,6 @@ public interface NotificacionTipoRoleRepository extends HelperRepository<Notific
     List<NotificacionTipoRole> findByRoleId(Long roleId);
 
     List<NotificacionTipoRole> findByRoleIdIn(List<Long> roleIds);
+
+    List<NotificacionTipoRole> findByTipoNotificacion(String tipoNotificacion);
 }

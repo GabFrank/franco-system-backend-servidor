@@ -124,20 +124,6 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
                 requestSeguridad.setUsuarioIds(java.util.Collections.singletonList(sesion.getUsuario().getId()));
                 pushNotificationService.sendPushNotificationToToken(requestSeguridad);
             }
-            String nombreUsuario = sesion.getUsuario().getPersona() != null
-                    && sesion.getUsuario().getPersona().getNombre() != null
-                            ? sesion.getUsuario().getPersona().getNombre()
-                            : sesion.getUsuario().getNickname();
-
-            com.franco.dev.fmc.model.PushNotificationRequest requestBienvenida = new com.franco.dev.fmc.model.PushNotificationRequest();
-            requestBienvenida.setTitle("SE HA INICIADO SESION EN SU CUENTA");
-            requestBienvenida
-                    .setMessage("BIENVENIDO " + (nombreUsuario != null ? nombreUsuario.toUpperCase() : "USUARIO"));
-            requestBienvenida.setData("/");
-            requestBienvenida.setType("LOGIN");
-            requestBienvenida.setUsuarioIds(java.util.Collections.singletonList(sesion.getUsuario().getId()));
-
-            pushNotificationService.sendPushNotificationToToken(requestBienvenida);
 
         } catch (Exception e) {
             System.err.println("[ERROR] Error al detectar/notificar inicio de sesión: " + e.getMessage());

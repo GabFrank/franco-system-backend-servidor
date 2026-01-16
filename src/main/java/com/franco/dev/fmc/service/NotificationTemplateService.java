@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 public class NotificationTemplateService {
 
     public PushNotificationRequest gastoRealizado(Gasto gasto, Sucursal sucursal, DecimalFormat decimalFormat) {
-        PushNotificationRequest request = base("Gasto realizado", buildGastoMessage(gasto, sucursal, decimalFormat));
+        PushNotificationRequest request = base("GASTO REALIZADO", buildGastoMessage(gasto, sucursal, decimalFormat));
         request.setType("GASTO");
         request.setData("/financiero/gastos/" + (gasto.getId() != null ? gasto.getId() : ""));
         return request;
@@ -34,7 +34,7 @@ public class NotificationTemplateService {
                 .append(decimalFormat.format(ventaCredito.getValorTotal()))
                 .append(" GS.");
         PushNotificationRequest request = base("VENTA A CRÉDITO REALIZADA", builder.toString());
-        request.setType("VENTA_CREDITO");
+        request.setType("VENTA_CREDITO_CLIENTE");
         request.setData("/mis-finanzas/list-convenio/" + ventaCredito.getId() + "/" + ventaCredito.getSucursalId());
         return request;
     }
@@ -273,7 +273,7 @@ public class NotificationTemplateService {
                 .append(decimalFormat.format(ventaCredito.getValorTotal()))
                 .append(" GS HA SIDO REGISTRADA EXITOSAMENTE.");
         PushNotificationRequest request = base("COMPRA A CRÉDITO REGISTRADA", builder.toString());
-        request.setType("VENTA_CREDITO_CLIENTE");
+        request.setType("VENTA_CREDITO");
         request.setData("/mis-compras/credito/" + ventaCredito.getId() + "/" + ventaCredito.getSucursalId());
         return request;
     }
@@ -281,7 +281,7 @@ public class NotificationTemplateService {
     public PushNotificationRequest facturaAltoValor(Long facturaId, Long sucursalId, Sucursal sucursal,
             Double valorTotal, String clienteNombre, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
-        builder.append("SE HA EMITIDO UNA FACTURA DE ALTO VALOR (≥3.000.000 Gs) EN LA SUCURSAL ")
+        builder.append("SE HA EMITIDO UNA FACTURA DE ALTO VALOR EN LA SUCURSAL ")
                 .append(sucursal != null ? sucursal.getNombre() : "")
                 .append(" POR EL VALOR DE ")
                 .append(decimalFormat.format(valorTotal))
@@ -297,7 +297,7 @@ public class NotificationTemplateService {
             Sucursal sucursalAnterior,
             Sucursal sucursalNueva, boolean esOrigen) {
         StringBuilder builder = new StringBuilder();
-        builder.append("CAMBIO DE SUCURSAL EN PRE-TRANSFERENCIA #").append(transferencia.getId());
+        builder.append("CAMBIO DE SUCURSAL EN PRE-TRANSFERENCIA").append(transferencia.getId());
         builder.append(". ");
         builder.append(esOrigen ? "ORIGEN" : "DESTINO");
         builder.append(" CAMBIADO DE ");
@@ -323,7 +323,7 @@ public class NotificationTemplateService {
         if (nombreSucursal != null) {
             builder.append(" en la sucursal ").append(nombreSucursal);
         }
-        builder.append(". ¿FUE TÚ? SI NO RECONOCE ESTA ACTIVIDAD, CAMBIA TU CONTRASEÑA INMEDIATAMENTE.");
+        builder.append(". ¿FUISTE TÚ? SI NO RECONOCE ESTA ACTIVIDAD, CAMBIA TU CONTRASEÑA INMEDIATAMENTE.");
 
         PushNotificationRequest request = base("NUEVO DISPOSITIVO DETECTADO", builder.toString());
         request.setType("NUEVO_DISPOSITIVO");

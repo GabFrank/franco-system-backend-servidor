@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -40,6 +41,9 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
     @Autowired
     private PedidoItemDistribucionService pedidoItemDistribucionService;
 
+    @Autowired
+    private NotaRecepcionItemService notaRecepcionItemService;
+
     // ===== BASIC METHODS =====
     public List<PedidoItem> findByProductoId(Long id) { 
         return repository.findByProductoId(id); 
@@ -62,6 +66,17 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         PedidoItem e = null;
         boolean isNewItem = entity.getId() == null;
         
+        // Obtener el item original antes de guardar (para comparación en actualizaciones)
+        PedidoItem originalItem = null;
+        Double cantidadSolicitadaOriginal = null;
+        if (!isNewItem && entity.getId() != null) {
+            Optional<PedidoItem> originalOpt = repository.findById(entity.getId());
+            if (originalOpt.isPresent()) {
+                originalItem = originalOpt.get();
+                cantidadSolicitadaOriginal = originalItem.getCantidadSolicitada();
+            }
+        }
+        
         if(isNewItem) {
             entity.setCreadoEn(LocalDateTime.now());
         }
@@ -71,6 +86,11 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         // **NEW LOGIC**: Create PedidoItemDistribucion automatically for new items
         if(isNewItem && entity.getPedido() != null) {
             createPedidoItemDistribucionForNewItem(e);
+        }
+        
+        // **NEW LOGIC**: Update PedidoItemDistribucion automatically for existing items in safe cases
+        if (!isNewItem && entity.getPedido() != null && cantidadSolicitadaOriginal != null) {
+            updatePedidoItemDistribucionForExistingItem(e, cantidadSolicitadaOriginal);
         }
         
         return e;
@@ -123,6 +143,84 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         } catch (Exception ex) {
             // Log the error but don't break the main PedidoItem saving process
             System.err.println("Error creating PedidoItemDistribucion for PedidoItem " + pedidoItem.getId() + ": " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    /**
+     * Actualiza automáticamente las distribuciones de un PedidoItem existente
+     * Solo en el caso seguro: 1 sucursal de influencia, 1 sucursal de entrega,
+     * distribución nunca editada manualmente, y sin NotaRecepcionItem asociados
+     * 
+     * @param pedidoItem PedidoItem actualizado
+     * @param cantidadSolicitadaOriginal Cantidad solicitada original antes de la actualización
+     */
+    private void updatePedidoItemDistribucionForExistingItem(PedidoItem pedidoItem, Double cantidadSolicitadaOriginal) {
+        try {
+            Long pedidoId = pedidoItem.getPedido().getId();
+            Long pedidoItemId = pedidoItem.getId();
+            Double nuevaCantidadSolicitada = pedidoItem.getCantidadSolicitada();
+            
+            // Validaciones básicas
+            if (pedidoId == null || pedidoItemId == null || nuevaCantidadSolicitada == null || cantidadSolicitadaOriginal == null) {
+                return;
+            }
+            
+            // Si la cantidad no cambió, no hay nada que actualizar
+            if (Math.abs(nuevaCantidadSolicitada - cantidadSolicitadaOriginal) < 0.001) {
+                return;
+            }
+            
+            // Verificar que no haya NotaRecepcionItem asociados
+            // Si hay NotaRecepcionItem, no actualizar automáticamente porque pueden depender de la distribución actual
+            List<com.franco.dev.domain.operaciones.NotaRecepcionItem> notaRecepcionItems = 
+                notaRecepcionItemService.findByPedidoItemId(pedidoItemId);
+            if (notaRecepcionItems != null && !notaRecepcionItems.isEmpty()) {
+                return; // Hay NotaRecepcionItem asociados, no actualizar automáticamente
+            }
+            
+            // Get sucursales de influencia y entrega
+            List<PedidoSucursalInfluencia> sucursalesInfluencia = 
+                pedidoSucursalInfluenciaService.findByPedidoId(pedidoId);
+            List<PedidoSucursalEntrega> sucursalesEntrega = 
+                pedidoSucursalEntregaService.findByPedidoId(pedidoId);
+            
+            // Solo actualizar automáticamente si hay exactamente 1 sucursal de influencia y 1 sucursal de entrega
+            if (sucursalesInfluencia.size() != 1 || sucursalesEntrega.size() != 1) {
+                return; // Caso múltiple, requiere distribución manual
+            }
+            
+            // Obtener las distribuciones existentes
+            List<PedidoItemDistribucion> distribucionesExistentes = 
+                pedidoItemDistribucionService.findByPedidoItemId(pedidoItemId);
+            
+            // Debe haber exactamente 1 distribución (1 sucursal influencia x 1 sucursal entrega = 1 combinación)
+            if (distribucionesExistentes == null || distribucionesExistentes.size() != 1) {
+                return; // No hay distribución o hay múltiples, no actualizar automáticamente
+            }
+            
+            PedidoItemDistribucion distribucion = distribucionesExistentes.get(0);
+            Double cantidadAsignadaActual = distribucion.getCantidadAsignada();
+            
+            // Verificar que la distribución nunca fue editada manualmente
+            // Si cantidadAsignadaActual == cantidadSolicitadaOriginal, significa que sigue siendo automática
+            // Usamos una tolerancia pequeña para manejar errores de punto flotante
+            double tolerancia = 0.001;
+            boolean distribucionEsAutomatica = cantidadAsignadaActual != null && 
+                Math.abs(cantidadAsignadaActual - cantidadSolicitadaOriginal) <= tolerancia;
+            
+            if (!distribucionEsAutomatica) {
+                return; // La distribución fue editada manualmente, no actualizar automáticamente
+            }
+            
+            // Caso seguro: actualizar proporcionalmente la cantidad asignada
+            // Como solo hay 1 distribución y 1-1 sucursales, simplemente actualizamos a la nueva cantidad
+            distribucion.setCantidadAsignada(nuevaCantidadSolicitada);
+            pedidoItemDistribucionService.save(distribucion);
+            
+        } catch (Exception ex) {
+            // Log the error but don't break the main PedidoItem saving process
+            System.err.println("Error updating PedidoItemDistribucion for PedidoItem " + pedidoItem.getId() + ": " + ex.getMessage());
             ex.printStackTrace();
         }
     }

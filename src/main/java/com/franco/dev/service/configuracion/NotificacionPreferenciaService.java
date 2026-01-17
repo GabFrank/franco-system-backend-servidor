@@ -60,11 +60,6 @@ public class NotificacionPreferenciaService {
 
             if (pref.isPresent()) {
                 habilitado = pref.get().getHabilitado();
-                log.info("Found preference for user {} type {}: {}. EsObligatorio: {}", usuario.getId(),
-                        tipoRole.getTipoNotificacion(), habilitado, tipoRole.getEsObligatorio());
-            } else {
-                log.info("No preference found for user {} type {}. Defaulting to true. EsObligatorio: {}",
-                        usuario.getId(), tipoRole.getTipoNotificacion(), tipoRole.getEsObligatorio());
             }
 
             if (tipoRole.getEsObligatorio()) {
@@ -142,5 +137,18 @@ public class NotificacionPreferenciaService {
             }
         }
         return new ArrayList<>(usuariosSet);
+    }
+
+    public Set<Long> getUsuariosConNotificacionDeshabilitada(String tipoNotificacion, List<Long> usuarioIds) {
+        if (usuarioIds == null || usuarioIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+        List<NotificacionPreferenciaUsuario> prefs = preferenciaUsuarioRepository
+                .findByTipoNotificacionAndUsuarioIdIn(tipoNotificacion, usuarioIds);
+
+        return prefs.stream()
+                .filter(p -> !p.getHabilitado())
+                .map(p -> p.getUsuario().getId())
+                .collect(Collectors.toSet());
     }
 }

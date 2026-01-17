@@ -138,22 +138,26 @@ public class PushNotificationService {
             List<com.franco.dev.domain.configuracion.InicioSesion> sesiones = inicioSesionService
                     .findSessionsWithValidTokensByUsuarioIds(request.getUsuarioIds());
 
+            List<Long> userIds = sesiones.stream()
+                    .map(s -> s.getUsuario() != null ? s.getUsuario().getId() : null)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            Set<Long> blockedUsers = preferenciaService.getUsuariosConNotificacionDeshabilitada(tipoNotificacion,
+                    userIds);
+
             sesiones.forEach(session -> {
                 String token = session.getToken();
                 Long usuarioId = session.getUsuario() != null ? session.getUsuario().getId() : null;
 
                 if (usuarioId != null) {
-                    // VERIFICAR PREFERENCIAS DEL USUARIO
-                    if (preferenciaService.isNotificacionHabilitada(usuarioId, tipoNotificacion)) {
+                    if (!blockedUsers.contains(usuarioId)) {
                         if (token != null && dedup.add(token)) {
                             targets.add(new Target(usuarioId, token));
                         }
-                    } else {
-                        LOGGER.debug("Notificación tipo '{}' bloqueada por preferencia de usuario id: {}",
-                                tipoNotificacion, usuarioId);
                     }
                 } else if (token != null && dedup.add(token)) {
-                    // Caso borde: Sesión sin usuario asignado pero con token
                     targets.add(new Target(null, token));
                 }
             });

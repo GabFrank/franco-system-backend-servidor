@@ -282,11 +282,8 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
                         }
                     }
                 } catch (Exception e) {
-                    System.err.println("ERROR al procesar menciones: " + e.getMessage());
                     e.printStackTrace();
                 }
-            } else {
-                System.out.println("DEBUG: pushNotificationService es null");
             }
 
             return comentarioEntity;

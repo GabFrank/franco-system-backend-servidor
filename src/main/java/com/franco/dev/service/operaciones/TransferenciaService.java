@@ -89,8 +89,7 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
 
         Transferencia e = super.save(entity);
 
-        // Publicar evento si hubo actualización (la lógica de notificación se mueve al
-        // Listener)
+        // Publicar evento si hubo actualización
         if (isUpdate) {
             publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaCambioSucursalEvent(this, e,
                     oldSucursalOrigen, oldSucursalDestino));
@@ -98,7 +97,6 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
             publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaIniciadaEvent(this, e));
         }
 
-        // personaPublisher.publish(p);
         return e;
     }
 }

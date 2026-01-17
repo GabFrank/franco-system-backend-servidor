@@ -133,31 +133,20 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Boolean notificarInicioSesion(Long usuarioId) {
-        System.out.println("[DEBUG] ===== INICIO notificarInicioSesion =====");
-        System.out.println("[DEBUG] Usuario ID recibido: " + usuarioId);
-
         try {
             if (usuarioId == null) {
-                System.out.println("[DEBUG] Usuario ID es null, retornando false");
                 return false;
             }
 
             com.franco.dev.domain.personas.Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
 
             if (usuario == null) {
-                System.out.println("[DEBUG] Usuario no encontrado con ID: " + usuarioId);
                 return false;
             }
-
-            System.out.println("[DEBUG] Usuario encontrado: " +
-                    (usuario.getPersona() != null ? usuario.getPersona().getNombre() : "Sin persona") +
-                    " / " + usuario.getNickname());
 
             String nombreUsuario = usuario.getPersona() != null && usuario.getPersona().getNombre() != null
                     ? usuario.getPersona().getNombre()
                     : usuario.getNickname();
-
-            System.out.println("[DEBUG] Nombre para notificación: " + nombreUsuario);
 
             com.franco.dev.fmc.model.PushNotificationRequest requestBienvenida = new com.franco.dev.fmc.model.PushNotificationRequest();
             requestBienvenida.setTitle("SE HA INICIADO SESION EN SU CUENTA");
@@ -167,17 +156,12 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             requestBienvenida.setType("LOGIN");
             requestBienvenida.setUsuarioIds(java.util.Collections.singletonList(usuarioId));
 
-            System.out.println("[DEBUG] Enviando notificación push...");
             pushNotificationService.sendPushNotificationToToken(requestBienvenida);
-            System.out.println("[DEBUG] Notificación enviada exitosamente");
 
             return true;
         } catch (Exception e) {
-            System.err.println("[ERROR] Error al notificar inicio de sesión: " + e.getMessage());
             e.printStackTrace();
             return false;
-        } finally {
-            System.out.println("[DEBUG] ===== FIN notificarInicioSesion =====");
         }
     }
 

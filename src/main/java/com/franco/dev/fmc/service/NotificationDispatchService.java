@@ -40,15 +40,19 @@ public class NotificationDispatchService {
     @Value("${app.notifications.max-attempts:5}")
     private int maxAttempts;
 
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
     public NotificationDispatchService(
             NotificacionEnvioLogRepository notificacionEnvioLogRepository,
             FCMService fcmService,
             InicioSesionService inicioSesionService,
-            Optional<MeterRegistry> meterRegistry) {
+            Optional<MeterRegistry> meterRegistry,
+            org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
         this.fcmService = fcmService;
         this.inicioSesionService = inicioSesionService;
         this.meterRegistry = meterRegistry;
+        this.transactionTemplate = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
     }
 
     @Scheduled(fixedDelayString = "${app.notifications.dispatch-interval:5000}")
@@ -62,17 +66,12 @@ public class NotificationDispatchService {
     }
 
     protected void dispatchInternal() {
-        List<NotificacionEnvioLog> pendientes = notificacionEnvioLogRepository.findBatchByEstado(
-                EstadoEnvio.PENDIENTE, PageRequest.of(0, batchSize));
-        if (pendientes.isEmpty()) {
+        List<NotificacionEnvioLog> batch = fetchAndLockBatch();
+        if (batch.isEmpty()) {
             return;
         }
-        for (NotificacionEnvioLog target : pendientes) {
-            target.setEstadoEnvio(EstadoEnvio.EN_PROCESO);
-        }
-        notificacionEnvioLogRepository.saveAll(pendientes);
 
-        for (NotificacionEnvioLog target : pendientes) {
+        for (NotificacionEnvioLog target : batch) {
             Notificacion notificacion = target.getNotificacion();
             PushNotificationRequest request = new PushNotificationRequest();
             request.setTitle(notificacion.getTitulo());
@@ -84,6 +83,22 @@ public class NotificationDispatchService {
             handleResult(target, notificacion, result);
             notificacionEnvioLogRepository.save(target);
         }
+    }
+
+    private synchronized List<NotificacionEnvioLog> fetchAndLockBatch() {
+        return transactionTemplate.execute(status -> {
+            List<NotificacionEnvioLog> pendientes = notificacionEnvioLogRepository.findBatchByEstado(
+                    EstadoEnvio.PENDIENTE, PageRequest.of(0, batchSize));
+
+            if (pendientes.isEmpty()) {
+                return java.util.Collections.emptyList();
+            }
+
+            for (NotificacionEnvioLog target : pendientes) {
+                target.setEstadoEnvio(EstadoEnvio.EN_PROCESO);
+            }
+            return notificacionEnvioLogRepository.saveAll(pendientes);
+        });
     }
 
     private void handleResult(NotificacionEnvioLog target, Notificacion notificacion, DeliveryResult result) {

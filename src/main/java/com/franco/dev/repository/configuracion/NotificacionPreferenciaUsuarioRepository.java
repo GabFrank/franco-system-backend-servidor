@@ -8,7 +8,10 @@ import java.util.Optional;
 
 @Repository
 public interface NotificacionPreferenciaUsuarioRepository
-        extends HelperRepository<NotificacionPreferenciaUsuario, Long> {
-    Optional<NotificacionPreferenciaUsuario> findByUsuarioIdAndTipoNotificacion(Long usuarioId,
-            String tipoNotificacion);
+                extends HelperRepository<NotificacionPreferenciaUsuario, Long> {
+        Optional<NotificacionPreferenciaUsuario> findByUsuarioIdAndTipoNotificacion(Long usuarioId,
+                        String tipoNotificacion);
+
+        java.util.List<NotificacionPreferenciaUsuario> findByTipoNotificacionAndUsuarioIdIn(String tipoNotificacion,
+                        java.util.List<Long> usuarioIds);
 }

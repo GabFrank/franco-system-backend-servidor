@@ -7,14 +7,12 @@ import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.repository.empresarial.SucursalRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
+
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import com.franco.dev.domain.personas.Usuario;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import java.util.List;
 
 @Component
@@ -24,13 +22,28 @@ public class TransferenciaNotificationListener {
     private final PushNotificationService pushNotificationService;
     private final NotificationTemplateService notificationTemplateService;
     private final NotificationRoleService notificationRoleService;
-    private final com.franco.dev.repository.personas.UsuarioRepository usuarioRepository;
+    private final com.franco.dev.repository.operaciones.TransferenciaRepository transferenciaRepository;
+    private final SucursalRepository sucursalRepository;
 
+    @org.springframework.scheduling.annotation.Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void onTransferenciaCambioSucursal(TransferenciaCambioSucursalEvent event) {
-        Transferencia newTransferencia = event.getTransferencia();
+        Long transferenciaId = event.getTransferencia().getId();
+        Transferencia newTransferencia = transferenciaRepository.findById(transferenciaId).orElse(null);
+
+        if (newTransferencia == null)
+            return;
+
         Sucursal oldSucursalOrigen = event.getOldSucursalOrigen();
+        if (oldSucursalOrigen != null) {
+            oldSucursalOrigen = sucursalRepository.findById(oldSucursalOrigen.getId()).orElse(null);
+        }
+
         Sucursal oldSucursalDestino = event.getOldSucursalDestino();
+        if (oldSucursalDestino != null) {
+            oldSucursalDestino = sucursalRepository.findById(oldSucursalDestino.getId()).orElse(null);
+        }
 
         try {
             // Verificar cambio en Sucursal Origen
@@ -75,11 +88,22 @@ public class TransferenciaNotificationListener {
         }
     }
 
+    @org.springframework.scheduling.annotation.Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void onTransferenciaIniciada(com.franco.dev.fmc.event.TransferenciaIniciadaEvent event) {
         try {
-            Transferencia transferencia = event.getTransferencia();
-            sendTransferenciaIniciadaNotification(transferencia);
+            Long transferenciaId = event.getTransferencia().getId();
+            Transferencia transferencia = transferenciaRepository.findById(transferenciaId).orElse(null);
+
+            if (transferencia != null) {
+                // Initialize Lazy Objects safely within Transaction
+                if (transferencia.getSucursalOrigen() != null)
+                    transferencia.getSucursalOrigen().getNombre();
+                if (transferencia.getSucursalDestino() != null)
+                    transferencia.getSucursalDestino().getNombre();
+                sendTransferenciaIniciadaNotification(transferencia);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -90,11 +114,8 @@ public class TransferenciaNotificationListener {
             return;
 
         try {
-            List<Long> usuarioIds = usuarioRepository.findAll()
-                    .stream()
-                    .map(Usuario::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+            List<String> roles = notificationRoleService.getRolesForTransferenciaIniciada();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
             if (usuarioIds.isEmpty()) {
                 return;

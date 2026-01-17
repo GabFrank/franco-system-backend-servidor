@@ -1,34 +1,23 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Retiro;
-import com.franco.dev.domain.personas.Cliente;
-import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.RetiroRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
-
-import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.fmc.model.PushNotificationRequest;
-import com.franco.dev.fmc.service.NotificationTemplateService;
-import com.franco.dev.fmc.service.PushNotificationService;
-import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.personas.UsuarioService;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Service
 @AllArgsConstructor
 public class RetiroService extends CrudService<Retiro, RetiroRepository, EmbebedPrimaryKey> {
 
     private final RetiroRepository repository;
+    private final ApplicationEventPublisher publisher;
 
     @Override
     public RetiroRepository getRepository() {
@@ -63,42 +52,10 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
         return repository.findByIdAndSucursalId(id, sucId);
     }
 
-    @Autowired
-    private UsuarioService usuarioService;
-
-    @Autowired
-    private SucursalService sucursalService;
-
-    @Autowired
-    private PushNotificationService pushNotificationService;
-
-    @Autowired
-    private NotificationTemplateService notificationTemplateService;
-
-    @Autowired
-    private com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService;
-
     @Override
     public Retiro save(Retiro entity) {
         Retiro e = super.save(entity);
-        if (e.getResponsable() != null && e.getResponsable().getPersona() != null) {
-            try {
-                Sucursal sucursal = sucursalService.findById(e.getSucursalId()).orElse(null);
-
-                List<Usuario> usuariosDestino = preferenciaService.obtenerUsuariosPorTipoNotificacion("RETIRO");
-
-                if (!usuariosDestino.isEmpty()) {
-                    PushNotificationRequest request = notificationTemplateService.retiroRealizado(e, sucursal);
-                    List<Long> ids = usuariosDestino.stream().map(Usuario::getId)
-                            .collect(java.util.stream.Collectors.toList());
-                    request.setUsuarioIds(ids);
-                    pushNotificationService.sendPushNotificationToToken(request);
-                }
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
+        publisher.publishEvent(new com.franco.dev.fmc.event.RetiroRealizadoEvent(this, e));
         return e;
     }
 }

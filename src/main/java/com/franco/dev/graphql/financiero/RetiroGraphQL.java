@@ -1,20 +1,14 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
-import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.financiero.Banco;
-import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.Retiro;
-import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.RetiroDetalleInput;
 import com.franco.dev.graphql.financiero.input.RetiroInput;
-import com.franco.dev.service.financiero.BancoService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.financiero.RetiroService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.impresion.ImpresionService;
-import com.franco.dev.service.impresion.dto.RetiroDto;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;

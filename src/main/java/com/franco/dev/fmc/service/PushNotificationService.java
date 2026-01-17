@@ -149,7 +149,7 @@ public class PushNotificationService {
                             targets.add(new Target(usuarioId, token));
                         }
                     } else {
-                        LOGGER.info("Notificación tipo '{}' bloqueada por preferencia de usuario id: {}",
+                        LOGGER.debug("Notificación tipo '{}' bloqueada por preferencia de usuario id: {}",
                                 tipoNotificacion, usuarioId);
                     }
                 } else if (token != null && dedup.add(token)) {

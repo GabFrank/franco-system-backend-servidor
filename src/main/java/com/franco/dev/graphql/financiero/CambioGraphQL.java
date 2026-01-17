@@ -56,96 +56,52 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private InicioSesionService inicioSesionService;
 
-    public Optional<Cambio> cambio(Long id) {return service.findById(id);}
+    public Optional<Cambio> cambio(Long id) {
+        return service.findById(id);
+    }
 
-    public List<Cambio> cambios(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Cambio> cambios(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public Cambio ultimoCambioPorMonedaId(Long id){
+    public Cambio ultimoCambioPorMonedaId(Long id) {
         return service.findLastByMonedaId(id);
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
 
-    public Cambio saveCambio(CambioInput input, List<Long> sucursalesIdList){
+    public Cambio saveCambio(CambioInput input, List<Long> sucursalesIdList) {
         ModelMapper m = new ModelMapper();
         Cambio e = m.map(input, Cambio.class);
-        if(input.getMonedaId()!=null){
+        if (input.getMonedaId() != null) {
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }
-        if(input.getUsuarioId()!=null){
+        if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         e = service.save(e);
-        
-        // Enviar notificación push sobre la actualización de cotización
-        try {
-            enviarNotificacionCotizacion(e);
-        } catch (Exception ex) {
-            // Silent notification error - no afecta la operación principal
-        }
-        
+
+        publisher.publishEvent(new com.franco.dev.fmc.event.CotizacionActualizadaEvent(this, e));
+
         return e;
     }
 
-    private void enviarNotificacionCotizacion(Cambio cambio) {
-        if (cambio == null || cambio.getMoneda() == null) {
-            return;
-        }
-
-        try {
-            Moneda moneda = cambio.getMoneda();
-            String denominacion = moneda.getDenominacion() != null ? moneda.getDenominacion() : "Moneda";
-            String simbolo = moneda.getSimbolo() != null ? moneda.getSimbolo() : "";
-            
-            // Usar el template service para crear la notificación
-            PushNotificationRequest request = notificationTemplateService.cotizacionActualizada(
-                denominacion,
-                simbolo,
-                cambio.getValorEnGs()
-            );
-
-            if (request == null) {
-                return;
-            }
-
-            // Obtener TODOS los usuarios activos (con sesiones válidas)
-            List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = 
-                inicioSesionService.findSessionsWithValidTokens();
-            
-            List<Long> usuariosIds = sesionesActivas.stream()
-                .filter(s -> s.getUsuario() != null)
-                .map(s -> s.getUsuario().getId())
-                .distinct()
-                .collect(Collectors.toList());
-
-            if (usuariosIds.isEmpty()) {
-                return;
-            }
-
-            // Enviar a todos los usuarios activos
-            request.setUsuarioIds(usuariosIds);
-            pushNotificationService.sendPushNotificationToToken(request);
-        } catch (Exception e) {
-            // Silent error - no afecta la operación principal
-        }
-    }
-
-    public List<Cambio> cambioPorFecha(String start, String end){
-        if (end == null){
+    public List<Cambio> cambioPorFecha(String start, String end) {
+        if (end == null) {
             end = start;
         }
         return service.findByDate(start, end);
     }
 
-    public Boolean deleteCambio(Long id){
+    public Boolean deleteCambio(Long id) {
         Boolean ok = service.deleteById(id);
-        return ok;        }
-
-    public Long countCambio(){
-        return service.count();
+        return ok;
     }
 
+    public Long countCambio() {
+        return service.count();
+    }
 
 }

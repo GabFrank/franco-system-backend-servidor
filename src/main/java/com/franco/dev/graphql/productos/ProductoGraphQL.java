@@ -142,16 +142,15 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findAllForPdv();
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     public Producto saveProducto(ProductoInput input) {
         boolean isNewProduct = (input.getId() == null);
 
         Producto e = service.save(input);
         if (isNewProduct) {
-            try {
-                enviarNotificacionProductoCreado(e);
-            } catch (Throwable t) {
-                // Silent notification error
-            }
+            publisher.publishEvent(new com.franco.dev.fmc.event.ProductoCreadoEvent(this, e));
         }
         return e;
     }
@@ -184,8 +183,6 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Producto productoPorCodigo(String texto) {
         return service.findByCodigo(texto);
     }
-
-    ;
 
     public Boolean saveImagenProducto(String image, String filename) throws IOException {
         return false;
@@ -241,11 +238,11 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
         if (sucursalIdList != null && sucursalIdList.size() > 0) {
             filtro.append("Sucursales: ");
-        }
-        for (Long sucId : sucursalIdList) {
-            Sucursal suc = sucursalService.findById(sucId).orElse(null);
-            if (suc != null)
-                filtro.append(suc.getNombre() + " , ");
+            for (Long sucId : sucursalIdList) {
+                Sucursal suc = sucursalService.findById(sucId).orElse(null);
+                if (suc != null)
+                    filtro.append(suc.getNombre() + " , ");
+            }
         }
         List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin,
                 sucursalIdList, usuarioIdList, productoIdList);
@@ -260,42 +257,6 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             return true;
         } else {
             return false;
-        }
-    }
-
-    private void enviarNotificacionProductoCreado(Producto producto) {
-        if (producto == null) {
-            return;
-        }
-
-        try {
-            List<String> roles = notificationRoleService.getRolesForProductoCreado();
-            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
-
-            if (usuarioIds.isEmpty()) {
-                return;
-            }
-            Sucursal sucursal = null;
-            if (env != null && sucursalService != null) {
-                try {
-                    String sucursalIdStr = env.getProperty("sucursalId");
-                    if (sucursalIdStr != null) {
-                        Long sucursalId = Long.valueOf(sucursalIdStr);
-                        Optional<Sucursal> optSuc = sucursalService.findById(sucursalId);
-                        if (optSuc != null && optSuc.isPresent()) {
-                            sucursal = optSuc.get();
-                        }
-                    }
-                } catch (Exception e) {
-                }
-            }
-            PushNotificationRequest request = notificationTemplateService.productoCreado(producto, sucursal);
-            if (request != null) {
-                request.setUsuarioIds(usuarioIds);
-                pushNotificationService.sendPushNotificationToToken(request);
-            }
-        } catch (Exception e) {
-            // Silent notification error
         }
     }
 }

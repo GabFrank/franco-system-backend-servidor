@@ -1,26 +1,16 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
-import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.fmc.model.PushNotificationRequest;
-import com.franco.dev.fmc.service.NotificationTemplateService;
-import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.personas.UsuarioService;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -29,6 +19,7 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPrimaryKey> {
 
     private final GastoRepository repository;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -36,26 +27,6 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     public GastoRepository getRepository() {
         return repository;
     }
-
-    @Autowired
-    private MonedaService monedaService;
-
-    @Autowired
-    private MovimientoCajaService movimientoCajaService;
-
-    @Autowired
-    private CambioService cambioService;
-
-    @Autowired
-    private UsuarioService usuarioService;
-
-    @Autowired
-    private SucursalService sucursalService;
-
-    @Autowired
-    private PushNotificationService pushNotificationService;
-    @Autowired
-    private NotificationTemplateService notificationTemplateService;
 
     public List<Gasto> findByDate(String inicio, String fin, Long sucId) {
         return repository.findBySucursalIdAndCreadoEnBetween(sucId, stringToDate(inicio), stringToDate(fin));
@@ -82,19 +53,7 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     @Override
     public Gasto save(Gasto entity) {
         Gasto e = super.save(entity);
-        if (entity.getResponsable() != null && entity.getResponsable().getPersona() != null) {
-            Usuario usuario = usuarioService.findByPersonaId(entity.getResponsable().getPersona().getId());
-            if (usuario != null) {
-                try {
-                    Sucursal sucursal = sucursalService.findById(entity.getSucursalId()).orElse(null);
-                    PushNotificationRequest request = notificationTemplateService.gastoRealizado(entity, sucursal, df);
-                    request.setUsuarioIds(Collections.singletonList(usuario.getId()));
-                    pushNotificationService.sendPushNotificationToToken(request);
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }
+        publisher.publishEvent(new com.franco.dev.fmc.event.GastoRealizadoEvent(this, e));
         return e;
     }
 }

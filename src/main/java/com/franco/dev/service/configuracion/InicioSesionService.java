@@ -28,12 +28,21 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         return repository.findAll();
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     @Override
     public InicioSesion save(InicioSesion entity) {
-        if (entity.getId() == null) {
+        boolean isNew = entity.getId() == null;
+        if (isNew) {
             entity.setCreadoEn(LocalDateTime.now());
         }
         InicioSesion e = super.save(entity);
+
+        if (isNew) {
+            publisher.publishEvent(new com.franco.dev.fmc.event.InicioSesionCreadoEvent(this, e));
+        }
+
         return e;
     }
 

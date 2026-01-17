@@ -10,6 +10,8 @@ import com.franco.dev.repository.operaciones.NecesidadRepository;
 import com.franco.dev.repository.operaciones.TransferenciaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -61,6 +63,9 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         return repository.findProductoVencido(sucId, fechaInicio, fechaFin);
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Transferencia save(Transferencia entity) {
@@ -69,60 +74,31 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         if (entity.getEtapa() == null)
             entity.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_CREACION);
 
-        // Lógica de notificaciones para cambio de sucursal
-        if (entity.getId() != null) {
+        // Capturar estado anterior de sucursales
+        com.franco.dev.domain.empresarial.Sucursal oldSucursalOrigen = null;
+        com.franco.dev.domain.empresarial.Sucursal oldSucursalDestino = null;
+        boolean isUpdate = entity.getId() != null;
+
+        if (isUpdate) {
             Transferencia oldTransferencia = repository.findById(entity.getId()).orElse(null);
             if (oldTransferencia != null) {
-                checkAndSendNotification(oldTransferencia, entity);
+                oldSucursalOrigen = oldTransferencia.getSucursalOrigen();
+                oldSucursalDestino = oldTransferencia.getSucursalDestino();
             }
         }
 
         Transferencia e = super.save(entity);
+
+        // Publicar evento si hubo actualización (la lógica de notificación se mueve al
+        // Listener)
+        if (isUpdate) {
+            publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaCambioSucursalEvent(this, e,
+                    oldSucursalOrigen, oldSucursalDestino));
+        } else {
+            publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaIniciadaEvent(this, e));
+        }
+
         // personaPublisher.publish(p);
         return e;
-    }
-
-    private void checkAndSendNotification(Transferencia oldTransferencia, Transferencia newTransferencia) {
-        try {
-            // Verificar cambio en Sucursal Origen
-            if (oldTransferencia.getSucursalOrigen() != null && newTransferencia.getSucursalOrigen() != null
-                    && !oldTransferencia.getSucursalOrigen().getId()
-                            .equals(newTransferencia.getSucursalOrigen().getId())) {
-                sendCambioSucursalNotification(newTransferencia, oldTransferencia.getSucursalOrigen(),
-                        newTransferencia.getSucursalOrigen(), true);
-            }
-
-            // Verificar cambio en Sucursal Destino
-            if (oldTransferencia.getSucursalDestino() != null && newTransferencia.getSucursalDestino() != null
-                    && !oldTransferencia.getSucursalDestino().getId()
-                            .equals(newTransferencia.getSucursalDestino().getId())) {
-                sendCambioSucursalNotification(newTransferencia, oldTransferencia.getSucursalDestino(),
-                        newTransferencia.getSucursalDestino(), false);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void sendCambioSucursalNotification(Transferencia transferencia,
-            com.franco.dev.domain.empresarial.Sucursal oldSucursal,
-            com.franco.dev.domain.empresarial.Sucursal newSucursal, boolean isOrigen) {
-        List<String> roles = notificationRoleService.getRolesForCambioSucursalPreTransferencia();
-        List<Long> userIds = notificationRoleService.getUserIdsByRoles(roles);
-
-        if (userIds.isEmpty())
-            return;
-
-        com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
-                .cambioSucursalPreTransferencia(
-                        transferencia,
-                        oldSucursal,
-                        newSucursal,
-                        isOrigen);
-
-        if (request != null) {
-            request.setUsuarioIds(userIds);
-            pushNotificationService.sendPushNotificationToToken(request);
-        }
     }
 }

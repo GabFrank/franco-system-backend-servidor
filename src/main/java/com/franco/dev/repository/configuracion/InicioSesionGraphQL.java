@@ -34,9 +34,6 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private PushNotificationService pushNotificationService;
 
     @Autowired
-    private NotificationTemplateService notificationTemplateService;
-
-    @Autowired
     private SucursalService sucursalService;
 
     public Optional<InicioSesion> inicioSesion(Long id) {
@@ -67,8 +64,6 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
 
         InicioSesion saved = service.save(e);
-        service.detectarYNotificarNuevoDispositivo(saved, pushNotificationService,
-                notificationTemplateService, sucursalService);
 
         return saved;
     }

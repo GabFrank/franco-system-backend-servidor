@@ -18,10 +18,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
-import com.franco.dev.fmc.service.PushNotificationService;
-import com.franco.dev.fmc.service.NotificationRoleService;
-import com.franco.dev.fmc.service.NotificationTemplateService;
-import com.franco.dev.fmc.model.PushNotificationRequest;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -70,15 +66,6 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private MultiTenantService multiTenantService;
 
-    @Autowired
-    private PushNotificationService pushNotificationService;
-
-    @Autowired
-    private NotificationRoleService notificationRoleService;
-
-    @Autowired
-    private NotificationTemplateService notificationTemplateService;
-
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
     }
@@ -100,6 +87,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findPageByUsuarioId(usuarioId, page, size, sortOrder);
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     public Inventario saveInventario(InventarioInput input) {
         ModelMapper m = new ModelMapper();
         Inventario e = m.map(input, Inventario.class);
@@ -114,44 +104,10 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
         if (esNuevo && e.getId() != null) {
-            enviarNotificacionInventarioIniciado(e);
+            publisher.publishEvent(new com.franco.dev.fmc.event.InventarioIniciadoEvent(this, e));
         }
 
         return e;
-    }
-
-    private void enviarNotificacionInventarioIniciado(Inventario inventario) {
-        try {
-            List<String> roles = Arrays.asList(
-                    "ADMIN",
-                    "SOPORTE",
-                    "CREAR INVENTARIO",
-                    "VER INVENTARIO",
-                    "PARTICIPAR DEL INVENTARIO");
-            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
-
-            if (!usuarioIds.isEmpty()) {
-                String sucursalNombre = inventario.getSucursal() != null
-                        ? inventario.getSucursal().getNombre()
-                        : "Sucursal no especificada";
-                String usuarioNombre = inventario.getUsuario() != null
-                        ? inventario.getUsuario().getPersona().getNombre()
-                        : "Usuario";
-                String tipoInventario = inventario.getTipo() != null
-                        ? inventario.getTipo().name()
-                        : "";
-
-                PushNotificationRequest request = notificationTemplateService.inventarioIniciado(
-                        tipoInventario,
-                        sucursalNombre,
-                        usuarioNombre,
-                        inventario.getId());
-                request.setUsuarioIds(usuarioIds);
-
-                pushNotificationService.sendPushNotificationToToken(request);
-            }
-        } catch (Exception ex) {
-        }
     }
 
     public Boolean deleteInventario(Long id) {

@@ -10,6 +10,8 @@ import com.franco.dev.repository.configuracion.NotificacionTipoRoleRepository;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioRoleService;
 import com.franco.dev.domain.personas.UsuarioRole;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class NotificacionPreferenciaService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificacionPreferenciaService.class);
 
     @Autowired
     private NotificacionTipoRoleRepository tipoRoleRepository;
@@ -56,7 +60,13 @@ public class NotificacionPreferenciaService {
 
             if (pref.isPresent()) {
                 habilitado = pref.get().getHabilitado();
+                log.info("Found preference for user {} type {}: {}. EsObligatorio: {}", usuario.getId(),
+                        tipoRole.getTipoNotificacion(), habilitado, tipoRole.getEsObligatorio());
+            } else {
+                log.info("No preference found for user {} type {}. Defaulting to true. EsObligatorio: {}",
+                        usuario.getId(), tipoRole.getTipoNotificacion(), tipoRole.getEsObligatorio());
             }
+
             if (tipoRole.getEsObligatorio()) {
                 habilitado = true;
             }
@@ -77,15 +87,17 @@ public class NotificacionPreferenciaService {
         List<Long> roleIds = roles.stream().map(Role::getId).collect(Collectors.toList());
         List<NotificacionTipoRole> permitidos = tipoRoleRepository.findByRoleIdIn(roleIds);
 
-        Optional<NotificacionTipoRole> configRol = permitidos.stream()
+        List<NotificacionTipoRole> configsParaTipo = permitidos.stream()
                 .filter(t -> t.getTipoNotificacion().equals(tipoNotificacion))
-                .findFirst();
+                .collect(Collectors.toList());
 
-        if (configRol.isEmpty()) {
+        if (configsParaTipo.isEmpty()) {
             return false;
         }
 
-        if (configRol.get().getEsObligatorio()) {
+        boolean esObligatorio = configsParaTipo.stream().anyMatch(NotificacionTipoRole::getEsObligatorio);
+
+        if (esObligatorio) {
             return false;
         }
 

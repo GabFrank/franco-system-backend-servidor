@@ -125,6 +125,45 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
     }
 
     /**
+     * Revierte la etapa CREACION de COMPLETADA a EN_PROCESO
+     * Solo se permite si RECEPCION_NOTA está en estado PENDIENTE (no ha empezado)
+     * 
+     * @param pedidoId ID del pedido
+     * @return La etapa CREACION revertida
+     * @throws IllegalStateException Si CREACION no está COMPLETADA o RECEPCION_NOTA ya empezó
+     */
+    @Transactional
+    public ProcesoEtapa revertirEtapaCreacion(Long pedidoId) {
+        // Verificar que la etapa CREACION existe y está COMPLETADA
+        Optional<ProcesoEtapa> etapaCreacionOpt = getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.CREACION);
+        if (!etapaCreacionOpt.isPresent()) {
+            throw new IllegalStateException("No se encontró la etapa CREACION para el pedido: " + pedidoId);
+        }
+        
+        ProcesoEtapa etapaCreacion = etapaCreacionOpt.get();
+        if (etapaCreacion.getEstadoEtapa() != ProcesoEtapaEstado.COMPLETADA) {
+            throw new IllegalStateException("Solo se puede revertir la etapa CREACION si está COMPLETADA. Estado actual: " + etapaCreacion.getEstadoEtapa());
+        }
+        
+        // Verificar que RECEPCION_NOTA está en estado PENDIENTE (no ha empezado)
+        Optional<ProcesoEtapa> etapaRecepcionNotaOpt = getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
+        if (!etapaRecepcionNotaOpt.isPresent()) {
+            throw new IllegalStateException("No se encontró la etapa RECEPCION_NOTA para el pedido: " + pedidoId);
+        }
+        
+        ProcesoEtapa etapaRecepcionNota = etapaRecepcionNotaOpt.get();
+        if (etapaRecepcionNota.getEstadoEtapa() != ProcesoEtapaEstado.PENDIENTE) {
+            throw new IllegalStateException("Solo se puede revertir la planificación si RECEPCION_NOTA está PENDIENTE. Estado actual: " + etapaRecepcionNota.getEstadoEtapa());
+        }
+        
+        // Revertir CREACION: cambiar de COMPLETADA a EN_PROCESO
+        etapaCreacion.setEstadoEtapa(ProcesoEtapaEstado.EN_PROCESO);
+        etapaCreacion.setFechaFin(null); // Eliminar fechaFin
+        
+        return save(etapaCreacion);
+    }
+
+    /**
      * Crea la etapa pendiente siguiente según el flujo del proceso
      */
     @Transactional

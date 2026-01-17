@@ -32,6 +32,7 @@ extend type Mutation {
     iniciarEtapa(pedidoId: ID!, tipo: ProcesoEtapaTipo!, usuarioId: ID!): ProcesoEtapa!
     finalizarEtapa(pedidoId: ID!, tipo: ProcesoEtapaTipo!): ProcesoEtapa!
     omitirEtapa(pedidoId: ID!, tipo: ProcesoEtapaTipo!): ProcesoEtapa!
+    revertirEtapaCreacion(pedidoId: ID!): Pedido!
 }
 
 enum ProcesoEtapaTipo {

@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.operaciones;
 
+import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.ProcesoEtapa;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.graphql.operaciones.input.ProcesoEtapaInput;
+import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.operaciones.ProcesoEtapaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -26,6 +28,9 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private UsuarioService usuarioService;
+
+    @Autowired
+    private PedidoService pedidoService;
 
     /**
      * Obtiene todas las etapas de un pedido
@@ -145,6 +150,33 @@ public class ProcesoEtapaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             return service.omitirEtapa(pedidoId, tipo);
         } catch (Exception e) {
             throw new GraphQLException("Error al omitir etapa: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Revierte la etapa CREACION de COMPLETADA a EN_PROCESO
+     * Solo se permite si RECEPCION_NOTA está en estado PENDIENTE (no ha empezado)
+     * Retorna el pedido actualizado
+     */
+    @Transactional
+    public Pedido revertirEtapaCreacion(Long pedidoId) {
+        if (pedidoId == null) {
+            throw new GraphQLException("ID del pedido es requerido");
+        }
+        
+        try {
+            // Revertir la etapa CREACION
+            service.revertirEtapaCreacion(pedidoId);
+            
+            // Retornar el pedido actualizado
+            return pedidoService.findById(pedidoId)
+                .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
+        } catch (IllegalStateException e) {
+            throw new GraphQLException(e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error revirtiendo etapa CREACION para pedido " + pedidoId + ": " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al revertir etapa CREACION: " + e.getMessage());
         }
     }
 } 

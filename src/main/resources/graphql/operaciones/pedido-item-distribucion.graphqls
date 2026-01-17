@@ -27,6 +27,7 @@ extend type Mutation {
     savePedidoItemDistribucion(entity: PedidoItemDistribucionInput!): PedidoItemDistribucion!
     savePedidoItemDistribuciones(pedidoItemId: ID!, inputs: [PedidoItemDistribucionInput]!): [PedidoItemDistribucion]!
     replacePedidoItemDistribuciones(pedidoItemId: ID!, inputs: [PedidoItemDistribucionInput]!): [PedidoItemDistribucion]!
+    mergePedidoItemDistribuciones(pedidoItemId: ID!, inputs: [PedidoItemDistribucionInput]!): [PedidoItemDistribucion]!
     deletePedidoItemDistribucion(id: ID!): Boolean!
     deletePedidoItemDistribucionesByPedidoItemId(pedidoItemId: ID!): Boolean!
     deletePedidoItemDistribucionesByIds(ids: [ID]!): Boolean!

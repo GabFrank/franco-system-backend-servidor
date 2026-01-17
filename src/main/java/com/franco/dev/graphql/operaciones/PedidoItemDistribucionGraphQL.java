@@ -231,6 +231,87 @@ public class PedidoItemDistribucionGraphQL implements GraphQLQueryResolver, Grap
         return distribuciones;
     }
 
+    /**
+     * Merge inteligente de distribuciones: actualiza existentes, crea nuevas, elimina las que ya no están
+     * Mantiene los IDs de las distribuciones existentes cuando es posible
+     */
+    @Transactional
+    public List<PedidoItemDistribucion> mergePedidoItemDistribuciones(Long pedidoItemId,
+            List<PedidoItemDistribucionInput> inputs) {
+        // Step 1: Find the PedidoItem
+        PedidoItem pedidoItem = pedidoItemService.findById(pedidoItemId)
+                .orElseThrow(() -> new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId));
+
+        // Step 2: Obtener distribuciones existentes
+        List<PedidoItemDistribucion> distribucionesExistentes = service.findByPedidoItemId(pedidoItemId);
+        
+        // Step 3: Crear mapa de distribuciones existentes por combinación (sucursal_influencia_id + sucursal_entrega_id)
+        // Clave: "sucursalInfluenciaId_sucursalEntregaId"
+        java.util.Map<String, PedidoItemDistribucion> mapaExistentes = new java.util.HashMap<>();
+        for (PedidoItemDistribucion dist : distribucionesExistentes) {
+            String key = dist.getSucursalInfluencia().getId() + "_" + dist.getSucursalEntrega().getId();
+            mapaExistentes.put(key, dist);
+        }
+
+        // Step 4: Crear mapa de distribuciones nuevas por combinación
+        java.util.Map<String, PedidoItemDistribucionInput> mapaNuevas = new java.util.HashMap<>();
+        for (PedidoItemDistribucionInput input : inputs) {
+            if (input.getCantidadAsignada() != null && input.getCantidadAsignada() > 0) {
+                String key = input.getSucursalInfluenciaId() + "_" + input.getSucursalEntregaId();
+                mapaNuevas.put(key, input);
+            }
+        }
+
+        // Step 5: Procesar distribuciones: actualizar existentes o crear nuevas
+        List<PedidoItemDistribucion> distribucionesResultado = new ArrayList<>();
+        for (PedidoItemDistribucionInput input : inputs) {
+            if (input.getCantidadAsignada() != null && input.getCantidadAsignada() > 0) {
+                String key = input.getSucursalInfluenciaId() + "_" + input.getSucursalEntregaId();
+                PedidoItemDistribucion distribucionExistente = mapaExistentes.get(key);
+                
+                PedidoItemDistribucion distribucion;
+                if (distribucionExistente != null) {
+                    // ACTUALIZAR: Mantener el ID existente
+                    distribucion = distribucionExistente;
+                } else {
+                    // CREAR: Nueva distribución
+                    distribucion = new PedidoItemDistribucion();
+                    distribucion.setPedidoItem(pedidoItem);
+                }
+                
+                // Actualizar campos
+                distribucion.setCantidadAsignada(input.getCantidadAsignada());
+                
+                // Establecer SucursalInfluencia
+                distribucion.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId())
+                        .orElseThrow(() -> new GraphQLException(
+                                "Sucursal de influencia no encontrada con ID: " + input.getSucursalInfluenciaId())));
+                
+                // Establecer SucursalEntrega
+                distribucion.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId())
+                        .orElseThrow(() -> new GraphQLException(
+                                "Sucursal de entrega no encontrada con ID: " + input.getSucursalEntregaId())));
+                
+                distribucionesResultado.add(service.save(distribucion));
+            }
+        }
+
+        // Step 6: Eliminar distribuciones que ya no están en los inputs nuevos
+        List<Long> idsAEliminar = new ArrayList<>();
+        for (PedidoItemDistribucion dist : distribucionesExistentes) {
+            String key = dist.getSucursalInfluencia().getId() + "_" + dist.getSucursalEntrega().getId();
+            if (!mapaNuevas.containsKey(key)) {
+                idsAEliminar.add(dist.getId());
+            }
+        }
+        
+        if (!idsAEliminar.isEmpty()) {
+            service.deleteByIds(idsAEliminar);
+        }
+
+        return distribucionesResultado;
+    }
+
     public Boolean isDistribucionConcluida(Long pedidoItemId) {
         PedidoItem pedidoItem = pedidoItemService.findById(pedidoItemId)
                 .orElseThrow(() -> new GraphQLException("PedidoItem no encontrado con ID: " + pedidoItemId));

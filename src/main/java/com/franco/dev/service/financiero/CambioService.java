@@ -22,18 +22,18 @@ public class CambioService extends CrudService<Cambio, CambioRepository, Long> {
         return repository;
     }
 
-    public Cambio findLastByMonedaId(Long id){
+    public Cambio findLastByMonedaId(Long id) {
         return repository.findLastByCambioId(id);
     }
 
-    public List<Cambio> findByDate(String start, String end){
+    public List<Cambio> findByDate(String start, String end) {
         return repository.findByDate(start, end);
     }
 
     @Override
     public Cambio save(Cambio entity) {
         Cambio e = super.save(entity);
-//        personaPublisher.publish(p);
+        // personaPublisher.publish(p);
         return e;
     }
 }

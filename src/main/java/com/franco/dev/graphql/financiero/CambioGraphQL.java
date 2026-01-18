@@ -60,6 +60,8 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findById(id);
     }
 
+    private static final java.text.DecimalFormat df = new java.text.DecimalFormat("#,###.##");
+
     public List<Cambio> cambios(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
@@ -83,9 +85,60 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         e = service.save(e);
 
-        publisher.publishEvent(new com.franco.dev.fmc.event.CotizacionActualizadaEvent(this, e));
+        try {
+            enviarNotificacionCotizacion(e);
+        } catch (Throwable t) {
+            t.printStackTrace();
+        }
 
         return e;
+    }
+
+    private void enviarNotificacionCotizacion(Cambio cambio) {
+        if (cambio == null) {
+            return;
+        }
+
+        try {
+            // Recargar entidad moneda para evitar LazyInitializationException
+            Moneda moneda = cambio.getMoneda();
+            if (moneda != null && moneda.getId() != null) {
+                moneda = monedaService.findById(moneda.getId()).orElse(moneda);
+            }
+
+            if (moneda == null) {
+                return;
+            }
+
+            String denominacion = moneda.getDenominacion() != null ? moneda.getDenominacion() : "Moneda";
+            String simbolo = moneda.getSimbolo() != null ? moneda.getSimbolo() : "";
+
+            PushNotificationRequest request = notificationTemplateService.cotizacionActualizada(
+                    denominacion,
+                    simbolo,
+                    cambio.getValorEnGs());
+
+            if (request == null) {
+                return;
+            }
+
+            List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = inicioSesionService
+                    .findSessionsWithValidTokens();
+
+            List<Long> usuariosIds = sesionesActivas.stream()
+                    .filter(s -> s.getUsuario() != null)
+                    .map(s -> s.getUsuario().getId())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (!usuariosIds.isEmpty()) {
+                request.setUsuarioIds(usuariosIds);
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public List<Cambio> cambioPorFecha(String start, String end) {

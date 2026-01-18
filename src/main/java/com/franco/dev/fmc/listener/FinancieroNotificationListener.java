@@ -1,12 +1,9 @@
 package com.franco.dev.fmc.listener;
 
-import com.franco.dev.domain.financiero.Cambio;
 import com.franco.dev.domain.financiero.Gasto;
-import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.Retiro;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.fmc.event.CotizacionActualizadaEvent;
 import com.franco.dev.fmc.event.GastoRealizadoEvent;
 import com.franco.dev.fmc.event.RetiroRealizadoEvent;
 import com.franco.dev.fmc.event.VentaCreditoRealizadaEvent;
@@ -14,7 +11,6 @@ import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -39,8 +35,6 @@ public class FinancieroNotificationListener {
     private final SucursalService sucursalService;
 
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
-
-    private final InicioSesionService inicioSesionService;
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onGastoRealizado(GastoRealizadoEvent event) {
@@ -114,41 +108,4 @@ public class FinancieroNotificationListener {
         }
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onCotizacionActualizada(CotizacionActualizadaEvent event) {
-        Cambio cambio = event.getCambio();
-        if (cambio == null || cambio.getMoneda() == null) {
-            return;
-        }
-
-        try {
-            Moneda moneda = cambio.getMoneda();
-            String denominacion = moneda.getDenominacion() != null ? moneda.getDenominacion() : "Moneda";
-            String simbolo = moneda.getSimbolo() != null ? moneda.getSimbolo() : "";
-
-            PushNotificationRequest request = notificationTemplateService.cotizacionActualizada(
-                    denominacion,
-                    simbolo,
-                    cambio.getValorEnGs());
-
-            if (request == null) {
-                return;
-            }
-            List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = inicioSesionService
-                    .findSessionsWithValidTokens();
-
-            List<Long> usuariosIds = sesionesActivas.stream()
-                    .filter(s -> s.getUsuario() != null)
-                    .map(s -> s.getUsuario().getId())
-                    .distinct()
-                    .collect(Collectors.toList());
-
-            if (!usuariosIds.isEmpty()) {
-                request.setUsuarioIds(usuariosIds);
-                pushNotificationService.sendPushNotificationToToken(request);
-            }
-
-        } catch (Exception e) {
-        }
-    }
 }

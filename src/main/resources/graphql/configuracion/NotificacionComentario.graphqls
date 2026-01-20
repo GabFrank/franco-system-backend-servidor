@@ -3,6 +3,7 @@ type NotificacionComentario {
     notificacion: Notificacion
     usuario: Usuario
     comentario: String
+    mediaUrl: String
     comentarioPadre: NotificacionComentario
     creadoEn: Date
     actualizadoEn: Date
@@ -14,5 +15,5 @@ extend type Query {
 }
 
 extend type Mutation {
-    crearComentarioNotificacion(notificacionId: Int!, comentario: String!, comentarioPadreId: Int): NotificacionComentario
+    crearComentarioNotificacion(notificacionId: Int!, comentario: String!, mediaUrl: String, comentarioPadreId: Int): NotificacionComentario
 }

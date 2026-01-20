@@ -38,6 +38,7 @@ public class NotificacionComentarioService
 
     @Transactional
     public NotificacionComentario crearComentario(Long notificacionId, Long usuarioId, String comentario,
+            String mediaUrl,
             Long comentarioPadreId) {
         Notificacion notificacion = notificacionRepository.findById(notificacionId)
                 .orElseThrow(() -> new RuntimeException("Notificación no encontrada"));
@@ -49,6 +50,7 @@ public class NotificacionComentarioService
         comentarioEntity.setNotificacion(notificacion);
         comentarioEntity.setUsuario(usuario);
         comentarioEntity.setComentario(comentario);
+        comentarioEntity.setMediaUrl(mediaUrl);
 
         if (comentarioPadreId != null) {
             NotificacionComentario padre = repository.findById(comentarioPadreId)

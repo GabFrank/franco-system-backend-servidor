@@ -14,13 +14,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "notificacion_comentario", schema = "configuraciones",
-       indexes = {
-           @Index(name = "idx_notif_comentario_notificacion", columnList = "notificacion_id"),
-           @Index(name = "idx_notif_comentario_usuario", columnList = "usuario_id"),
-           @Index(name = "idx_notif_comentario_padre", columnList = "comentario_padre_id"),
-           @Index(name = "idx_notif_comentario_creado", columnList = "creado_en")
-       })
+@Table(name = "notificacion_comentario", schema = "configuraciones", indexes = {
+        @Index(name = "idx_notif_comentario_notificacion", columnList = "notificacion_id"),
+        @Index(name = "idx_notif_comentario_usuario", columnList = "usuario_id"),
+        @Index(name = "idx_notif_comentario_padre", columnList = "comentario_padre_id"),
+        @Index(name = "idx_notif_comentario_creado", columnList = "creado_en")
+})
 public class NotificacionComentario {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,6 +40,9 @@ public class NotificacionComentario {
     @JoinColumn(name = "comentario_padre_id")
     private NotificacionComentario comentarioPadre;
 
+    @Column(columnDefinition = "TEXT")
+    private String mediaUrl;
+
     @CreationTimestamp
     @Column(name = "creado_en", nullable = false, updatable = false)
     private LocalDateTime creadoEn;
@@ -49,4 +51,3 @@ public class NotificacionComentario {
     @Column(name = "actualizado_en")
     private LocalDateTime actualizadoEn;
 }
-

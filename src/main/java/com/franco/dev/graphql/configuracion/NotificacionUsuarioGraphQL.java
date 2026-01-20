@@ -227,7 +227,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     @org.springframework.transaction.annotation.Transactional
-    public NotificacionComentario crearComentarioNotificacion(Long notificacionId, String comentario,
+    public NotificacionComentario crearComentarioNotificacion(Long notificacionId, String comentario, String mediaUrl,
             Long comentarioPadreId) {
         try {
             org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
@@ -244,11 +244,13 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
                     notificacionId,
                     usuario.getId(),
                     comentario,
+                    mediaUrl,
                     comentarioPadreId);
 
             if (pushNotificationService != null) {
                 try {
-                    List<String> menciones = notificacionComentarioService.extraerMenciones(comentario);
+                    // List<String> menciones =
+                    // notificacionComentarioService.extraerMenciones(comentario); // Unused
 
                     List<Usuario> usuariosMencionados = notificacionComentarioService
                             .buscarUsuariosMencionados(comentario);
@@ -273,7 +275,7 @@ public class NotificacionUsuarioGraphQL implements GraphQLQueryResolver, GraphQL
                             String dataJson = "{\"notificacionId\":" + notificacionId + ",\"comentarioId\":"
                                     + comentarioEntity.getId() + "}";
 
-                            Boolean resultado = pushNotificationService.enviarNotificacionPersonalizada(
+                            pushNotificationService.enviarNotificacionPersonalizada(
                                     "Mencionado en comentario",
                                     mensaje,
                                     "ESPECIFICOS",

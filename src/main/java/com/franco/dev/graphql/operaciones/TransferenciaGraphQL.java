@@ -69,6 +69,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private MultiTenantService multiTenantService;
 
     @Autowired
+    private com.franco.dev.service.operaciones.HojaRutaService hojaRutaService;
+
+    @Autowired
     private PlatformTransactionManager transactionManager;
 
     @Autowired
@@ -143,6 +146,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getHojaRutaId() != null) {
+            e.setHojaRuta(hojaRutaService.findById(input.getHojaRutaId()).orElse(null));
+        }
         boolean isNewTransferencia = (input.getId() == null);
 
         e = service.save(e);

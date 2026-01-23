@@ -1,4 +1,5 @@
 package com.franco.dev.graphql.operaciones.input;
+
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
@@ -22,4 +23,5 @@ public class TransferenciaInput {
     private Long usuarioPreparacionId;
     private Long usuarioTransporteId;
     private Long usuarioRecepcionId;
+    private Long hojaRutaId;
 }

@@ -29,39 +29,47 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         return repository;
     }
 
-    public List<Transferencia> findBySucursalOrigenId(Long id){
-        return  repository.findBySucursalOrigenId(id);
+    public List<Transferencia> findBySucursalOrigenId(Long id) {
+        return repository.findBySucursalOrigenId(id);
     }
 
-    public List<Transferencia> findBySucursalDestinoId(Long id){
-        return  repository.findBySucursalDestinoId(id);
+    public List<Transferencia> findBySucursalDestinoId(Long id) {
+        return repository.findBySucursalDestinoId(id);
     }
 
-    public List<Transferencia> findByDate(String start, String end){
+    public List<Transferencia> findByDate(String start, String end) {
         return repository.findByDate(start, end);
     }
 
-    public List<Transferencia> findByUsuario(Long id){
-        return  repository.findByUsuario(id);
+    public List<Transferencia> findByUsuario(Long id) {
+        return repository.findByUsuario(id);
     }
 
     public Page<Transferencia> findByFilter(Long sucursalOrigenId, Long sucursalDestinoId, TransferenciaEstado estado,
-                                            TipoTransferencia tipo, EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino, LocalDateTime creadoDesde,
-                                            LocalDateTime creadoHasta, Pageable pageable) {
-        return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino, creadoDesde, creadoHasta, pageable);
+            TipoTransferencia tipo, EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
+            LocalDateTime creadoDesde,
+            LocalDateTime creadoHasta, Pageable pageable) {
+        return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino,
+                creadoDesde, creadoHasta, pageable);
     }
 
-    public List<VencimientoProductoDto> findProductosVencidos(Long sucId, LocalDateTime fechaInicio, LocalDateTime fechaFin) {
+    public List<VencimientoProductoDto> findProductosVencidos(Long sucId, LocalDateTime fechaInicio,
+            LocalDateTime fechaFin) {
         return repository.findProductoVencido(sucId, fechaInicio, fechaFin);
     }
 
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Transferencia save(Transferencia entity) {
-        if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
-        if(entity.getEtapa()==null) entity.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_CREACION);
+        if (entity.getId() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getEtapa() == null)
+            entity.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_CREACION);
         Transferencia e = super.save(entity);
-//        personaPublisher.publish(p);
         return e;
+    }
+
+    public Page<Transferencia> findByChoferId(Long choferId, Pageable pageable) {
+        return repository.findByChoferId(choferId, pageable);
     }
 }

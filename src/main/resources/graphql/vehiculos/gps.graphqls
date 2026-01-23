@@ -1,0 +1,32 @@
+type Gps {
+    id: ID!
+    imei: String
+    vehiculo: Vehiculo
+    modeloTracker: String
+    simNumero: String
+    activo: Boolean
+    creadoEm: Date
+}
+
+input GpsInput {
+    id: ID
+    imei: String
+    vehiculoId: Int
+    modeloTracker: String
+    simNumero: String
+    activo: Boolean
+}
+
+extend type Query {
+    gps(id: ID!): Gps
+    gpsList(page: Int = 0, size: Int = 10): [Gps]!
+    countGps: Int
+    gpsSearch(texto: String): [Gps]
+    gpsByImei(imei: String): Gps
+    gpsByVehiculo(vehiculoId: ID!): [Gps]
+}
+
+extend type Mutation {
+    saveGps(gps: GpsInput!): Gps!
+    deleteGps(id: ID!): Boolean!
+}

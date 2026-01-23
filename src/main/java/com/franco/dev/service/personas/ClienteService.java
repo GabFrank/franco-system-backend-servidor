@@ -7,9 +7,8 @@ import com.franco.dev.graphql.personas.ConsultaRucResponse;
 import com.franco.dev.repository.personas.ClienteRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.sifen.SifenService;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,14 +20,13 @@ import java.util.List;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class ClienteService extends CrudService<Cliente, ClienteRepository, Long> {
 
     private final ClienteRepository repository;
     private final PersonaService personaService;
     @Lazy
-    @Autowired(required = false)
-    private SifenService sifenService;
+    private final SifenService sifenService;
 
     @Override
     public ClienteRepository getRepository() {

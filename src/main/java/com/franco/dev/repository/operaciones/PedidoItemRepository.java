@@ -88,5 +88,74 @@ public interface PedidoItemRepository extends HelperRepository<PedidoItem, Long>
            "WHERE pi.id = :pedidoItemId", nativeQuery = true)
     Double getCantidadPendienteByPedidoItemId(@Param("pedidoItemId") Long pedidoItemId);
 
+    /**
+     * Busca PedidoItems por pedidoId filtrando solo aquellos con cantidad pendiente > 0
+     * cantidadPendiente = cantidadSolicitada - sum(cantidadEnNota) de todos los NotaRecepcionItem asociados
+     * @param id ID del pedido
+     * @param page Paginación
+     * @return Página de PedidoItems con cantidad pendiente > 0
+     */
+    @Query(value = "SELECT pi.* FROM operaciones.pedido_item pi " +
+           "WHERE pi.pedido_id = :pedidoId " +
+           "AND (pi.cantidad_solicitada - COALESCE((" +
+           "  SELECT SUM(nri.cantidad_en_nota) " +
+           "  FROM operaciones.nota_recepcion_item nri " +
+           "  WHERE nri.pedido_item_id = pi.id" +
+           "), 0.0)) > 0 " +
+           "ORDER BY pi.id DESC",
+           countQuery = "SELECT COUNT(*) FROM operaciones.pedido_item pi " +
+           "WHERE pi.pedido_id = :pedidoId " +
+           "AND (pi.cantidad_solicitada - COALESCE((" +
+           "  SELECT SUM(nri.cantidad_en_nota) " +
+           "  FROM operaciones.nota_recepcion_item nri " +
+           "  WHERE nri.pedido_item_id = pi.id" +
+           "), 0.0)) > 0",
+           nativeQuery = true)
+    Page<PedidoItem> findByPedidoIdConCantidadPendienteOrderByIdDesc(
+        @Param("pedidoId") Long id, 
+        Pageable page
+    );
+
+    /**
+     * Busca PedidoItems por pedidoId con filtro de texto y cantidad pendiente > 0
+     * @param id ID del pedido
+     * @param texto Texto para buscar en id, descripción o código del producto
+     * @param page Paginación
+     * @return Página de PedidoItems con cantidad pendiente > 0 que coinciden con el texto
+     */
+    @Query(value = "SELECT DISTINCT pi.* FROM operaciones.pedido_item pi " +
+           "JOIN empresarial.producto p ON pi.producto_id = p.id " +
+           "LEFT JOIN empresarial.presentacion pres ON pres.producto_id = p.id " +
+           "LEFT JOIN empresarial.codigo c ON c.presentacion_id = pres.id " +
+           "WHERE pi.pedido_id = :pedidoId " +
+           "AND (pi.cantidad_solicitada - COALESCE((" +
+           "  SELECT SUM(nri.cantidad_en_nota) " +
+           "  FROM operaciones.nota_recepcion_item nri " +
+           "  WHERE nri.pedido_item_id = pi.id" +
+           "), 0.0)) > 0 " +
+           "AND (CAST(pi.producto_id AS VARCHAR) LIKE :texto " +
+           "     OR UPPER(p.descripcion) LIKE UPPER(:texto) " +
+           "     OR UPPER(c.codigo) LIKE UPPER(:texto)) " +
+           "ORDER BY pi.id DESC",
+           countQuery = "SELECT COUNT(DISTINCT pi.id) FROM operaciones.pedido_item pi " +
+           "JOIN empresarial.producto p ON pi.producto_id = p.id " +
+           "LEFT JOIN empresarial.presentacion pres ON pres.producto_id = p.id " +
+           "LEFT JOIN empresarial.codigo c ON c.presentacion_id = pres.id " +
+           "WHERE pi.pedido_id = :pedidoId " +
+           "AND (pi.cantidad_solicitada - COALESCE((" +
+           "  SELECT SUM(nri.cantidad_en_nota) " +
+           "  FROM operaciones.nota_recepcion_item nri " +
+           "  WHERE nri.pedido_item_id = pi.id" +
+           "), 0.0)) > 0 " +
+           "AND (CAST(pi.producto_id AS VARCHAR) LIKE :texto " +
+           "     OR UPPER(p.descripcion) LIKE UPPER(:texto) " +
+           "     OR UPPER(c.codigo) LIKE UPPER(:texto))",
+           nativeQuery = true)
+    Page<PedidoItem> findByPedidoIdConCantidadPendienteAndTextoOrderByIdDesc(
+        @Param("pedidoId") Long id, 
+        @Param("texto") String texto, 
+        Pageable page
+    );
+
 }
 

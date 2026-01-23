@@ -59,13 +59,25 @@ public class PedidoItemGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     // ===== QUERY OPERATIONS =====
 
-    public Page<PedidoItem> pedidoItemPorPedidoPage(Long id, int page, int size, String texto) {
+    public Page<PedidoItem> pedidoItemPorPedidoPage(Long id, int page, int size, String texto, Boolean soloPendientes) {
         Pageable pageable = PageRequest.of(page, size);
-        if (texto != null) {
-            texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
-            return service.findByPedidoIdAndTexto(id, texto, pageable);
+        
+        // Si soloPendientes es true, usar los métodos que filtran por cantidad pendiente > 0
+        if (Boolean.TRUE.equals(soloPendientes)) {
+            if (texto != null && !texto.trim().isEmpty()) {
+                texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
+                return service.findByPedidoIdConCantidadPendienteAndTexto(id, texto, pageable);
+            } else {
+                return service.findByPedidoIdConCantidadPendiente(id, pageable);
+            }
         } else {
-            return service.findByPedidoId(id, pageable);
+            // Comportamiento original: devolver todos los items
+            if (texto != null && !texto.trim().isEmpty()) {
+                texto = "%" + texto.replace(" ", "%").toUpperCase() + "%";
+                return service.findByPedidoIdAndTexto(id, texto, pageable);
+            } else {
+                return service.findByPedidoId(id, pageable);
+            }
         }
     }
 

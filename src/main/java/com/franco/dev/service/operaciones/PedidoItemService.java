@@ -57,6 +57,27 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         return repository.findByPedidoIdAndProductoFilterOrderByIdDesc(id, texto, page);
     }
 
+    /**
+     * Busca PedidoItems por pedidoId filtrando solo aquellos con cantidad pendiente > 0
+     * @param id ID del pedido
+     * @param page Paginación
+     * @return Página de PedidoItems con cantidad pendiente > 0
+     */
+    public Page<PedidoItem> findByPedidoIdConCantidadPendiente(Long id, Pageable page) {
+        return repository.findByPedidoIdConCantidadPendienteOrderByIdDesc(id, page);
+    }
+
+    /**
+     * Busca PedidoItems por pedidoId con filtro de texto y cantidad pendiente > 0
+     * @param id ID del pedido
+     * @param texto Texto para buscar
+     * @param page Paginación
+     * @return Página de PedidoItems con cantidad pendiente > 0 que coinciden con el texto
+     */
+    public Page<PedidoItem> findByPedidoIdConCantidadPendienteAndTexto(Long id, String texto, Pageable page) {
+        return repository.findByPedidoIdConCantidadPendienteAndTextoOrderByIdDesc(id, texto, page);
+    }
+
     public List<PedidoItem> findByPedidoId(Long id) { 
         return repository.findByPedidoId(id); 
     }
@@ -83,15 +104,18 @@ public class PedidoItemService extends CrudService<PedidoItem, PedidoItemReposit
         
         e = super.save(entity);
         
-        // **NEW LOGIC**: Create PedidoItemDistribucion automatically for new items
-        if(isNewItem && entity.getPedido() != null) {
-            createPedidoItemDistribucionForNewItem(e);
-        }
+        // **DISABLED**: Creation of PedidoItemDistribucion is now handled exclusively by the frontend
+        // The frontend will create distributions based on the distribution mode:
+        // - Complete mode: Create all distributions with quantity > 0
+        // - Simplified mode: Create automatically only if there's a single combination
+        // if(isNewItem && entity.getPedido() != null) {
+        //     createPedidoItemDistribucionForNewItem(e);
+        // }
         
-        // **NEW LOGIC**: Update PedidoItemDistribucion automatically for existing items in safe cases
-        if (!isNewItem && entity.getPedido() != null && cantidadSolicitadaOriginal != null) {
-            updatePedidoItemDistribucionForExistingItem(e, cantidadSolicitadaOriginal);
-        }
+        // **DISABLED**: Automatic updates are now handled by the frontend
+        // if (!isNewItem && entity.getPedido() != null && cantidadSolicitadaOriginal != null) {
+        //     updatePedidoItemDistribucionForExistingItem(e, cantidadSolicitadaOriginal);
+        // }
         
         return e;
     }

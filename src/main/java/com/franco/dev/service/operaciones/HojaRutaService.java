@@ -9,6 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -34,7 +36,11 @@ public class HojaRutaService extends CrudService<HojaRuta, HojaRutaRepository, L
         return repository.findActivaByVehiculoId(vehiculoId);
     }
 
-    public Page<Persona> findChoferesConEntregas(Pageable pageable) {
-        return repository.findDistinctChoferesConEntregas(pageable);
+    public Page<HojaRuta> findHojasRutaConEntregas(Pageable pageable) {
+        return repository.findHojasRutaConEntregas(pageable);
+    }
+
+    public List<HojaRuta> findByFecha(LocalDateTime inicio, LocalDateTime fin) {
+        return repository.findByFechaSalidaBetween(inicio, fin);
     }
 }

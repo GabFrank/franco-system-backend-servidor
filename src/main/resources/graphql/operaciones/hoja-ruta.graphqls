@@ -29,8 +29,9 @@ extend type Query {
     hojaRutaPorVehiculo(vehiculoId: ID!, page: Int = 0, size: Int = 10): [HojaRuta]
     hojaRutaPorChofer(choferId: ID!, page: Int = 0, size: Int = 10): [HojaRuta]
     hojaRutaActivaPorVehiculo(vehiculoId: ID!): HojaRuta
-    choferesConEntregas(page: Int = 0, size: Int = 20): [Persona]!
-    transferenciasPorChofer(choferId: ID!, page: Int = 0, size: Int = 20): [Transferencia]!
+    hojasRutaConEntregas(page: Int = 0, size: Int = 20): [HojaRuta]!
+    transferenciasPorHojaRuta(hojaRutaId: ID!, page: Int = 0, size: Int = 20): [Transferencia]!
+    hojaRutaPorFecha(inicio: String, fin: String): [HojaRuta]
 }
 
 extend type Mutation {

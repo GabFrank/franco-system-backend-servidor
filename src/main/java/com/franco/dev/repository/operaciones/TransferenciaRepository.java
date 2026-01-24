@@ -83,8 +83,6 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
                         LocalDateTime fechaInicio,
                         LocalDateTime fechaFin);
 
-        @Query("SELECT t FROM Transferencia t " +
-                        "WHERE t.hojaRuta.chofer.id = :choferId " +
-                        "ORDER BY t.id DESC")
-        Page<Transferencia> findByChoferId(@Param("choferId") Long choferId, Pageable pageable);
+        @Query("SELECT t FROM Transferencia t WHERE t.hojaRuta.id = :hojaRutaId ORDER BY t.id DESC")
+        Page<Transferencia> findByHojaRutaId(@Param("hojaRutaId") Long hojaRutaId, Pageable pageable);
 }

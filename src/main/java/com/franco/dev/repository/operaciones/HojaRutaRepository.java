@@ -8,6 +8,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -24,6 +26,8 @@ public interface HojaRutaRepository extends HelperRepository<HojaRuta, Long> {
     @Query("SELECT h FROM HojaRuta h WHERE h.vehiculo.id = :vehiculoId AND h.estado = 'EN_RUTA'")
     Optional<HojaRuta> findActivaByVehiculoId(Long vehiculoId);
 
-    @Query("SELECT DISTINCT h.chofer FROM HojaRuta h WHERE h.chofer IS NOT NULL")
-    Page<Persona> findDistinctChoferesConEntregas(Pageable pageable);
+    @Query("SELECT h FROM HojaRuta h WHERE h.chofer IS NOT NULL ORDER BY h.id DESC")
+    Page<HojaRuta> findHojasRutaConEntregas(Pageable pageable);
+
+    List<HojaRuta> findByFechaSalidaBetween(LocalDateTime inicio, LocalDateTime fin);
 }

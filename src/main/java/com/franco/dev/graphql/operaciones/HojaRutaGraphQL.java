@@ -22,6 +22,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToDateEndOfDay;
 
 @Component
 public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -91,13 +92,17 @@ public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.deleteById(id);
     }
 
-    public List<Persona> choferesConEntregas(int page, int size) {
+    public List<HojaRuta> hojasRutaConEntregas(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findChoferesConEntregas(pageable).getContent();
+        return service.findHojasRutaConEntregas(pageable).getContent();
     }
 
-    public List<Transferencia> transferenciasPorChofer(Long choferId, int page, int size) {
+    public List<Transferencia> transferenciasPorHojaRuta(Long hojaRutaId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return transferenciaService.findByChoferId(choferId, pageable).getContent();
+        return transferenciaService.getRepository().findByHojaRutaId(hojaRutaId, pageable).getContent();
+    }
+
+    public List<HojaRuta> hojaRutaPorFecha(String inicio, String fin) {
+        return service.findByFecha(stringToDate(inicio), stringToDateEndOfDay(fin));
     }
 }

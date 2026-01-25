@@ -41,6 +41,6 @@ public class HojaRutaService extends CrudService<HojaRuta, HojaRutaRepository, L
     }
 
     public List<HojaRuta> findByFecha(LocalDateTime inicio, LocalDateTime fin) {
-        return repository.findByFechaSalidaBetween(inicio, fin);
+        return repository.findByFechaSalidaBetweenOrderByIdDesc(inicio, fin);
     }
 }

@@ -29,5 +29,5 @@ public interface HojaRutaRepository extends HelperRepository<HojaRuta, Long> {
     @Query("SELECT h FROM HojaRuta h WHERE h.chofer IS NOT NULL ORDER BY h.id DESC")
     Page<HojaRuta> findHojasRutaConEntregas(Pageable pageable);
 
-    List<HojaRuta> findByFechaSalidaBetween(LocalDateTime inicio, LocalDateTime fin);
+    List<HojaRuta> findByFechaSalidaBetweenOrderByIdDesc(LocalDateTime inicio, LocalDateTime fin);
 }

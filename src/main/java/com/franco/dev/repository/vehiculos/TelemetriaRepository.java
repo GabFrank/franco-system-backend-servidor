@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TelemetriaRepository extends HelperRepository<Telemetria, Long> {
@@ -25,4 +26,6 @@ public interface TelemetriaRepository extends HelperRepository<Telemetria, Long>
             "ORDER BY t.fechaGps DESC")
     Page<Telemetria> findByDispositivoIdAndFechaGpsBetween(Long dispositivoId, LocalDateTime fechaInicio,
             LocalDateTime fechaFin, Pageable pageable);
+
+    Optional<Telemetria> findFirstByDispositivoIdOrderByFechaGpsDesc(Long dispositivoId);
 }

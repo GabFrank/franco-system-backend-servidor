@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -29,5 +30,9 @@ public class TelemetriaService extends CrudService<Telemetria, TelemetriaReposit
     public Page<Telemetria> findByDispositivoIdAndFechaGpsBetween(Long dispositivoId, LocalDateTime fechaInicio,
             LocalDateTime fechaFin, Pageable pageable) {
         return repository.findByDispositivoIdAndFechaGpsBetween(dispositivoId, fechaInicio, fechaFin, pageable);
+    }
+
+    public Optional<Telemetria> findUltimaByDispositivoId(Long dispositivoId) {
+        return repository.findFirstByDispositivoIdOrderByFechaGpsDesc(dispositivoId);
     }
 }

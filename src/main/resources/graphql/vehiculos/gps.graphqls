@@ -6,6 +6,7 @@ type Gps {
     simNumero: String
     activo: Boolean
     creadoEm: Date
+    ultimaTelemetria: Telemetria
 }
 
 input GpsInput {

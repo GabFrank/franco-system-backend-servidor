@@ -70,6 +70,6 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
     }
 
     public Page<Transferencia> findByChoferId(Long choferId, Pageable pageable) {
-        return repository.findByChoferId(choferId, pageable);
+        return ((TransferenciaService) repository).findByChoferId(choferId, pageable);
     }
 }

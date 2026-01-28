@@ -41,6 +41,18 @@ public class RecepcionMercaderiaNotaService extends CrudService<RecepcionMercade
     }
 
     /**
+     * Elimina todas las asociaciones por ID de recepción de mercadería
+     */
+    @Transactional
+    public void deleteByRecepcionId(Long recepcionId) {
+        List<RecepcionMercaderiaNota> asociaciones = repository.findByRecepcionMercaderiaId(recepcionId);
+        for (RecepcionMercaderiaNota asociacion : asociaciones) {
+            repository.delete(asociacion);
+        }
+        repository.flush(); // Asegurar que se eliminen antes que el cabezal
+    }
+
+    /**
      * Asocia una nota de recepción a una recepción de mercadería
      */
     @Transactional

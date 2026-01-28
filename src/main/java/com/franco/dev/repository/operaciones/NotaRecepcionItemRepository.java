@@ -1,6 +1,5 @@
 package com.franco.dev.repository.operaciones;
 
-import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
 import com.franco.dev.graphql.operaciones.dto.ResumenItemsNotaDTO;
 import com.franco.dev.repository.HelperRepository;

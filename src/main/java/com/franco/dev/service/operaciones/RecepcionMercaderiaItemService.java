@@ -2,10 +2,7 @@ package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
-import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
-import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
-import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemVariacionRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,7 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 import com.franco.dev.domain.operaciones.EstadoVerificacion;
 import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
@@ -29,14 +27,13 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import java.util.ArrayList;
 
-import java.math.BigDecimal;
-
 @Service
 @AllArgsConstructor
 public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercaderiaItem, RecepcionMercaderiaItemRepository, Long> {
     private final RecepcionMercaderiaItemRepository repository;
-    private final RecepcionMercaderiaItemVariacionRepository recepcionMercaderiaItemVariacionRepository;
     private final EntityManager entityManager;
+    private final NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
+    private final RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
 
     @Override
     public RecepcionMercaderiaItemRepository getRepository() {
@@ -119,7 +116,7 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
      */
     public String getEstadoRecepcion(Long notaRecepcionItemId) {
         List<RecepcionMercaderiaItem> items = repository.findByNotaRecepcionItemId(notaRecepcionItemId);
-        return calcularEstadoRecepcion(items);
+        return calcularEstadoRecepcion(items, null);
     }
 
     /**
@@ -135,43 +132,230 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
         }
         
         List<RecepcionMercaderiaItem> items = repository.findByNotaRecepcionItemIdAndSucursalesIds(notaRecepcionItemId, sucursalesIds);
-        return calcularEstadoRecepcion(items);
+        return calcularEstadoRecepcion(items, sucursalesIds);
+    }
+
+    /**
+     * Obtiene el estado de recepción para una distribución específica
+     * @param distribucionId ID del NotaRecepcionItemDistribucion
+     * @return Estado de recepción física: PENDIENTE, VERIFICADO, RECHAZADO, PARCIAL
+     */
+    public String getEstadoRecepcionPorDistribucion(Long distribucionId) {
+        List<RecepcionMercaderiaItem> items = repository.findByNotaRecepcionItemDistribucionId(distribucionId);
+        
+        if (items.isEmpty()) {
+            return "PENDIENTE";
+        }
+
+        // Obtener cantidad esperada de la distribución
+        com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion distribucion = 
+                notaRecepcionItemDistribucionService.findById(distribucionId).orElse(null);
+        
+        if (distribucion == null) {
+            return "PENDIENTE";
+        }
+
+        Double cantidadEsperada = distribucion.getCantidad() != null ? distribucion.getCantidad() : 0.0;
+        
+        // Usar lógica de cálculo de estado interna
+        return calcularEstadoRecepcionInterno(items, cantidadEsperada);
+    }
+
+    /**
+     * Lógica interna para calcular el estado basado en items y cantidad esperada
+     */
+    private String calcularEstadoRecepcionInterno(List<RecepcionMercaderiaItem> items, Double cantidadEsperada) {
+        if (items.isEmpty()) return "PENDIENTE";
+        
+        Double cantidadRecibidaTotal = items.stream()
+                .mapToDouble(item -> item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0)
+                .sum();
+        
+        Double cantidadRechazadaTotal = items.stream()
+                .mapToDouble(item -> item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0)
+                .sum();
+
+        Double TOLERANCIA = 0.001;
+        if (cantidadRecibidaTotal == 0 && cantidadRechazadaTotal == 0) return "PENDIENTE";
+        
+        Double sumaTotal = cantidadRecibidaTotal + cantidadRechazadaTotal;
+        Double diferencia = Math.abs(sumaTotal - cantidadEsperada);
+        
+        if (diferencia < TOLERANCIA) {
+            return cantidadRecibidaTotal > 0 ? "VERIFICADO" : "RECHAZADO";
+        }
+        
+        if (sumaTotal < cantidadEsperada) {
+            return "PARCIAL";
+        }
+        
+        // Si hay exceso, consideramos como verificado para efectos de UI
+        return "VERIFICADO";
     }
 
     /**
      * Calcula el estado de recepción basado en una lista de RecepcionMercaderiaItem
      * @param items Lista de items de recepción de mercadería
+     * @param sucursalesIdsFiltro Lista opcional de IDs de sucursales usadas para filtrar (si es null, usar sucursales de los items)
      * @return Estado de recepción física: PENDIENTE, VERIFICADO, RECHAZADO, PARCIAL
      */
-    private String calcularEstadoRecepcion(List<RecepcionMercaderiaItem> items) {
+    private String calcularEstadoRecepcion(List<RecepcionMercaderiaItem> items, List<Long> sucursalesIdsFiltro) {
         if (items.isEmpty()) {
             return "PENDIENTE";
         }
 
-        // Si hay algún ítem rechazado, el estado es RECHAZADO
-        boolean tieneRechazados = items.stream()
-                .anyMatch(item -> item.getCantidadRechazada() != null && item.getCantidadRechazada() > 0);
+        // Calcular totales sumando todos los items
+        Double cantidadRecibidaTotal = items.stream()
+                .mapToDouble(item -> item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0)
+                .sum();
         
-        if (tieneRechazados) {
+        Double cantidadRechazadaTotal = items.stream()
+                .mapToDouble(item -> item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0)
+                .sum();
+
+        // Obtener el NotaRecepcionItem desde el primer item (todos deberían tener el mismo)
+        Long notaRecepcionItemId = items.get(0).getNotaRecepcionItem() != null 
+                ? items.get(0).getNotaRecepcionItem().getId() 
+                : null;
+        
+        // Obtener cantidad esperada desde las distribuciones del NotaRecepcionItem original
+        Double cantidadEsperada = 0.0;
+        if (notaRecepcionItemId != null) {
+            // Obtener todas las distribuciones del NotaRecepcionItem
+            List<com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion> distribuciones = 
+                    notaRecepcionItemDistribucionService.findByNotaRecepcionItemId(notaRecepcionItemId);
+            
+            // Determinar qué sucursales usar para filtrar las distribuciones
+            Set<Long> sucursalesIdsParaFiltrar;
+            if (sucursalesIdsFiltro != null && !sucursalesIdsFiltro.isEmpty()) {
+                // Usar las sucursales del filtro (más confiable)
+                sucursalesIdsParaFiltrar = new java.util.HashSet<>(sucursalesIdsFiltro);
+            } else {
+                // Si no hay filtro, obtener las sucursales únicas de los items
+                sucursalesIdsParaFiltrar = items.stream()
+                        .filter(item -> item.getSucursalEntrega() != null && item.getSucursalEntrega().getId() != null)
+                        .map(item -> item.getSucursalEntrega().getId())
+                        .collect(Collectors.toSet());
+            }
+            
+            if (!sucursalesIdsParaFiltrar.isEmpty()) {
+                // Filtrar distribuciones por las sucursales
+                cantidadEsperada = distribuciones.stream()
+                        .filter(dist -> dist.getSucursalEntrega() != null 
+                                && sucursalesIdsParaFiltrar.contains(dist.getSucursalEntrega().getId()))
+                        .mapToDouble(dist -> dist.getCantidad() != null ? dist.getCantidad() : 0.0)
+                        .sum();
+            } else {
+                // Si no hay sucursales para filtrar, sumar todas las distribuciones
+                cantidadEsperada = distribuciones.stream()
+                        .mapToDouble(dist -> dist.getCantidad() != null ? dist.getCantidad() : 0.0)
+                        .sum();
+            }
+        }
+
+        // Si no hay cantidad esperada calculada desde distribuciones, usar lógica anterior como fallback
+        if (cantidadEsperada == null || cantidadEsperada <= 0) {
+            // Lógica anterior como fallback
+            if (cantidadRechazadaTotal > 0) {
+                return "RECHAZADO";
+            }
+            if (cantidadRecibidaTotal > 0) {
+                // Verificar si todos los items tienen cantidad recibida
+                boolean todosVerificados = items.stream()
+                        .allMatch(item -> item.getCantidadRecibida() != null && item.getCantidadRecibida() > 0);
+                return todosVerificados ? "VERIFICADO" : "PARCIAL";
+            }
+            return "PENDIENTE";
+        }
+
+        // Tolerancia para comparaciones de punto flotante
+        Double TOLERANCIA = 0.001;
+
+        // Si no se ha procesado nada
+        if (cantidadRecibidaTotal == 0 && cantidadRechazadaTotal == 0) {
+            return "PENDIENTE";
+        }
+
+        // Si toda la cantidad esperada fue rechazada
+        if (cantidadRechazadaTotal >= cantidadEsperada - TOLERANCIA) {
             return "RECHAZADO";
         }
 
-        // Si todos los ítems tienen cantidad recibida > 0, es VERIFICADO
-        boolean todosVerificados = items.stream()
-                .allMatch(item -> item.getCantidadRecibida() != null && item.getCantidadRecibida() > 0);
+        // Log para debugging
+        Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+        logger.info("=== CALCULANDO ESTADO DE RECEPCIÓN ===");
+        logger.info("NotaRecepcionItemId: {}", notaRecepcionItemId);
+        logger.info("Cantidad Esperada: {}", cantidadEsperada);
+        logger.info("Cantidad Recibida Total: {}", cantidadRecibidaTotal);
+        logger.info("Cantidad Rechazada Total: {}", cantidadRechazadaTotal);
+        logger.info("Suma (Recibida + Rechazada): {}", (cantidadRecibidaTotal + cantidadRechazadaTotal));
+        logger.info("Diferencia: {}", Math.abs((cantidadRecibidaTotal + cantidadRechazadaTotal) - cantidadEsperada));
         
-        if (todosVerificados) {
-            return "VERIFICADO";
+        // Calcular cantidad pendiente y diferencia
+        Double cantidadPendiente = cantidadEsperada - cantidadRecibidaTotal - cantidadRechazadaTotal;
+        Double sumaTotal = cantidadRecibidaTotal + cantidadRechazadaTotal;
+        Double diferencia = Math.abs(sumaTotal - cantidadEsperada);
+        
+        logger.info("Cantidad Pendiente: {}", cantidadPendiente);
+        logger.info("Suma (Recibida + Rechazada): {}", sumaTotal);
+        logger.info("Diferencia: {}", diferencia);
+        
+        // PRIORIDAD 1: Si la suma de recibido + rechazado cubre toda la cantidad esperada (dentro de tolerancia)
+        if (diferencia < TOLERANCIA) {
+            logger.info("La suma cubre la cantidad esperada. Diferencia: {}", diferencia);
+            // Si hay cantidad recibida, está verificado (aunque haya rechazo)
+            if (cantidadRecibidaTotal > 0) {
+                logger.info("Estado: VERIFICADO (hay cantidad recibida y suma completa)");
+                return "VERIFICADO";
+            } else {
+                // Solo rechazo, completamente rechazado
+                logger.info("Estado: RECHAZADO (solo rechazo y suma completa)");
+                return "RECHAZADO";
+            }
+        }
+        
+        // PRIORIDAD 2: Si la cantidad pendiente es muy pequeña (dentro de tolerancia), considerar como completo
+        if (Math.abs(cantidadPendiente) < TOLERANCIA) {
+            logger.info("Cantidad pendiente dentro de tolerancia. Diferencia: {}", cantidadPendiente);
+            if (cantidadRecibidaTotal > 0) {
+                logger.info("Estado: VERIFICADO (diferencia por redondeo, hay cantidad recibida)");
+                return "VERIFICADO";
+            } else if (cantidadRechazadaTotal > 0) {
+                logger.info("Estado: RECHAZADO (diferencia por redondeo, solo rechazo)");
+                return "RECHAZADO";
+            }
+        }
+        
+        // PRIORIDAD 3: Si hay cantidad pendiente significativa, es parcial
+        if (cantidadPendiente > TOLERANCIA) {
+            logger.info("Hay cantidad pendiente significativa. Estado: PARCIAL");
+            // Si hay rechazo parcial, el estado puede ser PARCIAL o RECHAZADO según la lógica de negocio
+            // Por ahora, si hay rechazo parcial, usamos PARCIAL para indicar que hay cantidad pendiente
+            if (cantidadRechazadaTotal > 0) {
+                return "PARCIAL"; // Rechazo parcial, hay cantidad pendiente
+            } else if (cantidadRecibidaTotal > 0) {
+                return "PARCIAL"; // Recepción parcial, hay cantidad pendiente
+            }
+        }
+        
+        // PRIORIDAD 4: Si la cantidad pendiente es negativa (más recibido/rechazado que esperado)
+        // Esto puede ocurrir por errores de datos, pero aún así debemos determinar un estado
+        if (cantidadPendiente < -TOLERANCIA) {
+            logger.warn("Cantidad pendiente negativa (más recibido/rechazado que esperado). Diferencia: {}", cantidadPendiente);
+            // Si hay cantidad recibida, considerar como verificado (aunque haya exceso)
+            if (cantidadRecibidaTotal > 0) {
+                logger.info("Estado: VERIFICADO (hay exceso pero hay cantidad recibida)");
+                return "VERIFICADO";
+            } else if (cantidadRechazadaTotal > 0) {
+                logger.info("Estado: RECHAZADO (hay exceso pero solo rechazo)");
+                return "RECHAZADO";
+            }
         }
 
-        // Si algunos tienen cantidad recibida > 0, es PARCIAL
-        boolean algunosVerificados = items.stream()
-                .anyMatch(item -> item.getCantidadRecibida() != null && item.getCantidadRecibida() > 0);
-        
-        if (algunosVerificados) {
-            return "PARCIAL";
-        }
-
+        // Caso edge: no debería ocurrir si la lógica está correcta
+        logger.warn("Estado no determinado después de todas las verificaciones. Retornando PENDIENTE");
+        logger.warn("Valores: cantidadEsperada={}, cantidadRecibidaTotal={}, cantidadRechazadaTotal={}, cantidadPendiente={}, diferencia={}", 
+            cantidadEsperada, cantidadRecibidaTotal, cantidadRechazadaTotal, cantidadPendiente, diferencia);
         return "PENDIENTE";
     }
 
@@ -209,6 +393,9 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
                 repository.delete(item);
             }
             
+            // Forzar flush para que countByRecepcionMercaderiaId sea preciso
+            repository.flush();
+            
             // 4. Verificar si la RecepcionMercaderia queda vacía
             if (recepcionMercaderia != null) {
                 Long cantidadItems = repository.countByRecepcionMercaderiaId(recepcionMercaderia.getId());
@@ -216,8 +403,16 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
                 
                 if (cantidadItems == 0) {
                     logger.info("RecepcionMercaderia {} está vacía, será eliminada", recepcionMercaderia.getId());
-                    // Aquí se eliminaría la RecepcionMercaderia si fuera necesario
-                    // Por ahora solo logueamos
+                    // Eliminar asociaciones de notas primero (incluye flush)
+                    recepcionMercaderiaNotaService.deleteByRecepcionId(recepcionMercaderia.getId());
+                    
+                    // Eliminar cabezal usando entityManager para asegurar que se procese en el orden correcto
+                    RecepcionMercaderia managedRecepcion = entityManager.find(RecepcionMercaderia.class, recepcionMercaderia.getId());
+                    if (managedRecepcion != null) {
+                        entityManager.remove(managedRecepcion);
+                        entityManager.flush(); // Forzar eliminación del cabezal
+                    }
+                    logger.info("RecepcionMercaderia {} eliminada correctamente", recepcionMercaderia.getId());
                 }
             }
             
@@ -239,7 +434,7 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
     @Transactional
     public Boolean resetearVerificacion(Long recepcionMercaderiaItemId) {
         Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
-        logger.info("=== Iniciando reseteo de verificación ===");
+        logger.info("=== Iniciando reseteo (ELIMINACIÓN) de verificación ===");
         logger.info("RecepcionMercaderiaItemId: {}", recepcionMercaderiaItemId);
         
         try {
@@ -252,32 +447,35 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
                 return false;
             }
             
-            logger.info("Reseteando RecepcionMercaderiaItem ID: {} - Producto: {}", 
+            RecepcionMercaderia recepcionMercaderia = item.getRecepcionMercaderia();
+            
+            logger.info("Eliminando RecepcionMercaderiaItem ID: {} - Producto: {}", 
                 item.getId(), item.getProducto() != null ? item.getProducto().getDescripcion() : "N/A");
             
-            // 2. Buscar y eliminar todas las variaciones del item
-            List<RecepcionMercaderiaItemVariacion> variaciones = recepcionMercaderiaItemVariacionRepository.findByRecepcionMercaderiaItemId(item.getId());
+            // 2. Eliminar el item (Hibernate cascade borrará variaciones)
+            repository.delete(item);
             
-            if (variaciones != null && !variaciones.isEmpty()) {
-                logger.info("Eliminando {} variaciones del item {}", variaciones.size(), item.getId());
-                for (RecepcionMercaderiaItemVariacion variacion : variaciones) {
-                    recepcionMercaderiaItemVariacionRepository.delete(variacion);
-                    logger.info("Variación {} eliminada", variacion.getId());
+            // Forzar flush
+            repository.flush();
+            
+            // 3. Verificar si la RecepcionMercaderia queda vacía
+            if (recepcionMercaderia != null) {
+                Long cantidadItems = repository.countByRecepcionMercaderiaId(recepcionMercaderia.getId());
+                if (cantidadItems == 0) {
+                    logger.info("RecepcionMercaderia {} está vacía, será eliminada", recepcionMercaderia.getId());
+                    // Eliminar asociaciones de notas primero (incluye flush)
+                    recepcionMercaderiaNotaService.deleteByRecepcionId(recepcionMercaderia.getId());
+                    
+                    // Eliminar cabezal usando entityManager para asegurar que se procese en el orden correcto
+                    RecepcionMercaderia managedRecepcion = entityManager.find(RecepcionMercaderia.class, recepcionMercaderia.getId());
+                    if (managedRecepcion != null) {
+                        entityManager.remove(managedRecepcion);
+                        entityManager.flush(); // Forzar eliminación del cabezal
+                    }
                 }
-            } else {
-                logger.info("No se encontraron variaciones para el item {}", item.getId());
             }
             
-            // 3. Resetear cantidades y estado
-            item.setCantidadRecibida(0.0);
-            item.setCantidadRechazada(0.0);
-            item.setEstadoVerificacion(EstadoVerificacion.PENDIENTE);
-            
-            // 4. Guardar el item reseteado
-            repository.save(item);
-            logger.info("Item {} reseteado exitosamente", item.getId());
-            
-            logger.info("=== Reseteo de verificación completado exitosamente ===");
+            logger.info("=== Reseteo (eliminación) de verificación completado exitosamente ===");
             return true;
             
         } catch (Exception e) {
@@ -321,6 +519,9 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
                 repository.delete(item);
             }
             
+            // Forzar flush para que countByRecepcionMercaderiaId sea preciso
+            repository.flush();
+            
             // 4. Verificar si la RecepcionMercaderia queda vacía
             if (recepcionMercaderia != null) {
                 Long cantidadItems = repository.countByRecepcionMercaderiaId(recepcionMercaderia.getId());
@@ -328,8 +529,16 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
                 
                 if (cantidadItems == 0) {
                     logger.info("RecepcionMercaderia {} está vacía, será eliminada", recepcionMercaderia.getId());
-                    // Aquí se eliminaría la RecepcionMercaderia si fuera necesario
-                    // Por ahora solo logueamos
+                    // Eliminar asociaciones de notas primero (incluye flush)
+                    recepcionMercaderiaNotaService.deleteByRecepcionId(recepcionMercaderia.getId());
+                    
+                    // Eliminar cabezal usando entityManager para asegurar que se procese en el orden correcto
+                    RecepcionMercaderia managedRecepcion = entityManager.find(RecepcionMercaderia.class, recepcionMercaderia.getId());
+                    if (managedRecepcion != null) {
+                        entityManager.remove(managedRecepcion);
+                        entityManager.flush(); // Forzar eliminación del cabezal
+                    }
+                    logger.info("RecepcionMercaderia {} eliminada correctamente", recepcionMercaderia.getId());
                 }
             }
             

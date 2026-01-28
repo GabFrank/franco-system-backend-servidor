@@ -99,6 +99,7 @@ enum FiltroVerificacion {
     TODOS
     PENDIENTES
     VERIFICADOS
+    RECHAZADOS
 }
 
 # Tipo para resumen de items de notas de recepción

@@ -12,7 +12,6 @@ import com.franco.dev.service.operaciones.RecepcionMercaderiaNotaService;
 import com.franco.dev.service.operaciones.NotaRecepcionService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.operaciones.ProcesoEtapaService;
-import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemVariacionService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
@@ -26,8 +25,6 @@ import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
-import com.franco.dev.domain.operaciones.MovimientoStock;
-import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.empresarial.Sucursal;
@@ -39,7 +36,6 @@ import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.data.domain.Page;
@@ -47,8 +43,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import javax.persistence.EntityManager;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -90,6 +85,9 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     private RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
 
     @Autowired
+    private EntityManager entityManager;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
@@ -101,8 +99,6 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     @Autowired
     private ProcesoEtapaService procesoEtapaService;
 
-    @Autowired
-    private MovimientoStockService movimientoStockService;
 
     /**
      * Obtiene el ID de la recepción de mercadería
@@ -772,7 +768,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
         try {
             // 1. Obtener la nota
-            NotaRecepcion nota = notaRecepcionService.findById(notaId)
+            notaRecepcionService.findById(notaId)
                     .orElseThrow(() -> new GraphQLException("Nota de recepción no encontrada: " + notaId));
 
             // 2. Obtener todas las distribuciones de la nota para las sucursales dadas
@@ -838,6 +834,98 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             System.err.println("Error al recepcionar todo por nota: " + e.getMessage());
             e.printStackTrace();
             throw new GraphQLException("Error al recepcionar todo por nota: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deshace (cancela) la verificación física de TODOS los ítems de una nota para las sucursales dadas.
+     * Implementación masiva (backend-driven) similar a recepcionarTodoPorNota.
+     *
+     * - Elimina RecepcionMercaderiaItem (y por cascade sus variaciones)
+     * - Si el cabezal RecepcionMercaderia queda vacío, elimina también sus asociaciones (RecepcionMercaderiaNota) y el cabezal
+     *
+     * @param notaId ID de la nota de recepción
+     * @param sucursalesIds IDs de sucursales de entrega a procesar
+     * @param usuarioId ID del usuario (auditoría / validación)
+     * @param itemIds opcional: IDs de NotaRecepcionItem a restringir (para selección)
+     */
+    @Transactional
+    public Boolean deshacerVerificacionTodoPorNota(Long notaId, List<Long> sucursalesIds, Long usuarioId, List<Long> itemIds) {
+        System.out.println("=== DESHACER VERIFICACIÓN TODO POR NOTA ===");
+        System.out.println("NotaId: " + notaId);
+        System.out.println("SucursalesIds: " + sucursalesIds);
+        System.out.println("UsuarioId: " + usuarioId);
+        System.out.println("ItemIds: " + (itemIds != null ? itemIds.size() : "TODOS"));
+
+        if (notaId == null || sucursalesIds == null || sucursalesIds.isEmpty() || usuarioId == null) {
+            throw new GraphQLException("notaId, sucursalesIds y usuarioId son requeridos");
+        }
+
+        try {
+            // Validar que exista la nota (y mantener consistencia con recepcionarTodoPorNota)
+            notaRecepcionService.findById(notaId)
+                    .orElseThrow(() -> new GraphQLException("Nota de recepción no encontrada: " + notaId));
+
+            // Obtener distribuciones de la nota para las sucursales dadas (y filtrar itemIds si corresponde)
+            List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
+                    .findByNotaRecepcionId(notaId);
+            List<NotaRecepcionItemDistribucion> distribucionesFiltradas = distribuciones.stream()
+                    .filter(dist -> sucursalesIds.contains(dist.getSucursalEntrega().getId()))
+                    .filter(dist -> itemIds == null || itemIds.contains(dist.getNotaRecepcionItem().getId()))
+                    .collect(Collectors.toList());
+
+            if (distribucionesFiltradas.isEmpty()) {
+                System.out.println("No hay distribuciones para procesar en la nota " + notaId);
+                return true;
+            }
+
+            // Eliminar items de recepción asociados a cada distribución
+            int itemsEliminados = 0;
+            for (NotaRecepcionItemDistribucion dist : distribucionesFiltradas) {
+                List<RecepcionMercaderiaItem> itemsExistentes = service.getRepository()
+                        .findByNotaRecepcionItemDistribucionId(dist.getId());
+
+                if (itemsExistentes == null || itemsExistentes.isEmpty()) {
+                    continue;
+                }
+
+                // Eliminar cada item usando repository (cascade se encarga de variaciones)
+                for (RecepcionMercaderiaItem item : itemsExistentes) {
+                    service.getRepository().delete(item);
+                    itemsEliminados++;
+                }
+            }
+
+            // Flush para que el cleanup de cabezales sea consistente
+            service.getRepository().flush();
+
+            // Cleanup: eliminar cabezales vacíos que estén asociados a esta nota
+            // (si hay asociaciones duplicadas, esto igual los limpia)
+            List<RecepcionMercaderiaNota> asociaciones = recepcionMercaderiaNotaService.findByNotaRecepcionId(notaId);
+            if (asociaciones != null && !asociaciones.isEmpty()) {
+                for (RecepcionMercaderiaNota asoc : asociaciones) {
+                    Long recepcionId = asoc.getRecepcionMercaderia() != null ? asoc.getRecepcionMercaderia().getId() : null;
+                    if (recepcionId == null) continue;
+
+                    Long count = service.getRepository().countByRecepcionMercaderiaId(recepcionId);
+                    if (count != null && count == 0) {
+                        // Eliminar asociaciones por recepción y luego el cabezal (misma lógica que en service)
+                        recepcionMercaderiaNotaService.deleteByRecepcionId(recepcionId);
+                        RecepcionMercaderia managedRecepcion = entityManager.find(RecepcionMercaderia.class, recepcionId);
+                        if (managedRecepcion != null) {
+                            entityManager.remove(managedRecepcion);
+                            entityManager.flush();
+                        }
+                    }
+                }
+            }
+
+            System.out.println("Deshacer verificación masivo completado. Items eliminados: " + itemsEliminados);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error al deshacer verificación todo por nota: " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al deshacer verificación todo por nota: " + e.getMessage());
         }
     }
 

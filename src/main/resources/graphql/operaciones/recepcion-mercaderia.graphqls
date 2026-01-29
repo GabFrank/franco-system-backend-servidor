@@ -9,6 +9,7 @@ type RecepcionMercaderia {
     usuario: Usuario
     items: [RecepcionMercaderiaItem]
     costosAdicionales: [RecepcionCostoAdicional]
+    notas: [NotaRecepcion]
 }
 
 input RecepcionMercaderiaInput {

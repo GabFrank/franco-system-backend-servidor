@@ -1134,6 +1134,11 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             // 6. Finalizar cada recepción usando el método del service
             // Este método genera movimientos de stock, actualiza costos con prorrateo,
             // y cambia el estado a FINALIZADA, pero NO actualiza etapas del proceso
+            // TODO: FALTA IMPLEMENTAR GENERACIÓN DE CONSTANCIA DE RECEPCIÓN EN APP DESKTOP
+            //       Actualmente solo se genera en el flujo móvil (finalizarRecepcionMercaderia).
+            //       Según RF-25 del manual, debería generarse automáticamente al finalizar.
+            //       Ver: ConstanciaDeRecepcionService.generarConstancia() y
+            //       RecepcionMercaderiaGraphQL.finalizarRecepcionMercaderia() para referencia.
             for (RecepcionMercaderia recepcion : recepcionesAProcesar) {
                 System.out.println("Finalizando recepción ID: " + recepcion.getId());
                 recepcionMercaderiaService.finalizarRecepcion(recepcion.getId());

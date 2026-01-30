@@ -9,13 +9,30 @@ import org.springframework.stereotype.Component;
 public class PedidoRecepcionProductoResolver implements GraphQLResolver<PedidoRecepcionProductoDto> {
 
     public PedidoRecepcionProductoEstado estado(PedidoRecepcionProductoDto e) {
-        if (e.getTotalCantidadRecibidaPorUnidad() == null) {
+        if (e == null) {
             return PedidoRecepcionProductoEstado.PENDIENTE;
-        } else if (e.getTotalCantidadRecibidaPorUnidad() >= e.getTotalCantidadARecibirPorUnidad()) {
-            return PedidoRecepcionProductoEstado.RECIBIDO;
-        } else {
-            return PedidoRecepcionProductoEstado.RECIBIDO_PARCIALMENTE;
         }
+        
+        Double cantidadRecibida = e.getTotalCantidadRecibidaPorUnidad();
+        Double cantidadARecibir = e.getTotalCantidadARecibirPorUnidad();
+        
+        // Si no hay cantidad recibida o es 0, está pendiente
+        if (cantidadRecibida == null || cantidadRecibida == 0.0) {
+            return PedidoRecepcionProductoEstado.PENDIENTE;
+        }
+        
+        // Si no hay cantidad a recibir o es 0, está pendiente
+        if (cantidadARecibir == null || cantidadARecibir == 0.0) {
+            return PedidoRecepcionProductoEstado.PENDIENTE;
+        }
+        
+        // Si la cantidad recibida es mayor o igual a la cantidad a recibir, está recibido
+        if (cantidadRecibida >= cantidadARecibir) {
+            return PedidoRecepcionProductoEstado.RECIBIDO;
+        }
+        
+        // Si hay cantidad recibida pero es menor a la cantidad a recibir, está recibido parcialmente
+        return PedidoRecepcionProductoEstado.RECIBIDO_PARCIALMENTE;
     }
 
 }

@@ -545,4 +545,37 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     public List<RecepcionMercaderia> findByPedidoId(Long pedidoId) {
         return repository.findByPedidoId(pedidoId);
     }
+
+    /**
+     * Verifica si existe una recepción para una nota en una sucursal específica
+     * Bloquea recepciones EN_PROCESO, PENDIENTE y FINALIZADAS para evitar duplicación de stock y costos
+     * 
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí (validación antes de iniciar recepción)
+     * 
+     * @param notaRecepcionId ID de la nota de recepción
+     * @param sucursalRecepcionId ID de la sucursal de recepción
+     * @return RecepcionMercaderia si existe (EN_PROCESO, PENDIENTE o FINALIZADA), null si no existe
+     */
+    public RecepcionMercaderia encontrarRecepcionActivaPorNotaYSucursal(Long notaRecepcionId, Long sucursalRecepcionId) {
+        // Obtener todas las asociaciones de la nota
+        List<RecepcionMercaderiaNota> asociaciones = recepcionMercaderiaNotaService.findByNotaRecepcionId(notaRecepcionId);
+        
+        // Filtrar por sucursal y estado (bloquear EN_PROCESO, PENDIENTE y FINALIZADA)
+        // FINALIZADA se bloquea porque ya generó movimientos de stock y costos
+        for (RecepcionMercaderiaNota asociacion : asociaciones) {
+            RecepcionMercaderia recepcion = asociacion.getRecepcionMercaderia();
+            if (recepcion != null && 
+                recepcion.getSucursalRecepcion() != null &&
+                recepcion.getSucursalRecepcion().getId().equals(sucursalRecepcionId) &&
+                (recepcion.getEstado() == RecepcionMercaderiaEstado.EN_PROCESO || 
+                 recepcion.getEstado() == RecepcionMercaderiaEstado.PENDIENTE ||
+                 recepcion.getEstado() == RecepcionMercaderiaEstado.FINALIZADA)) {
+                return recepcion;
+            }
+        }
+        
+        return null;
+    }
 } 

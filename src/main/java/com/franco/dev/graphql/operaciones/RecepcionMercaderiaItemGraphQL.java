@@ -229,6 +229,15 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 input.getSucursalEntregaId());
         }
 
+        // FILTRAR: Solo considerar items de la recepción actual para evitar actualizar items de otras recepciones
+        // Esto es crítico cuando hay múltiples recepciones para la misma nota en diferentes sucursales
+        if (input.getRecepcionMercaderiaId() != null) {
+            itemsExistentes = itemsExistentes.stream()
+                    .filter(item -> item.getRecepcionMercaderia() != null && 
+                                   item.getRecepcionMercaderia().getId().equals(input.getRecepcionMercaderiaId()))
+                    .collect(Collectors.toList());
+        }
+
         // Filtrar solo ítems que no estén rechazados (excluir rechazos)
         List<RecepcionMercaderiaItem> itemsVerificados = itemsExistentes.stream()
                 .filter(item -> item.getCantidadRechazada() == null || item.getCantidadRechazada() == 0)
@@ -406,6 +415,37 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         item.setObservaciones(input.getObservaciones());
         item.setMetodoVerificacion(input.getMetodoVerificacion());
         item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
+
+        // 2.1. Actualizar la distribución asociada si es necesario
+        // Esto corrige casos donde el item fue pre-creado con una distribución incorrecta
+        if (input.getNotaRecepcionItemDistribucionId() != null) {
+            // Si se proporciona explícitamente, usarla
+            NotaRecepcionItemDistribucion distribucion = notaRecepcionItemDistribucionService
+                .findById(input.getNotaRecepcionItemDistribucionId())
+                .orElse(null);
+            if (distribucion != null) {
+                item.setNotaRecepcionItemDistribucion(distribucion);
+            }
+        } else if (input.getSucursalEntregaId() != null) {
+            // Si no se proporciona pero sí la sucursal, buscar la distribución correcta
+            NotaRecepcionItem notaItem = item.getNotaRecepcionItem();
+            if (notaItem != null) {
+                List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
+                    .findByNotaRecepcionItemId(notaItem.getId());
+                NotaRecepcionItemDistribucion distribucionCorrecta = distribuciones.stream()
+                    .filter(dist -> dist.getSucursalEntrega() != null && 
+                                   dist.getSucursalEntrega().getId().equals(input.getSucursalEntregaId()))
+                    .findFirst()
+                    .orElse(null);
+                
+                // Solo actualizar si se encontró una distribución diferente a la actual
+                if (distribucionCorrecta != null && 
+                    (item.getNotaRecepcionItemDistribucion() == null || 
+                     !item.getNotaRecepcionItemDistribucion().getId().equals(distribucionCorrecta.getId()))) {
+                    item.setNotaRecepcionItemDistribucion(distribucionCorrecta);
+                }
+            }
+        }
 
         // 3. Eliminar variaciones anteriores
         recepcionMercaderiaItemVariacionService.deleteByRecepcionMercaderiaItemId(item.getId());

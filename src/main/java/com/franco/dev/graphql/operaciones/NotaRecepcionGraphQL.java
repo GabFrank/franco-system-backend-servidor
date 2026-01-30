@@ -171,9 +171,15 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.getRepository().countByPedidoId(id);
     }
 
+    /**
+     * Busca NotaRecepcion por proveedor y número
+     * 
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí (componente recepcion-notas, búsqueda de notas por número)
+     */
     public List<NotaRecepcion> findByProveedorAndNumero(Long id, Integer numero) {
-        // return service.getRepository().findByPedidoProveedorIdAndNumeroAndPedidoEstadoNot(id, numero, PedidoEstado.CONCLUIDO);
-        return new ArrayList<>();
+        return service.findNotasDisponiblesParaRecepcion(numero, id, null);
     }
 
     public List<NotaRecepcion> findByNumero(Integer numero) {

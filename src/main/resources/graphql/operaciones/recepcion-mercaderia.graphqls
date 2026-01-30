@@ -39,6 +39,31 @@ type RecepcionMercaderiaPage {
     getPageable: Pageable
 }
 
+type PedidoRecepcionProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PedidoRecepcionProductoDto]
+    getPageable: Pageable
+}
+
+type PedidoRecepcionProductoDto {
+    producto: Producto
+    totalCantidadARecibirPorUnidad: Float
+    totalCantidadRecibidaPorUnidad: Float
+    estado: PedidoRecepcionProductoEstado
+}
+
+enum PedidoRecepcionProductoEstado {
+    PENDIENTE
+    RECIBIDO
+    RECIBIDO_PARCIALMENTE
+}
+
 extend type Query {
     recepcionMercaderia(id: ID!): RecepcionMercaderia
     recepcionMercaderiaConFiltros(
@@ -55,6 +80,21 @@ extend type Query {
     recepcionesPorProveedor(proveedorId: ID!): [RecepcionMercaderia]
     recepcionesPorEstado(estado: RecepcionMercaderiaEstado!): [RecepcionMercaderia]
     generarConstanciaRecepcionPDF(recepcionId: ID!): ConstanciaRecepcionPDF
+    pedidoRecepcionProductoPorRecepcionMercaderia(
+        recepcionMercaderiaId: ID!,
+        estado: PedidoRecepcionProductoEstado,
+        page: Int = 0,
+        size: Int = 20
+    ): PedidoRecepcionProductoPage
+    pedidoRecepcionProductoPorRecepcionMercaderiaAndProducto(
+        recepcionMercaderiaId: ID!,
+        productoId: ID!,
+        estado: PedidoRecepcionProductoEstado
+    ): PedidoRecepcionProductoDto
+    verificarRecepcionActivaPorNotaYSucursal(
+        notaRecepcionId: ID!,
+        sucursalRecepcionId: ID!
+    ): RecepcionMercaderia
 }
 
 extend type Mutation {
@@ -69,6 +109,7 @@ extend type Mutation {
         usuarioId: ID!
     ): RecepcionMercaderia!
     asociarNotasARecepcion(recepcionId: ID!, notaRecepcionIds: [Int]!): Boolean
+    reabrirRecepcionMercaderia(recepcionId: ID!): RecepcionMercaderia!
 }
 
 enum RecepcionMercaderiaEstado {

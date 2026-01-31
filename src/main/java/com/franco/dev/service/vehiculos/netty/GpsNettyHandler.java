@@ -4,6 +4,7 @@ import com.franco.dev.domain.vehiculos.Gps;
 import com.franco.dev.domain.vehiculos.Telemetria;
 import com.franco.dev.service.vehiculos.GpsService;
 import com.franco.dev.service.vehiculos.TelemetriaService;
+import com.franco.dev.service.vehiculos.websocket.GpsTelemetriaWebSocketService;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -19,17 +20,31 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
 
     private final GpsService gpsService;
     private final TelemetriaService telemetriaService;
+    private final GpsTelemetriaWebSocketService webSocketService;
 
-    public GpsNettyHandler(GpsService gpsService, TelemetriaService telemetriaService) {
+    public GpsNettyHandler(GpsService gpsService, TelemetriaService telemetriaService,
+            GpsTelemetriaWebSocketService webSocketService) {
         this.gpsService = gpsService;
         this.telemetriaService = telemetriaService;
+        this.webSocketService = webSocketService;
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        log.info("Nueva conexión GPS desde: {}", ctx.channel().remoteAddress());
+        super.channelActive(ctx);
+    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        log.info("Conexión GPS cerrada: {}", ctx.channel().remoteAddress());
+        super.channelInactive(ctx);
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
         log.info("Mensaje Recibido: {}", msg);
 
-        // Limpieza básica
         String cleanMsg = msg.trim();
         if (cleanMsg.endsWith("#")) {
             cleanMsg = cleanMsg.substring(0, cleanMsg.length() - 1);
@@ -38,30 +53,63 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
         String[] parts = cleanMsg.split(",");
 
         // Validación básica de longitud H02
-        if (parts.length < 10) {
+        if (parts.length < 3) {
             log.warn("Mensaje ignorado por longitud insuficiente: {}", cleanMsg);
             return;
         }
 
         String header = parts[0];
         if (!header.contains("HQ")) {
+            log.debug("Mensaje no es protocolo H02: {}", header);
             return;
         }
 
         String imei = parts[1];
+        String messageType = parts[2];
 
+        // Buscar dispositivo registrado
         Optional<Gps> gpsOpt = gpsService.findByImei(imei);
         if (!gpsOpt.isPresent()) {
-            log.warn("Dispositivo no encontrado con IMEI: {}", imei);
+            log.warn("Dispositivo no registrado con IMEI: {}", imei);
             return;
         }
 
         Gps gps = gpsOpt.get();
 
+        // Procesar según tipo de mensaje
+        switch (messageType) {
+            case "V1": // Ubicación normal
+            case "V4": // Ubicación con alarma de corte de energía
+            case "V5": // Ubicación LBS (sin GPS)
+                procesarUbicacion(ctx, gps, parts, messageType, msg);
+                break;
+            case "BP00": // Heartbeat request
+                enviarAck(ctx, imei, "BP00");
+                log.debug("Heartbeat recibido de IMEI: {}", imei);
+                break;
+            case "BP05": // Heartbeat handshake
+                enviarAck(ctx, imei, "BP05");
+                break;
+            default:
+                log.debug("Tipo de mensaje no manejado: {} para IMEI: {}", messageType, imei);
+        }
+    }
+
+    /**
+     * Procesa mensajes de ubicación (V1, V4, V5)
+     */
+    private void procesarUbicacion(ChannelHandlerContext ctx, Gps gps, String[] parts,
+            String messageType, String rawMsg) {
         try {
+            // Validar longitud mínima para datos de ubicación
+            if (parts.length < 12) {
+                log.warn("Mensaje de ubicación incompleto para IMEI: {}", gps.getImei());
+                return;
+            }
+
             // Extracción de datos
             String timeStr = parts[3]; // HHMMSS
-            String validStr = parts[4]; // A o V
+            String validStr = parts[4]; // A = válido, V = inválido
             String latStr = parts[5];
             String latDir = parts[6];
             String lonStr = parts[7];
@@ -80,20 +128,26 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
             LocalDateTime fechaGps = LocalDateTime.of(date, time);
 
             // Parsing Coordenadas
-            Double lat = convertCoordinates(latStr, latDir);
-            Double lon = convertCoordinates(lonStr, lonDir);
+            Double lat = GpsUtils.convertCoordinates(latStr, latDir);
+            Double lon = GpsUtils.convertCoordinates(lonStr, lonDir);
 
-            // Parsing Velocidad (asumiendo que viene en km/h o knots, lo guardamos como
-            // entero)
+            // Validar coordenadas (0,0 es inválido)
+            boolean coordenadasValidas = lat != 0.0 && lon != 0.0;
+
+            // Parsing Velocidad (knots a km/h si es necesario, ST-901 usa km/h)
             Double speedVal = Double.parseDouble(speedStr);
-            // ST-901 suele mandar km/h. Si fuera knots, habría que multiplicar por 1.852.
-            // Para este ejemplo asumimos km/h directo como entero.
             Integer velocidad = speedVal.intValue();
 
-            // Dirección
-            Integer direccion = Integer.parseInt(dirStr);
-            Boolean ignicion = false;
+            // Dirección (heading)
+            Integer direccion = parseIntSafe(dirStr, 0);
 
+            // Estado de ignición (parsear del stateStr si está disponible)
+            Boolean ignicion = parseIgnicion(stateStr);
+
+            // Determinar tipo de alarma
+            String alarma = determinarAlarma(validStr, messageType, stateStr);
+
+            // Crear entidad Telemetría
             Telemetria telemetria = new Telemetria();
             telemetria.setDispositivo(gps);
             telemetria.setFechaGps(fechaGps);
@@ -103,42 +157,134 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
             telemetria.setVelocidad(velocidad);
             telemetria.setDireccion(direccion);
             telemetria.setIgnicion(ignicion);
-            telemetria.setAlarma(validStr.equals("A") ? "NORMAL" : "GPS_INVALID");
-            telemetria.setJsonData("{\"raw\": \"" + msg + "\", \"state\": \"" + stateStr + "\"}");
+            telemetria.setAlarma(alarma);
+            telemetria.setJsonData(buildJsonData(rawMsg, stateStr, validStr, coordenadasValidas));
 
-            telemetriaService.save(telemetria);
-            log.info("Telemetria guardada para IMEI: {}", imei);
+            // Guardar telemetría
+            Telemetria saved = telemetriaService.save(telemetria);
+            log.info("Telemetría guardada para IMEI: {} - Lat: {}, Lon: {}, Vel: {} km/h",
+                    gps.getImei(), lat, lon, velocidad);
+
+            // Actualizar caché de última posición en GPS
+            if (coordenadasValidas) {
+                gpsService.actualizarUltimaPosicion(gps.getId(), lat, lon, fechaGps, ignicion);
+            }
+
+            // Broadcast vía WebSocket a clientes frontend
+            if (webSocketService != null) {
+                webSocketService.broadcastTelemetria(gps, saved);
+            }
+
+            // Enviar ACK al dispositivo GPS
+            enviarAck(ctx, gps.getImei(), "V1");
 
         } catch (Exception e) {
-            log.error("Error procesando telemetria: ", e);
+            log.error("Error procesando telemetría para IMEI {}: {}", gps.getImei(), e.getMessage(), e);
         }
     }
 
-    private Double convertCoordinates(String rawCoordinate, String direction) {
-        if (rawCoordinate == null || rawCoordinate.isEmpty()) {
-            return 0.0;
+    /**
+     * Envía ACK al dispositivo GPS.
+     * Formato: *HQ,{imei},V1,{time}#
+     */
+    private void enviarAck(ChannelHandlerContext ctx, String imei, String messageType) {
+        try {
+            String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("HHmmss"));
+            String ack = String.format("*HQ,%s,%s,%s#", imei, messageType, timestamp);
+            ctx.writeAndFlush(ack);
+            log.debug("ACK enviado: {}", ack);
+        } catch (Exception e) {
+            log.error("Error enviando ACK a IMEI {}: {}", imei, e.getMessage());
+        }
+    }
+
+    /**
+     * Determina el tipo de alarma basado en el estado del mensaje
+     */
+    private String determinarAlarma(String validStr, String messageType, String stateStr) {
+        if (!"A".equals(validStr)) {
+            return "GPS_INVALID";
         }
 
+        switch (messageType) {
+            case "V4":
+                return "POWER_CUT";
+            case "V5":
+                return "LBS_ONLY";
+            default:
+                if (stateStr != null && !stateStr.isEmpty()) {
+                    // Parsear flags de estado si están disponibles
+                    return parseAlarmaFromState(stateStr);
+                }
+                return "NORMAL";
+        }
+    }
+
+    /**
+     * Parsea alarmas del campo de estado
+     */
+    private String parseAlarmaFromState(String stateStr) {
         try {
-            double rawVal = Double.parseDouble(rawCoordinate);
-            int degrees = (int) (rawVal / 100);
-            double minutes = rawVal - (degrees * 100);
-            double decimalDegrees = degrees + (minutes / 60);
-
-            if ("S".equalsIgnoreCase(direction) || "W".equalsIgnoreCase(direction) || "O".equalsIgnoreCase(direction)) {
-                decimalDegrees = decimalDegrees * -1;
+            // El estado puede contener flags como: 00000000
+            // Bit 0: ACC on
+            // Bit 1: SOS
+            // Bit 2: Power cut
+            // etc.
+            if (stateStr.length() >= 8) {
+                if (stateStr.charAt(1) == '1')
+                    return "SOS";
+                if (stateStr.charAt(2) == '1')
+                    return "POWER_CUT";
+                if (stateStr.charAt(3) == '1')
+                    return "OVERSPEED";
+                if (stateStr.charAt(4) == '1')
+                    return "GEOFENCE_EXIT";
+                if (stateStr.charAt(5) == '1')
+                    return "GEOFENCE_ENTER";
             }
+        } catch (Exception e) {
+            log.debug("Error parseando estado: {}", stateStr);
+        }
+        return "NORMAL";
+    }
 
-            return decimalDegrees;
+    /**
+     * Parsea el estado de ignición del campo state
+     */
+    private Boolean parseIgnicion(String stateStr) {
+        try {
+            if (stateStr != null && stateStr.length() >= 1) {
+                // El primer bit suele indicar ACC (ignición)
+                return stateStr.charAt(0) == '1';
+            }
+        } catch (Exception e) {
+            log.debug("Error parseando ignición: {}", stateStr);
+        }
+        return false;
+    }
+
+    /**
+     * Construye JSON con datos adicionales para diagnóstico
+     */
+    private String buildJsonData(String rawMsg, String stateStr, String validStr, boolean coordenadasValidas) {
+        return String.format("{\"raw\": \"%s\", \"state\": \"%s\", \"gpsValid\": \"%s\", \"coordsValid\": %s}",
+                rawMsg.replace("\"", "\\\""),
+                stateStr != null ? stateStr : "",
+                validStr,
+                coordenadasValidas);
+    }
+
+    private Integer parseIntSafe(String value, Integer defaultValue) {
+        try {
+            return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            log.warn("Error parseando coordenada: {}", rawCoordinate);
-            return 0.0;
+            return defaultValue;
         }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        log.error("Error en canal GPS: ", cause);
+        log.error("Error en canal GPS desde {}: {}", ctx.channel().remoteAddress(), cause.getMessage());
         ctx.close();
     }
 }

@@ -1,7 +1,6 @@
 package com.franco.dev.graphql.vehiculos;
 
 import com.franco.dev.domain.vehiculos.Gps;
-import com.franco.dev.domain.vehiculos.Vehiculo;
 import com.franco.dev.graphql.vehiculos.input.GpsInput;
 import com.franco.dev.service.vehiculos.GpsService;
 import com.franco.dev.service.vehiculos.VehiculoService;
@@ -38,11 +37,11 @@ public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver
         return service.count();
     }
 
-    // gpsSearch is not implemented in repo/service yet, added simple findAll for
-    // now or implement search logic later
+    /**
+     * Búsqueda de GPS por texto (IMEI, chapa de vehículo, modelo tracker)
+     */
     public List<Gps> gpsSearch(String texto) {
-        // Placeholder for search logic
-        return service.findAll2();
+        return service.search(texto);
     }
 
     public Optional<Gps> gpsByImei(String imei) {
@@ -51,6 +50,10 @@ public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver
 
     public List<Gps> gpsByVehiculo(Long vehiculoId) {
         return service.findByVehiculoId(vehiculoId);
+    }
+
+    public List<Gps> gpsActivos() {
+        return service.findAllConUltimaPosicion();
     }
 
     public Gps saveGps(GpsInput input) {

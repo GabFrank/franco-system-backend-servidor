@@ -41,6 +41,21 @@ public class Gps implements Identifiable<Long> {
     @Column(name = "creado_em")
     private LocalDateTime creadoEm;
 
+    @Column(name = "ultima_latitud")
+    private Double ultimaLatitud;
+
+    @Column(name = "ultima_longitud")
+    private Double ultimaLongitud;
+
+    @Column(name = "ultima_fecha_reporte")
+    private LocalDateTime ultimaFechaReporte;
+
+    @Column(name = "ultima_ignicion")
+    private Boolean ultimaIgnicion;
+
+    @Column(name = "ultima_velocidad")
+    private Integer ultimaVelocidad;
+
     @PrePersist
     public void prePersist() {
         this.creadoEm = LocalDateTime.now();

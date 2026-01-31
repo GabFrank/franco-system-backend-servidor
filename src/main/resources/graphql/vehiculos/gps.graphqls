@@ -7,6 +7,12 @@ type Gps {
     activo: Boolean
     creadoEm: Date
     ultimaTelemetria: Telemetria
+    
+    ultimaLatitud: Float
+    ultimaLongitud: Float
+    ultimaFechaReporte: Date
+    ultimaIgnicion: Boolean
+    ultimaVelocidad: Int
 }
 
 input GpsInput {
@@ -25,6 +31,8 @@ extend type Query {
     gpsSearch(texto: String): [Gps]
     gpsByImei(imei: String): Gps
     gpsByVehiculo(vehiculoId: ID!): [Gps]
+    
+    gpsActivos: [Gps]
 }
 
 extend type Mutation {

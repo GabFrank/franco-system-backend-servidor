@@ -3,6 +3,8 @@ package com.franco.dev.service.personas;
 import com.franco.dev.domain.personas.Role;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.UsuarioRole;
+import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.repository.personas.PersonaRepository;
 import com.franco.dev.repository.personas.RoleRepository;
 import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.CrudService;
@@ -35,6 +37,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     private final RoleService roleService;
 
     @Autowired
+    private final PersonaRepository personaRepository;
+
+    @Autowired
     private final ImageService imageService;
 
     @Override
@@ -45,7 +50,6 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     public Usuario findByPersonaId(Long id) {
         return repository.findByPersonaId(id);
     }
-
 
     public List<Usuario> findbyIdOrPersona(String texto) {
         texto = texto != null ? texto.replace(' ', '%') : "";
@@ -89,6 +93,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
     /**
      * Obtiene todos los usuarios activos ordenados por nombre
+     * 
      * @return Lista de usuarios activos
      */
     public List<Usuario> findAllActivos() {
@@ -102,13 +107,46 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
             entity.setPassword("123");
         }
         entity.setNickname(entity.getNickname().toUpperCase());
-        if (entity.getPassword() != null) entity.setPassword(entity.getPassword().toUpperCase());
+        if (entity.getPassword() != null)
+            entity.setPassword(entity.getPassword().toUpperCase());
         Usuario e = repository.save(entity);
         return e;
     }
 
     public Boolean saveUserImage(Long id, String type, String image) throws IOException {
-        return imageService.saveImageToPath(image, id + "_" + type + System.currentTimeMillis() + ".png", imageService.getImagePath() + File.separator + "personas" + File.separator + type + File.separator, imageService.getImagePath() + File.separator + "personas" + File.separator + type + File.separator + "thumb", true);
+        System.out.println("Saving user image for id: " + id + ", type: " + type);
+        try {
+            String directoryPath = imageService.getImagePath() + File.separator + "personas" + File.separator + type
+                    + File.separator;
+            File dir = new File(directoryPath);
+            if (dir.exists() && dir.isDirectory()) {
+                File[] existingFiles = dir.listFiles((d, name) -> name.startsWith(id + "_" + type));
+                if (existingFiles != null) {
+                    for (File file : existingFiles) {
+                        System.out.println("Deleting old image: " + file.getName());
+                        file.delete();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        String fileName = id + "_" + type + System.currentTimeMillis() + ".png";
+        Boolean saved = imageService.saveImageToPath(image, fileName,
+                imageService.getImagePath() + File.separator + "personas" + File.separator + type + File.separator,
+                imageService.getImagePath() + File.separator + "personas" + File.separator + type + File.separator
+                        + "thumb",
+                true);
+        if (saved) {
+            Usuario usuario = repository.findById(id).orElse(null);
+            if (usuario != null && usuario.getPersona() != null) {
+                Persona persona = usuario.getPersona();
+                persona.setImagenes(fileName);
+                personaRepository.save(persona);
+            }
+        }
+        return saved;
     }
 
     public List<String> getUserImages(Long id, String type) {

@@ -227,6 +227,8 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     /**
      * Genera el movimiento de stock para un ítem recibido
      * Updated to use only available fields in MovimientoStock entity
+     * IMPORTANTE: cantidadRecibida ya representa la cantidad neta aceptada (sin rechazos)
+     * porque en el frontend se guardan por separado: cantidadRecibida (aceptada) y cantidadRechazada
      */
     private void generarMovimientoStock(RecepcionMercaderiaItem item, Double costoUnitario, 
                                       RecepcionMercaderia recepcion) {
@@ -234,6 +236,7 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         movimiento.setProducto(item.getProducto());
         movimiento.setSucursalId(item.getSucursalEntrega().getId());
         movimiento.setCantidad(item.getCantidadRecibida()); // MovimientoStock.cantidad is Double
+        // cantidadRecibida ya es la cantidad neta aceptada (no incluye rechazos)
         movimiento.setTipoMovimiento(TipoMovimiento.COMPRA); // Entrada por compra
         movimiento.setReferencia(item.getId()); // Referencia al ítem de recepción
         movimiento.setCreadoEn(recepcion.getFecha()); // Use creadoEn instead of setFecha

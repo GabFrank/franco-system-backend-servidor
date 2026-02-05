@@ -489,7 +489,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             
             PedidoRecepcionProductoDto dto = productosMap.get(productoId);
             if (dto == null) {
-                dto = new PedidoRecepcionProductoDto(producto, 0.0, 0.0);
+                dto = new PedidoRecepcionProductoDto(producto, 0.0, 0.0, 0.0);
                 productosMap.put(productoId, dto);
             }
             
@@ -512,13 +512,18 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             PedidoRecepcionProductoDto dto = productosMap.get(productoId);
             if (dto == null) {
                 // Si el producto no estaba en distribuciones, crear DTO nuevo
-                dto = new PedidoRecepcionProductoDto(producto, 0.0, 0.0);
+                dto = new PedidoRecepcionProductoDto(producto, 0.0, 0.0, 0.0);
                 productosMap.put(productoId, dto);
             }
             
             Double cantidadRecibida = item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0;
             Double cantidadActual = dto.getTotalCantidadRecibidaPorUnidad() != null ? dto.getTotalCantidadRecibidaPorUnidad() : 0.0;
             dto.setTotalCantidadRecibidaPorUnidad(cantidadActual + cantidadRecibida);
+            
+            // Sumar cantidad rechazada
+            Double cantidadRechazada = item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0;
+            Double cantidadRechazadaActual = dto.getTotalCantidadRechazadaPorUnidad() != null ? dto.getTotalCantidadRechazadaPorUnidad() : 0.0;
+            dto.setTotalCantidadRechazadaPorUnidad(cantidadRechazadaActual + cantidadRechazada);
         }
 
         // 7. Convertir a lista, asegurar valores no null y aplicar filtro por estado si se proporciona
@@ -530,6 +535,9 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             }
             if (dto.getTotalCantidadRecibidaPorUnidad() == null) {
                 dto.setTotalCantidadRecibidaPorUnidad(0.0);
+            }
+            if (dto.getTotalCantidadRechazadaPorUnidad() == null) {
+                dto.setTotalCantidadRechazadaPorUnidad(0.0);
             }
             productosList.add(dto);
         }

@@ -55,6 +55,7 @@ type PedidoRecepcionProductoDto {
     producto: Producto
     totalCantidadARecibirPorUnidad: Float
     totalCantidadRecibidaPorUnidad: Float
+    totalCantidadRechazadaPorUnidad: Float
     estado: PedidoRecepcionProductoEstado
 }
 

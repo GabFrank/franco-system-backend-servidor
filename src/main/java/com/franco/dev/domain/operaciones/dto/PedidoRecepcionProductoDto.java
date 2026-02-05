@@ -11,11 +11,20 @@ public class PedidoRecepcionProductoDto {
     Producto producto;
     Double totalCantidadARecibirPorUnidad;
     Double totalCantidadRecibidaPorUnidad;
+    Double totalCantidadRechazadaPorUnidad;
 
     public PedidoRecepcionProductoDto(Producto producto, Double totalCantidadARecibirPorUnidad, Double totalCantidadRecibidaPorUnidad) {
         this.producto = producto;
         this.totalCantidadARecibirPorUnidad = totalCantidadARecibirPorUnidad;
         this.totalCantidadRecibidaPorUnidad = totalCantidadRecibidaPorUnidad;
+        this.totalCantidadRechazadaPorUnidad = 0.0;
+    }
+
+    public PedidoRecepcionProductoDto(Producto producto, Double totalCantidadARecibirPorUnidad, Double totalCantidadRecibidaPorUnidad, Double totalCantidadRechazadaPorUnidad) {
+        this.producto = producto;
+        this.totalCantidadARecibirPorUnidad = totalCantidadARecibirPorUnidad;
+        this.totalCantidadRecibidaPorUnidad = totalCantidadRecibidaPorUnidad;
+        this.totalCantidadRechazadaPorUnidad = totalCantidadRechazadaPorUnidad != null ? totalCantidadRechazadaPorUnidad : 0.0;
     }
 }
 

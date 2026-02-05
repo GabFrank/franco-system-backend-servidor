@@ -13,11 +13,15 @@ public class PedidoRecepcionProductoResolver implements GraphQLResolver<PedidoRe
             return PedidoRecepcionProductoEstado.PENDIENTE;
         }
         
-        Double cantidadRecibida = e.getTotalCantidadRecibidaPorUnidad();
-        Double cantidadARecibir = e.getTotalCantidadARecibirPorUnidad();
+        Double cantidadRecibida = e.getTotalCantidadRecibidaPorUnidad() != null ? e.getTotalCantidadRecibidaPorUnidad() : 0.0;
+        Double cantidadRechazada = e.getTotalCantidadRechazadaPorUnidad() != null ? e.getTotalCantidadRechazadaPorUnidad() : 0.0;
+        Double cantidadARecibir = e.getTotalCantidadARecibirPorUnidad() != null ? e.getTotalCantidadARecibirPorUnidad() : 0.0;
         
-        // Si no hay cantidad recibida o es 0, está pendiente
-        if (cantidadRecibida == null || cantidadRecibida == 0.0) {
+        // Calcular total procesado (recibido + rechazado)
+        Double totalProcesado = cantidadRecibida + cantidadRechazada;
+        
+        // Si no hay cantidad procesada (recibida o rechazada), está pendiente
+        if (totalProcesado == 0.0) {
             return PedidoRecepcionProductoEstado.PENDIENTE;
         }
         
@@ -26,12 +30,12 @@ public class PedidoRecepcionProductoResolver implements GraphQLResolver<PedidoRe
             return PedidoRecepcionProductoEstado.PENDIENTE;
         }
         
-        // Si la cantidad recibida es mayor o igual a la cantidad a recibir, está recibido
-        if (cantidadRecibida >= cantidadARecibir) {
+        // Si el total procesado (recibido + rechazado) es mayor o igual a la cantidad a recibir, está recibido
+        if (totalProcesado >= cantidadARecibir) {
             return PedidoRecepcionProductoEstado.RECIBIDO;
         }
         
-        // Si hay cantidad recibida pero es menor a la cantidad a recibir, está recibido parcialmente
+        // Si hay cantidad procesada pero es menor a la cantidad a recibir, está recibido parcialmente
         return PedidoRecepcionProductoEstado.RECIBIDO_PARCIALMENTE;
     }
 

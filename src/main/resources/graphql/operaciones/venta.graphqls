@@ -63,6 +63,23 @@ extend type Query {
         conDescuento: Boolean, 
         conAumento: Boolean
     ):VentaPage
+    ventasGenericFilter(
+        idVenta:ID, 
+        idCaja:ID, 
+        page: Int, 
+        size: Int, 
+        asc: Boolean, 
+        sucId: ID, 
+        formaPago: ID, 
+        estado: VentaEstado, 
+        isDelivery: Boolean, 
+        monedaId: Int, 
+        conDescuento: Boolean, 
+        conAumento: Boolean,
+        clienteId: ID,
+        fechaInicio: String,
+        fechaFin: String
+    ):VentaPage
 #    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
 #    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }

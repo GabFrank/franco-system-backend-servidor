@@ -378,4 +378,30 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         Venta venta = service.findByIdAndSucursalId(id, sucId);
         return service.cancelarVenta(venta);
     }
+
+    public Page<Venta> ventasGenericFilter(
+        Long idVenta, 
+        Long idCaja, 
+        Integer page, 
+        Integer size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento,
+        Long clienteId,
+        String fechaInicio,
+        String fechaFin) {
+
+        Pageable pageable;
+        if (page != null) {
+            pageable = PageRequest.of(page, size);
+        } else {
+            pageable = PageRequest.of(0, 15);
+        }
+        return service.onGenericSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento, conAumento, clienteId, fechaInicio, fechaFin);
+    }
 }

@@ -22,6 +22,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import java.io.File;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 
 @RestController
 @RequestMapping("/api/personas")
@@ -42,15 +47,24 @@ public class PersonaSyncController {
                 ? personaService.findById(request.getId()).orElse(new Persona())
                 : new Persona();
 
-        if (request.getNombre() != null) persona.setNombre(request.getNombre());
-        if (request.getApodo() != null) persona.setApodo(request.getApodo());
-        if (request.getDocumento() != null) persona.setDocumento(request.getDocumento());
-        if (request.getEmail() != null) persona.setEmail(request.getEmail());
-        if (request.getDireccion() != null) persona.setDireccion(request.getDireccion());
-        if (request.getTelefono() != null) persona.setTelefono(request.getTelefono());
-        if (request.getSexo() != null) persona.setSexo(request.getSexo());
-        if (request.getSocialMedia() != null) persona.setSocialMedia(request.getSocialMedia());
-        if (request.getImagenes() != null) persona.setImagenes(request.getImagenes());
+        if (request.getNombre() != null)
+            persona.setNombre(request.getNombre());
+        if (request.getApodo() != null)
+            persona.setApodo(request.getApodo());
+        if (request.getDocumento() != null)
+            persona.setDocumento(request.getDocumento());
+        if (request.getEmail() != null)
+            persona.setEmail(request.getEmail());
+        if (request.getDireccion() != null)
+            persona.setDireccion(request.getDireccion());
+        if (request.getTelefono() != null)
+            persona.setTelefono(request.getTelefono());
+        if (request.getSexo() != null)
+            persona.setSexo(request.getSexo());
+        if (request.getSocialMedia() != null)
+            persona.setSocialMedia(request.getSocialMedia());
+        if (request.getImagenes() != null)
+            persona.setImagenes(request.getImagenes());
 
         if (request.getUsuarioId() != null) {
             Usuario usuario = usuarioService.findById(request.getUsuarioId()).orElse(null);
@@ -81,11 +95,16 @@ public class PersonaSyncController {
                 ? clienteService.findById(request.getId()).orElse(new Cliente())
                 : new Cliente();
 
-        if (request.getTipo() != null) cliente.setTipo(request.getTipo());
-        if (request.getCredito() != null) cliente.setCredito(request.getCredito());
-        if (request.getCodigo() != null) cliente.setCodigo(request.getCodigo());
-        if (request.getTributa() != null) cliente.setTributa(request.getTributa());
-        if (request.getVerificadoSet() != null) cliente.setVerificadoSet(request.getVerificadoSet());
+        if (request.getTipo() != null)
+            cliente.setTipo(request.getTipo());
+        if (request.getCredito() != null)
+            cliente.setCredito(request.getCredito());
+        if (request.getCodigo() != null)
+            cliente.setCodigo(request.getCodigo());
+        if (request.getTributa() != null)
+            cliente.setTributa(request.getTributa());
+        if (request.getVerificadoSet() != null)
+            cliente.setVerificadoSet(request.getVerificadoSet());
 
         if (request.getPersonaId() != null) {
             Persona persona = personaService.findById(request.getPersonaId())
@@ -112,5 +131,21 @@ public class PersonaSyncController {
         Cliente saved = clienteService.save(cliente);
         return ResponseEntity.status(isCreate ? HttpStatus.CREATED : HttpStatus.OK).body(saved);
     }
-}
 
+    @GetMapping("/{id}/imagen")
+    public ResponseEntity<?> getPersonaImage(@PathVariable Long id) {
+        Persona persona = personaService.findById(id).orElse(null);
+        if (persona == null || persona.getImagenes() == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        File file = new File(persona.getImagenes());
+        if (!file.exists()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(new FileSystemResource(file));
+    }
+}

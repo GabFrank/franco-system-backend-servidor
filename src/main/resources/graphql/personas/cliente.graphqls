@@ -3,6 +3,7 @@ type Cliente {
     tipo: TipoCliente
     persona: Persona
     nombre: String
+    documento: String
     credito: Float
     creadoEn: Date
     contactos: [Contacto]

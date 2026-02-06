@@ -43,7 +43,11 @@ public class ClienteResolver implements GraphQLResolver<Cliente> {
     }
 
     public String nombre(Cliente e) {
-        return e.getPersona().getNombre();
+        return e.getPersona() != null ? e.getPersona().getNombre() : null;
+    }
+
+    public String documento(Cliente e) {
+        return e.getPersona() != null ? e.getPersona().getDocumento() : null;
     }
 
     public Optional<Usuario> usuarioId(Cliente e) {

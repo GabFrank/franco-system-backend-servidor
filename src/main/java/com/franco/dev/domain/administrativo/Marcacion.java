@@ -1,14 +1,16 @@
 package com.franco.dev.domain.administrativo;
 
-import org.hibernate.annotations.Type;
 import com.franco.dev.domain.administrativo.enums.TipoMarcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.utilitarios.PostgreSQLEnumType;
+import lombok.AllArgsConstructor;
 import lombok.Data;
-import javax.persistence.*;
-
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
+import javax.persistence.*;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -16,7 +18,9 @@ import java.time.LocalDateTime;
 @Data
 @Entity
 @Table(name = "marcacion", schema = "administrativo")
-@TypeDef(name = "pgsql_enum", typeClass = com.franco.dev.utilitarios.PostgreSQLEnumType.class)
+@AllArgsConstructor
+@NoArgsConstructor
+@TypeDef(name = "pgsql_enum", typeClass = PostgreSQLEnumType.class)
 public class Marcacion implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -25,10 +29,9 @@ public class Marcacion implements Serializable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private Usuario usuario;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_marcacion", columnDefinition = "administrativo.tipo_marcacion")
     @Type(type = "pgsql_enum")
@@ -52,14 +55,14 @@ public class Marcacion implements Serializable {
     @Column(name = "device_info")
     private String deviceInfo;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_entrada_id")
     private Sucursal sucursalEntrada;
 
     @Column(name = "fecha_entrada")
     private LocalDateTime fechaEntrada;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_salida_id")
     private Sucursal sucursalSalida;
 
@@ -67,6 +70,8 @@ public class Marcacion implements Serializable {
     private LocalDateTime fechaSalida;
 
     private Boolean presencial;
-    private Integer autorizacion;
+
+    private Long autorizacion;
+
     private String codigo;
 }

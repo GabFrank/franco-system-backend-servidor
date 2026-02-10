@@ -194,7 +194,6 @@ public class ImageService {
         }
 
         Path path = Paths.get(filePath + fileName);
-        log.warn("borrando " + path);
         deleteFile(path.toString());
         try {
             Files.copy(converter(imageBase64).getInputStream(), path);
@@ -210,12 +209,6 @@ public class ImageService {
         FileUtils.touch(new File(path));
         File fileToDelete = FileUtils.getFile(path);
         boolean success = FileUtils.deleteQuietly(fileToDelete);
-        if (success) {
-            log.warn("borrado conn exito");
-        } else {
-            log.warn("falla al borrar");
-        }
-
         return success;
     }
 

@@ -148,4 +148,26 @@ public class PersonaSyncController {
                 .contentType(MediaType.IMAGE_JPEG)
                 .body(new FileSystemResource(file));
     }
+
+    /**
+     * Endpoint para sincronizar solo la metadata (nombre de archivo) de imagen.
+     * NO recibe el archivo físico, solo actualiza la referencia en la BD.
+     * Usado por servidores filiales para sincronizar URLs de imágenes.
+     */
+    @PostMapping("/{id}/imagen-metadata")
+    public ResponseEntity<Void> updateImagenMetadata(
+            @PathVariable Long id,
+            @RequestBody com.franco.dev.service.personas.dto.ImagenMetadataRequest request) {
+
+        Persona persona = personaService.findById(id).orElse(null);
+        if (persona == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Solo actualizar el campo imagenes sin sincronizar
+        persona.setImagenes(request.getNombreImagen());
+        personaService.saveLocal(persona);
+
+        return ResponseEntity.ok().build();
+    }
 }

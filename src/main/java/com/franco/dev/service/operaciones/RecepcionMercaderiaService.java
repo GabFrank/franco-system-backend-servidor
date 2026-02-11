@@ -3,6 +3,7 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
@@ -18,10 +19,11 @@ import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -41,14 +43,16 @@ import javax.persistence.TypedQuery;
 import org.springframework.data.domain.PageImpl;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia, RecepcionMercaderiaRepository, Long> {
     
     private static final Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaService.class);
     
     private final RecepcionMercaderiaRepository repository;
     
+    // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaItemService
     @Autowired
+    @Lazy
     private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
     
     @Autowired
@@ -119,11 +123,29 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     }
 
     /**
-     * Finaliza una recepción de mercadería - FUNCIÓN CRÍTICA
-     * Genera movimientos de stock y actualiza costos para todos los ítems
+     * Finaliza una recepción de mercadería (sin rechazar pendientes)
+     *
+     * Usado en:
+     * - Desktop: Sí (finalizarRecepcionFisicaPorPedido)
      */
     @Transactional
     public RecepcionMercaderia finalizarRecepcion(Long recepcionId) {
+        return finalizarRecepcion(recepcionId, null);
+    }
+
+    /**
+     * Finaliza una recepción de mercadería - FUNCIÓN CRÍTICA
+     * Genera movimientos de stock y actualiza costos para todos los ítems
+     *
+     * Usado en:
+     * - Desktop: Sí (finalizarRecepcionFisicaPorPedido)
+     * - Mobile: Sí (finalizarRecepcionMercaderia)
+     *
+     * @param recepcionId ID de la recepción
+     * @param motivoRechazoPendientes Si no es null, los items con cantidad pendiente se marcan como rechazados con este motivo antes de finalizar
+     */
+    @Transactional
+    public RecepcionMercaderia finalizarRecepcion(Long recepcionId, MotivoRechazoFisico motivoRechazoPendientes) {
         RecepcionMercaderia recepcion = findById(recepcionId).orElseThrow(
             () -> new IllegalArgumentException("Recepción no encontrada: " + recepcionId)
         );
@@ -135,6 +157,11 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         // Obtener todos los ítems de la recepción
         List<RecepcionMercaderiaItem> items = recepcionMercaderiaItemService
             .findByRecepcionMercaderiaId(recepcionId);
+        
+        // Si se indica motivo de rechazo para pendientes, marcar las cantidades pendientes como rechazadas
+        if (motivoRechazoPendientes != null) {
+            aplicarRechazoPendientes(items, motivoRechazoPendientes);
+        }
         
         if (items.isEmpty()) {
             throw new IllegalStateException("No se pueden finalizar recepciones sin ítems");
@@ -314,6 +341,38 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         }
         
         costoPorProductoService.save(costo);
+    }
+
+    /**
+     * Marca como rechazadas las cantidades pendientes de cada ítem.
+     * Cantidad pendiente = cantidad esperada - cantidadRecibida - cantidadRechazada
+     */
+    private void aplicarRechazoPendientes(List<RecepcionMercaderiaItem> items, MotivoRechazoFisico motivoRechazo) {
+        for (RecepcionMercaderiaItem item : items) {
+            Double cantidadEsperada = obtenerCantidadEsperada(item);
+            Double cantidadRecibida = item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0;
+            Double cantidadRechazada = item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0;
+            Double pendiente = cantidadEsperada - cantidadRecibida - cantidadRechazada;
+
+            if (pendiente > 0) {
+                item.setCantidadRechazada(cantidadRechazada + pendiente);
+                item.setMotivoRechazo(motivoRechazo);
+                recepcionMercaderiaItemService.save(item);
+            }
+        }
+    }
+
+    /**
+     * Obtiene la cantidad esperada para un ítem (desde distribución o nota)
+     */
+    private Double obtenerCantidadEsperada(RecepcionMercaderiaItem item) {
+        if (item.getNotaRecepcionItemDistribucion() != null && item.getNotaRecepcionItemDistribucion().getCantidad() != null) {
+            return item.getNotaRecepcionItemDistribucion().getCantidad();
+        }
+        if (item.getNotaRecepcionItem() != null && item.getNotaRecepcionItem().getCantidadEnNota() != null) {
+            return item.getNotaRecepcionItem().getCantidadEnNota();
+        }
+        return 0.0;
     }
 
     /**

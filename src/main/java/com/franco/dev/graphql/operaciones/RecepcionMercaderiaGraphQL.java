@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
+import com.franco.dev.graphql.operaciones.input.RechazoPendientesInput;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaInput;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -67,6 +68,9 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
 
     @Autowired
     private RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
+
+    @Autowired
+    private com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService;
 
     /**
      * Obtiene una recepción de mercadería por ID
@@ -187,9 +191,14 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
     /**
      * FUNCIÓN CRÍTICA: Finaliza una recepción de mercadería
      * Genera movimientos de stock y actualiza costos
+     * Si rechazoPendientes se proporciona, los items pendientes se marcan como rechazados antes de finalizar.
+     *
+     * Usado en:
+     * - Desktop: Sí (opcional, sin rechazoPendientes)
+     * - Mobile: Sí (con rechazoPendientes cuando hay items pendientes)
      */
     @Transactional
-    public RecepcionMercaderia finalizarRecepcionMercaderia(Long recepcionId) {
+    public RecepcionMercaderia finalizarRecepcionMercaderia(Long recepcionId, RechazoPendientesInput rechazoPendientes) {
         if (recepcionId == null) {
             throw new GraphQLException("ID de la recepción es requerido");
         }
@@ -198,7 +207,10 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             System.out.println("=== FINALIZANDO RECEPCIÓN DE MERCADERÍA ===");
             System.out.println("Recepción ID: " + recepcionId);
 
-            RecepcionMercaderia recepcion = service.finalizarRecepcion(recepcionId);
+            com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico motivoRechazoPendientes = 
+                (rechazoPendientes != null && rechazoPendientes.getMotivoRechazo() != null) 
+                    ? rechazoPendientes.getMotivoRechazo() : null;
+            RecepcionMercaderia recepcion = service.finalizarRecepcion(recepcionId, motivoRechazoPendientes);
 
             // Generar constancia automáticamente
             List<RecepcionMercaderiaItem> items = recepcionMercaderiaItemService.findByRecepcionMercaderiaId(recepcionId);
@@ -370,6 +382,45 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
                     
                     // Guardar el ítem
                     recepcionMercaderiaItemService.save(item);
+                }
+            }
+
+            // Después de crear items para distribuciones, también crear items para NotaRecepcionItem sin distribución
+            // Esto asegura que todos los items de nota estén disponibles para recepción, incluso si no tienen distribución
+            for (Long notaId : notaRecepcionIds) {
+                List<com.franco.dev.domain.operaciones.NotaRecepcionItem> itemsNota = 
+                    notaRecepcionItemService.findByNotaRecepcionId(notaId);
+                
+                for (com.franco.dev.domain.operaciones.NotaRecepcionItem notaItem : itemsNota) {
+                    // Verificar si ya tiene distribución
+                    List<NotaRecepcionItemDistribucion> distribucionesItem = 
+                        notaRecepcionItemDistribucionService.findByNotaRecepcionItemId(notaItem.getId());
+                    
+                    // Si no tiene distribución, crear item de recepción
+                    if (distribucionesItem.isEmpty()) {
+                        // Verificar si ya existe un item de recepción para este notaItem en esta recepción
+                        List<RecepcionMercaderiaItem> itemsExistentes = 
+                            recepcionMercaderiaItemService.getRepository()
+                                .findByNotaRecepcionItemIdAndRecepcionMercaderiaId(
+                                    notaItem.getId(), recepcionId);
+                        
+                        if (itemsExistentes.isEmpty()) {
+                            RecepcionMercaderiaItem item = new RecepcionMercaderiaItem();
+                            item.setRecepcionMercaderia(recepcion);
+                            item.setNotaRecepcionItem(notaItem);
+                            item.setNotaRecepcionItemDistribucion(null); // Sin distribución
+                            item.setProducto(notaItem.getProducto());
+                            item.setPresentacionRecibida(notaItem.getPresentacionEnNota());
+                            item.setSucursalEntrega(recepcion.getSucursalRecepcion());
+                            item.setUsuario(usuario);
+                            item.setCantidadRecibida(0.0);
+                            item.setCantidadRechazada(0.0);
+                            item.setEsBonificacion(notaItem.getEsBonificacion() != null ? notaItem.getEsBonificacion() : false);
+                            item.setEstadoVerificacion(EstadoVerificacion.PENDIENTE);
+                            
+                            recepcionMercaderiaItemService.save(item);
+                        }
+                    }
                 }
             }
         } catch (Exception e) {

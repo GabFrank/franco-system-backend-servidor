@@ -6,6 +6,7 @@ public enum MotivoRechazoFisico {
     CANTIDAD_INCORRECTA("Cantidad Incorrecta"),
     PRODUCTO_DIFERENTE("Producto Diferente"),
     EMBALAJE_DANADO("Embalaje Dañado"),
+    PRODUCTO_FALTANTE("Producto Faltante"),
     OTRO("Otro");
 
     private final String descripcion;

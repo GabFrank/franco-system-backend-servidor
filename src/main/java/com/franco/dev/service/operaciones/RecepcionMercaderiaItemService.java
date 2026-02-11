@@ -4,7 +4,8 @@ import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.service.CrudService;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -16,8 +17,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.Lazy;
 import com.franco.dev.domain.operaciones.EstadoVerificacion;
 import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
+import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
+import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 
 import javax.persistence.EntityManager;
 import javax.persistence.TypedQuery;
@@ -26,14 +32,23 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercaderiaItem, RecepcionMercaderiaItemRepository, Long> {
     private final RecepcionMercaderiaItemRepository repository;
     private final EntityManager entityManager;
     private final NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
     private final RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
+    private final MovimientoStockRepository movimientoStockRepository;
+    private final MovimientoStockService movimientoStockService;
+    
+    // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaService
+    @Autowired
+    @Lazy
+    private RecepcionMercaderiaService recepcionMercaderiaService;
 
     @Override
     public RecepcionMercaderiaItemRepository getRepository() {
@@ -427,6 +442,74 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
     }
 
     /**
+     * Obtiene la fecha de finalización de una recepción basándose en los movimientos de stock
+     * @param recepcionMercaderiaId ID de la recepción
+     * @return LocalDateTime de la fecha más reciente de los movimientos de stock de tipo COMPRA, o null si no hay movimientos
+     */
+    private LocalDateTime obtenerFechaFinalizacion(Long recepcionMercaderiaId) {
+        Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+        logger.info("Obteniendo fecha de finalización para recepción: {}", recepcionMercaderiaId);
+        
+        // 1. Obtener todos los RecepcionMercaderiaItem de la recepción
+        List<RecepcionMercaderiaItem> items = repository.findByRecepcionMercaderiaId(recepcionMercaderiaId);
+        
+        if (items.isEmpty()) {
+            logger.info("No hay items en la recepción, no se puede determinar fecha de finalización");
+            return null;
+        }
+        
+        // 2. Para cada item, buscar movimientos de stock de tipo COMPRA con referencia = item.id
+        LocalDateTime fechaMasReciente = null;
+        
+        for (RecepcionMercaderiaItem item : items) {
+            List<MovimientoStock> movimientos = movimientoStockRepository
+                .findByTipoMovimientoAndReferenciaAndEstadoTrue(TipoMovimiento.COMPRA, item.getId());
+            
+            for (MovimientoStock movimiento : movimientos) {
+                if (movimiento.getCreadoEn() != null) {
+                    if (fechaMasReciente == null || movimiento.getCreadoEn().isAfter(fechaMasReciente)) {
+                        fechaMasReciente = movimiento.getCreadoEn();
+                    }
+                }
+            }
+        }
+        
+        logger.info("Fecha de finalización encontrada: {}", fechaMasReciente);
+        return fechaMasReciente;
+    }
+
+    /**
+     * Valida que no hayan pasado más de 24 horas desde la finalización de una recepción
+     * @param recepcionMercaderiaId ID de la recepción
+     * @throws IllegalStateException si han pasado más de 24 horas
+     */
+    private void validarTiempoDesdeFinalizacion(Long recepcionMercaderiaId) {
+        Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+        logger.info("Validando tiempo desde finalización para recepción: {}", recepcionMercaderiaId);
+        
+        LocalDateTime fechaFinalizacion = obtenerFechaFinalizacion(recepcionMercaderiaId);
+        if (fechaFinalizacion == null) {
+            // Si no hay movimientos de stock, la recepción no fue realmente finalizada
+            logger.info("No se encontraron movimientos de stock, se permite continuar");
+            return; // Permitir continuar
+        }
+        
+        LocalDateTime ahora = LocalDateTime.now();
+        long horasTranscurridas = ChronoUnit.HOURS.between(fechaFinalizacion, ahora);
+        
+        logger.info("Horas transcurridas desde finalización: {}", horasTranscurridas);
+        
+        if (horasTranscurridas > 24) {
+            String mensaje = String.format("No se puede reabrir una recepción finalizada hace más de 24 horas. " +
+                         "Tiempo transcurrido: %d horas", horasTranscurridas);
+            logger.warn(mensaje);
+            throw new IllegalStateException(mensaje);
+        }
+        
+        logger.info("Validación de tiempo exitosa, se puede reabrir la recepción");
+    }
+
+    /**
      * Resetea la verificación de un ítem de recepción (elimina variaciones y resetea estado)
      * @param recepcionMercaderiaItemId ID del RecepcionMercaderiaItem
      * @return true si la verificación fue reseteada, false en caso contrario
@@ -449,16 +532,45 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
             
             RecepcionMercaderia recepcionMercaderia = item.getRecepcionMercaderia();
             
+            // 2. Verificar estado de recepción y reabrir si está FINALIZADA
+            if (recepcionMercaderia != null && recepcionMercaderia.getEstado() == RecepcionMercaderiaEstado.FINALIZADA) {
+                logger.info("Recepción está FINALIZADA, validando tiempo desde finalización");
+                // Validar que no hayan pasado más de 24 horas
+                validarTiempoDesdeFinalizacion(recepcionMercaderia.getId());
+                
+                // Reabrir la recepción automáticamente
+                logger.info("Reabriendo recepción {}", recepcionMercaderia.getId());
+                recepcionMercaderia.setEstado(RecepcionMercaderiaEstado.EN_PROCESO);
+                recepcionMercaderiaService.save(recepcionMercaderia);
+                logger.info("Recepción reabierta exitosamente");
+            }
+            
+            // 3. Buscar movimientos de stock por referencia (TipoMovimiento.COMPRA)
+            logger.info("Buscando movimientos de stock para item {}", item.getId());
+            List<MovimientoStock> movimientosStock = movimientoStockRepository
+                .findByTipoMovimientoAndReferenciaAndEstadoTrue(TipoMovimiento.COMPRA, item.getId());
+            
+            // 4. Eliminar movimientos de stock encontrados
+            if (!movimientosStock.isEmpty()) {
+                logger.info("Eliminando {} movimiento(s) de stock asociado(s)", movimientosStock.size());
+                for (MovimientoStock movimiento : movimientosStock) {
+                    movimientoStockService.delete(movimiento);
+                    logger.info("Movimiento de stock {} eliminado", movimiento.getId());
+                }
+            } else {
+                logger.info("No se encontraron movimientos de stock para eliminar");
+            }
+            
             logger.info("Eliminando RecepcionMercaderiaItem ID: {} - Producto: {}", 
                 item.getId(), item.getProducto() != null ? item.getProducto().getDescripcion() : "N/A");
             
-            // 2. Eliminar el item (Hibernate cascade borrará variaciones)
+            // 5. Eliminar el item (Hibernate cascade borrará variaciones)
             repository.delete(item);
             
             // Forzar flush
             repository.flush();
             
-            // 3. Verificar si la RecepcionMercaderia queda vacía
+            // 6. Verificar si la RecepcionMercaderia queda vacía
             if (recepcionMercaderia != null) {
                 Long cantidadItems = repository.countByRecepcionMercaderiaId(recepcionMercaderia.getId());
                 if (cantidadItems == 0) {
@@ -478,10 +590,115 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
             logger.info("=== Reseteo (eliminación) de verificación completado exitosamente ===");
             return true;
             
+        } catch (IllegalStateException e) {
+            // Re-lanzar excepciones de validación sin envolver
+            throw e;
         } catch (Exception e) {
             logger.error("=== ERROR durante reseteo de verificación ===");
             logger.error("Exception: {}", e.getMessage(), e);
             throw new RuntimeException("Error al resetear verificación: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deshace la verificación de todos los items de un producto en una recepción
+     * Útil cuando el producto proviene de múltiples notas (distribución automática)
+     * @param recepcionMercaderiaId ID de la recepción
+     * @param productoId ID del producto
+     * @return true si se deshicieron las verificaciones, false en caso contrario
+     */
+    @Transactional
+    public Boolean deshacerVerificacionPorProducto(Long recepcionMercaderiaId, Long productoId) {
+        Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+        logger.info("=== Iniciando deshacer verificación por producto ===");
+        logger.info("RecepcionMercaderiaId: {}, ProductoId: {}", recepcionMercaderiaId, productoId);
+        
+        try {
+            // 1. Verificar que existe la recepción
+            RecepcionMercaderia recepcionMercaderia = recepcionMercaderiaService.findById(recepcionMercaderiaId)
+                .orElse(null);
+            
+            if (recepcionMercaderia == null) {
+                logger.warn("No se encontró RecepcionMercaderia con ID: {}", recepcionMercaderiaId);
+                return false;
+            }
+            
+            // 2. Verificar estado de recepción y reabrir si está FINALIZADA
+            if (recepcionMercaderia.getEstado() == RecepcionMercaderiaEstado.FINALIZADA) {
+                logger.info("Recepción está FINALIZADA, validando tiempo desde finalización");
+                // Validar que no hayan pasado más de 24 horas
+                validarTiempoDesdeFinalizacion(recepcionMercaderiaId);
+                
+                // Reabrir la recepción automáticamente
+                logger.info("Reabriendo recepción {}", recepcionMercaderiaId);
+                recepcionMercaderia.setEstado(RecepcionMercaderiaEstado.EN_PROCESO);
+                recepcionMercaderiaService.save(recepcionMercaderia);
+                logger.info("Recepción reabierta exitosamente");
+            }
+            
+            // 3. Buscar todos los RecepcionMercaderiaItem del producto en la recepción
+            List<RecepcionMercaderiaItem> items = repository.findByRecepcionMercaderiaId(recepcionMercaderiaId);
+            List<RecepcionMercaderiaItem> itemsProducto = items.stream()
+                .filter(item -> item.getProducto() != null && 
+                               item.getProducto().getId() != null && 
+                               item.getProducto().getId().equals(productoId))
+                .collect(Collectors.toList());
+            
+            if (itemsProducto.isEmpty()) {
+                logger.warn("No se encontraron items del producto {} en la recepción {}", productoId, recepcionMercaderiaId);
+                return false;
+            }
+            
+            logger.info("Se encontraron {} item(s) del producto {} para resetear", itemsProducto.size(), productoId);
+            
+            // 4. Para cada item: eliminar movimientos de stock y RESETEAR valores (no eliminar)
+            // El item queda como pendiente para re-verificar o marcar como rechazado al finalizar
+            for (RecepcionMercaderiaItem item : itemsProducto) {
+                logger.info("Procesando item {} - Producto: {}", 
+                    item.getId(), item.getProducto() != null ? item.getProducto().getDescripcion() : "N/A");
+                
+                // Buscar y eliminar movimientos de stock
+                List<MovimientoStock> movimientosStock = movimientoStockRepository
+                    .findByTipoMovimientoAndReferenciaAndEstadoTrue(TipoMovimiento.COMPRA, item.getId());
+                
+                if (!movimientosStock.isEmpty()) {
+                    logger.info("Eliminando {} movimiento(s) de stock para item {}", movimientosStock.size(), item.getId());
+                    for (MovimientoStock movimiento : movimientosStock) {
+                        movimientoStockService.delete(movimiento);
+                        logger.info("Movimiento de stock {} eliminado", movimiento.getId());
+                    }
+                } else {
+                    logger.info("No se encontraron movimientos de stock para item {}", item.getId());
+                }
+                
+                // Resetear item a estado pendiente (no eliminar)
+                item.setCantidadRecibida(0.0);
+                item.setCantidadRechazada(0.0);
+                item.setMotivoRechazo(null);
+                item.setLote(null);
+                item.setVencimientoRecibido(null);
+                item.setMetodoVerificacion(null);
+                item.setMotivoVerificacionManual(null);
+                item.setEstadoVerificacion(EstadoVerificacion.PENDIENTE);
+                if (item.getVariaciones() != null && !item.getVariaciones().isEmpty()) {
+                    item.getVariaciones().clear();
+                }
+                repository.save(item);
+                logger.info("RecepcionMercaderiaItem ID: {} reseteado a pendiente", item.getId());
+            }
+            
+            repository.flush();
+            
+            logger.info("=== Deshacer verificación por producto completado exitosamente ===");
+            return true;
+            
+        } catch (IllegalStateException e) {
+            // Re-lanzar excepciones de validación sin envolver
+            throw e;
+        } catch (Exception e) {
+            logger.error("=== ERROR durante deshacer verificación por producto ===");
+            logger.error("Exception: {}", e.getMessage(), e);
+            throw new RuntimeException("Error al deshacer verificación por producto: " + e.getMessage());
         }
     }
 

@@ -98,9 +98,15 @@ extend type Query {
     ): RecepcionMercaderia
 }
 
+"Input para rechazar items pendientes al finalizar (un motivo general aplicado a todos)"
+input RechazoPendientesInput {
+    motivoRechazo: MotivoRechazoFisico!
+}
+
 extend type Mutation {
     saveRecepcionMercaderia(entity: RecepcionMercaderiaInput!): RecepcionMercaderia!
-    finalizarRecepcionMercaderia(recepcionId: ID!): RecepcionMercaderia!
+    "Finaliza recepción. Si hay items pendientes, opcionalmente se pueden marcar como rechazados (rechazoPendientes)."
+    finalizarRecepcionMercaderia(recepcionId: ID!, rechazoPendientes: RechazoPendientesInput): RecepcionMercaderia!
     iniciarRecepcion(sucursalId: ID!, notaRecepcionIds: [ID!]!, proveedorId: ID!, monedaId: ID!, usuarioId: ID!, cotizacion: Float): RecepcionMercaderia!
     crearRecepcionMercaderia(
         proveedorId: ID!,

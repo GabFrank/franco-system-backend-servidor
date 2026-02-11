@@ -31,7 +31,7 @@ extend type Query {
     countUsuario:Int
     usuarioSearch(texto:String):[Usuario]
     verificarUsuario(texto:String): Boolean
-    saveUsuarioImage(id:ID!, type:String!, image:String!):Boolean
+
     getUsuarioImages(id:ID!, type:String!):[String]
     isUserFaceAuth(id:ID!):Int
     usuariosActivos:[Usuario]
@@ -41,5 +41,6 @@ extend type Query {
 extend type Mutation {
     saveUsuario(usuario:UsuarioInput!):Usuario!
     deleteUsuario(id:ID!):Boolean!
+    saveUsuarioImage(id:ID!, type:String!, image:String!, embedding: [Float]):Boolean
 }
 

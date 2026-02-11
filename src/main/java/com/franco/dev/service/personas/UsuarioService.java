@@ -113,7 +113,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         return e;
     }
 
-    public Boolean saveUserImage(Long id, String type, String image) throws IOException {
+    public Boolean saveUserImage(Long id, String type, String image, List<Double> embedding) throws IOException {
         System.out.println("Saving user image for id: " + id + ", type: " + type);
         try {
             String directoryPath = imageService.getImagePath() + File.separator + "personas" + File.separator + type
@@ -143,6 +143,14 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
             if (usuario != null && usuario.getPersona() != null) {
                 Persona persona = usuario.getPersona();
                 persona.setImagenes(fileName);
+                if (embedding != null && !embedding.isEmpty()) {
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        persona.setEmbedding(mapper.writeValueAsString(embedding));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
                 personaRepository.save(persona);
             }
         }

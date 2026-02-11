@@ -87,8 +87,8 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return res;
     }
 
-    public Boolean saveUsuarioImage(Long id, String type, String image) throws IOException {
-        return service.saveUserImage(id, type, image);
+    public Boolean saveUsuarioImage(Long id, String type, String image, List<Double> embedding) throws IOException {
+        return service.saveUserImage(id, type, image, embedding);
     }
 
     public List<String> getUsuarioImages(Long id, String type) {

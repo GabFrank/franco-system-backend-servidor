@@ -10,6 +10,11 @@ type Usuario {
     inicioSesion: InicioSesion
 }
 
+type UsuarioSimilitud {
+    usuario: Usuario
+    similitud: Float
+}
+
 input UsuarioInput {
     id:ID
     personaId: Int
@@ -30,6 +35,7 @@ extend type Query {
     getUsuarioImages(id:ID!, type:String!):[String]
     isUserFaceAuth(id:ID!):Int
     usuariosActivos:[Usuario]
+    usuarioPorEmbedding(embedding: [Float]): UsuarioSimilitud
 }
 
 extend type Mutation {

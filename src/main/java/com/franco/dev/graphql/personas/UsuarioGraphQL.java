@@ -45,32 +45,40 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Optional<Usuario> usuario(Long id) {return service.findById(id);}
+    public Optional<Usuario> usuario(Long id) {
+        return service.findById(id);
+    }
 
-    public Usuario usuarioPorPersonaId(Long id) {return service.findByPersonaId(id);}
+    public Usuario usuarioPorPersonaId(Long id) {
+        return service.findByPersonaId(id);
+    }
 
-    public List<Usuario> usuarioSearch(String texto) {return service.findbyIdOrPersona(texto);}
+    public List<Usuario> usuarioSearch(String texto) {
+        return service.findbyIdOrPersona(texto);
+    }
 
-    public List<Usuario> usuarios(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Usuario> usuarios(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public Usuario saveUsuario(UsuarioInput input){
+    public Usuario saveUsuario(UsuarioInput input) {
         ModelMapper m = new ModelMapper();
         Usuario e = m.map(input, Usuario.class);
-        if(input.getUsuarioId()!=null) e.setUsuario(service.findById(input.getUsuarioId()).orElse(null));
-        if(input.getPersonaId()!=null) e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
+        if (input.getUsuarioId() != null)
+            e.setUsuario(service.findById(input.getUsuarioId()).orElse(null));
+        if (input.getPersonaId() != null)
+            e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
         e = service.save(e);
         return e;
     }
 
-    public Boolean deleteUsuario(Long id){
+    public Boolean deleteUsuario(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
-    public Long countUsuario(){
+    public Long countUsuario() {
         return service.count();
     }
 
@@ -83,23 +91,28 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.saveUserImage(id, type, image);
     }
 
-    public List<String> getUsuarioImages(Long id, String type){
+    public List<String> getUsuarioImages(Long id, String type) {
         return service.getUserImages(id, type);
     }
 
-    public Integer isUserFaceAuth(Long id){
+    public Integer isUserFaceAuth(Long id) {
         return service.isUserFaceAuth(id);
     }
 
-    public Boolean deleteUserImage(){
+    public Boolean deleteUserImage() {
         return false;
     }
 
     /**
      * Obtiene todos los usuarios activos del sistema
+     * 
      * @return Lista de usuarios activos ordenados por nombre
      */
     public List<Usuario> usuariosActivos() {
         return service.findAllActivos();
+    }
+
+    public UsuarioSimilitudResult usuarioPorEmbedding(List<Double> embedding) {
+        return service.findUsuarioByEmbedding(embedding);
     }
 }

@@ -166,7 +166,8 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         return images.size();
     }
 
-    public com.franco.dev.graphql.personas.UsuarioSimilitudResult findUsuarioByEmbedding(List<Double> embeddingInfo) {
+    public com.franco.dev.graphql.personas.UsuarioSimilitudResult findUsuarioByEmbedding(List<Double> embeddingInfo,
+            List<Integer> excludeIds) {
         List<Usuario> usuarios = repository.findAllActivos();
         Usuario bestMatch = null;
         Double maxSimilarity = -1.0;
@@ -174,6 +175,10 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
         for (Usuario usuario : usuarios) {
+            if (excludeIds != null && !excludeIds.isEmpty() && excludeIds.contains(usuario.getId().intValue())) {
+                continue;
+            }
+
             if (usuario.getPersona() != null && usuario.getPersona().getEmbedding() != null) {
                 try {
                     List<Double> storedEmbedding = mapper.readValue(usuario.getPersona().getEmbedding(),
@@ -204,7 +209,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
             }
         }
 
-        System.out.println("No match found.");
+        System.out.println("No match found. Excluded IDs: " + (excludeIds != null ? excludeIds : "none"));
         return null;
     }
 

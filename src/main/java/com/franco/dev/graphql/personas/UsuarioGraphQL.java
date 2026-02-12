@@ -112,7 +112,7 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findAllActivos();
     }
 
-    public UsuarioSimilitudResult usuarioPorEmbedding(List<Double> embedding) {
-        return service.findUsuarioByEmbedding(embedding);
+    public UsuarioSimilitudResult usuarioPorEmbedding(List<Double> embedding, List<Integer> excludeIds) {
+        return service.findUsuarioByEmbedding(embedding, excludeIds);
     }
 }

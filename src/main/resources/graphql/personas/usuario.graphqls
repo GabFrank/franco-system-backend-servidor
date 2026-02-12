@@ -35,7 +35,7 @@ extend type Query {
     getUsuarioImages(id:ID!, type:String!):[String]
     isUserFaceAuth(id:ID!):Int
     usuariosActivos:[Usuario]
-    usuarioPorEmbedding(embedding: [Float]): UsuarioSimilitud
+    usuarioPorEmbedding(embedding: [Float], excludeIds: [Int]): UsuarioSimilitud
 }
 
 extend type Mutation {

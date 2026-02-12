@@ -52,9 +52,27 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public List<Usuario> findbyIdOrPersona(String texto) {
-        texto = texto != null ? texto.replace(' ', '%') : "";
-        return repository.findbyIdOrPersona(texto.toUpperCase());
+        // Normalizar texto
+        texto = texto != null ? texto.trim() : "";
 
+        // Si el texto es solo numérico, intentamos primero una búsqueda EXACTA por personaId
+        if (!texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
+            try {
+                Long personaId = Long.valueOf(texto);
+                Usuario usuario = repository.findByPersonaId(personaId);
+                if (usuario != null) {
+                    List<Usuario> resultado = new ArrayList<>();
+                    resultado.add(usuario);
+                    return resultado;
+                }
+            } catch (NumberFormatException ignored) {
+                // Si no se puede parsear, continuamos con la búsqueda genérica
+            }
+        }
+
+        // Búsqueda genérica anterior (por id, nombre, nickname, documento, etc.)
+        texto = texto.replace(' ', '%');
+        return repository.findbyIdOrPersona(texto.toUpperCase());
     }
 
     public List<Role> getRoles(Long id) {

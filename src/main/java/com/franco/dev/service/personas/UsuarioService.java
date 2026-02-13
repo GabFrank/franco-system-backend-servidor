@@ -52,10 +52,8 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public List<Usuario> findbyIdOrPersona(String texto) {
-        // Normalizar texto
         texto = texto != null ? texto.trim() : "";
 
-        // Si el texto es solo numérico, intentamos primero una búsqueda EXACTA por personaId
         if (!texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
             try {
                 Long personaId = Long.valueOf(texto);
@@ -66,11 +64,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                     return resultado;
                 }
             } catch (NumberFormatException ignored) {
-                // Si no se puede parsear, continuamos con la búsqueda genérica
             }
         }
 
-        // Búsqueda genérica anterior (por id, nombre, nickname, documento, etc.)
         texto = texto.replace(' ', '%');
         return repository.findbyIdOrPersona(texto.toUpperCase());
     }
@@ -102,7 +98,6 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public Optional<Usuario> findByNickname(String nickname) {
-        // si el nickname es null, return null
         if (nickname == null) {
             return Optional.empty();
         }

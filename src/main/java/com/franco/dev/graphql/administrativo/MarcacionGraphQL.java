@@ -178,6 +178,8 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                     Integer.MAX_VALUE);
         } else if (usuarioId != null) {
             marcacionList = service.findByUsuarioId(usuarioId, 0, Integer.MAX_VALUE);
+        } else if (fechaInicio != null && fechaFin != null) {
+            marcacionList = service.findByFechaRange(fechaInicio, fechaFin, 0, Integer.MAX_VALUE);
         } else {
             marcacionList = service.findAll2();
         }

@@ -9,6 +9,7 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.PropertyMap;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -104,10 +105,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             }
         }
 
-        ModelMapper m = new ModelMapper();
-        m.getConfiguration().setSkipNullEnabled(true);
         Marcacion e = new Marcacion();
-
         if (input.getId() != null) {
             Optional<Marcacion> existing = service.findById(input.getId());
             if (existing.isPresent()) {
@@ -117,8 +115,22 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                         "No se encontró la marcación con ID " + input.getId() + " en el servidor central.");
             }
         }
-
-        m.map(input, e);
+        if (input.getLatitud() != null)
+            e.setLatitud(input.getLatitud());
+        if (input.getLongitud() != null)
+            e.setLongitud(input.getLongitud());
+        if (input.getPrecisionGps() != null)
+            e.setPrecisionGps(input.getPrecisionGps());
+        if (input.getDistanciaSucursalMetros() != null)
+            e.setDistanciaSucursalMetros(input.getDistanciaSucursalMetros());
+        if (input.getDeviceId() != null)
+            e.setDeviceId(input.getDeviceId());
+        if (input.getDeviceInfo() != null)
+            e.setDeviceInfo(input.getDeviceInfo());
+        if (input.getCodigo() != null)
+            e.setCodigo(input.getCodigo());
+        if (input.getTipo() != null)
+            e.setTipo(input.getTipo());
 
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

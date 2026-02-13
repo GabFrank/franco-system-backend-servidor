@@ -186,4 +186,14 @@ public interface RecepcionMercaderiaItemRepository extends HelperRepository<Rece
            "rmi.recepcionMercaderia.proveedor.persona.nombre, rmi.recepcionMercaderia.sucursalRecepcion.nombre, " +
            "rmi.recepcionMercaderia.fecha")
     RecepcionSumarioDTO findSumarioRecepcion(@Param("recepcionId") Long recepcionId);
+
+    /**
+     * Busca RecepcionMercaderiaItem por notaRecepcionItemId y recepcionMercaderiaId
+     */
+    @Query("SELECT rmi FROM RecepcionMercaderiaItem rmi " +
+            "WHERE rmi.notaRecepcionItem.id = :notaRecepcionItemId " +
+            "AND rmi.recepcionMercaderia.id = :recepcionMercaderiaId")
+    List<RecepcionMercaderiaItem> findByNotaRecepcionItemIdAndRecepcionMercaderiaId(
+            @Param("notaRecepcionItemId") Long notaRecepcionItemId,
+            @Param("recepcionMercaderiaId") Long recepcionMercaderiaId);
 }

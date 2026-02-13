@@ -11,12 +11,14 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.ProductoProveedor;
+import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.graphql.operaciones.dto.AsignacionError;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.productos.ProductoProveedorService;
-import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,9 +32,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
 public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepcionRepository, Long> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotaRecepcionService.class);
@@ -43,6 +45,26 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     private final PedidoItemService pedidoItemService;
     private final ProcesoEtapaService procesoEtapaService;
     private final ProductoProveedorService productoProveedorService;
+    
+    // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaItemService
+    @Autowired
+    @Lazy
+    private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
+
+    public NotaRecepcionService(
+            NotaRecepcionRepository repository,
+            NotaRecepcionItemService notaRecepcionItemService,
+            NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService,
+            PedidoItemService pedidoItemService,
+            ProcesoEtapaService procesoEtapaService,
+            ProductoProveedorService productoProveedorService) {
+        this.repository = repository;
+        this.notaRecepcionItemService = notaRecepcionItemService;
+        this.notaRecepcionItemDistribucionService = notaRecepcionItemDistribucionService;
+        this.pedidoItemService = pedidoItemService;
+        this.procesoEtapaService = procesoEtapaService;
+        this.productoProveedorService = productoProveedorService;
+    }
 
     @Override
     public NotaRecepcionRepository getRepository() {
@@ -478,5 +500,121 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         // Actualizar estado de la nota después de que todos los items hayan sido procesados
         // Esto asegura que cuando se creen los vínculos ProductoProveedor, todos los items ya estén asignados
         actualizarEstadoNota(notaRecepcionId);
+    }
+
+    /**
+     * Verifica si una nota de recepción tiene recepción pendiente
+     * @param notaId ID de la nota
+     * @param sucursalId ID de la sucursal (opcional, si es null verifica todas)
+     * @return true si tiene recepción pendiente, false si está completamente recibida
+     */
+    public boolean tieneRecepcionPendiente(Long notaId, Long sucursalId) {
+        if (notaId == null) {
+            return false;
+        }
+
+        // 1. Verificar estado de la nota
+        Optional<NotaRecepcion> notaOpt = findById(notaId);
+        if (!notaOpt.isPresent()) {
+            return false;
+        }
+
+        NotaRecepcion nota = notaOpt.get();
+
+        // Si está en estado final (CERRADA o RECEPCION_COMPLETA), verificar si realmente está completa
+        // verificando items pendientes
+        if (nota.getEstado() == NotaRecepcionEstado.RECEPCION_COMPLETA || 
+            nota.getEstado() == NotaRecepcionEstado.CERRADA) {
+            // Aunque esté en estado completo, verificar items por si hay recepciones parciales
+            return verificarItemsPendientes(notaId, sucursalId);
+        }
+
+        // Si está en otros estados (PENDIENTE_CONCILIACION, CONCILIADA, EN_RECEPCION, RECEPCION_PARCIAL),
+        // verificar items pendientes
+        return verificarItemsPendientes(notaId, sucursalId);
+    }
+
+    /**
+     * Verifica si hay items con cantidad pendiente de recibir
+     * @param notaId ID de la nota
+     * @param sucursalId ID de la sucursal (opcional, si es null verifica todas)
+     * @return true si hay items pendientes, false si todo está recibido
+     */
+    private boolean verificarItemsPendientes(Long notaId, Long sucursalId) {
+        // Obtener todos los items de la nota
+        List<NotaRecepcionItem> items = notaRecepcionItemService.findByNotaRecepcionId(notaId);
+
+        if (items.isEmpty()) {
+            // Si no hay items, considerar como pendiente (nota nueva sin items)
+            return true;
+        }
+
+        // Tolerancia para comparaciones de punto flotante
+        final double TOLERANCIA = 0.001;
+
+        for (NotaRecepcionItem item : items) {
+            // Obtener distribuciones del item
+            List<NotaRecepcionItemDistribucion> distribuciones = 
+                notaRecepcionItemDistribucionService.findByNotaRecepcionItemId(item.getId());
+
+            if (distribuciones.isEmpty()) {
+                // Si no hay distribuciones, el item está pendiente
+                return true;
+            }
+
+            for (NotaRecepcionItemDistribucion dist : distribuciones) {
+                // Si se especifica sucursal, solo verificar esa
+                if (sucursalId != null && 
+                    (dist.getSucursalEntrega() == null || !dist.getSucursalEntrega().getId().equals(sucursalId))) {
+                    continue;
+                }
+
+                // Obtener cantidad esperada de la distribución
+                Double cantidadEsperada = dist.getCantidad() != null ? dist.getCantidad() : 0.0;
+
+                // Obtener cantidad recibida y rechazada desde RecepcionMercaderiaItem
+                List<RecepcionMercaderiaItem> itemsRecepcion = 
+                    recepcionMercaderiaItemService.getRepository().findByNotaRecepcionItemDistribucionId(dist.getId());
+
+                Double cantidadRecibida = itemsRecepcion.stream()
+                    .mapToDouble(rmItem -> rmItem.getCantidadRecibida() != null ? rmItem.getCantidadRecibida() : 0.0)
+                    .sum();
+
+                Double cantidadRechazada = itemsRecepcion.stream()
+                    .mapToDouble(rmItem -> rmItem.getCantidadRechazada() != null ? rmItem.getCantidadRechazada() : 0.0)
+                    .sum();
+
+                // Calcular cantidad pendiente
+                Double cantidadPendiente = cantidadEsperada - cantidadRecibida - cantidadRechazada;
+
+                // Si hay cantidad pendiente significativa, la nota tiene recepción pendiente
+                if (cantidadPendiente > TOLERANCIA) {
+                    return true;
+                }
+            }
+        }
+
+        // Todas las distribuciones están completamente recibidas
+        return false;
+    }
+
+    /**
+     * Busca notas disponibles para recepción filtrando automáticamente las completamente recibidas
+     * Si hay múltiples notas con el mismo número, retorna solo las que tienen recepción pendiente
+     * 
+     * @param numero Número de nota (opcional)
+     * @param proveedorId ID del proveedor (opcional)
+     * @param sucursalId ID de la sucursal (opcional, si es null verifica todas)
+     * @return Lista de notas con recepción pendiente
+     */
+    public List<NotaRecepcion> findNotasDisponiblesParaRecepcionFiltradas(
+            Integer numero, Long proveedorId, Long sucursalId) {
+        // Obtener todas las notas que coinciden
+        List<NotaRecepcion> todasLasNotas = findNotasDisponiblesParaRecepcion(numero, proveedorId, sucursalId);
+
+        // Filtrar solo las que tienen recepción pendiente
+        return todasLasNotas.stream()
+            .filter(nota -> tieneRecepcionPendiente(nota.getId(), sucursalId))
+            .collect(Collectors.toList());
     }
 }

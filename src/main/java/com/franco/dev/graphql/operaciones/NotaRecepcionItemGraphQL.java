@@ -28,7 +28,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDateTime;
 import graphql.GraphQLException;
+import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
+import com.franco.dev.domain.operaciones.PedidoItemDistribucion;
 
 // Enum para filtro de verificación
 enum FiltroVerificacion {
@@ -56,6 +59,12 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     
     @Autowired
     private PresentacionService presentacionService;
+
+    @Autowired
+    private NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
+
+    @Autowired
+    private PedidoItemDistribucionService pedidoItemDistribucionService;
 
     public Optional<NotaRecepcionItem> notaRecepcionItem(Long id) {return service.findById(id);}
 
@@ -109,7 +118,74 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if(input.getPedidoItemId()!=null) e.setPedidoItem(pedidoItemService.findById(input.getPedidoItemId()).orElse(null));
         if(input.getPresentacionEnNotaId()!=null) e.setPresentacionEnNota(presentacionService.findById(input.getPresentacionEnNotaId()).orElse(null));
         if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        return service.save(e);
+        
+        // Guardar el item
+        NotaRecepcionItem savedItem = service.save(e);
+        
+        // Si tiene pedidoItem, crear distribuciones automáticamente basándose en PedidoItemDistribucion
+        // Esto es necesario cuando se divide un item manualmente para cargarlo en múltiples notas
+        if (savedItem.getPedidoItem() != null && savedItem.getPedidoItem().getId() != null) {
+            // Verificar si ya tiene distribuciones
+            List<NotaRecepcionItemDistribucion> distribucionesExistentes = 
+                notaRecepcionItemDistribucionService.findByNotaRecepcionItemId(savedItem.getId());
+            
+            // Solo crear si no tiene distribuciones
+            if (distribucionesExistentes.isEmpty()) {
+                // Obtener distribuciones del pedidoItem
+                List<PedidoItemDistribucion> pedidoDistribuciones = 
+                    pedidoItemDistribucionService.findByPedidoItemId(savedItem.getPedidoItem().getId());
+                
+                if (pedidoDistribuciones != null && !pedidoDistribuciones.isEmpty()) {
+                    List<NotaRecepcionItemDistribucion> distribuciones = new ArrayList<>();
+                    
+                    for (PedidoItemDistribucion pedidoDist : pedidoDistribuciones) {
+                        NotaRecepcionItemDistribucion distribucion = new NotaRecepcionItemDistribucion();
+                        distribucion.setNotaRecepcionItem(savedItem);
+                        distribucion.setSucursalInfluencia(pedidoDist.getSucursalInfluencia());
+                        distribucion.setSucursalEntrega(pedidoDist.getSucursalEntrega());
+                        // Calcular cantidad proporcional basándose en cantidadEnNota vs cantidadSolicitada
+                        // Usar cantidadSolicitada del pedidoItem
+                        Double cantidadSolicitada = savedItem.getPedidoItem().getCantidadSolicitada();
+                        Double cantidadProporcional = calcularCantidadProporcional(
+                            savedItem.getCantidadEnNota(),
+                            cantidadSolicitada,
+                            pedidoDist.getCantidadAsignada()
+                        );
+                        distribucion.setCantidad(cantidadProporcional);
+                        distribucion.setCreadoEn(LocalDateTime.now());
+                        distribuciones.add(distribucion);
+                    }
+                    
+                    // Guardar las distribuciones
+                    if (!distribuciones.isEmpty()) {
+                        notaRecepcionItemDistribucionService.saveDistribuciones(distribuciones);
+                    }
+                }
+            }
+        }
+        
+        return savedItem;
+    }
+
+    /**
+     * Calcula la cantidad proporcional para una distribución cuando se divide un item
+     * @param cantidadEnNota Cantidad del item en la nota
+     * @param cantidadSolicitada Cantidad solicitada original del pedidoItem
+     * @param cantidadAsignada Cantidad asignada en la distribución del pedidoItem
+     * @return Cantidad proporcional para la distribución del notaRecepcionItem
+     */
+    private Double calcularCantidadProporcional(Double cantidadEnNota, Double cantidadSolicitada, Double cantidadAsignada) {
+        if (cantidadSolicitada == null || cantidadSolicitada == 0) {
+            return cantidadAsignada; // Si no hay cantidad solicitada, usar la asignada completa
+        }
+        if (cantidadEnNota == null || cantidadEnNota == 0) {
+            return 0.0;
+        }
+        if (cantidadAsignada == null) {
+            return 0.0;
+        }
+        // Calcular proporción: (cantidadEnNota / cantidadSolicitada) * cantidadAsignada
+        return (cantidadEnNota / cantidadSolicitada) * cantidadAsignada;
     }
 
     public Boolean deleteNotaRecepcionItem(Long id){

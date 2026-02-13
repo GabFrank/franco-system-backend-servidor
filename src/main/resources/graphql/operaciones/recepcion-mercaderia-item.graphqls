@@ -147,6 +147,7 @@ extend type Mutation {
     finalizarRecepcionFisicaPorPedido(pedidoId: ID!, sucursalesIds: [ID!]!): Boolean!
     recepcionarTodoPorNota(notaId: ID!, sucursalesIds: [ID!]!, usuarioId: ID!, itemIds: [ID!]): Boolean!
     deshacerVerificacionTodoPorNota(notaId: ID!, sucursalesIds: [ID!]!, usuarioId: ID!, itemIds: [ID!]): Boolean!
+    deshacerVerificacionPorProducto(recepcionMercaderiaId: ID!, productoId: ID!): Boolean!
     
     # Mutación para eliminar variaciones individuales
     deleteRecepcionMercaderiaItemVariacion(id: ID!): Boolean!

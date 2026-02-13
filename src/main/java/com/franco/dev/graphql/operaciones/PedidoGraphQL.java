@@ -149,10 +149,26 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             updatePedidoFechaEntrega(pedido, fechaEntregaList, usuarioId);
         }
         if (sucursalEntregaList != null) {
-            updatePedidoSucursalEntrega(pedido, sucursalEntregaList, usuarioId);
+            // Si la lista contiene -1, significa "Todos" - obtener todas las sucursales de entrega (deposito=true y activo=true)
+            List<Long> sucursalesEntregaFinal = sucursalEntregaList;
+            if (sucursalEntregaList.contains(-1L)) {
+                sucursalesEntregaFinal = sucursalService.findAllSucursalesEntrega()
+                        .stream()
+                        .map(Sucursal::getId)
+                        .collect(Collectors.toList());
+            }
+            updatePedidoSucursalEntrega(pedido, sucursalesEntregaFinal, usuarioId);
         }
         if (sucursalInfluenciaList != null) {
-            updatePedidoSucursalInfluencia(pedido, sucursalInfluenciaList, usuarioId);
+            // Si la lista contiene -1, significa "Todos" - obtener todas las sucursales de influencia (activo=true y excluir servidor)
+            List<Long> sucursalesInfluenciaFinal = sucursalInfluenciaList;
+            if (sucursalInfluenciaList.contains(-1L)) {
+                sucursalesInfluenciaFinal = sucursalService.findAllSucursalesInfluencia()
+                        .stream()
+                        .map(Sucursal::getId)
+                        .collect(Collectors.toList());
+            }
+            updatePedidoSucursalInfluencia(pedido, sucursalesInfluenciaFinal, usuarioId);
         }
 
         if (isNew) {
@@ -198,7 +214,19 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Transactional
     public void updatePedidoSucursalEntrega(Pedido pedido, List<Long> newSucursalesList, Long usuarioId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
-        List<Long> newDatesSet = newSucursalesList;
+        // Filtrar: solo procesar sucursales con deposito=true y activo=true, excluir servidor (id 0)
+        List<Long> newDatesSet = newSucursalesList.stream()
+                .filter(id -> !id.equals(0L))
+                .map(id -> {
+                    Sucursal s = sucursalService.findById(id).orElse(null);
+                    // Solo incluir si tiene deposito=true y activo=true
+                    if (s != null && Boolean.TRUE.equals(s.getDeposito()) && Boolean.TRUE.equals(s.getActivo())) {
+                        return s.getId();
+                    }
+                    return null;
+                })
+                .filter(id -> id != null)
+                .collect(Collectors.toList());
 
         List<PedidoSucursalEntrega> currentEntries = pedidoSucursalEntregaService.findByPedidoId(pedido.getId());
 
@@ -213,22 +241,38 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         newDatesSet.forEach(data -> {
             PedidoSucursalEntrega newEntry = new PedidoSucursalEntrega();
             Sucursal sucursal = sucursalService.findById(data).orElse(null);
-            newEntry.setPedido(pedido);
-            newEntry.setSucursal(sucursal);
-            newEntry.setCreadoEn(LocalDateTime.now());
-            if (usuario != null) {
-                newEntry.setUsuario(usuario);
-            } else {
-                newEntry.setUsuario(pedido.getUsuario());
+            // Validación adicional: nunca crear entrada para servidor (id 0) y debe tener deposito=true y activo=true
+            if (sucursal != null && !sucursal.getId().equals(0L) 
+                    && Boolean.TRUE.equals(sucursal.getDeposito()) && Boolean.TRUE.equals(sucursal.getActivo())) {
+                newEntry.setPedido(pedido);
+                newEntry.setSucursal(sucursal);
+                newEntry.setCreadoEn(LocalDateTime.now());
+                if (usuario != null) {
+                    newEntry.setUsuario(usuario);
+                } else {
+                    newEntry.setUsuario(pedido.getUsuario());
+                }
+                pedidoSucursalEntregaService.save(newEntry);
             }
-            pedidoSucursalEntregaService.save(newEntry);
         });
     }
 
     @Transactional
     public void updatePedidoSucursalInfluencia(Pedido pedido, List<Long> newSucursalesList, Long usuarioId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
-        List<Long> newDatesSet = newSucursalesList;
+        // Filtrar: solo procesar sucursales con activo=true, excluir servidor (id 0)
+        List<Long> newDatesSet = newSucursalesList.stream()
+                .filter(id -> !id.equals(0L))
+                .map(id -> {
+                    Sucursal s = sucursalService.findById(id).orElse(null);
+                    // Solo incluir si tiene activo=true
+                    if (s != null && Boolean.TRUE.equals(s.getActivo())) {
+                        return s.getId();
+                    }
+                    return null;
+                })
+                .filter(id -> id != null)
+                .collect(Collectors.toList());
 
         List<PedidoSucursalInfluencia> currentEntries = pedidoSucursalInfluenciaService.findByPedidoId(pedido.getId());
 
@@ -243,15 +287,18 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         newDatesSet.forEach(data -> {
             PedidoSucursalInfluencia newEntry = new PedidoSucursalInfluencia();
             Sucursal sucursal = sucursalService.findById(data).orElse(null);
-            newEntry.setPedido(pedido);
-            newEntry.setSucursal(sucursal);
-            newEntry.setCreadoEn(LocalDateTime.now());
-            if (usuario != null) {
-                newEntry.setUsuario(usuario);
-            } else {
-                newEntry.setUsuario(pedido.getUsuario());
+            // Validación adicional: nunca crear entrada para servidor (id 0) y debe tener activo=true
+            if (sucursal != null && !sucursal.getId().equals(0L) && Boolean.TRUE.equals(sucursal.getActivo())) {
+                newEntry.setPedido(pedido);
+                newEntry.setSucursal(sucursal);
+                newEntry.setCreadoEn(LocalDateTime.now());
+                if (usuario != null) {
+                    newEntry.setUsuario(usuario);
+                } else {
+                    newEntry.setUsuario(pedido.getUsuario());
+                }
+                pedidoSucursalInfluenciaService.save(newEntry);
             }
-            pedidoSucursalInfluenciaService.save(newEntry);
         });
     }
 

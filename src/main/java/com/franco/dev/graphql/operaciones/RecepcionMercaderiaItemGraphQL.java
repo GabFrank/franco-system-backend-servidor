@@ -287,6 +287,47 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         // 4. Obtener o crear RecepcionMercaderia automáticamente
         RecepcionMercaderia recepcion = crearRecepcionAutomatica(input);
 
+        // 4.5. Validación de trazabilidad: Si hay múltiples NotaRecepcionItem del mismo producto en las notas asociadas,
+        // verificar que el notaRecepcionItemId sea explícito y correcto
+        if (recepcion != null && recepcion.getId() != null && notaItem.getProducto() != null) {
+            // Obtener todas las notas asociadas a esta recepción
+            List<com.franco.dev.domain.operaciones.RecepcionMercaderiaNota> asociaciones = 
+                recepcionMercaderiaNotaService.findByRecepcionMercaderiaId(recepcion.getId());
+            
+            if (asociaciones != null && !asociaciones.isEmpty()) {
+                // Buscar todos los NotaRecepcionItem del mismo producto en las notas asociadas
+                List<NotaRecepcionItem> itemsMismoProducto = new ArrayList<>();
+                for (com.franco.dev.domain.operaciones.RecepcionMercaderiaNota asociacion : asociaciones) {
+                    if (asociacion.getNotaRecepcion() != null && asociacion.getNotaRecepcion().getId() != null) {
+                        List<NotaRecepcionItem> itemsNota = notaRecepcionItemService.findByNotaRecepcionId(
+                            asociacion.getNotaRecepcion().getId());
+                        for (NotaRecepcionItem item : itemsNota) {
+                            if (item.getProducto() != null && 
+                                item.getProducto().getId() != null && 
+                                item.getProducto().getId().equals(notaItem.getProducto().getId())) {
+                                itemsMismoProducto.add(item);
+                            }
+                        }
+                    }
+                }
+                
+                // Si hay múltiples items del mismo producto, el notaRecepcionItemId debe ser explícito
+                if (itemsMismoProducto.size() > 1) {
+                    // Verificar que el item especificado esté en la lista
+                    boolean itemValido = itemsMismoProducto.stream()
+                        .anyMatch(item -> item.getId().equals(input.getNotaRecepcionItemId()));
+                    
+                    if (!itemValido) {
+                        throw new GraphQLException(
+                            "Hay " + itemsMismoProducto.size() + " items del mismo producto (ID: " + 
+                            notaItem.getProducto().getId() + ") en las notas asociadas a esta recepción. " +
+                            "El notaRecepcionItemId especificado (" + input.getNotaRecepcionItemId() + 
+                            ") no corresponde a ninguno de estos items. Por favor, especifique el ID correcto.");
+                    }
+                }
+            }
+        }
+
         // 5. Obtener entidades relacionadas
         Producto producto = null;
         if (input.getProductoId() != null) {
@@ -538,10 +579,44 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             Boolean resultado = service.resetearVerificacion(recepcionMercaderiaItemId);
             System.out.println("Resultado de reseteo: " + resultado);
             return resultado;
+        } catch (IllegalStateException e) {
+            // Re-lanzar excepciones de validación (como la de 24 horas) sin envolver
+            throw new GraphQLException(e.getMessage());
         } catch (Exception e) {
             System.err.println("Error al resetear verificación: " + e.getMessage());
             e.printStackTrace();
             throw new GraphQLException("Error al resetear verificación: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Deshace la verificación de todos los items de un producto en una recepción
+     * Útil para items que provienen de múltiples notas (distribución automática)
+     * 
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí (deshacer verificación de productos con múltiples notas)
+     */
+    public Boolean deshacerVerificacionPorProducto(Long recepcionMercaderiaId, Long productoId) {
+        System.out.println("=== DESHACER VERIFICACIÓN POR PRODUCTO ===");
+        System.out.println("RecepcionMercaderiaId: " + recepcionMercaderiaId);
+        System.out.println("ProductoId: " + productoId);
+
+        if (recepcionMercaderiaId == null || productoId == null) {
+            throw new GraphQLException("RecepcionMercaderiaId y ProductoId son requeridos");
+        }
+
+        try {
+            Boolean resultado = service.deshacerVerificacionPorProducto(recepcionMercaderiaId, productoId);
+            System.out.println("Resultado de deshacer verificación por producto: " + resultado);
+            return resultado;
+        } catch (IllegalStateException e) {
+            // Re-lanzar excepciones de validación (como la de 24 horas) sin envolver
+            throw new GraphQLException(e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Error al deshacer verificación por producto: " + e.getMessage());
+            e.printStackTrace();
+            throw new GraphQLException("Error al deshacer verificación por producto: " + e.getMessage());
         }
     }
 

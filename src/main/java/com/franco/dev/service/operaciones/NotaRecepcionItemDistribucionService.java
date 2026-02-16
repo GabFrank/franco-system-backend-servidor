@@ -189,33 +189,35 @@ public class NotaRecepcionItemDistribucionService extends CrudService<NotaRecepc
                 .map(this::save)
                 .collect(java.util.stream.Collectors.toList());
 
-        // Obtener el primer ítem para actualizar estado del ítem (todos pertenecen al mismo ítem)
-        NotaRecepcionItemDistribucion primeraDistribucion = saved.get(0);
-        if (primeraDistribucion.getNotaRecepcionItem() != null && 
-            primeraDistribucion.getNotaRecepcionItem().getId() != null) {
-            
-            Long itemId = primeraDistribucion.getNotaRecepcionItem().getId();
-            
-            // Cargar el ítem desde el servicio para asegurar que tenga todas las relaciones
+        // Actualizar estado de cada ítem afectado
+        java.util.Set<Long> itemsProcesados = new java.util.HashSet<>();
+        java.util.Set<Long> notasAActualizar = new java.util.HashSet<>();
+        for (NotaRecepcionItemDistribucion dist : saved) {
+            if (dist.getNotaRecepcionItem() == null || dist.getNotaRecepcionItem().getId() == null) {
+                continue;
+            }
+            Long itemId = dist.getNotaRecepcionItem().getId();
+            if (!itemsProcesados.add(itemId)) {
+                continue;
+            }
             java.util.Optional<NotaRecepcionItem> itemOpt = notaRecepcionItemService.findById(itemId);
             if (itemOpt.isPresent()) {
                 NotaRecepcionItem item = itemOpt.get();
-                
-                // Actualizar estado del ítem si la distribución está concluida
-                // PERO NO actualizar el estado de la nota aquí para evitar crear vínculos
-                // cuando solo se ha asignado el primer item
                 if (item.getCantidadEnNota() != null && item.getCantidadEnNota() > 0) {
                     boolean distribucionConcluida = isDistribucionConcluida(itemId, item.getCantidadEnNota());
-                    
                     if (distribucionConcluida && item.getEstado() == NotaRecepcionItemEstado.PENDIENTE_CONCILIACION) {
                         item.setEstado(NotaRecepcionItemEstado.CONCILIADO);
                         notaRecepcionItemService.save(item);
                     }
                 }
-                
-                // NO llamar a actualizarEstadoNota aquí
-                // Se llamará al final de asignarItemsANota cuando todos los items estén asignados
+                Long notaRecepcionId = item.getNotaRecepcion() != null ? item.getNotaRecepcion().getId() : null;
+                if (notaRecepcionId != null) {
+                    notasAActualizar.add(notaRecepcionId);
+                }
             }
+        }
+        for (Long notaRecepcionId : notasAActualizar) {
+            notaRecepcionService.actualizarEstadoNota(notaRecepcionId);
         }
 
         return saved;

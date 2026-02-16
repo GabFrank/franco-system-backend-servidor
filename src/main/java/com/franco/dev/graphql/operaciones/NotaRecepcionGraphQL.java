@@ -173,7 +173,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /**
      * Busca NotaRecepcion por proveedor y número.
-     * Retorna todas las notas que coinciden (incluyendo ya recibidas).
+     * Cuando sucursalId es provisto, filtra solo notas con distribución para esa sucursal.
      * El frontend mobile valida en procesarNotaUnica si la nota ya fue recepcionada
      * en la sucursal y muestra el mensaje correspondiente.
      *
@@ -181,8 +181,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * - Desktop: No
      * - Mobile: Sí (componente recepcion-notas, búsqueda de notas por número)
      */
-    public List<NotaRecepcion> findByProveedorAndNumero(Long id, Integer numero) {
-        return service.findNotasDisponiblesParaRecepcion(numero, id, null);
+    public List<NotaRecepcion> findByProveedorAndNumero(Long id, Integer numero, Long sucursalId) {
+        return service.findNotasDisponiblesParaRecepcion(numero, id, sucursalId);
     }
 
     public List<NotaRecepcion> findByNumero(Integer numero) {

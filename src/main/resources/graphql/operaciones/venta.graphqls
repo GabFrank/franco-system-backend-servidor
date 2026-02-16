@@ -14,7 +14,9 @@ type Venta {
     totalDs: Float
     cobro: Cobro
     sucursalId: Int
+    sucursal: Sucursal
     delivery: Delivery
+    ventaObservacionList: [VentaObservacion]
 }
 
 input VentaInput {
@@ -76,6 +78,7 @@ extend type Query {
         monedaId: Int, 
         conDescuento: Boolean, 
         conAumento: Boolean,
+        conObservacion: Boolean,
         clienteId: ID,
         fechaInicio: String,
         fechaFin: String

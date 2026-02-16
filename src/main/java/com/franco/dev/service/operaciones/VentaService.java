@@ -350,14 +350,14 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     }
 
     public Page<Venta> onGenericSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago,
-            VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento, Boolean conAumento, Long clienteId, String fechaInicio, String fechaFin) {
+            VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento, Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
         return findWithGenericFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc,
-                conDescuento, conAumento, clienteId, fechaInicio, fechaFin);
+                conDescuento, conAumento, conObservacion, clienteId, fechaInicio, fechaFin);
     }
 
     public Page<Venta> findWithGenericFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado,
             Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
-            Boolean conAumento, Long clienteId, String fechaInicio, String fechaFin) {
+            Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
         Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
@@ -431,6 +431,16 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                 } else {
                     predicates.add(cb.isNull(deliveryJoin.get("id")));
                 }
+            }
+
+            if (conObservacion != null && conObservacion == true) {
+                Subquery<Long> ventaObservacionSubquery = query.subquery(Long.class);
+                Root<VentaObservacion> ventaObservacionRoot = ventaObservacionSubquery.from(VentaObservacion.class);
+
+                ventaObservacionSubquery.select(ventaObservacionRoot.get("id"))
+                        .where(cb.equal(ventaObservacionRoot.get("venta"), root));
+
+                predicates.add(cb.exists(ventaObservacionSubquery));
             }
 
             // Combine predicates with AND

@@ -19,7 +19,11 @@ import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.context.annotation.Lazy;
 import com.franco.dev.domain.operaciones.EstadoVerificacion;
+import com.franco.dev.domain.operaciones.enums.MetodoVerificacion;
+import com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
+import graphql.GraphQLException;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
@@ -877,6 +881,185 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
         }
         
         return repository.findPendienteRecepcionItemPorProducto(recepcionId, productoId);
+    }
+
+    /**
+     * Verificación de producto para mobile.
+     * Distribuye cantidad recibida y rechazada entre los RecepcionMercaderiaItem pre-creados
+     * (a nivel de distribución), respetando capacidades y sucursal de la recepción.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí (verificación de producto en recepción)
+     *
+     * @param recepcionMercaderiaId ID de la recepción
+     * @param productoId ID del producto
+     * @param cantidadRecibida Cantidad total recibida en esta verificación
+     * @param cantidadRechazada Cantidad total rechazada (0 si no hay rechazo)
+     * @param notaRecepcionItemIdParaRechazo ID de la nota donde se registra el rechazo (null si no hay rechazo)
+     * @param motivoRechazo Motivo del rechazo (enum name como String)
+     * @param metodoVerificacion Metodo de verificacion (ej. MANUAL)
+     * @param usuario Usuario que realiza la verificación
+     * @return true si se actualizó correctamente
+     */
+    @Transactional
+    public Boolean verificarProductoMobile(
+            Long recepcionMercaderiaId,
+            Long productoId,
+            Double cantidadRecibida,
+            Double cantidadRechazada,
+            Long notaRecepcionItemIdParaRechazo,
+            String motivoRechazo,
+            String metodoVerificacion,
+            Usuario usuario
+    ) {
+        Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
+        logger.info("verificarProductoMobile: recepcionId={}, productoId={}, recibido={}, rechazado={}, notaRechazo={}",
+                recepcionMercaderiaId, productoId, cantidadRecibida, cantidadRechazada, notaRecepcionItemIdParaRechazo);
+
+        if (recepcionMercaderiaId == null || productoId == null || usuario == null) {
+            throw new IllegalArgumentException("recepcionMercaderiaId, productoId y usuario son requeridos");
+        }
+        double cantRec = cantidadRecibida != null ? cantidadRecibida : 0.0;
+        double cantRech = cantidadRechazada != null ? cantidadRechazada : 0.0;
+
+        List<RecepcionMercaderiaItem> todosItems = repository.findByRecepcionMercaderiaId(recepcionMercaderiaId);
+        RecepcionMercaderia recepcion = todosItems.isEmpty() ? null : todosItems.get(0).getRecepcionMercaderia();
+        if (recepcion == null) {
+            throw new GraphQLException("Recepción no encontrada: " + recepcionMercaderiaId);
+        }
+        Long sucursalRecepcionId = recepcion.getSucursalRecepcion() != null ? recepcion.getSucursalRecepcion().getId() : null;
+        if (sucursalRecepcionId == null) {
+            throw new GraphQLException("La recepción no tiene sucursal de recepción definida");
+        }
+
+        List<RecepcionMercaderiaItem> items = todosItems.stream()
+                .filter(i -> productoId.equals(i.getProducto() != null ? i.getProducto().getId() : null))
+                .filter(i -> sucursalRecepcionId.equals(i.getSucursalEntrega() != null ? i.getSucursalEntrega().getId() : null))
+                .sorted((a, b) -> Long.compare(a.getId() != null ? a.getId() : 0, b.getId() != null ? b.getId() : 0))
+                .collect(Collectors.toList());
+
+        if (items.isEmpty()) {
+            throw new GraphQLException("No se encontraron items de recepción para el producto " + productoId + " en la sucursal de recepción");
+        }
+
+        double totalPendiente = 0;
+        double[] pendientes = new double[items.size()];
+        for (int i = 0; i < items.size(); i++) {
+            RecepcionMercaderiaItem it = items.get(i);
+            double cap = 0;
+            if (it.getNotaRecepcionItemDistribucion() != null && it.getNotaRecepcionItemDistribucion().getCantidad() != null) {
+                cap = it.getNotaRecepcionItemDistribucion().getCantidad();
+            }
+            double existRec = it.getCantidadRecibida() != null ? it.getCantidadRecibida() : 0;
+            double existRech = it.getCantidadRechazada() != null ? it.getCantidadRechazada() : 0;
+            double pend = Math.max(0, cap - existRec - existRech);
+            pendientes[i] = pend;
+            totalPendiente += pend;
+        }
+
+        if (totalPendiente <= 0) {
+            throw new GraphQLException("No hay cantidad pendiente para distribuir en los items del producto");
+        }
+        if (cantRec + cantRech > totalPendiente + 0.001) {
+            throw new GraphQLException("La suma de recibido (" + cantRec + ") y rechazado (" + cantRech + ") excede la cantidad pendiente (" + totalPendiente + ")");
+        }
+
+        double[] recibidoAsignado = new double[items.size()];
+        double[] rechazadoAsignado = new double[items.size()];
+
+        if (cantRech > 0 && notaRecepcionItemIdParaRechazo != null) {
+            double rechazoRestante = cantRech;
+            for (int i = 0; i < items.size() && rechazoRestante > 0.001; i++) {
+                if (!notaRecepcionItemIdParaRechazo.equals(items.get(i).getNotaRecepcionItem() != null ? items.get(i).getNotaRecepcionItem().getId() : null)) {
+                    continue;
+                }
+                double pend = pendientes[i];
+                double asigna = Math.min(pend, rechazoRestante);
+                rechazadoAsignado[i] = asigna;
+                rechazoRestante -= asigna;
+            }
+            if (rechazoRestante > 0.001) {
+                throw new GraphQLException("La nota seleccionada para rechazo no tiene cantidad pendiente suficiente para " + cantRech + " unidades");
+            }
+        }
+
+        double capacidadParaRecibido = totalPendiente - cantRech;
+        double recibidoRestante = cantRec;
+        for (int i = 0; i < items.size(); i++) {
+            double pend = pendientes[i];
+            double rech = rechazadoAsignado[i];
+            double capRec = pend - rech;
+            double asigna;
+            if (i == items.size() - 1) {
+                asigna = recibidoRestante;
+            } else if (capacidadParaRecibido <= 0) {
+                asigna = 0;
+            } else {
+                asigna = (capRec / capacidadParaRecibido) * cantRec;
+                asigna = Math.round(asigna * 100.0) / 100.0;
+            }
+            asigna = Math.min(asigna, capRec);
+            asigna = Math.min(asigna, Math.max(0, recibidoRestante));
+            recibidoAsignado[i] = asigna;
+            recibidoRestante -= asigna;
+        }
+
+        MotivoRechazoFisico motivoEnum = null;
+        if (motivoRechazo != null && !motivoRechazo.isEmpty()) {
+            try {
+                motivoEnum = MotivoRechazoFisico.valueOf(motivoRechazo);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        MetodoVerificacion metodoEnum = null;
+        if (metodoVerificacion != null && !metodoVerificacion.isEmpty()) {
+            try {
+                metodoEnum = MetodoVerificacion.valueOf(metodoVerificacion);
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        for (int i = 0; i < items.size(); i++) {
+            RecepcionMercaderiaItem item = items.get(i);
+            double rec = recibidoAsignado[i];
+            double rech = rechazadoAsignado[i];
+            double existenteRec = item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0;
+            double existenteRech = item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0;
+            item.setCantidadRecibida(existenteRec + rec);
+            item.setCantidadRechazada(existenteRech + rech);
+            item.setUsuario(usuario);
+            if (rech > 0) {
+                item.setMotivoRechazo(motivoEnum);
+            }
+            if (metodoEnum != null) {
+                item.setMetodoVerificacion(metodoEnum);
+            }
+            actualizarEstadoVerificacionItem(item);
+            repository.save(item);
+        }
+        return true;
+    }
+
+    private void actualizarEstadoVerificacionItem(RecepcionMercaderiaItem item) {
+        if (item == null) return;
+        double cantidadEsperada = 0;
+        if (item.getNotaRecepcionItemDistribucion() != null && item.getNotaRecepcionItemDistribucion().getCantidad() != null) {
+            cantidadEsperada = item.getNotaRecepcionItemDistribucion().getCantidad();
+        }
+        double cantidadRecibida = item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0;
+        double cantidadRechazada = item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0;
+        EstadoVerificacion nuevoEstado;
+        if (cantidadRecibida == 0 && cantidadRechazada == 0) {
+            nuevoEstado = EstadoVerificacion.PENDIENTE;
+        } else if (cantidadRecibida > 0 && cantidadRechazada > 0) {
+            nuevoEstado = cantidadRecibida >= cantidadRechazada ? EstadoVerificacion.VERIFICADO_CON_DIFERENCIA : EstadoVerificacion.RECHAZADO;
+        } else if (cantidadRecibida > 0) {
+            nuevoEstado = Math.abs(cantidadRecibida - cantidadEsperada) < 0.001 ? EstadoVerificacion.VERIFICADO : EstadoVerificacion.VERIFICADO_CON_DIFERENCIA;
+        } else {
+            nuevoEstado = EstadoVerificacion.RECHAZADO;
+        }
+        item.setEstadoVerificacion(nuevoEstado);
     }
 
     /**

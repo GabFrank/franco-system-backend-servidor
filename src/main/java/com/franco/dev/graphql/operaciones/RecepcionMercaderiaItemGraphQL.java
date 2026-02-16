@@ -621,6 +621,42 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     }
 
     /**
+     * Verificación de producto para mobile.
+     * Distribuye cantidades entre distribuciones automáticamente.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí (verificación de producto en recepción)
+     */
+    @Transactional
+    public Boolean verificarProductoMobile(
+            Long recepcionMercaderiaId,
+            Long productoId,
+            Double cantidadRecibida,
+            Double cantidadRechazada,
+            Long notaRecepcionItemIdParaRechazo,
+            String motivoRechazo,
+            String metodoVerificacion,
+            Long usuarioId
+    ) {
+        if (recepcionMercaderiaId == null || productoId == null || usuarioId == null) {
+            throw new GraphQLException("recepcionMercaderiaId, productoId y usuarioId son requeridos");
+        }
+        Usuario usuario = usuarioService.findById(usuarioId)
+                .orElseThrow(() -> new GraphQLException("Usuario no encontrado: " + usuarioId));
+        return service.verificarProductoMobile(
+                recepcionMercaderiaId,
+                productoId,
+                cantidadRecibida,
+                cantidadRechazada,
+                notaRecepcionItemIdParaRechazo,
+                motivoRechazo,
+                metodoVerificacion,
+                usuario
+        );
+    }
+
+    /**
      * Cancela el rechazo de un ítem de recepción
      */
     public Boolean cancelarRechazo(Long notaRecepcionItemId, Long sucursalId) {

@@ -150,7 +150,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
         Producto e = service.save(input);
         if (isNewProduct) {
-            publisher.publishEvent(new com.franco.dev.fmc.event.ProductoCreadoEvent(this, e));
+            sendProductoCreadoNotification(e);
         }
         return e;
     }
@@ -257,6 +257,48 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             return true;
         } else {
             return false;
+        }
+    }
+
+    private void sendProductoCreadoNotification(Producto producto) {
+        if (producto == null)
+            return;
+
+        try {
+            if (producto.getSubfamilia() != null) {
+                try {
+                    producto.getSubfamilia().getNombre();
+                } catch (Exception e) {
+                }
+            }
+
+            List<String> roles = notificationRoleService.getRolesForProductoCreado();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+
+            if (usuarioIds.isEmpty()) {
+                return;
+            }
+            Sucursal sucursal = null;
+            if (env != null && sucursalService != null) {
+                try {
+                    String sucursalIdStr = env.getProperty("sucursalId");
+                    if (sucursalIdStr != null) {
+                        Long sucursalId = Long.valueOf(sucursalIdStr);
+                        Optional<Sucursal> optSuc = sucursalService.findById(sucursalId);
+                        if (optSuc != null && optSuc.isPresent()) {
+                            sucursal = optSuc.get();
+                        }
+                    }
+                } catch (Exception e) {
+                }
+            }
+            PushNotificationRequest request = notificationTemplateService.productoCreado(producto, sucursal);
+            if (request != null) {
+                request.setUsuarioIds(usuarioIds);
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

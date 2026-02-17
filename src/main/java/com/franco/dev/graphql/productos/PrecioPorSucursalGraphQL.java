@@ -42,6 +42,17 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     private MultiTenantService multiTenantService;
 
     @Autowired
+    private com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+
+    @Autowired
+    private com.franco.dev.fmc.service.NotificationRoleService notificationRoleService;
+
+    private static final java.text.DecimalFormat df = new java.text.DecimalFormat("#,###.##");
+
+    @Autowired
     private Environment env;
 
     @SuppressWarnings("unused")
@@ -88,10 +99,26 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setTipoPrecio(tipoPrecioService.findById(input.getTipoPrecioId()).orElse(null));
         }
         input.setSucursalId(Long.valueOf(env.getProperty("sucursalId")));
+        if (e.getId() == null && input.getPresentacionId() != null && input.getTipoPrecioId() != null
+                && input.getSucursalId() != null) {
+            PrecioPorSucursal existente = service.findBySucursalIdAndPresentacionIdAndTipoPrecioId(
+                    input.getSucursalId(), input.getPresentacionId(), input.getTipoPrecioId());
+            if (existente != null) {
+                e.setId(existente.getId());
+                e.setCreadoEn(existente.getCreadoEn());
+                precioAnterior = existente.getPrecio();
+            }
+        }
+
         e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
 
-        publisher.publishEvent(new com.franco.dev.fmc.event.PrecioPorSucursalActualizadoEvent(this, e, precioAnterior));
+        e = service.save(e);
+
+        // publisher.publishEvent(new
+        // com.franco.dev.fmc.event.PrecioPorSucursalActualizadoEvent(this, e,
+        // precioAnterior));
+        sendPrecioActualizadoNotification(e, precioAnterior);
 
         return e;
     }
@@ -105,4 +132,68 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.count();
     }
 
+    private void sendPrecioActualizadoNotification(PrecioPorSucursal precioActualizado, Double precioAnterior) {
+        if (precioActualizado == null)
+            return;
+
+        try {
+            if (precioActualizado.getPrecio() == null || precioActualizado.getPresentacion() == null) {
+                return;
+            }
+            if (precioActualizado.getUsuario() != null)
+                precioActualizado.getUsuario().getNickname();
+            if (precioActualizado.getSucursal() != null)
+                precioActualizado.getSucursal().getNombre();
+            if (precioActualizado.getTipoPrecio() != null)
+                precioActualizado.getTipoPrecio().getDescripcion();
+            if (precioActualizado.getPresentacion() != null)
+                precioActualizado.getPresentacion().getDescripcion();
+
+            List<String> roles = notificationRoleService.getRolesForPrecioActualizado();
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+            if (usuarioIds.isEmpty()) {
+                return;
+            }
+
+            com.franco.dev.domain.productos.Producto producto = obtenerProducto(precioActualizado);
+            if (producto == null) {
+                return;
+            }
+
+            com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
+                    .precioVentaActualizado(
+                            producto,
+                            precioActualizado.getPresentacion(),
+                            precioActualizado.getTipoPrecio(),
+                            precioActualizado.getPrecio(),
+                            precioAnterior,
+                            precioActualizado.getUsuario(),
+                            precioActualizado.getSucursal(),
+                            df);
+            if (request == null) {
+                return;
+            }
+            request.setUsuarioIds(usuarioIds);
+            pushNotificationService.sendPushNotificationToToken(request);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private com.franco.dev.domain.productos.Producto obtenerProducto(PrecioPorSucursal precio) {
+        if (precio == null || precio.getPresentacion() == null) {
+            return null;
+        }
+        com.franco.dev.domain.productos.Producto producto = precio.getPresentacion().getProducto();
+        if (producto != null) {
+            return producto;
+        }
+        try {
+            return presentacionService.findById(precio.getPresentacion().getId())
+                    .map(p -> p.getProducto())
+                    .orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

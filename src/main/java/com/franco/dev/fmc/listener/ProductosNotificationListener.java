@@ -31,17 +31,29 @@ public class ProductosNotificationListener {
     private final SucursalService sucursalService;
     private final Environment env;
     private final PresentacionService presentacionService;
+    private final com.franco.dev.repository.productos.ProductoRepository productoRepository;
+    private final com.franco.dev.repository.productos.PrecioPorSucursalRepository precioPorSucursalRepository;
 
     private static final DecimalFormat df = new DecimalFormat("#,###.##");
 
+    @org.springframework.scheduling.annotation.Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void onProductoCreado(ProductoCreadoEvent event) {
-        Producto producto = event.getProducto();
-        if (producto == null) {
+        if (event.getProducto() == null)
             return;
-        }
 
         try {
+            Long productoId = event.getProducto().getId();
+            Producto producto = productoRepository.findById(productoId).orElse(null);
+
+            if (producto == null)
+                return;
+
+            // Initialize Lazy
+            if (producto.getSubfamilia() != null)
+                producto.getSubfamilia().getNombre();
+
             List<String> roles = notificationRoleService.getRolesForProductoCreado();
             List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
@@ -69,20 +81,37 @@ public class ProductosNotificationListener {
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            // Silent notification error
+            e.printStackTrace();
         }
     }
 
+    @org.springframework.scheduling.annotation.Async("notificationExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public void onPrecioPorSucursalActualizado(PrecioPorSucursalActualizadoEvent event) {
-        PrecioPorSucursal precioActualizado = event.getPrecioPorSucursal();
-        Double precioAnterior = event.getPrecioAnterior();
-
-        if (precioActualizado == null || precioActualizado.getPrecio() == null
-                || precioActualizado.getPresentacion() == null) {
+        if (event.getPrecioPorSucursal() == null)
             return;
-        }
+
         try {
+            Long precioId = event.getPrecioPorSucursal().getId();
+            PrecioPorSucursal precioActualizado = precioPorSucursalRepository.findById(precioId).orElse(null);
+            Double precioAnterior = event.getPrecioAnterior();
+
+            if (precioActualizado == null || precioActualizado.getPrecio() == null
+                    || precioActualizado.getPresentacion() == null) {
+                return;
+            }
+
+            // Init Lazy
+            if (precioActualizado.getUsuario() != null)
+                precioActualizado.getUsuario().getNickname();
+            if (precioActualizado.getSucursal() != null)
+                precioActualizado.getSucursal().getNombre();
+            if (precioActualizado.getTipoPrecio() != null)
+                precioActualizado.getTipoPrecio().getDescripcion();
+            if (precioActualizado.getPresentacion() != null)
+                precioActualizado.getPresentacion().getDescripcion();
+
             List<String> roles = notificationRoleService.getRolesForPrecioActualizado();
             List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
             if (usuarioIds.isEmpty()) {
@@ -109,7 +138,7 @@ public class ProductosNotificationListener {
             request.setUsuarioIds(usuarioIds);
             pushNotificationService.sendPushNotificationToToken(request);
         } catch (Exception e) {
-            // Silent notification error
+            e.printStackTrace();
         }
     }
 

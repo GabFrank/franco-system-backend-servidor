@@ -66,6 +66,15 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+
+    @Autowired
+    private com.franco.dev.fmc.service.NotificationRoleService notificationRoleService;
+
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
     }
@@ -104,7 +113,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
         if (esNuevo && e.getId() != null) {
-            publisher.publishEvent(new com.franco.dev.fmc.event.InventarioIniciadoEvent(this, e));
+            // publisher.publishEvent(new
+            // com.franco.dev.fmc.event.InventarioIniciadoEvent(this, e));
+            sendInventarioIniciadoNotification(e);
         }
 
         return e;
@@ -250,5 +261,66 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             throw e;
         }
 
+    }
+
+    private void sendInventarioIniciadoNotification(Inventario inventario) {
+        try {
+            Long inventarioId = inventario.getId();
+
+            // Initialize Lazy Objects or use what we have
+            String sucursalNombre = "Sucursal no especificada";
+            if (inventario.getSucursal() != null) {
+                // If it's a proxy, we might need to fetch it, but usually if it came from
+                // save(e) it might be attached or detached but with ID
+                // Let's try to get name safely
+                if (inventario.getSucursal().getNombre() != null) {
+                    sucursalNombre = inventario.getSucursal().getNombre();
+                } else {
+                    com.franco.dev.domain.empresarial.Sucursal s = sucursalService
+                            .findById(inventario.getSucursal().getId()).orElse(null);
+                    if (s != null)
+                        sucursalNombre = s.getNombre();
+                }
+            }
+
+            String usuarioNombre = "Usuario";
+            if (inventario.getUsuario() != null) {
+                try {
+                    // Try to get persona name if possible, or fallback to nickname
+                    if (inventario.getUsuario().getPersona() != null
+                            && inventario.getUsuario().getPersona().getNombre() != null) {
+                        usuarioNombre = inventario.getUsuario().getPersona().getNombre();
+                    } else {
+                        usuarioNombre = inventario.getUsuario().getNickname();
+                    }
+                } catch (Exception e) {
+                    usuarioNombre = inventario.getUsuario().getNickname();
+                }
+            }
+
+            String tipoInventario = inventario.getTipo() != null ? inventario.getTipo().name() : "";
+
+            List<String> roles = Arrays.asList(
+                    "ADMIN",
+                    "SOPORTE",
+                    "CREAR INVENTARIO",
+                    "VER INVENTARIO",
+                    "PARTICIPAR DEL INVENTARIO");
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+
+            if (!usuarioIds.isEmpty()) {
+                com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
+                        .inventarioIniciado(
+                                tipoInventario,
+                                sucursalNombre,
+                                usuarioNombre,
+                                inventario.getId());
+                request.setUsuarioIds(usuarioIds);
+
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }

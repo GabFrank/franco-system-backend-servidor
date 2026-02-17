@@ -149,7 +149,8 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             @Nullable List<Long> zonaIdList,
             @Nullable List<Long> usuarioIdList,
             @Nullable List<Long> productoIdList,
-            Integer page, Integer size, @Nullable String orderBy, @Nullable String tipoOrder) {
+            Integer page, Integer size, @Nullable String orderBy, @Nullable String tipoOrder,
+            @Nullable String estado) {
 
         Pageable pageable = createPageable(page, size, orderBy, tipoOrder);
         return service.findAllWithFilters(
@@ -160,6 +161,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 stringToDate(endDate),
                 usuarioIdList,
                 productoIdList,
+                estado,
                 pageable);
     }
 
@@ -181,7 +183,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : DEFAULT_PAGE_SIZE);
             Page<InventarioProductoItem> inventarioProductoItemPage = service.findAllWithFilters(
                     sucursalIdList, sectorIdList, zonaIdList, stringToDate(startDate), stringToDate(endDate),
-                    usuarioIdList, productoIdList, pageable);
+                    usuarioIdList, productoIdList, null, pageable);
 
             List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemPage.getContent();
             if (inventarioProductoItemList.isEmpty()) {

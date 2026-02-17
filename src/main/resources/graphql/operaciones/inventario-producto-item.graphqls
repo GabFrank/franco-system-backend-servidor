@@ -63,7 +63,8 @@ extend type Query {
         page: Int,
         size: Int,
         orderBy: String,
-        tipoOrder: String
+        tipoOrder: String,
+        estado: String
     ): InventarioProductoItemPage
 
     reporteInventario(

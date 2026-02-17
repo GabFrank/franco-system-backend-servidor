@@ -5,6 +5,7 @@ import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.SolicitudPagoNotaRecepcion;
+import com.franco.dev.graphql.operaciones.dto.DatosInicialesSolicitudPagoDTO;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
@@ -112,6 +113,21 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public Boolean isNotaIncludedInSolicitud(Long notaId) {
         return solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(notaId);
+    }
+
+    /**
+     * Get a single NotaRecepcion eligible for payment by numero and proveedor (independent of pedido).
+     * Returns null if none found or already included in a solicitud.
+     */
+    public NotaRecepcion notaRecepcionDisponibleParaPagoPorNumero(Integer numero, Long proveedorId) {
+        return solicitudPagoService.getNotaDisponibleParaPagoPorNumero(numero, proveedorId);
+    }
+
+    /**
+     * Datos iniciales para crear solicitud de pago desde una recepción (mobile).
+     */
+    public DatosInicialesSolicitudPagoDTO datosInicialesSolicitudPagoPorRecepcion(Long recepcionMercaderiaId) {
+        return solicitudPagoService.getDatosInicialesSolicitudPagoPorRecepcion(recepcionMercaderiaId);
     }
 
     // ========== MUTATIONS ==========

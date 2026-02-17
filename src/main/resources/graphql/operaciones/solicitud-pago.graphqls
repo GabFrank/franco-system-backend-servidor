@@ -35,6 +35,14 @@ type SolicitudPagoPage {
     getPageable: Pageable
 }
 
+# Datos pre-cargados para crear solicitud de pago desde una recepción de mercadería (mobile).
+type DatosInicialesSolicitudPago {
+    notas: [NotaRecepcion!]!
+    monedaId: ID
+    formaPagoId: ID
+    fechaPagoPropuesta: String
+}
+
 input SolicitudPagoInput {
     id: ID
     proveedorId: Int!
@@ -79,6 +87,12 @@ extend type Query {
     
     # Check if a nota is already included in any solicitud
     isNotaIncludedInSolicitud(notaId: ID!): Boolean
+    
+    # Get a single NotaRecepcion eligible for payment by numero and proveedor (independent of pedido)
+    notaRecepcionDisponibleParaPagoPorNumero(numero: Int!, proveedorId: ID!): NotaRecepcion
+
+    # Datos iniciales para pantalla de nueva solicitud de pago desde recepción (notas elegibles, moneda/forma pago sugeridos, fecha)
+    datosInicialesSolicitudPagoPorRecepcion(recepcionMercaderiaId: ID!): DatosInicialesSolicitudPago
 }
 
 extend type Mutation {

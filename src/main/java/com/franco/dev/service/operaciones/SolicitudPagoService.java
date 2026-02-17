@@ -1,6 +1,9 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
+import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.RecepcionMercaderia;
+import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.SolicitudPagoNotaRecepcion;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
@@ -9,6 +12,9 @@ import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.graphql.operaciones.dto.DatosInicialesSolicitudPagoDTO;
+import com.franco.dev.repository.financiero.FormaPagoRepository;
+import com.franco.dev.repository.financiero.MonedaRepository;
 import com.franco.dev.repository.operaciones.NotaRecepcionRepository;
 import com.franco.dev.repository.operaciones.SolicitudPagoRepository;
 import com.franco.dev.service.CrudService;
@@ -21,22 +27,31 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
 public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPagoRepository, Long> {
+    private static final List<NotaRecepcionEstado> ESTADOS_ELEGIBLES_PAGO = Arrays.asList(
+        NotaRecepcionEstado.CONCILIADA,
+        NotaRecepcionEstado.RECEPCION_COMPLETA
+    );
+    private static final String MONEDA_GUARANI = "GUARANI";
+    private static final String FORMA_PAGO_EFECTIVO = "EFECTIVO";
+
     private final SolicitudPagoRepository repository;
-    
-    @Autowired
-    private SolicitudPagoNotaRecepcionService solicitudPagoNotaRecepcionService;
-    
-    @Autowired
-    private NotaRecepcionRepository notaRecepcionRepository;
-    
-    @Autowired
-    private ProcesoEtapaService procesoEtapaService;
+    private final SolicitudPagoNotaRecepcionService solicitudPagoNotaRecepcionService;
+    private final NotaRecepcionRepository notaRecepcionRepository;
+    private final ProcesoEtapaService procesoEtapaService;
+    private final RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
+    private final RecepcionMercaderiaService recepcionMercaderiaService;
+    private final MonedaRepository monedaRepository;
+    private final FormaPagoRepository formaPagoRepository;
 
     @Override
     public SolicitudPagoRepository getRepository() {
@@ -103,6 +118,105 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         return repository.findByProveedorId(proveedorId);
     }
     
+    /**
+     * Get a single NotaRecepcion eligible for payment by numero and proveedor.
+     * Eligible: estado CONCILIADA or RECEPCION_COMPLETA, pagado null/false, not already in a solicitud.
+     * @param numero Nota number
+     * @param proveedorId Proveedor ID (nota must belong to a pedido of this proveedor)
+     * @return First eligible NotaRecepcion or null
+     */
+    public NotaRecepcion getNotaDisponibleParaPagoPorNumero(Integer numero, Long proveedorId) {
+        if (numero == null || proveedorId == null) {
+            return null;
+        }
+        List<NotaRecepcionEstado> estados = Arrays.asList(
+            NotaRecepcionEstado.CONCILIADA,
+            NotaRecepcionEstado.RECEPCION_COMPLETA
+        );
+        List<NotaRecepcion> candidatas = notaRecepcionRepository.findDisponiblesParaPagoPorNumeroYProveedor(numero, proveedorId, estados);
+        for (NotaRecepcion nota : candidatas) {
+            if (!solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(nota.getId())) {
+                return nota;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Obtiene datos iniciales para crear una solicitud de pago desde una recepcion de mercaderia.
+     * Incluye notas elegibles (estado CONCILIADA/RECEPCION_COMPLETA, no pagadas, no incluidas en otra solicitud),
+     * moneda sugerida (misma que notas; si difieren usar GUARANI), forma de pago (misma que pedidos; si difieren usar EFECTIVO),
+     * y fecha de pago propuesta (hoy mas plazo mas largo entre los pedidos, si aplica).
+     * Usado en: Desktop No; Mobile Si (pantalla nueva solicitud de pago desde recepcion).
+     */
+    @Transactional(readOnly = true)
+    public DatosInicialesSolicitudPagoDTO getDatosInicialesSolicitudPagoPorRecepcion(Long recepcionMercaderiaId) {
+        if (recepcionMercaderiaId == null) {
+            return new DatosInicialesSolicitudPagoDTO(new ArrayList<>(), null, null, null);
+        }
+        RecepcionMercaderia recepcion = recepcionMercaderiaService.findById(recepcionMercaderiaId)
+            .orElse(null);
+        if (recepcion == null) {
+            return new DatosInicialesSolicitudPagoDTO(new ArrayList<>(), null, null, null);
+        }
+        List<RecepcionMercaderiaNota> asociaciones = recepcionMercaderiaNotaService.findByRecepcionMercaderiaId(recepcionMercaderiaId);
+        List<NotaRecepcion> notasElegibles = new ArrayList<>();
+        for (RecepcionMercaderiaNota rmn : asociaciones) {
+            NotaRecepcion nota = rmn.getNotaRecepcion();
+            if (nota == null) continue;
+            if (!ESTADOS_ELEGIBLES_PAGO.contains(nota.getEstado())) continue;
+            if (Boolean.TRUE.equals(nota.getPagado())) continue;
+            if (solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(nota.getId())) continue;
+            notasElegibles.add(nota);
+        }
+        Long monedaId = resolverMonedaId(notasElegibles, recepcion);
+        Long formaPagoId = resolverFormaPagoId(notasElegibles);
+        String fechaPagoPropuesta = resolverFechaPagoPropuesta(notasElegibles);
+        return new DatosInicialesSolicitudPagoDTO(notasElegibles, monedaId, formaPagoId, fechaPagoPropuesta);
+    }
+
+    private Long resolverMonedaId(List<NotaRecepcion> notas, RecepcionMercaderia recepcion) {
+        Set<Long> monedaIds = notas.stream()
+            .map(NotaRecepcion::getMoneda)
+            .filter(m -> m != null && m.getId() != null)
+            .map(Moneda::getId)
+            .collect(Collectors.toSet());
+        if (monedaIds.isEmpty()) {
+            Moneda guaranies = monedaRepository.findByDenominacion(MONEDA_GUARANI);
+            return guaranies != null ? guaranies.getId() : null;
+        }
+        if (monedaIds.size() == 1) {
+            return monedaIds.iterator().next();
+        }
+        Moneda guaranies = monedaRepository.findByDenominacion(MONEDA_GUARANI);
+        return guaranies != null ? guaranies.getId() : monedaIds.iterator().next();
+    }
+
+    private Long resolverFormaPagoId(List<NotaRecepcion> notas) {
+        Set<Long> formaPagoIds = notas.stream()
+            .map(NotaRecepcion::getPedido)
+            .filter(p -> p != null && p.getFormaPago() != null)
+            .map(p -> p.getFormaPago().getId())
+            .collect(Collectors.toSet());
+        if (formaPagoIds.isEmpty() || formaPagoIds.size() > 1) {
+            return formaPagoRepository.findFirstByDescripcionIgnoreCase(FORMA_PAGO_EFECTIVO)
+                .map(FormaPago::getId)
+                .orElse(formaPagoIds.isEmpty() ? null : formaPagoIds.iterator().next());
+        }
+        return formaPagoIds.iterator().next();
+    }
+
+    private String resolverFechaPagoPropuesta(List<NotaRecepcion> notas) {
+        int maxPlazo = notas.stream()
+            .map(NotaRecepcion::getPedido)
+            .filter(p -> p != null && p.getPlazoCredito() != null)
+            .mapToInt(Pedido::getPlazoCredito)
+            .max()
+            .orElse(0);
+        LocalDate fecha = maxPlazo > 0 ? LocalDate.now().plusDays(maxPlazo) : LocalDate.now();
+        return fecha.format(DateTimeFormatter.ISO_LOCAL_DATE);
+    }
+
     /**
      * Get notas de recepcion available for payment for a specific pedido
      * @param pedidoId The ID of the pedido

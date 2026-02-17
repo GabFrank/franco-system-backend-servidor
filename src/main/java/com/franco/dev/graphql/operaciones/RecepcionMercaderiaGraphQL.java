@@ -23,7 +23,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 
@@ -218,11 +220,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
                     ? rechazoPendientes.getMotivoRechazo() : null;
             RecepcionMercaderia recepcion = service.finalizarRecepcion(recepcionId, motivoRechazoPendientes);
 
-            // Generar constancia automáticamente
-            List<RecepcionMercaderiaItem> items = recepcionMercaderiaItemService.findByRecepcionMercaderiaId(recepcionId);
-
-            // Persistir constancia
-            constanciaDeRecepcionService.generarConstancia(recepcion, items);
+            // Constancia de recepción: se genera a demanda vía query generarConstanciaRecepcionPDF(recepcionId)
 
             System.out.println("=== RECEPCIÓN FINALIZADA EXITOSAMENTE ===");
             System.out.println("Estado final: " + recepcion.getEstado());
@@ -448,11 +446,13 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             
             // Convertir a base64
             String pdfBase64 = java.util.Base64.getEncoder().encodeToString(pdfBytes);
-            
-            // Crear respuesta
+            // Nombre de archivo: {id-recepcion}-constancia-recepcion-{dd-MM-yy}.pdf
+            String fechaStr = LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yy"));
+            String nombreArchivo = recepcionId + "-constancia-recepcion-" + fechaStr + ".pdf";
+
             return new com.franco.dev.graphql.operaciones.dto.ConstanciaRecepcionPDFDTO(
                 pdfBase64,
-                "constancia-recepcion-" + recepcionId + ".pdf",
+                nombreArchivo,
                 (long) pdfBytes.length,
                 LocalDateTime.now()
             );

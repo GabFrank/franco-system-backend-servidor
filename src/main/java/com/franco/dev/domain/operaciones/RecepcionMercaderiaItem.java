@@ -60,7 +60,7 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     @JoinColumn(name = "nota_recepcion_item_distribucion_id")
     private NotaRecepcionItemDistribucion notaRecepcionItemDistribucion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "producto_id", nullable = false)
     private Producto producto;
 

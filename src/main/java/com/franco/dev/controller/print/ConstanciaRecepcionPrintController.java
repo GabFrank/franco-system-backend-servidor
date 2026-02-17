@@ -9,7 +9,8 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 /**
  * Controlador REST para generar y descargar constancias de recepción en PDF
@@ -34,11 +35,13 @@ public class ConstanciaRecepcionPrintController {
             // Generar PDF
             byte[] pdfBytes = constanciaRecepcionPrintService.generarConstanciaRecepcionPDF(recepcionId);
             
-            // Configurar headers para descarga
+            // Nombre: {id-recepcion}-constancia-recepcion-{dd-MM-yy}.pdf
+            String fechaStr = LocalDate.now().format(DateTimeFormatter.ofPattern("dd-MM-yy"));
+            String nombreArchivo = recepcionId + "-constancia-recepcion-" + fechaStr + ".pdf";
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", 
-                String.format("constancia-recepcion-%d-%s.pdf", recepcionId, new Date().getTime()));
+            headers.setContentDispositionFormData("attachment", nombreArchivo);
             headers.setContentLength(pdfBytes.length);
             
             log.info("PDF generado exitosamente. Tamaño: {} bytes", pdfBytes.length);

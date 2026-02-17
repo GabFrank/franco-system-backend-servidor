@@ -55,7 +55,8 @@ public class ConstanciaDeRecepcionService extends CrudService<ConstanciaDeRecepc
     }
 
     /**
-     * Genera PDF de constancia de recepción
+     * Genera PDF de constancia de recepción (on demand, sin persistir constancia).
+     * TODO: Analizar a futuro si conviene persistir ConstanciaDeRecepcion para snapshot inmutable, trazabilidad y reutilización del mismo documento.
      */
     public byte[] generarConstanciaRecepcionPDF(Long recepcionId) throws Exception {
         return printService.generarConstanciaRecepcionPDF(recepcionId);

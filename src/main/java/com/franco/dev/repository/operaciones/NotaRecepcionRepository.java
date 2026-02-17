@@ -2,6 +2,7 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaPedido;
 import com.franco.dev.domain.operaciones.NotaRecepcion;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -123,5 +124,18 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             @Param("proveedorId") Long proveedorId,
             @Param("sucursalId") Long sucursalId,
             Pageable pageable
+    );
+
+    /**
+     * Find NotaRecepcion eligible for payment by numero and proveedor.
+     * Estado must be CONCILIADA or RECEPCION_COMPLETA; pagado must be null or false.
+     */
+    @Query("SELECT nr FROM NotaRecepcion nr JOIN nr.pedido p WHERE nr.numero = :numero " +
+           "AND p.proveedor.id = :proveedorId AND nr.estado IN :estados " +
+           "AND (nr.pagado IS NULL OR nr.pagado = false) ORDER BY nr.id DESC")
+    List<NotaRecepcion> findDisponiblesParaPagoPorNumeroYProveedor(
+            @Param("numero") Integer numero,
+            @Param("proveedorId") Long proveedorId,
+            @Param("estados") List<NotaRecepcionEstado> estados
     );
 }

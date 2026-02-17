@@ -56,6 +56,10 @@ type PedidoRecepcionProductoDto {
     totalCantidadARecibirPorUnidad: Float
     totalCantidadRecibidaPorUnidad: Float
     totalCantidadRechazadaPorUnidad: Float
+    cantidadPendientePorUnidad: Float
+    mostrarEnUnidadBase: Boolean
+    presentacionInicialSugerida: Presentacion
+    cantidadInicialPorPresentacion: Float
     estado: PedidoRecepcionProductoEstado
 }
 

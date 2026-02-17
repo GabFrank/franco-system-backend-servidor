@@ -11,6 +11,7 @@ import com.franco.dev.service.operaciones.RecepcionMercaderiaService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.productos.PresentacionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -34,10 +35,12 @@ import com.franco.dev.service.operaciones.RecepcionMercaderiaNotaService;
 import com.franco.dev.domain.operaciones.dto.PedidoRecepcionProductoDto;
 import com.franco.dev.domain.operaciones.enums.PedidoRecepcionProductoEstado;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.domain.productos.Presentacion;
 import java.util.stream.Collectors;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Comparator;
 
 @Component
 public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -71,6 +74,9 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
 
     @Autowired
     private com.franco.dev.service.operaciones.NotaRecepcionItemService notaRecepcionItemService;
+
+    @Autowired
+    private PresentacionService presentacionService;
 
     /**
      * Obtiene una recepción de mercadería por ID
@@ -590,6 +596,7 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
             if (dto.getTotalCantidadRechazadaPorUnidad() == null) {
                 dto.setTotalCantidadRechazadaPorUnidad(0.0);
             }
+            completarCamposCalculadosPresentacion(dto);
             productosList.add(dto);
         }
         
@@ -685,6 +692,118 @@ public class RecepcionMercaderiaGraphQL implements GraphQLQueryResolver, GraphQL
         } else {
             return PedidoRecepcionProductoEstado.RECIBIDO_PARCIALMENTE;
         }
+    }
+
+    /**
+     * Completa campos calculados de visualización para recepción por producto.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí (preselección de presentación y cantidad inicial en verificación)
+     */
+    private void completarCamposCalculadosPresentacion(PedidoRecepcionProductoDto dto) {
+        if (dto == null || dto.getProducto() == null || dto.getProducto().getId() == null) {
+            return;
+        }
+
+        Double totalARecibir = dto.getTotalCantidadARecibirPorUnidad() != null ? dto.getTotalCantidadARecibirPorUnidad() : 0.0;
+        Double totalRecibida = dto.getTotalCantidadRecibidaPorUnidad() != null ? dto.getTotalCantidadRecibidaPorUnidad() : 0.0;
+        Double totalRechazada = dto.getTotalCantidadRechazadaPorUnidad() != null ? dto.getTotalCantidadRechazadaPorUnidad() : 0.0;
+        final Double pendiente = Math.max(0.0, totalARecibir - totalRecibida - totalRechazada);
+        dto.setCantidadPendientePorUnidad(pendiente);
+
+        List<Presentacion> presentaciones = presentacionService.findByProductoIdOrderByCantidadAsc(dto.getProducto().getId());
+        if (presentaciones == null || presentaciones.isEmpty()) {
+            dto.setMostrarEnUnidadBase(true);
+            dto.setPresentacionInicialSugerida(null);
+            dto.setCantidadInicialPorPresentacion(null);
+            return;
+        }
+
+        boolean esBalanza = Boolean.TRUE.equals(dto.getProducto().getBalanza());
+        if (esBalanza) {
+            Presentacion sugeridaBalanza = seleccionarPresentacionPrincipalOMayor(presentaciones);
+            dto.setMostrarEnUnidadBase(false);
+            dto.setPresentacionInicialSugerida(sugeridaBalanza);
+            dto.setCantidadInicialPorPresentacion(
+                    calcularCantidadPorPresentacion(pendiente, sugeridaBalanza != null ? sugeridaBalanza.getCantidad() : null)
+            );
+            return;
+        }
+
+        Presentacion sugeridaNoBalanza = presentaciones.stream()
+                .filter(p -> p != null && p.getCantidad() != null && p.getCantidad() > 0)
+                .filter(p -> esDivisionEntera(pendiente, p.getCantidad()))
+                .max(Comparator.comparing(Presentacion::getCantidad))
+                .orElse(null);
+
+        if (sugeridaNoBalanza == null) {
+            dto.setMostrarEnUnidadBase(true);
+            dto.setPresentacionInicialSugerida(null);
+            dto.setCantidadInicialPorPresentacion(null);
+            return;
+        }
+
+        dto.setMostrarEnUnidadBase(false);
+        dto.setPresentacionInicialSugerida(sugeridaNoBalanza);
+        dto.setCantidadInicialPorPresentacion(calcularCantidadPorPresentacion(pendiente, sugeridaNoBalanza.getCantidad()));
+    }
+
+    /**
+     * Selecciona presentación principal y, si no existe, usa la de mayor cantidad.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí
+     */
+    private Presentacion seleccionarPresentacionPrincipalOMayor(List<Presentacion> presentaciones) {
+        if (presentaciones == null || presentaciones.isEmpty()) {
+            return null;
+        }
+
+        Presentacion principal = presentaciones.stream()
+                .filter(p -> p != null && Boolean.TRUE.equals(p.getPrincipal()) && p.getCantidad() != null && p.getCantidad() > 0)
+                .findFirst()
+                .orElse(null);
+
+        if (principal != null) {
+            return principal;
+        }
+
+        return presentaciones.stream()
+                .filter(p -> p != null && p.getCantidad() != null && p.getCantidad() > 0)
+                .max(Comparator.comparing(Presentacion::getCantidad))
+                .orElse(null);
+    }
+
+    /**
+     * Valida si la división pendiente/presentación da un entero.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí
+     */
+    private boolean esDivisionEntera(Double pendiente, Double cantidadPresentacion) {
+        if (pendiente == null || cantidadPresentacion == null || cantidadPresentacion <= 0) {
+            return false;
+        }
+        double division = pendiente / cantidadPresentacion;
+        double redondeado = Math.rint(division);
+        return Math.abs(division - redondeado) < 0.000001d;
+    }
+
+    /**
+     * Calcula la cantidad por presentación para precarga inicial.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Sí
+     */
+    private Double calcularCantidadPorPresentacion(Double pendiente, Double cantidadPresentacion) {
+        if (pendiente == null || cantidadPresentacion == null || cantidadPresentacion <= 0) {
+            return null;
+        }
+        return pendiente / cantidadPresentacion;
     }
 
     /**

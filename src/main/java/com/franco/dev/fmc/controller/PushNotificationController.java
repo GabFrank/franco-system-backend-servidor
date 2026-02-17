@@ -2,6 +2,7 @@ package com.franco.dev.fmc.controller;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.model.PushNotificationResponse;
@@ -209,6 +210,42 @@ public class PushNotificationController {
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest request = notificationTemplateService.retiroRealizado(retiro,
                                                 sucursal);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @PostMapping("/notification/venta-transferencia/{ventaId}/{sucursalId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendVentaTransferenciaNotification(
+                        @PathVariable Long ventaId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Double valorTotal) {
+                try {
+                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                        Venta venta = new Venta();
+                        venta.setId(ventaId);
+                        venta.setSucursalId(sucursalId);
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForVentaTransferencia();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService
+                                                .ventaTransferenciaRealizada(venta, sucursal,
+                                                                valorTotal, df);
                                 request.setUsuarioIds(usuariosRelevantes);
                                 pushNotificationService.sendPushNotificationToToken(request);
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),

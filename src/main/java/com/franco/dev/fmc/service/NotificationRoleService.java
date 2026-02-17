@@ -154,4 +154,14 @@ public class NotificationRoleService {
                 "ANALISIS FINANCIERO",
                 "ANALISIS CONTABLE");
     }
+
+    public List<String> getRolesForVentaTransferencia() {
+        return Arrays.asList(
+                "ADMIN",
+                "SOPORTE",
+                "ANALISIS FINANCIERO",
+                "ANALISIS CONTABLE",
+                "ANALISIS DE CAJA",
+                "ANALISIS DE VENTA");
+    }
 }

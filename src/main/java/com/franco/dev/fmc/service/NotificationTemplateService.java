@@ -379,4 +379,27 @@ public class NotificationTemplateService {
         request.setData("/financiero/retiros/" + (retiro.getId() != null ? retiro.getId() : ""));
         return request;
     }
+
+    public PushNotificationRequest ventaTransferenciaRealizada(Venta venta, Sucursal sucursal, Double valorTotal,
+            DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA REGISTRADO UN PAGO CON TRANSFERENCIA EN LA SUCURSAL ")
+                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(" VENTA ID: ")
+                .append(venta.getId())
+                .append(" POR EL VALOR DE ")
+                .append(decimalFormat.format(valorTotal))
+                .append(" GS.");
+
+        if (venta.getUsuario() != null) {
+            builder.append(" REALIZADO POR: ")
+                    .append(venta.getUsuario().getNickname() != null ? venta.getUsuario().getNickname().toUpperCase()
+                            : "");
+        }
+
+        PushNotificationRequest request = base("PAGO CON TRANSFERENCIA REGISTRADO", builder.toString());
+        request.setType("VENTA_TRANSFERENCIA");
+        request.setData("/operaciones/ventas/" + venta.getId() + "/" + venta.getSucursalId());
+        return request;
+    }
 }

@@ -22,6 +22,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
 
     private final MarcacionRepository repository;
     private final JornadaService jornadaService;
+    private final com.franco.dev.service.personas.FuncionarioService funcionarioService;
 
     @Override
     public MarcacionRepository getRepository() {
@@ -71,6 +72,13 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
 
     private void procesarJornada(Marcacion marcacion) {
         try {
+            com.franco.dev.domain.personas.Funcionario funcionario = funcionarioService
+                    .findByUsuarioId(marcacion.getUsuario().getId());
+            com.franco.dev.domain.administrativo.Horario horario = null;
+            if (funcionario != null) {
+                horario = funcionario.getHorario();
+            }
+
             if (marcacion.getFechaEntrada() != null && marcacion.getFechaSalida() == null) {
                 Optional<Jornada> existingJornadaFecha = jornadaService.findByUsuarioIdAndFecha(
                         marcacion.getUsuario().getId(),
@@ -82,6 +90,17 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     jornada.setFecha(marcacion.getFechaEntrada().toLocalDate());
                     jornada.setMarcacionEntrada(marcacion);
                     jornada.setEstado(EstadoJornada.INCOMPLETO);
+                    if (horario != null && horario.getHoraEntrada() != null) {
+                        java.time.LocalTime horaEntradaReal = marcacion.getFechaEntrada().toLocalTime();
+                        java.time.LocalTime horaEntradaHorario = horario.getHoraEntrada();
+                        long minutosTolerancia = horario.getToleranciaMinutos() != null ? horario.getToleranciaMinutos()
+                                : 0;
+                        if (horaEntradaReal.isAfter(horaEntradaHorario.plusMinutes(minutosTolerancia))) {
+                            long minutosTarde = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
+                            jornada.setMinutosLlegadaTardia(minutosTarde);
+                        }
+                    }
+
                     jornadaService.save(jornada);
                 } else {
                 }
@@ -107,6 +126,15 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                             marcacion.getFechaEntrada(),
                             marcacion.getFechaSalida());
                     jornada.setMinutosTrabajados(minutos);
+                    if (horario != null && horario.getHoraSalida() != null) {
+                        java.time.LocalTime horaSalidaReal = marcacion.getFechaSalida().toLocalTime();
+                        java.time.LocalTime horaSalidaHorario = horario.getHoraSalida();
+                        if (horaSalidaReal.isAfter(horaSalidaHorario)) {
+                            long minutosExtras = ChronoUnit.MINUTES.between(horaSalidaHorario, horaSalidaReal);
+                            jornada.setMinutosExtras(minutosExtras);
+                        }
+                    }
+
                     jornadaService.save(jornada);
                 } else {
                     Jornada jornada = new Jornada();
@@ -119,6 +147,25 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                             marcacion.getFechaEntrada(),
                             marcacion.getFechaSalida());
                     jornada.setMinutosTrabajados(minutos);
+                    if (horario != null && horario.getHoraEntrada() != null) {
+                        java.time.LocalTime horaEntradaReal = marcacion.getFechaEntrada().toLocalTime();
+                        java.time.LocalTime horaEntradaHorario = horario.getHoraEntrada();
+                        long minutosTolerancia = horario.getToleranciaMinutos() != null ? horario.getToleranciaMinutos()
+                                : 0;
+                        if (horaEntradaReal.isAfter(horaEntradaHorario.plusMinutes(minutosTolerancia))) {
+                            long minutosTarde = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
+                            jornada.setMinutosLlegadaTardia(minutosTarde);
+                        }
+                    }
+                    if (horario != null && horario.getHoraSalida() != null) {
+                        java.time.LocalTime horaSalidaReal = marcacion.getFechaSalida().toLocalTime();
+                        java.time.LocalTime horaSalidaHorario = horario.getHoraSalida();
+                        if (horaSalidaReal.isAfter(horaSalidaHorario)) {
+                            long minutosExtras = ChronoUnit.MINUTES.between(horaSalidaHorario, horaSalidaReal);
+                            jornada.setMinutosExtras(minutosExtras);
+                        }
+                    }
+
                     jornadaService.save(jornada);
                 }
             }

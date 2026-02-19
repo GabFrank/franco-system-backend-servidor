@@ -1,0 +1,32 @@
+type Horario {
+    id: ID!
+    descripcion: String
+    horaEntrada: String
+    horaSalida: String
+    toleranciaMinutos: Int
+    inicioDescanso: String
+    finDescanso: String
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input HorarioInput {
+    id: ID
+    descripcion: String
+    horaEntrada: String
+    horaSalida: String
+    toleranciaMinutos: Int
+    inicioDescanso: String
+    finDescanso: String
+    usuarioId: Int
+}
+
+extend type Query {
+    horario(id: ID!): Horario
+    horarios(page: Int = 0, size: Int = 10): [Horario]!
+}
+
+extend type Mutation {
+    saveHorario(horario: HorarioInput!): Horario!
+    deleteHorario(id: ID!): Boolean!
+}

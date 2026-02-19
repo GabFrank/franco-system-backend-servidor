@@ -25,11 +25,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -140,6 +145,43 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
             }
         }
         return null;
+    }
+
+    /**
+     * Get all NotaRecepcion eligible for payment for a proveedor (not yet in any solicitud).
+     * Usado en: Desktop Sí (diálogo Adicionar nota en nueva solicitud de pago).
+     */
+    @Transactional(readOnly = true)
+    public List<NotaRecepcion> getNotasDisponiblesParaPagoPorProveedor(Long proveedorId) {
+        if (proveedorId == null) {
+            return new ArrayList<>();
+        }
+        List<NotaRecepcion> candidatas = notaRecepcionRepository.findDisponiblesParaPagoPorProveedor(
+            proveedorId, ESTADOS_ELEGIBLES_PAGO);
+        List<NotaRecepcion> resultado = new ArrayList<>();
+        for (NotaRecepcion nota : candidatas) {
+            if (!solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(nota.getId())) {
+                resultado.add(nota);
+            }
+        }
+        return resultado;
+    }
+
+    /**
+     * Paginated: NotaRecepcion eligible for payment for a proveedor (not in any solicitud). Filter in SQL for scale.
+     * filtroTexto: optional; filters by numero (LIKE). Empty/null = no filter.
+     * Usado en: Desktop Sí (diálogo Adicionar nota, tabla paginada).
+     */
+    @Transactional(readOnly = true)
+    public Page<NotaRecepcion> getNotasDisponiblesParaPagoPorProveedorPaginated(
+            Long proveedorId, int page, int size, String filtroTexto) {
+        if (proveedorId == null) {
+            return new PageImpl<>(Collections.emptyList(), PageRequest.of(0, Math.max(1, size)), 0);
+        }
+        String filtroNumeroPattern = (filtroTexto != null && !filtroTexto.trim().isEmpty())
+            ? "%" + filtroTexto.trim() + "%" : null;
+        return notaRecepcionRepository.findDisponiblesParaPagoPorProveedorPage(
+            proveedorId, ESTADOS_ELEGIBLES_PAGO, filtroNumeroPattern, PageRequest.of(page, size));
     }
 
     /**

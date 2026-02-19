@@ -91,6 +91,12 @@ extend type Query {
     # Get a single NotaRecepcion eligible for payment by numero and proveedor (independent of pedido)
     notaRecepcionDisponibleParaPagoPorNumero(numero: Int!, proveedorId: ID!): NotaRecepcion
 
+    # Get all NotaRecepcion eligible for payment for a proveedor (for searchable select in desktop dialog)
+    notasDisponiblesParaPagoPorProveedor(proveedorId: ID!): [NotaRecepcion]
+
+    # Paginated: notas disponibles para pago por proveedor (filtro en BD; filtroTexto = por número de nota)
+    notasDisponiblesParaPagoPorProveedorPaginated(proveedorId: ID!, page: Int, size: Int, filtroTexto: String): NotaRecepcionPage
+
     # Datos iniciales para pantalla de nueva solicitud de pago desde recepción (notas elegibles, moneda/forma pago sugeridos, fecha)
     datosInicialesSolicitudPagoPorRecepcion(recepcionMercaderiaId: ID!): DatosInicialesSolicitudPago
 }

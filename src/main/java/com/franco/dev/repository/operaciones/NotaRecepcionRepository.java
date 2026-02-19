@@ -138,4 +138,32 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             @Param("proveedorId") Long proveedorId,
             @Param("estados") List<NotaRecepcionEstado> estados
     );
+
+    /**
+     * Find NotaRecepcion eligible for payment by proveedor (all available notes for that provider).
+     * Estado CONCILIADA or RECEPCION_COMPLETA; pagado null or false.
+     * Caller must filter by isNotaIncludedInSolicitud.
+     */
+    @Query("SELECT nr FROM NotaRecepcion nr JOIN nr.pedido p WHERE p.proveedor.id = :proveedorId " +
+           "AND nr.estado IN :estados AND (nr.pagado IS NULL OR nr.pagado = false) ORDER BY nr.id DESC")
+    List<NotaRecepcion> findDisponiblesParaPagoPorProveedor(
+            @Param("proveedorId") Long proveedorId,
+            @Param("estados") List<NotaRecepcionEstado> estados
+    );
+
+    /**
+     * Paginated: NotaRecepcion eligible for payment by proveedor, excluding those already linked to any SolicitudPago.
+     * Optional filter by numero (filtroNumeroPattern e.g. "%123%" for LIKE; null = no filter).
+     */
+    @Query("SELECT nr FROM NotaRecepcion nr JOIN nr.pedido p WHERE p.proveedor.id = :proveedorId " +
+           "AND nr.estado IN :estados AND (nr.pagado IS NULL OR nr.pagado = false) " +
+           "AND NOT EXISTS (SELECT 1 FROM SolicitudPagoNotaRecepcion spnr WHERE spnr.notaRecepcion.id = nr.id) " +
+           "AND (:filtroNumeroPattern IS NULL OR CAST(nr.numero AS string) LIKE :filtroNumeroPattern) " +
+           "ORDER BY nr.id DESC")
+    Page<NotaRecepcion> findDisponiblesParaPagoPorProveedorPage(
+            @Param("proveedorId") Long proveedorId,
+            @Param("estados") List<NotaRecepcionEstado> estados,
+            @Param("filtroNumeroPattern") String filtroNumeroPattern,
+            Pageable pageable
+    );
 }

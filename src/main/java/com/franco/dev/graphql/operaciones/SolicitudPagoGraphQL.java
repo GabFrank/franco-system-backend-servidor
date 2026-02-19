@@ -25,6 +25,8 @@ import org.springframework.stereotype.Component;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
+import org.springframework.data.domain.Page;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -121,6 +123,24 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public NotaRecepcion notaRecepcionDisponibleParaPagoPorNumero(Integer numero, Long proveedorId) {
         return solicitudPagoService.getNotaDisponibleParaPagoPorNumero(numero, proveedorId);
+    }
+
+    /**
+     * Get all NotaRecepcion eligible for payment for a proveedor (for desktop dialog searchable select).
+     */
+    public List<NotaRecepcion> notasDisponiblesParaPagoPorProveedor(Long proveedorId) {
+        return solicitudPagoService.getNotasDisponiblesParaPagoPorProveedor(proveedorId);
+    }
+
+    /**
+     * Paginated: notas disponibles para pago por proveedor; filtro en BD por numero (filtroTexto).
+     */
+    public Page<NotaRecepcion> notasDisponiblesParaPagoPorProveedorPaginated(
+            Long proveedorId, Integer page, Integer size, String filtroTexto) {
+        int p = page != null ? page : 0;
+        int s = size != null && size > 0 ? size : 20;
+        return solicitudPagoService.getNotasDisponiblesParaPagoPorProveedorPaginated(
+                proveedorId, p, s, filtroTexto);
     }
 
     /**

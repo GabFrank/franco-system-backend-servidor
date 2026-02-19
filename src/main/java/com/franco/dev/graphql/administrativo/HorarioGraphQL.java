@@ -33,6 +33,10 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findAll(pageable);
     }
 
+    public List<Horario> horariosPorUsuario(Long usuarioId) {
+        return service.findByUsuarioId(usuarioId);
+    }
+
     public Horario saveHorario(HorarioInput input) {
         ModelMapper m = new ModelMapper();
         Horario e = m.map(input, Horario.class);
@@ -48,6 +52,15 @@ public class HorarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+
+        if (input.getDias() != null) {
+            e.setDias(input.getDias().stream().map(com.franco.dev.domain.administrativo.enums.Dia::valueOf)
+                    .collect(java.util.stream.Collectors.toSet()));
+        }
+
+        if (input.getTurno() != null) {
+            e.setTurno(input.getTurno());
         }
 
         return service.save(e);

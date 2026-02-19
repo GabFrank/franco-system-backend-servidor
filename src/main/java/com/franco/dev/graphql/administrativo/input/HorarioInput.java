@@ -12,4 +12,6 @@ public class HorarioInput {
     private String inicioDescanso;
     private String finDescanso;
     private Long usuarioId;
+    private java.util.List<String> dias;
+    private com.franco.dev.domain.administrativo.enums.Turno turno;
 }

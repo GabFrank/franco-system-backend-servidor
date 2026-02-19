@@ -23,6 +23,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     private final MarcacionRepository repository;
     private final JornadaService jornadaService;
     private final com.franco.dev.service.personas.FuncionarioService funcionarioService;
+    private final com.franco.dev.repository.administrativo.HorarioRepository horarioRepository;
 
     @Override
     public MarcacionRepository getRepository() {
@@ -66,87 +67,86 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             }
         }
         Marcacion e = super.save(entity);
+        if (e.getUsuario() == null && entity.getUsuario() != null) {
+            e.setUsuario(entity.getUsuario());
+        }
+
         procesarJornada(e);
         return e;
     }
 
     private void procesarJornada(Marcacion marcacion) {
         try {
-            com.franco.dev.domain.personas.Funcionario funcionario = funcionarioService
-                    .findByUsuarioId(marcacion.getUsuario().getId());
+            if (marcacion.getUsuario() == null || marcacion.getUsuario().getId() == null) {
+                return;
+            }
+
+            LocalDateTime fechaReferencia = marcacion.getFechaEntrada();
+            if (fechaReferencia == null)
+                fechaReferencia = marcacion.getFechaSalida();
+            if (fechaReferencia == null)
+                fechaReferencia = LocalDateTime.now();
+
+            int dayOfWeekValue = fechaReferencia.getDayOfWeek().getValue();
+            if (dayOfWeekValue == 7)
+                dayOfWeekValue = 0;
+            com.franco.dev.domain.administrativo.enums.Dia diaSemana = com.franco.dev.domain.administrativo.enums.Dia
+                    .values()[dayOfWeekValue];
+
             com.franco.dev.domain.administrativo.Horario horario = null;
-            if (funcionario != null) {
-                horario = funcionario.getHorario();
+            if (marcacion.getUsuario() != null && diaSemana != null) {
+                horario = horarioRepository.findByUsuarioIdAndDia(marcacion.getUsuario().getId(), diaSemana);
             }
 
-            if (marcacion.getFechaEntrada() != null && marcacion.getFechaSalida() == null) {
-                Optional<Jornada> existingJornadaFecha = jornadaService.findByUsuarioIdAndFecha(
-                        marcacion.getUsuario().getId(),
-                        marcacion.getFechaEntrada().toLocalDate().toString());
+            if (horario == null) {
+                com.franco.dev.domain.personas.Funcionario funcionario = funcionarioService
+                        .findByUsuarioId(marcacion.getUsuario().getId());
+                if (funcionario != null) {
+                    horario = funcionario.getHorario();
+                }
+            }
 
-                if (!existingJornadaFecha.isPresent()) {
-                    Jornada jornada = new Jornada();
+            List<Jornada> jornadas = jornadaService.findByUsuarioIdAndFecha(
+                    marcacion.getUsuario().getId(),
+                    fechaReferencia.toLocalDate().toString());
+
+            Jornada jornada = null;
+            if (jornadas != null && !jornadas.isEmpty()) {
+                Jornada lastJornada = jornadas.get(jornadas.size() - 1);
+                boolean crearNueva = false;
+                if (lastJornada.getMarcacionSalida() != null) {
+                    crearNueva = true;
+                } else if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA) {
+                    boolean cabeEnActual = false;
+                    if (lastJornada.getMarcacionEntrada() == null) {
+                        cabeEnActual = true;
+                    } else if (lastJornada.getMarcacionSalidaAlmuerzo() != null
+                            && lastJornada.getMarcacionEntradaAlmuerzo() == null) {
+                        cabeEnActual = true;
+                    }
+                    if (!cabeEnActual)
+                        crearNueva = true;
+                }
+
+                if (crearNueva) {
+                    jornada = new Jornada();
                     jornada.setUsuario(marcacion.getUsuario());
-                    jornada.setFecha(marcacion.getFechaEntrada().toLocalDate());
-                    jornada.setMarcacionEntrada(marcacion);
+                    jornada.setFecha(fechaReferencia.toLocalDate());
                     jornada.setEstado(EstadoJornada.INCOMPLETO);
-                    if (horario != null && horario.getHoraEntrada() != null) {
-                        java.time.LocalTime horaEntradaReal = marcacion.getFechaEntrada().toLocalTime();
-                        java.time.LocalTime horaEntradaHorario = horario.getHoraEntrada();
-                        long minutosTolerancia = horario.getToleranciaMinutos() != null ? horario.getToleranciaMinutos()
-                                : 0;
-                        if (horaEntradaReal.isAfter(horaEntradaHorario.plusMinutes(minutosTolerancia))) {
-                            long minutosTarde = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
-                            jornada.setMinutosLlegadaTardia(minutosTarde);
-                        }
-                    }
-
-                    jornadaService.save(jornada);
                 } else {
+                    jornada = lastJornada;
                 }
+            } else {
+                jornada = new Jornada();
+                jornada.setUsuario(marcacion.getUsuario());
+                jornada.setFecha(fechaReferencia.toLocalDate());
+                jornada.setEstado(EstadoJornada.INCOMPLETO);
+            }
 
-            } else if (marcacion.getFechaEntrada() != null && marcacion.getFechaSalida() != null) {
-                Optional<Jornada> jornadaOpt = jornadaService.findByMarcacionEntradaId(marcacion.getId());
-                if (!jornadaOpt.isPresent()) {
-                    jornadaOpt = jornadaService.findByUsuarioIdAndFecha(
-                            marcacion.getUsuario().getId(),
-                            marcacion.getFechaEntrada().toLocalDate().toString());
-                }
-
-                if (jornadaOpt.isPresent()) {
-                    Jornada jornada = jornadaOpt.get();
-                    jornada.setMarcacionSalida(marcacion);
-                    jornada.setEstado(EstadoJornada.NORMAL);
-
-                    if (jornada.getMarcacionEntrada() == null) {
-                        jornada.setMarcacionEntrada(marcacion);
-                    }
-
-                    long minutos = ChronoUnit.MINUTES.between(
-                            marcacion.getFechaEntrada(),
-                            marcacion.getFechaSalida());
-                    jornada.setMinutosTrabajados(minutos);
-                    if (horario != null && horario.getHoraSalida() != null) {
-                        java.time.LocalTime horaSalidaReal = marcacion.getFechaSalida().toLocalTime();
-                        java.time.LocalTime horaSalidaHorario = horario.getHoraSalida();
-                        if (horaSalidaReal.isAfter(horaSalidaHorario)) {
-                            long minutosExtras = ChronoUnit.MINUTES.between(horaSalidaHorario, horaSalidaReal);
-                            jornada.setMinutosExtras(minutosExtras);
-                        }
-                    }
-
-                    jornadaService.save(jornada);
-                } else {
-                    Jornada jornada = new Jornada();
-                    jornada.setUsuario(marcacion.getUsuario());
-                    jornada.setFecha(marcacion.getFechaEntrada().toLocalDate());
+            if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA) {
+                if (jornada.getMarcacionEntrada() == null) {
                     jornada.setMarcacionEntrada(marcacion);
-                    jornada.setMarcacionSalida(marcacion);
-                    jornada.setEstado(EstadoJornada.NORMAL);
-                    long minutos = ChronoUnit.MINUTES.between(
-                            marcacion.getFechaEntrada(),
-                            marcacion.getFechaSalida());
-                    jornada.setMinutosTrabajados(minutos);
+
                     if (horario != null && horario.getHoraEntrada() != null) {
                         java.time.LocalTime horaEntradaReal = marcacion.getFechaEntrada().toLocalTime();
                         java.time.LocalTime horaEntradaHorario = horario.getHoraEntrada();
@@ -157,18 +157,47 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                             jornada.setMinutosLlegadaTardia(minutosTarde);
                         }
                     }
-                    if (horario != null && horario.getHoraSalida() != null) {
-                        java.time.LocalTime horaSalidaReal = marcacion.getFechaSalida().toLocalTime();
-                        java.time.LocalTime horaSalidaHorario = horario.getHoraSalida();
-                        if (horaSalidaReal.isAfter(horaSalidaHorario)) {
-                            long minutosExtras = ChronoUnit.MINUTES.between(horaSalidaHorario, horaSalidaReal);
-                            jornada.setMinutosExtras(minutosExtras);
-                        }
-                    }
-
-                    jornadaService.save(jornada);
+                } else if (jornada.getMarcacionSalidaAlmuerzo() != null
+                        && jornada.getMarcacionEntradaAlmuerzo() == null) {
+                    jornada.setMarcacionEntradaAlmuerzo(marcacion);
+                } else {
+                }
+            } else if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.SALIDA) {
+                if (jornada.getMarcacionEntrada() != null && jornada.getMarcacionSalidaAlmuerzo() == null) {
+                    jornada.setMarcacionSalidaAlmuerzo(marcacion);
+                } else if (jornada.getMarcacionEntradaAlmuerzo() != null && jornada.getMarcacionSalida() == null) {
+                    jornada.setMarcacionSalida(marcacion);
+                    jornada.setEstado(EstadoJornada.NORMAL);
                 }
             }
+
+            long min1 = 0;
+            if (jornada.getMarcacionEntrada() != null && jornada.getMarcacionSalidaAlmuerzo() != null) {
+                LocalDateTime start = jornada.getMarcacionEntrada().getFechaEntrada();
+                LocalDateTime end = jornada.getMarcacionSalidaAlmuerzo().getFechaSalida();
+                if (end == null)
+                    end = jornada.getMarcacionSalidaAlmuerzo().getFechaEntrada();
+
+                if (start != null && end != null) {
+                    min1 = ChronoUnit.MINUTES.between(start, end);
+                }
+            }
+
+            long min2 = 0;
+            if (jornada.getMarcacionEntradaAlmuerzo() != null && jornada.getMarcacionSalida() != null) {
+                LocalDateTime start = jornada.getMarcacionEntradaAlmuerzo().getFechaEntrada();
+                LocalDateTime end = jornada.getMarcacionSalida().getFechaSalida();
+                if (end == null)
+                    end = jornada.getMarcacionSalida().getFechaEntrada();
+
+                if (start != null && end != null) {
+                    min2 = ChronoUnit.MINUTES.between(start, end);
+                }
+            }
+
+            jornada.setMinutosTrabajados(min1 + min2);
+            jornadaService.save(jornada);
+
         } catch (Exception e) {
             e.printStackTrace();
         }

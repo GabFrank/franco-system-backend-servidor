@@ -39,6 +39,14 @@ public class Jornada implements Serializable {
     @JoinColumn(name = "salida_id")
     private Marcacion marcacionSalida;
 
+    @OneToOne
+    @JoinColumn(name = "marcacion_salida_almuerzo_id")
+    private Marcacion marcacionSalidaAlmuerzo;
+
+    @OneToOne
+    @JoinColumn(name = "marcacion_entrada_almuerzo_id")
+    private Marcacion marcacionEntradaAlmuerzo;
+
     @Column(name = "minutos_trabajados")
     private Long minutosTrabajados = 0L;
 

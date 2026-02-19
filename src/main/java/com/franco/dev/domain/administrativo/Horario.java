@@ -43,6 +43,15 @@ public class Horario implements Identifiable<Long>, Serializable {
     @Column(name = "fin_descanso")
     private LocalTime finDescanso;
 
+    @Enumerated(EnumType.STRING)
+    private com.franco.dev.domain.administrativo.enums.Turno turno;
+
+    @ElementCollection(targetClass = com.franco.dev.domain.administrativo.enums.Dia.class)
+    @Enumerated(EnumType.STRING)
+    @CollectionTable(name = "horario_dias", schema = "administrativo", joinColumns = @JoinColumn(name = "horario_id"))
+    @Column(name = "dia")
+    private java.util.Set<com.franco.dev.domain.administrativo.enums.Dia> dias;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

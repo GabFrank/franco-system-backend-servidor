@@ -5,6 +5,8 @@ type Jornada {
     
     marcacionEntrada: Marcacion
     marcacionSalida: Marcacion
+    marcacionSalidaAlmuerzo: Marcacion
+    marcacionEntradaAlmuerzo: Marcacion
     
     minutosTrabajados: Int
     minutosExtras: Int

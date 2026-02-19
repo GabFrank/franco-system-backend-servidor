@@ -8,6 +8,14 @@ type Horario {
     finDescanso: String
     usuario: Usuario
     creadoEn: Date
+    dias: [String]
+    turno: Turno
+}
+
+enum Turno {
+    DIA
+    NOCHE
+    MADRUGADA
 }
 
 input HorarioInput {
@@ -19,11 +27,14 @@ input HorarioInput {
     inicioDescanso: String
     finDescanso: String
     usuarioId: Int
+    dias: [String]
+    turno: Turno
 }
 
 extend type Query {
     horario(id: ID!): Horario
     horarios(page: Int = 0, size: Int = 10): [Horario]!
+    horariosPorUsuario(usuarioId: Int): [Horario]!
 }
 
 extend type Mutation {

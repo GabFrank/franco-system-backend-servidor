@@ -77,7 +77,13 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public Funcionario saveFuncionario(FuncionarioInput input) {
         ModelMapper m = new ModelMapper();
-        Funcionario e = m.map(input, Funcionario.class);
+        Funcionario e;
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new Funcionario());
+            m.map(input, e);
+        } else {
+            e = m.map(input, Funcionario.class);
+        }
         if (input.getFechaIngreso() != null)
             e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
         if (input.getUsuarioId() != null)

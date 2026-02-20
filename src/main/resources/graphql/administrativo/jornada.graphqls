@@ -11,6 +11,7 @@ type Jornada {
     minutosTrabajados: Int
     minutosExtras: Int
     minutosLlegadaTardia: Int
+    minutosLlegadaTardiaAlmuerzo: Int
     
     estado: EstadoJornada
     observacion: String

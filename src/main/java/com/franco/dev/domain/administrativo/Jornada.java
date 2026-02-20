@@ -56,6 +56,9 @@ public class Jornada implements Serializable {
     @Column(name = "minutos_llegada_tardia")
     private Long minutosLlegadaTardia = 0L;
 
+    @Column(name = "minutos_llegada_tardia_almuerzo")
+    private Long minutosLlegadaTardiaAlmuerzo = 0L;
+
     @Enumerated(EnumType.STRING)
     @Column(length = 30)
     private EstadoJornada estado;

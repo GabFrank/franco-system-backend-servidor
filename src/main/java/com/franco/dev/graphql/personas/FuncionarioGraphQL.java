@@ -80,6 +80,14 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         Funcionario e;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Funcionario());
+            // Evitamos que ModelMapper intente mapear relaciones automáticamente y cause
+            // errores de Hibernate
+            e.setHorario(null);
+            e.setPersona(null);
+            e.setCargo(null);
+            e.setSucursal(null);
+            e.setUsuario(null);
+            e.setSupervisadoPor(null);
             m.map(input, e);
         } else {
             e = m.map(input, Funcionario.class);
@@ -98,6 +106,8 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         if (input.getHorarioId() != null)
             e.setHorario(horarioService.findById(input.getHorarioId()).orElse(null));
+        if (input.getSupervisadoPorId() != null)
+            e.setSupervisadoPor(service.findById(input.getSupervisadoPorId()).orElse(null));
         e = service.save(e);
         Cliente cliente = clienteService.findByPersonaId(e.getPersona().getId());
         if (cliente != null) {

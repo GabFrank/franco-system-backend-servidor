@@ -190,6 +190,15 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 jornada.setEstado(EstadoJornada.INCOMPLETO);
             }
 
+            // Snapshot del horario si aún no existe en la jornada
+            if (horario != null && jornada.getHoraEntradaHorario() == null) {
+                jornada.setHoraEntradaHorario(horario.getHoraEntrada());
+                jornada.setHoraSalidaHorario(horario.getHoraSalida());
+                jornada.setInicioDescansoHorario(horario.getInicioDescanso());
+                jornada.setFinDescansoHorario(horario.getFinDescanso());
+                jornada.setToleranciaMinutosHorario(horario.getToleranciaMinutos());
+            }
+
             Marcacion marcacionEntradaActual = null;
 
             if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA) {
@@ -230,37 +239,39 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 long minutosDescanso = 60;
                 long descansoADescontar = 60;
 
-                if (horario != null) {
-                    if (horario.getHoraEntrada() != null) {
-                        java.time.LocalTime horaEntradaReal = entradaParaCalculo.getFechaEntrada().toLocalTime();
-                        java.time.LocalTime horaEntradaHorario = horario.getHoraEntrada();
-                        long diff = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
-                        if (diff > 0) {
-                            minutosLlegadaTardiaTotal = diff;
-                            System.out.println("DEBUG - ✓ Calculando llegada tardía: Usuario="
-                                    + marcacion.getUsuario().getId() +
-                                    ", Hora Horario=" + horaEntradaHorario + ", Hora Real=" + horaEntradaReal +
-                                    ", Diferencia=" + diff + " minutos (" + (diff / 60) + "h " + (diff % 60) + "m)");
-                        } else {
-                            System.out.println(
-                                    "DEBUG - No hay llegada tardía: Usuario=" + marcacion.getUsuario().getId() +
-                                            ", Hora Horario=" + horaEntradaHorario + ", Hora Real=" + horaEntradaReal +
-                                            ", Diferencia=" + diff + " minutos");
-                        }
-                    } else {
-                        System.out.println("DEBUG - ✗ No se puede calcular llegada tardía: Usuario="
-                                + marcacion.getUsuario().getId() +
-                                ", Horario="
-                                + (horario != null ? "existe pero sin horaEntrada (ID=" + horario.getId() + ")"
-                                        : "no encontrado"));
-                    }
+                java.time.LocalTime horaEntradaHorario = jornada.getHoraEntradaHorario();
+                java.time.LocalTime horaSalidaHorario = jornada.getHoraSalidaHorario();
+                java.time.LocalTime inicioDescansoHorario = jornada.getInicioDescansoHorario();
+                java.time.LocalTime finDescansoHorario = jornada.getFinDescansoHorario();
 
-                    if (horario.getInicioDescanso() != null && horario.getFinDescanso() != null) {
-                        minutosDescanso = ChronoUnit.MINUTES.between(horario.getInicioDescanso(),
-                                horario.getFinDescanso());
-                        if (minutosDescanso < 0)
-                            minutosDescanso += 1440;
+                if (horaEntradaHorario != null) {
+                    java.time.LocalTime horaEntradaReal = entradaParaCalculo.getFechaEntrada().toLocalTime();
+                    long diff = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
+                    if (diff > 0) {
+                        minutosLlegadaTardiaTotal = diff;
+                        System.out.println("DEBUG - ✓ Calculando llegada tardía: Usuario="
+                                + marcacion.getUsuario().getId() +
+                                ", Hora Horario=" + horaEntradaHorario + ", Hora Real=" + horaEntradaReal +
+                                ", Diferencia=" + diff + " minutos (" + (diff / 60) + "h " + (diff % 60) + "m)");
+                    } else {
+                        System.out.println(
+                                "DEBUG - No hay llegada tardía: Usuario=" + marcacion.getUsuario().getId() +
+                                        ", Hora Horario=" + horaEntradaHorario + ", Hora Real=" + horaEntradaReal +
+                                        ", Diferencia=" + diff + " minutos");
                     }
+                } else {
+                    System.out.println("DEBUG - ✗ No se puede calcular llegada tardía: Usuario="
+                            + marcacion.getUsuario().getId() +
+                            ", Horario="
+                            + (horario != null ? "existe pero sin horaEntrada (ID=" + horario.getId() + ")"
+                                    : "no encontrado"));
+                }
+
+                if (inicioDescansoHorario != null && finDescansoHorario != null) {
+                    minutosDescanso = ChronoUnit.MINUTES.between(inicioDescansoHorario,
+                            finDescansoHorario);
+                    if (minutosDescanso < 0)
+                        minutosDescanso += 1440;
                 }
 
                 long tiempoAlmuerzoReal = -1;
@@ -291,7 +302,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                                 ? entradaParaCalculo.getFechaEntrada().toLocalTime()
                                 : "null")
                         +
-                        " | horaEntradaHorario=" + (horario != null ? horario.getHoraEntrada() : "null"));
+                        " | horaEntradaHorario=" + horaEntradaHorario);
 
                 jornada.setMinutosLlegadaTardia(minutosLlegadaTardiaTotal);
                 jornada.setMinutosLlegadaTardiaAlmuerzo(llegadaTardiaAlmuerzo);
@@ -312,18 +323,18 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 }
 
                 if (salidaReal != null) {
-                    if (horario != null && horario.getHoraEntrada() != null && horario.getHoraSalida() != null) {
-                        LocalDateTime horaEntradaHorario = entradaReal.toLocalDate().atTime(horario.getHoraEntrada());
-                        LocalDateTime horaSalidaHorario = entradaReal.toLocalDate().atTime(horario.getHoraSalida());
-                        if (horaSalidaHorario.isBefore(horaEntradaHorario)) {
-                            horaSalidaHorario = horaSalidaHorario.plusDays(1);
+                    if (horaEntradaHorario != null && horaSalidaHorario != null) {
+                        LocalDateTime hEntradaHorario = entradaReal.toLocalDate().atTime(horaEntradaHorario);
+                        LocalDateTime hSalidaHorario = entradaReal.toLocalDate().atTime(horaSalidaHorario);
+                        if (hSalidaHorario.isBefore(hEntradaHorario)) {
+                            hSalidaHorario = hSalidaHorario.plusDays(1);
                         }
 
                         LocalDateTime entradaCalculo = entradaReal;
-                        if (entradaReal.isBefore(horaEntradaHorario)) {
-                            long diffEntrada = ChronoUnit.MINUTES.between(entradaReal, horaEntradaHorario);
+                        if (entradaReal.isBefore(hEntradaHorario)) {
+                            long diffEntrada = ChronoUnit.MINUTES.between(entradaReal, hEntradaHorario);
                             if (diffEntrada <= 40) {
-                                entradaCalculo = horaEntradaHorario;
+                                entradaCalculo = hEntradaHorario;
                             }
                         }
 
@@ -335,7 +346,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                         if (totalMinutos < 0)
                             totalMinutos = 0;
 
-                        long horasProgramadas = ChronoUnit.MINUTES.between(horaEntradaHorario, horaSalidaHorario);
+                        long horasProgramadas = ChronoUnit.MINUTES.between(hEntradaHorario, hSalidaHorario);
                         if (horasProgramadas > minutosDescanso) {
                             horasProgramadas -= minutosDescanso;
                         }
@@ -373,7 +384,9 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             jornada.setMinutosExtras(minutosExtras);
             jornadaService.save(jornada);
 
-        } catch (Exception e) {
+        } catch (
+
+        Exception e) {
             e.printStackTrace();
         }
     }

@@ -555,7 +555,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
-            List<Long> usuarioIdList, List<Long> productoIdList) {
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
         Map<Long, Double> totalVentaPacksMap = new HashMap<>();
 
@@ -568,14 +568,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
 
             List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
-                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, filtrarUsuario,
+                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario,
                     filtrarProducto);
             aggregatedResult.addAll(lucroPorProductosDtoList);
 
             // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
             // ventaMedia correctamente
             List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
-                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, filtrarUsuario, filtrarProducto);
+                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario, filtrarProducto);
             for (Object[] row : totalVentaPacksList) {
                 Long productoId = ((Number) row[0]).longValue();
                 Double totalVentaPacks = ((Number) row[1]).doubleValue();

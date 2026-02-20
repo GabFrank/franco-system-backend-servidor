@@ -130,7 +130,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "v.creadoEn BETWEEN :startDate AND :endDate AND " +
                         "(:sucursalId is null or v.sucursalId = :sucursalId) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
-                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) " +
+                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
                         "group by pro.id " +
                         "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
         public List<LucroPorProductosDto> findLucroPorProducto(
@@ -139,6 +140,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("endDate") LocalDateTime endDate,
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
+                        @Param("subfamiliaId") Long subfamiliaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
@@ -153,7 +155,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "v.creadoEn BETWEEN :startDate AND :endDate AND " +
                         "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
-                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) " +
+                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
                         "GROUP BY pro.id")
         public List<Object[]> findTotalVentaPacksPorProducto(
                         @Param("sucursalId") Long sucursalId,
@@ -161,6 +164,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("endDate") LocalDateTime endDate,
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
+                        @Param("subfamiliaId") Long subfamiliaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 

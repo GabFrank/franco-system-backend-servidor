@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
@@ -231,7 +232,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public String lucroPorProducto(String fechaInicio, String fechaFin, List<Long> sucursalIdList, Long usuarioId,
-            List<Long> usuarioIdList, List<Long> productoIdList) {
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         StringBuilder filtro = new StringBuilder();
         if (usuarioIdList != null && !usuarioIdList.isEmpty()) {
@@ -261,8 +262,14 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             if (suc != null)
                 filtro.append(suc.getNombre() + ", ");
         }
+        if (subfamiliaId != null) {
+            Subfamilia subfamilia = subFamiliaService.findById(subfamiliaId).orElse(null);
+            if (subfamilia != null && subfamilia.getNombre() != null) {
+                filtro.append("\nSubfamilia: " + subfamilia.getNombre());
+            }
+        }
         List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin,
-                sucursalIdList, usuarioIdList, productoIdList);
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId);
         return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "",
                 filtro.toString(), usuario);
     }
@@ -273,11 +280,12 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             List<Long> sucursalIdList,
             List<Long> usuarioIdList,
             List<Long> productoIdList,
+            Long subfamiliaId,
             Integer page,
             Integer size) {
 
         List<LucroPorProductosDto> fullList = service.findLucroPorProductos(fechaInicio, fechaFin,
-                sucursalIdList, usuarioIdList, productoIdList);
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId);
 
         // 1. Calculate Global Summary
         LucroPorProductoSummary summary = new LucroPorProductoSummary();

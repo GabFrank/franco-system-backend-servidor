@@ -13,6 +13,7 @@ type Jornada {
     minutosLlegadaTardia: Int
     minutosLlegadaTardiaAlmuerzo: Int
     
+    turno: Turno
     estado: EstadoJornada
     observacion: String
     actualizadoEn: String

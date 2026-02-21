@@ -111,14 +111,6 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                         "No se encontró la marcación con ID " + input.getId() + " en el servidor central.");
             }
         }
-        if (input.getLatitud() != null)
-            e.setLatitud(input.getLatitud());
-        if (input.getLongitud() != null)
-            e.setLongitud(input.getLongitud());
-        if (input.getPrecisionGps() != null)
-            e.setPrecisionGps(input.getPrecisionGps());
-        if (input.getDistanciaSucursalMetros() != null)
-            e.setDistanciaSucursalMetros(input.getDistanciaSucursalMetros());
         if (input.getDeviceId() != null)
             e.setDeviceId(input.getDeviceId());
         if (input.getDeviceInfo() != null)

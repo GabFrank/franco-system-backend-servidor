@@ -235,7 +235,13 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 }
             } else if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.SALIDA) {
                 if (jornada.getMarcacionEntrada() != null && jornada.getMarcacionSalidaAlmuerzo() == null) {
-                    jornada.setMarcacionSalidaAlmuerzo(marcacion);
+                    Boolean esAlmuerzo = marcacion.getEsSalidaAlmuerzo();
+                    if (esAlmuerzo != null && esAlmuerzo) {
+                        jornada.setMarcacionSalidaAlmuerzo(marcacion);
+                    } else {
+                        jornada.setMarcacionSalida(marcacion);
+                        jornada.setEstado(EstadoJornada.NORMAL);
+                    }
                 } else if (jornada.getMarcacionEntradaAlmuerzo() != null && jornada.getMarcacionSalida() == null) {
                     jornada.setMarcacionSalida(marcacion);
                     jornada.setEstado(EstadoJornada.NORMAL);

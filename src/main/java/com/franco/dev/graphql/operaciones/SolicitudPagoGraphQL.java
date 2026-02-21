@@ -18,6 +18,7 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.impresion.ImpresionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import graphql.schema.DataFetchingEnvironment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -245,20 +246,32 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public String imprimirSolicitudPagoPDF(Long solicitudPagoId) {
         try {
-            SolicitudPago solicitudPago = solicitudPagoService.findById(solicitudPagoId)
+            SolicitudPago solicitudPago = solicitudPagoService.getRepository()
+                .findByIdWithUsuarioAndMoneda(solicitudPagoId)
                 .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
             
             // Obtener información del proveedor
-            String proveedorNombre = solicitudPago.getProveedor().getPersona().getNombre();
+            String proveedorNombre = solicitudPago.getProveedor() != null && solicitudPago.getProveedor().getPersona() != null
+                ? solicitudPago.getProveedor().getPersona().getNombre() : "";
             
-            // Formatear fecha de pago propuesta
+            // Formatear fecha de pago propuesta - dejar en blanco si es null
             String fechaDePago = solicitudPago.getFechaPagoPropuesta() != null ? 
                 solicitudPago.getFechaPagoPropuesta().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : 
-                "No especificada";
+                "";
+            
+            // Obtener moneda (denominacion para el campo "Moneda:") y simbolo para el Total
+            String moneda = "";
+            String monedaSimbolo = "";
+            if (solicitudPago.getMoneda() != null) {
+                moneda = solicitudPago.getMoneda().getDenominacion() != null ? 
+                    solicitudPago.getMoneda().getDenominacion() : "";
+                monedaSimbolo = solicitudPago.getMoneda().getSimbolo() != null ? 
+                    solicitudPago.getMoneda().getSimbolo() : moneda;
+            }
             
             // Obtener forma de pago
             String formaPago = solicitudPago.getFormaPago() != null ? 
-                solicitudPago.getFormaPago().getDescripcion() : "No especificada";
+                solicitudPago.getFormaPago().getDescripcion() : "";
             
             // Obtener números de factura de las notas de recepción asociadas
             List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudPagoId);
@@ -292,6 +305,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 proveedorNombre,
                 fechaDePago,
                 formaPago,
+                moneda,
+                monedaSimbolo,
                 nominal,
                 numerosFactura,
                 valorTotal
@@ -299,6 +314,73 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             
         } catch (Exception e) {
             throw new RuntimeException("Error al imprimir solicitud de pago: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Imprime solicitud de pago en ticket 58mm.
+     * 
+     * Usado en:
+     * - Desktop: Sí (lista y dashboard de solicitudes de pago)
+     * - Mobile: No
+     */
+    public Boolean imprimirSolicitudPagoTicket(java.lang.Number solicitudPagoId, String printerName, DataFetchingEnvironment env) {
+        try {
+            Long id = solicitudPagoId != null ? solicitudPagoId.longValue() : null;
+            if (id == null) {
+                throw new RuntimeException("solicitudPagoId es requerido");
+            }
+            SolicitudPago solicitudPago = solicitudPagoService.getRepository()
+                .findByIdWithUsuarioAndMoneda(id)
+                .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
+
+            String proveedorNombre = solicitudPago.getProveedor() != null && solicitudPago.getProveedor().getPersona() != null
+                ? solicitudPago.getProveedor().getPersona().getNombre() : "";
+
+            String fechaDePago = solicitudPago.getFechaPagoPropuesta() != null ?
+                solicitudPago.getFechaPagoPropuesta().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")) : "";
+
+            String moneda = "";
+            String monedaSimbolo = "";
+            if (solicitudPago.getMoneda() != null) {
+                moneda = solicitudPago.getMoneda().getDenominacion() != null ? solicitudPago.getMoneda().getDenominacion() : "";
+                monedaSimbolo = solicitudPago.getMoneda().getSimbolo() != null ? solicitudPago.getMoneda().getSimbolo() : moneda;
+            }
+
+            String formaPago = solicitudPago.getFormaPago() != null ? solicitudPago.getFormaPago().getDescripcion() : "";
+
+            List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService.getNotasDeSolicitud(id);
+            String numerosFactura = "---";
+            Double valorTotal = 0.0;
+            if (!solicitudNotas.isEmpty()) {
+                numerosFactura = solicitudNotas.stream()
+                    .map(spnr -> spnr.getNotaRecepcion())
+                    .filter(nota -> nota != null && nota.getNumero() != null)
+                    .map(nota -> String.valueOf(nota.getNumero()))
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+                if (numerosFactura.isEmpty()) numerosFactura = "---";
+                valorTotal = solicitudNotas.stream()
+                    .mapToDouble(spnr -> spnr.getMontoIncluido() != null ? spnr.getMontoIncluido() : 0.0)
+                    .sum();
+            }
+
+            String usuario = "";
+            if (solicitudPago.getUsuario() != null) {
+                if (solicitudPago.getUsuario().getPersona() != null && solicitudPago.getUsuario().getPersona().getNombre() != null) {
+                    usuario = solicitudPago.getUsuario().getPersona().getNombre();
+                } else if (solicitudPago.getUsuario().getNickname() != null) {
+                    usuario = solicitudPago.getUsuario().getNickname();
+                }
+            }
+
+            impresionService.printSolicitudPagoTicket(
+                solicitudPago, proveedorNombre, fechaDePago, formaPago,
+                moneda, monedaSimbolo, numerosFactura, valorTotal, usuario, printerName
+            );
+            return true;
+        } catch (Exception e) {
+            throw new RuntimeException("Error al imprimir ticket de solicitud de pago: " + e.getMessage(), e);
         }
     }
 

@@ -55,11 +55,15 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.Base64;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static com.franco.dev.service.utils.PrintingService.resize;
 
 @Service
 public class ImpresionService {
+
+    /** Cache de reportes Jasper compilados para evitar recompilación y problemas de classloader (web app stopped) */
+    private static final Map<String, JasperReport> REPORT_CACHE = new ConcurrentHashMap<>();
 
     PrintService selectedPrintService = null;
     @Autowired
@@ -84,21 +88,23 @@ public class ImpresionService {
     DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
 
     /**
-     * Compila un reporte JRXML desde los recursos del classpath (dentro del JAR)
-     * @param jrxmlFileName Nombre del archivo JRXML (ej: "solicitud-pago.jrxml")
+     * Compila un reporte JRXML desde los recursos del classpath (dentro del JAR).
+     * Usa ClassPathResource y cache para evitar problemas de classloader (web app stopped) y mejorar rendimiento.
+     * @param resourcePath Ruta del archivo JRXML (ej: "reports/solicitud-pago.jrxml")
      * @return JasperReport compilado
      * @throws JRException Si hay error compilando el reporte
      */
-    private JasperReport compileReportFromClasspath(String jrxmlFileName) throws JRException {
-        try {
-            InputStream jrxmlInputStream = this.getClass().getResourceAsStream("/" + jrxmlFileName);
-            if (jrxmlInputStream == null) {
-                throw new JRException("No se pudo encontrar el archivo JRXML: " + jrxmlFileName);
+    private JasperReport compileReportFromClasspath(String resourcePath) throws JRException {
+        return REPORT_CACHE.computeIfAbsent(resourcePath, path -> {
+            try {
+                ClassPathResource resource = new ClassPathResource(path);
+                try (InputStream is = resource.getInputStream()) {
+                    return JasperCompileManager.compileReport(is);
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("Error compilando reporte: " + path, e);
             }
-            return JasperCompileManager.compileReport(jrxmlInputStream);
-        } catch (Exception e) {
-            throw new JRException("Error compilando reporte desde classpath: " + jrxmlFileName, e);
-        }
+        });
     }
 
     public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent) throws GraphQLException {
@@ -484,6 +490,63 @@ public class ImpresionService {
                     }
                 }
                 escpos.feed(5);
+                escpos.close();
+                printerOutputStream.close();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Imprime solicitud de pago en ticket 58mm.
+     * Incluye logo, datos de la orden, y QR en la parte inferior a todo el ancho.
+     */
+    public void printSolicitudPagoTicket(SolicitudPago solicitudPago, String proveedorNombre,
+            String fechaDePago, String formaPago, String moneda, String monedaSimbolo,
+            String numerosFactura, Double valorTotal, String usuario, String printerName) {
+        try {
+            selectedPrintService = printerName != null ? printingService.getPrintService(printerName) : null;
+            if (selectedPrintService == null) {
+                selectedPrintService = PrinterOutputStream.getPrintServiceByName("TICKET58");
+            }
+            if (selectedPrintService != null) {
+                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                Style center = new Style().setJustification(EscPosConst.Justification.Center);
+                QRCode qrCode = new QRCode();
+
+                BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
+                imageBufferedImage = resize(imageBufferedImage, 200, 100);
+                BitImageWrapper imageWrapper = new BitImageWrapper();
+                EscPos escpos = new EscPos(printerOutputStream);
+                Bitonal algorithm = new BitonalThreshold();
+                EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
+                imageWrapper.setJustification(EscPosConst.Justification.Center);
+                escpos.writeLF("--------------------------------");
+                escpos.write(imageWrapper, escposImage);
+                escpos.writeLF(center.setBold(true), "ORDEN DE PAGO");
+                escpos.writeLF(center.setBold(true), "Nro " + solicitudPago.getId());
+                escpos.writeLF("--------------------------------");
+                String prov = (proveedorNombre != null ? proveedorNombre : "");
+                if (prov.length() > 23) prov = prov.substring(0, 23);
+                escpos.writeLF("Prov: " + prov);
+                escpos.writeLF("F.Emision: " + (solicitudPago.getCreadoEn() != null ? solicitudPago.getCreadoEn().format(formatter) : ""));
+                escpos.writeLF("No Factura: " + (numerosFactura != null ? numerosFactura : "---"));
+                escpos.writeLF("F.Pago: " + (fechaDePago != null && !fechaDePago.isEmpty() ? fechaDePago : ""));
+                escpos.writeLF("Moneda: " + (moneda != null ? moneda.toUpperCase() : ""));
+                escpos.writeLF("Forma: " + (formaPago != null ? formaPago : ""));
+                String totalStr = (monedaSimbolo != null && !monedaSimbolo.isEmpty() ? monedaSimbolo + " " : "")
+                        + NumberFormat.getNumberInstance(Locale.GERMAN).format(valorTotal != null ? valorTotal : 0);
+                escpos.writeLF(center.setBold(true), totalStr);
+                String usr = (usuario != null ? usuario : "");
+                if (usr.length() > 23) usr = usr.substring(0, 23);
+                escpos.writeLF("Creado: " + usr);
+                escpos.writeLF("--------------------------------");
+                escpos.feed(2);
+                // Mismo patrón que transferencia: frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
+                String qrData = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
+                escpos.write(qrCode.setSize(8).setJustification(EscPosConst.Justification.Center), qrData);
+                escpos.feed(4);
                 escpos.close();
                 printerOutputStream.close();
             }
@@ -926,6 +989,8 @@ public class ImpresionService {
             String proveedorNombre,
             String fechaDePago,
             String formaPago,
+            String moneda,
+            String monedaSimbolo,
             Boolean nominal,
             String numerosFactura,
             Double valorTotal) {
@@ -934,6 +999,16 @@ public class ImpresionService {
             // Usar los parámetros pasados desde el GraphQL resolver
             if (numerosFactura == null || numerosFactura.isEmpty()) {
                 numerosFactura = "---";
+            }
+            
+            // Usuario: ya viene cargado con findByIdWithUsuarioAndMoneda
+            String usuario = "";
+            if (solicitudPago.getUsuario() != null) {
+                if (solicitudPago.getUsuario().getPersona() != null && solicitudPago.getUsuario().getPersona().getNombre() != null) {
+                    usuario = solicitudPago.getUsuario().getPersona().getNombre();
+                } else if (solicitudPago.getUsuario().getNickname() != null) {
+                    usuario = solicitudPago.getUsuario().getNickname();
+                }
             }
             
             // Crear DTO para el reporte
@@ -945,33 +1020,30 @@ public class ImpresionService {
             itemDto.setFormaPago(formaPago);
             itemDto.setNominal(nominal != null ? nominal : false);
             itemDto.setEstado(solicitudPago.getEstado().toString());
-            itemDto.setCreadoEn(solicitudPago.getCreadoEn().format(shortDateTime));
-            if (solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null) {
-                itemDto.setUsuario(solicitudPago.getUsuario().getPersona().getNombre());
-            } else if (solicitudPago.getUsuario() != null) {
-                itemDto.setUsuario(solicitudPago.getUsuario().getNickname());
-            } else {
-                itemDto.setUsuario("");
-            }
+            itemDto.setCreadoEn(solicitudPago.getCreadoEn() != null ? solicitudPago.getCreadoEn().format(shortDateTime) : "");
+            itemDto.setUsuario(usuario);
             solicitudPagoItemDtoList.add(itemDto);
             
-            JasperReport jasperReport = compileReportFromClasspath("solicitud-pago.jrxml");
+            JasperReport jasperReport = compileReportFromClasspath("reports/solicitud-pago.jrxml");
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(solicitudPagoItemDtoList);
             
             Map<String, Object> parameters = new HashMap<>();
             parameters.put("solicitudPagoId", solicitudPago.getId());
-            parameters.put("proveedorNombre", proveedorNombre);
-            parameters.put("fechaDePago", fechaDePago);
-            parameters.put("formaPago", formaPago);
+            parameters.put("proveedorNombre", proveedorNombre != null ? proveedorNombre : "");
+            parameters.put("fechaDePago", fechaDePago != null ? fechaDePago : "");
+            parameters.put("formaPago", formaPago != null ? formaPago : "");
+            parameters.put("moneda", moneda != null ? moneda : "");
+            parameters.put("monedaSimbolo", monedaSimbolo != null ? monedaSimbolo : "");
             parameters.put("nominal", nominal != null ? nominal : false);
             parameters.put("numerosFactura", numerosFactura);
             parameters.put("valorTotal", valorTotal != null ? valorTotal : 0.0);
-            parameters.put("estado", solicitudPago.getEstado().toString());
+            parameters.put("estado", solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "");
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
-            parameters.put("usuario", solicitudPago.getUsuario() != null && solicitudPago.getUsuario().getPersona() != null ? 
-                solicitudPago.getUsuario().getPersona().getNombre() : 
-                (solicitudPago.getUsuario() != null ? solicitudPago.getUsuario().getNickname() : ""));
+            parameters.put("usuario", usuario);
             parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            // QR mismo formato que transferencia: frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
+            String qrText = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
+            parameters.put("qrText", qrText);
             
             JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);

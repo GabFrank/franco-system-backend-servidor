@@ -51,6 +51,20 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
                                                           @Param("estado") SolicitudPagoEstado estado, 
                                                           Pageable pageable);
 
+    /**
+     * Find SolicitudPago by ID with usuario and persona eagerly loaded for report printing.
+     * Usado en: impresion PDF solicitud pago (evita LazyInitializationException en usuario)
+     */
+    @Query("SELECT DISTINCT sp FROM SolicitudPago sp " +
+           "LEFT JOIN FETCH sp.usuario u " +
+           "LEFT JOIN FETCH u.persona " +
+           "LEFT JOIN FETCH sp.proveedor p " +
+           "LEFT JOIN FETCH p.persona " +
+           "LEFT JOIN FETCH sp.moneda " +
+           "LEFT JOIN FETCH sp.formaPago " +
+           "WHERE sp.id = :id")
+    public java.util.Optional<SolicitudPago> findByIdWithUsuarioAndMoneda(@Param("id") Long id);
+
     // Using basic query for simple filters
     // Page<SolicitudPago> findByReferenciaIdAndTipoAndEstadoAndCreadoEnBetween(
     //         Long referenciaId, 

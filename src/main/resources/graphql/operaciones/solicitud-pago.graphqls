@@ -55,6 +55,7 @@ input SolicitudPagoInput {
     estado: SolicitudPagoEstado!
     observaciones: String
     notaRecepcionIds: [ID!]!
+    usuarioId: ID
 }
 
 input SolicitudPagoNotaRecepcionInput {
@@ -126,6 +127,9 @@ extend type Mutation {
     
     # Print solicitud pago PDF
     imprimirSolicitudPagoPDF(solicitudPagoId: ID!): String!
+    
+    # Print solicitud pago ticket 58mm
+    imprimirSolicitudPagoTicket(solicitudPagoId: ID!, printerName: String): Boolean!
 }
 
 enum SolicitudPagoEstado {

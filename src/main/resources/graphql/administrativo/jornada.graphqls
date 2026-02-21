@@ -27,5 +27,5 @@ enum EstadoJornada {
 extend type Query {
     jornada(id: ID!): Jornada
     jornadasPorUsuario(usuarioId: ID!, fechaInicio: String, fechaFin: String): [Jornada]
-    jornadas(page: Int, size: Int): [Jornada]
+    jornadas(fechaInicio: String, fechaFin: String, page: Int, size: Int): [Jornada]
 }

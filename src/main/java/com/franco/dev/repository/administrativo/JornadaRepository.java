@@ -19,6 +19,9 @@ public interface JornadaRepository extends HelperRepository<Jornada, Long> {
             "AND cast(j.fecha as date) >= cast(?2 as date) AND cast(j.fecha as date) <= cast(?3 as date)")
     List<Jornada> findByUsuarioIdAndFechaRange(Long usuarioId, String fechaInicio, String fechaFin);
 
+    @Query("SELECT j FROM Jornada j WHERE cast(j.fecha as date) >= cast(?1 as date) AND cast(j.fecha as date) <= cast(?2 as date)")
+    List<Jornada> findByFechaRange(String fechaInicio, String fechaFin);
+
     @Query("SELECT j FROM Jornada j WHERE j.usuario.id = ?1 AND cast(j.fecha as date) = cast(?2 as date) ORDER BY j.id ASC")
     List<Jornada> findByUsuarioIdAndFecha(Long usuarioId, String fecha);
 

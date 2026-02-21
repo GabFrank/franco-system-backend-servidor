@@ -96,8 +96,6 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             System.out.println(
                     "DEBUG - Buscando horario para Usuario=" + marcacion.getUsuario().getId() + ", Dia=" + diaSemana);
 
-            // First, get the Funcionario directly to check if they have a schedule.
-            // If they do NOT have a schedule, we should NOT apply any initial schedule.
             com.franco.dev.domain.personas.Funcionario funcionario = null;
             if (marcacion.getUsuario() != null) {
                 if (marcacion.getUsuario().getPersona() != null) {
@@ -153,9 +151,30 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 }
             }
 
+            java.time.LocalDate fechaJornada = fechaReferencia.toLocalDate();
+
+            if (marcacion.getTipo() != com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA) {
+                java.time.LocalDate ayer = fechaJornada.minusDays(1);
+                List<Jornada> jornadasAyer = jornadaService.findByUsuarioIdAndFecha(
+                        marcacion.getUsuario().getId(),
+                        ayer.toString());
+                if (jornadasAyer != null && !jornadasAyer.isEmpty()) {
+                    Jornada ultimaAyer = jornadasAyer.get(jornadasAyer.size() - 1);
+
+                    if (ultimaAyer.getEstado() == EstadoJornada.INCOMPLETO) {
+                        com.franco.dev.domain.administrativo.enums.Turno t = ultimaAyer.getTurno();
+                        java.time.LocalTime hEnt = ultimaAyer.getHoraEntradaHorario();
+                        java.time.LocalTime hSal = ultimaAyer.getHoraSalidaHorario();
+                        if (t == com.franco.dev.domain.administrativo.enums.Turno.MADRUGADA) {
+                            fechaJornada = ayer;
+                        }
+                    }
+                }
+            }
+
             List<Jornada> jornadas = jornadaService.findByUsuarioIdAndFecha(
                     marcacion.getUsuario().getId(),
-                    fechaReferencia.toLocalDate().toString());
+                    fechaJornada.toString());
 
             Jornada jornada = null;
             if (jornadas != null && !jornadas.isEmpty()) {
@@ -178,7 +197,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 if (crearNueva) {
                     jornada = new Jornada();
                     jornada.setUsuario(marcacion.getUsuario());
-                    jornada.setFecha(fechaReferencia.toLocalDate());
+                    jornada.setFecha(fechaJornada);
                     jornada.setEstado(EstadoJornada.INCOMPLETO);
                 } else {
                     jornada = lastJornada;
@@ -186,12 +205,11 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             } else {
                 jornada = new Jornada();
                 jornada.setUsuario(marcacion.getUsuario());
-                jornada.setFecha(fechaReferencia.toLocalDate());
+                jornada.setFecha(fechaJornada);
                 jornada.setEstado(EstadoJornada.INCOMPLETO);
             }
-
-            // Snapshot del horario si aún no existe en la jornada
             if (horario != null && jornada.getHoraEntradaHorario() == null) {
+                jornada.setTurno(horario.getTurno());
                 jornada.setHoraEntradaHorario(horario.getHoraEntrada());
                 jornada.setHoraSalidaHorario(horario.getHoraSalida());
                 jornada.setInicioDescansoHorario(horario.getInicioDescanso());
@@ -340,7 +358,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
 
                         long totalMinutos = ChronoUnit.MINUTES.between(entradaCalculo, salidaReal);
 
-                        if (totalMinutos > (5 * 60)) {
+                        if (totalMinutos > (5 * 60) || tiempoAlmuerzoReal >= 0) {
                             totalMinutos -= descansoADescontar;
                         }
                         if (totalMinutos < 0)
@@ -362,7 +380,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     } else {
                         long totalMinutos = ChronoUnit.MINUTES.between(entradaReal, salidaReal);
 
-                        if (totalMinutos > 5 * 60) {
+                        if (totalMinutos > 5 * 60 || tiempoAlmuerzoReal >= 0) {
                             totalMinutos -= descansoADescontar;
                         }
                         if (totalMinutos < 0)

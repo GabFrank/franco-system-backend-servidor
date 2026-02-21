@@ -60,6 +60,10 @@ public class Jornada implements Serializable {
     @Column(name = "minutos_llegada_tardia_almuerzo")
     private Long minutosLlegadaTardiaAlmuerzo = 0L;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "turno")
+    private com.franco.dev.domain.administrativo.enums.Turno turno;
+
     @Column(name = "hora_entrada_horario")
     private LocalTime horaEntradaHorario;
 

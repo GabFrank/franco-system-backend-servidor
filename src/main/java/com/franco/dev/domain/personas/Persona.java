@@ -5,7 +5,9 @@ import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.general.Ciudad;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
 
@@ -42,6 +44,8 @@ public class Persona implements Identifiable<Long> {
         @JoinColumn(name = "ciudad_id", nullable = true)
         private Ciudad ciudad;
 
+        @EqualsAndHashCode.Exclude
+        @ToString.Exclude
         @ManyToOne(fetch = FetchType.EAGER)
         @JoinColumn(name = "usuario_id", nullable = true)
         private Usuario usuario;

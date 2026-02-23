@@ -109,13 +109,14 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     horario = funcionario.getHorario();
 
                     if (horario.getDias() != null && !horario.getDias().isEmpty() && diaSemana != null) {
-                        if (!horario.getDias().contains(diaSemana)) {
+                        if (!horario.getDias().contains(diaSemana) && !horario.getDias().contains(Dia.TODOS)) {
                             List<Horario> horariosUsuario = horarioRepository
                                     .findByUsuarioId(marcacion.getUsuario().getId());
                             if (horariosUsuario != null && !horariosUsuario.isEmpty()) {
                                 Horario alternativo = null;
                                 for (Horario h : horariosUsuario) {
-                                    if (h.getDias() != null && h.getDias().contains(diaSemana)
+                                    if (h.getDias() != null
+                                            && (h.getDias().contains(diaSemana) || h.getDias().contains(Dia.TODOS))
                                             && h.getHoraEntrada() != null) {
                                         alternativo = h;
                                         break;

@@ -5,6 +5,7 @@ import com.franco.dev.config.Identifiable;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import org.hibernate.annotations.CreationTimestamp;
@@ -24,38 +25,32 @@ import java.util.List;
 @Table(name = "usuario", schema = "personas")
 public class Usuario implements Identifiable<Long> {
 
-    private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = 1L;
 
-    @Id
-    @GenericGenerator(
-            name = "assigned-identity",
-            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
-    )
-    @GeneratedValue(
-            generator = "assigned-identity",
-            strategy = GenerationType.IDENTITY
-    )
-    private Long id;
+        @Id
+        @GenericGenerator(name = "assigned-identity", strategy = "com.franco.dev.config.AssignedIdentityGenerator")
+        @GeneratedValue(generator = "assigned-identity", strategy = GenerationType.IDENTITY)
+        private Long id;
 
-    private String password;
+        private String password;
 
-    private String nickname;
-    private String email;
+        private String nickname;
+        private String email;
 
-    private Boolean activo = true;
-    
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "persona_id", nullable = true)
-    private Persona persona;
+        private Boolean activo = true;
 
-    @ToString.Exclude
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuario;
+        @ToString.Exclude
+        @EqualsAndHashCode.Exclude
+        @ManyToOne(fetch = FetchType.EAGER)
+        @JoinColumn(name = "persona_id", nullable = true)
+        private Persona persona;
 
-    @Column(name = "creado_en")
-    private LocalDateTime creadoEn;
+        @ToString.Exclude
+        @EqualsAndHashCode.Exclude
+        @ManyToOne(fetch = FetchType.EAGER)
+        @JoinColumn(name = "usuario_id", nullable = true)
+        private Usuario usuario;
+
+        @Column(name = "creado_en")
+        private LocalDateTime creadoEn;
 }
-
-
-

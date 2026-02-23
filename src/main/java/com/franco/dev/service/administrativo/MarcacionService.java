@@ -93,8 +93,6 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             Dia diaSemana = Dia.values()[dayOfWeekValue];
 
             Horario horario = null;
-            System.out.println(
-                    "DEBUG - Buscando horario para Usuario=" + marcacion.getUsuario().getId() + ", Dia=" + diaSemana);
 
             com.franco.dev.domain.personas.Funcionario funcionario = null;
             if (marcacion.getUsuario() != null) {
@@ -106,11 +104,10 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             }
 
             if (funcionario != null) {
-                System.out.println("DEBUG - Funcionario encontrado: ID=" + funcionario.getId());
+
                 if (funcionario.getHorario() != null) {
                     horario = funcionario.getHorario();
-                    System.out.println("DEBUG - Horario del funcionario: ID=" + horario.getId() + ", HoraEntrada="
-                            + horario.getHoraEntrada());
+
                     if (horario.getDias() != null && !horario.getDias().isEmpty() && diaSemana != null) {
                         if (!horario.getDias().contains(diaSemana)) {
                             List<Horario> horariosUsuario = horarioRepository
@@ -139,13 +136,11 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                         }
                     }
                 } else {
-                    System.out.println(
-                            "DEBUG - Funcionario NO tiene horario explicitly assigned. Ignorando plantillas antiguas por Usuario.");
+
                     horario = null;
                 }
             } else {
-                System.out.println(
-                        "DEBUG - No se encontró Funcionario para este Usuario. Usando fallback de plantillas por Usuario.");
+
                 if (marcacion.getUsuario() != null && diaSemana != null) {
                     horario = horarioRepository.findByUsuarioIdAndDia(marcacion.getUsuario().getId(), diaSemana);
                 }
@@ -253,10 +248,6 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             Marcacion entradaParaCalculo = marcacionEntradaActual != null ? marcacionEntradaActual
                     : jornada.getMarcacionEntrada();
 
-            System.out.println("DEBUG - Entrada para cálculo: " + (entradaParaCalculo != null
-                    ? "ID=" + entradaParaCalculo.getId() + ", FechaEntrada=" + entradaParaCalculo.getFechaEntrada()
-                    : "null"));
-
             if (entradaParaCalculo != null && entradaParaCalculo.getFechaEntrada() != null) {
                 long minutosLlegadaTardiaTotal = 0;
                 long llegadaTardiaAlmuerzo = 0;
@@ -273,22 +264,12 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     long diff = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
                     if (diff > 0) {
                         minutosLlegadaTardiaTotal = diff;
-                        System.out.println("DEBUG - ✓ Calculando llegada tardía: Usuario="
-                                + marcacion.getUsuario().getId() +
-                                ", Hora Horario=" + horaEntradaHorario + ", Hora Real=" + horaEntradaReal +
-                                ", Diferencia=" + diff + " minutos (" + (diff / 60) + "h " + (diff % 60) + "m)");
+
                     } else {
-                        System.out.println(
-                                "DEBUG - No hay llegada tardía: Usuario=" + marcacion.getUsuario().getId() +
-                                        ", Hora Horario=" + horaEntradaHorario + ", Hora Real=" + horaEntradaReal +
-                                        ", Diferencia=" + diff + " minutos");
+
                     }
                 } else {
-                    System.out.println("DEBUG - ✗ No se puede calcular llegada tardía: Usuario="
-                            + marcacion.getUsuario().getId() +
-                            ", Horario="
-                            + (horario != null ? "existe pero sin horaEntrada (ID=" + horario.getId() + ")"
-                                    : "no encontrado"));
+
                 }
 
                 if (inicioDescansoHorario != null && finDescansoHorario != null) {
@@ -316,17 +297,6 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     }
                     descansoADescontar = Math.max(minutosDescanso, tiempoAlmuerzoReal);
                 }
-
-                System.out.println("DEBUG - FINAL LLEGADA TARDIA for Usuario=" + marcacion.getUsuario().getId() +
-                        ": minutosLlegadaTardiaTotal=" + minutosLlegadaTardiaTotal +
-                        " | llegadaTardiaAlmuerzo=" + llegadaTardiaAlmuerzo +
-                        " | horario=" + (horario != null ? "FOUND" : "NULL") +
-                        " | horaEntradaReal="
-                        + (entradaParaCalculo != null && entradaParaCalculo.getFechaEntrada() != null
-                                ? entradaParaCalculo.getFechaEntrada().toLocalTime()
-                                : "null")
-                        +
-                        " | horaEntradaHorario=" + horaEntradaHorario);
 
                 jornada.setMinutosLlegadaTardia(minutosLlegadaTardiaTotal);
                 jornada.setMinutosLlegadaTardiaAlmuerzo(llegadaTardiaAlmuerzo);

@@ -68,6 +68,14 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 entity.setFechaEntrada(LocalDateTime.now());
             }
         }
+
+        if (entity.getTipo() == null) {
+            if (entity.getFechaSalida() != null) {
+                entity.setTipo(com.franco.dev.domain.administrativo.enums.TipoMarcacion.SALIDA);
+            } else {
+                entity.setTipo(com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA);
+            }
+        }
         Marcacion e = super.save(entity);
         if (e.getUsuario() == null && entity.getUsuario() != null) {
             e.setUsuario(entity.getUsuario());
@@ -149,7 +157,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
 
             java.time.LocalDate fechaJornada = fechaReferencia.toLocalDate();
 
-            if (marcacion.getTipo() != com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA) {
+            if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.SALIDA) {
                 java.time.LocalDate ayer = fechaJornada.minusDays(1);
                 List<Jornada> jornadasAyer = jornadaService.findByUsuarioIdAndFecha(
                         marcacion.getUsuario().getId(),
@@ -158,10 +166,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     Jornada ultimaAyer = jornadasAyer.get(jornadasAyer.size() - 1);
 
                     if (ultimaAyer.getEstado() == EstadoJornada.INCOMPLETO) {
-                        com.franco.dev.domain.administrativo.enums.Turno t = ultimaAyer.getTurno();
-                        java.time.LocalTime hEnt = ultimaAyer.getHoraEntradaHorario();
-                        java.time.LocalTime hSal = ultimaAyer.getHoraSalidaHorario();
-                        if (t == com.franco.dev.domain.administrativo.enums.Turno.MADRUGADA) {
+                        if (ultimaAyer.getTurno() == com.franco.dev.domain.administrativo.enums.Turno.MADRUGADA) {
                             fechaJornada = ayer;
                         }
                     }
@@ -176,18 +181,16 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             if (jornadas != null && !jornadas.isEmpty()) {
                 Jornada lastJornada = jornadas.get(jornadas.size() - 1);
                 boolean crearNueva = false;
-                if (lastJornada.getMarcacionSalida() != null) {
-                    crearNueva = true;
-                } else if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA) {
-                    boolean cabeEnActual = false;
-                    if (lastJornada.getMarcacionEntrada() == null) {
-                        cabeEnActual = true;
-                    } else if (lastJornada.getMarcacionSalidaAlmuerzo() != null
-                            && lastJornada.getMarcacionEntradaAlmuerzo() == null) {
-                        cabeEnActual = true;
-                    }
-                    if (!cabeEnActual)
+
+                if (lastJornada.getEstado() == EstadoJornada.NORMAL || lastJornada.getMarcacionSalida() != null) {
+                    if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA
+                            || marcacion.getFechaEntrada() != null) {
                         crearNueva = true;
+                    } else {
+                        jornada = lastJornada;
+                    }
+                } else {
+                    jornada = lastJornada;
                 }
 
                 if (crearNueva) {
@@ -195,8 +198,6 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     jornada.setUsuario(marcacion.getUsuario());
                     jornada.setFecha(fechaJornada);
                     jornada.setEstado(EstadoJornada.INCOMPLETO);
-                } else {
-                    jornada = lastJornada;
                 }
             } else {
                 jornada = new Jornada();
@@ -223,22 +224,24 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                         && jornada.getMarcacionEntradaAlmuerzo() == null) {
                     jornada.setMarcacionEntradaAlmuerzo(marcacion);
                 } else {
-                    marcacionEntradaActual = jornada.getMarcacionEntrada();
-                    if (marcacionEntradaActual == null || marcacionEntradaActual.getFechaEntrada() == null) {
+                    if (jornada.getMarcacionEntrada().getId().equals(marcacion.getId())) {
                         marcacionEntradaActual = marcacion;
-                        jornada.setMarcacionEntrada(marcacion);
                     }
                 }
             } else if (marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.SALIDA) {
                 if (jornada.getMarcacionEntrada() != null && jornada.getMarcacionSalidaAlmuerzo() == null) {
                     Boolean esAlmuerzo = marcacion.getEsSalidaAlmuerzo();
-                    if (esAlmuerzo != null && esAlmuerzo) {
+                    if (Boolean.TRUE.equals(esAlmuerzo)) {
                         jornada.setMarcacionSalidaAlmuerzo(marcacion);
                     } else {
                         jornada.setMarcacionSalida(marcacion);
                         jornada.setEstado(EstadoJornada.NORMAL);
                     }
                 } else if (jornada.getMarcacionEntradaAlmuerzo() != null && jornada.getMarcacionSalida() == null) {
+                    jornada.setMarcacionSalida(marcacion);
+                    jornada.setEstado(EstadoJornada.NORMAL);
+                } else if (jornada.getMarcacionEntrada() == null) {
+                    jornada.setMarcacionEntrada(marcacion);
                     jornada.setMarcacionSalida(marcacion);
                     jornada.setEstado(EstadoJornada.NORMAL);
                 }

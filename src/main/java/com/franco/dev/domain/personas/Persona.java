@@ -48,6 +48,7 @@ public class Persona implements Identifiable<Long> {
         @ToString.Exclude
         @ManyToOne(fetch = FetchType.EAGER)
         @JoinColumn(name = "usuario_id", nullable = true)
+        @JsonIgnore
         private Usuario usuario;
 
         @Column(name = "embedding", columnDefinition = "text")

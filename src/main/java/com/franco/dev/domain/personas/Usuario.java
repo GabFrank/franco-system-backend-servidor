@@ -37,6 +37,7 @@ public class Usuario implements Identifiable<Long> {
         private String nickname;
         private String email;
 
+        @Builder.Default
         private Boolean activo = true;
 
         @ToString.Exclude
@@ -49,6 +50,7 @@ public class Usuario implements Identifiable<Long> {
         @EqualsAndHashCode.Exclude
         @ManyToOne(fetch = FetchType.EAGER)
         @JoinColumn(name = "usuario_id", nullable = true)
+        @JsonIgnore
         private Usuario usuario;
 
         @Column(name = "creado_en")

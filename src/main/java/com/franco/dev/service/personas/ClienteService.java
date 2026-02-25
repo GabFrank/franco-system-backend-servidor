@@ -74,7 +74,7 @@ public class ClienteService extends CrudService<Cliente, ClienteRepository, Long
 
     /**
      * Busca o crea un cliente por documento, consultando SIFEN si es necesario.
-     * 
+     *
      * @param documento Documento/RUC del cliente (solo números, sin guiones)
      * @return Cliente encontrado o creado, o null si no se pudo crear
      */

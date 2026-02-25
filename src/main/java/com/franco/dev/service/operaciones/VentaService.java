@@ -348,6 +348,105 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             return cb.and(predicates.toArray(new Predicate[0]));
         }, newPageable);
     }
+
+    public Page<Venta> onGenericSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId, Long formaPago,
+            VentaEstado estado, Boolean isDelivery, Long monedaId, Boolean conDescuento, Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
+        return findWithGenericFiltersCriteria(idVenta, idCaja, sucId, formaPago, estado, pageable, isDelivery, monedaId, asc,
+                conDescuento, conAumento, conObservacion, clienteId, fechaInicio, fechaFin);
+    }
+
+    public Page<Venta> findWithGenericFiltersCriteria(Long idVenta, Long id, Long sucId, Long formaPagoId, VentaEstado estado,
+            Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
+            Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
+        Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
+        Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
+
+        return this.repository.findAll((root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Add the predicates
+            if(id != null){
+                Join<Venta, PdvCaja> cajaJoin = root.join("caja", JoinType.INNER);
+                predicates.add(cb.equal(cajaJoin.get("id"), id));
+            }
+            
+            if(sucId != null){
+                predicates.add(cb.equal(root.get("sucursalId"), sucId));
+            }
+
+            if (idVenta != null) {
+                predicates.add(cb.equal(root.get("id"), idVenta));
+            }
+
+            if(clienteId != null){
+                predicates.add(cb.equal(root.get("cliente").get("id"), clienteId));
+            }
+
+            if (fechaInicio != null && fechaFin != null) {
+                LocalDateTime start = stringToDate(fechaInicio);
+                LocalDateTime end = stringToDate(fechaFin);
+                predicates.add(cb.between(root.get("creadoEn"), start, end));
+            }
+
+            if (formaPagoId != null || monedaId != null || (conDescuento != null && conDescuento)
+                    || (conAumento != null && conAumento)) {
+                Subquery<Long> cobroDetalleSubquery = query.subquery(Long.class);
+                Root<CobroDetalle> cobroDetalleRoot = cobroDetalleSubquery.from(CobroDetalle.class);
+
+                List<Predicate> subqueryPredicates = new ArrayList<>();
+
+                subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("cobro"), root.get("cobro")));
+                subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("sucursalId"), root.get("sucursalId")));
+
+                if (formaPagoId != null) {
+                    subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("formaPago").get("id"), formaPagoId));
+                }
+
+                if (monedaId != null) {
+                    subqueryPredicates.add(cb.equal(cobroDetalleRoot.get("moneda").get("id"), monedaId));
+                }
+
+                if (conDescuento != null && conDescuento == true) {
+                    subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("descuento")));
+                }
+
+                if (conAumento != null && conAumento == true) {
+                    subqueryPredicates.add(cb.isTrue(cobroDetalleRoot.get("aumento")));
+                }
+
+                cobroDetalleSubquery.select(cobroDetalleRoot.get("id"))
+                        .where(subqueryPredicates.toArray(new Predicate[0]));
+
+                predicates.add(cb.exists(cobroDetalleSubquery));
+            }
+
+            if (estado != null) {
+                predicates.add(cb.equal(root.get("estado"), estado));
+            }
+
+            if (isDelivery != null) {
+                Join<Venta, Delivery> deliveryJoin = root.join("delivery", JoinType.LEFT);
+                if (isDelivery == true) {
+                    predicates.add(cb.isNotNull(deliveryJoin.get("id")));
+                } else {
+                    predicates.add(cb.isNull(deliveryJoin.get("id")));
+                }
+            }
+
+            if (conObservacion != null && conObservacion == true) {
+                Subquery<Long> ventaObservacionSubquery = query.subquery(Long.class);
+                Root<VentaObservacion> ventaObservacionRoot = ventaObservacionSubquery.from(VentaObservacion.class);
+
+                ventaObservacionSubquery.select(ventaObservacionRoot.get("id"))
+                        .where(cb.equal(ventaObservacionRoot.get("venta"), root));
+
+                predicates.add(cb.exists(ventaObservacionSubquery));
+            }
+
+            // Combine predicates with AND
+            return cb.and(predicates.toArray(new Predicate[0]));
+        }, newPageable);
+    }
 }
 
 // dropdown de moneda no aparece (revisar porque)

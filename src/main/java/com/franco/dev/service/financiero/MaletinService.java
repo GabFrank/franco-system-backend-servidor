@@ -50,7 +50,11 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
 
     public List<Maletin> searchByAll(String texto, Long sucId) {
         texto = texto != null ? texto.toUpperCase() : "";
-        return repository.findByAll(texto, sucId);
+        if (sucId != null) {
+            return repository.findByAllWithSucursal(texto, sucId);
+        } else {
+            return repository.findByAllWithoutSucursal(texto);
+        }
     }
 
     public List<Maletin> findBySucursalId(Long id){

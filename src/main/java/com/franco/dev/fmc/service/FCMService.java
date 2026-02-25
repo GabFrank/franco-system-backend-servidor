@@ -11,6 +11,8 @@ import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
+import com.google.firebase.messaging.WebpushConfig;
+import com.google.firebase.messaging.WebpushNotification;
 import com.google.gson.Gson;
 import java.time.Duration;
 import org.slf4j.Logger;
@@ -76,10 +78,22 @@ public class FCMService {
         return Message.builder()
                 .setApnsConfig(getApnsConfig(request.getTopic()))
                 .setAndroidConfig(getAndroidConfig(request.getTopic()))
+                .setWebpushConfig(getWebpushConfig(request))
                 .setNotification(Notification.builder()
                         .setTitle(request.getTitle())
                         .setBody(request.getMessage())
                         .build());
+    }
+
+    private WebpushConfig getWebpushConfig(PushNotificationRequest request) {
+        return WebpushConfig.builder()
+                .putHeader("Urgency", "high")
+                .setNotification(WebpushNotification.builder()
+                        .setBody(request.getMessage())
+                        .setTitle(request.getTitle())
+                        .setRequireInteraction(true)
+                        .build())
+                .build();
     }
 
     private AndroidConfig getAndroidConfig(String topic) {

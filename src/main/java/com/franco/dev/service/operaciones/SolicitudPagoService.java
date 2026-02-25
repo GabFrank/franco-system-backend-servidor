@@ -42,8 +42,12 @@ import java.util.stream.Collectors;
 @Service
 @AllArgsConstructor
 public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPagoRepository, Long> {
+    /**
+     * Estados en los que una nota puede incluirse en una solicitud de pago.
+     * Solo RECEPCION_COMPLETA: la recepción física debe estar finalizada.
+     * CONCILIADA = ítems verificados y listos para recepción física, no implica que ya se haya recepcionado.
+     */
     private static final List<NotaRecepcionEstado> ESTADOS_ELEGIBLES_PAGO = Arrays.asList(
-        NotaRecepcionEstado.CONCILIADA,
         NotaRecepcionEstado.RECEPCION_COMPLETA
     );
     private static final String MONEDA_GUARANI = "GUARANI";
@@ -125,20 +129,13 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     
     /**
      * Get a single NotaRecepcion eligible for payment by numero and proveedor.
-     * Eligible: estado CONCILIADA or RECEPCION_COMPLETA, pagado null/false, not already in a solicitud.
-     * @param numero Nota number
-     * @param proveedorId Proveedor ID (nota must belong to a pedido of this proveedor)
-     * @return First eligible NotaRecepcion or null
+     * Eligible: estado RECEPCION_COMPLETA (recepción física finalizada), pagado null/false, not already in a solicitud.
      */
     public NotaRecepcion getNotaDisponibleParaPagoPorNumero(Integer numero, Long proveedorId) {
         if (numero == null || proveedorId == null) {
             return null;
         }
-        List<NotaRecepcionEstado> estados = Arrays.asList(
-            NotaRecepcionEstado.CONCILIADA,
-            NotaRecepcionEstado.RECEPCION_COMPLETA
-        );
-        List<NotaRecepcion> candidatas = notaRecepcionRepository.findDisponiblesParaPagoPorNumeroYProveedor(numero, proveedorId, estados);
+        List<NotaRecepcion> candidatas = notaRecepcionRepository.findDisponiblesParaPagoPorNumeroYProveedor(numero, proveedorId, ESTADOS_ELEGIBLES_PAGO);
         for (NotaRecepcion nota : candidatas) {
             if (!solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(nota.getId())) {
                 return nota;
@@ -186,7 +183,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
 
     /**
      * Obtiene datos iniciales para crear una solicitud de pago desde una recepcion de mercaderia.
-     * Incluye notas elegibles (estado CONCILIADA/RECEPCION_COMPLETA, no pagadas, no incluidas en otra solicitud),
+     * Incluye notas elegibles (estado RECEPCION_COMPLETA, no pagadas, no incluidas en otra solicitud),
      * moneda sugerida (misma que notas; si difieren usar GUARANI), forma de pago (misma que pedidos; si difieren usar EFECTIVO),
      * y fecha de pago propuesta (hoy mas plazo mas largo entre los pedidos, si aplica).
      * Usado en: Desktop No; Mobile Si (pantalla nueva solicitud de pago desde recepcion).
@@ -260,28 +257,24 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
 
     /**
-     * Get notas de recepcion available for payment for a specific pedido
-     * @param pedidoId The ID of the pedido
-     * @return List of NotaRecepcion available for payment
+     * Get notas de recepción disponibles para pago para un pedido.
+     * Solo notas con recepción física finalizada (RECEPCION_COMPLETA), no pagadas.
      */
     public List<NotaRecepcion> getNotasDisponiblesParaPago(Long pedidoId) {
-        // Find notas with estado CONCILIADA that are not yet paid
         List<NotaRecepcion> todasLasNotas = notaRecepcionRepository.findByPedidoId(pedidoId);
-        
         return todasLasNotas.stream()
-            .filter(nota -> nota.getEstado() == NotaRecepcionEstado.CONCILIADA)
+            .filter(nota -> ESTADOS_ELEGIBLES_PAGO.contains(nota.getEstado()))
             .filter(nota -> nota.getPagado() == null || !nota.getPagado())
             .collect(Collectors.toList());
     }
     
     /**
-     * Calculate the total amount for a nota recepcion
-     * @param notaRecepcion The nota recepcion
-     * @return The total amount
+     * Monto a pagar de la nota: valor descontando rechazos (RecepcionMercaderiaItem.cantidadRechazada).
+     * Respeta atomicidad por etapa: la nota no se modifica en recepción; el rechazo se refleja aquí.
      */
     public Double calcularMontoNota(NotaRecepcion notaRecepcion) {
-        // Use the repository method that already calculates the total correctly
-        return notaRecepcionRepository.valorTotal(notaRecepcion.getId());
+        Double total = notaRecepcionRepository.valorTotalConRechazos(notaRecepcion.getId());
+        return total != null ? total : notaRecepcionRepository.valorTotal(notaRecepcion.getId());
     }
 
     /**
@@ -351,6 +344,57 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
 
     /**
+     * Update solicitud pago (solo cuando estado es PENDIENTE).
+     * Actualiza moneda, formaPago, fechaPagoPropuesta, observaciones y sincroniza notas.
+     * Usado en: Desktop Sí (editar pago desde lista).
+     */
+    @Transactional
+    public SolicitudPago actualizarSolicitudPago(Long solicitudId, Long monedaId, Long formaPagoId,
+            LocalDateTime fechaPagoPropuesta, String observaciones, List<Long> nuevaListaNotaIds) {
+        SolicitudPago solicitud = findById(solicitudId).orElseThrow(
+            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId)
+        );
+        if (solicitud.getEstado() != SolicitudPagoEstado.PENDIENTE) {
+            throw new IllegalStateException("Solo se pueden editar solicitudes en estado PENDIENTE");
+        }
+        Moneda moneda = monedaRepository.findById(monedaId)
+            .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada"));
+        FormaPago formaPago = formaPagoId != null
+            ? formaPagoRepository.findById(formaPagoId)
+                .orElseThrow(() -> new IllegalArgumentException("Forma de pago no encontrada"))
+            : null;
+        solicitud.setMoneda(moneda);
+        solicitud.setFormaPago(formaPago);
+        solicitud.setFechaPagoPropuesta(fechaPagoPropuesta);
+        solicitud.setObservaciones(observaciones);
+        List<SolicitudPagoNotaRecepcion> actuales = solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudId);
+        Set<Long> idsActuales = actuales.stream()
+            .map(r -> r.getNotaRecepcion().getId())
+            .collect(Collectors.toSet());
+        Set<Long> idsNuevos = nuevaListaNotaIds != null
+            ? new java.util.HashSet<>(nuevaListaNotaIds)
+            : new java.util.HashSet<>();
+        for (SolicitudPagoNotaRecepcion rel : actuales) {
+            if (!idsNuevos.contains(rel.getNotaRecepcion().getId())) {
+                solicitudPagoNotaRecepcionService.removerNotaDeSolicitud(solicitudId, rel.getNotaRecepcion().getId());
+            }
+        }
+        for (Long notaId : idsNuevos) {
+            if (!idsActuales.contains(notaId)) {
+                NotaRecepcion nota = notaRecepcionRepository.findById(notaId)
+                    .orElseThrow(() -> new IllegalArgumentException("Nota no encontrada: " + notaId));
+                if (!nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
+                    throw new IllegalArgumentException("La nota debe pertenecer al mismo proveedor");
+                }
+                Double monto = calcularMontoNota(nota);
+                solicitudPagoNotaRecepcionService.agregarNotaASolicitud(solicitudId, notaId, monto);
+            }
+        }
+        solicitudPagoNotaRecepcionService.recalcularMontoTotalSolicitud(solicitudId);
+        return findById(solicitudId).orElse(solicitud);
+    }
+
+    /**
      * Update estado of solicitud pago
      * @param solicitudId The ID of the solicitud
      * @param nuevoEstado The new estado
@@ -361,7 +405,9 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         SolicitudPago solicitud = findById(solicitudId).orElseThrow(
             () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId)
         );
-        
+        if (solicitud.getEstado() == SolicitudPagoEstado.CANCELADO) {
+            throw new IllegalStateException("Una solicitud cancelada no puede cambiar de estado");
+        }
         // Validate state transitions
         if (!isValidStateTransition(solicitud.getEstado(), nuevoEstado)) {
             throw new IllegalStateException("Transición de estado inválida de " + 
@@ -373,6 +419,11 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         // If changing to CONCLUIDO, mark notas as paid
         if (nuevoEstado == SolicitudPagoEstado.CONCLUIDO) {
             marcarNotasComoPagadas(solicitudId);
+        }
+        
+        // If changing to CANCELADO, free the notas and record which ones were linked
+        if (nuevoEstado == SolicitudPagoEstado.CANCELADO) {
+            liberarNotasYRegistrarEnObservaciones(solicitud);
         }
         
         return save(solicitud);
@@ -399,6 +450,31 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         }
     }
     
+    /**
+     * When solicitud is canceled: record linked notas in observaciones, then free them
+     * so they can be re-linked to a new solicitud.
+     */
+    private void liberarNotasYRegistrarEnObservaciones(SolicitudPago solicitud) {
+        Long solicitudId = solicitud.getId();
+        List<SolicitudPagoNotaRecepcion> relaciones = solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudId);
+        if (!relaciones.isEmpty()) {
+            String numerosNotas = relaciones.stream()
+                .map(r -> r.getNotaRecepcion())
+                .filter(n -> n != null)
+                .map(n -> "Nº" + (n.getNumero() != null ? n.getNumero() : n.getId()))
+                .collect(Collectors.joining(", "));
+            String observacionCancelado = "CANCELADO - Notas vinculadas al cancelar (liberadas): " + numerosNotas;
+            String obsActual = solicitud.getObservaciones();
+            solicitud.setObservaciones(
+                (obsActual != null && !obsActual.trim().isEmpty())
+                    ? obsActual.trim() + " | " + observacionCancelado
+                    : observacionCancelado
+            );
+        }
+        solicitudPagoNotaRecepcionService.eliminarTodasRelaciones(solicitudId);
+        solicitud.setMontoTotal(0.0);
+    }
+
     /**
      * Mark all notas as paid when solicitud is paid
      */

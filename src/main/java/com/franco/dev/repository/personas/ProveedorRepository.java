@@ -28,6 +28,13 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
             "where ven.id = ?1")
     public List<Proveedor> findByVendedorId(Long id);
 
-    public Page<Proveedor> findByPersonaNombreLikeOrPersonaApodoLikeOrPersonaDocumentoLike(String nombre, String apodo, String documento, Pageable page);
+    Page<Proveedor> findByPersonaNombreLikeOrPersonaApodoLikeOrPersonaDocumentoLike(String nombre, String apodo, String documento, Pageable page);
 
+    /**
+     * Búsqueda paginada ignorando mayúsculas/minúsculas en nombre, apodo y documento.
+     * Los patrones deben incluir % (ej. "%texto%" o "%palabra1%palabra2%").
+     */
+    @Query("SELECT p FROM Proveedor p LEFT JOIN p.persona per " +
+            "WHERE UPPER(per.nombre) LIKE UPPER(?1) OR UPPER(per.apodo) LIKE UPPER(?2) OR UPPER(per.documento) LIKE UPPER(?3)")
+    Page<Proveedor> findByPersonaNombreOrApodoOrDocumentoIgnoreCase(String patternNombre, String patternApodo, String patternDocumento, Pageable pageable);
 }

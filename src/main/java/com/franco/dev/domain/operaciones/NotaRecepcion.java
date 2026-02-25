@@ -78,6 +78,9 @@ public class NotaRecepcion implements Identifiable<Long> {
     @Type(type = "nota_recepcion_estado")
     private NotaRecepcionEstado estado;
 
+    @Column(name = "valor")
+    private Double valor;
+
     @Column(name = "pagado")
     private Boolean pagado;
 

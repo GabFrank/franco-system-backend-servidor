@@ -39,44 +39,32 @@ public class NotaRecepcionResolver implements GraphQLResolver<NotaRecepcion> {
     @Autowired
     private CompraItemService compraItemService;
 
+    /**
+     * Retorna el valor persistido de la nota (legacy; el tipo GraphQL expone valorTotal).
+     * Usado cuando la nota tiene valor ya calculado y guardado.
+     */
     public Double valor(NotaRecepcion e){
-        Double res = service.getRepository().valor(e.getId());
-        if(res != null){
-            return res;
-        } else {
-            return 0.0;
+        if (e.getValor() != null) {
+            return e.getValor();
         }
+        Double res = service.getRepository().valor(e.getId());
+        return res != null ? res : 0.0;
     }
 
     /**
-     * Calcula el valor total de una nota de recepción sumando sus ítems
-     * @param e La nota de recepción
-     * @return El valor total calculado
+     * Valor a pagar / valor total para uso en solicitud de pago y listados.
+     * Siempre calculado descontando rechazos (RecepcionMercaderiaItem.cantidadRechazada).
+     * La nota no se modifica en la etapa de recepción; el rechazo se refleja aquí al consultar.
      */
     public Double valorTotal(NotaRecepcion e){
         try {
-            // Obtener todos los ítems de la nota de recepción
-            List<com.franco.dev.domain.operaciones.NotaRecepcionItem> items = 
-                notaRecepcionItemService.findByNotaRecepcionId(e.getId());
-            
-            // Calcular el valor total sumando (cantidad * precio unitario) de cada ítem
-            Double valorTotal = items.stream()
-                .mapToDouble(item -> {
-                    Double cantidad = item.getCantidadEnNota() != null ? item.getCantidadEnNota() : 0.0;
-                    Double precioUnitario = item.getPrecioUnitarioEnNota() != null ? item.getPrecioUnitarioEnNota() : 0.0;
-                    return cantidad * precioUnitario;
-                })
-                .sum();
-            
-            System.out.println("=== CÁLCULO VALOR TOTAL NOTA RECEPCIÓN ===");
-            System.out.println("NotaRecepcion ID: " + e.getId());
-            System.out.println("Cantidad de ítems: " + items.size());
-            System.out.println("Valor total calculado: " + valorTotal);
-            
-            return valorTotal;
+            Double total = service.getRepository().valorTotalConRechazos(e.getId());
+            if (total == null) {
+                total = service.getRepository().valorTotal(e.getId());
+            }
+            return total != null ? total : 0.0;
         } catch (Exception ex) {
             System.err.println("Error calculando valor total de nota recepción: " + ex.getMessage());
-            ex.printStackTrace();
             return 0.0;
         }
     }

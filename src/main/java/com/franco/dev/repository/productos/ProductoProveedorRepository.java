@@ -33,7 +33,12 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
             "order by prod.descripcion asc")
     Page<ProductoProveedor> findByProveedorIdAndProductoDescripcionLikeIgnoreCase(Long id, String text, Pageable pageable);
 
-    Page<ProductoProveedor> findByProductoId(Long id, Pageable pageable);
+    @Query("SELECT pp FROM ProductoProveedor pp " +
+            "LEFT JOIN pp.proveedor prov " +
+            "LEFT JOIN prov.persona per " +
+            "WHERE pp.producto.id = :id AND (pp.activo = true OR pp.activo IS NULL) " +
+            "ORDER BY per.nombre ASC")
+    Page<ProductoProveedor> findByProductoIdAndActivoTrueOrderByProveedorPersonaNombre(@Param("id") Long id, Pageable pageable);
 
     @Query("SELECT pp FROM ProductoProveedor pp " +
             "WHERE pp.producto.id = :productoId AND pp.proveedor.id = :proveedorId")

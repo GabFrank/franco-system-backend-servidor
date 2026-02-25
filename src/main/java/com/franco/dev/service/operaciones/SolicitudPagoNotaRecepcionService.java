@@ -100,6 +100,14 @@ public class SolicitudPagoNotaRecepcionService extends CrudService<SolicitudPago
     public List<SolicitudPagoNotaRecepcion> getNotasDeSolicitud(Long solicitudId) {
         return repository.findBySolicitudPagoId(solicitudId);
     }
+
+    /**
+     * Obtiene las notas de una solicitud con NotaRecepcion cargada (para evitar LazyInitializationException).
+     * Usado en impresión de ticket donde se accede a numero y fecha de cada nota.
+     */
+    public List<SolicitudPagoNotaRecepcion> getNotasDeSolicitudWithNotaRecepcion(Long solicitudId) {
+        return repository.findBySolicitudPagoIdWithNotaRecepcion(solicitudId);
+    }
     
     /**
      * Get all solicitud pago relationships for a nota recepcion

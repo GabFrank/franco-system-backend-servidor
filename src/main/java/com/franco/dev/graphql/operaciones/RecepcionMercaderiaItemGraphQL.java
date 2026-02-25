@@ -22,6 +22,7 @@ import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.ProcesoEtapa;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
@@ -186,15 +187,21 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         }
 
         try {
-            // DETECTAR SI ES CREACIÓN O ACTUALIZACIÓN
-            if (input.getId() == null) {
-                // ========== LÓGICA DE CREACIÓN ==========
-                return crearRecepcionMercaderiaItem(input);
-            } else {
-                // ========== LÓGICA DE ACTUALIZACIÓN ==========
-                return actualizarRecepcionMercaderiaItem(input);
+            RecepcionMercaderiaItem saved = input.getId() == null
+                ? crearRecepcionMercaderiaItem(input)
+                : actualizarRecepcionMercaderiaItem(input);
+            // Si la nota está EN_RECEPCION y ya se guardó al menos un ítem (recibido/rechazado), pasar a RECEPCION_PARCIAL
+            if (saved != null && saved.getNotaRecepcionItem() != null
+                    && saved.getNotaRecepcionItem().getNotaRecepcion() != null
+                    && saved.getNotaRecepcionItem().getNotaRecepcion().getId() != null) {
+                notaRecepcionService.findById(saved.getNotaRecepcionItem().getNotaRecepcion().getId()).ifPresent(nota -> {
+                    if (nota.getEstado() == NotaRecepcionEstado.EN_RECEPCION) {
+                        nota.setEstado(NotaRecepcionEstado.RECEPCION_PARCIAL);
+                        notaRecepcionService.save(nota);
+                    }
+                });
             }
-
+            return saved;
         } catch (Exception e) {
             e.printStackTrace();
             throw new GraphQLException("Error al guardar ítem de recepción: " + e.getMessage());

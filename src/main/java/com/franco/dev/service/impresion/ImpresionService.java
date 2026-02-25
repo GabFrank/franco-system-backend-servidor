@@ -35,6 +35,8 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import net.sf.jasperreports.engine.export.JRPrintServiceExporter;
 import net.sf.jasperreports.export.SimpleExporterInput;
 import net.sf.jasperreports.export.SimplePrintServiceExporterConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -61,6 +63,8 @@ import static com.franco.dev.service.utils.PrintingService.resize;
 
 @Service
 public class ImpresionService {
+
+    private static final Logger log = LoggerFactory.getLogger(ImpresionService.class);
 
     /** Cache de reportes Jasper compilados para evitar recompilación y problemas de classloader (web app stopped) */
     private static final Map<String, JasperReport> REPORT_CACHE = new ConcurrentHashMap<>();
@@ -504,7 +508,8 @@ public class ImpresionService {
      */
     public void printSolicitudPagoTicket(SolicitudPago solicitudPago, String proveedorNombre,
             String fechaDePago, String formaPago, String moneda, String monedaSimbolo,
-            String numerosFactura, Double valorTotal, String usuario, String printerName) {
+            java.util.List<String> lineasNotas, Double valorTotal, String estado, String usuario, String printerName,
+            java.util.List<String> lineasFormasPago) {
         try {
             selectedPrintService = printerName != null ? printingService.getPrintService(printerName) : null;
             if (selectedPrintService == null) {
@@ -530,11 +535,26 @@ public class ImpresionService {
                 String prov = (proveedorNombre != null ? proveedorNombre : "");
                 if (prov.length() > 23) prov = prov.substring(0, 23);
                 escpos.writeLF("Prov: " + prov);
+                escpos.writeLF("Estado: " + (estado != null ? estado : ""));
                 escpos.writeLF("F.Emision: " + (solicitudPago.getCreadoEn() != null ? solicitudPago.getCreadoEn().format(formatter) : ""));
-                escpos.writeLF("No Factura: " + (numerosFactura != null ? numerosFactura : "---"));
-                escpos.writeLF("F.Pago: " + (fechaDePago != null && !fechaDePago.isEmpty() ? fechaDePago : ""));
-                escpos.writeLF("Moneda: " + (moneda != null ? moneda.toUpperCase() : ""));
-                escpos.writeLF("Forma: " + (formaPago != null ? formaPago : ""));
+                escpos.writeLF("Notas:");
+                if (lineasNotas != null && !lineasNotas.isEmpty()) {
+                    for (String linea : lineasNotas) {
+                        escpos.writeLF(linea != null ? linea : "");
+                    }
+                } else {
+                    escpos.writeLF("  ---");
+                }
+                if (lineasFormasPago != null && !lineasFormasPago.isEmpty()) {
+                    escpos.writeLF("Formas de pago:");
+                    for (String linea : lineasFormasPago) {
+                        escpos.writeLF(linea != null ? linea : "");
+                    }
+                } else {
+                    escpos.writeLF("F.Pago: " + (fechaDePago != null && !fechaDePago.isEmpty() ? fechaDePago : ""));
+                    escpos.writeLF("Moneda: " + (moneda != null ? moneda.toUpperCase() : ""));
+                    escpos.writeLF("Forma: " + (formaPago != null ? formaPago : ""));
+                }
                 String totalStr = (monedaSimbolo != null && !monedaSimbolo.isEmpty() ? monedaSimbolo + " " : "")
                         + NumberFormat.getNumberInstance(Locale.GERMAN).format(valorTotal != null ? valorTotal : 0);
                 escpos.writeLF(center.setBold(true), totalStr);
@@ -991,14 +1011,24 @@ public class ImpresionService {
             String formaPago,
             String moneda,
             String monedaSimbolo,
-            Boolean nominal,
+            String observaciones,
             String numerosFactura,
-            Double valorTotal) {
+            Double valorTotal,
+            String notasTexto,
+            String formasPagoTexto) {
         
         try {
-            // Usar los parámetros pasados desde el GraphQL resolver
             if (numerosFactura == null || numerosFactura.isEmpty()) {
                 numerosFactura = "---";
+            }
+            if (notasTexto == null) {
+                notasTexto = "";
+            }
+            if (observaciones == null) {
+                observaciones = "";
+            }
+            if (formasPagoTexto == null) {
+                formasPagoTexto = "";
             }
             
             // Usuario: ya viene cargado con findByIdWithUsuarioAndMoneda
@@ -1018,8 +1048,8 @@ public class ImpresionService {
             itemDto.setProveedorNombre(proveedorNombre);
             itemDto.setFechaDePago(fechaDePago);
             itemDto.setFormaPago(formaPago);
-            itemDto.setNominal(nominal != null ? nominal : false);
-            itemDto.setEstado(solicitudPago.getEstado().toString());
+            itemDto.setObservaciones(observaciones);
+            itemDto.setEstado(solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "");
             itemDto.setCreadoEn(solicitudPago.getCreadoEn() != null ? solicitudPago.getCreadoEn().format(shortDateTime) : "");
             itemDto.setUsuario(usuario);
             solicitudPagoItemDtoList.add(itemDto);
@@ -1034,16 +1064,19 @@ public class ImpresionService {
             parameters.put("formaPago", formaPago != null ? formaPago : "");
             parameters.put("moneda", moneda != null ? moneda : "");
             parameters.put("monedaSimbolo", monedaSimbolo != null ? monedaSimbolo : "");
-            parameters.put("nominal", nominal != null ? nominal : false);
+            parameters.put("observaciones", observaciones != null ? observaciones : "");
             parameters.put("numerosFactura", numerosFactura);
             parameters.put("valorTotal", valorTotal != null ? valorTotal : 0.0);
-            parameters.put("estado", solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "");
+            String estadoStr = solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "";
+            parameters.put("estado", estadoStr);
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
             parameters.put("usuario", usuario);
             parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
             // QR mismo formato que transferencia: frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
             String qrText = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
             parameters.put("qrText", qrText);
+            parameters.put("notasTexto", notasTexto);
+            parameters.put("formasPagoTexto", formasPagoTexto);
             
             JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
@@ -1051,8 +1084,8 @@ public class ImpresionService {
             return base64String;
             
         } catch (JRException e) {
-            e.printStackTrace();
-            return null;
+            log.error("Error al generar PDF de solicitud de pago: {}", e.getMessage(), e);
+            throw new RuntimeException("Error al generar el PDF: " + e.getMessage(), e);
         }
     }
 
@@ -1064,12 +1097,11 @@ public class ImpresionService {
         private String proveedorNombre;
         private String fechaDePago;
         private String formaPago;
-        private Boolean nominal;
+        private String observaciones;
         private String grupoId;
         private String estado;
         private String creadoEn;
         private String usuario;
-        private String observacion;
     }
 
 //    public void printVueltoGasto(GastoDto gastoDto){

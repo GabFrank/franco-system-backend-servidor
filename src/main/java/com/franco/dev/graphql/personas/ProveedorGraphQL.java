@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -86,9 +87,12 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     public List<Proveedor> proveedorSearchByPersona(String texto) { return service.findByPersonaNombre(texto); }
 
     public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size) {
-        Pageable pageable = PageRequest.of(page, size);
-        texto = texto != null ? "%" + texto.replace(" ", "%") + "%": "";
-        return service.getRepository().findByPersonaNombreLikeOrPersonaApodoLikeOrPersonaDocumentoLike(texto, texto, texto, pageable);
+        Pageable pageable = PageRequest.of(page, size, Sort.by("persona.nombre"));
+        if (texto == null || texto.trim().isEmpty()) {
+            return service.getRepository().findAll(pageable);
+        }
+        String pattern = "%" + texto.trim().replace(" ", "%") + "%";
+        return service.getRepository().findByPersonaNombreOrApodoOrDocumentoIgnoreCase(pattern, pattern, pattern, pageable);
     }
 
 }

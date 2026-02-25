@@ -62,7 +62,7 @@ public class ProductoProveedorService extends CrudService<ProductoProveedor, Pro
     }
 
     public Page<ProductoProveedor> findByProductoId(Long id, Pageable pageable) {
-        return repository.findByProveedorIdOrderByProductoDescripcionAsc(id, pageable);
+        return repository.findByProductoIdAndActivoTrueOrderByProveedorPersonaNombre(id, pageable);
     }
 
     @Override

@@ -6,13 +6,31 @@ type SolicitudPago {
     fechaPagoPropuesta: String
     montoTotal: Float!
     moneda: Moneda!
-    formaPago: FormaPago!
+    formaPago: FormaPago
     estado: SolicitudPagoEstado!
     observaciones: String
     creadoEn: String
     usuario: Usuario
     pago: Pago
     notasRecepcion: [SolicitudPagoNotaRecepcion]
+    detalles: [SolicitudPagoDetalle]
+}
+
+type SolicitudPagoDetalle {
+    id: ID!
+    solicitudPago: SolicitudPago!
+    moneda: Moneda!
+    formaPago: FormaPago!
+    valor: Float!
+    fechaPago: String
+    observacion: String
+    cotizacion: Float
+    orden: Int
+    fechaEmisionCheque: String
+    portador: String
+    nominal: Boolean
+    diferido: Boolean
+    creadoEn: String
 }
 
 type SolicitudPagoNotaRecepcion {
@@ -50,12 +68,28 @@ input SolicitudPagoInput {
     fechaSolicitud: String
     fechaPagoPropuesta: String
     montoTotal: Float!
-    monedaId: Int!
-    formaPagoId: Int!
+    monedaId: Int
+    formaPagoId: Int
     estado: SolicitudPagoEstado!
     observaciones: String
     notaRecepcionIds: [ID!]!
     usuarioId: ID
+    detalles: [SolicitudPagoDetalleInput]
+}
+
+input SolicitudPagoDetalleInput {
+    id: ID
+    monedaId: Int!
+    formaPagoId: Int!
+    valor: Float!
+    fechaPago: String
+    observacion: String
+    cotizacion: Float
+    orden: Int
+    fechaEmisionCheque: String
+    portador: String
+    nominal: Boolean
+    diferido: Boolean
 }
 
 input SolicitudPagoNotaRecepcionInput {
@@ -78,6 +112,9 @@ extend type Query {
         size: Int = 10
         proveedorId: ID
         estado: SolicitudPagoEstado
+        numero: String
+        fechaDesde: String
+        fechaHasta: String
     ): SolicitudPagoPage
     
     # Get notas de recepcion available for payment for a specific pedido
@@ -105,6 +142,9 @@ extend type Query {
 extend type Mutation {
     # Save/create solicitud pago
     saveSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
+
+    # Update solicitud pago (only when estado is PENDIENTE)
+    actualizarSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
     
     # Delete solicitud pago (only if in PENDIENTE state)
     deleteSolicitudPago(id: ID!): Boolean!
@@ -130,6 +170,12 @@ extend type Mutation {
     
     # Print solicitud pago ticket 58mm
     imprimirSolicitudPagoTicket(solicitudPagoId: ID!, printerName: String): Boolean!
+
+    # Remove a single solicitud pago detalle (forma de pago) by id
+    eliminarSolicitudPagoDetalle(id: ID!): Boolean!
+
+    # Add a single solicitud pago detalle (forma de pago) to an existing solicitud
+    agregarSolicitudPagoDetalle(solicitudPagoId: ID!, detalle: SolicitudPagoDetalleInput!): SolicitudPagoDetalle!
 }
 
 enum SolicitudPagoEstado {

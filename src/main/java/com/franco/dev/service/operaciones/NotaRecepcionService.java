@@ -71,6 +71,34 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         return repository;
     }
 
+    /**
+     * Recalcula y persiste el valor de la nota de recepción a partir de sus ítems.
+     * Usa valorTotalConRechazos: suma (cantidad - rechazada) * precio por ítem, excluyendo
+     * ítems RECHAZADOS y bonificaciones y descontando RecepcionMercaderiaItem.cantidadRechazada.
+     * Se invoca al crear/modificar/eliminar ítems y al registrar rechazos (mobile).
+     *
+     * Usado en:
+     * - Desktop: Sí (valorTotal en solicitud de pago, listados)
+     * - Mobile: Sí (valor de nota en recepción; rechazo total/parcial actualiza valor)
+     */
+    @Transactional
+    public void actualizarValorNota(Long notaRecepcionId) {
+        if (notaRecepcionId == null) {
+            return;
+        }
+        Double total = repository.valorTotalConRechazos(notaRecepcionId);
+        if (total == null) {
+            total = repository.valorTotal(notaRecepcionId);
+        }
+        Optional<NotaRecepcion> notaOpt = findById(notaRecepcionId);
+        if (!notaOpt.isPresent()) {
+            return;
+        }
+        NotaRecepcion nota = notaOpt.get();
+        nota.setValor(total != null ? total : 0.0);
+        save(nota);
+    }
+
     public List<NotaRecepcion> findByPedidoId(Long id){
         return  repository.findByPedidoId(id);
     }
@@ -256,6 +284,9 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         // IMPORTANTE: Esto se hace DESPUÉS de que todos los items hayan sido asignados
         // para asegurar que cuando se creen los vínculos ProductoProveedor, todos los items ya estén en la BD
         actualizarEstadosDespuesDeDistribucion(notaRecepcionId);
+
+        // Recalcular y persistir el valor de la nota (suma de ítems no rechazados)
+        actualizarValorNota(notaRecepcionId);
 
         return result;
     }

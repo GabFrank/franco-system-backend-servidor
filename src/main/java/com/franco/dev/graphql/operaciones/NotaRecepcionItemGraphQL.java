@@ -121,7 +121,9 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         
         // Guardar el item
         NotaRecepcionItem savedItem = service.save(e);
-        
+        if (savedItem.getNotaRecepcion() != null && savedItem.getNotaRecepcion().getId() != null) {
+            notaRecepcionService.actualizarValorNota(savedItem.getNotaRecepcion().getId());
+        }
         // Si tiene pedidoItem, crear distribuciones automáticamente basándose en PedidoItemDistribucion
         // Esto es necesario cuando se divide un item manualmente para cargarlo en múltiples notas
         if (savedItem.getPedidoItem() != null && savedItem.getPedidoItem().getId() != null) {
@@ -189,7 +191,13 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Boolean deleteNotaRecepcionItem(Long id){
-        return service.deleteById(id);
+        Optional<NotaRecepcionItem> itemOpt = service.findById(id);
+        Long notaRecepcionId = itemOpt.map(NotaRecepcionItem::getNotaRecepcion).map(NotaRecepcion::getId).orElse(null);
+        boolean deleted = service.deleteById(id);
+        if (deleted && notaRecepcionId != null) {
+            notaRecepcionService.actualizarValorNota(notaRecepcionId);
+        }
+        return deleted;
     }
 
     public Long countNotaRecepcionItem(){
@@ -201,16 +209,21 @@ public class NotaRecepcionItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         for(NotaRecepcionItemInput input: inputList){
             notaRecepcionItemList.add(saveNotaRecepcionItem(input));
         }
+        if (id != null) {
+            notaRecepcionService.actualizarValorNota(id);
+        }
         return notaRecepcionItemList;
     }
 
     public Boolean removerItens(Long id, List<NotaRecepcionItemInput> inputList){
         Boolean res = false;
-        List<NotaRecepcionItem> notaRecepcionItemList = new ArrayList<>();
         for(NotaRecepcionItemInput input: inputList){
             if(input.getId()!=null){
                 res = deleteNotaRecepcionItem(input.getId());
             }
+        }
+        if (id != null) {
+            notaRecepcionService.actualizarValorNota(id);
         }
         return res;
     }

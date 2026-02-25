@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones.input;
 
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
 import lombok.Data;
+
 import java.util.List;
 
 @Data
@@ -19,5 +20,6 @@ public class SolicitudPagoInput {
     private String fechaPagoPropuesta;
     private String observaciones;
     private List<Long> notaRecepcionIds;
+    private List<SolicitudPagoDetalleInput> detalles;
 }
 

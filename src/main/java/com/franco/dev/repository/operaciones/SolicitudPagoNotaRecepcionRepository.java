@@ -17,6 +17,9 @@ public interface SolicitudPagoNotaRecepcionRepository extends HelperRepository<S
     
     // Find all nota recepcion relationships for a specific solicitud pago
     List<SolicitudPagoNotaRecepcion> findBySolicitudPagoId(Long solicitudPagoId);
+
+    @Query("SELECT spnr FROM SolicitudPagoNotaRecepcion spnr JOIN FETCH spnr.notaRecepcion WHERE spnr.solicitudPago.id = :solicitudPagoId")
+    List<SolicitudPagoNotaRecepcion> findBySolicitudPagoIdWithNotaRecepcion(@Param("solicitudPagoId") Long solicitudPagoId);
     
     // Find all solicitud pago relationships for a specific nota recepcion
     List<SolicitudPagoNotaRecepcion> findByNotaRecepcionId(Long notaRecepcionId);

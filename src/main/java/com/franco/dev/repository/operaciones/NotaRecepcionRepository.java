@@ -51,6 +51,22 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
             "AND (nri.estado != 'RECHAZADO' OR nri.estado IS NULL)", nativeQuery = true)
     public Double valorTotal(@Param("notaRecepcionId") Long notaRecepcionId);
 
+    /**
+     * Calcula el valor total descontando rechazos parciales (RecepcionMercaderiaItem.cantidadRechazada).
+     * Por ítem: (cantidad_en_nota - total_rechazada) * precio_unitario_en_nota.
+     * Excluye ítems con estado RECHAZADO y bonificaciones.
+     */
+    @Query(value = "SELECT COALESCE(SUM(" +
+            "GREATEST(0, (nri.cantidad_en_nota - COALESCE((" +
+            "  SELECT SUM(rmi.cantidad_rechazada) FROM operaciones.recepcion_mercaderia_item rmi " +
+            "  WHERE rmi.nota_recepcion_item_id = nri.id" +
+            "), 0)) * nri.precio_unitario_en_nota)), 0.0) " +
+            "FROM operaciones.nota_recepcion_item nri " +
+            "WHERE nri.nota_recepcion_id = :notaRecepcionId " +
+            "AND (nri.es_bonificacion IS NULL OR nri.es_bonificacion = false) " +
+            "AND (nri.estado != 'RECHAZADO' OR nri.estado IS NULL)", nativeQuery = true)
+    Double valorTotalConRechazos(@Param("notaRecepcionId") Long notaRecepcionId);
+
     public Integer countByPedidoId(Long id);
 
     public Integer countByPedidoIdAndPagadoTrue(Long id);
@@ -128,7 +144,7 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
 
     /**
      * Find NotaRecepcion eligible for payment by numero and proveedor.
-     * Estado must be CONCILIADA or RECEPCION_COMPLETA; pagado must be null or false.
+     * Estado must be RECEPCION_COMPLETA (recepción física finalizada); pagado must be null or false.
      */
     @Query("SELECT nr FROM NotaRecepcion nr JOIN nr.pedido p WHERE nr.numero = :numero " +
            "AND p.proveedor.id = :proveedorId AND nr.estado IN :estados " +
@@ -141,7 +157,7 @@ public interface NotaRecepcionRepository extends HelperRepository<NotaRecepcion,
 
     /**
      * Find NotaRecepcion eligible for payment by proveedor (all available notes for that provider).
-     * Estado CONCILIADA or RECEPCION_COMPLETA; pagado null or false.
+     * Estado must be RECEPCION_COMPLETA (recepción física finalizada); pagado null or false.
      * Caller must filter by isNotaIncludedInSolicitud.
      */
     @Query("SELECT nr FROM NotaRecepcion nr JOIN nr.pedido p WHERE p.proveedor.id = :proveedorId " +

@@ -4,6 +4,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.*;
 import com.franco.dev.domain.operaciones.enums.MotivoRechazoFisico;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
@@ -80,6 +81,10 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     private MonedaService monedaService;
 
     @Autowired
+    @Lazy
+    private NotaRecepcionService notaRecepcionService;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
@@ -109,7 +114,8 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     }
 
     /**
-     * Asocia notas de recepción a una recepción de mercadería
+     * Asocia notas de recepción a una recepción de mercadería.
+     * Las notas en estado CONCILIADA pasan a EN_RECEPCION (recepción física en curso).
      */
     @Transactional
     public void asociarNotasRecepcion(Long recepcionId, List<Long> notaRecepcionIds) {
@@ -119,6 +125,12 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         
         for (Long notaId : notaRecepcionIds) {
             recepcionMercaderiaNotaService.asociarNotaARecepcion(recepcion, notaId);
+            notaRecepcionService.findById(notaId).ifPresent(nota -> {
+                if (nota.getEstado() == NotaRecepcionEstado.CONCILIADA) {
+                    nota.setEstado(NotaRecepcionEstado.EN_RECEPCION);
+                    notaRecepcionService.save(nota);
+                }
+            });
         }
     }
 
@@ -182,6 +194,17 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         // Cambiar estado de la recepción
         recepcion.setEstado(RecepcionMercaderiaEstado.FINALIZADA);
         RecepcionMercaderia recepcionFinalizada = save(recepcion);
+        
+        // Pasar las notas vinculadas a RECEPCION_COMPLETA (recepción física finalizada)
+        List<RecepcionMercaderiaNota> asociaciones = recepcionMercaderiaNotaService.findByRecepcionMercaderiaId(recepcionId);
+        for (RecepcionMercaderiaNota rmn : asociaciones) {
+            if (rmn.getNotaRecepcion() != null && rmn.getNotaRecepcion().getId() != null) {
+                notaRecepcionService.findById(rmn.getNotaRecepcion().getId()).ifPresent(nota -> {
+                    nota.setEstado(NotaRecepcionEstado.RECEPCION_COMPLETA);
+                    notaRecepcionService.save(nota);
+                });
+            }
+        }
         
         // NO actualizar etapas del proceso aquí automáticamente
         // La actualización de etapas se hace en finalizarRecepcionFisicaPorPedido()

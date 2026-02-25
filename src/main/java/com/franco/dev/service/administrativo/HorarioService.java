@@ -19,6 +19,6 @@ public class HorarioService extends CrudService<Horario, HorarioRepository, Long
     }
 
     public List<Horario> findByUsuarioId(Long usuarioId) {
-        return repository.findByUsuarioId(usuarioId);
+        return repository.findByUsuarioIdOrderByIdDesc(usuarioId);
     }
 }

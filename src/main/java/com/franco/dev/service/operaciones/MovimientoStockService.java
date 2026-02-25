@@ -39,14 +39,16 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     public Double stockByProductoIdAndSucursalId(Long proId, Long sucId) {
         Float stock = repository.stockByProductoIdAndSucursalId(proId, sucId);
-        if(stock == null) stock = Float.valueOf(0);
+        if (stock == null)
+            stock = Float.valueOf(0);
         return Double.valueOf(stock);
     }
 
     public Double stockByProductoId(Long proId) {
         Double finalStock = 0.0;
-        List<Sucursal> sucursalList = sucursalService.findAll2().stream().filter(s -> s.getNombre().equals("COMPRAS") == false).collect(Collectors.toList());
-        for(Sucursal s : sucursalList){
+        List<Sucursal> sucursalList = sucursalService.findAll2().stream()
+                .filter(s -> s.getNombre().equals("COMPRAS") == false).collect(Collectors.toList());
+        for (Sucursal s : sucursalList) {
             finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
         }
         return finalStock;
@@ -63,12 +65,12 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public Page<MovimientoStock> findMovimientoStockWithFilters(LocalDateTime inicio,
-                                                                LocalDateTime fin,
-                                                                List<Long> sucursalList,
-                                                                Long productoId,
-                                                                List<TipoMovimiento> tipoMovimientoList,
-                                                                Long usuarioId,
-                                                                Pageable pageable) {
+            LocalDateTime fin,
+            List<Long> sucursalList,
+            Long productoId,
+            List<TipoMovimiento> tipoMovimientoList,
+            Long usuarioId,
+            Pageable pageable) {
         List<String> stringEnum = null;
         if (tipoMovimientoList != null) {
             stringEnum = tipoMovimientoList.stream()
@@ -86,8 +88,9 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             entity.setCreadoEn(LocalDateTime.now());
             Long newId = Long.valueOf(1);
             Long lastId = repository.findMaxId(entity.getSucursalId());
-            if(lastId == null) lastId = Long.valueOf(0);
-            if(lastId % 2 != 0){
+            if (lastId == null)
+                lastId = Long.valueOf(0);
+            if (lastId % 2 != 0) {
                 newId = lastId + 2;
             } else {
                 newId = lastId + 1;
@@ -114,15 +117,33 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return repository.ultimosMovimientosPorProductoId(proId, tm.toString(), limit);
     }
 
-    public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId) {
+    public List<MovimientoStock> findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento tipoMovimiento,
+            Long referencia, Long sucId) {
         return repository.findByTipoMovimientoAndReferenciaAndSucursalId(tipoMovimiento, referencia, sucId);
     }
 
-    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento tipoMovimiento, Long referencia, Long sucId, Long proId) {
-        return repository.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(tipoMovimiento, referencia, sucId, proId);
+    public MovimientoStock findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento tipoMovimiento,
+            Long referencia, Long sucId, Long proId) {
+        List<MovimientoStock> movimientoStockList = repository
+                .findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(tipoMovimiento, referencia, sucId, proId);
+        if (movimientoStockList == null || movimientoStockList.isEmpty()) {
+            return null;
+        }
+        if (movimientoStockList.size() > 1) {
+            // Delete duplicates, keep the first one
+            for (int i = 1; i < movimientoStockList.size(); i++) {
+                try {
+                    repository.delete(movimientoStockList.get(i));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        return movimientoStockList.get(0);
     }
 
-    public List<MovimientoStock> findListByTipoMovimientoAndReferenciaEstadoTrue(TipoMovimiento tipoMovimiento, Long referencia) {
+    public List<MovimientoStock> findListByTipoMovimientoAndReferenciaEstadoTrue(TipoMovimiento tipoMovimiento,
+            Long referencia) {
         return repository.findByTipoMovimientoAndReferenciaAndEstadoTrue(tipoMovimiento, referencia);
     }
 
@@ -131,11 +152,11 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public Double findStockWithFilters(LocalDateTime inicio,
-                                       LocalDateTime fin,
-                                       List<Long> sucursalList,
-                                       Long productoId,
-                                       List<TipoMovimiento> tipoMovimientoList,
-                                       Long usuarioId) {
+            LocalDateTime fin,
+            List<Long> sucursalList,
+            Long productoId,
+            List<TipoMovimiento> tipoMovimientoList,
+            Long usuarioId) {
         List<String> stringEnum = null;
         if (tipoMovimientoList != null) {
             stringEnum = tipoMovimientoList.stream()
@@ -147,11 +168,11 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public List<StockPorTipoMovimientoDto> findStockPorTipoMovimiento(LocalDateTime inicio,
-                                                                      LocalDateTime fin,
-                                                                      List<Long> sucursalList,
-                                                                      Long productoId,
-                                                                      List<TipoMovimiento> tipoMovimientoList,
-                                                                      Long usuarioId) {
+            LocalDateTime fin,
+            List<Long> sucursalList,
+            Long productoId,
+            List<TipoMovimiento> tipoMovimientoList,
+            Long usuarioId) {
         List<String> stringEnum = null;
         if (tipoMovimientoList != null) {
             stringEnum = tipoMovimientoList.stream()
@@ -161,22 +182,22 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return repository.findStockPorTipoMovimiento(inicio, fin, sucursalList, productoId, stringEnum, usuarioId);
     }
 
+    @Transactional
     public List<MovimientoStock> createMovimientoFromTransferenciaItem(TransferenciaItem e) {
         TransferenciaItem finalE = e;
         MovimientoStock movimientoStockSalida = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
-                TipoMovimiento.TRANSFERENCIA, 
-                finalE.getId(), 
-                finalE.getTransferencia().getSucursalOrigen().getId(), 
-                finalE.getPresentacionPreTransferencia().getProducto().getId()
-        );
+                TipoMovimiento.TRANSFERENCIA,
+                finalE.getId(),
+                finalE.getTransferencia().getSucursalOrigen().getId(),
+                finalE.getPresentacionPreTransferencia().getProducto().getId());
         MovimientoStock movimientoStockEntrada = findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
-                TipoMovimiento.TRANSFERENCIA, 
-                finalE.getId(), 
-                finalE.getTransferencia().getSucursalDestino().getId(), 
-                finalE.getPresentacionPreTransferencia().getProducto().getId()
-        );
+                TipoMovimiento.TRANSFERENCIA,
+                finalE.getId(),
+                finalE.getTransferencia().getSucursalDestino().getId(),
+                finalE.getPresentacionPreTransferencia().getProducto().getId());
         Boolean esRechazado = false;
-        esRechazado = e.getMotivoRechazoPreparacion() != null || e.getMotivoRechazoPreTransferencia() != null || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;
+        esRechazado = e.getMotivoRechazoPreparacion() != null || e.getMotivoRechazoPreTransferencia() != null
+                || e.getMotivoRechazoRecepcion() != null || e.getMotivoRechazoTransporte() != null;
         MovimientoStock ms = null;
 
         switch (e.getTransferencia().getEtapa()) {
@@ -234,15 +255,18 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return res;
     }
 
-    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Long productoId, Pageable pageable) {
+    public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Long productoId,
+            Pageable pageable) {
         return repository.findProductosConCantidadPositiva(sucursalId, productoId, pageable);
     }
 
-    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Long productoId, Pageable pageable) {
+    public Page<ProductoSaldoDto> findProductosConCantidadNegativa(Long sucursalId, Long productoId,
+            Pageable pageable) {
         return repository.findProductosConCantidadNegativa(sucursalId, productoId, pageable);
     }
 
-    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, Long productoId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
+    public Page<ProductoSaldoDto> findProductosFaltantes(Long sucursalId, Long productoId, LocalDateTime fechaInicio,
+            LocalDateTime fechaFin, Pageable pageable) {
         return repository.findProductosFaltantes(sucursalId, productoId, fechaInicio, fechaFin, pageable);
     }
 

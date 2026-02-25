@@ -57,7 +57,11 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
                         "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
                         "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList)")
+                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "AND (:estado IS NULL OR " +
+                        "     (:estado = 'SOBRA' AND (i.cantidad - i.cantidadFisica) > 0) OR " +
+                        "     (:estado = 'FALTA' AND (i.cantidad - i.cantidadFisica) < 0) OR " +
+                        "     (:estado = 'OK' AND (i.cantidad - i.cantidadFisica) = 0))")
         Page<InventarioProductoItem> findAllWithFilters(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,
@@ -66,6 +70,7 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         @Param("endDate") LocalDateTime endDate,
                         @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
                         @Param("productoIdList") @Nullable List<Long> productoIdList,
+                        @Param("estado") @Nullable String estado,
                         Pageable pageable);
 
         @Query(value = "SELECT ipi.* FROM operaciones.inventario_producto_item ipi " +

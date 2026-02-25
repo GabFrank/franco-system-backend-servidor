@@ -1,12 +1,10 @@
 package com.franco.dev.graphql.configuracion;
 
-import com.franco.dev.domain.configuracion.NotificacionUsuario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.configuracion.input.NotificacionPushInput;
-import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -23,8 +21,6 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
     private PushNotificationService pushNotificationService;
     @Autowired
     private NotificationTemplateService notificationTemplateService;
-    @Autowired
-    private NotificacionUsuarioRepository notificacionUsuarioRepository;
 
     public Boolean requestPushNotification(NotificacionPushInput notificacionPushInput) {
         try {
@@ -43,33 +39,27 @@ public class NotificacionPushGraphQL implements GraphQLQueryResolver, GraphQLMut
         }
     }
 
-    public java.util.List<NotificacionUsuario> notificacionesPorToken(String tokenFcm) {
-        if (tokenFcm == null || tokenFcm.trim().isEmpty()) return java.util.Collections.emptyList();
-        java.util.List<NotificacionUsuario> list = notificacionUsuarioRepository.findAllByTokenFcm(tokenFcm);
-        list.sort(java.util.Comparator.comparing(
-                (NotificacionUsuario nu) -> nu.getNotificacion() != null ? nu.getNotificacion().getCreadoEn() : null,
-                java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())
-        ).reversed());
-        return list;
-    }
-
     /**
-     * Envía una notificación personalizada a usuarios específicos o a todos los usuarios activos
-     * @param titulo Título de la notificación
-     * @param mensaje Contenido del mensaje de la notificación
-     * @param tipoEnvio Tipo de envío: "TODOS" o "ESPECIFICOS"
-     * @param usuariosIds Lista de IDs de usuarios (requerido si tipoEnvio es "ESPECIFICOS")
+     * Envía una notificación personalizada a usuarios específicos o a todos los
+     * usuarios activos
+     * 
+     * @param titulo      Título de la notificación
+     * @param mensaje     Contenido del mensaje de la notificación
+     * @param tipoEnvio   Tipo de envío: "TODOS" o "ESPECIFICOS"
+     * @param usuariosIds Lista de IDs de usuarios (requerido si tipoEnvio es
+     *                    "ESPECIFICOS")
      * @return true si se envió exitosamente, false en caso contrario
      */
-    public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio, java.util.List<Integer> usuariosIds) {
+    public Boolean enviarNotificacionPersonalizada(String titulo, String mensaje, String tipoEnvio,
+            java.util.List<Integer> usuariosIds) {
         try {
             java.util.List<Long> usuariosIdsLong = null;
             if (usuariosIds != null) {
                 usuariosIdsLong = usuariosIds.stream()
-                    .map(Integer::longValue)
-                    .collect(java.util.stream.Collectors.toList());
+                        .map(Integer::longValue)
+                        .collect(java.util.stream.Collectors.toList());
             }
-            
+
             return pushNotificationService.enviarNotificacionPersonalizada(titulo, mensaje, tipoEnvio, usuariosIdsLong);
         } catch (Exception e) {
             e.printStackTrace();

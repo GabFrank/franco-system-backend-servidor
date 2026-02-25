@@ -13,6 +13,7 @@ public interface PrecioPorSucursalRepository extends HelperRepository<PrecioPorS
     }
 
     public List<PrecioPorSucursal> findByPresentacionId(Long id);
+
     public List<PrecioPorSucursal> findBySucursalId(Long id);
 
     @Query(value = "select * from productos.presentacion p " +
@@ -21,4 +22,7 @@ public interface PrecioPorSucursalRepository extends HelperRepository<PrecioPorS
     public PrecioPorSucursal findPrincipalByPresentacionId(Long id);
 
     PrecioPorSucursal findBySucursalIdAndPresentacionId(Long sucId, Long preId);
+
+    PrecioPorSucursal findBySucursalIdAndPresentacionIdAndTipoPrecioId(Long sucursalId, Long presentacionId,
+            Long tipoPrecioId);
 }

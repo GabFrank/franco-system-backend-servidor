@@ -1,0 +1,19 @@
+type NotificacionComentario {
+    id: Int
+    notificacion: Notificacion
+    usuario: Usuario
+    comentario: String
+    mediaUrl: String
+    comentarioPadre: NotificacionComentario
+    creadoEn: Date
+    actualizadoEn: Date
+}
+
+extend type Query {
+    comentariosNotificacion(notificacionId: Int!): [NotificacionComentario]
+    conteoComentariosNotificacion(notificacionId: Int!): Int
+}
+
+extend type Mutation {
+    crearComentarioNotificacion(notificacionId: Int!, comentario: String!, mediaUrl: String, comentarioPadreId: Int): NotificacionComentario
+}

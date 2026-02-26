@@ -1,7 +1,10 @@
-HELP.md
+# Maven / build
 /target/
 target/
 !.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+HELP.md
 .DS_Store
 **/.DS_Store
 src/.DS_Store

@@ -64,7 +64,8 @@ public class Pedido implements Identifiable<Long> {
     @Column(name = "plazo_credito")
     private Integer plazoCredito;
 
-
+    @Column(name = "observacion_forma_pago")
+    private String observacionFormaPago;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

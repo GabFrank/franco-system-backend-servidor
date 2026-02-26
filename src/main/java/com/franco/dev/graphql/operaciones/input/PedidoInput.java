@@ -17,6 +17,7 @@ public class PedidoInput {
 
     private Long monedaId;
     private Integer plazoCredito;
+    private String observacionFormaPago;
     private Float descuento;
     private Float valorTotal;
     private Long usuarioId;

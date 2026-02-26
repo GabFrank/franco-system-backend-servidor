@@ -6,6 +6,7 @@ type Pedido {
     tipoBoleta: String
     moneda: Moneda
     plazoCredito: Int
+    observacionFormaPago: String
     creadoEn: Date
     usuario: Usuario
     sucursalEntregaList: [PedidoSucursalEntrega]
@@ -31,6 +32,7 @@ input PedidoInput {
     tipoBoleta: String
     monedaId: Int
     plazoCredito: Int
+    observacionFormaPago: String
     creadoEn: Date
     usuarioId: Int
 }

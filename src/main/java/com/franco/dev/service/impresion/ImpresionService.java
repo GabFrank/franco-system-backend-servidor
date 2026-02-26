@@ -996,6 +996,50 @@ public class ImpresionService {
         }
     }
 
+    public String imprimirMarcaciones(List<Marcacion> marcacionList, String fechaInicio, String fechaFin,
+            Usuario usuario) {
+        try {
+            List<MarcacionItemDto> marcacionItemDtoList = new ArrayList<>();
+            for (Marcacion marcacion : marcacionList) {
+                MarcacionItemDto dto = new MarcacionItemDto();
+                dto.setId(marcacion.getId());
+                String nickname = marcacion.getUsuario() != null && marcacion.getUsuario().getNickname() != null
+                        ? marcacion.getUsuario().getNickname()
+                        : "";
+                dto.setUsuario(nickname);
+                dto.setSucursalEntrada(marcacion.getSucursalEntrada() != null
+                        ? marcacion.getSucursalEntrada().getNombre()
+                        : "");
+                dto.setFechaEntrada(marcacion.getFechaEntrada() != null
+                        ? DateUtils.toString(marcacion.getFechaEntrada())
+                        : "");
+                dto.setSucursalSalida(marcacion.getSucursalSalida() != null
+                        ? marcacion.getSucursalSalida().getNombre()
+                        : null);
+                dto.setFechaSalida(marcacion.getFechaSalida() != null
+                        ? DateUtils.toString(marcacion.getFechaSalida())
+                        : null);
+                marcacionItemDtoList.add(dto);
+            }
+            JasperReport jasperReport = compileReportFromClasspath("reports/marcaciones.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(marcacionItemDtoList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("fechaInicio", fechaInicio != null ? fechaInicio : "");
+            parameters.put("fechaFin", fechaFin != null ? fechaFin : "");
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario",
+                    usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "");
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public void imprimirCodigoDeBarra(Codigo codigo) {
         try {
             selectedPrintService = printingService.getPrintService("adesivo");
@@ -1109,6 +1153,18 @@ public class ImpresionService {
         private String creadoEn;
         private String nombreCliente;
         private String documentoCliente;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class MarcacionItemDto {
+        private Long id;
+        private String usuario;
+        private String sucursalEntrada;
+        private String fechaEntrada;
+        private String sucursalSalida;
+        private String fechaSalida;
     }
 
     public String imprimirSolicitudPagoPDF(

@@ -4,12 +4,14 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.CajaBalance;
+import com.franco.dev.domain.financiero.CajaObservacion;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.GastoDetalle;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.CajaObservacionService;
 import com.franco.dev.service.financiero.GastoDetalleService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.operaciones.VentaService;
@@ -38,7 +40,14 @@ public class CajaResolver implements GraphQLResolver<PdvCaja> {
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private CajaObservacionService cajaObservacionService;
+
     private final Logger log = LoggerFactory.getLogger(CajaResolver.class);
+
+    public List<CajaObservacion> cajaObservacionList(PdvCaja caja) {
+        return cajaObservacionService.findByPdvCajaIdAndSucursalId(caja.getId(), caja.getSucursalId());
+    }
 
 //    @Autowired
 //    private CajaDetalleService cajaDetalleService;

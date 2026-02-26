@@ -67,9 +67,10 @@ public class InventarioProductoItemService
             LocalDateTime endDate,
             @Nullable List<Long> usuarioIdList,
             @Nullable List<Long> productoIdList,
+            @Nullable String estado,
             Pageable pageable) {
         return repository.findAllWithFilters(
-                sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, pageable);
+                sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, estado, pageable);
     }
 
     public Page<InventarioProductoItem> findProductosVencidos(

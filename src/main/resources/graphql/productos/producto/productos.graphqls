@@ -88,7 +88,8 @@ extend type Query {
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String
     exportarReporteConFiltros(texto: String, codigo: Boolean, activo: Boolean, stock: Boolean, balanza: Boolean, vencimiento: Boolean, costoCero: Boolean, subfamiliaId: ID, stockFiltro: String, sucursalId: ID, usuarioId: ID, usuario: String): String
-    lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID]): String
+    lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID], subfamiliaId: ID): String
+    lucroPorProductoList(fechaInicio: String, fechaFin: String, sucursalIdList: [ID], usuarioIdList: [ID], productoIdList: [ID], subfamiliaId: ID, page: Int, size: Int): LucroPorProductoResponse
     imprimirCodigoBarra(codigoId: Int): Boolean
     searchProductoWithFilters(texto: String, codigo: String, activo: Boolean, stock: Boolean, balanza: Boolean, subfamilia: Int, vencimiento: Boolean, costoCero: Boolean, stockFiltro: String, sucursalId: Int, page: Int, size: Int):ProductoPage
     productoDescripcionExists(descripcion: String): Boolean
@@ -122,6 +123,27 @@ type LucroPorProducto {
     totalVenta: Float
     lucro: Float
     percent: Float
+    costoTotal: Float
+    ventaMedia: Float
+    margen: Float
+    totalDescuento: Float
+    totalAumento: Float
 }
 
+type LucroPorProductoSummary {
+    cantidad: Float
+    costoTotal: Float
+    totalVenta: Float
+    lucro: Float
+    margen: Float
+    totalDescuento: Float
+    totalAumento: Float
+    ventaMedia: Float
+    costoUnitario: Float
+}
 
+type LucroPorProductoResponse {
+    content: [LucroPorProducto]
+    totalElements: Int
+    summary: LucroPorProductoSummary
+}

@@ -18,6 +18,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -45,6 +47,16 @@ public class ConfigController {
 
     }
 
+    @GetMapping(value = "/hora-servidor")
+    @ResponseBody
+    public ResponseEntity<java.util.Map<String, Object>> horaServidor() {
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        LocalDateTime ahora = LocalDateTime.now();
+        response.put("horaServidor", ahora.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
+    }
+
     @RequestMapping(value = "/sucursales")
     @ResponseBody
     public ResponseEntity<SucursalesDto> getSucursales() {
@@ -65,16 +77,16 @@ public class ConfigController {
     public ResponseEntity<byte[]> downloadZipFile(HttpServletResponse response) {
         response.setContentType("application/zip");
         response.setHeader("Content-Disposition", "attachment; filename=download.zip");
-        ZipUtil.pack(new File(imageService.getResourcesPath()), new File(imageService.getResourcesPath()+".zip"));
+        ZipUtil.pack(new File(imageService.getResourcesPath()), new File(imageService.getResourcesPath() + ".zip"));
         byte[] fileContent = new byte[0];
         try {
-            fileContent = FileUtils.readFileToByteArray(new File(imageService.getResourcesPath()+".zip"));
+            fileContent = FileUtils.readFileToByteArray(new File(imageService.getResourcesPath() + ".zip"));
             return ResponseEntity.ok(fileContent);
         } catch (IOException e) {
             e.printStackTrace();
         }
         try {
-            imageService.deleteFile(imageService.getResourcesPath()+".zip");
+            imageService.deleteFile(imageService.getResourcesPath() + ".zip");
         } catch (IOException e) {
             e.printStackTrace();
         }

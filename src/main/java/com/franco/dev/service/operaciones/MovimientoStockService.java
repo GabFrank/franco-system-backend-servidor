@@ -10,6 +10,7 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.configuraciones.ModificacionService;
 import com.franco.dev.service.empresarial.SucursalService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,9 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class MovimientoStockService extends CrudService<MovimientoStock, MovimientoStockRepository, EmbebedPrimaryKey> {
     private final MovimientoStockRepository repository;
+
+    @Autowired
+    private final ModificacionService modificacionService;
 
     @Autowired
     private SucursalService sucursalService;
@@ -84,7 +88,8 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public MovimientoStock save(MovimientoStock entity) {
-        if (entity.getId() == null) {
+        boolean esNuevo = entity.getId() == null;
+        if (esNuevo) {
             entity.setCreadoEn(LocalDateTime.now());
             Long newId = Long.valueOf(1);
             Long lastId = repository.findMaxId(entity.getSucursalId());
@@ -98,6 +103,20 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             entity.setId(newId);
         }
         MovimientoStock e = super.save(entity);
+
+        if (e != null && e.getTipoMovimiento() == TipoMovimiento.AJUSTE) {
+            try {
+                if (esNuevo) {
+                    modificacionService.registrarInsercion(e, "AJUSTE_STOCK", "operaciones", "movimiento_stock");
+                } else {
+                    modificacionService.registrarActualizacion(entity, e, "AJUSTE_STOCK", "operaciones",
+                            "movimiento_stock");
+                }
+            } catch (Exception ex) {
+                log.warning("Error registrando auditoría de ajuste de stock: " + ex.getMessage());
+            }
+        }
+
         return e;
     }
 

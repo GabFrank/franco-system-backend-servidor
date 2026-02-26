@@ -3,7 +3,7 @@ package com.franco.dev.fmc.service;
 import com.franco.dev.domain.configuracion.Notificacion;
 import com.franco.dev.domain.configuracion.NotificacionDestinatario;
 import com.franco.dev.domain.configuracion.NotificacionEnvioLog;
-import com.franco.dev.domain.configuracion.NotificacionUsuario;
+
 import com.franco.dev.domain.configuracion.enums.EstadoEnvio;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
 import com.franco.dev.domain.configuracion.enums.EstadoNotificacionTablero;
@@ -13,8 +13,9 @@ import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.repository.configuracion.NotificacionDestinatarioRepository;
 import com.franco.dev.repository.configuracion.NotificacionEnvioLogRepository;
 import com.franco.dev.repository.configuracion.NotificacionRepository;
-import com.franco.dev.repository.configuracion.NotificacionUsuarioRepository;
+
 import com.franco.dev.service.configuracion.InicioSesionService;
+import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -38,31 +39,33 @@ public class PushNotificationService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PushNotificationService.class);
     private final NotificacionRepository notificacionRepository;
-    private final NotificacionUsuarioRepository notificacionUsuarioRepository;
+
     private final NotificacionDestinatarioRepository notificacionDestinatarioRepository;
     private final NotificacionEnvioLogRepository notificacionEnvioLogRepository;
     private final NotificationDispatchService dispatchService;
     private final InicioSesionService inicioSesionService;
     private final FCMService fcmService;
 
+    private final NotificacionPreferenciaService preferenciaService;
+
     @PersistenceContext
     private EntityManager entityManager;
 
     public PushNotificationService(
             NotificacionRepository notificacionRepository,
-            NotificacionUsuarioRepository notificacionUsuarioRepository,
             NotificacionDestinatarioRepository notificacionDestinatarioRepository,
             NotificacionEnvioLogRepository notificacionEnvioLogRepository,
             NotificationDispatchService dispatchService,
             InicioSesionService inicioSesionService,
-            FCMService fcmService) {
+            FCMService fcmService,
+            com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService) {
         this.notificacionRepository = notificacionRepository;
-        this.notificacionUsuarioRepository = notificacionUsuarioRepository;
         this.notificacionDestinatarioRepository = notificacionDestinatarioRepository;
         this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
         this.dispatchService = dispatchService;
         this.inicioSesionService = inicioSesionService;
         this.fcmService = fcmService;
+        this.preferenciaService = preferenciaService;
     }
 
     public void sendPushNotificationToToken(@Valid PushNotificationRequest request) {
@@ -89,7 +92,7 @@ public class PushNotificationService {
 
         if (targets.isEmpty()) {
             notificacion.setEstado(EstadoNotificacion.CANCELADA);
-            notificacion.setUltimoError("No existen tokens activos para la solicitud");
+            notificacion.setUltimoError("No existen tokens activos o destinatarios válidos para la solicitud");
             notificacionRepository.save(notificacion);
             return;
         }
@@ -129,17 +132,33 @@ public class PushNotificationService {
     private List<Target> resolveTargets(PushNotificationRequest request) {
         Set<String> dedup = new LinkedHashSet<>();
         List<Target> targets = new ArrayList<>();
+        String tipoNotificacion = request.getType() != null ? request.getType() : "GENERAL";
 
         if (request.hasUsuarios()) {
             List<com.franco.dev.domain.configuracion.InicioSesion> sesiones = inicioSesionService
                     .findSessionsWithValidTokensByUsuarioIds(request.getUsuarioIds());
 
+            List<Long> userIds = sesiones.stream()
+                    .map(s -> s.getUsuario() != null ? s.getUsuario().getId() : null)
+                    .filter(Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            Set<Long> blockedUsers = preferenciaService.getUsuariosConNotificacionDeshabilitada(tipoNotificacion,
+                    userIds);
+
             sesiones.forEach(session -> {
                 String token = session.getToken();
                 Long usuarioId = session.getUsuario() != null ? session.getUsuario().getId() : null;
 
-                if (token != null && dedup.add(token)) {
-                    targets.add(new Target(usuarioId, token));
+                if (usuarioId != null) {
+                    if (!blockedUsers.contains(usuarioId)) {
+                        if (token != null && dedup.add(token)) {
+                            targets.add(new Target(usuarioId, token));
+                        }
+                    }
+                } else if (token != null && dedup.add(token)) {
+                    targets.add(new Target(null, token));
                 }
             });
         }
@@ -179,19 +198,6 @@ public class PushNotificationService {
         log.setTokenFcm(target.getToken());
         log.setEstadoEnvio(EstadoEnvio.PENDIENTE);
         return log;
-    }
-
-    private NotificacionUsuario buildNotificacionUsuario(Notificacion notificacion, Target target) {
-        NotificacionUsuario entity = new NotificacionUsuario();
-        entity.setNotificacion(notificacion);
-        if (target.getUsuarioId() != null) {
-            Usuario reference = entityManager.getReference(Usuario.class, target.getUsuarioId());
-            entity.setUsuario(reference);
-        }
-        entity.setTokenFcm(target.getToken());
-        entity.setEstadoEnvio(EstadoEnvio.PENDIENTE);
-        entity.setEstadoTablero(EstadoNotificacionTablero.POR_VERIFICAR);
-        return entity;
     }
 
     /**

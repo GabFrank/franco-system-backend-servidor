@@ -3,7 +3,9 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.repository.operaciones.InventarioProductoItemRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.configuraciones.ModificacionService;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.Nullable;
@@ -20,6 +22,9 @@ public class InventarioProductoItemService
         extends CrudService<InventarioProductoItem, InventarioProductoItemRepository, Long> {
 
     private final InventarioProductoItemRepository repository;
+
+    @Autowired
+    private ModificacionService modificacionService;
 
     @Override
     public InventarioProductoItemRepository getRepository() {
@@ -204,6 +209,45 @@ public class InventarioProductoItemService
             }
         }
 
-        return super.save(entity);
+        InventarioProductoItem entidadAnterior = null;
+        boolean esNuevo = (entity.getId() == null);
+        if (!esNuevo) {
+            entidadAnterior = repository.findById(entity.getId()).orElse(null);
+        }
+
+        InventarioProductoItem e = super.save(entity);
+        repository.flush();
+        try {
+            if (esNuevo) {
+                modificacionService.registrarInsercion(e, "INVENTARIO_ITEM", "operaciones", "inventario_producto_item");
+            } else if (entidadAnterior != null) {
+                modificacionService.registrarActualizacion(entidadAnterior, e, "INVENTARIO_ITEM", "operaciones",
+                        "inventario_producto_item");
+            }
+        } catch (Exception ex) {
+            System.err.println("Error registrando auditoría de inventario item: " + ex.getMessage());
+        }
+
+        return e;
+    }
+
+    @Override
+    public Boolean deleteById(Long id) {
+        try {
+            InventarioProductoItem entidad = repository.findById(id).orElse(null);
+            if (entidad != null) {
+                Boolean resultado = super.deleteById(id);
+                try {
+                    modificacionService.registrarEliminacion(entidad, "INVENTARIO_ITEM", "operaciones",
+                            "inventario_producto_item");
+                } catch (Exception ex) {
+                    System.err.println("Error registrando eliminación de inventario item: " + ex.getMessage());
+                }
+                return resultado;
+            }
+            return super.deleteById(id);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

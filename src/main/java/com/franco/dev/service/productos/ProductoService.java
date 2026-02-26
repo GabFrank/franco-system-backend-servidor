@@ -154,9 +154,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 modificacionService.registrarActualizacion(entidadAnterior, p, "PRODUCTO", "productos", "producto");
             }
         } catch (Exception ex) {
-            // No interrumpir el flujo si falla el registro de modificación
-            System.err.println("Error registrando modificación de producto: " + ex.getMessage());
-            ex.printStackTrace();
         }
 
         return p;
@@ -174,8 +171,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 try {
                     modificacionService.registrarEliminacion(entidad, "PRODUCTO", "productos", "producto");
                 } catch (Exception ex) {
-                    // No interrumpir el flujo si falla el registro de modificación
-                    System.err.println("Error registrando eliminación de producto: " + ex.getMessage());
                 }
                 return resultado;
             }
@@ -307,8 +302,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             return b64;
 
         } catch (Exception e) {
-            log.severe("Error generando reporte de productos: " + e.getMessage());
-            e.printStackTrace();
             return "Error al generar el reporte: " + e.getMessage();
         }
     }
@@ -537,8 +530,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             return b64;
 
         } catch (Exception e) {
-            log.severe("Error generando reporte de productos con filtros: " + e.getMessage());
-            e.printStackTrace();
             return "Error al generar el reporte: " + e.getMessage();
         }
     }
@@ -595,10 +586,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         // Calcular todos los campos derivados después de la agregación
         for (LucroPorProductosDto dto : result) {
             // Log para debug
-            log.info("DEBUG - Producto ID: " + dto.getProductoId() +
-                    ", Cantidad: " + dto.getCantidad() +
-                    ", CostoTotal: " + dto.getCostoTotal() +
-                    ", TotalVenta: " + dto.getTotalVenta());
 
             if (dto.getCantidad() != null && dto.getCantidad() > 0) {
                 // Calcular costo unitario

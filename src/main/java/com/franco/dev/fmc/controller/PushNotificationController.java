@@ -2,6 +2,7 @@ package com.franco.dev.fmc.controller;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.model.PushNotificationResponse;
@@ -65,34 +66,30 @@ public class PushNotificationController {
                         @PathVariable Long personaId,
                         @PathVariable Double valorTotal) {
                 try {
-
-                Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
-
-                if (usuarioCliente == null) {
-                        return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
-                                        "Usuario no encontrado para el cliente"), HttpStatus.NOT_FOUND);
-                }
-
                         Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
                         VentaCredito ventaCreditoTemp = new VentaCredito();
                         ventaCreditoTemp.setId(ventaCreditoId);
                         ventaCreditoTemp.setSucursalId(sucursalId);
                         ventaCreditoTemp.setValorTotal(valorTotal);
+
                         List<String> rolesRelevantes = notificationRoleService.getRolesForVentaCredito();
                         List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
 
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest requestAdmin = notificationTemplateService
                                                 .ventaCreditoRealizada(ventaCreditoTemp, sucursal, df);
-                        requestAdmin.setType("VENTA_CREDITO_ADMIN");
-                        requestAdmin.setUsuarioIds(usuariosRelevantes);
-                        pushNotificationService.sendPushNotificationToToken(requestAdmin);
-                }
+                                requestAdmin.setType("VENTA_CREDITO_ADMIN");
+                                requestAdmin.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(requestAdmin);
+                        }
 
-                        PushNotificationRequest requestCliente = notificationTemplateService
-                                        .ventaCreditoRealizadaCliente(ventaCreditoTemp, sucursal, df);
-                        requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
-                        pushNotificationService.sendPushNotificationToToken(requestCliente);
+                        Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
+                        if (usuarioCliente != null) {
+                                PushNotificationRequest requestCliente = notificationTemplateService
+                                                .ventaCreditoRealizadaCliente(ventaCreditoTemp, sucursal, df);
+                                requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
+                                pushNotificationService.sendPushNotificationToToken(requestCliente);
+                        }
 
                         return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
                                         "Notificaciones enviadas exitosamente"), HttpStatus.ACCEPTED);
@@ -124,6 +121,131 @@ public class PushNotificationController {
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest request = notificationTemplateService.facturaAltoValor(
                                                 facturaId, sucursalId, sucursal, valorTotal, clienteNombre, df);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @Autowired
+        private com.franco.dev.service.financiero.GastoService gastoService;
+
+        @Autowired
+        private com.franco.dev.service.financiero.RetiroService retiroService;
+
+        @PostMapping("/notification/gasto/{gastoId}/{sucursalId}/{personaId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendGastoNotification(
+                        @PathVariable Long gastoId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Long personaId,
+                        @PathVariable Double valorTotal) {
+                try {
+                        com.franco.dev.domain.financiero.Gasto gasto = gastoService.findByIdAndSucursalId(gastoId,
+                                        sucursalId);
+                        if (gasto == null) {
+                                gasto = new com.franco.dev.domain.financiero.Gasto();
+                                gasto.setId(gastoId);
+                                gasto.setRetiroGs(valorTotal);
+                                Usuario u = usuarioService.findByPersonaId(personaId);
+                                gasto.setUsuario(u);
+                        }
+                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForGastoRetiro();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.gastoRealizado(gasto,
+                                                sucursal, df);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @PostMapping("/notification/retiro/{retiroId}/{sucursalId}/{personaId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendRetiroNotification(
+                        @PathVariable Long retiroId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Long personaId,
+                        @PathVariable Double valorTotal) {
+                try {
+                        com.franco.dev.domain.financiero.Retiro retiro = retiroService.findByIdAndSucursalId(retiroId,
+                                        sucursalId);
+                        if (retiro == null) {
+                                retiro = new com.franco.dev.domain.financiero.Retiro();
+                                retiro.setId(retiroId);
+                                Usuario u = usuarioService.findByPersonaId(personaId);
+                                retiro.setUsuario(u);
+                        }
+                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForGastoRetiro();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.retiroRealizado(retiro,
+                                                sucursal);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @PostMapping("/notification/venta-transferencia/{ventaId}/{sucursalId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendVentaTransferenciaNotification(
+                        @PathVariable Long ventaId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Double valorTotal) {
+                try {
+                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                        Venta venta = new Venta();
+                        venta.setId(ventaId);
+                        venta.setSucursalId(sucursalId);
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForVentaTransferencia();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService
+                                                .ventaTransferenciaRealizada(venta, sucursal,
+                                                                valorTotal, df);
                                 request.setUsuarioIds(usuariosRelevantes);
                                 pushNotificationService.sendPushNotificationToToken(request);
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),

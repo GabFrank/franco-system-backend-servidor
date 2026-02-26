@@ -1,6 +1,7 @@
 package com.franco.dev.service.impresion;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Transferencia;
@@ -848,6 +849,8 @@ public class ImpresionService {
                     tiDto.setVentaCreditoId(String.valueOf(ti.getId()));
                     tiDto.setVentaId(String.valueOf(ti.getVenta().getId()));
                     tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
+                    tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
+                    tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
                     ventaCreditoItemDtoList.add(tiDto);
                 }
                 // file =
@@ -920,6 +923,60 @@ public class ImpresionService {
             parameters.put("ventaTotal", ventaTotal);
             parameters.put("descuentoTotal", descuentoTotal);
             parameters.put("aumentoTotal", aumentoTotal);
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario.getNickname());
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String imprimirReporteCobroVentaCreditoMultiplesClientes(List<Cliente> clientesList,
+            Map<Long, List<VentaCredito>> ventaCreditoMap, Usuario usuario) {
+        try {
+            List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
+            Double totalGeneral = 0.0;
+
+            for (Cliente cliente : clientesList) {
+                List<VentaCredito> ventaCreditoList = ventaCreditoMap.get(cliente.getId());
+                if (ventaCreditoList != null && !ventaCreditoList.isEmpty()) {
+                    Double totalCliente = 0.0;
+                    for (VentaCredito ti : ventaCreditoList) {
+                        VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
+                        Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
+                        tiDto.setSucursal(sucursal != null ? sucursal.getNombre() : "");
+                        tiDto.setTotalGs(ti.getValorTotal());
+                        tiDto.setVentaCreditoId(String.valueOf(ti.getId()));
+                        tiDto.setVentaId(String.valueOf(ti.getVenta().getId()));
+                        tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
+                        tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
+                        tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
+                        ventaCreditoItemDtoList.add(tiDto);
+                        totalCliente += ti.getValorTotal();
+                        totalGeneral += ti.getValorTotal();
+                    }
+                }
+            }
+
+            ClassPathResource resource = new ClassPathResource("reports/reporte-cobro-venta-credito.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(ventaCreditoItemDtoList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("documento", ""); // No se usa en el título, cada cliente tiene su propio encabezado
+            parameters.put("totalCobrado", totalGeneral);
+            parameters.put("nombreCliente", ""); // No se usa en el título, cada cliente tiene su propio encabezado
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
             parameters.put("usuario", usuario.getNickname());
             parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
@@ -1050,6 +1107,8 @@ public class ImpresionService {
         private String ventaCreditoId;
         private Double totalGs;
         private String creadoEn;
+        private String nombreCliente;
+        private String documentoCliente;
     }
 
     public String imprimirSolicitudPagoPDF(

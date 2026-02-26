@@ -80,6 +80,13 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
                      "AND nd.leida = false")
        Long countNoLeidasByUsuarioId(@Param("usuarioId") Long usuarioId);
 
+       @Query("SELECT nd FROM NotificacionDestinatario nd " +
+                     "WHERE nd.usuario.id = :usuarioId " +
+                     "AND nd.leida = :leida")
+       List<NotificacionDestinatario> findByUsuarioIdAndLeida(
+                     @Param("usuarioId") Long usuarioId,
+                     @Param("leida") Boolean leida);
+
        @Query("SELECT DISTINCT nd FROM NotificacionDestinatario nd " +
                      "JOIN FETCH nd.usuario u " +
                      "LEFT JOIN FETCH u.persona p " +
@@ -88,30 +95,9 @@ public interface NotificacionDestinatarioRepository extends HelperRepository<Not
        List<NotificacionDestinatario> findNotificacionesDestinatariosByNotificacionId(
                      @Param("notificacionId") Long notificacionId);
 
-       @Query(value = "WITH roles_notificacion AS (" +
-                     "    SELECT DISTINCT role_id " +
-                     "    FROM configuraciones.notificacion_role " +
-                     "    WHERE notificacion_id = :notificacionId" +
-                     ")," +
-                     "usuarios_por_roles AS (" +
-                     "    SELECT DISTINCT COALESCE(ur.user_id, ur.usuario_id) AS usuario_id" +
-                     "    FROM personas.usuario_role ur" +
-                     "    WHERE ur.role_id IN (SELECT role_id FROM roles_notificacion)" +
-                     "      AND (ur.user_id IS NOT NULL OR ur.usuario_id IS NOT NULL)" +
-                     ")," +
-                     "usuarios_destinatarios AS (" +
-                     "    SELECT DISTINCT usuario_id" +
-                     "    FROM configuraciones.notificacion_destinatario" +
-                     "    WHERE notificacion_id = :notificacionId" +
-                     ")" +
-                     "SELECT DISTINCT u.id " +
-                     "FROM personas.usuario u " +
-                     "WHERE u.id IN (" +
-                     "    SELECT usuario_id FROM usuarios_por_roles" +
-                     "    UNION" +
-                     "    SELECT usuario_id FROM usuarios_destinatarios" +
-                     ") " +
-                     "ORDER BY u.id", nativeQuery = true)
+       @Query(value = "SELECT DISTINCT usuario_id " +
+                     "FROM configuraciones.notificacion_destinatario " +
+                     "WHERE notificacion_id = :notificacionId", nativeQuery = true)
        List<Long> findUsuarioIdsConAccesoNotificacion(@Param("notificacionId") Long notificacionId);
 
 }

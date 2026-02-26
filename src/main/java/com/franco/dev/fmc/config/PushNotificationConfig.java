@@ -21,12 +21,10 @@ public class PushNotificationConfig {
     public Executor notificationExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("push-notification-");
-        executor.setCorePoolSize(4);
-        executor.setMaxPoolSize(12);
-        executor.setQueueCapacity(500);
+        executor.setCorePoolSize(10);
+        executor.setMaxPoolSize(50);
+        executor.setQueueCapacity(1000);
         executor.initialize();
         return executor;
     }
 }
-
-

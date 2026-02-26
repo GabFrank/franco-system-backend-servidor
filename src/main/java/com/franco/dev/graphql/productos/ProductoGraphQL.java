@@ -145,16 +145,15 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findAllForPdv();
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     public Producto saveProducto(ProductoInput input) {
         boolean isNewProduct = (input.getId() == null);
 
         Producto e = service.save(input);
         if (isNewProduct) {
-            try {
-                enviarNotificacionProductoCreado(e);
-            } catch (Throwable t) {
-                // Silent notification error
-            }
+            sendProductoCreadoNotification(e);
         }
         return e;
     }
@@ -187,8 +186,6 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Producto productoPorCodigo(String texto) {
         return service.findByCodigo(texto);
     }
-
-    ;
 
     public Boolean saveImagenProducto(String image, String filename) throws IOException {
         return false;
@@ -349,12 +346,18 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
     }
 
-    private void enviarNotificacionProductoCreado(Producto producto) {
-        if (producto == null) {
+    private void sendProductoCreadoNotification(Producto producto) {
+        if (producto == null)
             return;
-        }
 
         try {
+            if (producto.getSubfamilia() != null) {
+                try {
+                    producto.getSubfamilia().getNombre();
+                } catch (Exception e) {
+                }
+            }
+
             List<String> roles = notificationRoleService.getRolesForProductoCreado();
             List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
 
@@ -381,7 +384,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            // Silent notification error
+            e.printStackTrace();
         }
     }
 }

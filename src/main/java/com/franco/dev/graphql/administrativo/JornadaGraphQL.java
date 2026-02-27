@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.administrativo;
 
 import com.franco.dev.domain.administrativo.Jornada;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -21,8 +22,8 @@ public class JornadaGraphQL implements GraphQLQueryResolver {
     @Autowired
     private UsuarioService usuarioService;
 
-    public Optional<Jornada> jornada(Long id) {
-        return service.findById(id);
+    public Optional<Jornada> jornada(Long id, Long sucursalId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucursalId));
     }
 
     public List<Jornada> jornadas(String fechaInicio, String fechaFin, Integer page, Integer size) {

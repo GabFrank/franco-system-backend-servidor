@@ -13,6 +13,7 @@ import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Horario;
 import com.franco.dev.domain.administrativo.enums.EstadoJornada;
 import com.franco.dev.domain.administrativo.enums.Dia;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import java.time.temporal.ChronoUnit;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -20,7 +21,7 @@ import org.springframework.data.domain.Pageable;
 
 @Service
 @AllArgsConstructor
-public class MarcacionService extends CrudService<Marcacion, MarcacionRepository, Long> {
+public class MarcacionService extends CrudService<Marcacion, MarcacionRepository, EmbebedPrimaryKey> {
 
     private final MarcacionRepository repository;
     private final JornadaService jornadaService;
@@ -62,8 +63,12 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
     public Marcacion save(Marcacion entity) {
         if (entity.getId() == null) {
+            Long lastId = repository.findMaxId(entity.getSucursalId());
+            entity.setId((lastId == null ? 0L : lastId) + 1L);
+
             if (entity.getFechaEntrada() == null && entity.getFechaSalida() == null) {
                 entity.setFechaEntrada(LocalDateTime.now());
             }
@@ -76,10 +81,15 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 entity.setTipo(com.franco.dev.domain.administrativo.enums.TipoMarcacion.ENTRADA);
             }
         }
+
+        Boolean esSalidaAlmuerzo = entity.getEsSalidaAlmuerzo();
+
         Marcacion e = super.save(entity);
         if (e.getUsuario() == null && entity.getUsuario() != null) {
             e.setUsuario(entity.getUsuario());
         }
+
+        e.setEsSalidaAlmuerzo(esSalidaAlmuerzo);
 
         procesarJornada(e);
         return e;
@@ -198,12 +208,14 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                     jornada.setUsuario(marcacion.getUsuario());
                     jornada.setFecha(fechaJornada);
                     jornada.setEstado(EstadoJornada.INCOMPLETO);
+                    jornada.setSucursalId(marcacion.getSucursalId());
                 }
             } else {
                 jornada = new Jornada();
                 jornada.setUsuario(marcacion.getUsuario());
                 jornada.setFecha(fechaJornada);
                 jornada.setEstado(EstadoJornada.INCOMPLETO);
+                jornada.setSucursalId(marcacion.getSucursalId());
             }
             if (horario != null && jornada.getHoraEntradaHorario() == null) {
                 jornada.setTurno(horario.getTurno());

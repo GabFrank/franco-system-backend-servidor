@@ -1,6 +1,7 @@
 package com.franco.dev.service.administrativo;
 
 import com.franco.dev.domain.administrativo.Jornada;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.repository.administrativo.JornadaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -11,7 +12,7 @@ import java.util.Optional;
 
 @Service
 @AllArgsConstructor
-public class JornadaService extends CrudService<Jornada, JornadaRepository, Long> {
+public class JornadaService extends CrudService<Jornada, JornadaRepository, EmbebedPrimaryKey> {
 
     private final JornadaRepository repository;
 
@@ -41,7 +42,12 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Long
     }
 
     @Override
+    @org.springframework.transaction.annotation.Transactional(isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
     public Jornada save(Jornada entity) {
+        if (entity.getId() == null) {
+            Long lastId = repository.findMaxId(entity.getSucursalId());
+            entity.setId((lastId == null ? 0L : lastId) + 1L);
+        }
         Jornada e = super.save(entity);
         return e;
     }

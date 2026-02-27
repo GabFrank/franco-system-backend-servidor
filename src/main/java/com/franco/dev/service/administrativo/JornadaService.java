@@ -46,7 +46,11 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
     public Jornada save(Jornada entity) {
         if (entity.getId() == null) {
             Long lastId = repository.findMaxId(entity.getSucursalId());
-            entity.setId((lastId == null ? 0L : lastId) + 1L);
+            long newId = (lastId == null ? 0L : lastId) + 1L;
+            if (newId % 2 == 0) {
+                newId++;
+            }
+            entity.setId(newId);
         }
         Jornada e = super.save(entity);
         return e;

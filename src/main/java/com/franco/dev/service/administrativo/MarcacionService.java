@@ -67,7 +67,11 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     public Marcacion save(Marcacion entity) {
         if (entity.getId() == null) {
             Long lastId = repository.findMaxId(entity.getSucursalId());
-            entity.setId((lastId == null ? 0L : lastId) + 1L);
+            long newId = (lastId == null ? 0L : lastId) + 1L;
+            if (newId % 2 == 0) {
+                newId++;
+            }
+            entity.setId(newId);
 
             if (entity.getFechaEntrada() == null && entity.getFechaSalida() == null) {
                 entity.setFechaEntrada(LocalDateTime.now());

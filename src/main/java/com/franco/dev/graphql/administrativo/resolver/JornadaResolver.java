@@ -41,4 +41,20 @@ public class JornadaResolver implements GraphQLResolver<Jornada> {
         }
         return null;
     }
+
+    public Marcacion marcacionSalidaAlmuerzo(Jornada jornada) {
+        if (jornada.getMarcacionSalidaAlmuerzo() != null && jornada.getMarcacionSalidaAlmuerzo().getId() != null) {
+            return marcacionService.findById(new EmbebedPrimaryKey(jornada.getMarcacionSalidaAlmuerzo().getId(),
+                    jornada.getMarcacionSalidaAlmuerzo().getSucursalId())).orElse(null);
+        }
+        return null;
+    }
+
+    public Marcacion marcacionEntradaAlmuerzo(Jornada jornada) {
+        if (jornada.getMarcacionEntradaAlmuerzo() != null && jornada.getMarcacionEntradaAlmuerzo().getId() != null) {
+            return marcacionService.findById(new EmbebedPrimaryKey(jornada.getMarcacionEntradaAlmuerzo().getId(),
+                    jornada.getMarcacionEntradaAlmuerzo().getSucursalId())).orElse(null);
+        }
+        return null;
+    }
 }

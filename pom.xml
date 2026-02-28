@@ -336,53 +336,11 @@
 			<version>1.33.0</version>
 		</dependency>
 
-		<!-- Google Drive API - Using consistent versions -->
-		<dependency>
-			<groupId>com.google.api-client</groupId>
-			<artifactId>google-api-client</artifactId>
-			<version>1.33.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.oauth-client</groupId>
-			<artifactId>google-oauth-client-jetty</artifactId>
-			<version>1.33.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.apis</groupId>
-			<artifactId>google-api-services-drive</artifactId>
-			<version>v3-rev20211107-1.32.1</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.api-client</groupId>
-			<artifactId>google-api-client-gson</artifactId>
-			<version>1.33.0</version>
-		</dependency>
-		<!-- SIFEN - Facturación Electrónica -->
-		<dependency>
-			<groupId>io.github.gabfrank</groupId>
-			<artifactId>jsifenlib</artifactId>
-			<version>0.2.4-frc.13</version>
-		</dependency>
-
-		<!-- SOAP API para rshk-jsifenlib -->
-		<dependency>
-			<groupId>javax.xml.soap</groupId>
-			<artifactId>javax.xml.soap-api</artifactId>
-			<version>1.4.0</version>
-		</dependency>
-
-		<!-- SAAJ Implementation para rshk-jsifenlib -->
-		<dependency>
-			<groupId>com.sun.xml.messaging.saaj</groupId>
-			<artifactId>saaj-impl</artifactId>
-			<version>1.5.1</version>
-		</dependency>
-
 	</dependencies>
 
 	<repositories>
 		<repository>
-			<id>github</id>
+			<id>github-jsifenlib</id>
 			<url>https://maven.pkg.github.com/GabFrank/rshk-jsifenlib</url>
 			<snapshots>
 				<enabled>true</enabled>

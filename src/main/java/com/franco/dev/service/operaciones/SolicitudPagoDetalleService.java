@@ -48,6 +48,14 @@ public class SolicitudPagoDetalleService extends CrudService<SolicitudPagoDetall
     }
 
     /**
+     * Find detalles with moneda and formaPago eagerly loaded for printing (PDF/ticket).
+     * Usado en: impresion PDF y ticket solicitud pago.
+     */
+    public List<SolicitudPagoDetalle> findBySolicitudPagoIdForPrint(Long solicitudPagoId) {
+        return repository.findBySolicitudPagoIdOrderByOrdenAscIdAscWithMonedaAndFormaPago(solicitudPagoId);
+    }
+
+    /**
      * Agrega un detalle (forma de pago) a una solicitud existente.
      * Usado en: Desktop (diálogo adicionar forma de pago cuando se guarda en backend).
      */

@@ -518,12 +518,12 @@ public class ImpresionService {
 
     /**
      * Imprime solicitud de pago en ticket 58mm.
-     * Incluye logo, datos de la orden, y QR en la parte inferior a todo el ancho.
+     * Estructura: Header (logo, proveedor, nro, hora reporte) | Lista notas | Lista formas pago | Firma | QR
      */
     public void printSolicitudPagoTicket(SolicitudPago solicitudPago, String proveedorNombre,
-            String fechaDePago, String formaPago, String moneda, String monedaSimbolo,
-            java.util.List<String> lineasNotas, Double valorTotal, String estado, String usuario, String printerName,
-            java.util.List<String> lineasFormasPago) {
+            String usuario, String printerName,
+            java.util.List<NotaTicketDto> notas,
+            java.util.List<FormaPagoTicketDto> formasPago) {
         try {
             selectedPrintService = printerName != null ? printingService.getPrintService(printerName) : null;
             if (selectedPrintService == null) {
@@ -541,43 +541,56 @@ public class ImpresionService {
                 Bitonal algorithm = new BitonalThreshold();
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
+
+                // --- HEADER ---
                 escpos.writeLF("--------------------------------");
                 escpos.write(imageWrapper, escposImage);
-                escpos.writeLF(center.setBold(true), "ORDEN DE PAGO");
-                escpos.writeLF(center.setBold(true), "Nro " + solicitudPago.getId());
-                escpos.writeLF("--------------------------------");
                 String prov = (proveedorNombre != null ? proveedorNombre : "");
                 if (prov.length() > 23) prov = prov.substring(0, 23);
-                escpos.writeLF("Prov: " + prov);
-                escpos.writeLF("Estado: " + (estado != null ? estado : ""));
-                escpos.writeLF("F.Emision: " + (solicitudPago.getCreadoEn() != null ? solicitudPago.getCreadoEn().format(formatter) : ""));
-                escpos.writeLF("Notas:");
-                if (lineasNotas != null && !lineasNotas.isEmpty()) {
-                    for (String linea : lineasNotas) {
-                        escpos.writeLF(linea != null ? linea : "");
+                escpos.writeLF(center.setBold(true), prov);
+                escpos.writeLF(center.setBold(true), "Nro " + solicitudPago.getId());
+                String horaReporte = LocalDateTime.now().format(formatter);
+                escpos.writeLF(center, "Hora: " + horaReporte);
+                escpos.writeLF("--------------------------------");
+
+                // --- LISTA NOTAS ---
+                escpos.writeLF(center.setBold(true), "NOTAS");
+                if (notas != null && !notas.isEmpty()) {
+                    for (NotaTicketDto n : notas) {
+                        String linea = (n.getNumero() != null ? n.getNumero() : "—") + " "
+                                + (n.getFecha() != null ? n.getFecha() : "—") + " "
+                                + (n.getValorFormateado() != null ? n.getValorFormateado() : "—");
+                        escpos.writeLF(linea);
                     }
                 } else {
                     escpos.writeLF("  ---");
                 }
-                if (lineasFormasPago != null && !lineasFormasPago.isEmpty()) {
-                    escpos.writeLF("Formas de pago:");
-                    for (String linea : lineasFormasPago) {
-                        escpos.writeLF(linea != null ? linea : "");
+                escpos.writeLF("--------------------------------");
+
+                // --- LISTA FORMAS DE PAGO ---
+                escpos.writeLF(center.setBold(true), "FORMAS DE PAGO");
+                if (formasPago != null && !formasPago.isEmpty()) {
+                    for (FormaPagoTicketDto fp : formasPago) {
+                        String linea = (fp.getFormaPago() != null ? fp.getFormaPago() : "—") + " "
+                                + (fp.getFecha() != null ? fp.getFecha() : "—") + " "
+                                + (fp.getValorFormateado() != null ? fp.getValorFormateado() : "—");
+                        escpos.writeLF(linea);
                     }
                 } else {
-                    escpos.writeLF("F.Pago: " + (fechaDePago != null && !fechaDePago.isEmpty() ? fechaDePago : ""));
-                    escpos.writeLF("Moneda: " + (moneda != null ? moneda.toUpperCase() : ""));
-                    escpos.writeLF("Forma: " + (formaPago != null ? formaPago : ""));
+                    escpos.writeLF("  ---");
                 }
-                String totalStr = (monedaSimbolo != null && !monedaSimbolo.isEmpty() ? monedaSimbolo + " " : "")
-                        + NumberFormat.getNumberInstance(Locale.GERMAN).format(valorTotal != null ? valorTotal : 0);
-                escpos.writeLF(center.setBold(true), totalStr);
+                escpos.writeLF("--------------------------------");
+
+                // --- FIRMA DEL RESPONSABLE ---
                 String usr = (usuario != null ? usuario : "");
                 if (usr.length() > 23) usr = usr.substring(0, 23);
-                escpos.writeLF("Creado: " + usr);
+                escpos.writeLF(center.setBold(true), "Responsable:");
+                escpos.writeLF(center, usr);
+                escpos.writeLF(center, "_________________________");
                 escpos.writeLF("--------------------------------");
+
+                // --- CODIGO QR ---
                 escpos.feed(2);
-                // Mismo patrón que transferencia: frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
                 String qrData = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
                 escpos.write(qrCode.setSize(8).setJustification(EscPosConst.Justification.Center), qrData);
                 escpos.feed(4);
@@ -587,6 +600,30 @@ public class ImpresionService {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * DTO para fila de nota en ticket de solicitud de pago.
+     */
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class NotaTicketDto {
+        private String numero;
+        private String fecha;
+        private String valorFormateado; // formato {{simbolo}} {{valor}}
+    }
+
+    /**
+     * DTO para fila de forma de pago en ticket de solicitud de pago.
+     */
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class FormaPagoTicketDto {
+        private String formaPago;
+        private String fecha;
+        private String valorFormateado; // formato {{simbolo}} {{valor}}
     }
 
     public void printRetiro(RetiroDto retiroDto, String printerName, String local, Boolean reimpresion) {
@@ -1170,30 +1207,26 @@ public class ImpresionService {
     public String imprimirSolicitudPagoPDF(
             SolicitudPago solicitudPago,
             String proveedorNombre,
-            String fechaDePago,
-            String formaPago,
-            String moneda,
-            String monedaSimbolo,
             String observaciones,
             String numerosFactura,
             Double valorTotal,
-            String notasTexto,
-            String formasPagoTexto) {
+            java.util.List<SolicitudPagoNotaRowDto> notas,
+            java.util.List<SolicitudPagoFormaPagoDetalleDto> detalleFormasPago) {
         
         try {
             if (numerosFactura == null || numerosFactura.isEmpty()) {
                 numerosFactura = "---";
             }
-            if (notasTexto == null) {
-                notasTexto = "";
-            }
             if (observaciones == null) {
                 observaciones = "";
             }
-            if (formasPagoTexto == null) {
-                formasPagoTexto = "";
+            if (notas == null) {
+                notas = new ArrayList<>();
             }
-            
+            if (detalleFormasPago == null) {
+                detalleFormasPago = new ArrayList<>();
+            }
+
             // Usuario: ya viene cargado con findByIdWithUsuarioAndMoneda
             String usuario = "";
             if (solicitudPago.getUsuario() != null) {
@@ -1204,32 +1237,16 @@ public class ImpresionService {
                 }
             }
             
-            // Crear DTO para el reporte
-            List<SolicitudPagoItemDto> solicitudPagoItemDtoList = new ArrayList<>();
-            SolicitudPagoItemDto itemDto = new SolicitudPagoItemDto();
-            itemDto.setSolicitudPagoId(String.valueOf(solicitudPago.getId()));
-            itemDto.setProveedorNombre(proveedorNombre);
-            itemDto.setFechaDePago(fechaDePago);
-            itemDto.setFormaPago(formaPago);
-            itemDto.setObservaciones(observaciones);
-            itemDto.setEstado(solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "");
-            itemDto.setCreadoEn(solicitudPago.getCreadoEn() != null ? solicitudPago.getCreadoEn().format(shortDateTime) : "");
-            itemDto.setUsuario(usuario);
-            solicitudPagoItemDtoList.add(itemDto);
-            
             JasperReport jasperReport = compileReportFromClasspath("reports/solicitud-pago.jrxml");
-            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(solicitudPagoItemDtoList);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(new ArrayList<>());
             
             Map<String, Object> parameters = new HashMap<>();
             parameters.put("solicitudPagoId", solicitudPago.getId());
             parameters.put("proveedorNombre", proveedorNombre != null ? proveedorNombre : "");
-            parameters.put("fechaDePago", fechaDePago != null ? fechaDePago : "");
-            parameters.put("formaPago", formaPago != null ? formaPago : "");
-            parameters.put("moneda", moneda != null ? moneda : "");
-            parameters.put("monedaSimbolo", monedaSimbolo != null ? monedaSimbolo : "");
             parameters.put("observaciones", observaciones != null ? observaciones : "");
             parameters.put("numerosFactura", numerosFactura);
             parameters.put("valorTotal", valorTotal != null ? valorTotal : 0.0);
+            parameters.put("monedaSimbolo", solicitudPago.getMoneda() != null && solicitudPago.getMoneda().getSimbolo() != null ? solicitudPago.getMoneda().getSimbolo() : "");
             String estadoStr = solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "";
             parameters.put("estado", estadoStr);
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
@@ -1238,8 +1255,12 @@ public class ImpresionService {
             // QR mismo formato que transferencia: frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
             String qrText = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
             parameters.put("qrText", qrText);
-            parameters.put("notasTexto", notasTexto);
-            parameters.put("formasPagoTexto", formasPagoTexto);
+            parameters.put("notasSubreport", compileReportFromClasspath("reports/solicitud-pago-notas-subreport.jrxml"));
+            parameters.put("notasDataSource", new JRBeanCollectionDataSource(notas));
+            parameters.put("formasSubreport", compileReportFromClasspath("reports/solicitud-pago-formas-subreport.jrxml"));
+            parameters.put("formasDataSource", new JRBeanCollectionDataSource(detalleFormasPago.isEmpty()
+                ? java.util.Collections.singletonList(new SolicitudPagoFormaPagoDetalleDto("—", "", "Sin formas de pago", 0.0, "—", "", "—", "—", false))
+                : detalleFormasPago));
             
             JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
@@ -1265,6 +1286,36 @@ public class ImpresionService {
         private String estado;
         private String creadoEn;
         private String usuario;
+    }
+
+    /**
+     * DTO for PDF subreport: one row per nota de recepción.
+     */
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SolicitudPagoNotaRowDto {
+        private String numero;
+        private String fecha;
+        private String total;
+    }
+
+    /**
+     * DTO for PDF report detail row: one per forma de pago (SolicitudPagoDetalle).
+     */
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class SolicitudPagoFormaPagoDetalleDto {
+        private String moneda;
+        private String monedaSimbolo;
+        private String formaPago;
+        private Double valor;
+        private String fechaPago;
+        private String fechaEmisionCheque;
+        private String nominal;
+        private String diferido;
+        private Boolean esCheque;
     }
 
 //    public void printVueltoGasto(GastoDto gastoDto){

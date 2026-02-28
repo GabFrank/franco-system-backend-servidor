@@ -354,75 +354,39 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             String proveedorNombre = solicitudPago.getProveedor() != null && solicitudPago.getProveedor().getPersona() != null
                 ? solicitudPago.getProveedor().getPersona().getNombre() : "";
             
-            // Detalles (formas de pago): cargar desde servicio para PDF
-            List<com.franco.dev.domain.operaciones.SolicitudPagoDetalle> detalles = solicitudPagoDetalleService.findBySolicitudPagoId(solicitudPagoId);
-            StringBuilder formasPagoSb = new StringBuilder();
+            // Detalles (formas de pago): cargar desde servicio para PDF (with moneda/formaPago fetched)
+            List<SolicitudPagoDetalle> detalles = solicitudPagoDetalleService.findBySolicitudPagoIdForPrint(solicitudPagoId);
             java.time.format.DateTimeFormatter dateFmtPago = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
-            for (com.franco.dev.domain.operaciones.SolicitudPagoDetalle d : detalles) {
-                if (d.getFormaPago() != null) formasPagoSb.append(d.getFormaPago().getDescripcion() != null ? d.getFormaPago().getDescripcion() : "");
-                formasPagoSb.append(" - ").append(d.getValor() != null ? java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(d.getValor().longValue()) : "0");
-                if (d.getFechaPago() != null) formasPagoSb.append(" - ").append(d.getFechaPago().format(dateFmtPago));
-                if (d.getMoneda() != null && d.getMoneda().getDenominacion() != null) formasPagoSb.append(" ").append(d.getMoneda().getDenominacion());
-                if (d.getPortador() != null && !d.getPortador().isEmpty()) formasPagoSb.append(" - Portador: ").append(d.getPortador());
-                if (Boolean.TRUE.equals(d.getDiferido())) formasPagoSb.append(" - Diferido");
-                formasPagoSb.append("\n");
-            }
-            String formasPagoTexto = formasPagoSb.length() > 0 ? formasPagoSb.toString().trim() : "";
-
-            // Fecha / moneda / forma: desde primer detalle si hay detalles, sino desde entidad
-            String fechaDePago = "";
-            String moneda = "";
-            String monedaSimbolo = "";
-            String formaPago = "";
-            if (!detalles.isEmpty()) {
-                com.franco.dev.domain.operaciones.SolicitudPagoDetalle prim = detalles.get(0);
-                if (prim.getFechaPago() != null) fechaDePago = prim.getFechaPago().format(dateFmtPago);
-                if (prim.getMoneda() != null) {
-                    moneda = prim.getMoneda().getDenominacion() != null ? prim.getMoneda().getDenominacion() : "";
-                    monedaSimbolo = prim.getMoneda().getSimbolo() != null ? prim.getMoneda().getSimbolo() : moneda;
+            java.time.format.DateTimeFormatter dateFmtShort = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
+            List<ImpresionService.SolicitudPagoFormaPagoDetalleDto> detalleFormasPago = new ArrayList<>();
+            for (SolicitudPagoDetalle d : detalles) {
+                ImpresionService.SolicitudPagoFormaPagoDetalleDto row = new ImpresionService.SolicitudPagoFormaPagoDetalleDto();
+                row.setMoneda(d.getMoneda() != null && d.getMoneda().getDenominacion() != null ? d.getMoneda().getDenominacion().toUpperCase() : "—");
+                row.setMonedaSimbolo(d.getMoneda() != null && d.getMoneda().getSimbolo() != null ? d.getMoneda().getSimbolo() : "");
+                row.setFormaPago(d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null ? d.getFormaPago().getDescripcion() : "—");
+                row.setValor(d.getValor() != null ? d.getValor() : 0.0);
+                row.setFechaPago(d.getFechaPago() != null ? d.getFechaPago().format(dateFmtPago) : "—");
+                boolean esCheque = d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null
+                    && d.getFormaPago().getDescripcion().toUpperCase().contains("CHEQUE");
+                row.setEsCheque(esCheque);
+                row.setFechaEmisionCheque(esCheque && d.getFechaEmisionCheque() != null ? d.getFechaEmisionCheque().format(dateFmtShort) : "");
+                if (esCheque) {
+                    row.setNominal(Boolean.TRUE.equals(d.getNominal()) ? "Sí" : "No");
+                    row.setDiferido(Boolean.TRUE.equals(d.getDiferido()) ? "Sí" : "No");
+                } else {
+                    row.setNominal("—");
+                    row.setDiferido("—");
                 }
-                if (prim.getFormaPago() != null) formaPago = prim.getFormaPago().getDescripcion() != null ? prim.getFormaPago().getDescripcion() : "";
+                detalleFormasPago.add(row);
             }
-            if (fechaDePago.isEmpty() && solicitudPago.getFechaPagoPropuesta() != null) {
-                fechaDePago = solicitudPago.getFechaPagoPropuesta().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            }
-            if (moneda.isEmpty() && solicitudPago.getMoneda() != null) {
-                moneda = solicitudPago.getMoneda().getDenominacion() != null ? solicitudPago.getMoneda().getDenominacion() : "";
-                monedaSimbolo = solicitudPago.getMoneda().getSimbolo() != null ? solicitudPago.getMoneda().getSimbolo() : moneda;
-            }
-            if (formaPago.isEmpty() && solicitudPago.getFormaPago() != null) {
-                formaPago = solicitudPago.getFormaPago().getDescripcion() != null ? solicitudPago.getFormaPago().getDescripcion() : "";
-            }
-            
+
             // Notas con NotaRecepcion cargada (para PDF y para numerosFactura/valorTotal)
             List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService.getNotasDeSolicitudWithNotaRecepcion(solicitudPagoId);
             String numerosFactura = "";
             Double valorTotal = solicitudPago.getMontoTotal() != null ? solicitudPago.getMontoTotal() : 0.0;
-            final int COL_NRO = 6, COL_FECHA = 10, COL_TOTAL = 16;
-            java.util.function.Function<String, String> padR = s -> {
-                String safe = s != null ? s : "";
-                StringBuilder sb = new StringBuilder(safe);
-                for (int i = safe.length(); i < COL_NRO; i++) sb.append(' ');
-                return sb.toString();
-            };
-            java.util.function.Function<String, String> padRFecha = s -> {
-                String safe = s != null ? s : "";
-                StringBuilder sb = new StringBuilder(safe);
-                for (int i = safe.length(); i < COL_FECHA; i++) sb.append(' ');
-                return sb.toString();
-            };
-            java.util.function.Function<String, String> padLTotal = s -> {
-                String safe = s != null ? s : "";
-                int pad = Math.max(0, COL_TOTAL - safe.length());
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < pad; i++) sb.append(' ');
-                return sb.append(safe).toString();
-            };
-
-            java.util.List<String> lineasNotas = new java.util.ArrayList<>();
+            java.util.List<ImpresionService.SolicitudPagoNotaRowDto> notasRows = new java.util.ArrayList<>();
             if (!solicitudNotas.isEmpty()) {
                 valorTotal = 0.0;
-                lineasNotas.add(padR.apply("Nro.") + padRFecha.apply("Fecha") + padLTotal.apply("Total"));
                 java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
                 for (SolicitudPagoNotaRecepcion spnr : solicitudNotas) {
                     if (spnr == null) continue;
@@ -443,7 +407,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     } catch (Exception ignored) {
                         montoStr = String.valueOf((int) Math.round(monto));
                     }
-                    lineasNotas.add(padR.apply(nro) + padRFecha.apply(fechaStr) + padLTotal.apply(montoStr));
+                    notasRows.add(new ImpresionService.SolicitudPagoNotaRowDto(nro, fechaStr, montoStr));
                 }
                 numerosFactura = solicitudNotas.stream()
                     .filter(spnr -> spnr.getNotaRecepcion() != null && spnr.getNotaRecepcion().getNumero() != null)
@@ -451,34 +415,28 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     .distinct()
                     .collect(Collectors.joining(", "));
             } else {
-                lineasNotas.add(padR.apply("Nro.") + padRFecha.apply("Fecha") + padLTotal.apply("Total"));
-                lineasNotas.add(SolicitudPagoEstado.CANCELADO.equals(solicitudPago.getEstado())
-                    ? "CANCELADA - sin notas" : padR.apply("-") + padRFecha.apply("-") + padLTotal.apply("-"));
+                if (SolicitudPagoEstado.CANCELADO.equals(solicitudPago.getEstado())) {
+                    notasRows.add(new ImpresionService.SolicitudPagoNotaRowDto("—", "—", "CANCELADA - sin notas"));
+                } else {
+                    notasRows.add(new ImpresionService.SolicitudPagoNotaRowDto("—", "—", "—"));
+                }
                 numerosFactura = "---";
             }
-            String notasTexto = String.join("\n", lineasNotas);
 
             String observaciones = (solicitudPago.getObservaciones() != null && !solicitudPago.getObservaciones().trim().isEmpty())
                 ? solicitudPago.getObservaciones().trim().toUpperCase() : "";
 
-            log.info("[imprimirSolicitudPagoPDF] solicitudPagoId={} | proveedorNombre={} (null={}) | fechaDePago={} (null={}) | formaPago={} (null={}) | moneda={} (null={}) | monedaSimbolo={} (null={}) | numerosFactura={} (null={}) | valorTotal={} (null={}) | observaciones={}",
-                solicitudPagoId, proveedorNombre, (proveedorNombre == null), fechaDePago, (fechaDePago == null), formaPago, (formaPago == null), moneda, (moneda == null), monedaSimbolo, (monedaSimbolo == null), numerosFactura, (numerosFactura == null), valorTotal, (valorTotal == null), observaciones);
-            if (log.isDebugEnabled()) {
-                log.debug("[imprimirSolicitudPagoPDF] notasTexto length={}, preview={}", notasTexto != null ? notasTexto.length() : 0, notasTexto != null && notasTexto.length() > 80 ? notasTexto.substring(0, 80) + "..." : notasTexto);
-            }
+            log.info("[imprimirSolicitudPagoPDF] solicitudPagoId={} | proveedorNombre={} | numerosFactura={} | valorTotal={} | detalleFormasPago.size()={} | notasRows.size()={}",
+                solicitudPagoId, proveedorNombre, numerosFactura, valorTotal, detalleFormasPago.size(), notasRows.size());
 
             return impresionService.imprimirSolicitudPagoPDF(
                 solicitudPago,
                 proveedorNombre,
-                fechaDePago,
-                formaPago,
-                moneda,
-                monedaSimbolo,
                 observaciones,
                 numerosFactura,
                 valorTotal,
-                notasTexto,
-                formasPagoTexto
+                notasRows,
+                detalleFormasPago
             );
             
         } catch (Exception e) {
@@ -506,70 +464,27 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             String proveedorNombre = solicitudPago.getProveedor() != null && solicitudPago.getProveedor().getPersona() != null
                 ? solicitudPago.getProveedor().getPersona().getNombre() : "";
 
-            List<com.franco.dev.domain.operaciones.SolicitudPagoDetalle> detallesTicket = solicitudPagoDetalleService.findBySolicitudPagoId(id);
-            java.util.List<String> lineasFormasPago = new java.util.ArrayList<>();
+            List<SolicitudPagoDetalle> detallesTicket = solicitudPagoDetalleService.findBySolicitudPagoIdForPrint(id);
             java.time.format.DateTimeFormatter dateFmtTicket = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
-            for (com.franco.dev.domain.operaciones.SolicitudPagoDetalle d : detallesTicket) {
-                String fp = d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null ? d.getFormaPago().getDescripcion() : "";
-                String val = d.getValor() != null ? java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(d.getValor().longValue()) : "0";
-                String fe = d.getFechaPago() != null ? d.getFechaPago().format(dateFmtTicket) : "";
-                lineasFormasPago.add(fp + " " + val + (fe.isEmpty() ? "" : " " + fe));
+            String monedaSimboloPrincipal = solicitudPago.getMoneda() != null && solicitudPago.getMoneda().getSimbolo() != null
+                ? solicitudPago.getMoneda().getSimbolo() : "";
+
+            // Formas de pago: FormaPagoTicketDto (formaPago, fecha, valorFormateado = simbolo + valor)
+            java.util.List<ImpresionService.FormaPagoTicketDto> formasPago = new java.util.ArrayList<>();
+            for (SolicitudPagoDetalle d : detallesTicket) {
+                String fp = d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null ? d.getFormaPago().getDescripcion() : "—";
+                String fe = d.getFechaPago() != null ? d.getFechaPago().format(dateFmtTicket) : "—";
+                String simbolo = d.getMoneda() != null && d.getMoneda().getSimbolo() != null ? d.getMoneda().getSimbolo() : "";
+                Double val = d.getValor() != null ? d.getValor() : 0.0;
+                String valorFormateado = (simbolo.isEmpty() ? "" : simbolo + " ") + java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(val);
+                formasPago.add(new ImpresionService.FormaPagoTicketDto(fp, fe, valorFormateado));
             }
 
-            String fechaDePago = "";
-            String moneda = "";
-            String monedaSimbolo = "";
-            String formaPago = "";
-            if (!detallesTicket.isEmpty()) {
-                com.franco.dev.domain.operaciones.SolicitudPagoDetalle prim = detallesTicket.get(0);
-                if (prim.getFechaPago() != null) fechaDePago = prim.getFechaPago().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-                if (prim.getMoneda() != null) {
-                    moneda = prim.getMoneda().getDenominacion() != null ? prim.getMoneda().getDenominacion() : "";
-                    monedaSimbolo = prim.getMoneda().getSimbolo() != null ? prim.getMoneda().getSimbolo() : moneda;
-                }
-                if (prim.getFormaPago() != null) formaPago = prim.getFormaPago().getDescripcion() != null ? prim.getFormaPago().getDescripcion() : "";
-            }
-            if (fechaDePago.isEmpty() && solicitudPago.getFechaPagoPropuesta() != null) {
-                fechaDePago = solicitudPago.getFechaPagoPropuesta().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
-            }
-            if (moneda.isEmpty() && solicitudPago.getMoneda() != null) {
-                moneda = solicitudPago.getMoneda().getDenominacion() != null ? solicitudPago.getMoneda().getDenominacion() : "";
-                monedaSimbolo = solicitudPago.getMoneda().getSimbolo() != null ? solicitudPago.getMoneda().getSimbolo() : moneda;
-            }
-            if (formaPago.isEmpty() && solicitudPago.getFormaPago() != null) {
-                formaPago = solicitudPago.getFormaPago().getDescripcion() != null ? solicitudPago.getFormaPago().getDescripcion() : "";
-            }
-
-            String estado = solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "";
-
+            // Notas: NotaTicketDto (numero, fecha, valorFormateado = simbolo + valor)
             List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService.getNotasDeSolicitudWithNotaRecepcion(id);
-            List<String> lineasNotas = new java.util.ArrayList<>();
-            Double valorTotal = solicitudPago.getMontoTotal() != null ? solicitudPago.getMontoTotal() : 0.0;
-            final int COL_NRO = 6, COL_FECHA = 10, COL_TOTAL = 16;
-            java.util.function.Function<String, String> padRight = s -> {
-                String safe = s != null ? s : "";
-                StringBuilder sb = new StringBuilder(safe);
-                for (int i = safe.length(); i < COL_NRO; i++) sb.append(' ');
-                return sb.toString();
-            };
-            java.util.function.Function<String, String> padRightFecha = s -> {
-                String safe = s != null ? s : "";
-                StringBuilder sb = new StringBuilder(safe);
-                for (int i = safe.length(); i < COL_FECHA; i++) sb.append(' ');
-                return sb.toString();
-            };
-            java.util.function.Function<String, String> padLeftTotal = s -> {
-                String safe = s != null ? s : "";
-                int pad = Math.max(0, COL_TOTAL - safe.length());
-                StringBuilder sb = new StringBuilder();
-                for (int i = 0; i < pad; i++) sb.append(' ');
-                return sb.append(safe).toString();
-            };
-
+            java.util.List<ImpresionService.NotaTicketDto> notas = new java.util.ArrayList<>();
+            java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
             if (!solicitudNotas.isEmpty()) {
-                valorTotal = 0.0;
-                lineasNotas.add(padRight.apply("Nro.") + padRightFecha.apply("Fecha") + padLeftTotal.apply("Total"));
-                java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
                 for (SolicitudPagoNotaRecepcion spnr : solicitudNotas) {
                     if (spnr == null) continue;
                     String nro = "?";
@@ -582,23 +497,12 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                         }
                     }
                     Double monto = spnr.getMontoIncluido() != null ? spnr.getMontoIncluido() : 0.0;
-                    valorTotal += monto;
-                    String montoStr;
-                    try {
-                        long montoLong = (long) Math.round(monto);
-                        montoStr = java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(montoLong);
-                    } catch (Exception ignored) {
-                        montoStr = String.valueOf((int) Math.round(monto));
-                    }
-                    lineasNotas.add(padRight.apply(nro) + padRightFecha.apply(fechaStr) + padLeftTotal.apply(montoStr));
+                    String valorFormateado = (monedaSimboloPrincipal.isEmpty() ? "" : monedaSimboloPrincipal + " ")
+                        + java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(monto);
+                    notas.add(new ImpresionService.NotaTicketDto(nro, fechaStr, valorFormateado));
                 }
-            } else {
-                lineasNotas.add(padRight.apply("Nro.") + padRightFecha.apply("Fecha") + padLeftTotal.apply("Total"));
-                if (SolicitudPagoEstado.CANCELADO.equals(solicitudPago.getEstado())) {
-                    lineasNotas.add("CANCELADA - sin notas");
-                } else {
-                    lineasNotas.add(padRight.apply("-") + padRightFecha.apply("-") + padLeftTotal.apply("-"));
-                }
+            } else if (SolicitudPagoEstado.CANCELADO.equals(solicitudPago.getEstado())) {
+                notas.add(new ImpresionService.NotaTicketDto("—", "—", "CANCELADA - sin notas"));
             }
 
             String usuario = "";
@@ -611,9 +515,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
 
             impresionService.printSolicitudPagoTicket(
-                solicitudPago, proveedorNombre, fechaDePago, formaPago,
-                moneda, monedaSimbolo, lineasNotas, valorTotal, estado, usuario, printerName,
-                lineasFormasPago
+                solicitudPago, proveedorNombre, usuario, printerName, notas, formasPago
             );
             return true;
         } catch (Exception e) {

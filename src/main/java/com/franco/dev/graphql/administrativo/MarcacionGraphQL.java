@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.administrativo;
 
 import com.franco.dev.domain.administrativo.Marcacion;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.graphql.administrativo.input.MarcacionInput;
 import com.franco.dev.service.administrativo.MarcacionService;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -38,8 +39,8 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private ImpresionService impresionService;
 
-    public Optional<Marcacion> marcacion(Long id) {
-        return service.findById(id);
+    public Optional<Marcacion> marcacion(Long id, Long sucursalId) {
+        return service.findById(new EmbebedPrimaryKey(id, sucursalId));
     }
 
     public Page<Marcacion> marcaciones(String fechaInicio, String fechaFin, Integer page, Integer size) {
@@ -102,14 +103,20 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         }
 
         Marcacion e = new Marcacion();
-        if (input.getId() != null) {
-            Optional<Marcacion> existing = service.findById(input.getId());
+        if (input.getId() != null && input.getSucursalId() != null) {
+            Optional<Marcacion> existing = service
+                    .findById(new EmbebedPrimaryKey(input.getId(), input.getSucursalId()));
             if (existing.isPresent()) {
                 e = existing.get();
             } else {
-                throw new graphql.GraphQLException(
-                        "No se encontró la marcación con ID " + input.getId() + " en el servidor central.");
+                e.setId(input.getId());
+                e.setSucursalId(input.getSucursalId());
             }
+        } else {
+            if (input.getId() != null)
+                e.setId(input.getId());
+            if (input.getSucursalId() != null)
+                e.setSucursalId(input.getSucursalId());
         }
         if (input.getDeviceId() != null)
             e.setDeviceId(input.getDeviceId());

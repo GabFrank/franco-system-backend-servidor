@@ -175,6 +175,15 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public Integer isUserFaceAuth(Long id) {
+        Usuario usuario = repository.findById(id).orElse(null);
+        if (usuario != null && usuario.getPersona() != null) {
+            // Si ya tiene embedding o ya tiene imagenes de perfil, consideramos que tiene
+            // registro facial
+            if ((usuario.getPersona().getEmbedding() != null && !usuario.getPersona().getEmbedding().isEmpty()) ||
+                    (usuario.getPersona().getImagenes() != null && !usuario.getPersona().getImagenes().isEmpty())) {
+                return 3;
+            }
+        }
         List<String> images = getUserImages(id, "auth");
         return images.size();
     }

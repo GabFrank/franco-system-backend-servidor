@@ -39,6 +39,9 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private ImpresionService impresionService;
 
+    @Autowired
+    private com.franco.dev.service.administrativo.JornadaService jornadaService;
+
     public Optional<Marcacion> marcacion(Long id, Long sucursalId) {
         return service.findById(new EmbebedPrimaryKey(id, sucursalId));
     }
@@ -199,19 +202,18 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             usuarioReporte = usuarioService.findById(usuarioResponsableId).orElse(null);
         }
 
-        List<Marcacion> marcacionList;
+        List<com.franco.dev.domain.administrativo.Jornada> jornadaList;
         if (usuarioId != null && fechaInicio != null && fechaFin != null) {
-            marcacionList = service.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin, 0,
-                    Integer.MAX_VALUE).getContent();
+            jornadaList = jornadaService.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin);
         } else if (usuarioId != null) {
-            marcacionList = service.findByUsuarioId(usuarioId, 0, Integer.MAX_VALUE).getContent();
+            jornadaList = jornadaService.findByUsuarioId(usuarioId);
         } else if (fechaInicio != null && fechaFin != null) {
-            marcacionList = service.findByFechaRange(fechaInicio, fechaFin, 0, Integer.MAX_VALUE).getContent();
+            jornadaList = jornadaService.findByFechaRange(fechaInicio, fechaFin);
         } else {
-            marcacionList = service.findAll2();
+            jornadaList = jornadaService.findAll2();
         }
 
-        return impresionService.imprimirMarcaciones(marcacionList, fechaInicio, fechaFin, usuarioReporte);
+        return impresionService.imprimirMarcaciones(jornadaList, fechaInicio, fechaFin, usuarioReporte);
     }
 
 }

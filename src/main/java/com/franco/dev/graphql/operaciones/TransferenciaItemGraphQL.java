@@ -121,7 +121,22 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
                     CostoPorProducto costoPorProducto = new CostoPorProducto();
                     CostoPorProducto lastCostoPorProducto = costosPorProductoService
                             .findLastByProductoId(producto.getId());
-                    if (lastCostoPorProducto != null && lastCostoPorProducto.getUltimoPrecioCompra() != null
+                    if (lastCostoPorProducto == null) {
+                        costoPorProducto.setCostoMedio(precioCosto);
+                        costoPorProducto.setProducto(producto);
+                        costoPorProducto.setCotizacion(1.0);
+                        costoPorProducto.setUltimoPrecioCompra(precioCosto);
+                        costoPorProducto.setUsuario(e.getUsuario());
+
+                        try {
+                            costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
+                        } catch (Exception ex) {
+                            System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
+                        }
+
+                        costoPorProducto.setCreadoEn(e.getCreadoEn());
+                        costosPorProductoService.save(costoPorProducto);
+                    } else if (lastCostoPorProducto.getUltimoPrecioCompra() != null
                             && !lastCostoPorProducto.getUltimoPrecioCompra().equals(precioCosto)) {
                         if (lastCostoPorProducto.getCostoMedio() == null) {
                             costoPorProducto

@@ -34,16 +34,47 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
         }
-        if (entity.getNombre() != null) entity.setNombre(entity.getNombre().toUpperCase());
-        if (entity.getApodo() != null) entity.setApodo(entity.getApodo().toUpperCase());
-        if (entity.getDireccion() != null) entity.setDireccion(entity.getDireccion().toUpperCase());
-        if (entity.getEmail() != null) entity.setEmail(entity.getEmail().toUpperCase());
-        if(entity.getDocumento().contains("-")){
+        if (entity.getNombre() != null)
+            entity.setNombre(entity.getNombre().toUpperCase());
+        if (entity.getApodo() != null)
+            entity.setApodo(entity.getApodo().toUpperCase());
+        if (entity.getDireccion() != null)
+            entity.setDireccion(entity.getDireccion().toUpperCase());
+        if (entity.getEmail() != null)
+            entity.setEmail(entity.getEmail().toUpperCase());
+        if (entity.getDocumento().contains("-")) {
             int index = entity.getDocumento().indexOf("-");
             entity.setDocumento(entity.getDocumento().substring(0, index));
         }
         Persona p = super.save(entity);
-//        personaPublisher.publish(p);
+        // personaPublisher.publish(p);
+        return p;
+    }
+
+    /**
+     * Guarda la persona localmente aplicando solo transformaciones básicas.
+     * Usado para actualizar metadata (como nombres de archivo de imagen) sin lógica
+     * adicional.
+     * 
+     * @param entity Persona a guardar
+     * @return Persona guardada
+     */
+    public Persona saveLocal(Persona entity) {
+        if (entity.getId() == null) {
+            throw new IllegalStateException(
+                    "No se puede guardar persona localmente sin ID. La persona debe tener un ID válido.");
+        }
+
+        if (entity.getNombre() != null)
+            entity.setNombre(entity.getNombre().toUpperCase());
+        if (entity.getApodo() != null)
+            entity.setApodo(entity.getApodo().toUpperCase());
+        if (entity.getDireccion() != null)
+            entity.setDireccion(entity.getDireccion().toUpperCase());
+        if (entity.getEmail() != null)
+            entity.setEmail(entity.getEmail().toUpperCase());
+
+        Persona p = super.save(entity);
         return p;
     }
 }

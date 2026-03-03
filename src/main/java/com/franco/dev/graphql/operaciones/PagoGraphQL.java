@@ -28,10 +28,6 @@ public class PagoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     public Pago pago(Long id){
         return service.findById(id).orElse(null);
     }
-    
-    public Pago pagosPorSolicitudPagoId(Long solicitudPagoId) {
-        return service.findBySolicitudPagoId(solicitudPagoId);
-    }
 
     public Pago savePago(PagoInput input) {
         ModelMapper m = new ModelMapper();
@@ -42,9 +38,6 @@ public class PagoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         }
         if (input.getAutorizadoPorId() != null) {
             e.setAutorizadoPor(usuarioService.findById(input.getAutorizadoPorId()).orElse(null));
-        }
-        if (input.getSolicitudPagoId() != null) {
-            e.setSolicitudPago(solicitudPagoService.findById(input.getSolicitudPagoId()).orElse(null));
         }
         if(input.getCreadoEn() != null){
             e.setCreadoEn(stringToDate(input.getCreadoEn()));

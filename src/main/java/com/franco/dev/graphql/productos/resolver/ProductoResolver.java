@@ -13,6 +13,7 @@ import com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.media.ImagenMasterService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
+import com.franco.dev.service.operaciones.NotaRecepcionItemService;
 import com.franco.dev.service.operaciones.PedidoItemService;
 import com.franco.dev.service.operaciones.PedidoService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -26,6 +27,10 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @Component
 public class ProductoResolver implements GraphQLResolver<Producto> {
@@ -59,6 +64,9 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
 
     @Autowired
     private PedidoItemService pedidoItemService;
+
+    @Autowired
+    private NotaRecepcionItemService notaRecepcionItemService;
 
     @Autowired
     private ProductoPorSucursalService productoPorSucursalService;
@@ -162,18 +170,34 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
 
     public List<ProductoCompra> productoUltimasCompras(Producto p){
         List<ProductoCompra> pcList = new ArrayList<>();
-        Pedido pedido;
-        PedidoItem pedidoItem;
-        List<MovimientoStock> msList = movimientoStockService.ultimosMovimientos(p.getId(), TipoMovimiento.COMPRA, 5);
-        for (MovimientoStock ms : msList){
+        
+        // Buscar directamente en NotaRecepcionItem, ordenado por fecha de creación descendente
+        Pageable pageable = PageRequest.of(0, 5);
+        Page<com.franco.dev.domain.operaciones.NotaRecepcionItem> notaItemsPage = notaRecepcionItemService.findUltimasComprasByProductoId(p.getId(), pageable);
+        List<com.franco.dev.domain.operaciones.NotaRecepcionItem> notaItems = notaItemsPage.getContent();
+        
+        for (com.franco.dev.domain.operaciones.NotaRecepcionItem notaItem : notaItems){
             ProductoCompra pc = new ProductoCompra();
-            pc.setCantidad(ms.getCantidad());
-            pc.setCreadoEn(ms.getCreadoEn());
-            pc.setPedido(pedidoService.findById(ms.getReferencia()).orElse(null));
-            CostoPorProducto cps = costosPorProductoService.findByMovimientoStockId(ms.getId());
-            if(cps!=null){
-                pc.setPrecio(cps.getUltimoPrecioCompra());
+            
+            // Obtener cantidad desde NotaRecepcionItem
+            pc.setCantidad(notaItem.getCantidadEnNota() != null ? notaItem.getCantidadEnNota() : 0.0);
+            
+            // Obtener precio desde NotaRecepcionItem
+            pc.setPrecio(notaItem.getPrecioUnitarioEnNota() != null ? notaItem.getPrecioUnitarioEnNota() : 0.0);
+            
+            // Obtener fecha de creación
+            pc.setCreadoEn(notaItem.getCreadoEn() != null ? notaItem.getCreadoEn() : LocalDateTime.now());
+            
+            // Obtener pedido desde NotaRecepcion -> Pedido
+            Pedido pedido = null;
+            if(notaItem.getNotaRecepcion() != null && notaItem.getNotaRecepcion().getPedido() != null) {
+                pedido = pedidoService.findById(notaItem.getNotaRecepcion().getPedido().getId()).orElse(null);
             }
+            pc.setPedido(pedido);
+            
+            // Obtener presentación en nota
+            pc.setPresentacionEnNota(notaItem.getPresentacionEnNota());
+            
             pcList.add(pc);
         }
         return pcList;

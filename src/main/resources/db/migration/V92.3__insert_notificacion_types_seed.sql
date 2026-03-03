@@ -1,0 +1,22 @@
+INSERT INTO configuraciones.notificacion_tipo_role (role_id, tipo_notificacion, descripcion, es_obligatorio, creado_en) VALUES
+(1, 'GASTO', 'Notificación de gasto realizado en sucursal', false, NOW()),
+(1, 'VENTA_CREDITO', 'Notificación de venta a crédito realizada', true, NOW()),
+(2, 'VENTA_CREDITO', 'Notificación de venta a crédito realizada', true, NOW()),
+(5, 'VENTA_CREDITO', 'Notificación de venta a crédito realizada', false, NOW()),
+(1, 'VENTA_CONVENIO', 'Notificación de venta con convenio', false, NOW()),
+(1, 'AJUSTE_STOCK', 'Notificación de ajuste de stock manual', false, NOW()),
+(5, 'AJUSTE_STOCK', 'Notificación de ajuste de stock manual', false, NOW()),
+(1, 'AJUSTE_COSTO', 'Notificación de ajuste de costo de producto', false, NOW()),
+(5, 'PRODUCTO_CREADO', 'Notificación de creación de nuevo producto', false, NOW()),
+(1, 'PRECIO_ACTUALIZADO', 'Notificación de actualización de precios', false, NOW()),
+(5, 'PRECIO_ACTUALIZADO', 'Notificación de actualización de precios', false, NOW()),
+(1, 'TRANSFERENCIA_INICIADA', 'Notificación de transferencia entre sucursales', false, NOW()),
+(5, 'TRANSFERENCIA_INICIADA', 'Notificación de transferencia entre sucursales', false, NOW()),
+(1, 'INVENTARIO_INICIADO', 'Notificación de inicio de inventario', false, NOW()),
+(5, 'INVENTARIO_INICIADO', 'Notificación de inicio de inventario', false, NOW()),
+(1, 'VENTA_CREDITO_CLIENTE', 'Notificación de compra a crédito propia', true, NOW()),
+(1, 'FACTURA_ALTO_VALOR', 'Alerta de factura con monto alto', false, NOW()),
+(1, 'CAMBIO_SUCURSAL_PRE_TRANSFERENCIA', 'Aviso de cambio de sucursal en transferencia', false, NOW()),
+(1, 'NUEVO_DISPOSITIVO', 'Alerta de seguridad por nuevo dispositivo', true, NOW()),
+(1, 'COTIZACION_ACTUALIZADA', 'Notificación de cambio en cotizaciones', false, NOW())
+ON CONFLICT (role_id, tipo_notificacion) DO NOTHING;

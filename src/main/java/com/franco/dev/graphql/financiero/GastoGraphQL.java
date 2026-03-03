@@ -69,8 +69,18 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
-        // e = service.save(e);
-        // multiTenantService.compartir(null, (Gasto s) -> service.save(s), e);
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getCajaId() != null)
+            e.setCaja(pdvCajaService.findById(input.getCajaId(), input.getSucursalId()));
+        if (input.getResponsableId() != null)
+            e.setResponsable(funcionarioService.findById(input.getResponsableId()).orElse(null));
+        if (input.getTipoGastoId() != null)
+            e.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
+        if (input.getAutorizadoPorId() != null)
+            e.setAutorizadoPor(funcionarioService.findById(input.getAutorizadoPorId()).orElse(null));
+
+        e = service.save(e);
         return e;
     }
 

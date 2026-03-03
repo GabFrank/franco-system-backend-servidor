@@ -19,6 +19,7 @@ type PdvCaja {
     verificadoPor: Usuario
     cajaAnteriorId: ID
     estadoDiferenciaConsecutiva: String
+    cajaObservacionList: [CajaObservacion]
 }
 
 input PdvCajaInput {

@@ -35,7 +35,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "or UPPER(p.descripcion_factura) like CONCAT('%', UPPER(:texto), '%') or c.codigo like CONCAT('%', :texto, '%')) "
                         +
                         "and p.activo = true " +
-                        "and EXISTS (SELECT 1 FROM productos.presentacion p3 WHERE p3.producto_id = p.id AND p3.activo = true) " +
+                        "and EXISTS (SELECT 1 FROM productos.presentacion p3 WHERE p3.producto_id = p.id AND p3.activo = true) "
+                        +
                         "and (:conStock = 'false' OR (COALESCE(st.stock_actual, 0) > 0)) " +
                         "ORDER BY p.descripcion asc " +
                         "limit 10 " +
@@ -110,7 +111,11 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         +
                         "SUM(vi.cantidad * pre.cantidad) as cantidad, " +
                         "SUM(vi.precio * vi.cantidad * pre.cantidad) as totalVenta," +
-                        "0.0, 0.0, 0.0, 0.0 " +
+                        "0.0, 0.0, 0.0, 0.0, " +
+                        "SUM(CASE WHEN (v.totalGs > 0) THEN ((vi.precio * vi.cantidad) / v.totalGs * COALESCE((SELECT SUM(cd.valor * cd.cambio) FROM CobroDetalle cd WHERE cd.cobro = v.cobro AND cd.descuento = true), 0.0)) ELSE 0.0 END), "
+                        +
+                        "SUM(CASE WHEN (v.totalGs > 0) THEN ((vi.precio * vi.cantidad) / v.totalGs * COALESCE((SELECT SUM(cd.valor * cd.cambio) FROM CobroDetalle cd WHERE cd.cobro = v.cobro AND cd.aumento = true), 0.0)) ELSE 0.0 END) "
+                        +
                         ") " +
                         "FROM VentaItem vi " +
                         "JOIN vi.venta v " +
@@ -123,9 +128,10 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "WHERE " +
                         "v.estado = 'CONCLUIDA' AND " +
                         "v.creadoEn BETWEEN :startDate AND :endDate AND " +
-                        "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
-                        "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
-                        "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
+                        "(:sucursalId is null or v.sucursalId = :sucursalId) AND " +
+                        "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
+                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
                         "group by pro.id " +
                         "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
         public List<LucroPorProductosDto> findLucroPorProducto(
@@ -133,7 +139,10 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("startDate") LocalDateTime startDate,
                         @Param("endDate") LocalDateTime endDate,
                         @Param("usuarioIdList") List<Long> usuarioIdList,
-                        @Param("productoIdList") List<Long> productoIdList);
+                        @Param("productoIdList") List<Long> productoIdList,
+                        @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("filtrarUsuario") Boolean filtrarUsuario,
+                        @Param("filtrarProducto") Boolean filtrarProducto);
 
         @Query("SELECT pro.id, SUM(vi.precio * vi.cantidad) " +
                         "FROM VentaItem vi " +
@@ -145,15 +154,19 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "v.estado = 'CONCLUIDA' AND " +
                         "v.creadoEn BETWEEN :startDate AND :endDate AND " +
                         "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
-                        "((:usuarioIdList) is null or u.id IN (:usuarioIdList)) AND " +
-                        "((:productoIdList) is null or pro.id IN (:productoIdList)) " +
+                        "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
+                        "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
                         "GROUP BY pro.id")
         public List<Object[]> findTotalVentaPacksPorProducto(
                         @Param("sucursalId") Long sucursalId,
                         @Param("startDate") LocalDateTime startDate,
                         @Param("endDate") LocalDateTime endDate,
                         @Param("usuarioIdList") List<Long> usuarioIdList,
-                        @Param("productoIdList") List<Long> productoIdList);
+                        @Param("productoIdList") List<Long> productoIdList,
+                        @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("filtrarUsuario") Boolean filtrarUsuario,
+                        @Param("filtrarProducto") Boolean filtrarProducto);
 
         @Query("select distinct p from Producto p " +
                         "join p.subfamilia sub " +

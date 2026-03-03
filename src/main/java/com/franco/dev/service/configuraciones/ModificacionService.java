@@ -10,7 +10,6 @@ import com.franco.dev.repository.configuraciones.ModificacionRegistroRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
-import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.security.core.Authentication;
@@ -28,20 +27,19 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
 public class ModificacionService extends CrudService<ModificacionRegistro, ModificacionRegistroRepository, Long> {
 
     @Autowired
-    private final ModificacionRegistroRepository repository;
+    private ModificacionRegistroRepository repository;
 
     @Autowired
-    private final ModificacionDetalleRepository detalleRepository;
+    private ModificacionDetalleRepository detalleRepository;
 
     @Autowired
-    private final UsuarioService usuarioService;
+    private UsuarioService usuarioService;
 
     @Autowired
-    private final SucursalService sucursalService;
+    private SucursalService sucursalService;
 
     @Autowired
     private Environment env;
@@ -55,20 +53,14 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
     public ModificacionRegistro registrarInsercion(Object entidad, String tipoEntidad, String schemaNombre,
             String tablaNombre) {
         try {
-            System.out.println("=== INICIANDO REGISTRO DE INSERCIÓN ===");
-            System.out.println("Tipo entidad: " + tipoEntidad);
-            System.out.println("Schema: " + schemaNombre);
-            System.out.println("Tabla: " + tablaNombre);
 
             ModificacionRegistro registro = crearRegistroBase(entidad, tipoEntidad, schemaNombre, tablaNombre,
                     TipoOperacion.INSERT);
-            System.out.println("Registro base creado. Entidad ID: " + registro.getEntidadId());
 
             List<ModificacionDetalle> detalles = obtenerDetallesInsercion(entidad);
-            System.out.println("Detalles obtenidos: " + detalles.size());
 
             if (detalles.isEmpty()) {
-                System.out.println("No hay detalles, creando detalle básico");
+
                 ModificacionDetalle detalleBasico = new ModificacionDetalle();
                 detalleBasico.setCampoNombre("ACCION");
                 detalleBasico.setCampoTipo("String");
@@ -80,20 +72,15 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
 
             ModificacionRegistro saved = repository.save(registro);
             repository.flush();
-            System.out.println("Registro guardado con ID: " + saved.getId());
 
             for (ModificacionDetalle detalle : detalles) {
                 detalle.setModificacionRegistro(saved);
                 detalleRepository.save(detalle);
             }
             detalleRepository.flush();
-            System.out.println("Detalles guardados: " + detalles.size());
-            System.out.println("=== FIN REGISTRO DE INSERCIÓN ===");
 
             return saved;
         } catch (Exception e) {
-            System.err.println("Error registrando inserción: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }
@@ -132,11 +119,6 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
 
             return saved;
         } catch (Throwable e) {
-            System.err.println("Error registrando actualización de " + tipoEntidad + ": " + e.getMessage());
-            if (e.getCause() != null) {
-                System.err.println("Causa: " + e.getCause().getMessage());
-            }
-            e.printStackTrace();
             return null;
         }
     }
@@ -169,8 +151,6 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
 
             return saved;
         } catch (Exception e) {
-            System.err.println("Error registrando eliminación: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }
@@ -199,16 +179,10 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                 }
                 if (entidadId != null && entidadId > 0) {
                     registro.setEntidadId(entidadId);
-                    System.out.println("ID de entidad obtenido en crearRegistroBase: " + entidadId);
-                } else {
-                    System.out.println("ID de entidad es null o 0 en crearRegistroBase: " + idValue);
                 }
-            } else {
-                System.out.println("No se pudo obtener ID de la entidad (idValue es null) en crearRegistroBase");
             }
         } catch (Exception e) {
-            System.err.println("Error obteniendo ID de entidad en crearRegistroBase: " + e.getMessage());
-            e.printStackTrace();
+            // e.printStackTrace();
         }
 
         try {
@@ -261,9 +235,6 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
         Field[] fields = entidad.getClass().getDeclaredFields();
         int orden = 1;
 
-        System.out.println("Obteniendo detalles de inserción para: " + entidad.getClass().getSimpleName());
-        System.out.println("Total de campos: " + fields.length);
-
         for (Field field : fields) {
             if (java.lang.reflect.Modifier.isStatic(field.getModifiers()) ||
                     field.getName().equals("serialVersionUID") ||
@@ -285,17 +256,20 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                 if (field.isAnnotationPresent(javax.persistence.ManyToOne.class)) {
                     if (value != null) {
                         // Usamos la interfaz Identifiable que ya implementan las entidades
-                        // Esto es seguro para Proxies de Hibernate y evita usar reflexión sobre campos privados
+                        // Esto es seguro para Proxies de Hibernate y evita usar reflexión sobre campos
+                        // privados
                         if (value instanceof com.franco.dev.config.Identifiable) {
                             Object idValue = ((com.franco.dev.config.Identifiable<?>) value).getId();
                             if (idValue != null) {
                                 detalle.setValorNuevoId(((Number) idValue).longValue());
-                                detalle.setValorNuevo(value.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
+                                detalle.setValorNuevo(
+                                        value.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
                             } else {
                                 detalle.setValorNuevo(value.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
                             }
                         } else {
-                            // Si no es Identifiable, intentamos un toString limitado o el nombre de la clase
+                            // Si no es Identifiable, intentamos un toString limitado o el nombre de la
+                            // clase
                             detalle.setValorNuevo(value.getClass().getSimpleName().split("\\$")[0]);
                         }
                     } else {
@@ -306,14 +280,12 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                 }
 
                 detalles.add(detalle);
-                System.out.println("Detalle agregado: " + field.getName() + " = " + detalle.getValorNuevo());
+
             } catch (Exception e) {
-                System.err.println("Error procesando campo " + field.getName() + ": " + e.getMessage());
-                e.printStackTrace();
+                // e.printStackTrace();
             }
         }
 
-        System.out.println("Total detalles obtenidos: " + detalles.size());
         return detalles;
     }
 
@@ -351,9 +323,11 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                                 Object idValue = ((com.franco.dev.config.Identifiable<?>) valorAnterior).getId();
                                 if (idValue != null) {
                                     detalle.setValorAnteriorId(((Number) idValue).longValue());
-                                    detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
+                                    detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0]
+                                            + " (ID: " + idValue + ")");
                                 } else {
-                                    detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
+                                    detalle.setValorAnterior(
+                                            valorAnterior.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
                                 }
                             } else {
                                 detalle.setValorAnterior(valorAnterior.getClass().getSimpleName().split("\\$")[0]);
@@ -367,9 +341,11 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                                 Object idValue = ((com.franco.dev.config.Identifiable<?>) valorNuevo).getId();
                                 if (idValue != null) {
                                     detalle.setValorNuevoId(((Number) idValue).longValue());
-                                    detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
+                                    detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0]
+                                            + " (ID: " + idValue + ")");
                                 } else {
-                                    detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
+                                    detalle.setValorNuevo(
+                                            valorNuevo.getClass().getSimpleName().split("\\$")[0] + " (sin ID)");
                                 }
                             } else {
                                 detalle.setValorNuevo(valorNuevo.getClass().getSimpleName().split("\\$")[0]);
@@ -426,14 +402,15 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
                 ModificacionDetalle detalle = new ModificacionDetalle();
                 detalle.setCampoNombre(field.getName());
                 detalle.setCampoTipo(field.getType().getSimpleName());
-                
+
                 if (value instanceof com.franco.dev.config.Identifiable) {
                     Object idValue = ((com.franco.dev.config.Identifiable<?>) value).getId();
-                    detalle.setValorAnterior(value.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
+                    detalle.setValorAnterior(
+                            value.getClass().getSimpleName().split("\\$")[0] + " (ID: " + idValue + ")");
                 } else {
                     detalle.setValorAnterior(value != null ? value.toString() : null);
                 }
-                
+
                 detalle.setOrden(orden++);
                 detalle.setEsCampoSensible(esCampoSensible(field.getName()));
 

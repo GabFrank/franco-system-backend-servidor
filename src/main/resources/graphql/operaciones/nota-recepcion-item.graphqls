@@ -1,33 +1,126 @@
 type NotaRecepcionItem {
-    id:ID!,
-    notaRecepcion: NotaRecepcion
+    id: ID!
+    notaRecepcion: NotaRecepcion!
     pedidoItem: PedidoItem
-    creadoEn: Date,
+    producto: Producto!
+    presentacionEnNota: Presentacion
+    cantidadEnNota: Float!
+    precioUnitarioEnNota: Float!
+    esBonificacion: Boolean
+    vencimientoEnNota: Date
+    observacion: String
+    estado: NotaRecepcionItemEstado!
+    motivoRechazo: String
+    creadoEn: Date
     usuario: Usuario
+    distribucionConcluida: Boolean
+    cantidadPendiente: Float
+    notaRecepcionItemDistribuciones: [NotaRecepcionItemDistribucion]
+    
+    # Campos de recepción física (calculados por el resolver)
+    cantidadRecibida: Float
+    cantidadRechazada: Float
+    estadoRecepcion(sucursalesIds: [ID!]): String
+    recepcionMercaderiaItems: [RecepcionMercaderiaItem]
 }
 
 input NotaRecepcionItemInput {
-    id:ID
-    notaRecepcionId: Int
+    id: ID
+    notaRecepcionId: Int!
     pedidoItemId: Int
-    creadoEn: Date,
+    productoId: Int!
+    presentacionEnNotaId: Int
+    cantidadEnNota: Float!
+    precioUnitarioEnNota: Float!
+    esBonificacion: Boolean
+    vencimientoEnNota: String
+    observacion: String
+    estado: NotaRecepcionItemEstado!
+    motivoRechazo: String
+    creadoEn: String
     usuarioId: Int
 }
 
 extend type Query {
-    notaRecepcionItem(id:ID!):NotaRecepcionItem
-    notaRecepcionItemList(page:Int = 0, size:Int = 10):[NotaRecepcionItem]!
-    notaRecepcionItemListPorNotaRecepcionId(id:ID!):[NotaRecepcionItem]
+    notaRecepcionItem(id: ID!): NotaRecepcionItem
+    notaRecepcionItemList(page: Int = 0, size: Int = 10): [NotaRecepcionItem]!
+    notaRecepcionItemListPorNotaRecepcionId(id: ID!): [NotaRecepcionItem]
+    notaRecepcionItemListPorNotaRecepcionIdYSucursales(
+        notaRecepcionId: ID!, 
+        sucursalesIds: [ID!]!, 
+        page: Int = 0, 
+        size: Int = 10,
+        filtroVerificacion: FiltroVerificacion = TODOS,
+        filtroTexto: String
+    ): NotaRecepcionItemPage
     countNotaRecepcionItem: Int
-
-    buscarSobrantes(id:ID): [NotaRecepcionItem]
+    buscarSobrantes(id: ID): [NotaRecepcionItem]
+    
+    # Nuevas queries paginadas para items
+    itemsNotaPaginados(
+        notaId: ID!, 
+        page: Int = 0, 
+        size: Int = 20, 
+        sort: String, 
+        direction: String
+    ): NotaRecepcionItemPage
+    
+    # Query para resumen de items sin cargar todos los datos
+    resumenItemsNota(notaIds: [ID!]!): ResumenItemsNota
 }
 
 extend type Mutation {
-    saveNotaRecepcionItem(NotaRecepcionItem:NotaRecepcionItemInput!):NotaRecepcionItem!
-    deleteNotaRecepcionItem(id:ID!):Boolean!
-    adicionarItens(id:ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): [NotaRecepcionItem]
-    removerItens(id:ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): Boolean
+    saveNotaRecepcionItem(NotaRecepcionItem: NotaRecepcionItemInput!): NotaRecepcionItem!
+    deleteNotaRecepcionItem(id: ID!): Boolean!
+    adicionarItens(id: ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): [NotaRecepcionItem]
+    removerItens(id: ID, notaRecepcionItemInputList: [NotaRecepcionItemInput]): Boolean
+}
+
+enum NotaRecepcionItemEstado {
+    PENDIENTE_CONCILIACION
+    CONCILIADO
+    RECHAZADO
+    DISCREPANCIA
+}
+
+type NotaRecepcionItemPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [NotaRecepcionItem]
+    getPageable: Pageable
+}
+
+enum FiltroVerificacion {
+    TODOS
+    PENDIENTES
+    VERIFICADOS
+    RECHAZADOS
+}
+
+# Tipo para resumen de items de notas de recepción
+type ResumenItemsNota {
+    totalItems: Int!
+    totalCantidad: Float!
+    itemsPorEstado: [ItemPorEstado]
+    resumenPorNota: [ResumenPorNota]
+}
+
+type ItemPorEstado {
+    estado: String!
+    count: Int!
+    cantidad: Float!
+}
+
+type ResumenPorNota {
+    notaId: ID!
+    totalItems: Int!
+    totalCantidad: Float!
+    estado: String!
 }
 
 

@@ -14,7 +14,9 @@ type Venta {
     totalDs: Float
     cobro: Cobro
     sucursalId: Int
+    sucursal: Sucursal
     delivery: Delivery
+    ventaObservacionList: [VentaObservacion]
 }
 
 input VentaInput {
@@ -78,6 +80,26 @@ extend type Query {
     ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
     ventasPorSucursal(inicio: String!, fin: String!): [VentaPorSucursal]
     ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID): [VentaPorFuncionario]
+    ventasGenericFilter(
+        idVenta:ID, 
+        idCaja:ID, 
+        page: Int, 
+        size: Int, 
+        asc: Boolean, 
+        sucId: ID, 
+        formaPago: ID, 
+        estado: VentaEstado, 
+        isDelivery: Boolean, 
+        monedaId: Int, 
+        conDescuento: Boolean, 
+        conAumento: Boolean,
+        conObservacion: Boolean,
+        clienteId: ID,
+        fechaInicio: String,
+        fechaFin: String
+    ):VentaPage
+#    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
+#    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }
 
 extend type Mutation {

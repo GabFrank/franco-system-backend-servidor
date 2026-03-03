@@ -3,26 +3,25 @@ type Pedido {
     proveedor: Proveedor
     vendedor: Vendedor
     formaPago: FormaPago
-    estado: PedidoEstado
+    tipoBoleta: String
     moneda: Moneda
     plazoCredito: Int
-    tipoBoleta: String
+    observacionFormaPago: String
     creadoEn: Date
     usuario: Usuario
-    descuento: Float
-    valorTotal: Float
-    notaRecepcionList: [NotaRecepcion]
-    compra: Compra
-    fechaEntregaList: [PedidoFechaEntrega]
     sucursalEntregaList: [PedidoSucursalEntrega]
     sucursalInfluenciaList: [PedidoSucursalInfluencia]
-    cantPedidoItem: Int
-    cantPedidoItemSinNota: Int
-    cantPedidoItemCancelados: Int
-    cantNotas: Int
-    cantNotasPagadas: Int
-    cantNotasCanceladas: Int
-    pagado: Boolean
+    procesoEtapas: [ProcesoEtapa]
+}
+
+type PedidoResumen {
+    pedidoId: ID
+    etapaActual: ProcesoEtapa
+    cantidadItems: Int
+    valorTotal: Float
+    valorTotalPedido: Float
+    cantidadItemsConDistribucionCompleta: Int
+    cantidadItemsPendientesDistribucion: Int
 }
 
 input PedidoInput {
@@ -30,15 +29,12 @@ input PedidoInput {
     proveedorId: Int
     vendedorId: Int
     formaPagoId: Int
-    estado: PedidoEstado
+    tipoBoleta: String
     monedaId: Int
     plazoCredito: Int
-    tipoBoleta: String
+    observacionFormaPago: String
     creadoEn: Date
     usuarioId: Int
-    descuento: Int
-    valorTotal: Float
-    pedidoItemInputList: [PedidoItemInput]
 }
 
 type PedidoPage {
@@ -56,31 +52,34 @@ type PedidoPage {
 extend type Query {
     pedido(id:ID!):Pedido
     pedidos(page:Int = 0, size:Int = 10):[Pedido]!
-    filterPedidos(idPedido:ID, numeroNotaRecepcion:Int ,estado: PedidoEstado, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
+    # filterPedidos(idPedido:ID, numeroNotaRecepcion:Int, sucursalId: Int, inicio: String, fin: String, proveedorId: Int, vendedorId: Int, formaPagoId: Int, productoId: Int, page: Int, size: Int):PedidoPage
     countPedido: Int
-    verificarDistribucionSucursales(id:ID!): Boolean
+    pedidosWithFilters(sucursalId: Int, productoId: Int, proveedorId: Int, estado: String, creadoDesde: String, creadoHasta: String, page: Int, size: Int): PedidoPage
+    
+    # New step tracking queries
+    etapaActualDelPedido(pedidoId:ID!): String
+    progresoPedido(pedidoId:ID!): Int
+    getPedidoResumen(pedidoId:ID!): PedidoResumen
+    
+    # Recepción Física queries
+    getSucursalesDisponiblesRecepcionFisica(pedidoId:ID!): [Sucursal]!
+    getSucursalesDisponiblesRecepcionFisicaSimple(pedidoId:ID!): [Sucursal]!
 }
 
 extend type Mutation {
-    savePedido(entity:PedidoInput!):Pedido!
-    savePedidoFull(entity:PedidoInput!, fechaEntregaList: [String], sucursalEntregaList: [Int], sucursalInfluenciaList: [Int], usuarioId: Int):Pedido!
-    deletePedido(id:ID!):Boolean!
-    finalizarPedido(id:ID, estado:PedidoEstado): Pedido
+    savePedido(entity: PedidoInput!): Pedido!
+    savePedidoFull(
+        entity: PedidoInput!
+        fechaEntregaList: [String]
+        sucursalEntregaList: [Int]
+        sucursalInfluenciaList: [Int]
+        usuarioId: Int
+    ): Pedido!
+    deletePedido(id: ID!): Boolean!
+    finalizarCreacionPedido(pedidoId: ID!): Pedido!
+    finalizarRecepcionNotas(pedidoId: ID!): Pedido!
 }
 
-enum PedidoEstado {
-    ABIERTO,
-    ACTIVO,
-    MODIFICADO,
-    CANCELADO,
-    REPROGRAMADO,
-    EN_RECEPCION_NOTA,
-    EN_RECEPCION_MERCADERIA,
-    EN_VERIFICACION,
-    EN_VERIFICACION_SOLICITUD_AUTORIZACION,
-    VERFICADO_SIN_MODIFICACION,
-    VERFICADO_CON_MODIFICACION,
-    CONCLUIDO
-}
+
 
 

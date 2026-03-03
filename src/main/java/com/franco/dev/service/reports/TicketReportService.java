@@ -11,13 +11,10 @@ import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.util.ResourceUtils;
 
 import javax.print.attribute.HashPrintRequestAttributeSet;
 import javax.print.attribute.PrintRequestAttributeSet;
-import javax.print.attribute.standard.MediaSizeName;
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.util.*;
 
 @Service
@@ -48,11 +45,10 @@ public class TicketReportService {
             dataList.add(vitd);
         }
         // cargar archivo y compilar
-        File file = null;
         try {
-            file = ResourceUtils.getFile("classpath:reports/ticket-58mm.jrxml");
-            try {
-                JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            InputStream jrxmlInputStream = this.getClass().getResourceAsStream("/reports/ticket-58mm.jrxml");
+            if (jrxmlInputStream != null) {
+                JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlInputStream);
                 JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(dataList);
                 Map<String , Object> parameters = new HashMap<>();
                 parameters.put("nro_venta", venta.getId().toString());
@@ -65,13 +61,9 @@ public class TicketReportService {
                 JasperExportManager.exportReportToPdfFile(jasperPrint, "/Users/gabfranck/Desktop/" + venta.getCreadoEn() + "-" + venta.getId() + ".pdf");
                 status = "oikoite";
                 PrintRequestAttributeSet printRequestAttributeSet = new HashPrintRequestAttributeSet();
-
-//                printRequestAttributeSet.add();
-
-            } catch (JRException e) {
-                e.printStackTrace();
+                //printRequestAttributeSet.add();
             }
-        } catch (FileNotFoundException e) {
+        } catch (JRException e) {
             e.printStackTrace();
         }
 

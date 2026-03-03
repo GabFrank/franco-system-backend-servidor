@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -36,8 +37,12 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 
     public List<Sucursal> findByAll(String texto, Boolean activo) {
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return repository.findByAll(texto, activo != null ? activo : true);
+        return repository.findByAllWithActivoFilter(texto, activo != null ? activo : true);
+    }
 
+    public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable) {
+        nombre = nombre != null ? nombre.replace(" ", "%").toUpperCase() : "";
+        return repository.findByNombreConFiltros(nombre, deposito, activo, pageable).getContent();
     }
 
     @Override
@@ -59,5 +64,47 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 
     public Sucursal sucursalActual() {
         return findById(Long.valueOf(environment.getProperty("sucursalId"))).orElse(null);
+    }
+
+    /**
+     * Obtiene todas las sucursales activas excluyendo el servidor (id 0)
+     * 
+     * Usado en:
+     * - Desktop: Sí (módulo de compras, opción "Todos" en sucursales)
+     * - Mobile: No
+     */
+    public List<Sucursal> findAllExcludingServer() {
+        return repository.findAllByActivoTrueOrderByIdAsc()
+                .stream()
+                .filter(s -> !s.getId().equals(0L))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene todas las sucursales de entrega: deposito=true y activo=true
+     * 
+     * Usado en:
+     * - Desktop: Sí (módulo de compras, opción "Todos" en sucursales de entrega)
+     * - Mobile: No
+     */
+    public List<Sucursal> findAllSucursalesEntrega() {
+        return repository.findAllByActivoTrueOrderByIdAsc()
+                .stream()
+                .filter(s -> Boolean.TRUE.equals(s.getDeposito()) && Boolean.TRUE.equals(s.getActivo()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene todas las sucursales de influencia: activo=true y excluir servidor (id 0)
+     * 
+     * Usado en:
+     * - Desktop: Sí (módulo de compras, opción "Todos" en sucursales de influencia)
+     * - Mobile: No
+     */
+    public List<Sucursal> findAllSucursalesInfluencia() {
+        return repository.findAllByActivoTrueOrderByIdAsc()
+                .stream()
+                .filter(s -> Boolean.TRUE.equals(s.getActivo()) && !s.getId().equals(0L))
+                .collect(Collectors.toList());
     }
 }

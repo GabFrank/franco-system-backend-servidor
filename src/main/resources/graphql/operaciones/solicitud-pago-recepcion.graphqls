@@ -1,0 +1,36 @@
+type SolicitudPagoRecepcion {
+    id: ID
+    solicitudPago: SolicitudPago
+    recepcionMercaderia: RecepcionMercaderia
+}
+
+input SolicitudPagoRecepcionInput {
+    id: ID
+    solicitudPagoId: Int
+    recepcionMercaderiaId: Int
+    montoAsignado: Float
+    creadoEn: String
+}
+
+input SolicitudPagoMultipleRecepcionesInput {
+    proveedorId: Int
+    descripcion: String
+    recepcionMercaderiaIds: [Int]
+    usuarioId: Int
+}
+
+extend type Query {
+    solicitudPagoRecepcion(id: ID!): SolicitudPagoRecepcion
+    solicitudPagoRecepcionesPorSolicitud(solicitudPagoId: ID!): [SolicitudPagoRecepcion]
+    solicitudPagoRecepcionesPorRecepcion(recepcionMercaderiaId: ID!): [SolicitudPagoRecepcion]
+    recepcionesAsociadasASolicitud(solicitudPagoId: ID!): [RecepcionMercaderia]
+    countSolicitudPagoRecepcion: Int
+}
+
+extend type Mutation {
+    saveSolicitudPagoRecepcion(entity: SolicitudPagoRecepcionInput!): SolicitudPagoRecepcion!
+    deleteSolicitudPagoRecepcion(id: ID!): Boolean!
+    # Note: Complex business operations should be in SolicitudPagoGraphQL
+    # crearSolicitudPagoMultipleRecepciones(entity: SolicitudPagoMultipleRecepcionesInput!): SolicitudPago!
+    # procesarPagoSolicitud(solicitudPagoId: ID!): SolicitudPago!
+} 

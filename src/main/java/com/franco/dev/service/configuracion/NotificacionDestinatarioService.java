@@ -57,6 +57,21 @@ public class NotificacionDestinatarioService
                 }).orElse(false);
     }
 
+    @Transactional
+    public boolean marcarTodasComoLeidas(Long usuarioId) {
+        List<NotificacionDestinatario> destinatarios = repository.findByUsuarioIdAndLeida(usuarioId, false);
+        if (destinatarios.isEmpty()) {
+            return true;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        destinatarios.forEach(nd -> {
+            nd.setLeida(true);
+            nd.setFechaLeida(now);
+        });
+        repository.saveAll(destinatarios);
+        return true;
+    }
+
     public Page<NotificacionDestinatario> findByUsuarioId(Long usuarioId, Boolean leida, Pageable pageable) {
         return repository.findByUsuarioId(usuarioId, leida, pageable);
     }

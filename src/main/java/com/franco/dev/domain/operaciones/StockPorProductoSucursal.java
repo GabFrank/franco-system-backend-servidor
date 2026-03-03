@@ -15,6 +15,15 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * Entidad para almacenar el stock por producto y sucursal
+ * 
+ * NOTA: Esta entidad actualmente NO está en uso en el sistema.
+ * El stock se calcula dinámicamente desde los movimientos de stock (MovimientoStock).
+ * Esta entidad se mantiene por compatibilidad histórica pero no se actualiza ni se utiliza.
+ * 
+ * Fecha de desactivación: 2026-01-30
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

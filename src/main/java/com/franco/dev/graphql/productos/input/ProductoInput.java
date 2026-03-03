@@ -42,6 +42,7 @@ public class ProductoInput extends RabbitEntity {
     private Long subfamiliaId;
     private Long envaseId;
     private Boolean activo;
+    private Boolean lote;
     private String creadoEn;
 
     public ProductoInput converHashMapToInput(Producto obj){

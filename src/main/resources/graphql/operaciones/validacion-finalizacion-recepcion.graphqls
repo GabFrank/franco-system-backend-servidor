@@ -1,0 +1,16 @@
+type ValidacionFinalizacionRecepcion {
+    puedeFinalizar: Boolean!
+    itemsPendientes: [ItemPendiente!]!
+    cantidadItemsPendientes: Int!
+    mensaje: String!
+}
+
+type ItemPendiente {
+    itemId: ID!
+    descripcionProducto: String!
+    numeroNota: String!
+    motivo: String!
+    cantidadEsperada: Float!
+    cantidadRecibida: Float!
+    cantidadRechazada: Float!
+} 

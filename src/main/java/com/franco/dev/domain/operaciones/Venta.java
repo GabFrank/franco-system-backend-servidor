@@ -1,6 +1,7 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
@@ -41,6 +42,9 @@ public class Venta implements Serializable {
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "cliente_id", nullable = true)
         private Cliente cliente;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "sucursal_id", insertable = false, updatable = false)
+        private Sucursal sucursal;
 
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "forma_pago_id", nullable = true)

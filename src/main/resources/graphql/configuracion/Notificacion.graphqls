@@ -1,0 +1,13 @@
+type Notificacion {
+    id: Int
+    titulo: String
+    mensaje: String
+    tipo: String
+    data: String
+    estadoTablero: String
+    verificadoPorUsuario: Usuario
+    fechaVerificacion: Date
+    usuarioCreador: Usuario
+    creadoEn: Date
+    conteoComentarios: Int
+}

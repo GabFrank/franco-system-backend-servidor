@@ -129,7 +129,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         if (entity.getEnvaseId() != null)
             e.setEnvase(findById(entity.getEnvaseId()).orElse(null));
         e.setDescripcion(e.getDescripcion().toUpperCase());
-        
+
         // Obtener entidad anterior para comparar cambios (si es actualización)
         // IMPORTANTE: Obtener ANTES de guardar para tener los valores anteriores
         Producto entidadAnterior = null;
@@ -140,10 +140,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 entidadAnterior = productoOpt.get();
             }
         }
-        
+
         p = repository.save(e);
         repository.flush(); // Asegurar que se guarde antes de registrar la modificación
-        
+
         // Registrar modificación sin afectar la lógica existente
         try {
             if (esNuevo) {
@@ -154,11 +154,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 modificacionService.registrarActualizacion(entidadAnterior, p, "PRODUCTO", "productos", "producto");
             }
         } catch (Exception ex) {
-            // No interrumpir el flujo si falla el registro de modificación
-            System.err.println("Error registrando modificación de producto: " + ex.getMessage());
-            ex.printStackTrace();
         }
-        
+
         return p;
     }
 
@@ -174,8 +171,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 try {
                     modificacionService.registrarEliminacion(entidad, "PRODUCTO", "productos", "producto");
                 } catch (Exception ex) {
-                    // No interrumpir el flujo si falla el registro de modificación
-                    System.err.println("Error registrando eliminación de producto: " + ex.getMessage());
                 }
                 return resultado;
             }
@@ -307,8 +302,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             return b64;
 
         } catch (Exception e) {
-            log.severe("Error generando reporte de productos: " + e.getMessage());
-            e.printStackTrace();
             return "Error al generar el reporte: " + e.getMessage();
         }
     }
@@ -537,8 +530,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             return b64;
 
         } catch (Exception e) {
-            log.severe("Error generando reporte de productos con filtros: " + e.getMessage());
-            e.printStackTrace();
             return "Error al generar el reporte: " + e.getMessage();
         }
     }
@@ -555,20 +546,27 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
-            List<Long> usuarioIdList, List<Long> productoIdList) {
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
         Map<Long, Double> totalVentaPacksMap = new HashMap<>();
 
         // Obtener datos de todas las sucursales
         for (Long sucId : sucIdList) {
+            boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
+            boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
+
+            List<Long> finalUsuarioIdList = filtrarUsuario ? usuarioIdList : Arrays.asList(-1L);
+            List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
+
             List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
-                    stringToDate(inicio), stringToDate(fin), usuarioIdList, productoIdList);
+                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario,
+                    filtrarProducto);
             aggregatedResult.addAll(lucroPorProductosDtoList);
 
             // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
             // ventaMedia correctamente
             List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
-                    stringToDate(fin), usuarioIdList, productoIdList);
+                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario, filtrarProducto);
             for (Object[] row : totalVentaPacksList) {
                 Long productoId = ((Number) row[0]).longValue();
                 Double totalVentaPacks = ((Number) row[1]).doubleValue();
@@ -588,10 +586,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         // Calcular todos los campos derivados después de la agregación
         for (LucroPorProductosDto dto : result) {
             // Log para debug
-            log.info("DEBUG - Producto ID: " + dto.getProductoId() +
-                    ", Cantidad: " + dto.getCantidad() +
-                    ", CostoTotal: " + dto.getCostoTotal() +
-                    ", TotalVenta: " + dto.getTotalVenta());
 
             if (dto.getCantidad() != null && dto.getCantidad() > 0) {
                 // Calcular costo unitario
@@ -609,8 +603,17 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                     dto.setVentaMedia(0.0);
                 }
 
-                // Calcular lucro (total venta - total costo)
-                dto.setLucro(dto.getTotalVenta() - dto.getCostoTotal());
+                if (dto.getTotalDescuento() != null) {
+                    dto.setTotalDescuento((double) Math.round(dto.getTotalDescuento()));
+                }
+                if (dto.getTotalAumento() != null) {
+                    dto.setTotalAumento((double) Math.round(dto.getTotalAumento()));
+                }
+
+                // Calcular lucro (total venta - total costo - descuento + aumento)
+                dto.setLucro((double) Math.round(dto.getTotalVenta() - dto.getCostoTotal()
+                        - (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0)
+                        + (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0)));
 
                 // Calcular margen (lucro / costo total * 100) - porcentaje sobre costo
                 if (dto.getCostoTotal() > 0) {
@@ -632,7 +635,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                         ", VentaMedia=" + dto.getVentaMedia() +
                         ", Lucro=" + dto.getLucro() +
                         ", Margen=" + dto.getMargen() +
-                        ", Percent=" + dto.getPercent());
+                        ", Percent=" + dto.getPercent() +
+                        ", Descuento=" + dto.getTotalDescuento() +
+                        ", Aumento=" + dto.getTotalAumento());
             } else {
                 // Si no hay cantidad, todos los valores son 0
                 dto.setCostoUnitario(0.0);

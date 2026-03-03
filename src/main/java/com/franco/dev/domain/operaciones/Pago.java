@@ -13,6 +13,7 @@ import org.hibernate.annotations.TypeDef;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -49,9 +50,8 @@ public class Pago implements Identifiable<Long> {
     @JoinColumn(name = "autorizado_por", nullable = true)
     private Usuario autorizadoPor;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "solicitud_pago_id", nullable = true)
-    private SolicitudPago solicitudPago;
+    @OneToMany(mappedBy = "pago", fetch = FetchType.LAZY)
+    private List<SolicitudPago> solicitudesPago;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")

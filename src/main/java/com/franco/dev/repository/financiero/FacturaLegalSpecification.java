@@ -20,7 +20,8 @@ public final class FacturaLegalSpecification {
             String ruc,
             String nombre,
             Boolean isElectronico,
-            Boolean activo) {
+            Boolean activo,
+            Boolean sinNombre) {
 
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -40,11 +41,13 @@ public final class FacturaLegalSpecification {
             }
 
             if (ruc != null && !ruc.isEmpty()) {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.upper(root.get("ruc")), "%" + ruc.toUpperCase() + "%"));
+                predicates.add(
+                        criteriaBuilder.like(criteriaBuilder.upper(root.get("ruc")), "%" + ruc.toUpperCase() + "%"));
             }
 
             if (nombre != null && !nombre.isEmpty()) {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.upper(root.get("nombre")), "%" + nombre.toUpperCase() + "%"));
+                predicates.add(criteriaBuilder.like(criteriaBuilder.upper(root.get("nombre")),
+                        "%" + nombre.toUpperCase() + "%"));
             }
 
             if (isElectronico != null) {
@@ -59,6 +62,14 @@ public final class FacturaLegalSpecification {
 
             if (activo != null) {
                 predicates.add(criteriaBuilder.equal(root.get("activo"), activo));
+            }
+
+            if (sinNombre != null) {
+                if (sinNombre) {
+                    predicates.add(criteriaBuilder.equal(criteriaBuilder.upper(root.get("nombre")), "SIN NOMBRE"));
+                } else {
+                    predicates.add(criteriaBuilder.notEqual(criteriaBuilder.upper(root.get("nombre")), "SIN NOMBRE"));
+                }
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

@@ -24,7 +24,9 @@ import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.operaciones.DeliveryService;
 import com.franco.dev.service.operaciones.VentaItemService;
+import com.franco.dev.service.operaciones.VentaObservacionService;
 import com.franco.dev.service.operaciones.VentaService;
+import com.franco.dev.domain.operaciones.VentaObservacion;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CostosPorProductoService;
@@ -411,5 +413,47 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Boolean cancelarVenta(Long id, Long sucId) {
         Venta venta = service.findByIdAndSucursalId(id, sucId);
         return service.cancelarVenta(venta);
+    }
+
+    public Page<Venta> ventasGenericFilter(
+        Long idVenta, 
+        Long idCaja, 
+        Integer page, 
+        Integer size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento,
+        Boolean conObservacion,
+        Long clienteId,
+        String fechaInicio,
+        String fechaFin) {
+
+        Pageable pageable;
+        if (page != null) {
+            pageable = PageRequest.of(page, size);
+        } else {
+            pageable = PageRequest.of(0, 15);
+        }
+        return service.onGenericSearch(
+          idVenta, 
+          idCaja, 
+          pageable, 
+          asc, 
+          sucId, 
+          formaPago, 
+          estado, 
+          isDelivery, 
+          monedaId, 
+          conDescuento, 
+          conAumento, 
+          conObservacion, 
+          clienteId, 
+          fechaInicio, fechaFin
+        );
     }
 }

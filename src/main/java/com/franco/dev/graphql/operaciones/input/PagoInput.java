@@ -9,7 +9,6 @@ public class PagoInput {
     private String creadoEn;
     private Long usuarioId;
     private Long autorizadoPorId;
-    private Long solicitudPagoId;
     private PagoEstado estado;
     private Boolean programado;
 }

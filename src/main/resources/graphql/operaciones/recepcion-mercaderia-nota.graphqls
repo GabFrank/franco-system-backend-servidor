@@ -1,0 +1,18 @@
+type RecepcionMercaderiaNota {
+    id: ID
+    recepcionMercaderia: RecepcionMercaderia
+    notaRecepcion: NotaRecepcion
+}
+
+extend type Query {
+    recepcionMercaderiaNota(id: ID!): RecepcionMercaderiaNota
+    recepcionMercaderiaNotasPorRecepcion(recepcionId: ID!): [RecepcionMercaderiaNota]
+    recepcionMercaderiaNotasPorNota(notaId: ID!): [RecepcionMercaderiaNota]
+    countRecepcionMercaderiaNota: Int
+}
+
+extend type Mutation {
+    asociarNotaARecepcion(recepcionId: ID!, notaRecepcionId: ID!): RecepcionMercaderiaNota!
+    desasociarNotaDeRecepcion(recepcionId: ID!, notaRecepcionId: ID!): Boolean!
+    deleteRecepcionMercaderiaNota(id: ID!): Boolean!
+} 

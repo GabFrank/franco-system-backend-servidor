@@ -49,8 +49,9 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findAll(pageable);
     }
 
-    public List<Sucursal> sucursalesSearch(String texto, Boolean activo) {
-        return service.findByAll(texto, activo);
+    public Page<Sucursal> sucursalesSearch(String texto, Boolean activo, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 1000);
+        return service.findByAllPage(texto, activo, pageable);
     }
 
     public Sucursal sucursalActual() {

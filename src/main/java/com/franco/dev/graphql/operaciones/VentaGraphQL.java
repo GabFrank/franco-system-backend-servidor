@@ -398,8 +398,8 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return service.ventaPorSucursalAndUsuario(usuarioId, inicio, fin);
     }
 
-    public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId) {
-        return service.ventasPorFuncionario(inicio, fin, sucId);
+    public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId, Long usuarioId) {
+        return service.ventasPorFuncionario(inicio, fin, sucId, usuarioId);
     }
 
     public List<com.franco.dev.domain.operaciones.VentaPorHora> ventasPorHora(String fecha, Long sucId) {
@@ -416,22 +416,22 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     }
 
     public Page<Venta> ventasGenericFilter(
-        Long idVenta, 
-        Long idCaja, 
-        Integer page, 
-        Integer size, 
-        Boolean asc, 
-        Long sucId, 
-        Long formaPago, 
-        VentaEstado estado, 
-        Boolean isDelivery, 
-        Long monedaId, 
-        Boolean conDescuento, 
-        Boolean conAumento,
-        Boolean conObservacion,
-        Long clienteId,
-        String fechaInicio,
-        String fechaFin) {
+            Long idVenta,
+            Long idCaja,
+            Integer page,
+            Integer size,
+            Boolean asc,
+            Long sucId,
+            Long formaPago,
+            VentaEstado estado,
+            Boolean isDelivery,
+            Long monedaId,
+            Boolean conDescuento,
+            Boolean conAumento,
+            Boolean conObservacion,
+            Long clienteId,
+            String fechaInicio,
+            String fechaFin) {
 
         Pageable pageable;
         if (page != null) {
@@ -440,20 +440,19 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             pageable = PageRequest.of(0, 15);
         }
         return service.onGenericSearch(
-          idVenta, 
-          idCaja, 
-          pageable, 
-          asc, 
-          sucId, 
-          formaPago, 
-          estado, 
-          isDelivery, 
-          monedaId, 
-          conDescuento, 
-          conAumento, 
-          conObservacion, 
-          clienteId, 
-          fechaInicio, fechaFin
-        );
+                idVenta,
+                idCaja,
+                pageable,
+                asc,
+                sucId,
+                formaPago,
+                estado,
+                isDelivery,
+                monedaId,
+                conDescuento,
+                conAumento,
+                conObservacion,
+                clienteId,
+                fechaInicio, fechaFin);
     }
 }

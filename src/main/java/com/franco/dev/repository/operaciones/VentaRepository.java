@@ -78,11 +78,13 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "JOIN u.persona p " +
                         "WHERE v.creadoEn BETWEEN :inicio AND :fin " +
                         "AND (:sucId IS NULL OR v.sucursalId = :sucId) " +
+                        "AND (:usuarioId IS NULL OR u.id = :usuarioId) " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY u.id, p.nombre " +
                         "ORDER BY SUM(v.totalGs) DESC")
         List<VentaPorFuncionario> getVentasPorFuncionario(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId,
+                        @Param("usuarioId") Long usuarioId,
                         org.springframework.data.domain.Pageable pageable);
 
         @Query("SELECT DISTINCT CAST(v.sucursalId AS string) FROM Venta v WHERE v.usuario.id = :usuarioId AND v.creadoEn BETWEEN :inicio AND :fin AND v.estado = 'CONCLUIDA'")

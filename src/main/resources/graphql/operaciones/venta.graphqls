@@ -79,7 +79,7 @@ extend type Query {
     ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
     ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
     ventasPorSucursal(inicio: String!, fin: String!): [VentaPorSucursal]
-    ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID): [VentaPorFuncionario]
+    ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID, usuarioId: ID): [VentaPorFuncionario]
     ventasGenericFilter(
         idVenta:ID, 
         idCaja:ID, 

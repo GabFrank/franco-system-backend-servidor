@@ -383,11 +383,11 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return ventaPorSucursales;
     }
 
-    public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId) {
+    public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId, Long usuarioId) {
         LocalDateTime fechaInicio = stringToDate(inicio);
         LocalDateTime fechaFin = stringToDate(fin);
-        List<VentaPorFuncionario> list = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId,
-                PageRequest.of(0, 20));
+        List<VentaPorFuncionario> list = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId, usuarioId,
+                PageRequest.of(0, 100));
 
         for (VentaPorFuncionario vpf : list) {
 

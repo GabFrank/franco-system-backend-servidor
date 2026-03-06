@@ -280,13 +280,16 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                 java.time.LocalTime finDescansoHorario = jornada.getFinDescansoHorario();
 
                 if (horaEntradaHorario != null) {
-                    java.time.LocalTime horaEntradaReal = entradaParaCalculo.getFechaEntrada().toLocalTime();
-                    long diff = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
+                    long diff = 0;
+                    if (jornada.getTurno() == com.franco.dev.domain.administrativo.enums.Turno.MADRUGADA) {
+                        LocalDateTime hEntradaOficial = jornada.getFecha().atTime(horaEntradaHorario);
+                        diff = ChronoUnit.MINUTES.between(hEntradaOficial, entradaParaCalculo.getFechaEntrada());
+                    } else {
+                        java.time.LocalTime horaEntradaReal = entradaParaCalculo.getFechaEntrada().toLocalTime();
+                        diff = ChronoUnit.MINUTES.between(horaEntradaHorario, horaEntradaReal);
+                    }
                     if (diff > 0) {
                         minutosLlegadaTardiaTotal = diff;
-
-                    } else {
-
                     }
                 } else {
 
@@ -338,8 +341,17 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
 
                 if (salidaReal != null) {
                     if (horaEntradaHorario != null && horaSalidaHorario != null) {
-                        LocalDateTime hEntradaHorario = entradaReal.toLocalDate().atTime(horaEntradaHorario);
-                        LocalDateTime hSalidaHorario = entradaReal.toLocalDate().atTime(horaSalidaHorario);
+                        LocalDateTime hEntradaHorario;
+                        LocalDateTime hSalidaHorario;
+
+                        if (jornada.getTurno() == com.franco.dev.domain.administrativo.enums.Turno.MADRUGADA) {
+                            hEntradaHorario = jornada.getFecha().atTime(horaEntradaHorario);
+                            hSalidaHorario = jornada.getFecha().atTime(horaSalidaHorario);
+                        } else {
+                            hEntradaHorario = entradaReal.toLocalDate().atTime(horaEntradaHorario);
+                            hSalidaHorario = entradaReal.toLocalDate().atTime(horaSalidaHorario);
+                        }
+
                         if (hSalidaHorario.isBefore(hEntradaHorario)) {
                             hSalidaHorario = hSalidaHorario.plusDays(1);
                         }

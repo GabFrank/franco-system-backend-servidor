@@ -38,10 +38,9 @@ public abstract class CrudService<T, Repository extends HelperRepository<T, S>, 
 
     public Optional<T> findById(S id) {
         if (id == null) {
-            return null;
+            return Optional.empty();
         }
-        T obj = (T) getRepository().findById(id);
-        return (Optional<T>) obj;
+        return getRepository().findById(id);
     }
 
 //    public T findByIdAndSucursalId(Long id, Long sucId){

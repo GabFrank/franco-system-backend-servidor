@@ -249,17 +249,19 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (filtro.length() > 0 && sucursalIdList != null && sucursalIdList.size() > 0) {
             filtro.append("\n");
         }
-        if (sucursalIdList != null && sucursalIdList.size() > 0) {
+        if (sucursalIdList != null && !sucursalIdList.isEmpty()) {
             if (sucursalIdList.size() > 1) {
                 filtro.append("Sucursales: ");
             } else {
                 filtro.append("Sucursal: ");
             }
-        }
-        for (Long sucId : sucursalIdList) {
-            Sucursal suc = sucursalService.findById(sucId).orElse(null);
-            if (suc != null)
-                filtro.append(suc.getNombre() + ", ");
+            for (Long sucId : sucursalIdList) {
+                if (sucId != null) {
+                    Sucursal suc = sucursalService.findById(sucId).orElse(null);
+                    if (suc != null)
+                        filtro.append(suc.getNombre()).append(", ");
+                }
+            }
         }
         if (subfamiliaId != null) {
             Subfamilia subfamilia = subFamiliaService.findById(subfamiliaId).orElse(null);

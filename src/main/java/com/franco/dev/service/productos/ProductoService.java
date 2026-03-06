@@ -570,7 +570,12 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         Map<Long, Double> totalVentaPacksMap = new HashMap<>();
 
         // Obtener datos de todas las sucursales
+        if (sucIdList == null || sucIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
+
         for (Long sucId : sucIdList) {
+            if (sucId == null) continue;
             boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
             boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
 

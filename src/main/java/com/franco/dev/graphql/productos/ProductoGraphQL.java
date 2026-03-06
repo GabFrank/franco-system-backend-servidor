@@ -218,10 +218,12 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             String stockFiltro,
             Long sucursalId,
             Long usuarioId,
-            String usuario) throws FileNotFoundException {
+            String usuario,
+            Integer page,
+            Integer size) throws FileNotFoundException {
         return service.exportarReporteConFiltros(
                 texto, codigo, activo, stock, balanza, vencimiento,
-                costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario);
+                costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario, page, size);
     }
 
     public List<Producto> findByPdvGrupoProducto(Long id) {

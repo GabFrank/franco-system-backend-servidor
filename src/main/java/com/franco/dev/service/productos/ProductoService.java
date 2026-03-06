@@ -318,9 +318,18 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             String stockFiltro,
             Long sucursalId,
             Long usuarioId,
-            String usuario) throws FileNotFoundException {
+            String usuario,
+            Integer page,
+            Integer size) throws FileNotFoundException {
 
-        // Usar el método de búsqueda con filtros existente
+        // Usar el método de búsqueda con filtros existente, con la página actual
+        // Si no se pasa page/size, usar valores por defecto (primera página, 15 registros)
+        int pageNum = (page != null) ? page : 0;
+        int pageSize = (size != null) ? size : 15;
+
+        org.springframework.data.domain.Pageable pageable =
+                org.springframework.data.domain.PageRequest.of(pageNum, pageSize);
+
         Page<Producto> productoPage = repository.searchWithFilters(
                 texto != null ? texto.replace(' ', '%').toUpperCase() : "%",
                 activo,
@@ -331,7 +340,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 costoCero,
                 stockFiltro,
                 sucursalId,
-                null // No paginar para el reporte
+                pageable
         );
 
         List<Producto> productoList = productoPage.getContent();
@@ -431,54 +440,64 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         // Crear la lista de DTOs para el reporte
         List<ProductoReportDto> productosDtoList = new ArrayList<>();
 
-        for (Producto p : productoList) {
-            // Obtener stock real - usar stock por sucursal si se filtró por sucursal
-            // específica
-            Double stockCantidad;
-            if (sucursalId != null && (stockFiltro != null && !stockFiltro.equals("todos"))) {
-                // Si hay filtro de sucursal y stock específico, usar stock de esa sucursal
-                stockCantidad = movimientoStockService.stockByProductoIdAndSucursalId(p.getId(), sucursalId);
-            } else {
-                // Usar stock total (todas las sucursales)
-                stockCantidad = movimientoStockService.stockByProductoId(p.getId());
+        if (!productoList.isEmpty()) {
+            List<Long> productoIds = new ArrayList<>();
+            for (Producto p : productoList) {
+                productoIds.add(p.getId());
             }
 
-            // Obtener precios y código principal
-            Presentacion presentacion = presentacionService.findByPrincipalAndProductoId(true, p.getId());
-            Double precioVenta = 0.0;
-            Double precioCosto = 0.0;
-            String codigoPrincipal = "";
-
-            if (presentacion != null) {
-                // Obtener precio de venta
-                PrecioPorSucursal precioVentaObj = precioPorSucursalService
-                        .findPrincipalByPrecionacionId(presentacion.getId());
-                if (precioVentaObj != null) {
-                    precioVenta = precioVentaObj.getPrecio();
-                }
-
-                // Obtener código principal
-                Codigo codigoData = codigoService.findPrincipalByPresentacionId(presentacion.getId());
-                if (codigoData != null) {
-                    codigoPrincipal = codigoData.getCodigo();
-                }
+            // Consultas batch (Nativas)
+            Long stockSucursalId = null;
+            if (sucursalId != null && stockFiltro != null && !stockFiltro.equals("todos")) {
+                stockSucursalId = sucursalId;
             }
 
-            // Obtener precio costo real desde CostoPorProducto
-            CostoPorProducto costoPorProducto = costosPorProductoService.findLastByProductoId(p.getId());
-            if (costoPorProducto != null) {
-                precioCosto = costoPorProducto.getCostoMedio();
+            List<Object[]> stockResults = repository.getStockPorProductoIds(productoIds, stockSucursalId);
+            List<Object[]> precioResults = repository.getPrecioVentaPorProductoIds(productoIds);
+            List<Object[]> codigoResults = repository.getCodigoPrincipalPorProductoIds(productoIds);
+            List<Object[]> costoResults = repository.getCostoMedioPorProductoIds(productoIds);
+
+            // Estructuras de búsqueda rápida en memoria
+            Map<Long, Double> stockMap = new HashMap<>();
+            for (Object[] row : stockResults) {
+                stockMap.put(((Number) row[0]).longValue(), row[1] != null ? ((Number) row[1]).doubleValue() : 0.0);
             }
 
-            ProductoReportDto dto = new ProductoReportDto();
-            dto.setId(p.getId());
-            dto.setDescripcion(p.getDescripcion());
-            dto.setCantidad(stockCantidad != null ? stockCantidad : 0.0);
-            dto.setPrecioCosto(precioCosto != null ? precioCosto : 0.0);
-            dto.setPrecioVenta(precioVenta != null ? precioVenta : 0.0);
-            dto.setCodigoPrincipal(codigoPrincipal);
+            Map<Long, Double> precioMap = new HashMap<>();
+            for (Object[] row : precioResults) {
+                precioMap.put(((Number) row[0]).longValue(), row[1] != null ? ((Number) row[1]).doubleValue() : 0.0);
+            }
 
-            productosDtoList.add(dto);
+            Map<Long, String> codigoMap = new HashMap<>();
+            for (Object[] row : codigoResults) {
+                codigoMap.put(((Number) row[0]).longValue(), row[1] != null ? row[1].toString() : "");
+            }
+
+            Map<Long, Double> costoMap = new HashMap<>();
+            for (Object[] row : costoResults) {
+                costoMap.put(((Number) row[0]).longValue(), row[1] != null ? ((Number) row[1]).doubleValue() : 0.0);
+            }
+
+            // Construir los DTOs usando los mapas
+            for (Producto p : productoList) {
+                ProductoReportDto dto = new ProductoReportDto();
+                dto.setId(p.getId());
+                dto.setDescripcion(p.getDescripcion());
+                dto.setCantidad(stockMap.getOrDefault(p.getId(), 0.0));
+                dto.setPrecioVenta(precioMap.getOrDefault(p.getId(), 0.0));
+                dto.setCodigoPrincipal(codigoMap.getOrDefault(p.getId(), ""));
+                dto.setPrecioCosto(costoMap.getOrDefault(p.getId(), 0.0));
+
+                productosDtoList.add(dto);
+            }
+        }
+
+        // Agregar info de paginación a los filtros si hay más páginas
+        long totalElements = productoPage.getTotalElements();
+        int totalPages = productoPage.getTotalPages();
+        if (totalPages > 1) {
+            filtroBusqueda.append(" [Página ").append(pageNum + 1).append(" de ").append(totalPages)
+                    .append(" - ").append(totalElements).append(" productos]");
         }
 
         try {
@@ -517,7 +536,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             parameters.put("filtroStock", filtroStock.toString());
 
             // Total de productos encontrados
-            parameters.put("totalProductos", productosDtoList.size());
+            parameters.put("totalProductos", (int) totalElements);
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             JasperExportManager.exportReportToPdfFile(jasperPrint,

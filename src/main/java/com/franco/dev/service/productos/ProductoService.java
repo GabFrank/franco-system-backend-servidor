@@ -447,12 +447,16 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             }
 
             // Consultas batch (Nativas)
+            // Determinar la sucursal para el filtro de stock
             Long stockSucursalId = null;
             if (sucursalId != null && stockFiltro != null && !stockFiltro.equals("todos")) {
                 stockSucursalId = sucursalId;
             }
 
-            List<Object[]> stockResults = repository.getStockPorProductoIds(productoIds, stockSucursalId);
+            // Convertimos el sucursalId a String para evitar el error de 'bytea' en la consulta nativa
+            String stockSucursalIdStr = (stockSucursalId != null) ? String.valueOf(stockSucursalId) : null;
+
+            List<Object[]> stockResults = repository.getStockPorProductoIds(productoIds, stockSucursalIdStr);
             List<Object[]> precioResults = repository.getPrecioVentaPorProductoIds(productoIds);
             List<Object[]> codigoResults = repository.getCodigoPrincipalPorProductoIds(productoIds);
             List<Object[]> costoResults = repository.getCostoMedioPorProductoIds(productoIds);

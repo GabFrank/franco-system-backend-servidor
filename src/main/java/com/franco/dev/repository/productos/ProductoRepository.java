@@ -213,10 +213,10 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("sucursalId") Long sucursalId,
                         Pageable pageable);
 
-        @Query(value = "SELECT m.producto_id as id, SUM(m.cantidad) as cantidad FROM operaciones.movimiento_stock m WHERE m.producto_id IN (:productoIds) AND m.estado = true AND (CAST(:sucursalId AS bigint) IS NULL OR m.sucursal_id = CAST(:sucursalId AS bigint)) GROUP BY m.producto_id", nativeQuery = true)
+        @Query(value = "SELECT m.producto_id as id, SUM(m.cantidad) as cantidad FROM operaciones.movimiento_stock m WHERE m.producto_id IN (:productoIds) AND m.estado = true AND (CAST(CAST(:sucursalId AS text) AS bigint) IS NULL OR m.sucursal_id = CAST(CAST(:sucursalId AS text) AS bigint)) GROUP BY m.producto_id", nativeQuery = true)
         public List<Object[]> getStockPorProductoIds(
                         @Param("productoIds") List<Long> productoIds,
-                        @Param("sucursalId") Long sucursalId);
+                        @Param("sucursalId") String sucursalId);
 
         @Query(value = "SELECT pre.producto_id as id, pps.precio as precio FROM productos.presentacion pre JOIN productos.precio_por_sucursal pps ON pps.presentacion_id = pre.id WHERE pre.producto_id IN (:productoIds) AND pre.principal = true AND pps.principal = true AND pre.activo = true", nativeQuery = true)
         public List<Object[]> getPrecioVentaPorProductoIds(

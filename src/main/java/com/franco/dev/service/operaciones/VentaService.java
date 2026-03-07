@@ -346,7 +346,16 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
-        return repository.getVentasPorSucursal(inicio, fin);
+        List<Object[]> results = repository.getVentasPorSucursal(inicio, fin);
+        List<VentaPorSucursal> list = new ArrayList<>();
+        for (Object[] obj : results) {
+            VentaPorSucursal dto = new VentaPorSucursal();
+            dto.setSucId(obj[0] != null ? ((Number) obj[0]).longValue() : null);
+            dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "");
+            dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            list.add(dto);
+        }
+        return list;
     }
 
     public List<VentaPorSucursal> ventaPorSucursalAndUsuario(Long usuarioId, String inicio, String fin) {
@@ -386,10 +395,16 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId, Long usuarioId) {
         LocalDateTime fechaInicio = stringToDate(inicio);
         LocalDateTime fechaFin = stringToDate(fin);
-        List<VentaPorFuncionario> list = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId, usuarioId,
+        List<Object[]> results = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId, usuarioId,
                 PageRequest.of(0, 100));
+        List<VentaPorFuncionario> list = new ArrayList<>();
 
-        for (VentaPorFuncionario vpf : list) {
+        for (Object[] obj : results) {
+            VentaPorFuncionario vpf = new VentaPorFuncionario();
+            vpf.setId(obj[0] != null ? ((Number) obj[0]).longValue() : null);
+            vpf.setFuncionario(obj[1] != null ? String.valueOf(obj[1]) : "");
+            vpf.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            vpf.setCantidad(obj[3] != null ? ((Number) obj[3]).longValue() : 0L);
 
             // Fetch Sucursales
             if (sucId != null) {
@@ -408,6 +423,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                     vpf.setSucursales(String.join(", ", nombres));
                 }
             }
+            list.add(vpf);
         }
         return list;
     }
@@ -490,13 +506,31 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         java.time.LocalDate date = java.time.LocalDate.parse(fecha);
         LocalDateTime inicio = date.atStartOfDay();
         LocalDateTime fin = date.atTime(java.time.LocalTime.MAX);
-        return repository.ventasPorHora(inicio, fin, sucId);
+        List<Object[]> results = repository.ventasPorHora(inicio, fin, sucId);
+        List<com.franco.dev.domain.operaciones.VentaPorHora> list = new ArrayList<>();
+        for (Object[] obj : results) {
+            com.franco.dev.domain.operaciones.VentaPorHora dto = new com.franco.dev.domain.operaciones.VentaPorHora();
+            dto.setHora(obj[0] != null ? ((Number) obj[0]).intValue() : null);
+            dto.setTotal(obj[1] != null ? ((Number) obj[1]).doubleValue() : 0.0);
+            dto.setCantidad(obj[2] != null ? ((Number) obj[2]).longValue() : 0L);
+            list.add(dto);
+        }
+        return list;
     }
 
     public List<com.franco.dev.domain.operaciones.VentaPorMes> ventasPorMes(Integer anio, Long sucId) {
         LocalDateTime inicio = LocalDateTime.of(anio, 1, 1, 0, 0);
         LocalDateTime fin = LocalDateTime.of(anio, 12, 31, 23, 59, 59);
-        return repository.ventasPorMes(inicio, fin, sucId);
+        List<Object[]> results = repository.ventasPorMes(inicio, fin, sucId);
+        List<com.franco.dev.domain.operaciones.VentaPorMes> list = new ArrayList<>();
+        for (Object[] obj : results) {
+            com.franco.dev.domain.operaciones.VentaPorMes dto = new com.franco.dev.domain.operaciones.VentaPorMes();
+            dto.setMes(obj[0] != null ? ((Number) obj[0]).intValue() : null);
+            dto.setTotal(obj[1] != null ? ((Number) obj[1]).doubleValue() : 0.0);
+            dto.setCantidad(obj[2] != null ? ((Number) obj[2]).longValue() : 0L);
+            list.add(dto);
+        }
+        return list;
     }
 
     public Page<Venta> onGenericSearch(Long idVenta, Long idCaja, Pageable pageable, Boolean asc, Long sucId,

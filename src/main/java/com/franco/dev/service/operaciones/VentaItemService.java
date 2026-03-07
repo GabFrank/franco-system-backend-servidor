@@ -68,53 +68,30 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
      */
     public List<ProductoVendidoEstadistica> obtenerProductosMasVendidos(LocalDateTime inicio, LocalDateTime fin,
             Integer limit, Long sucursalId, Long familiaId) {
-        CriteriaBuilder cb = em.getCriteriaBuilder();
-        CriteriaQuery<Object[]> query = cb.createQuery(Object[].class);
-        Root<VentaItem> item = query.from(VentaItem.class);
-        Join<VentaItem, Producto> producto = item.join("producto");
-        Join<VentaItem, Venta> venta = item.join("venta");
+        String sql = "SELECT p.id, p.descripcion, SUM(vi.cantidad) as cantidad, " +
+                "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto " +
+                "FROM operaciones.venta_item vi " +
+                "JOIN productos.producto p ON vi.producto_id = p.id " +
+                "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
+                "LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id " +
+                "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true ";
 
-        // Predicados base
-        List<Predicate> predicates = new ArrayList<>();
-        predicates.add(cb.equal(venta.get("estado"), VentaEstado.CONCLUIDA));
-        predicates.add(cb.equal(item.get("activo"), true));
+        if (inicio != null) sql += "AND vi.creado_en >= :inicio ";
+        if (fin != null) sql += "AND vi.creado_en < :fin ";
+        if (sucursalId != null && sucursalId > 0) sql += "AND vi.sucursal_id = :sucursalId ";
+        if (familiaId != null && familiaId > 0) sql += "AND sf.familia_id = :familiaId ";
 
-        if (inicio != null) {
-            predicates.add(cb.greaterThanOrEqualTo(item.get("creadoEn"), inicio));
-        }
-        if (fin != null) {
-            predicates.add(cb.lessThan(item.get("creadoEn"), fin));
-        }
+        sql += "GROUP BY p.id, p.descripcion ORDER BY total_monto DESC";
 
-        // Filtros opcionales
-        if (sucursalId != null && sucursalId > 0) {
-            predicates.add(cb.equal(item.get("sucursalId"), sucursalId));
-        }
-        if (familiaId != null && familiaId > 0) {
-            predicates.add(cb.equal(producto.get("subfamilia").get("familia").get("id"), familiaId));
-        }
+        javax.persistence.Query query = em.createNativeQuery(sql);
+        if (inicio != null) query.setParameter("inicio", inicio);
+        if (fin != null) query.setParameter("fin", fin);
+        if (sucursalId != null && sucursalId > 0) query.setParameter("sucursalId", sucursalId);
+        if (familiaId != null && familiaId > 0) query.setParameter("familiaId", familiaId);
 
-        query.where(predicates.toArray(new Predicate[0]));
+        query.setMaxResults(limit != null ? limit : 10);
 
-        // Selección y Agrupación
-        // total_monto = SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario
-        // * vi.cantidad, 0))
-        Expression<Double> multiplicacionPrecioCantidad = cb.prod(item.get("precio"), item.get("cantidad"));
-        Expression<Double> descuentoTotal = cb.coalesce(cb.prod(item.get("valorDescuento"), item.get("cantidad")), 0.0);
-        Expression<Double> montoFila = cb.diff(multiplicacionPrecioCantidad, descuentoTotal);
-
-        query.multiselect(
-                producto.get("id"),
-                producto.get("descripcion"),
-                cb.sum(item.get("cantidad")),
-                cb.sum(montoFila));
-
-        query.groupBy(producto.get("id"), producto.get("descripcion"));
-        query.orderBy(cb.desc(cb.sum(montoFila)));
-
-        List<Object[]> resultados = em.createQuery(query)
-                .setMaxResults(limit != null ? limit : 10)
-                .getResultList();
+        List<Object[]> resultados = query.getResultList();
 
         return transformarResultadosAEstadisticas(resultados);
     }

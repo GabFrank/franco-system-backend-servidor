@@ -55,28 +55,28 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
 
         public Gasto findByIdAndSucursalId(Long id, Long sucId);
 
-        @Query("SELECT new com.franco.dev.domain.financiero.GastoPorCategoria(" +
-                        "COALESCE(g.tipoGasto.descripcion, 'Sin Categoría'), " +
-                        "SUM(g.retiroGs), COUNT(g)) " +
-                        "FROM Gasto g " +
-                        "WHERE g.creadoEn BETWEEN :inicio AND :fin " +
-                        "AND (:sucId IS NULL OR g.sucursalId = :sucId) " +
+        @Query(value = "SELECT " +
+                        "COALESCE(tg.descripcion, 'Sin Categoría'), " +
+                        "SUM(g.retiro_gs), COUNT(g.id) " +
+                        "FROM financiero.gasto g " +
+                        "LEFT JOIN financiero.tipo_gasto tg ON g.tipo_gasto_id = tg.id " +
+                        "WHERE g.creado_en BETWEEN :inicio AND :fin " +
+                        "AND (CAST(:sucId AS bigint) IS NULL OR g.sucursal_id = CAST(:sucId AS bigint)) " +
                         "AND g.activo = true " +
-                        "GROUP BY g.tipoGasto.descripcion " +
-                        "ORDER BY SUM(g.retiroGs) DESC")
-        List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(
+                        "GROUP BY tg.descripcion " +
+                        "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
+        List<Object[]> gastosPorCategoria(
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
-        @Query("SELECT new com.franco.dev.domain.financiero.GastoPorMes(CAST(extract(month from g.creadoEn) as integer), SUM(g.retiroGs), COUNT(g)) "
-                        +
-                        "FROM Gasto g " +
-                        "WHERE g.creadoEn BETWEEN :inicio AND :fin " +
-                        "AND (:sucId IS NULL OR g.sucursalId = :sucId) " +
+        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs), COUNT(g.id) " +
+                        "FROM financiero.gasto g " +
+                        "WHERE g.creado_en BETWEEN :inicio AND :fin " +
+                        "AND (CAST(:sucId AS bigint) IS NULL OR g.sucursal_id = CAST(:sucId AS bigint)) " +
                         "AND g.activo = true " +
-                        "GROUP BY extract(month from g.creadoEn) " +
-                        "ORDER BY extract(month from g.creadoEn)")
-        List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(@Param("inicio") LocalDateTime inicio,
+                        "GROUP BY extract(month from g.creado_en) " +
+                        "ORDER BY extract(month from g.creado_en)", nativeQuery = true)
+        List<Object[]> gastosPorMes(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
 }

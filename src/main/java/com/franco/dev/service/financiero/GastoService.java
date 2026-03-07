@@ -61,12 +61,30 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
             Long sucId) {
         java.time.LocalDateTime fechaInicio = stringToDate(inicio);
         java.time.LocalDateTime fechaFin = stringToDate(fin);
-        return repository.gastosPorCategoria(fechaInicio, fechaFin, sucId);
+        List<Object[]> results = repository.gastosPorCategoria(fechaInicio, fechaFin, sucId);
+        java.util.List<com.franco.dev.domain.financiero.GastoPorCategoria> list = new java.util.ArrayList<>();
+        for (Object[] obj : results) {
+            com.franco.dev.domain.financiero.GastoPorCategoria dto = new com.franco.dev.domain.financiero.GastoPorCategoria();
+            dto.setCategoria(obj[0] != null ? String.valueOf(obj[0]) : "");
+            dto.setTotal(obj[1] != null ? ((Number) obj[1]).doubleValue() : 0.0);
+            dto.setCantidad(obj[2] != null ? ((Number) obj[2]).longValue() : 0L);
+            list.add(dto);
+        }
+        return list;
     }
 
     public List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(Integer anio, Long sucId) {
         java.time.LocalDateTime inicio = java.time.LocalDateTime.of(anio, 1, 1, 0, 0);
         java.time.LocalDateTime fin = java.time.LocalDateTime.of(anio, 12, 31, 23, 59, 59);
-        return repository.gastosPorMes(inicio, fin, sucId);
+        List<Object[]> results = repository.gastosPorMes(inicio, fin, sucId);
+        java.util.List<com.franco.dev.domain.financiero.GastoPorMes> list = new java.util.ArrayList<>();
+        for (Object[] obj : results) {
+            com.franco.dev.domain.financiero.GastoPorMes dto = new com.franco.dev.domain.financiero.GastoPorMes();
+            dto.setMes(obj[0] != null ? ((Number) obj[0]).intValue() : null);
+            dto.setTotal(obj[1] != null ? ((Number) obj[1]).doubleValue() : 0.0);
+            dto.setCantidad(obj[2] != null ? ((Number) obj[2]).longValue() : 0L);
+            list.add(dto);
+        }
+        return list;
     }
 }

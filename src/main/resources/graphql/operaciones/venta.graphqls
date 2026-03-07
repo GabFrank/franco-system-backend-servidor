@@ -144,6 +144,9 @@ type VentaPorMes {
     mes: Int
     total: Float
     cantidad: Int
+    efvo: Float
+    tarjeta: Float
+    otros: Float
 }
 
 

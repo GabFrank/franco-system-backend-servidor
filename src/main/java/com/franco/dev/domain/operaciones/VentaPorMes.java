@@ -11,4 +11,7 @@ public class VentaPorMes {
     private Integer mes;
     private Double total;
     private Long cantidad;
+    private Double efvo;
+    private Double tarjeta;
+    private Double otros;
 }

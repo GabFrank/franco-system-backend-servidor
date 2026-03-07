@@ -120,13 +120,16 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         // public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId,
         // VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
 
-        @Query(value = "SELECT s.id, s.nombre, SUM(v.total_gs) " +
+        @Query(value = "SELECT s.id, s.nombre, " +
+                        "SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) " +
                         "FROM operaciones.venta v " +
                         "JOIN empresarial.sucursal s ON v.sucursal_id = s.id " +
+                        "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
                         "AND v.estado = 'CONCLUIDA' " +
+                        "AND cd.valor < 2000000000 " +
                         "GROUP BY s.id, s.nombre " +
-                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+                        "ORDER BY SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) DESC", nativeQuery = true)
         List<Object[]> getVentasPorSucursal(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);
 
@@ -178,11 +181,20 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         List<Object[]> ventasPorHora(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
-        @Query(value = "SELECT CAST(extract(month from v.creado_en) as integer), SUM(v.total_gs), COUNT(v.id) " +
+        @Query(value = "SELECT CAST(extract(month from v.creado_en) as integer) as mes, " +
+                        "SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) as total, " +
+                        "COUNT(DISTINCT v.id) as cantidad, " +
+                        "SUM(CASE WHEN fp.descripcion = 'EFECTIVO' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as efvo, " +
+                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as tarjeta, " +
+                        "SUM(CASE WHEN fp.descripcion NOT IN ('EFECTIVO', 'TARJETA') THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as otros " +
                         "FROM operaciones.venta v " +
+                        "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
+                        "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
                         "AND (CAST(:sucId AS bigint) IS NULL OR v.sucursal_id = CAST(:sucId AS bigint)) " +
                         "AND v.estado = 'CONCLUIDA' " +
+                        "AND cd.pago = true " +
+                        "AND cd.valor < 2000000000 " +
                         "GROUP BY extract(month from v.creado_en) " +
                         "ORDER BY extract(month from v.creado_en)", nativeQuery = true)
         List<Object[]> ventasPorMes(@Param("inicio") LocalDateTime inicio,

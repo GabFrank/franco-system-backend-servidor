@@ -528,6 +528,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             dto.setMes(obj[0] != null ? ((Number) obj[0]).intValue() : null);
             dto.setTotal(obj[1] != null ? ((Number) obj[1]).doubleValue() : 0.0);
             dto.setCantidad(obj[2] != null ? ((Number) obj[2]).longValue() : 0L);
+            dto.setEfvo(obj[3] != null ? ((Number) obj[3]).doubleValue() : 0.0);
+            dto.setTarjeta(obj[4] != null ? ((Number) obj[4]).doubleValue() : 0.0);
+            dto.setOtros(obj[5] != null ? ((Number) obj[5]).doubleValue() : 0.0);
             list.add(dto);
         }
         return list;

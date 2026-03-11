@@ -15,6 +15,7 @@ type Sucursal {
     activo: Boolean
     ip: String
     puerto: Int
+    activo: Boolean
 }
 
 input SucursalInput {
@@ -33,6 +34,7 @@ input SucursalInput {
     creadoEn: String
     ip: String
     puerto: Int
+    activo: Boolean
 }
 
 type SucursalPage {
@@ -51,9 +53,10 @@ extend type Query {
     sucursal(id:ID!):Sucursal
     sucursales(page:Int = 0, size:Int = 10):[Sucursal]!
     countSucursal: Int
-    sucursalesSearch(texto:String, activo:Boolean):[Sucursal]
+    sucursalesSearch(texto:String, activo:Boolean, page:Int, size:Int):SucursalPage
     sucursalActual:Sucursal
     findByNombre(nombre: String, page: Int, size: Int): SucursalPage
+    findByNombreConFiltros(nombre: String, deposito: Boolean, activo: Boolean, page: Int, size: Int): [Sucursal]
 }
 
 extend type Mutation {

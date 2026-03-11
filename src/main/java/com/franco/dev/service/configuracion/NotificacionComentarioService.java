@@ -38,6 +38,7 @@ public class NotificacionComentarioService
 
     @Transactional
     public NotificacionComentario crearComentario(Long notificacionId, Long usuarioId, String comentario,
+            String mediaUrl,
             Long comentarioPadreId) {
         Notificacion notificacion = notificacionRepository.findById(notificacionId)
                 .orElseThrow(() -> new RuntimeException("Notificación no encontrada"));
@@ -49,6 +50,7 @@ public class NotificacionComentarioService
         comentarioEntity.setNotificacion(notificacion);
         comentarioEntity.setUsuario(usuario);
         comentarioEntity.setComentario(comentario);
+        comentarioEntity.setMediaUrl(mediaUrl);
 
         if (comentarioPadreId != null) {
             NotificacionComentario padre = repository.findById(comentarioPadreId)
@@ -112,7 +114,8 @@ public class NotificacionComentarioService
             int mejorLongitud = 0;
 
             for (Usuario usuario : usuariosActivos) {
-                if (usuario.getNickname() != null && usuario.getNickname().startsWith(textoCapturado)) {
+                if (usuario.getNickname() != null
+                        && usuario.getNickname().toUpperCase().startsWith(textoCapturado.toUpperCase())) {
                     String nicknameCompleto = usuario.getNickname();
                     String patronNickname = "@" + nicknameCompleto;
 
@@ -153,10 +156,12 @@ public class NotificacionComentarioService
             if (usuarios.isEmpty() || !usuarios.stream().anyMatch(u -> nickname.equals(u.getNickname()))) {
                 List<Usuario> usuariosActivos = usuarioService.findAllActivos();
                 for (Usuario usuario : usuariosActivos) {
-                    if (usuario.getNickname() != null && usuario.getNickname().startsWith(nickname)) {
+                    if (usuario.getNickname() != null
+                            && usuario.getNickname().toUpperCase().startsWith(nickname.toUpperCase())) {
                         List<Usuario> coincidencias = new java.util.ArrayList<>();
                         for (Usuario u : usuariosActivos) {
-                            if (u.getNickname() != null && u.getNickname().startsWith(nickname)) {
+                            if (u.getNickname() != null
+                                    && u.getNickname().toUpperCase().startsWith(nickname.toUpperCase())) {
                                 coincidencias.add(u);
                             }
                         }

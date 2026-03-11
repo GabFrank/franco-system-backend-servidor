@@ -14,7 +14,9 @@ type Venta {
     totalDs: Float
     cobro: Cobro
     sucursalId: Int
+    sucursal: Sucursal
     delivery: Delivery
+    ventaObservacionList: [VentaObservacion]
 }
 
 input VentaInput {
@@ -62,6 +64,24 @@ extend type Query {
         monedaId: Int, 
         conDescuento: Boolean, 
         conAumento: Boolean
+    ):VentaPage
+    ventasGenericFilter(
+        idVenta:ID, 
+        idCaja:ID, 
+        page: Int, 
+        size: Int, 
+        asc: Boolean, 
+        sucId: ID, 
+        formaPago: ID, 
+        estado: VentaEstado, 
+        isDelivery: Boolean, 
+        monedaId: Int, 
+        conDescuento: Boolean, 
+        conAumento: Boolean,
+        conObservacion: Boolean,
+        clienteId: ID,
+        fechaInicio: String,
+        fechaFin: String
     ):VentaPage
 #    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
 #    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]

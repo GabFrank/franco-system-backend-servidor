@@ -36,57 +36,73 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public Optional<Persona> persona(Long id) {return service.findById(id);}
+    public Optional<Persona> persona(Long id) {
+        return service.findById(id);
+    }
 
-    public List<Persona> personaSearch(String texto) {return service.findByAll(texto);}
+    public List<Persona> personaSearch(String texto) {
+        return service.findByAll(texto);
+    }
 
-    public List<Persona> personas(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Persona> personas(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public Persona savePersona(PersonaInput input){
+    public Persona savePersona(PersonaInput input) {
         Persona e;
-        
-        // Si tiene ID, recuperar la entidad existente y actualizar campos
-        if(input.getId() != null) {
+
+        if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Persona());
         } else {
             e = new Persona();
         }
-        
-        // Actualizar todos los campos individualmente para asegurar que se persistan
-        if(input.getNombre() != null) e.setNombre(input.getNombre());
-        if(input.getApodo() != null) e.setApodo(input.getApodo());
-        if(input.getDocumento() != null) e.setDocumento(input.getDocumento());
-        if(input.getEmail() != null) e.setEmail(input.getEmail());
-        if(input.getDireccion() != null) e.setDireccion(input.getDireccion());
-        if(input.getTelefono() != null) e.setTelefono(input.getTelefono());
-        if(input.getSexo() != null) e.setSexo(input.getSexo());
-        if(input.getSocialMedia() != null) e.setSocialMedia(input.getSocialMedia());
-        if(input.getImagenes() != null) e.setImagenes(input.getImagenes());
-        
-        if(input.getUsuarioId()!=null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if(input.getNacimiento()!=null) e.setNacimiento(stringToDate(input.getNacimiento()));
-        // Note: ciudadId handling would need to be added if CiudadService is available
-        
+
+        if (input.getNombre() != null)
+            e.setNombre(input.getNombre());
+        if (input.getApodo() != null)
+            e.setApodo(input.getApodo());
+        if (input.getDocumento() != null)
+            e.setDocumento(input.getDocumento());
+        if (input.getEmail() != null)
+            e.setEmail(input.getEmail());
+        if (input.getDireccion() != null)
+            e.setDireccion(input.getDireccion());
+        if (input.getTelefono() != null)
+            e.setTelefono(input.getTelefono());
+        if (input.getSexo() != null)
+            e.setSexo(input.getSexo());
+        if (input.getSocialMedia() != null)
+            e.setSocialMedia(input.getSocialMedia());
+        if (input.getImagenes() != null)
+            e.setImagenes(input.getImagenes());
+
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getNacimiento() != null)
+            e.setNacimiento(stringToDate(input.getNacimiento()));
+
         e = service.save(e);
         return e;
     }
 
-    public Persona updatePersona(Long id, PersonaInput personaInput){
+    public Persona updatePersona(Long id, PersonaInput personaInput) {
         ModelMapper m = new ModelMapper();
         Persona persona = service.getOne(id);
         persona = m.map(personaInput, Persona.class);
         return service.save(persona);
     }
 
-    public Boolean deletePersona(Long id){
+    public Boolean deletePersona(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
-    public Long countPersona(){
+    public Long countPersona() {
         return service.count();
+    }
+
+    public Persona personaPorDocumento(String texto){
+        return service.findByDocumento(texto);
     }
 }

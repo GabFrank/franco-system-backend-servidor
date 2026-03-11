@@ -18,10 +18,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
-import com.franco.dev.fmc.service.PushNotificationService;
-import com.franco.dev.fmc.service.NotificationRoleService;
-import com.franco.dev.fmc.service.NotificationTemplateService;
-import com.franco.dev.fmc.model.PushNotificationRequest;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -71,13 +67,13 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     private MultiTenantService multiTenantService;
 
     @Autowired
-    private PushNotificationService pushNotificationService;
+    private com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService;
 
     @Autowired
-    private NotificationRoleService notificationRoleService;
+    private com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
 
     @Autowired
-    private NotificationTemplateService notificationTemplateService;
+    private com.franco.dev.fmc.service.NotificationRoleService notificationRoleService;
 
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
@@ -100,6 +96,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findPageByUsuarioId(usuarioId, page, size, sortOrder);
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     public Inventario saveInventario(InventarioInput input) {
         ModelMapper m = new ModelMapper();
         Inventario e = m.map(input, Inventario.class);
@@ -114,44 +113,12 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
         if (esNuevo && e.getId() != null) {
-            enviarNotificacionInventarioIniciado(e);
+            // publisher.publishEvent(new
+            // com.franco.dev.fmc.event.InventarioIniciadoEvent(this, e));
+            sendInventarioIniciadoNotification(e);
         }
 
         return e;
-    }
-
-    private void enviarNotificacionInventarioIniciado(Inventario inventario) {
-        try {
-            List<String> roles = Arrays.asList(
-                    "ADMIN",
-                    "SOPORTE",
-                    "CREAR INVENTARIO",
-                    "VER INVENTARIO",
-                    "PARTICIPAR DEL INVENTARIO");
-            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
-
-            if (!usuarioIds.isEmpty()) {
-                String sucursalNombre = inventario.getSucursal() != null
-                        ? inventario.getSucursal().getNombre()
-                        : "Sucursal no especificada";
-                String usuarioNombre = inventario.getUsuario() != null
-                        ? inventario.getUsuario().getPersona().getNombre()
-                        : "Usuario";
-                String tipoInventario = inventario.getTipo() != null
-                        ? inventario.getTipo().name()
-                        : "";
-
-                PushNotificationRequest request = notificationTemplateService.inventarioIniciado(
-                        tipoInventario,
-                        sucursalNombre,
-                        usuarioNombre,
-                        inventario.getId());
-                request.setUsuarioIds(usuarioIds);
-
-                pushNotificationService.sendPushNotificationToToken(request);
-            }
-        } catch (Exception ex) {
-        }
     }
 
     public Boolean deleteInventario(Long id) {
@@ -294,5 +261,66 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             throw e;
         }
 
+    }
+
+    private void sendInventarioIniciadoNotification(Inventario inventario) {
+        try {
+            Long inventarioId = inventario.getId();
+
+            // Initialize Lazy Objects or use what we have
+            String sucursalNombre = "Sucursal no especificada";
+            if (inventario.getSucursal() != null) {
+                // If it's a proxy, we might need to fetch it, but usually if it came from
+                // save(e) it might be attached or detached but with ID
+                // Let's try to get name safely
+                if (inventario.getSucursal().getNombre() != null) {
+                    sucursalNombre = inventario.getSucursal().getNombre();
+                } else {
+                    com.franco.dev.domain.empresarial.Sucursal s = sucursalService
+                            .findById(inventario.getSucursal().getId()).orElse(null);
+                    if (s != null)
+                        sucursalNombre = s.getNombre();
+                }
+            }
+
+            String usuarioNombre = "Usuario";
+            if (inventario.getUsuario() != null) {
+                try {
+                    // Try to get persona name if possible, or fallback to nickname
+                    if (inventario.getUsuario().getPersona() != null
+                            && inventario.getUsuario().getPersona().getNombre() != null) {
+                        usuarioNombre = inventario.getUsuario().getPersona().getNombre();
+                    } else {
+                        usuarioNombre = inventario.getUsuario().getNickname();
+                    }
+                } catch (Exception e) {
+                    usuarioNombre = inventario.getUsuario().getNickname();
+                }
+            }
+
+            String tipoInventario = inventario.getTipo() != null ? inventario.getTipo().name() : "";
+
+            List<String> roles = Arrays.asList(
+                    "ADMIN",
+                    "SOPORTE",
+                    "CREAR INVENTARIO",
+                    "VER INVENTARIO",
+                    "PARTICIPAR DEL INVENTARIO");
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+
+            if (!usuarioIds.isEmpty()) {
+                com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
+                        .inventarioIniciado(
+                                tipoInventario,
+                                sucursalNombre,
+                                usuarioNombre,
+                                inventario.getId());
+                request.setUsuarioIds(usuarioIds);
+
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }

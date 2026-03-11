@@ -52,4 +52,13 @@ public class ProductoProveedor implements Identifiable<Long> {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    @Column(name = "activo", nullable = false)
+    private Boolean activo = true;
+
+    @Column(name = "motivo_desvinculacion", length = 255)
+    private String motivoDesvinculacion;
+
+    @Transient
+    private Boolean yaEnPedido = false;
+
 }

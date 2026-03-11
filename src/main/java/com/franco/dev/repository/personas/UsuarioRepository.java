@@ -18,7 +18,7 @@ public interface UsuarioRepository extends HelperRepository<Usuario, Long> {
 
     @Query("select u from Usuario u " +
             "join u.persona p " +
-            "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(u.nickname) like %?1%")
+            "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(u.nickname) like %?1% or p.documento like %?1% or CAST(p.id as text) like %?1%")
     public List<Usuario> findbyIdOrPersona(String texto);
 
     public boolean existsByEmail(String email);

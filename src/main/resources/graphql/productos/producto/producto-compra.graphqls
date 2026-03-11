@@ -3,6 +3,7 @@ type ProductoCompra{
     cantidad: Float
     precio: Float
     creadoEn: Date
+    presentacionEnNota: Presentacion
 }
 
 

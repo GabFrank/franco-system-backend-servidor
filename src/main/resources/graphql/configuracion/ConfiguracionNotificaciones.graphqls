@@ -1,0 +1,15 @@
+type ConfiguracionNotificacion {
+    tipo: String
+    descripcion: String
+    habilitado: Boolean
+    esObligatorio: Boolean
+}
+
+extend type Query {
+    misConfiguracionesNotificacion: [ConfiguracionNotificacion]
+}
+
+extend type Mutation {
+    actualizarPreferenciaNotificacion(tipoNotificacion: String!, habilitado: Boolean!): Boolean
+    enviarNotificacionPersonalizada(titulo: String!, mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
+}

@@ -186,23 +186,34 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             if (usuarioIds.isEmpty()) {
                 return;
             }
+
+            // Recargar entidades para evitar LazyInitializationException
             Sucursal sucursal = null;
-            if (sucursalService != null) {
+            if (sucursalService != null && saved.getSucursalId() != null) {
                 try {
-                    Optional<Sucursal> optSuc = sucursalService.findById(saved.getSucursalId());
-                    if (optSuc != null && optSuc.isPresent()) {
-                        sucursal = optSuc.get();
-                    }
+                    sucursal = sucursalService.findById(saved.getSucursalId()).orElse(null);
                 } catch (Exception e) {
                 }
             }
+
+            if (saved.getUsuario() != null) {
+                Usuario u = usuarioService.findById(saved.getUsuario().getId()).orElse(null);
+                saved.setUsuario(u);
+            }
+
+            if (saved.getProducto() != null) {
+                com.franco.dev.domain.productos.Producto p = productoService.findById(saved.getProducto().getId())
+                        .orElse(null);
+                saved.setProducto(p);
+            }
+
             PushNotificationRequest request = notificationTemplateService.ajusteStock(saved, sucursal, df);
             if (request != null) {
                 request.setUsuarioIds(usuarioIds);
                 pushNotificationService.sendPushNotificationToToken(request);
             }
         } catch (Exception e) {
-            // Silent notification error
+            e.printStackTrace();
         }
     }
 

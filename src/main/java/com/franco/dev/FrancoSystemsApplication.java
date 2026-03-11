@@ -2,6 +2,8 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -45,6 +47,25 @@ public class FrancoSystemsApplication {
     @Bean
     public RestTemplate getResTemplate() {
         return new RestTemplate();
+    }
+
+    /**
+     * Global ModelMapper configuration with strict matching strategy.
+     * This prevents fuzzy matching that can cause confusion between similar field names
+     * and ensures predictable, type-safe mapping behavior across the entire application.
+     */
+    @Bean
+    public ModelMapper modelMapper() {
+        ModelMapper mapper = new ModelMapper();
+        
+        // Configure for exact field name matching only
+        mapper.getConfiguration()
+            .setFieldMatchingEnabled(true)
+            .setMethodAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
+            .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
+            .setMatchingStrategy(MatchingStrategies.STRICT);
+            
+        return mapper;
     }
 
     /**

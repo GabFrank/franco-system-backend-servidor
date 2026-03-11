@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="constancia-recepcion" pageWidth="595" pageHeight="842" whenNoDataType="AllSectionsNoDetail" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d">
+	<parameter name="numeroRecepcion" class="java.lang.Long"/>
+	<parameter name="fechaRecepcion" class="java.util.Date"/>
+	<parameter name="usuarioRecepcion" class="java.lang.String"/>
+	<parameter name="nombreSucursal" class="java.lang.String"/>
+	<parameter name="direccionSucursal" class="java.lang.String"/>
+	<parameter name="nombreProveedor" class="java.lang.String"/>
+	<parameter name="rucProveedor" class="java.lang.String"/>
+	<parameter name="totalNotas" class="java.lang.Integer"/>
+	<parameter name="totalProductos" class="java.lang.Integer"/>
+	<parameter name="tituloReporte" class="java.lang.String"/>
+	<parameter name="fechaGeneracion" class="java.util.Date"/>
+	<parameter name="qr" class="java.lang.String"/>
+	<field name="codigoProducto" class="java.lang.String"/>
+	<field name="nombreProducto" class="java.lang.String"/>
+	<field name="presentacion" class="java.lang.Double"/>
+	<field name="cantidadEsperada" class="java.lang.Double"/>
+	<field name="cantidadRecibida" class="java.lang.Double"/>
+	<field name="cantidadRechazada" class="java.lang.Double"/>
+	<field name="numeroNota" class="java.lang.Integer"/>
+	<field name="metodoVerificacion" class="java.lang.String"/>
+	<title>
+		<band height="115" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="113" uuid="f1e2d3c4-b5a6-4978-8c6d-1e2f3a4b5c6d"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="10" y="6" width="335" height="20" uuid="b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"/>
+				<textElement textAlignment="Left">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CONSTANCIA DE RECEPCIÓN DE MERCADERÍA]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="10" y="28" width="335" height="14" uuid="c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"/>
+				<textElement textAlignment="Left"/>
+				<textFieldExpression><![CDATA["Nº Recepción: " + ($P{numeroRecepcion} != null ? $P{numeroRecepcion} : "N/A")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="10" y="44" width="165" height="14" uuid="d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"/>
+				<textFieldExpression><![CDATA["Fecha recepción: " + ($P{fechaRecepcion} != null ? new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format($P{fechaRecepcion}) : "N/A")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="180" y="44" width="165" height="14" uuid="e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"/>
+				<textFieldExpression><![CDATA["Usuario: " + ($P{usuarioRecepcion} != null ? $P{usuarioRecepcion} : "N/A")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="10" y="60" width="335" height="14" uuid="f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c"/>
+				<textFieldExpression><![CDATA["Sucursal: " + ($P{nombreSucursal} != null ? $P{nombreSucursal} : "N/A") + ($P{direccionSucursal} != null && !$P{direccionSucursal}.isEmpty() ? " - " + $P{direccionSucursal} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="10" y="76" width="335" height="14" uuid="a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d"/>
+				<textFieldExpression><![CDATA["Proveedor: " + ($P{nombreProveedor} != null ? $P{nombreProveedor} : "N/A") + ($P{rucProveedor} != null && !$P{rucProveedor}.isEmpty() ? " (RUC: " + $P{rucProveedor} + ")" : "")]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="355" y="4" width="195" height="107" uuid="b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="360" y="6" width="185" height="12" uuid="c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f"/>
+				<textElement textAlignment="Center">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Código de verificación]]></text>
+			</staticText>
+			<componentElement>
+				<reportElement x="395" y="22" width="115" height="85" uuid="d0e1f2a3-b4c5-4d6e-7f8a-9b0c1d2e3f4a"/>
+				<jr:QRCode xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" evaluationTime="Report">
+					<jr:codeExpression><![CDATA[$P{qr}]]></jr:codeExpression>
+				</jr:QRCode>
+			</componentElement>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="24" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="22" forecolor="#9E9E9E" backcolor="#EDEDED" uuid="e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="2" y="2" width="58" height="18" uuid="b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Código]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="62" y="2" width="178" height="18" uuid="c9d0e1f2-a3b4-4c5d-6e7f-8a9b0c1d2e3f"/>
+				<textElement verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Producto]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="242" y="2" width="80" height="18" uuid="d0e1f2a3-b4c5-4d6e-7f8a-9b0c1d2e3f4a"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Present.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="324" y="2" width="72" height="18" uuid="e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Esperada]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="398" y="2" width="72" height="18" uuid="f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Recibida]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="472" y="2" width="81" height="18" uuid="a3b4c5d6-e7f8-4a9b-0c1d-2e3f4a5b6c7d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Rechazada]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="20" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="18" uuid="b4c5d6e7-f8a9-4b0c-1d2e-3f4a5b6c7d8e"/>
+				<graphicElement>
+					<pen lineWidth="0.25" lineColor="#BDBDBD"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="2" y="2" width="58" height="14" uuid="b4c5d6e7-f8a9-4b0c-1d2e-3f4a5b6c7d90"/>
+				<textFieldExpression><![CDATA[$F{codigoProducto} != null ? $F{codigoProducto} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="62" y="2" width="178" height="14" uuid="c5d6e7f8-a9b0-4c1d-2e3f-4a5b6c7d8e9f"/>
+				<textFieldExpression><![CDATA[$F{nombreProducto} != null ? $F{nombreProducto} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="242" y="2" width="80" height="14" uuid="d6e7f8a9-b0c1-4d2e-3f4a-5b6c7d8e9f0a"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{presentacion} != null ? ($F{presentacion}.intValue() == $F{presentacion}.doubleValue() ? String.valueOf($F{presentacion}.intValue()) : String.valueOf($F{presentacion})) : "1"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="324" y="2" width="72" height="14" uuid="e7f8a9b0-c1d2-4e3f-4a5b-6c7d8e9f0a1b"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{cantidadEsperada} != null ? $F{cantidadEsperada} : 0]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="398" y="2" width="72" height="14" uuid="f8a9b0c1-d2e3-4f4a-5b6c-7d8e9f0a1b2c"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{cantidadRecibida} != null ? $F{cantidadRecibida} : 0]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="472" y="2" width="81" height="14" uuid="a9b0c1d2-e3f4-4a5b-6c7d-8e9f0a1b2c3d"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{cantidadRechazada} != null ? $F{cantidadRechazada} : 0]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="55" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="52" uuid="b0c1d2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4e"/>
+				<graphicElement>
+					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="10" y="12" width="280" height="14" uuid="b0c1d2e3-f4a5-4b6c-7d8e-9f0a1b2c3d4f"/>
+				<textElement verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Total productos únicos: " + ($P{totalProductos} != null ? $P{totalProductos} : 0)]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="350" y="12" width="195" height="14" uuid="d2e3f4a5-b6c7-4d8e-9f0a-1b2c3d4e5f6a"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Generado: " + ($P{fechaGeneracion} != null ? new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format($P{fechaGeneracion}) : "")]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

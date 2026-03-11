@@ -11,11 +11,7 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.fmc.model.PushNotificationRequest;
-import com.franco.dev.fmc.service.NotificationTemplateService;
-import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
-import com.franco.dev.repository.personas.UsuarioRepository;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
@@ -35,9 +31,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -74,17 +68,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private PlatformTransactionManager transactionManager;
 
-    @Autowired
-    private PushNotificationService pushNotificationService;
-
-    @Autowired
-    private NotificationTemplateService notificationTemplateService;
-
-    @Autowired
-    private UsuarioRepository usuarioRepository;
-
     public Optional<Transferencia> transferencia(Long id) {
-
         return service.findById(id);
     }
 
@@ -152,15 +136,6 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         boolean isNewTransferencia = (input.getId() == null);
 
         e = service.save(e);
-        if (isNewTransferencia) {
-            try {
-                enviarNotificacionTransferenciaIniciada(e);
-            } catch (Throwable t) {
-                System.err.println(
-                        "[NOTIFICACION] Error al enviar notificación de transferencia iniciada"
-                                + t.getMessage());
-            }
-        }
 
         if (newSucursalOrigenId != null) {
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService
@@ -251,6 +226,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService
                     .findByTransferenciaId(transferencia.getId());
             switch (etapa) {
+                case PRE_TRANSFERENCIA_CREACION:
+                    transferencia.setEtapa(etapa);
+                    break;
                 case PRE_TRANSFERENCIA_ORIGEN:
                     transferencia.setUsuarioPreTransferencia(usuario);
                     transferencia.setEstado(TransferenciaEstado.EN_ORIGEN);
@@ -366,42 +344,5 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public List<VencimientoProductoDto> findProductoVencido(Long sucId, String fechaInicio, String fechaFin) {
         return service.findProductosVencidos(sucId, stringToDate(fechaInicio), stringToDate(fechaFin));
-    }
-
-    private void enviarNotificacionTransferenciaIniciada(Transferencia transferencia) {
-        if (transferencia == null) {
-            return;
-        }
-
-        try {
-            List<Long> usuarioIds = usuarioRepository.findAll()
-                    .stream()
-                    .map(Usuario::getId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-
-            if (usuarioIds.isEmpty()) {
-                return;
-            }
-            Sucursal sucursalOrigen = null;
-            Sucursal sucursalDestino = null;
-
-            if (transferencia.getSucursalOrigen() != null) {
-                sucursalOrigen = transferencia.getSucursalOrigen();
-            }
-
-            if (transferencia.getSucursalDestino() != null) {
-                sucursalDestino = transferencia.getSucursalDestino();
-            }
-            PushNotificationRequest request = notificationTemplateService.transferenciaIniciada(
-                    transferencia, sucursalOrigen, sucursalDestino);
-            if (request != null) {
-                request.setUsuarioIds(usuarioIds);
-                pushNotificationService.sendPushNotificationToToken(request);
-            }
-        } catch (Exception e) {
-            System.err.println(
-                    "[NOTIFICACION] Error interno al procesar notificación de transferencia: " + e.getMessage());
-        }
     }
 }

@@ -10,6 +10,8 @@ import com.franco.dev.repository.operaciones.NecesidadRepository;
 import com.franco.dev.repository.operaciones.TransferenciaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,9 @@ import java.util.List;
 @AllArgsConstructor
 public class TransferenciaService extends CrudService<Transferencia, TransferenciaRepository, Long> {
     private final TransferenciaRepository repository;
+    private final com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService;
+    private final com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+    private final com.franco.dev.fmc.service.NotificationRoleService notificationRoleService;
 
     @Override
     public TransferenciaRepository getRepository() {
@@ -58,6 +63,9 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         return repository.findProductoVencido(sucId, fechaInicio, fechaFin);
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     @Override
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Transferencia save(Transferencia entity) {
@@ -65,7 +73,29 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
             entity.setCreadoEn(LocalDateTime.now());
         if (entity.getEtapa() == null)
             entity.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_CREACION);
+
+        // Capturar estado anterior de sucursales
+        com.franco.dev.domain.empresarial.Sucursal oldSucursalOrigen = null;
+        com.franco.dev.domain.empresarial.Sucursal oldSucursalDestino = null;
+        boolean isUpdate = entity.getId() != null;
+
+        if (isUpdate) {
+            Transferencia oldTransferencia = repository.findById(entity.getId()).orElse(null);
+            if (oldTransferencia != null) {
+                oldSucursalOrigen = oldTransferencia.getSucursalOrigen();
+                oldSucursalDestino = oldTransferencia.getSucursalDestino();
+            }
+        }
+
         Transferencia e = super.save(entity);
+
+        // Publicar evento si hubo actualización
+        if (isUpdate) {
+            publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaCambioSucursalEvent(this, e,
+                    oldSucursalOrigen, oldSucursalDestino));
+        } else {
+            publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaIniciadaEvent(this, e));
+        }
         return e;
     }
 

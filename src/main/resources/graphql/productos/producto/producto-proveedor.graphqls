@@ -5,6 +5,9 @@ type ProductoProveedor {
     pedido: Pedido
     creadoEn: Date
     usuario: Usuario
+    activo: Boolean
+    motivoDesvinculacion: String
+    yaEnPedido: Boolean
 }
 
 input ProductoProveedorInput {
@@ -28,7 +31,13 @@ type ProductoProveedorPage {
 }
 
 extend type Query {
-    productoProveedorPorProveedorId(id: ID!, texto: String, page: Int, size: Int): ProductoProveedorPage
+    productoProveedorPorProveedorId(id: ID!, texto: String, page: Int, size: Int, pedidoId: ID): ProductoProveedorPage
+    productoProveedorPorProductoId(id: ID!, page: Int, size: Int): ProductoProveedorPage
+}
+
+extend type Mutation {
+    desvincularProductoProveedor(id: ID!, motivo: String!): ProductoProveedor
+    saveProductoProveedor(input: ProductoProveedorInput!): ProductoProveedor
 }
 
 

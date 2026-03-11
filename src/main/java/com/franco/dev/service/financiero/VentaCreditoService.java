@@ -7,20 +7,17 @@ import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
-import com.franco.dev.domain.personas.Usuario;
-import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.repository.financiero.VentaCreditoRepository;
 import com.franco.dev.repository.financiero.VentaCreditoRepositoryImpl;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.VentaService;
-import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,7 +25,6 @@ import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -38,12 +34,6 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
 
     private VentaCreditoRepository repository = null;
-
-    @Autowired
-    private UsuarioService usuarioService;
-
-    @Autowired
-    private SucursalService sucursalService;
 
     private VentaService ventaService;
 
@@ -56,6 +46,9 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
 
     @Autowired
     private VentaCreditoRepositoryImpl ventaCreditoRepository;
+
+    @Autowired
+    private ApplicationEventPublisher publisher2;
 
     @Autowired
     public VentaCreditoService(@Lazy VentaService ventaService, VentaCreditoRepository repository) {
@@ -98,30 +91,14 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
+
     @Override
     public VentaCredito save(VentaCredito entity) {
 
         VentaCredito saved = super.save(entity);
-
-        if (saved.getCliente() != null && saved.getCliente().getPersona() != null) {
-
-            Usuario usuario = usuarioService.findByPersonaId(saved.getCliente().getPersona().getId());
-
-            if (usuario != null) {
-                try {
-                    Sucursal sucursal = sucursalService.findById(saved.getSucursalId()).orElse(null);
-
-                    PushNotificationRequest request = notificationTemplateService.ventaCreditoRealizada(saved, sucursal,
-                            df);
-                    request.setUsuarioIds(Collections.singletonList(usuario.getId()));
-
-                    pushNotificationService.sendPushNotificationToToken(request);
-
-                } catch (Exception e) {
-
-                }
-            }
-        }
+        publisher.publishEvent(new com.franco.dev.fmc.event.VentaCreditoRealizadaEvent(this, saved));
 
         return saved;
     }

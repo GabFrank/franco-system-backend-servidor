@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.17.0.final using JasperReports Library version 6.17.0-6d93193241dd8cc42629e188b94f9e0bc5722efd  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="solicitud-pago-notas-subreport" pageWidth="268" pageHeight="55" whenNoDataType="AllSectionsNoDetail" columnWidth="268" leftMargin="0" rightMargin="0" topMargin="0" bottomMargin="0" uuid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+	<field name="numero" class="java.lang.String"/>
+	<field name="fecha" class="java.lang.String"/>
+	<field name="total" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="14" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="88" height="14" uuid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d61"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{numero} != null ? $F{numero} : "—"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="90" y="0" width="88" height="14" uuid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d62"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{fecha} != null ? $F{fecha} : "—"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="180" y="0" width="86" height="14" uuid="b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d63"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{total} != null ? $F{total} : "—"]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<noData>
+		<band splitType="Stretch"/>
+	</noData>
+</jasperReport>

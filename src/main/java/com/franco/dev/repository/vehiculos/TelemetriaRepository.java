@@ -4,6 +4,7 @@ import com.franco.dev.domain.vehiculos.Telemetria;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
@@ -28,4 +29,8 @@ public interface TelemetriaRepository extends HelperRepository<Telemetria, Long>
             LocalDateTime fechaFin, Pageable pageable);
 
     Optional<Telemetria> findFirstByDispositivoIdOrderByFechaGpsDesc(Long dispositivoId);
+
+    @Modifying
+    @Query("DELETE FROM Telemetria t WHERE t.fechaServidor < :threshold")
+    int deleteByFechaServidorBefore(LocalDateTime threshold);
 }

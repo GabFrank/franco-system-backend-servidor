@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.vehiculos;
 
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.vehiculos.Vehiculo;
 import com.franco.dev.graphql.vehiculos.input.VehiculoInput;
 import com.franco.dev.service.personas.UsuarioService;
@@ -50,6 +52,19 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public List<Vehiculo> vehiculoSearchWithPage(String texto, int page, int size) {
         return service.findByAllWithPage(texto, page, size).getContent();
+    }
+
+    /**
+     * Búsqueda paginada con PageInfo (getContent/getTotalElements/etc) para UI con paginator.
+     * Mantiene vehiculoSearchWithPage() por compatibilidad (retorna List).
+     */
+    public CustomPage<Vehiculo> vehiculoSearchPage(String texto, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+
+        Pageable pageable = PageRequest.of(p, s);
+        org.springframework.data.domain.Page<Vehiculo> pageResult = service.findByAllWithPage(texto, p, s);
+        return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
     public Vehiculo vehiculoByChapa(String chapa) {

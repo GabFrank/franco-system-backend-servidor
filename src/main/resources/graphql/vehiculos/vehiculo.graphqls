@@ -37,17 +37,31 @@ input VehiculoInput {
     usuarioId: Int
 }
 
+type VehiculoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Vehiculo]
+    getPageable: Pageable
+}
+
 extend type Query {
     vehiculo(id:ID!):Vehiculo
     vehiculos(page:Int = 0, size:Int = 10):[Vehiculo]!
     countVehiculo: Int
     vehiculoSearch(texto:String):[Vehiculo]
     vehiculoSearchWithPage(texto:String, page:Int = 0, size:Int = 10):[Vehiculo]
+    vehiculoSearchPage(texto: String, page: Int, size: Int): VehiculoPage
     vehiculoByChapa(chapa:String):Vehiculo
     vehiculosByMarca(marcaId:ID!):[Vehiculo]
     vehiculosByModelo(modeloId:ID!):[Vehiculo]
     vehiculosByTipoVehiculo(tipoVehiculoId:ID!):[Vehiculo]
 }
+
 
 extend type Mutation {
     saveVehiculo(vehiculo:VehiculoInput!):Vehiculo!

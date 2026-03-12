@@ -20,6 +20,13 @@ public interface GpsRepository extends HelperRepository<Gps, Long> {
 
         Optional<Gps> findByImei(String imei);
 
+        @Query("SELECT g FROM Gps g " +
+                        "LEFT JOIN FETCH g.vehiculo v " +
+                        "LEFT JOIN FETCH v.modelo m " +
+                        "LEFT JOIN FETCH m.marca " +
+                        "WHERE g.imei = :imei")
+        Optional<Gps> findByImeiWithVehiculo(@Param("imei") String imei);
+
         List<Gps> findByVehiculoId(Long vehiculoId);
 
         List<Gps> findByActivoTrue();

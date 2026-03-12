@@ -28,6 +28,10 @@ public class GpsService extends CrudService<Gps, GpsRepository, Long> {
         return repository.findByImei(imei);
     }
 
+    public Optional<Gps> findByImeiWithVehiculo(String imei) {
+        return repository.findByImeiWithVehiculo(imei);
+    }
+
     public List<Gps> findByVehiculoId(Long vehiculoId) {
         return repository.findByVehiculoId(vehiculoId);
     }

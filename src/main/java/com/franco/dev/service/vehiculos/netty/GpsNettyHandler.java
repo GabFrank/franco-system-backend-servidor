@@ -67,8 +67,8 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
         String imei = parts[1];
         String messageType = parts[2];
 
-        // Buscar dispositivo registrado
-        Optional<Gps> gpsOpt = gpsService.findByImei(imei);
+        // Buscar dispositivo registrado con sus relaciones para evitar LazyInitializationException
+        Optional<Gps> gpsOpt = gpsService.findByImeiWithVehiculo(imei);
         if (!gpsOpt.isPresent()) {
             log.warn("Dispositivo no registrado con IMEI: {}", imei);
             return;

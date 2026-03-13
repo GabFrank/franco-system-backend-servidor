@@ -26,6 +26,12 @@ public class GpsChannelInitializer extends ChannelInitializer<SocketChannel> {
     @Autowired
     private GpsTelemetriaWebSocketService webSocketService;
 
+    @Autowired
+    private GpsConnectionManager connectionManager;
+
+    @Autowired
+    private com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
@@ -38,6 +44,7 @@ public class GpsChannelInitializer extends ChannelInitializer<SocketChannel> {
         pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.US_ASCII));
 
         pipeline.addLast("gpsHandler",
-                new GpsNettyHandler(gpsService, telemetriaService, webSocketService));
+                new GpsNettyHandler(gpsService, telemetriaService, webSocketService, connectionManager,
+                        pushNotificationService));
     }
 }

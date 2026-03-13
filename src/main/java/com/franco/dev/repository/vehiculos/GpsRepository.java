@@ -62,4 +62,27 @@ public interface GpsRepository extends HelperRepository<Gps, Long> {
                         "LEFT JOIN FETCH m.marca " +
                         "WHERE g.activo = true AND g.ultimaLatitud IS NOT NULL")
         List<Gps> findAllWithUltimaPosicion();
+
+        @Modifying
+        @Query("UPDATE Gps g SET g.modoSueno = :modoSueno WHERE g.id = :gpsId")
+        void updateModoSueno(@Param("gpsId") Long gpsId, @Param("modoSueno") Boolean modoSueno);
+
+        @Modifying
+        @Query("UPDATE Gps g SET g.intervaloReporte = :intervalo WHERE g.id = :gpsId")
+        void updateIntervaloReporte(@Param("gpsId") Long gpsId, @Param("intervalo") Integer intervalo);
+
+        @Modifying
+        @Query("UPDATE Gps g SET g.motorBloqueado = :bloqueado WHERE g.id = :gpsId")
+        void updateMotorBloqueado(@Param("gpsId") Long gpsId, @Param("bloqueado") Boolean bloqueado);
+
+        @Modifying
+        @Query("UPDATE Gps g SET g.alertaVelocidad = :alertaVelocidad, g.velocidadLimite = :velocidadLimite, " +
+                        "g.alertaVibracion = :alertaVibracion, g.alertaBateriaBaja = :alertaBateriaBaja, " +
+                        "g.alertaAcc = :alertaAcc WHERE g.id = :gpsId")
+        void updateConfigAlertas(@Param("gpsId") Long gpsId,
+                        @Param("alertaVelocidad") Boolean alertaVelocidad,
+                        @Param("velocidadLimite") Integer velocidadLimite,
+                        @Param("alertaVibracion") Boolean alertaVibracion,
+                        @Param("alertaBateriaBaja") Boolean alertaBateriaBaja,
+                        @Param("alertaAcc") Boolean alertaAcc);
 }

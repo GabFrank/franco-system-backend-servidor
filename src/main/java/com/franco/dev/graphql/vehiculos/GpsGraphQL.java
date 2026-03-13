@@ -68,4 +68,14 @@ public class GpsGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver
     public Boolean deleteGps(Long id) {
         return service.deleteById(id);
     }
+
+    public Boolean enviarComandoGps(Long id, String tipo, String valor) {
+        return service.enviarComando(id, tipo, valor);
+    }
+
+    public Gps guardarConfigAlertasGps(Long id, Boolean alertaVelocidad, Integer velocidadLimite,
+            Boolean alertaVibracion, Boolean alertaBateriaBaja, Boolean alertaAcc) {
+        return service.updateConfigAlertas(id, alertaVelocidad, velocidadLimite, alertaVibracion,
+                alertaBateriaBaja, alertaAcc);
+    }
 }

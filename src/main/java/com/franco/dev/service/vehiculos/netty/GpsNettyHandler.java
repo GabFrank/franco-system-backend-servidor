@@ -5,6 +5,7 @@ import com.franco.dev.domain.vehiculos.Telemetria;
 import com.franco.dev.service.vehiculos.GpsService;
 import com.franco.dev.service.vehiculos.TelemetriaService;
 import com.franco.dev.service.vehiculos.websocket.GpsTelemetriaWebSocketService;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -16,17 +17,23 @@ import java.time.format.DateTimeFormatter;
 import java.util.Optional;
 
 @Slf4j
-public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
+public class GpsNettyHandler extends SimpleChannelInboundHandler<Object> {
 
     private final GpsService gpsService;
     private final TelemetriaService telemetriaService;
     private final GpsTelemetriaWebSocketService webSocketService;
+    private final GpsConnectionManager connectionManager;
+    private final com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+    private String currentImei;
 
     public GpsNettyHandler(GpsService gpsService, TelemetriaService telemetriaService,
-            GpsTelemetriaWebSocketService webSocketService) {
+            GpsTelemetriaWebSocketService webSocketService, GpsConnectionManager connectionManager,
+            com.franco.dev.fmc.service.PushNotificationService pushNotificationService) {
         this.gpsService = gpsService;
         this.telemetriaService = telemetriaService;
         this.webSocketService = webSocketService;
+        this.connectionManager = connectionManager;
+        this.pushNotificationService = pushNotificationService;
     }
 
     @Override
@@ -38,11 +45,53 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         log.info("Conexión GPS cerrada: {}", ctx.channel().remoteAddress());
+        if (currentImei != null) {
+            connectionManager.unregister(currentImei);
+        }
         super.channelInactive(ctx);
     }
 
     @Override
-    protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
+        if (msg instanceof String) {
+            handleAscii(ctx, (String) msg);
+            return;
+        }
+
+        if (msg instanceof byte[]) {
+            handleBinary(ctx, (byte[]) msg);
+            return;
+        }
+
+        log.warn("Mensaje GPS de tipo no soportado {} desde {}", msg != null ? msg.getClass() : "null",
+                ctx.channel().remoteAddress());
+    }
+
+    private void handleBinary(ChannelHandlerContext ctx, byte[] bytes) {
+        // Log en HEX para poder implementar el parse real con evidencia.
+        String hex = ByteBufUtil.hexDump(bytes);
+        log.info("Frame binario recibido ({} bytes) desde {}: {}",
+                bytes.length, ctx.channel().remoteAddress(), hex);
+
+        // A veces dentro del frame binario viene un *HQ...# embebido; intentamos
+        // extraerlo.
+        String asciiLoose = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1);
+        int start = asciiLoose.indexOf("*HQ");
+        if (start >= 0) {
+            int end = asciiLoose.indexOf('#', start);
+            if (end > start) {
+                String extracted = asciiLoose.substring(start, end + 1);
+                log.info("Extraído mensaje *HQ desde frame binario: {}", extracted);
+                try {
+                    handleAscii(ctx, extracted);
+                } catch (Exception e) {
+                    log.error("Error procesando *HQ extraído desde binario: {}", e.getMessage(), e);
+                }
+            }
+        }
+    }
+
+    private void handleAscii(ChannelHandlerContext ctx, String msg) throws Exception {
         log.info("Mensaje Recibido: {}", msg);
 
         String cleanMsg = msg.trim();
@@ -67,7 +116,14 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
         String imei = parts[1];
         String messageType = parts[2];
 
-        // Buscar dispositivo registrado con sus relaciones para evitar LazyInitializationException
+        // Registrar conexión si es nueva para este canal
+        if (currentImei == null || !currentImei.equals(imei)) {
+            this.currentImei = imei;
+            connectionManager.register(imei, ctx.channel());
+        }
+
+        // Buscar dispositivo registrado con sus relaciones para evitar
+        // LazyInitializationException
         Optional<Gps> gpsOpt = gpsService.findByImeiWithVehiculo(imei);
         if (!gpsOpt.isPresent()) {
             log.warn("Dispositivo no registrado con IMEI: {}", imei);
@@ -90,8 +146,53 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
             case "BP05": // Heartbeat handshake
                 enviarAck(ctx, imei, "BP05");
                 break;
+            case "S20": // Respuesta a comandos de configuración
+                log.info("Respuesta de configuración recibida de IMEI {}: {}", imei, msg);
+                procesarRespuestaConfiguracion(gps, cleanMsg);
+                break;
             default:
-                log.debug("Tipo de mensaje no manejado: {} para IMEI: {}", messageType, imei);
+                log.info("Mensaje de tipo {} recibido de IMEI {}: {}", messageType, imei, msg);
+        }
+    }
+
+    /**
+     * Procesa las respuestas a comandos (S20)
+     */
+    private void procesarRespuestaConfiguracion(Gps gps, String cleanMsg) {
+        try {
+            String content = cleanMsg.toUpperCase();
+            log.info("Analizando respuesta de configuración para IMEI {}: {}", gps.getImei(), cleanMsg);
+
+            boolean isOk = content.contains("OK") || content.contains("SUCCESS") || content.contains("SET OK");
+
+            if (isOk) {
+                if (content.contains("940")) {
+                    gpsService.updateMotorBloqueado(gps.getId(), true);
+                    log.info("Confirmado vía código: Motor BLOQUEADO para IMEI {}", gps.getImei());
+                } else if (content.contains("941")) {
+                    gpsService.updateMotorBloqueado(gps.getId(), false);
+                    log.info("Confirmado vía código: Motor DESBLOQUEADO para IMEI {}", gps.getImei());
+                } else if (content.contains("SLEEP")) {
+                    boolean enabled = content.contains(" 1") || content.contains(" 5") || content.contains("ON");
+                    gpsService.updateModoSueno(gps.getId(), enabled);
+                    log.info("Confirmado vía código: Modo Sueño {} para IMEI {}", enabled ? "ACTIVADO" : "DESACTIVADO",
+                            gps.getImei());
+                } else if (content.contains("805") || content.contains("809") || content.contains("UPLOAD")) {
+                    log.info("Confirmado vía código: Intervalo de reporte actualizado para IMEI {}", gps.getImei());
+                } else if (content.contains("803")) {
+                    log.info("Confirmado vía código: APN actualizado para IMEI {}", gps.getImei());
+                } else if (content.contains("SET OK")) {
+                    log.info("Configuración aceptada (SET OK) por el dispositivo IMEI {}", gps.getImei());
+                } else {
+                    log.info("Respuesta de configuración recibida (contenido no específico) para IMEI {}: {}",
+                            gps.getImei(), cleanMsg);
+                }
+            } else {
+                log.warn("Respuesta de configuración recibida pero no indica éxito para IMEI {}: {}", gps.getImei(),
+                        cleanMsg);
+            }
+        } catch (Exception e) {
+            log.error("Error procesando respuesta de configuración para IMEI {}: {}", gps.getImei(), e.getMessage());
         }
     }
 
@@ -165,6 +266,9 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
             log.info("Telemetría guardada para IMEI: {} - Lat: {}, Lon: {}, Vel: {} km/h",
                     gps.getImei(), lat, lon, velocidad);
 
+            // Procesar alertas PUSH basadas en la telemetría recibida
+            procesarAlertasPush(gps, saved, alarma);
+
             // Actualizar caché de última posición en GPS
             if (coordenadasValidas) {
                 gpsService.actualizarUltimaPosicion(gps.getId(), lat, lon, fechaGps, ignicion);
@@ -180,6 +284,66 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
 
         } catch (Exception e) {
             log.error("Error procesando telemetría para IMEI {}: {}", gps.getImei(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Evalúa la telemetría recibida y dispara notificaciones push utilizando el
+     * sistema genérico del backend y las preferencias de usuario.
+     * Solo envía push si la bandera correspondiente está activada en la BD.
+     */
+    private void procesarAlertasPush(Gps gps, Telemetria telemetria, String alarma) {
+        if (pushNotificationService == null || gps == null || telemetria == null) {
+            return;
+        }
+
+        String vehiculoDesc = gps.getVehiculo() != null && gps.getVehiculo().getModelo() != null
+                ? gps.getVehiculo().getModelo().getDescripcion()
+                : "Vehículo";
+
+        Integer velocidad = telemetria.getVelocidad();
+        Boolean ignicionActual = telemetria.getIgnicion();
+        Boolean ignicionAnterior = gps.getUltimaIgnicion();
+
+        // Exceso de velocidad - solo si alertaVelocidad está habilitada
+        if (Boolean.TRUE.equals(gps.getAlertaVelocidad())) {
+            Integer limite = gps.getVelocidadLimite() != null ? gps.getVelocidadLimite() : 100;
+            if (velocidad != null && velocidad > limite) {
+                String titulo = "Alerta de velocidad (" + vehiculoDesc + ")";
+                String mensaje = "Exceso de velocidad: " + velocidad + " km/h (límite: " + limite + " km/h) - IMEI "
+                        + gps.getImei();
+                String data = "{\"imei\":\"" + gps.getImei() + "\",\"tipo\":\"GPS_EXCESO_VELOCIDAD\"}";
+                pushNotificationService.enviarAlertaTipo("GPS_EXCESO_VELOCIDAD", titulo, mensaje, data);
+            }
+        }
+
+        // Choque / vibración - solo si alertaVibracion está habilitada
+        if (Boolean.TRUE.equals(gps.getAlertaVibracion()) && "SHOCK".equalsIgnoreCase(alarma)) {
+            String titulo = "Alerta de choque/vibración (" + vehiculoDesc + ")";
+            String mensaje = "Se detectó choque o vibración en el GPS IMEI " + gps.getImei();
+            String data = "{\"imei\":\"" + gps.getImei() + "\",\"tipo\":\"GPS_SHOCK\"}";
+            pushNotificationService.enviarAlertaTipo("GPS_SHOCK", titulo, mensaje, data);
+        }
+
+        // Batería baja - solo si alertaBateriaBaja está habilitada
+        if (Boolean.TRUE.equals(gps.getAlertaBateriaBaja()) && "LOW_BATTERY".equalsIgnoreCase(alarma)) {
+            String titulo = "Batería baja en GPS (" + vehiculoDesc + ")";
+            String mensaje = "El rastreador reporta batería baja - IMEI " + gps.getImei();
+            String data = "{\"imei\":\"" + gps.getImei() + "\",\"tipo\":\"GPS_BATERIA_BAJA\"}";
+            pushNotificationService.enviarAlertaTipo("GPS_BATERIA_BAJA", titulo, mensaje, data);
+        }
+
+        // Cambio de ignición (ACC ON/OFF) - solo si alertaAcc está habilitada
+        if (Boolean.TRUE.equals(gps.getAlertaAcc()) && ignicionActual != null && ignicionAnterior != null
+                && !ignicionActual.equals(ignicionAnterior)) {
+            String tipo = ignicionActual ? "GPS_IGNICION_ON" : "GPS_IGNICION_OFF";
+            String estado = ignicionActual ? "ENCENDIDO" : "APAGADO";
+            String titulo = "Cambio de ignición (" + vehiculoDesc + ")";
+            String mensaje = "El vehículo se ha " + (ignicionActual ? "encendido" : "apagado") + " - IMEI "
+                    + gps.getImei();
+            String data = "{\"imei\":\"" + gps.getImei() + "\",\"tipo\":\"" + tipo + "\",\"estado\":\"" + estado
+                    + "\"}";
+            pushNotificationService.enviarAlertaTipo(tipo, titulo, mensaje, data);
         }
     }
 
@@ -220,52 +384,39 @@ public class GpsNettyHandler extends SimpleChannelInboundHandler<String> {
         }
     }
 
-    /**
-     * Parsea alarmas del campo de estado
-     */
     private String parseAlarmaFromState(String stateStr) {
+        if (stateStr == null || stateStr.isEmpty())
+            return "NORMAL";
         try {
-            // El estado puede contener flags como: 00000000
-            // Bit 0: ACC on
-            // Bit 1: SOS
-            // Bit 2: Power cut
-            // etc.
-            if (stateStr.length() >= 8) {
-                if (stateStr.charAt(1) == '1')
-                    return "SOS";
-                if (stateStr.charAt(2) == '1')
-                    return "POWER_CUT";
-                if (stateStr.charAt(3) == '1')
-                    return "OVERSPEED";
-                if (stateStr.charAt(4) == '1')
-                    return "GEOFENCE_EXIT";
-                if (stateStr.charAt(5) == '1')
-                    return "GEOFENCE_ENTER";
-            }
+            long state = Long.parseLong(stateStr, 16);
+
+            if ((state & 0x02) != 0)
+                return "SOS";
+            if ((state & 0x04) != 0)
+                return "POWER_CUT";
+            if ((state & 0x08) != 0)
+                return "SHOCK";
+            if ((state & 0x10) != 0)
+                return "LOW_BATTERY";
+
         } catch (Exception e) {
-            log.debug("Error parseando estado: {}", stateStr);
+            log.debug("Error parseando estado hex {}: {}", stateStr, e.getMessage());
         }
         return "NORMAL";
     }
 
-    /**
-     * Parsea el estado de ignición del campo state
-     */
     private Boolean parseIgnicion(String stateStr) {
+        if (stateStr == null || stateStr.isEmpty())
+            return false;
         try {
-            if (stateStr != null && stateStr.length() >= 1) {
-                // El primer bit suele indicar ACC (ignición)
-                return stateStr.charAt(0) == '1';
-            }
+            long state = Long.parseLong(stateStr, 16);
+            return (state & 0x01) != 0;
         } catch (Exception e) {
-            log.debug("Error parseando ignición: {}", stateStr);
+            log.debug("Error parseando ignición hex {}: {}", stateStr, e.getMessage());
+            return false;
         }
-        return false;
     }
 
-    /**
-     * Construye JSON con datos adicionales para diagnóstico
-     */
     private String buildJsonData(String rawMsg, String stateStr, String validStr, boolean coordenadasValidas) {
         return String.format("{\"raw\": \"%s\", \"state\": \"%s\", \"gpsValid\": \"%s\", \"coordsValid\": %s}",
                 rawMsg.replace("\"", "\\\""),

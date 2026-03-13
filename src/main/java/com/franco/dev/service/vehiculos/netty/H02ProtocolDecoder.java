@@ -51,21 +51,20 @@ public class H02ProtocolDecoder extends ByteToMessageDecoder {
 
         // Leemos el mensaje completo
         ByteBuf frame = in.readBytes(length);
+        try {
+            // Intento 1: ASCII "normal" del protocolo (*HQ,...#)
+            String ascii = frame.toString(StandardCharsets.US_ASCII);
+            if (ascii.startsWith("*HQ")) {
+                out.add(ascii);
+                return;
+            }
 
-        // Convertimos a String
-        String message = frame.toString(StandardCharsets.US_ASCII);
-
-        // Liberamos el buffer frame
-        frame.release();
-
-        // Agregamos a la salida si parece válido (empieza con *HQ, aunque puede variar)
-        // ST-901 suele enviar *HQ
-        if (message.startsWith("*HQ")) {
-            out.add(message);
-        } else {
-            // Usamos log.debug para no contaminar los logs de producción
-            log.debug("Mensaje H02 descartado (formato desconocido) desde {}: {}",
-                    ctx.channel().remoteAddress(), message);
+            // Intento 2: frame binario (muchos equipos envían paquetes que NO son ASCII)
+            byte[] bytes = new byte[frame.readableBytes()];
+            frame.getBytes(frame.readerIndex(), bytes);
+            out.add(bytes);
+        } finally {
+            frame.release();
         }
     }
 

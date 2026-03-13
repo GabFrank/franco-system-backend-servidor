@@ -46,6 +46,15 @@ public class GpsTelemetriaWebSocketService {
         }
     }
 
+    @Async
+    public void broadcastGpsUpdate(Gps gps) {
+        try {
+            messagingTemplate.convertAndSend("/topic/gps/update", gps.getId());
+        } catch (Exception e) {
+            log.error("Error broadcasting gps update", e);
+        }
+    }
+
     private TelemetriaDTO convertToDTO(Gps gps, Telemetria telemetria) {
         TelemetriaDTO.TelemetriaDTOBuilder builder = TelemetriaDTO.builder()
                 .gpsId(gps.getId())

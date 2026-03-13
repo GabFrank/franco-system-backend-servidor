@@ -56,6 +56,30 @@ public class Gps implements Identifiable<Long> {
     @Column(name = "ultima_velocidad")
     private Integer ultimaVelocidad;
 
+    @Column(name = "modo_sueno")
+    private Boolean modoSueno;
+
+    @Column(name = "intervalo_reporte")
+    private Integer intervaloReporte;
+
+    @Column(name = "motor_bloqueado")
+    private Boolean motorBloqueado;
+
+    @Column(name = "alerta_velocidad")
+    private Boolean alertaVelocidad;
+
+    @Column(name = "velocidad_limite")
+    private Integer velocidadLimite;
+
+    @Column(name = "alerta_vibracion")
+    private Boolean alertaVibracion;
+
+    @Column(name = "alerta_bateria_baja")
+    private Boolean alertaBateriaBaja;
+
+    @Column(name = "alerta_acc")
+    private Boolean alertaAcc;
+
     @PrePersist
     public void prePersist() {
         this.creadoEm = LocalDateTime.now();

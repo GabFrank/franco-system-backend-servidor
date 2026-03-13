@@ -15,12 +15,25 @@ input VehiculoSucursalInput {
     usuarioId: Int
 }
 
+type VehiculoSucursalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [VehiculoSucursal]
+    getPageable: Pageable
+}
+
 extend type Query {
     vehiculoSucursal(id:ID!):VehiculoSucursal
     vehiculosSucursal(page:Int = 0, size:Int = 10):[VehiculoSucursal]!
     countVehiculoSucursal: Int
     vehiculosSucursalByVehiculo(vehiculoId:ID!):[VehiculoSucursal]
     vehiculosSucursalBySucursal(sucursalId:ID!):[VehiculoSucursal]
+    vehiculosSucursalSearchPage(sucursalId: ID, responsableId: ID, page: Int, size: Int): VehiculoSucursalPage
 }
 
 extend type Mutation {

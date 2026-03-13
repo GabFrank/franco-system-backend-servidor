@@ -4,6 +4,8 @@ import com.franco.dev.domain.vehiculos.VehiculoSucursal;
 import com.franco.dev.repository.vehiculos.VehiculoSucursalRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -30,6 +32,10 @@ public class VehiculoSucursalService extends CrudService<VehiculoSucursal, Vehic
 
     public List<VehiculoSucursal> findByVehiculoIdAndSucursalId(Long vehiculoId, Long sucursalId) {
         return repository.findByVehiculoIdAndSucursalId(vehiculoId, sucursalId);
+    }
+
+    public Page<VehiculoSucursal> findBySucursalAndResponsable(Long sucursalId, Long responsableId, Pageable pageable) {
+        return repository.findAllBySucursalAndResponsable(sucursalId, responsableId, pageable);
     }
 
     @Override

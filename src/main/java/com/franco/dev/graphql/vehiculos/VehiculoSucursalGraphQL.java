@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.vehiculos;
 
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.vehiculos.VehiculoSucursal;
 import com.franco.dev.graphql.vehiculos.input.VehiculoSucursalInput;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -12,6 +14,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -52,6 +55,15 @@ public class VehiculoSucursalGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     public List<VehiculoSucursal> vehiculosSucursalBySucursal(Long sucursalId) {
         return service.findBySucursalId(sucursalId);
+    }
+
+    public CustomPage<VehiculoSucursal> vehiculosSucursalSearchPage(Long sucursalId, Long responsableId, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+
+        Pageable pageable = PageRequest.of(p, s);
+        Page<VehiculoSucursal> pageResult = service.findBySucursalAndResponsable(sucursalId, responsableId, pageable);
+        return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
     public VehiculoSucursal saveVehiculoSucursal(VehiculoSucursalInput input) {

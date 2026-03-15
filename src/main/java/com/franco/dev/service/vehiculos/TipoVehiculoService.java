@@ -5,6 +5,9 @@ import com.franco.dev.repository.vehiculos.TipoVehiculoRepository;
 import com.franco.dev.repository.vehiculos.VehiculoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -25,6 +28,12 @@ public class TipoVehiculoService extends CrudService<TipoVehiculo, TipoVehiculoR
     public List<TipoVehiculo> findByAll(String texto) {
         texto = texto.replace(' ', '%');
         return repository.findByAll(texto.toUpperCase());
+    }
+
+    public Page<TipoVehiculo> findByAllWithPage(String texto, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        return repository.findByAllWithPage(texto, pageable);
     }
 
     @Override

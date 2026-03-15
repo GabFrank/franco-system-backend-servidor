@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.vehiculos;
 
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.vehiculos.TipoVehiculo;
 import com.franco.dev.graphql.vehiculos.input.TipoVehiculoInput;
 import com.franco.dev.service.personas.UsuarioService;
@@ -9,6 +11,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -34,8 +37,13 @@ public class TipoVehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.findAll(pageable);
     }
 
-    public List<TipoVehiculo> tipoVehiculoSearch(String texto) {
-        return service.findByAll(texto);
+    public CustomPage<TipoVehiculo> tipoVehiculoSearchPage(String texto, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+
+        Pageable pageable = PageRequest.of(p, s);
+        Page<TipoVehiculo> pageResult = service.findByAllWithPage(texto, p, s);
+        return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
     public TipoVehiculo saveTipoVehiculo(TipoVehiculoInput input) {
@@ -65,4 +73,3 @@ public class TipoVehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.count();
     }
 }
-

@@ -30,6 +30,12 @@ public class ModeloService extends CrudService<Modelo, ModeloRepository, Long> {
         return repository.findByAll(texto.toUpperCase());
     }
 
+    public Page<Modelo> findByAllWithPage(String texto, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        return repository.findByAllWithPage(texto, pageable);
+    }
+
     public Page<Modelo> findByMarcaIdAndTexto(Long marcaId, String texto, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";

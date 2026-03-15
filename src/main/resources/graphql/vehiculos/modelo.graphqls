@@ -13,11 +13,23 @@ input ModeloInput {
     usuarioId: Int
 }
 
+type ModeloPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Modelo]
+    getPageable: Pageable
+}
+
 extend type Query {
     modelo(id:ID!):Modelo
     modelos(page:Int = 0, size:Int = 10):[Modelo]!
     countModelo: Int
-    modeloSearch(texto:String):[Modelo]
+    modeloSearchPage(texto: String, page: Int, size: Int): ModeloPage
     modelosByMarca(marcaId:ID!, texto:String, page:Int = 0, size:Int = 10):[Modelo]
 }
 

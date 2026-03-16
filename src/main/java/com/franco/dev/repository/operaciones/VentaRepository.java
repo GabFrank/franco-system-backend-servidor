@@ -99,7 +99,12 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "SUM(CASE WHEN m.denominacion = 'GUARANI' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaGs, \n" +
             "SUM(CASE WHEN m.denominacion = 'REAL' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaRs, \n" +
             "SUM(CASE WHEN m.denominacion = 'DOLAR' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaDs, \n" +
-            "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS totalTarjetaRs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS totalTarjetaDs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS totalTransferencia, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS totalTransferenciaRs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS totalTransferenciaDs, \n" +
             "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, \n" +
             "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, \n" +
             "SUM(CASE WHEN cd.aumento THEN cd.valor ELSE 0 END) AS totalAumento, \n" +

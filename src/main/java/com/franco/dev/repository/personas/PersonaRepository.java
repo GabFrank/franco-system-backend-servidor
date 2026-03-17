@@ -19,4 +19,7 @@ public interface PersonaRepository extends HelperRepository<Persona, Long> {
     @Query("select p from Persona p where CAST(id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.apodo) like %?1% or UPPER(p.documento) like %?1%")
     public List<Persona> findbyAll(String texto);
 
+    @Query("select p from Persona p where CAST(id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.apodo) like %?1% or UPPER(p.documento) like %?1%")
+    public org.springframework.data.domain.Page<Persona> findbyAll(String texto, org.springframework.data.domain.Pageable pageable);
+
 }

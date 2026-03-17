@@ -4,6 +4,8 @@ import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.repository.personas.PersonaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -23,6 +25,11 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
     public List<Persona> findByAll(String texto) {
         texto = texto.replace(' ', '%');
         return repository.findbyAll(texto.toUpperCase());
+    }
+
+    public Page<Persona> findByAll(String texto, Pageable pageable) {
+        texto = texto.replace(' ', '%');
+        return repository.findbyAll(texto.toUpperCase(), pageable);
     }
 
     public Persona findByDocumento(String texto) {

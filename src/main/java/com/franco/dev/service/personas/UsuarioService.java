@@ -11,6 +11,9 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.utils.ImageService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -69,6 +72,28 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
         texto = texto.replace(' ', '%');
         return repository.findbyIdOrPersona(texto.toUpperCase());
+    }
+
+    public Page<Usuario> findbyIdOrPersona(String texto, Pageable pageable) {
+        texto = texto != null ? texto.trim() : "";
+
+        if (!texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
+            try {
+                Long personaId = Long.valueOf(texto);
+                Usuario usuario = repository.findByPersonaId(personaId);
+                if (usuario != null) {
+                    List<Usuario> singleton = new ArrayList<>();
+                    singleton.add(usuario);
+                    return new PageImpl<>(singleton, pageable, 1);
+                }
+                return Page.empty(pageable);
+            } catch (NumberFormatException ignored) {
+                // fallthrough to text search
+            }
+        }
+
+        texto = texto.replace(' ', '%');
+        return repository.findbyIdOrPersona(texto.toUpperCase(), pageable);
     }
 
     public List<Role> getRoles(Long id) {

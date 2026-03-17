@@ -15,6 +15,18 @@ type UsuarioSimilitud {
     similitud: Float
 }
 
+type UsuarioPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Usuario]
+    getPageable: Pageable
+}
+
 input UsuarioInput {
     id:ID
     personaId: Int
@@ -30,6 +42,7 @@ extend type Query {
     usuarios(page:Int = 0, size:Int = 10):[Usuario]!
     countUsuario:Int
     usuarioSearch(texto:String):[Usuario]
+    usuarioSearchPage(texto:String, page:Int = 0, size:Int = 10):UsuarioPage
     verificarUsuario(texto:String): Boolean
 
     getUsuarioImages(id:ID!, type:String!):[String]

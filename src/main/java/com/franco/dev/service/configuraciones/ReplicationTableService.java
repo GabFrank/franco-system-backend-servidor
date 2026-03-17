@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -94,7 +95,7 @@ public class ReplicationTableService {
     }
     
     /**
-     * Get tables for branch to main replication
+     * Get tables for branch to main replication (filialX_pub)
      */
     public List<String> getBranchToMainTableNames() {
         return repository.findByDirectionAndEnabledTrue(ReplicationDirection.BRANCH_TO_MAIN)
@@ -102,24 +103,33 @@ public class ReplicationTableService {
                 .map(ReplicationTable::getTableName)
                 .collect(Collectors.toList());
     }
-    
+
     /**
-     * Update the replication service to use these tables
+     * Get table names for central_filialX_pub for a given branch: BRANCH_TO_MAIN with flag + MAIN_TO_SPECIFIC with sucursalId in branch_ids.
+     */
+    public List<String> getTablesForCentralToBranchPublication(Long sucursalId) {
+        if (sucursalId == null) {
+            return Collections.emptyList();
+        }
+        return repository.findTablesForCentralToBranchPublication(sucursalId)
+                .stream()
+                .map(ReplicationTable::getTableName)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Update the replication service to use these tables (central_pub and filialX_pub lists).
+     * central_filialX_pub is built on demand per sucursal via getTablesForCentralToBranchPublication(sucursalId).
      */
     public void updateReplicationServiceTables(LogicalReplicationService replicationService) {
-        // Main to all and main to specific are both part of central master tables
         List<String> centralMasterTables = repository.findByDirectionAndEnabledTrue(ReplicationDirection.MAIN_TO_ALL)
                 .stream()
                 .map(ReplicationTable::getTableName)
                 .collect(Collectors.toList());
-        
-        // Branch tables are used for branch to main replication
         List<String> branchTransactionTables = repository.findByDirectionAndEnabledTrue(ReplicationDirection.BRANCH_TO_MAIN)
                 .stream()
                 .map(ReplicationTable::getTableName)
                 .collect(Collectors.toList());
-        
-        // Update the replication service with these tables
         replicationService.updateCentralMasterTables(centralMasterTables);
         replicationService.updateBranchTransactionTables(branchTransactionTables);
     }

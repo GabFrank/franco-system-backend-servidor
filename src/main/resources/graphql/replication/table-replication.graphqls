@@ -8,6 +8,8 @@ type ReplicationTable {
     description: String
     creadoEn: String
     usuario: Usuario
+    branchIds: [ID]
+    replicateCentralToBranchWithFilter: Boolean
 }
 
 enum ReplicationDirection {
@@ -35,6 +37,8 @@ input ReplicationTableInput {
     enabled: Boolean
     description: String
     usuarioId: ID
+    branchIds: [ID]
+    replicateCentralToBranchWithFilter: Boolean
 }
 
 extend type Query {

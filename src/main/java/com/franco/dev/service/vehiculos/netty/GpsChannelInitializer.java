@@ -1,8 +1,5 @@
 package com.franco.dev.service.vehiculos.netty;
 
-import com.franco.dev.service.vehiculos.GpsService;
-import com.franco.dev.service.vehiculos.TelemetriaService;
-import com.franco.dev.service.vehiculos.websocket.GpsTelemetriaWebSocketService;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -18,19 +15,10 @@ import java.util.concurrent.TimeUnit;
 public class GpsChannelInitializer extends ChannelInitializer<SocketChannel> {
 
     @Autowired
-    private GpsService gpsService;
-
-    @Autowired
-    private TelemetriaService telemetriaService;
-
-    @Autowired
-    private GpsTelemetriaWebSocketService webSocketService;
-
-    @Autowired
     private GpsConnectionManager connectionManager;
 
     @Autowired
-    private com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+    private GpsAsyncProcessor gpsAsyncProcessor;
 
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
@@ -44,7 +32,6 @@ public class GpsChannelInitializer extends ChannelInitializer<SocketChannel> {
         pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.US_ASCII));
 
         pipeline.addLast("gpsHandler",
-                new GpsNettyHandler(gpsService, telemetriaService, webSocketService, connectionManager,
-                        pushNotificationService));
+                new GpsNettyHandler(connectionManager, gpsAsyncProcessor));
     }
 }

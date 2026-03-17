@@ -1,0 +1,59 @@
+type CajaVirtual {
+    id: ID!
+    nombre: String
+    tipo: CajaVirtualTipo
+    sucursal: Sucursal
+    responsable: Funcionario
+    usuario: Usuario
+    saldoGs: Float
+    saldoRs: Float
+    saldoDs: Float
+    limiteGs: Float
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+}
+
+input CajaVirtualInput {
+    id: ID
+    nombre: String
+    tipo: CajaVirtualTipo
+    sucursalId: Int
+    responsableId: Int
+    usuarioId: Int
+    saldoGs: Float
+    saldoRs: Float
+    saldoDs: Float
+    limiteGs: Float
+    descripcion: String
+    activo: Boolean
+}
+
+type CajaVirtualPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [CajaVirtual]
+}
+
+extend type Query {
+    cajaVirtual(id: ID!): CajaVirtual
+    cajaVirtuales(page: Int = 0, size: Int = 10): CajaVirtualPage
+    cajaVirtualesPorTipo(tipo: CajaVirtualTipo!): [CajaVirtual]
+    cajaVirtualesPorSucursal(sucursalId: ID!): [CajaVirtual]
+    cajaVirtualesActivas: [CajaVirtual]
+}
+
+extend type Mutation {
+    saveCajaVirtual(input: CajaVirtualInput!): CajaVirtual!
+    deleteCajaVirtual(id: ID!): Boolean!
+}
+
+enum CajaVirtualTipo {
+    CAJA_MAYOR
+    CAJA_CHICA
+}

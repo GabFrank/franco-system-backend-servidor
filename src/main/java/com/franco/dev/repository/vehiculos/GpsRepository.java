@@ -40,10 +40,12 @@ public interface GpsRepository extends HelperRepository<Gps, Long> {
         @Query("SELECT DISTINCT g FROM Gps g " +
                         "LEFT JOIN FETCH g.vehiculo v " +
                         "LEFT JOIN FETCH v.modelo m " +
-                        "LEFT JOIN FETCH m.marca " +
+                        "LEFT JOIN FETCH m.marca ma " +
                         "WHERE LOWER(g.imei) LIKE %:texto% " +
                         "OR LOWER(g.modeloTracker) LIKE %:texto% " +
-                        "OR LOWER(v.chapa) LIKE %:texto%")
+                        "OR LOWER(v.chapa) LIKE %:texto% " +
+                        "OR LOWER(m.descripcion) LIKE %:texto% " +
+                        "OR LOWER(ma.descripcion) LIKE %:texto%")
         List<Gps> searchByTexto(@Param("texto") String texto);
 
         @Modifying

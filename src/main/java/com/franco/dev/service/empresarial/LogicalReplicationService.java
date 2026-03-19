@@ -195,7 +195,7 @@ public class LogicalReplicationService {
      */
     public boolean createBranchPublication(Long sucursalId) {
         try {
-            StringBuilder sql = new StringBuilder("CREATE PUBLICATION filial" + sucursalId + "_pub FOR TABLE ");
+            StringBuilder sql = new StringBuilder("CREATE PUBLICATION " + generateBranchPublicationName(sucursalId) + " FOR TABLE ");
             
             List<String> tables = getBranchTransactionTables();
             for (int i = 0; i < tables.size(); i++) {
@@ -230,10 +230,10 @@ public class LogicalReplicationService {
         try {
             List<String> tables = replicationTableService.getTablesForCentralToBranchPublication(sucursalId);
             if (tables.isEmpty()) {
-                logger.info("No tables configured for central_filial{}_pub", sucursalId);
+                logger.info("No tables configured for {}", generateCentralToBranchPublicationName(sucursalId));
                 return true;
             }
-            StringBuilder sql = new StringBuilder("CREATE PUBLICATION central_filial" + sucursalId + "_pub FOR TABLE ");
+            StringBuilder sql = new StringBuilder("CREATE PUBLICATION " + generateCentralToBranchPublicationName(sucursalId) + " FOR TABLE ");
             for (int i = 0; i < tables.size(); i++) {
                 if (i > 0) {
                     sql.append(", ");
@@ -265,9 +265,9 @@ public class LogicalReplicationService {
                 branchDbName, branchIp, dbUsername, dbPassword, branchPort
             );
             
-            String sql = "CREATE SUBSCRIPTION filial" + sucursalId + "_sub " +
+            String sql = "CREATE SUBSCRIPTION " + generateBranchSubscriptionName(sucursalId) + " " +
                     "CONNECTION '" + connectionString + "' " +
-                    "PUBLICATION filial" + sucursalId + "_pub WITH (copy_data = false, origin = 'none')";
+                    "PUBLICATION " + generateBranchPublicationName(sucursalId) + " WITH (copy_data = false, origin = 'none')";
             
             jdbcTemplate.execute(sql);
             return true;
@@ -291,7 +291,7 @@ public class LogicalReplicationService {
                 centralDb, getCentralServerIp(), dbUsername, dbPassword, getCentralServerPort()
             );
             
-            String sql = "CREATE SUBSCRIPTION filial" + sucursalId + "_central_sub " +
+            String sql = "CREATE SUBSCRIPTION " + generateBranchToCentralSubscriptionName(sucursalId) + " " +
                     "CONNECTION '" + connectionString + "' " +
                     "PUBLICATION central_pub WITH (copy_data = false, origin = 'none')";
             
@@ -317,9 +317,9 @@ public class LogicalReplicationService {
                 centralDb, getCentralServerIp(), dbUsername, dbPassword, getCentralServerPort()
             );
             
-            String sql = "CREATE SUBSCRIPTION central_filial" + sucursalId + "_sub " +
+            String sql = "CREATE SUBSCRIPTION " + generateCentralToBranchSubscriptionName(sucursalId) + " " +
                     "CONNECTION '" + connectionString + "' " +
-                    "PUBLICATION central_filial" + sucursalId + "_pub WITH (copy_data = false, origin = 'none')";
+                    "PUBLICATION " + generateCentralToBranchPublicationName(sucursalId) + " WITH (copy_data = false, origin = 'none')";
             
             jdbcTemplate.execute(sql);
             return true;
@@ -388,11 +388,11 @@ public class LogicalReplicationService {
      * Usado en: Desktop (diálogo configurar replicación, al seleccionar sucursal).
      */
     public ReplicationSetupState getReplicationSetupState(Long sucursalId) {
-        String centralPubName = "central_filial" + sucursalId + "_pub";
-        String centralSubName = "filial" + sucursalId + "_sub";
-        String filialPubName = "filial" + sucursalId + "_pub";
-        String filialSubBidiName = "central_filial" + sucursalId + "_sub";
-        String filialSubCentralName = "filial" + sucursalId + "_central_sub";
+        String centralPubName = generateCentralToBranchPublicationName(sucursalId);
+        String centralSubName = generateBranchSubscriptionName(sucursalId);
+        String filialPubName = generateBranchPublicationName(sucursalId);
+        String filialSubBidiName = generateCentralToBranchSubscriptionName(sucursalId);
+        String filialSubCentralName = generateBranchToCentralSubscriptionName(sucursalId);
 
         boolean centralPublicationExists = false;
         boolean centralSubscriptionExists = false;
@@ -602,10 +602,10 @@ public class LogicalReplicationService {
             
             // 4. Create publication central_filial{id}_pub
             if (!createCentralToBranchPublication(sucursalId)) {
-                throw new RuntimeException("No se pudo crear la publicación central_filial" + sucursalId + "_pub");
+                throw new RuntimeException("No se pudo crear la publicación " + generateCentralToBranchPublicationName(sucursalId));
             }
             pubCentralCreated = true;
-            log("Paso 4: Publicación central_filial" + sucursalId + "_pub creada en central.", log);
+            log("Paso 4: Publicación " + generateCentralToBranchPublicationName(sucursalId) + " creada en central.", log);
             
             // 4b. Ensure replication_test table exists on filial (it's in BRANCH_TO_MAIN; filial may not have run V115 yet)
             ensureReplicationTestTableRemote(sucursalId);
@@ -615,34 +615,34 @@ public class LogicalReplicationService {
             if (branchTables == null || branchTables.isEmpty()) {
                 throw new RuntimeException("No hay tablas BRANCH_TO_MAIN configuradas en replication_table (enabled = true)");
             }
-            if (!createRemotePublication(sucursalId, "filial" + sucursalId + "_pub", branchTables)) {
-                throw new RuntimeException("No se pudo crear la publicación filial" + sucursalId + "_pub en filial");
+            if (!createRemotePublication(sucursalId, generateBranchPublicationName(sucursalId), branchTables)) {
+                throw new RuntimeException("No se pudo crear la publicación " + generateBranchPublicationName(sucursalId) + " en filial");
             }
             pubFilialCreated = true;
-            log("Paso 5: Publicación filial" + sucursalId + "_pub creada en filial.", log);
+            log("Paso 5: Publicación " + generateBranchPublicationName(sucursalId) + " creada en filial.", log);
             
             // 6. Create subscription filial{id}_sub on central (subscribes to filial's pub)
             String branchDbName = getBranchDbName();
             if (!createCentralToBranchSubscription(sucursalId, sucursal.getIp(), sucursal.getPuerto(), branchDbName)) {
-                throw new RuntimeException("No se pudo crear la suscripción filial" + sucursalId + "_sub en central");
+                throw new RuntimeException("No se pudo crear la suscripción " + generateBranchSubscriptionName(sucursalId) + " en central");
             }
             subCentralCreated = true;
-            log("Paso 6: Suscripción filial" + sucursalId + "_sub creada en central.", log);
+            log("Paso 6: Suscripción " + generateBranchSubscriptionName(sucursalId) + " creada en central.", log);
             
             // 7. Create subscription central_filial{id}_sub on branch (to central_filial{id}_pub on central)
             String centralConnStr = createCentralConnectionString();
-            if (!createRemoteSubscription(sucursalId, "central_filial" + sucursalId + "_sub", centralConnStr, "central_filial" + sucursalId + "_pub")) {
-                throw new RuntimeException("No se pudo crear la suscripción central_filial" + sucursalId + "_sub en filial");
+            if (!createRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId), centralConnStr, generateCentralToBranchPublicationName(sucursalId))) {
+                throw new RuntimeException("No se pudo crear la suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " en filial");
             }
             subFilialBidiCreated = true;
-            log("Paso 7: Suscripción central_filial" + sucursalId + "_sub creada en filial.", log);
+            log("Paso 7: Suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " creada en filial.", log);
             
             // 8. Create subscription filial{id}_central_sub on branch (to central_pub)
-            if (!createRemoteSubscription(sucursalId, "filial" + sucursalId + "_central_sub", centralConnStr, "central_pub")) {
-                throw new RuntimeException("No se pudo crear la suscripción filial" + sucursalId + "_central_sub en filial");
+            if (!createRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId), centralConnStr, "central_pub")) {
+                throw new RuntimeException("No se pudo crear la suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " en filial");
             }
             subFilialCentralCreated = true;
-            log("Paso 8: Suscripción filial" + sucursalId + "_central_sub creada en filial.", log);
+            log("Paso 8: Suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " creada en filial.", log);
             
             // 9. Wait and verify workers
             Thread.sleep(3000);
@@ -662,40 +662,40 @@ public class LogicalReplicationService {
             // Rollback in reverse order
             if (subFilialCentralCreated) {
                 try {
-                    dropRemoteSubscription(sucursalId, "filial" + sucursalId + "_central_sub");
-                    log.append("\nRollback: suscripción filial" + sucursalId + "_central_sub eliminada en filial.");
+                    dropRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId));
+                    log.append("\nRollback: suscripción ").append(generateBranchToCentralSubscriptionName(sucursalId)).append(" eliminada en filial.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (subFilialBidiCreated) {
                 try {
-                    dropRemoteSubscription(sucursalId, "central_filial" + sucursalId + "_sub");
-                    log.append("\nRollback: suscripción central_filial" + sucursalId + "_sub eliminada en filial.");
+                    dropRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId));
+                    log.append("\nRollback: suscripción ").append(generateCentralToBranchSubscriptionName(sucursalId)).append(" eliminada en filial.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (subCentralCreated) {
                 try {
-                    dropSubscription("filial" + sucursalId + "_sub");
-                    log.append("\nRollback: suscripción filial" + sucursalId + "_sub eliminada en central.");
+                    dropSubscription(generateBranchSubscriptionName(sucursalId));
+                    log.append("\nRollback: suscripción ").append(generateBranchSubscriptionName(sucursalId)).append(" eliminada en central.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (pubFilialCreated) {
                 try {
-                    dropRemotePublication(sucursalId, "filial" + sucursalId + "_pub");
-                    log.append("\nRollback: publicación filial" + sucursalId + "_pub eliminada en filial.");
+                    dropRemotePublication(sucursalId, generateBranchPublicationName(sucursalId));
+                    log.append("\nRollback: publicación ").append(generateBranchPublicationName(sucursalId)).append(" eliminada en filial.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (pubCentralCreated) {
                 try {
-                    dropPublication("central_filial" + sucursalId + "_pub");
-                    log.append("\nRollback: publicación central_filial" + sucursalId + "_pub eliminada en central.");
+                    dropPublication(generateCentralToBranchPublicationName(sucursalId));
+                    log.append("\nRollback: publicación ").append(generateCentralToBranchPublicationName(sucursalId)).append(" eliminada en central.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
@@ -752,10 +752,10 @@ public class LogicalReplicationService {
             int step = 4;
             if (doPub && onCentral) {
                 if (!createCentralToBranchPublication(sucursalId)) {
-                    throw new RuntimeException("No se pudo crear la publicación central_filial" + sucursalId + "_pub");
+                    throw new RuntimeException("No se pudo crear la publicación " + generateCentralToBranchPublicationName(sucursalId));
                 }
                 pubCentralCreated = true;
-                log("Paso " + step + ": Publicación central_filial" + sucursalId + "_pub creada en central.", log);
+                log("Paso " + step + ": Publicación " + generateCentralToBranchPublicationName(sucursalId) + " creada en central.", log);
                 step++;
             }
             if (doPub && onFilial) {
@@ -764,35 +764,35 @@ public class LogicalReplicationService {
                 if (branchTables == null || branchTables.isEmpty()) {
                     throw new RuntimeException("No hay tablas BRANCH_TO_MAIN configuradas en replication_table (enabled = true)");
                 }
-                if (!createRemotePublication(sucursalId, "filial" + sucursalId + "_pub", branchTables)) {
-                    throw new RuntimeException("No se pudo crear la publicación filial" + sucursalId + "_pub en filial");
+                if (!createRemotePublication(sucursalId, generateBranchPublicationName(sucursalId), branchTables)) {
+                    throw new RuntimeException("No se pudo crear la publicación " + generateBranchPublicationName(sucursalId) + " en filial");
                 }
                 pubFilialCreated = true;
-                log("Paso " + step + ": Publicación filial" + sucursalId + "_pub creada en filial.", log);
+                log("Paso " + step + ": Publicación " + generateBranchPublicationName(sucursalId) + " creada en filial.", log);
                 step++;
             }
             if (doSub && onCentral) {
                 String branchDbName = getBranchDbName();
                 if (!createCentralToBranchSubscription(sucursalId, sucursal.getIp(), sucursal.getPuerto(), branchDbName)) {
-                    throw new RuntimeException("No se pudo crear la suscripción filial" + sucursalId + "_sub en central");
+                    throw new RuntimeException("No se pudo crear la suscripción " + generateBranchSubscriptionName(sucursalId) + " en central");
                 }
                 subCentralCreated = true;
-                log("Paso " + step + ": Suscripción filial" + sucursalId + "_sub creada en central.", log);
+                log("Paso " + step + ": Suscripción " + generateBranchSubscriptionName(sucursalId) + " creada en central.", log);
                 step++;
             }
             if (doSub && onFilial) {
                 String centralConnStr = createCentralConnectionString();
-                if (!createRemoteSubscription(sucursalId, "central_filial" + sucursalId + "_sub", centralConnStr, "central_filial" + sucursalId + "_pub")) {
-                    throw new RuntimeException("No se pudo crear la suscripción central_filial" + sucursalId + "_sub en filial");
+                if (!createRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId), centralConnStr, generateCentralToBranchPublicationName(sucursalId))) {
+                    throw new RuntimeException("No se pudo crear la suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " en filial");
                 }
                 subFilialBidiCreated = true;
-                log("Paso " + step + ": Suscripción central_filial" + sucursalId + "_sub creada en filial.", log);
+                log("Paso " + step + ": Suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " creada en filial.", log);
                 step++;
-                if (!createRemoteSubscription(sucursalId, "filial" + sucursalId + "_central_sub", centralConnStr, "central_pub")) {
-                    throw new RuntimeException("No se pudo crear la suscripción filial" + sucursalId + "_central_sub en filial");
+                if (!createRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId), centralConnStr, "central_pub")) {
+                    throw new RuntimeException("No se pudo crear la suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " en filial");
                 }
                 subFilialCentralCreated = true;
-                log("Paso " + step + ": Suscripción filial" + sucursalId + "_central_sub creada en filial.", log);
+                log("Paso " + step + ": Suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " creada en filial.", log);
             }
             log.append("\nSetup de replicación completado correctamente.");
             return new SetupFullReplicationResult(true, log.toString());
@@ -801,40 +801,40 @@ public class LogicalReplicationService {
             logger.error("setupReplicationAdvanced failed: {}", e.getMessage(), e);
             if (subFilialCentralCreated) {
                 try {
-                    dropRemoteSubscription(sucursalId, "filial" + sucursalId + "_central_sub");
-                    log.append("\nRollback: suscripción filial" + sucursalId + "_central_sub eliminada en filial.");
+                    dropRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId));
+                    log.append("\nRollback: suscripción ").append(generateBranchToCentralSubscriptionName(sucursalId)).append(" eliminada en filial.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (subFilialBidiCreated) {
                 try {
-                    dropRemoteSubscription(sucursalId, "central_filial" + sucursalId + "_sub");
-                    log.append("\nRollback: suscripción central_filial" + sucursalId + "_sub eliminada en filial.");
+                    dropRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId));
+                    log.append("\nRollback: suscripción ").append(generateCentralToBranchSubscriptionName(sucursalId)).append(" eliminada en filial.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (subCentralCreated) {
                 try {
-                    dropSubscription("filial" + sucursalId + "_sub");
-                    log.append("\nRollback: suscripción filial" + sucursalId + "_sub eliminada en central.");
+                    dropSubscription(generateBranchSubscriptionName(sucursalId));
+                    log.append("\nRollback: suscripción ").append(generateBranchSubscriptionName(sucursalId)).append(" eliminada en central.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (pubFilialCreated) {
                 try {
-                    dropRemotePublication(sucursalId, "filial" + sucursalId + "_pub");
-                    log.append("\nRollback: publicación filial" + sucursalId + "_pub eliminada en filial.");
+                    dropRemotePublication(sucursalId, generateBranchPublicationName(sucursalId));
+                    log.append("\nRollback: publicación ").append(generateBranchPublicationName(sucursalId)).append(" eliminada en filial.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
             }
             if (pubCentralCreated) {
                 try {
-                    dropPublication("central_filial" + sucursalId + "_pub");
-                    log.append("\nRollback: publicación central_filial" + sucursalId + "_pub eliminada en central.");
+                    dropPublication(generateCentralToBranchPublicationName(sucursalId));
+                    log.append("\nRollback: publicación ").append(generateCentralToBranchPublicationName(sucursalId)).append(" eliminada en central.");
                 } catch (Exception ex) {
                     log.append("\nRollback (warning): ").append(ex.getMessage());
                 }
@@ -859,38 +859,38 @@ public class LogicalReplicationService {
             
             if (onCentral) {
                 if (doSub) {
-                    if (dropSubscription("filial" + sucursalId + "_sub")) {
-                        log("Suscripción filial" + sucursalId + "_sub eliminada en central.", log);
+                    if (dropSubscription(generateBranchSubscriptionName(sucursalId))) {
+                        log("Suscripción " + generateBranchSubscriptionName(sucursalId) + " eliminada en central.", log);
                     } else {
-                        log("Advertencia: no se pudo eliminar suscripción filial" + sucursalId + "_sub en central.", log);
+                        log("Advertencia: no se pudo eliminar suscripción " + generateBranchSubscriptionName(sucursalId) + " en central.", log);
                     }
                 }
                 if (doPub) {
-                    if (dropPublication("central_filial" + sucursalId + "_pub")) {
-                        log("Publicación central_filial" + sucursalId + "_pub eliminada en central.", log);
+                    if (dropPublication(generateCentralToBranchPublicationName(sucursalId))) {
+                        log("Publicación " + generateCentralToBranchPublicationName(sucursalId) + " eliminada en central.", log);
                     } else {
-                        log("Advertencia: no se pudo eliminar publicación central_filial" + sucursalId + "_pub en central.", log);
+                        log("Advertencia: no se pudo eliminar publicación " + generateCentralToBranchPublicationName(sucursalId) + " en central.", log);
                     }
                 }
             }
             if (onFilial) {
                 if (doSub) {
-                    if (dropRemoteSubscription(sucursalId, "filial" + sucursalId + "_central_sub")) {
-                        log("Suscripción filial" + sucursalId + "_central_sub eliminada en filial.", log);
+                    if (dropRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId))) {
+                        log("Suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " eliminada en filial.", log);
                     } else {
-                        log("Advertencia: no se pudo eliminar suscripción filial" + sucursalId + "_central_sub en filial.", log);
+                        log("Advertencia: no se pudo eliminar suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " en filial.", log);
                     }
-                    if (dropRemoteSubscription(sucursalId, "central_filial" + sucursalId + "_sub")) {
-                        log("Suscripción central_filial" + sucursalId + "_sub eliminada en filial.", log);
+                    if (dropRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId))) {
+                        log("Suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " eliminada en filial.", log);
                     } else {
-                        log("Advertencia: no se pudo eliminar suscripción central_filial" + sucursalId + "_sub en filial.", log);
+                        log("Advertencia: no se pudo eliminar suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " en filial.", log);
                     }
                 }
                 if (doPub) {
-                    if (dropRemotePublication(sucursalId, "filial" + sucursalId + "_pub")) {
-                        log("Publicación filial" + sucursalId + "_pub eliminada en filial.", log);
+                    if (dropRemotePublication(sucursalId, generateBranchPublicationName(sucursalId))) {
+                        log("Publicación " + generateBranchPublicationName(sucursalId) + " eliminada en filial.", log);
                     } else {
-                        log("Advertencia: no se pudo eliminar publicación filial" + sucursalId + "_pub en filial.", log);
+                        log("Advertencia: no se pudo eliminar publicación " + generateBranchPublicationName(sucursalId) + " en filial.", log);
                     }
                 }
             }
@@ -938,7 +938,7 @@ public class LogicalReplicationService {
     
     private String verifyReplicationWorkers(Long sucursalId, StringBuilder log) {
         try {
-            String subCentral = "filial" + sucursalId + "_sub";
+            String subCentral = generateBranchSubscriptionName(sucursalId);
             List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "SELECT pid FROM pg_stat_subscription WHERE subname = ?", subCentral);
             boolean centralOk = rows != null && !rows.isEmpty() && rows.get(0).get("pid") != null;
@@ -951,7 +951,7 @@ public class LogicalReplicationService {
                 sucursal.getIp(), sucursal.getPuerto(), getBranchDbName(), dbUsername, dbPassword);
             List<Map<String, Object>> remoteRows = remote.queryForList(
                 "SELECT subname, pid FROM pg_stat_subscription WHERE subname IN (?, ?)",
-                "central_filial" + sucursalId + "_sub", "filial" + sucursalId + "_central_sub");
+                generateCentralToBranchSubscriptionName(sucursalId), generateBranchToCentralSubscriptionName(sucursalId));
             long withPid = remoteRows != null ? remoteRows.stream().filter(r -> r.get("pid") != null).count() : 0;
             boolean filialOk = withPid == 2;
             
@@ -1036,10 +1036,10 @@ public class LogicalReplicationService {
     public boolean removeCentralServerReplication(Long sucursalId) {
         try {
             // Drop subscription to branch
-            boolean dropSub = dropSubscription("filial" + sucursalId + "_sub");
-            
+            boolean dropSub = dropSubscription(generateBranchSubscriptionName(sucursalId));
+
             // Drop filtered publication
-            boolean dropPub = dropPublication("central_filial" + sucursalId + "_pub");
+            boolean dropPub = dropPublication(generateCentralToBranchPublicationName(sucursalId));
             
             return dropSub && dropPub;
         } catch (Exception e) {
@@ -1056,13 +1056,13 @@ public class LogicalReplicationService {
     public boolean removeBranchReplication(Long sucursalId) {
         try {
             // Drop subscription to central
-            boolean dropMainSub = dropSubscription("filial" + sucursalId + "_central_sub");
-            
+            boolean dropMainSub = dropSubscription(generateBranchToCentralSubscriptionName(sucursalId));
+
             // Drop bidirectional subscription
-            boolean dropBiSub = dropSubscription("central_filial" + sucursalId + "_sub");
-            
+            boolean dropBiSub = dropSubscription(generateCentralToBranchSubscriptionName(sucursalId));
+
             // Drop publication
-            boolean dropPub = dropPublication("filial" + sucursalId + "_pub");
+            boolean dropPub = dropPublication(generateBranchPublicationName(sucursalId));
             
             return dropMainSub && dropBiSub && dropPub;
         } catch (Exception e) {
@@ -1515,34 +1515,43 @@ public class LogicalReplicationService {
      * @return Standard publication name
      */
     public String generateBranchPublicationName(Long sucursalId) {
-        return "filial" + sucursalId + "_pub";
+        return getCentralDbName() + "_filial" + sucursalId + "_pub";
     }
-    
+
     /**
-     * Generates a standardized branch subscription name
+     * Generates a standardized branch subscription name (on central, subscribes to filial's pub)
      * @param sucursalId Branch ID
      * @return Standard subscription name
      */
     public String generateBranchSubscriptionName(Long sucursalId) {
-        return "filial" + sucursalId + "_sub";
+        return getCentralDbName() + "_filial" + sucursalId + "_sub";
     }
-    
+
     /**
      * Generates a standardized central to branch publication name
      * @param sucursalId Branch ID
      * @return Standard central-to-branch publication name
      */
     public String generateCentralToBranchPublicationName(Long sucursalId) {
-        return "central_filial" + sucursalId + "_pub";
+        return "central_" + getCentralDbName() + "_filial" + sucursalId + "_pub";
     }
-    
+
     /**
-     * Generates a standardized central to branch subscription name
+     * Generates a standardized central to branch subscription name (on filial, subscribes to central's filtered pub)
      * @param sucursalId Branch ID
      * @return Standard central-to-branch subscription name
      */
     public String generateCentralToBranchSubscriptionName(Long sucursalId) {
-        return "central_filial" + sucursalId + "_sub";
+        return "central_" + getCentralDbName() + "_filial" + sucursalId + "_sub";
+    }
+
+    /**
+     * Generates a standardized branch-to-central subscription name (on filial, subscribes to central_pub)
+     * @param sucursalId Branch ID
+     * @return Standard branch-to-central subscription name
+     */
+    public String generateBranchToCentralSubscriptionName(Long sucursalId) {
+        return getCentralDbName() + "_filial" + sucursalId + "_central_sub";
     }
     
     /**

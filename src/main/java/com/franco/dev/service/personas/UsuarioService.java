@@ -94,14 +94,14 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public Boolean existsByNickname(String nickname) {
-        return repository.existsByNicknameIgnoreCase(nickname);
+        return repository.existsByNicknameIgnoreCase(nickname != null ? nickname.trim() : null);
     }
 
     public Optional<Usuario> findByNickname(String nickname) {
         if (nickname == null) {
             return Optional.empty();
         }
-        return repository.findByNicknameIgnoreCase(nickname.toUpperCase());
+        return repository.findByNicknameIgnoreCase(nickname.trim().toUpperCase());
     }
 
     /**
@@ -119,7 +119,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
             entity.setCreadoEn(LocalDateTime.now());
             entity.setPassword("123");
         }
-        entity.setNickname(entity.getNickname().toUpperCase());
+        if (entity.getNickname() != null) {
+            entity.setNickname(entity.getNickname().trim().toUpperCase());
+        }
         if (entity.getPassword() != null)
             entity.setPassword(entity.getPassword().toUpperCase());
         Usuario e = repository.save(entity);

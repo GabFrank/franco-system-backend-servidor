@@ -32,6 +32,30 @@ public class Local implements Serializable {
     @JoinColumn(name = "sucursal_id", nullable = true)
     private Sucursal sucursal;
 
+    /**
+     * Nombre de la base de datos del servidor central (master). Usado en
+     * replicación lógica.
+     */
+    @Column(name = "nombre_base_datos_master")
+    private String nombreBaseDatosMaster;
+
+    /**
+     * Nombre de la base de datos del servidor filial. Usado al conectar a una
+     * sucursal.
+     */
+    @Column(name = "nombre_base_datos_filial")
+    private String nombreBaseDatosFilial;
+
+    /**
+     * IP o hostname del servidor central. Usado en replicación lógica (filiales →
+     * central).
+     */
+    @Column(name = "ip_servidor_central")
+    private String ipServidorCentral;
+
+    /** Puerto PostgreSQL del servidor central. Usado en replicación lógica. */
+    @Column(name = "puerto_servidor_central")
+    private Integer puertoServidorCentral;
     @CreationTimestamp
     private Date creadoEn;
 

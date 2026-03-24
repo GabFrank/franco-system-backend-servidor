@@ -295,7 +295,7 @@
 		<band splitType="Stretch"/>
 	</pageFooter>
 	<summary>
-		<band height="24" splitType="Stretch">
+		<band height="34" splitType="Stretch">
 			<rectangle>
 				<reportElement x="280" y="-34" width="275" height="18" backcolor="#EDEDED" uuid="a21faa22-1d56-49c5-b5f6-a682f642a8e6"/>
 				<graphicElement>
@@ -346,6 +346,12 @@
 			</staticText>
 			<line>
 				<reportElement x="310" y="12" width="240" height="1" forecolor="#9E9E9E" uuid="b28c090c-212c-41b5-a008-ea0661734a24"/>
+			</line>
+			<line>
+				<reportElement x="1" y="30" width="554" height="1" forecolor="#9E9E9E" uuid="a99f368e-3fb2-4763-b17c-d9496a248a61"/>
+				<graphicElement>
+					<pen lineStyle="Dotted"/>
+				</graphicElement>
 			</line>
 		</band>
 	</summary>

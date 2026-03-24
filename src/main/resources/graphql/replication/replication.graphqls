@@ -27,6 +27,27 @@ type ReplicationStatus {
     message: String
 }
 
+type ReplicationSetupState {
+    centralPublicationExists: Boolean!
+    centralSubscriptionExists: Boolean!
+    filialReachable: Boolean!
+    filialPublicationExists: Boolean!
+    filialSubscriptionBidiExists: Boolean!
+    filialSubscriptionCentralExists: Boolean!
+}
+
+enum RemoveTarget {
+    SUBSCRIPTION
+    PUBLICATION
+    BOTH
+}
+
+enum RemoveScope {
+    CENTRAL
+    FILIAL
+    BOTH
+}
+
 extend type Query {
     # Local server queries
     # Get all active subscriptions with pagination
@@ -64,6 +85,9 @@ extend type Query {
     generateBranchSubscriptionName(sucursalId: ID!): String!
     generateCentralToBranchPublicationName(sucursalId: ID!): String!
     generateCentralToBranchSubscriptionName(sucursalId: ID!): String!
+    
+    # Current replication setup state for a branch (what exists on central and filial). Used to avoid creating duplicates.
+    getReplicationSetupState(sucursalId: ID!): ReplicationSetupState!
 }
 
 extend type Mutation {
@@ -71,11 +95,17 @@ extend type Mutation {
     # Setup a new logical replication from central server to a branch
     setupReplication(input: LogicalReplicationInput!): ReplicationStatus!
     
+    # Setup replication with granular control (target: subscription/publication/both, scope: central/filial/both)
+    setupReplicationAdvanced(sucursalId: ID!, target: RemoveTarget!, scope: RemoveScope!): ReplicationStatus!
+    
     # Setup branch-side replication (to be called on branch server)
     setupBranchReplication(sucursalId: ID!): ReplicationStatus!
     
     # Remove central server replication for a branch
     removeReplication(sucursalId: ID!): ReplicationStatus!
+    
+    # Remove replication with granular control (target: subscription/publication/both, scope: central/filial/both)
+    removeReplicationAdvanced(sucursalId: ID!, target: RemoveTarget!, scope: RemoveScope!): ReplicationStatus!
     
     # Remove branch-side replication (to be called on branch server)
     removeBranchReplication(sucursalId: ID!): ReplicationStatus!
@@ -127,4 +157,7 @@ extend type Mutation {
     
     # Refresh all subscriptions on a remote branch
     refreshAllRemoteSubscriptions(branchSucursalId: ID!): ReplicationStatus!
+    
+    # Sync existing publications with replication_table (add missing tables on central and all filiales)
+    syncPublicationsWithReplicationTable: ReplicationStatus!
 } 

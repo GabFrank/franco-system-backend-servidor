@@ -457,7 +457,7 @@
 				<version>4.7.3.6</version>
 			</plugin>
 		</plugins>
-		<finalName>frc-server</finalName>
+		<finalName>frc-central</finalName>
 	</build>
 
 </project>

@@ -73,6 +73,31 @@ public class Vehiculo implements Identifiable<Long> {
     private String imagenesDocumentos;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "propietario_id")
+    private com.franco.dev.domain.personas.Persona propietario;
+
+    @Column(name = "identificador_interno")
+    private String identificadorInterno;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tipo_combustible_id")
+    private TipoCombustible tipoCombustible;
+
+    private String chasis;
+
+    @Column(name = "aire_acondicionado")
+    private Boolean aireAcondicionado;
+
+    @Column(name = "valor_estimado")
+    private BigDecimal valorEstimado;
+
+    @Column(name = "mantenimiento_motor_intervalo")
+    private Integer mantenimientoMotorIntervalo;
+
+    @Column(name = "mantenimiento_caja_intervalo")
+    private Integer mantenimientoCajaIntervalo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 

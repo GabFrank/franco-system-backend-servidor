@@ -20,6 +20,7 @@ input ProveedorInput {
     chequeDias: Int
     datosBancarios: Int
     usuarioId: Int
+    creadoEn: Date
 }
 
 type ProveedorPage {

@@ -9,8 +9,8 @@ type TipoMueble {
 input TipoMuebleInput {
     id:ID
     descripcion: String
-    familiaMuebleId: Int
-    usuarioId: Int
+    familiaMuebleId: ID
+    usuarioId: ID
 }
 
 type TipoMueblePage {

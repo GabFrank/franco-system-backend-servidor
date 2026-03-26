@@ -16,20 +16,24 @@ public interface VehiculoRepository extends HelperRepository<Vehiculo, Long> {
 
     public Vehiculo findByChapa(String chapa);
 
-    @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma where " +
+    @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma left join v.propietario p where " +
             "CAST(v.id as text) like %?1% or " +
             "UPPER(v.chapa) like %?1% or " +
             "UPPER(v.color) like %?1% or " +
+            "UPPER(v.identificadorInterno) like %?1% or " +
             "UPPER(m.descripcion) like %?1% or " +
-            "UPPER(ma.descripcion) like %?1%")
+            "UPPER(ma.descripcion) like %?1% or " +
+            "UPPER(p.nombre) like %?1%")
     public List<Vehiculo> findByAll(String texto);
 
-    @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma where " +
+    @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma left join v.propietario p where " +
             "(CAST(v.id as text) like %?1% or " +
             "UPPER(v.chapa) like %?1% or " +
             "UPPER(v.color) like %?1% or " +
+            "UPPER(v.identificadorInterno) like %?1% or " +
             "UPPER(m.descripcion) like %?1% or " +
-            "UPPER(ma.descripcion) like %?1%) " +
+            "UPPER(ma.descripcion) like %?1% or " +
+            "UPPER(p.nombre) like %?1%) " +
             "order by v.id asc")
     public Page<Vehiculo> findByAllWithPage(String texto, Pageable pageable);
 
@@ -41,5 +45,10 @@ public interface VehiculoRepository extends HelperRepository<Vehiculo, Long> {
 
     @Query("select v from Vehiculo v where v.tipoVehiculo.id = ?1")
     public List<Vehiculo> findByTipoVehiculoId(Long tipoVehiculoId);
+
+    public List<Vehiculo> findByPropietarioId(Long propietarioId);
+
+    @Query("select v from Vehiculo v where v.tipoCombustible.id = ?1")
+    public List<Vehiculo> findByTipoCombustibleId(Long tipoCombustibleId);
 
 }

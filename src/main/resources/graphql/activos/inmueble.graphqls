@@ -14,15 +14,15 @@ type Inmueble {
 
 input InmuebleInput {
     id:ID
-    propietarioId: Int
+    propietarioId: ID
     nombreAsignado: String
-    paisId: Int
-    ciudadId: Int
+    paisId: ID
+    ciudadId: ID
     direccion: String
     googleMapsUrl: String
     codigoCatastral: String
     valorTasacion: Float
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type InmueblePage {

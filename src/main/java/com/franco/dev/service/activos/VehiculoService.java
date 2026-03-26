@@ -50,6 +50,14 @@ public class VehiculoService extends CrudService<Vehiculo, VehiculoRepository, L
         return repository.findByTipoVehiculoId(tipoVehiculoId);
     }
 
+    public List<Vehiculo> findByPropietarioId(Long propietarioId) {
+        return repository.findByPropietarioId(propietarioId);
+    }
+
+    public List<Vehiculo> findByTipoCombustibleId(Long tipoCombustibleId) {
+        return repository.findByTipoCombustibleId(tipoCombustibleId);
+    }
+
     @Override
     public Vehiculo save(Vehiculo entity) {
         if (entity.getId() == null)

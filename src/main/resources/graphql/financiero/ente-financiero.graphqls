@@ -14,15 +14,15 @@ type EnteFinanciero {
 
 input EnteFinancieroInput {
     id:ID
-    enteId: Int
+    enteId: ID
     situacionPago: SituacionPagoEnte
-    proveedorId: Int
-    monedaId: Int
+    proveedorId: ID
+    monedaId: ID
     montoTotal: Float
     montoYaPagado: Float
     cantidadCuotas: Int
     diaVencimiento: Int
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type EnteFinancieroPage {

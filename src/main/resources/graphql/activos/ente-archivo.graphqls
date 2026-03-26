@@ -11,12 +11,12 @@ type EnteArchivo {
 
 input EnteArchivoInput {
     id:ID
-    enteId: Int
+    enteId: ID
     tipoArchivo: TipoArchivoEnte
     url: String
     descripcion: String
     vigente: Boolean
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type EnteArchivoPage {

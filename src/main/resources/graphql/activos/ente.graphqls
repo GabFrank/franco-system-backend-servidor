@@ -1,7 +1,7 @@
 type Ente {
     id:ID!
     tipoEnte: TipoEnte
-    referenciaId: Int
+    referenciaId: ID
     activo: Boolean
     creadoEn: Date
     usuario: Usuario
@@ -9,10 +9,10 @@ type Ente {
 
 input EnteInput {
     id:ID
-    tipoEnte: TipoEnte
-    referenciaId: Int
+    tipoEnte: String
+    referenciaId: ID
     activo: Boolean
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type EntePage {

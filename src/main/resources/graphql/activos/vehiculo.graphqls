@@ -28,8 +28,8 @@ type Vehiculo {
 
 input VehiculoInput {
     id:ID
-    modeloId: Int
-    tipoVehiculoId: Int
+    modeloId: ID
+    tipoVehiculoId: ID
     chapa: String
     color: String
     anho: Int
@@ -42,15 +42,15 @@ input VehiculoInput {
     capacidadPasajeros: Int
     imagenesVehiculo: String
     imagenesDocumentos: String
-    propietarioId: Int
+    propietarioId: ID
     identificadorInterno: String
-    tipoCombustibleId: Int
+    tipoCombustibleId: ID
     chasis: String
     aireAcondicionado: Boolean
     valorEstimado: Float
     mantenimientoMotorIntervalo: Int
     mantenimientoCajaIntervalo: Int
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type VehiculoPage {

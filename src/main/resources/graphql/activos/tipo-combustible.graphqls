@@ -8,7 +8,7 @@ type TipoCombustible {
 input TipoCombustibleInput {
     id:ID
     descripcion: String
-    usuarioId: Int
+    usuarioId: ID
 }
 
 extend type Query {

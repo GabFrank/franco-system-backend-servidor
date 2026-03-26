@@ -14,15 +14,15 @@ type Mueble {
 
 input MuebleInput {
     id:ID
-    propietarioId: Int
+    propietarioId: ID
     identificador: String
     descripcion: String
-    familiaId: Int
-    tipoMuebleId: Int
+    familiaId: ID
+    tipoMuebleId: ID
     consumeEnergia: Boolean
     consumoValor: String
     valorTasacion: Float
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type MueblePage {

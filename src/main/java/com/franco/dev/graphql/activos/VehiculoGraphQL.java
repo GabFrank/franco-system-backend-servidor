@@ -6,8 +6,10 @@ import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.graphql.activos.input.VehiculoInput;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.activos.ModeloService;
+import com.franco.dev.service.activos.TipoCombustibleService;
 import com.franco.dev.service.activos.TipoVehiculoService;
 import com.franco.dev.service.activos.VehiculoService;
+import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -36,6 +38,15 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private TipoVehiculoService tipoVehiculoService;
+
+    @Autowired
+    private TipoCombustibleService tipoCombustibleService;
+
+    @Autowired
+    private PersonaService personaService;
+
+    @Autowired
+    private ModelMapper modelMapper;
 
     public Optional<Vehiculo> vehiculo(Long id) {
         return service.findById(id);
@@ -85,12 +96,15 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Vehiculo saveVehiculo(VehiculoInput input) {
-        ModelMapper m = new ModelMapper();
-        Vehiculo e = m.map(input, Vehiculo.class);
+        Vehiculo e = modelMapper.map(input, Vehiculo.class);
         if (input.getModeloId() != null)
             e.setModelo(modeloService.findById(input.getModeloId()).orElse(null));
         if (input.getTipoVehiculoId() != null)
             e.setTipoVehiculo(tipoVehiculoService.findById(input.getTipoVehiculoId()).orElse(null));
+        if (input.getPropietarioId() != null)
+            e.setPropietario(personaService.findById(input.getPropietarioId()).orElse(null));
+        if (input.getTipoCombustibleId() != null)
+            e.setTipoCombustible(tipoCombustibleService.findById(input.getTipoCombustibleId()).orElse(null));
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getFechaAdquisicion() != null && !input.getFechaAdquisicion().isEmpty()) {

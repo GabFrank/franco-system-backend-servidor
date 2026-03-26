@@ -21,6 +21,14 @@ public class VehiculoInput {
     private Integer capacidadPasajeros;
     private String imagenesVehiculo;
     private String imagenesDocumentos;
+    private Long propietarioId;
+    private String identificadorInterno;
+    private Long tipoCombustibleId;
+    private String chasis;
+    private Boolean aireAcondicionado;
+    private BigDecimal valorEstimado;
+    private Integer mantenimientoMotorIntervalo;
+    private Integer mantenimientoCajaIntervalo;
     private Long usuarioId;
 }
 

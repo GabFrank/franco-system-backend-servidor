@@ -8,7 +8,7 @@ type FamiliaMueble {
 input FamiliaMuebleInput {
     id:ID
     descripcion: String
-    usuarioId: Int
+    usuarioId: ID
 }
 
 extend type Query {

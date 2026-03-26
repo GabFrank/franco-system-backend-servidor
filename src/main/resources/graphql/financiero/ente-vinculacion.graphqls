@@ -14,15 +14,15 @@ type EnteVinculacion {
 
 input EnteVinculacionInput {
     id:ID
-    enteId: Int
-    sucursalId: Int
+    enteId: ID
+    sucursalId: ID
     esPropio: Boolean
-    alquilerProveedorId: Int
+    alquilerProveedorId: ID
     alquilerMonto: Float
     alquilerDiaVencimiento: Int
     alquilerVigencia: String
     observacion: String
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type EnteVinculacionPage {

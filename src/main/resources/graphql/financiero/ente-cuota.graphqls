@@ -11,12 +11,12 @@ type EnteCuota {
 
 input EnteCuotaInput {
     id:ID
-    enteFinancieroId: Int
+    enteFinancieroId: ID
     numeroCuota: Int
     monto: Float
     pagado: Boolean
     fechaVencimiento: String
-    usuarioId: Int
+    usuarioId: ID
 }
 
 type EnteCuotaPage {

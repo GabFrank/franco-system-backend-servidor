@@ -14,7 +14,6 @@ import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -44,9 +43,6 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private PersonaService personaService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<Vehiculo> vehiculo(Long id) {
         return service.findById(id);
@@ -96,7 +92,25 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Vehiculo saveVehiculo(VehiculoInput input) {
-        Vehiculo e = modelMapper.map(input, Vehiculo.class);
+        Vehiculo e = new Vehiculo();
+        e.setId(input.getId());
+        e.setChapa(input.getChapa());
+        e.setColor(input.getColor());
+        e.setAnho(input.getAnho());
+        e.setDocumentacion(input.getDocumentacion());
+        e.setRefrigerado(input.getRefrigerado());
+        e.setNuevo(input.getNuevo());
+        e.setPrimerKilometraje(input.getPrimerKilometraje());
+        e.setCapacidadKg(input.getCapacidadKg());
+        e.setCapacidadPasajeros(input.getCapacidadPasajeros());
+        e.setImagenesVehiculo(input.getImagenesVehiculo());
+        e.setImagenesDocumentos(input.getImagenesDocumentos());
+        e.setIdentificadorInterno(input.getIdentificadorInterno());
+        e.setChasis(input.getChasis());
+        e.setAireAcondicionado(input.getAireAcondicionado());
+        e.setValorEstimado(input.getValorEstimado());
+        e.setMantenimientoMotorIntervalo(input.getMantenimientoMotorIntervalo());
+        e.setMantenimientoCajaIntervalo(input.getMantenimientoCajaIntervalo());
         if (input.getModeloId() != null)
             e.setModelo(modeloService.findById(input.getModeloId()).orElse(null));
         if (input.getTipoVehiculoId() != null)

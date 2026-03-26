@@ -1,0 +1,52 @@
+type Mueble {
+    id:ID!
+    propietario: Persona
+    identificador: String
+    descripcion: String
+    familia: FamiliaMueble
+    tipoMueble: TipoMueble
+    consumeEnergia: Boolean
+    consumoValor: String
+    valorTasacion: Float
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input MuebleInput {
+    id:ID
+    propietarioId: Int
+    identificador: String
+    descripcion: String
+    familiaId: Int
+    tipoMuebleId: Int
+    consumeEnergia: Boolean
+    consumoValor: String
+    valorTasacion: Float
+    usuarioId: Int
+}
+
+type MueblePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Mueble]
+    getPageable: Pageable
+}
+
+extend type Query {
+    mueble(id:ID!):Mueble
+    muebles(page:Int = 0, size:Int = 10):[Mueble]!
+    countMueble: Int
+    muebleSearch(texto:String):[Mueble]
+    muebleSearchPage(texto: String, page: Int, size: Int): MueblePage
+    mueblesByFamilia(familiaId:ID!):[Mueble]
+}
+
+extend type Mutation {
+    saveMueble(mueble:MuebleInput!):Mueble!
+    deleteMueble(id:ID!):Boolean!
+}

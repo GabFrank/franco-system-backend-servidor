@@ -1,0 +1,52 @@
+type EnteVinculacion {
+    id:ID!
+    ente: Ente
+    sucursal: Sucursal
+    esPropio: Boolean
+    alquilerProveedor: Persona
+    alquilerMonto: Float
+    alquilerDiaVencimiento: Int
+    alquilerVigencia: Date
+    observacion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input EnteVinculacionInput {
+    id:ID
+    enteId: Int
+    sucursalId: Int
+    esPropio: Boolean
+    alquilerProveedorId: Int
+    alquilerMonto: Float
+    alquilerDiaVencimiento: Int
+    alquilerVigencia: String
+    observacion: String
+    usuarioId: Int
+}
+
+type EnteVinculacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EnteVinculacion]
+    getPageable: Pageable
+}
+
+extend type Query {
+    enteVinculacion(id:ID!):EnteVinculacion
+    enteVinculaciones(page:Int = 0, size:Int = 10):[EnteVinculacion]!
+    countEnteVinculacion: Int
+    enteVinculacionesByEnte(enteId:ID!):[EnteVinculacion]
+    enteVinculacionesBySucursal(sucursalId:ID!):[EnteVinculacion]
+    enteVinculacionSearchPage(enteId: ID, sucursalId: ID, page: Int, size: Int): EnteVinculacionPage
+}
+
+extend type Mutation {
+    saveEnteVinculacion(enteVinculacion:EnteVinculacionInput!):EnteVinculacion!
+    deleteEnteVinculacion(id:ID!):Boolean!
+}

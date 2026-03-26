@@ -1,0 +1,24 @@
+type FamiliaMueble {
+    id:ID!
+    descripcion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input FamiliaMuebleInput {
+    id:ID
+    descripcion: String
+    usuarioId: Int
+}
+
+extend type Query {
+    familiaMueble(id:ID!):FamiliaMueble
+    familiasMueble(page:Int = 0, size:Int = 10):[FamiliaMueble]!
+    countFamiliaMueble: Int
+    familiaMuebleSearch(texto:String):[FamiliaMueble]
+}
+
+extend type Mutation {
+    saveFamiliaMueble(familiaMueble:FamiliaMuebleInput!):FamiliaMueble!
+    deleteFamiliaMueble(id:ID!):Boolean!
+}

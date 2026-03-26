@@ -1,0 +1,42 @@
+type Ente {
+    id:ID!
+    tipoEnte: TipoEnte
+    referenciaId: Int
+    activo: Boolean
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input EnteInput {
+    id:ID
+    tipoEnte: TipoEnte
+    referenciaId: Int
+    activo: Boolean
+    usuarioId: Int
+}
+
+type EntePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Ente]
+    getPageable: Pageable
+}
+
+extend type Query {
+    ente(id:ID!):Ente
+    entes(page:Int = 0, size:Int = 10):[Ente]!
+    countEnte: Int
+    entesByTipoEnte(tipoEnte:TipoEnte!):[Ente]
+    enteByReferenciaId(tipoEnte:TipoEnte!, referenciaId:ID!):Ente
+    enteSearchPage(texto: String, page: Int, size: Int): EntePage
+}
+
+extend type Mutation {
+    saveEnte(ente:EnteInput!):Ente!
+    deleteEnte(id:ID!):Boolean!
+}

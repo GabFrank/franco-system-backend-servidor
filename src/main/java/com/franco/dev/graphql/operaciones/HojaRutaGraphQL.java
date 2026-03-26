@@ -7,7 +7,7 @@ import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.service.operaciones.HojaRutaService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.PersonaService;
-import com.franco.dev.service.vehiculos.VehiculoService;
+import com.franco.dev.service.activos.VehiculoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;

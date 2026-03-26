@@ -1,8 +1,9 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.domain.personas.Persona;
-import com.franco.dev.domain.vehiculos.Vehiculo;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

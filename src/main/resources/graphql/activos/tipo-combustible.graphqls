@@ -1,0 +1,24 @@
+type TipoCombustible {
+    id:ID!
+    descripcion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input TipoCombustibleInput {
+    id:ID
+    descripcion: String
+    usuarioId: Int
+}
+
+extend type Query {
+    tipoCombustible(id:ID!):TipoCombustible
+    tiposCombustible(page:Int = 0, size:Int = 10):[TipoCombustible]!
+    countTipoCombustible: Int
+    tipoCombustibleSearch(texto:String):[TipoCombustible]
+}
+
+extend type Mutation {
+    saveTipoCombustible(tipoCombustible:TipoCombustibleInput!):TipoCombustible!
+    deleteTipoCombustible(id:ID!):Boolean!
+}

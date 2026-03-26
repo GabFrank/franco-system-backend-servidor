@@ -1,0 +1,46 @@
+type EnteArchivo {
+    id:ID!
+    ente: Ente
+    tipoArchivo: TipoArchivoEnte
+    url: String
+    descripcion: String
+    vigente: Boolean
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input EnteArchivoInput {
+    id:ID
+    enteId: Int
+    tipoArchivo: TipoArchivoEnte
+    url: String
+    descripcion: String
+    vigente: Boolean
+    usuarioId: Int
+}
+
+type EnteArchivoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EnteArchivo]
+    getPageable: Pageable
+}
+
+extend type Query {
+    enteArchivo(id:ID!):EnteArchivo
+    enteArchivos(page:Int = 0, size:Int = 10):[EnteArchivo]!
+    countEnteArchivo: Int
+    enteArchivosByEnte(enteId:ID!):[EnteArchivo]
+    enteArchivosVigentesByEnte(enteId:ID!):[EnteArchivo]
+    enteArchivoSearchPage(enteId: ID, page: Int, size: Int): EnteArchivoPage
+}
+
+extend type Mutation {
+    saveEnteArchivo(enteArchivo:EnteArchivoInput!):EnteArchivo!
+    deleteEnteArchivo(id:ID!):Boolean!
+}

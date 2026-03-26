@@ -16,7 +16,6 @@ import com.franco.dev.service.operaciones.InventarioService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -48,8 +47,6 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private TicketReportService ticketReportService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MovimientoStockService movimientoStockService;

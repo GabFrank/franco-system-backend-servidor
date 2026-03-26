@@ -5,11 +5,9 @@ import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.productos.input.FamiliaInput;
 import com.franco.dev.graphql.productos.input.ProductoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.FamiliaService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -34,8 +32,6 @@ public class FamiliaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

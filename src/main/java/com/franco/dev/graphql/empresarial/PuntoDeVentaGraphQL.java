@@ -4,11 +4,9 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.PuntoDeVenta;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.PuntoDeVentaInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.PuntoDeVentaService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -32,8 +30,6 @@ public class PuntoDeVentaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private SucursalService sucursalService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

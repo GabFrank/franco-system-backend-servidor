@@ -3,10 +3,8 @@ package com.franco.dev.graphql.general;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Pais;
 import com.franco.dev.graphql.general.input.PaisInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -27,8 +25,6 @@ public class PaisGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

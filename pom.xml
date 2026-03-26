@@ -195,18 +195,8 @@
 		</dependency>
 
 		<dependency>
-			<groupId>org.springframework.amqp</groupId>
-			<artifactId>spring-rabbit-test</artifactId>
-			<scope>test</scope>
-		</dependency>
-
-		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-jsr310</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>org.springframework.amqp</groupId>
-			<artifactId>spring-rabbit</artifactId>
 		</dependency>
 
 		<dependency>
@@ -364,7 +354,7 @@
 				<artifactId>maven-surefire-plugin</artifactId>
 				<version>2.22.2</version>
 				<configuration>
-					<skipTests>true</skipTests>
+					<skipTests>false</skipTests>
 				</configuration>
 			</plugin>
 
@@ -456,7 +446,7 @@
 				</configuration>
 			</plugin>
 		</plugins>
-		<finalName>frc-server</finalName>
+		<finalName>frc-central-server</finalName>
 	</build>
 
 </project>

@@ -10,7 +10,6 @@ import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.operaciones.VentaItemService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -40,8 +39,6 @@ public class FacturaLegalItemGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private ProductoService productoService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

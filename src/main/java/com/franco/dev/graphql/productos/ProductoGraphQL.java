@@ -21,7 +21,6 @@ import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.*;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -74,8 +73,6 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private PrintingService printingService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private PresentacionService presentacionService;

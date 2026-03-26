@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
-import com.franco.dev.rabbit.RabbitEntity;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -16,7 +15,7 @@ import java.util.Date;
 import static com.franco.dev.utilitarios.DateUtils.dateToString;
 
 @Data
-public class ProductoInput extends RabbitEntity {
+public class ProductoInput {
 
     private Long id;
     private Boolean propagado;

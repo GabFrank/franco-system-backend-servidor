@@ -4,7 +4,6 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.repository.financiero.MaletinRepository;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -18,8 +17,6 @@ import java.util.List;
 public class MaletinService extends CrudService<Maletin, MaletinRepository, Long> {
 
     private final MaletinRepository repository;
-    @Autowired
-    private PropagacionService propagacionService;
     @Autowired
     private MultiTenantService multiTenantService;
 

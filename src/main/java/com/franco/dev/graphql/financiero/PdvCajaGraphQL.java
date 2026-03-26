@@ -14,7 +14,6 @@ import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -48,8 +47,6 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private ConteoMonedaGraphQL conteoMonedaGraphQL;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

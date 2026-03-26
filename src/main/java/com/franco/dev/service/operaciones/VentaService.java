@@ -17,7 +17,6 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.sifen.SifenEventoService;
 
 import graphql.GraphQLException;
@@ -49,8 +48,6 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     @Autowired
     private CobroDetalleService cobroDetalleService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MovimientoStockService movimientoStockService;

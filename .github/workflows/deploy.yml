@@ -22,6 +22,11 @@ jobs:
     environment: ${{ inputs.instance == 'bodega' && 'production' || inputs.instance == 'farmacia' && 'beta' || 'alpha' }}
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts/deploy.sh
+          sparse-checkout-cone-mode: false
+
       - name: Download JAR from GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,11 +42,6 @@ jobs:
                 "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ inputs.version }}" \
               | jq -r '.assets[] | select(.name == "frc-central-server.jar") | .url')"
           ls -lh frc-central-server.jar
-
-      - uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github/scripts/deploy.sh
-          sparse-checkout-cone-mode: false
 
       - name: Setup SSH
         run: |

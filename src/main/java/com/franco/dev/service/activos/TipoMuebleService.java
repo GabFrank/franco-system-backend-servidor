@@ -26,6 +26,7 @@ public class TipoMuebleService extends CrudService<TipoMueble, TipoMuebleReposit
     }
 
     public List<TipoMueble> findByAll(String texto) {
+        if (texto == null) texto = "";
         texto = texto.replace(' ', '%');
         return repository.findByAll(texto.toUpperCase());
     }

@@ -9,10 +9,10 @@ import com.franco.dev.service.activos.MuebleService;
 import com.franco.dev.service.activos.TipoMuebleService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.financiero.MonedaService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,7 +41,7 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     private TipoMuebleService tipoMuebleService;
 
     @Autowired
-    private ModelMapper modelMapper;
+    private MonedaService monedaService;
 
     public Optional<Mueble> mueble(Long id) {
         return service.findById(id);
@@ -74,7 +74,21 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Mueble saveMueble(MuebleInput input) {
-        Mueble e = modelMapper.map(input, Mueble.class);
+        Mueble e = new Mueble();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new Mueble());
+        }
+        e.setIdentificador(input.getIdentificador());
+        e.setDescripcion(input.getDescripcion());
+        e.setConsumeEnergia(input.getConsumeEnergia());
+        e.setConsumoValor(input.getConsumoValor());
+        e.setValorTasacion(input.getValorTasacion());
+        e.setSituacionPago(input.getSituacionPago());
+        e.setMontoTotal(input.getMontoTotal());
+        e.setMontoYaPagado(input.getMontoYaPagado());
+        e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setDiaVencimiento(input.getDiaVencimiento());
+
         if (input.getPropietarioId() != null) {
             e.setPropietario(personaService.findById(input.getPropietarioId()).orElse(null));
         }
@@ -83,6 +97,12 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         if (input.getTipoMuebleId() != null) {
             e.setTipoMueble(tipoMuebleService.findById(input.getTipoMuebleId()).orElse(null));
+        }
+        if (input.getProveedorId() != null) {
+            e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
+        }
+        if (input.getMonedaId() != null) {
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

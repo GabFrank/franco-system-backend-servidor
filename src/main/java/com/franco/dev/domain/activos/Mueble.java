@@ -49,6 +49,29 @@ public class Mueble implements Identifiable<Long> {
     @Column(name = "valor_tasacion")
     private BigDecimal valorTasacion;
     
+    @Column(name = "situacion_pago")
+    private String situacionPago;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proveedor_id")
+    private Persona proveedor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moneda_id")
+    private com.franco.dev.domain.financiero.Moneda moneda;
+
+    @Column(name = "monto_total")
+    private BigDecimal montoTotal;
+
+    @Column(name = "monto_ya_pagado")
+    private BigDecimal montoYaPagado;
+
+    @Column(name = "cantidad_cuotas")
+    private Integer cantidadCuotas;
+
+    @Column(name = "dia_vencimiento")
+    private Integer diaVencimiento;
+    
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

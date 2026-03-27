@@ -30,6 +30,7 @@ extend type Query {
     tiposMueble(page:Int = 0, size:Int = 10):[TipoMueble]!
     countTipoMueble: Int
     tipoMuebleSearchPage(texto: String, page: Int, size: Int): TipoMueblePage
+    tipoMuebleSearch(texto: String): [TipoMueble]
     tiposMuebleByFamilia(familiaMuebleId:ID!):[TipoMueble]
 }
 

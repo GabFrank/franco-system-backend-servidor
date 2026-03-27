@@ -10,7 +10,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,9 +30,6 @@ public class TipoMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private FamiliaMuebleService familiaMuebleService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<TipoMueble> tipoMueble(Long id) {
         return service.findById(id);
@@ -57,12 +53,20 @@ public class TipoMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
+    public List<TipoMueble> tipoMuebleSearch(String texto) {
+        return service.findByAll(texto);
+    }
+
     public List<TipoMueble> tiposMuebleByFamilia(Long familiaMuebleId) {
         return service.findByFamiliaMuebleId(familiaMuebleId);
     }
 
     public TipoMueble saveTipoMueble(TipoMuebleInput input) {
-        TipoMueble e = modelMapper.map(input, TipoMueble.class);
+        TipoMueble e = new TipoMueble();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new TipoMueble());
+        }
+        e.setDescripcion(input.getDescripcion());
         if (input.getFamiliaMuebleId() != null) {
             e.setFamiliaMueble(familiaMuebleService.findById(input.getFamiliaMuebleId()).orElse(null));
         }

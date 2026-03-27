@@ -24,6 +24,7 @@ public class MuebleService extends CrudService<Mueble, MuebleRepository, Long> {
     }
 
     public List<Mueble> findByAll(String texto) {
+        if (texto == null) texto = "";
         texto = texto.replace(' ', '%');
         return repository.findByAll(texto.toUpperCase());
     }

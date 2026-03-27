@@ -7,7 +7,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,9 +23,6 @@ public class FamiliaMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private UsuarioService usuarioService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<FamiliaMueble> familiaMueble(Long id) {
         return service.findById(id);
@@ -46,7 +42,11 @@ public class FamiliaMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public FamiliaMueble saveFamiliaMueble(FamiliaMuebleInput input) {
-        FamiliaMueble e = modelMapper.map(input, FamiliaMueble.class);
+        FamiliaMueble e = new FamiliaMueble();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new FamiliaMueble());
+        }
+        e.setDescripcion(input.getDescripcion());
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }

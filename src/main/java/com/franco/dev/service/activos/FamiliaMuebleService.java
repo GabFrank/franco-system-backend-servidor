@@ -23,6 +23,7 @@ public class FamiliaMuebleService extends CrudService<FamiliaMueble, FamiliaMueb
     }
 
     public List<FamiliaMueble> findByAll(String texto) {
+        if (texto == null) texto = "";
         texto = texto.replace(' ', '%');
         return repository.findByAll(texto.toUpperCase());
     }

@@ -21,6 +21,7 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
     }
 
     public List<Persona> findByAll(String texto) {
+        if (texto == null) texto = "";
         texto = texto.replace(' ', '%');
         return repository.findbyAll(texto.toUpperCase());
     }

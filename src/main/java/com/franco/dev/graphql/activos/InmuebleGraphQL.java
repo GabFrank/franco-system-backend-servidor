@@ -12,7 +12,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -39,9 +38,6 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private CiudadService ciudadService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<Inmueble> inmueble(Long id) {
         return service.findById(id);
@@ -70,7 +66,16 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Inmueble saveInmueble(InmuebleInput input) {
-        Inmueble e = modelMapper.map(input, Inmueble.class);
+        Inmueble e = new Inmueble();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new Inmueble());
+        }
+        e.setNombreAsignado(input.getNombreAsignado());
+        e.setDireccion(input.getDireccion());
+        e.setGoogleMapsUrl(input.getGoogleMapsUrl());
+        e.setCodigoCatastral(input.getCodigoCatastral());
+        e.setValorTasacion(input.getValorTasacion());
+
         if (input.getPropietarioId() != null) {
             e.setPropietario(personaService.findById(input.getPropietarioId()).orElse(null));
         }

@@ -11,10 +11,23 @@ input FamiliaMuebleInput {
     usuarioId: ID
 }
 
+type FamiliaMueblePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [FamiliaMueble]
+    getPageable: Pageable
+}
+
 extend type Query {
     familiaMueble(id:ID!):FamiliaMueble
     familiasMueble(page:Int = 0, size:Int = 10):[FamiliaMueble]!
     countFamiliaMueble: Int
+    familiaMuebleSearchPage(texto: String, page: Int, size: Int): FamiliaMueblePage
     familiaMuebleSearch(texto:String):[FamiliaMueble]
 }
 

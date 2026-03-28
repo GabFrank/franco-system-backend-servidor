@@ -2,6 +2,8 @@ package com.franco.dev.graphql.personas;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.PersonaInput;
 import com.franco.dev.rabbit.enums.TipoEntidad;
@@ -42,6 +44,14 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public List<Persona> personaSearch(String texto) {
         return service.findByAll(texto);
+    }
+
+    public CustomPage<Persona> personaSearchPage(String texto, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+        Pageable pageable = PageRequest.of(p, s);
+        org.springframework.data.domain.Page<Persona> pageResult = service.findByAllWithPage(texto, p, s);
+        return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
     public List<Persona> personas(int page, int size) {

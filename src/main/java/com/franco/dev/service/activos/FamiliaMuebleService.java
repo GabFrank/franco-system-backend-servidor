@@ -28,6 +28,12 @@ public class FamiliaMuebleService extends CrudService<FamiliaMueble, FamiliaMueb
         return repository.findByAll(texto.toUpperCase());
     }
 
+    public org.springframework.data.domain.Page<FamiliaMueble> findByAllWithPage(String texto, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        return repository.findByAllWithPage(texto, pageable);
+    }
+
     @Override
     public FamiliaMueble save(FamiliaMueble entity) {
         if (entity.getId() == null) {

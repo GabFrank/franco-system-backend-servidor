@@ -14,4 +14,7 @@ public interface FamiliaMuebleRepository extends HelperRepository<FamiliaMueble,
 
     @Query("select f from FamiliaMueble f where CAST(f.id as text) like %?1% or UPPER(f.descripcion) like %?1%")
     List<FamiliaMueble> findByAll(String texto);
+
+    @Query("select f from FamiliaMueble f where UPPER(CAST(f.id as text)) like UPPER(concat('%', ?1, '%')) or UPPER(f.descripcion) like UPPER(concat('%', ?1, '%'))")
+    org.springframework.data.domain.Page<FamiliaMueble> findByAllWithPage(String texto, org.springframework.data.domain.Pageable pageable);
 }

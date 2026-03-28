@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.activos;
 
 import com.franco.dev.domain.activos.FamiliaMueble;
+import com.franco.dev.config.multitenant.CustomPage;
+import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.graphql.activos.input.FamiliaMuebleInput;
 import com.franco.dev.service.activos.FamiliaMuebleService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -8,6 +10,7 @@ import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -39,6 +42,15 @@ public class FamiliaMuebleGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public List<FamiliaMueble> familiaMuebleSearch(String texto) {
         return service.findByAll(texto);
+    }
+
+    public CustomPage<FamiliaMueble> familiaMuebleSearchPage(String texto, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+
+        Pageable pageable = PageRequest.of(p, s);
+        Page<FamiliaMueble> pageResult = service.findByAllWithPage(texto, p, s);
+        return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
     public FamiliaMueble saveFamiliaMueble(FamiliaMuebleInput input) {

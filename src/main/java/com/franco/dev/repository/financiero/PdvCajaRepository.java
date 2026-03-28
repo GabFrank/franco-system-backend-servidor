@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaSpecificationExecutor<PdvCaja> {
+public interface PdvCajaRepository extends HelperRepository<PdvCaja, EmbebedPrimaryKey>, JpaSpecificationExecutor<PdvCaja> {
 
     default Class<PdvCaja> getEntityClass() {
         return PdvCaja.class;

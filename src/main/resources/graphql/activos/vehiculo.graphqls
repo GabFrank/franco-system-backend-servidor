@@ -28,6 +28,7 @@ type Vehiculo {
     montoTotal: Float
     montoYaPagado: Float
     cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
     diaVencimiento: Int
     creadoEn: Date
     usuario: Usuario
@@ -63,6 +64,7 @@ input VehiculoInput {
     montoTotal: Float
     montoYaPagado: Float
     cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
     diaVencimiento: Int
     usuarioId: ID
 }

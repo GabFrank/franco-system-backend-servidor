@@ -35,6 +35,7 @@ public class VehiculoInput {
     private BigDecimal montoTotal;
     private BigDecimal montoYaPagado;
     private Integer cantidadCuotas;
+    private Integer cantidadCuotasPagadas;
     private Integer diaVencimiento;
     private Long usuarioId;
 }

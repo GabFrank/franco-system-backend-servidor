@@ -113,6 +113,9 @@ public class Vehiculo implements Identifiable<Long> {
         @Column(name = "cantidad_cuotas")
         private Integer cantidadCuotas;
 
+        @Column(name = "cantidad_cuotas_pagadas")
+        private Integer cantidadCuotasPagadas;
+
         @Column(name = "dia_vencimiento")
         private Integer diaVencimiento;
 

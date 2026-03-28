@@ -14,6 +14,7 @@ type Mueble {
     montoTotal: Float
     montoYaPagado: Float
     cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
     diaVencimiento: Int
     creadoEn: Date
     usuario: Usuario
@@ -35,6 +36,7 @@ input MuebleInput {
     montoTotal: Float
     montoYaPagado: Float
     cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
     diaVencimiento: Int
     usuarioId: ID
 }

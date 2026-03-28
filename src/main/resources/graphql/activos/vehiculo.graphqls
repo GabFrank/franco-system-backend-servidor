@@ -22,6 +22,13 @@ type Vehiculo {
     valorEstimado: Float
     mantenimientoMotorIntervalo: Int
     mantenimientoCajaIntervalo: Int
+    situacionPago: String
+    proveedor: Persona
+    moneda: Moneda
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    diaVencimiento: Int
     creadoEn: Date
     usuario: Usuario
 }
@@ -50,6 +57,13 @@ input VehiculoInput {
     valorEstimado: Float
     mantenimientoMotorIntervalo: Int
     mantenimientoCajaIntervalo: Int
+    situacionPago: String
+    proveedorId: ID
+    monedaId: ID
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    diaVencimiento: Int
     usuarioId: ID
 }
 

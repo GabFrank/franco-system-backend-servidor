@@ -15,5 +15,12 @@ public class InmuebleInput {
     private String googleMapsUrl;
     private String codigoCatastral;
     private BigDecimal valorTasacion;
+    private String situacionPago;
+    private Long proveedorId;
+    private Long monedaId;
+    private BigDecimal montoTotal;
+    private BigDecimal montoYaPagado;
+    private Integer cantidadCuotas;
+    private Integer diaVencimiento;
     private Long usuarioId;
 }

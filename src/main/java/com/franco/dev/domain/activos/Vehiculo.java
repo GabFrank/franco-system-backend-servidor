@@ -12,6 +12,8 @@ import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.personas.Persona;
 
 @Data
 @AllArgsConstructor
@@ -90,6 +92,29 @@ public class Vehiculo implements Identifiable<Long> {
 
         @Column(name = "mantenimiento_caja_intervalo")
         private Integer mantenimientoCajaIntervalo;
+
+        @Column(name = "situacion_pago")
+        private String situacionPago;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "proveedor_id")
+        private Persona proveedor;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "moneda_id")
+        private Moneda moneda;
+
+        @Column(name = "monto_total")
+        private BigDecimal montoTotal;
+
+        @Column(name = "monto_ya_pagado")
+        private BigDecimal montoYaPagado;
+
+        @Column(name = "cantidad_cuotas")
+        private Integer cantidadCuotas;
+
+        @Column(name = "dia_vencimiento")
+        private Integer diaVencimiento;
 
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "usuario_id", nullable = true)

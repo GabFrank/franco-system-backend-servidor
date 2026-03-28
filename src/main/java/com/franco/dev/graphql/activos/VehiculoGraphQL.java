@@ -9,6 +9,7 @@ import com.franco.dev.service.activos.ModeloService;
 import com.franco.dev.service.activos.TipoCombustibleService;
 import com.franco.dev.service.activos.TipoVehiculoService;
 import com.franco.dev.service.activos.VehiculoService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
@@ -43,6 +44,9 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private PersonaService personaService;
+
+    @Autowired
+    private MonedaService monedaService;
 
     public Optional<Vehiculo> vehiculo(Long id) {
         return service.findById(id);
@@ -111,6 +115,11 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setValorEstimado(input.getValorEstimado());
         e.setMantenimientoMotorIntervalo(input.getMantenimientoMotorIntervalo());
         e.setMantenimientoCajaIntervalo(input.getMantenimientoCajaIntervalo());
+        e.setSituacionPago(input.getSituacionPago());
+        e.setMontoTotal(input.getMontoTotal());
+        e.setMontoYaPagado(input.getMontoYaPagado());
+        e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setDiaVencimiento(input.getDiaVencimiento());
         if (input.getModeloId() != null)
             e.setModelo(modeloService.findById(input.getModeloId()).orElse(null));
         if (input.getTipoVehiculoId() != null)
@@ -119,6 +128,10 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             e.setPropietario(personaService.findById(input.getPropietarioId()).orElse(null));
         if (input.getTipoCombustibleId() != null)
             e.setTipoCombustible(tipoCombustibleService.findById(input.getTipoCombustibleId()).orElse(null));
+        if (input.getProveedorId() != null)
+            e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
+        if (input.getMonedaId() != null)
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getFechaAdquisicion() != null && !input.getFechaAdquisicion().isEmpty()) {

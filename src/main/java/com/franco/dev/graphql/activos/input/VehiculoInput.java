@@ -29,6 +29,13 @@ public class VehiculoInput {
     private BigDecimal valorEstimado;
     private Integer mantenimientoMotorIntervalo;
     private Integer mantenimientoCajaIntervalo;
+    private String situacionPago;
+    private Long proveedorId;
+    private Long monedaId;
+    private BigDecimal montoTotal;
+    private BigDecimal montoYaPagado;
+    private Integer cantidadCuotas;
+    private Integer diaVencimiento;
     private Long usuarioId;
 }
 

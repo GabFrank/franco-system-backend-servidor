@@ -7,6 +7,7 @@ import com.franco.dev.graphql.activos.input.InmuebleInput;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -38,6 +39,9 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private CiudadService ciudadService;
+
+    @Autowired
+    private MonedaService monedaService;
 
     public Optional<Inmueble> inmueble(Long id) {
         return service.findById(id);
@@ -88,6 +92,20 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
+        
+        e.setSituacionPago(input.getSituacionPago());
+        e.setMontoTotal(input.getMontoTotal());
+        e.setMontoYaPagado(input.getMontoYaPagado());
+        e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setDiaVencimiento(input.getDiaVencimiento());
+
+        if (input.getProveedorId() != null) {
+            e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
+        }
+        if (input.getMonedaId() != null) {
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        }
+
         try {
             e = service.save(e);
         } catch (Exception err) {

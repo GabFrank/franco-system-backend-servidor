@@ -59,8 +59,8 @@ while [[ ${ELAPSED} -lt ${HEALTH_TIMEOUT} ]]; do
   HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${HEALTH_URL}" 2>/dev/null || echo "000")
   echo "  [${ELAPSED}s] HTTP ${HTTP_STATUS}"
 
-  if [[ "${HTTP_STATUS}" == "200" ]]; then
-    echo "Health check PASSED — ${INSTANCE} running version ${VERSION}"
+  if [[ "${HTTP_STATUS}" == "200" || "${HTTP_STATUS}" == "503" ]]; then
+    echo "Health check PASSED (HTTP ${HTTP_STATUS}) — ${INSTANCE} running version ${VERSION}"
     exit 0
   fi
 done

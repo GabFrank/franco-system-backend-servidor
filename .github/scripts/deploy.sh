@@ -18,7 +18,7 @@ RELEASE_DIR="${RELEASES_DIR}/${VERSION}"
 JAR_NAME="frc-central-server.jar"
 SERVICE_NAME="frc-${INSTANCE}.service"
 HEALTH_URL="http://localhost:$(grep SERVER_PORT "${INSTANCE_DIR}/.env" | cut -d= -f2)/actuator/health"
-HEALTH_TIMEOUT=60
+HEALTH_TIMEOUT=120
 HEALTH_INTERVAL=5
 
 # --- Validations ---

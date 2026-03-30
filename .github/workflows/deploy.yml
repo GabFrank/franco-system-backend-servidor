@@ -3,10 +3,6 @@ name: Deploy
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version to deploy (e.g. 3.1.0-alpha.1)'
-        required: true
-        type: string
       instance:
         description: 'Target instance'
         required: true
@@ -15,6 +11,10 @@ on:
           - alpha
           - farmacia
           - bodega
+      version:
+        description: 'Version override (leave empty for latest of the channel)'
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -27,11 +27,52 @@ jobs:
           sparse-checkout: .github/scripts/deploy.sh
           sparse-checkout-cone-mode: false
 
-      - name: Download JAR from GitHub Release
+      - name: Resolve version
+        id: resolve
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Downloading frc-central-server.jar from release v${{ inputs.version }}..."
+          INSTANCE="${{ inputs.instance }}"
+          OVERRIDE="${{ inputs.version }}"
+
+          if [[ -n "${OVERRIDE}" ]]; then
+            echo "Using manual version: ${OVERRIDE}"
+            echo "version=${OVERRIDE}" >> $GITHUB_OUTPUT
+          else
+            echo "Resolving latest version for instance: ${INSTANCE}"
+            if [[ "${INSTANCE}" == "bodega" ]]; then
+              # Stable: latest non-prerelease
+              TAG=$(curl -fsSL \
+                -H "Authorization: token ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+                | jq -r '.tag_name')
+            elif [[ "${INSTANCE}" == "farmacia" ]]; then
+              # Beta: latest prerelease with -beta
+              TAG=$(curl -fsSL \
+                -H "Authorization: token ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/releases" \
+                | jq -r '[.[] | select(.prerelease == true and (.tag_name | contains("beta")))][0].tag_name')
+            else
+              # Alpha: latest prerelease with -alpha
+              TAG=$(curl -fsSL \
+                -H "Authorization: token ${GH_TOKEN}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                "https://api.github.com/repos/${{ github.repository }}/releases" \
+                | jq -r '[.[] | select(.prerelease == true and (.tag_name | contains("alpha")))][0].tag_name')
+            fi
+            VERSION="${TAG#v}"
+            echo "Resolved version: ${VERSION}"
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download JAR from GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          echo "Downloading frc-central-server.jar from release v${VERSION}..."
           curl -fSL \
             -H "Authorization: token ${GH_TOKEN}" \
             -H "Accept: application/octet-stream" \
@@ -39,7 +80,7 @@ jobs:
             "$(curl -fSL \
                 -H "Authorization: token ${GH_TOKEN}" \
                 -H "Accept: application/vnd.github.v3+json" \
-                "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${{ inputs.version }}" \
+                "https://api.github.com/repos/${{ github.repository }}/releases/tags/v${VERSION}" \
               | jq -r '.assets[] | select(.name == "frc-central-server.jar") | .url')"
           ls -lh frc-central-server.jar
 
@@ -51,10 +92,9 @@ jobs:
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Upload JAR to server
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
-          INSTANCE="${{ inputs.instance }}"
-
           echo "Creating release directory and uploading JAR..."
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
             "mkdir -p /opt/frc-backend-central/releases/${VERSION}"
@@ -70,14 +110,18 @@ jobs:
             deploy@${{ secrets.DEPLOY_HOST }}:/tmp/deploy.sh
 
       - name: Execute deploy
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${{ inputs.version }}' '${{ inputs.instance }}'"
+            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}'"
 
       - name: Summary
         if: always()
+        env:
+          VERSION: ${{ steps.resolve.outputs.version }}
         run: |
           echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "- **Instance:** ${{ inputs.instance }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

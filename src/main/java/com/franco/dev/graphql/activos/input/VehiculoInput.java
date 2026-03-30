@@ -27,6 +27,8 @@ public class VehiculoInput {
     private String chasis;
     private Boolean aireAcondicionado;
     private BigDecimal valorEstimado;
+    private BigDecimal valorEstimadoPyg;
+    private BigDecimal valorEstimadoBrl;
     private Integer mantenimientoMotorIntervalo;
     private Integer mantenimientoCajaIntervalo;
     private String situacionPago;

@@ -113,12 +113,15 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setChasis(input.getChasis());
         e.setAireAcondicionado(input.getAireAcondicionado());
         e.setValorEstimado(input.getValorEstimado());
+        e.setValorEstimadoPyg(input.getValorEstimadoPyg());
+        e.setValorEstimadoBrl(input.getValorEstimadoBrl());
         e.setMantenimientoMotorIntervalo(input.getMantenimientoMotorIntervalo());
         e.setMantenimientoCajaIntervalo(input.getMantenimientoCajaIntervalo());
         e.setSituacionPago(input.getSituacionPago());
         e.setMontoTotal(input.getMontoTotal());
         e.setMontoYaPagado(input.getMontoYaPagado());
         e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
         if (input.getModeloId() != null)
             e.setModelo(modeloService.findById(input.getModeloId()).orElse(null));

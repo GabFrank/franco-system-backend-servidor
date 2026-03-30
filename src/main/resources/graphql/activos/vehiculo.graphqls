@@ -20,6 +20,8 @@ type Vehiculo {
     chasis: String
     aireAcondicionado: Boolean
     valorEstimado: Float
+    valorEstimadoPyg: Float
+    valorEstimadoBrl: Float
     mantenimientoMotorIntervalo: Int
     mantenimientoCajaIntervalo: Int
     situacionPago: String
@@ -56,6 +58,8 @@ input VehiculoInput {
     chasis: String
     aireAcondicionado: Boolean
     valorEstimado: Float
+    valorEstimadoPyg: Float
+    valorEstimadoBrl: Float
     mantenimientoMotorIntervalo: Int
     mantenimientoCajaIntervalo: Int
     situacionPago: String

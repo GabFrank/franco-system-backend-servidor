@@ -8,6 +8,8 @@ type Mueble {
     consumeEnergia: Boolean
     consumoValor: String
     valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
     situacionPago: String
     proveedor: Persona
     moneda: Moneda
@@ -30,6 +32,8 @@ input MuebleInput {
     consumeEnergia: Boolean
     consumoValor: String
     valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
     situacionPago: String
     proveedorId: ID
     monedaId: ID

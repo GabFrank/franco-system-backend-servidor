@@ -83,10 +83,13 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setConsumeEnergia(input.getConsumeEnergia());
         e.setConsumoValor(input.getConsumoValor());
         e.setValorTasacion(input.getValorTasacion());
+        e.setValorTasacionPyg(input.getValorTasacionPyg());
+        e.setValorTasacionBrl(input.getValorTasacionBrl());
         e.setSituacionPago(input.getSituacionPago());
         e.setMontoTotal(input.getMontoTotal());
         e.setMontoYaPagado(input.getMontoYaPagado());
         e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
 
         if (input.getPropietarioId() != null) {

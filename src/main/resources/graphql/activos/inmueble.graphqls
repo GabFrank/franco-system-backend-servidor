@@ -8,6 +8,8 @@ type Inmueble {
     googleMapsUrl: String
     codigoCatastral: String
     valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
     situacionPago: String
     proveedor: Persona
     moneda: Moneda
@@ -30,6 +32,8 @@ input InmuebleInput {
     googleMapsUrl: String
     codigoCatastral: String
     valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
     situacionPago: String
     proveedorId: ID
     monedaId: ID

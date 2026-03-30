@@ -48,7 +48,12 @@ public class Mueble implements Identifiable<Long> {
 
     @Column(name = "valor_tasacion")
     private BigDecimal valorTasacion;
-    
+
+    @Column(name = "valor_tasacion_pyg")
+    private BigDecimal valorTasacionPyg;
+
+    @Column(name = "valor_tasacion_brl")
+    private BigDecimal valorTasacionBrl;
     @Column(name = "situacion_pago")
     private String situacionPago;
 

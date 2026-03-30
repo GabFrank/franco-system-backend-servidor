@@ -79,6 +79,8 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setGoogleMapsUrl(input.getGoogleMapsUrl());
         e.setCodigoCatastral(input.getCodigoCatastral());
         e.setValorTasacion(input.getValorTasacion());
+        e.setValorTasacionPyg(input.getValorTasacionPyg());
+        e.setValorTasacionBrl(input.getValorTasacionBrl());
 
         if (input.getPropietarioId() != null) {
             e.setPropietario(personaService.findById(input.getPropietarioId()).orElse(null));
@@ -97,6 +99,7 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setMontoTotal(input.getMontoTotal());
         e.setMontoYaPagado(input.getMontoYaPagado());
         e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
 
         if (input.getProveedorId() != null) {

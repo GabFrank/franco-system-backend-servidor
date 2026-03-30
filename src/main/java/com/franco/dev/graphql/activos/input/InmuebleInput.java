@@ -15,6 +15,8 @@ public class InmuebleInput {
     private String googleMapsUrl;
     private String codigoCatastral;
     private BigDecimal valorTasacion;
+    private BigDecimal valorTasacionPyg;
+    private BigDecimal valorTasacionBrl;
     private String situacionPago;
     private Long proveedorId;
     private Long monedaId;

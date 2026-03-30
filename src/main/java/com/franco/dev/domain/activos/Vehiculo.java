@@ -87,6 +87,12 @@ public class Vehiculo implements Identifiable<Long> {
         @Column(name = "valor_estimado")
         private BigDecimal valorEstimado;
 
+        @Column(name = "valor_estimado_pyg")
+        private BigDecimal valorEstimadoPyg;
+
+        @Column(name = "valor_estimado_brl")
+        private BigDecimal valorEstimadoBrl;
+
         @Column(name = "mantenimiento_motor_intervalo")
         private Integer mantenimientoMotorIntervalo;
 

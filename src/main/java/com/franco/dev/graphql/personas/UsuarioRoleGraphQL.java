@@ -4,11 +4,9 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.UsuarioRole;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.UsuarioRoleInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.RoleService;
 import com.franco.dev.service.personas.UsuarioRoleService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,30 +26,34 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private RoleService roleService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;
 
-    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {return service.findByUserId(id);}
+    public List<UsuarioRole> usuarioRolePorUsuarioId(Long id) {
+        return service.findByUserId(id);
+    }
 
-    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input){
+    public UsuarioRole saveUsuarioRole(UsuarioRoleInput input) {
         UsuarioRole e = new UsuarioRole();
-        if(input.getId()!=null) e.setId(input.getId());
+        if (input.getId() != null) e.setId(input.getId());
         e.setUser(usuarioService.findById(input.getUserId()).orElse(null));
-        e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        } else {
+            e.setUsuario(usuarioService.findById(input.getUserId()).orElse(null));
+        }
         e.setRole(roleService.findById(input.getRoleId()).orElse(null));
         e = service.save(e);
         return e;
     }
 
-    public Boolean deleteUsuarioRole(Long id){
+    public Boolean deleteUsuarioRole(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
-    public Long countUsuarioRole(){
+    public Long countUsuarioRole() {
         return service.count();
     }
 

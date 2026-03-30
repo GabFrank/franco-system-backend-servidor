@@ -10,12 +10,12 @@ import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.*;
 
 import javax.persistence.*;
+import javax.persistence.CascadeType;
+import javax.persistence.Entity;
+import javax.persistence.Table;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -24,6 +24,7 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@DynamicInsert //permite que los valores por default declarados en la base de datos sean utilizados
 @TypeDef(
         name = "pedido_item_estado",
         typeClass = PostgreSQLEnumType.class
@@ -56,32 +57,20 @@ public class PedidoItem implements Identifiable<Long> {
     @JoinColumn(name = "presentacion_creacion_id", nullable = true)
     private Presentacion presentacionCreacion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nota_pedido_id", nullable = true)
-    private NotaPedido notaPedido;
+    @Column(name = "cantidad_solicitada", nullable = false)
+    private Double cantidadSolicitada;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "nota_recepcion_id", nullable = true)
-    private NotaRecepcion notaRecepcion;
+    @Column(name = "precio_unitario_solicitado")
+    private Double precioUnitarioSolicitado;
 
-    @Column(name = "precio_unitario_creacion")
-    private Double precioUnitarioCreacion;
+    @Column(name = "vencimiento_esperado")
+    private LocalDateTime vencimientoEsperado;
 
-    @Column(name = "descuento_unitario_creacion")
-    private Double descuentoUnitarioCreacion;
-
-    private Boolean bonificacion;
-
-    @Column(name = "bonificacion_detalle")
-    private String bonificacionDetalle;
-
+    @Column(name = "observacion")
     private String observacion;
 
-    private Boolean frio;
-
-    private Double cantidadCreacion;
-
-    private LocalDateTime vencimientoCreacion;
+    @Column(name = "es_bonificacion")
+    private Boolean esBonificacion = false;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "estado")
@@ -94,58 +83,6 @@ public class PedidoItem implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_creacion_id", nullable = true)
     private Usuario usuarioCreacion;
-
-    private Double precioUnitarioRecepcionNota;
-
-    private Double descuentoUnitarioRecepcionNota;
-
-    private LocalDateTime vencimientoRecepcionNota;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "presentacion_recepcion_nota_id", nullable = true)
-    private Presentacion presentacionRecepcionNota;
-
-    private Double cantidadRecepcionNota;
-
-    private Double precioUnitarioRecepcionProducto;
-
-    private Double descuentoUnitarioRecepcionProducto;
-
-    private LocalDateTime vencimientoRecepcionProducto;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "presentacion_recepcion_producto_id", nullable = true)
-    private Presentacion presentacionRecepcionProducto;
-
-    private Double cantidadRecepcionProducto;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_recepcion_nota_id", nullable = true)
-    private Usuario usuarioRecepcionNota;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_recepcion_producto_id", nullable = true)
-    private Usuario usuarioRecepcionProducto;
-    private String obsCreacion;
-    private String obsRecepcionNota;
-    private String obsRecepcionProducto;
-    private Boolean autorizacionRecepcionNota;
-    private Boolean autorizacionRecepcionProducto;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "autorizado_por_recepcion_nota_id", nullable = true)
-    private Usuario autorizadoPorRecepcionNota;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "autorizado_por_recepcion_producto_id", nullable = true)
-    private Usuario autorizadoPorRecepcionProducto;
-    private String motivoModificacionRecepcionNota;
-    private String motivoModificacionRecepcionProducto;
-    private String motivoRechazoRecepcionNota;
-    private String motivoRechazoRecepcionProducto;
-    private Boolean cancelado;
-    private Boolean verificadoRecepcionNota;
-    private Boolean verificadoRecepcionProducto;
 }
 
 

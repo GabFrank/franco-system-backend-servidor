@@ -3,9 +3,7 @@ package com.franco.dev.graphql.productos;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.graphql.productos.input.CodigoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.productos.CodigoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +20,6 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private CodigoService service;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

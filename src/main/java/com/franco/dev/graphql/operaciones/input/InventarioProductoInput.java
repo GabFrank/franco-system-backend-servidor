@@ -10,6 +10,5 @@ public class InventarioProductoInput {
     private Long zonaId;
     private Boolean concluido;
     private Long inventarioId;
-    private Long productoId;
     private Long usuarioId;
 }

@@ -2,19 +2,21 @@ package com.franco.dev.graphql.empresarial;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.empresarial.input.SucursalInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 import java.util.List;
 import java.util.Optional;
@@ -32,40 +34,69 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private UsuarioService usuarioService;
 
     @Autowired
-    private PropagacionService propagacionService;
+    private CiudadService ciudadService;
 
-    public Optional<Sucursal> sucursal(Long id) {return service.findById(id);}
+    public Optional<Sucursal> sucursal(Long id) {
+        return service.findById(id);
+    }
 
-    public List<Sucursal> sucursales(int page, int size){
-        Pageable pageable = PageRequest.of(page,size);
+    public List<Sucursal> sucursales(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
-    public List<Sucursal> sucursalesSearch(String texto){
-        return service.findByAll(texto);
+    public Page<Sucursal> sucursalesSearch(String texto, Boolean activo, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 1000);
+        return service.findByAllPage(texto, activo, pageable);
     }
 
-    public Sucursal sucursalActual(){
+    public Sucursal sucursalActual() {
         return service.findById(Long.valueOf(env.getProperty("sucursalId"))).orElse(null);
     }
 
-    public Sucursal saveSucursal(SucursalInput input){
+    public Sucursal saveSucursal(SucursalInput input) {
         ModelMapper m = new ModelMapper();
         Sucursal e = m.map(input, Sucursal.class);
+        if (input.getCreadoEn() != null) {
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        }
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        if (input.getCiudadId() != null) {
+            e.setCiudad(ciudadService.findById(input.getCiudadId()).orElse(null));
+        }
+
         e = service.save(e);
-//        propagacionService.propagarEntidad(e, TipoEntidad.SUCURSAL);
+        // propagacionService.propagarEntidad(e, TipoEntidad.SUCURSAL);
         return e;
     }
 
-    public Boolean deleteSucursal(Long id){
+    public Boolean deleteSucursal(Long id) {
         Boolean ok = service.deleteById(id);
-//        if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
+        // if(ok) propagacionService.eliminarEntidad(id, TipoEntidad.SUCURSAL);
         return ok;
     }
 
-    public Long countSucursal(){
+    public Long countSucursal() {
         return service.count();
     }
 
+    public Page<Sucursal> findByNombre(String nombre, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size);
+        // Si nombre es null, vacío o '%', retornar todos los resultados
+        if (nombre == null || nombre.trim().isEmpty() || "%".equals(nombre.trim())) {
+            return service.getRepository().findAll(pageable);
+        }
+        // Procesar el nombre para la búsqueda
+        // Convertir a mayúsculas y agregar comodines para la búsqueda
+        nombre = "%" + nombre.replace(' ', '%').toUpperCase() + "%";
+        return service.getRepository().findByNombreLike(nombre, pageable);
+    }
+
+    public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Integer page, Integer size){
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 1000);
+        return service.findByNombreConFiltros(nombre, deposito, activo, pageable);
+    }
 
 }

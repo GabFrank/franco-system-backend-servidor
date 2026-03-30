@@ -19,11 +19,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import javax.persistence.criteria.Join;
+import javax.persistence.criteria.JoinType;
+import javax.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.PageImpl;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -386,17 +395,27 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                 aggregatedResults.setTotalVentaRs(result[1] != null ? ((Number) result[1]).doubleValue() : 0.0);
                 aggregatedResults.setTotalVentaDs(result[2] != null ? ((Number) result[2]).doubleValue() : 0.0);
                 aggregatedResults.setTotalTarjeta(result[3] != null ? ((Number) result[3]).doubleValue() : 0.0);
-                aggregatedResults.setTotalConvenio(result[4] != null ? ((Number) result[4]).doubleValue() : 0.0);
-                aggregatedResults.setTotalDescuento(result[5] != null ? ((Number) result[5]).doubleValue() : 0.0);
-                aggregatedResults.setTotalAumento(result[6] != null ? ((Number) result[6]).doubleValue() : 0.0);
-                aggregatedResults.setVueltoGs(result[7] != null ? ((Number) result[7]).doubleValue() : 0.0);
-                aggregatedResults.setVueltoRs(result[8] != null ? ((Number) result[8]).doubleValue() : 0.0);
-                aggregatedResults.setVueltoDs(result[9] != null ? ((Number) result[9]).doubleValue() : 0.0);
-                aggregatedResults.setTotalGeneral(result[10] != null ? ((Number) result[10]).doubleValue() : 0.0);
+                aggregatedResults.setTotalTarjetaRs(result[4] != null ? ((Number) result[4]).doubleValue() : 0.0);
+                aggregatedResults.setTotalTarjetaDs(result[5] != null ? ((Number) result[5]).doubleValue() : 0.0);
+                aggregatedResults.setTotalTransferencia(result[6] != null ? ((Number) result[6]).doubleValue() : 0.0);
+                aggregatedResults.setTotalTransferenciaRs(result[7] != null ? ((Number) result[7]).doubleValue() : 0.0);
+                aggregatedResults.setTotalTransferenciaDs(result[8] != null ? ((Number) result[8]).doubleValue() : 0.0);
+                aggregatedResults.setTotalConvenio(result[9] != null ? ((Number) result[9]).doubleValue() : 0.0);
+                aggregatedResults.setTotalDescuento(result[10] != null ? ((Number) result[10]).doubleValue() : 0.0);
+                aggregatedResults.setTotalAumento(result[11] != null ? ((Number) result[11]).doubleValue() : 0.0);
+                aggregatedResults.setVueltoGs(result[12] != null ? ((Number) result[12]).doubleValue() : 0.0);
+                aggregatedResults.setVueltoRs(result[13] != null ? ((Number) result[13]).doubleValue() : 0.0);
+                aggregatedResults.setVueltoDs(result[14] != null ? ((Number) result[14]).doubleValue() : 0.0);
+                aggregatedResults.setTotalGeneral(result[15] != null ? ((Number) result[15]).doubleValue() : 0.0);
                 balance.setTotalVentaGs(aggregatedResults.getTotalVentaGs());
                 balance.setTotalVentaRs(aggregatedResults.getTotalVentaRs());
                 balance.setTotalVentaDs(aggregatedResults.getTotalVentaDs());
                 balance.setTotalTarjeta(aggregatedResults.getTotalTarjeta());
+                balance.setTotalTarjetaRs(aggregatedResults.getTotalTarjetaRs());
+                balance.setTotalTarjetaDs(aggregatedResults.getTotalTarjetaDs());
+                balance.setTotalTransferencia(aggregatedResults.getTotalTransferencia());
+                balance.setTotalTransferenciaRs(aggregatedResults.getTotalTransferenciaRs());
+                balance.setTotalTransferenciaDs(aggregatedResults.getTotalTransferenciaDs());
                 balance.setTotalCredito(aggregatedResults.getTotalConvenio());
                 balance.setTotalDescuento(aggregatedResults.getTotalDescuento());
                 balance.setTotalAumento(aggregatedResults.getTotalAumento());
@@ -449,6 +468,11 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             balance.setTotalVentaRs(balanceDto.getTotalVentaRs());
             balance.setTotalVentaDs(balanceDto.getTotalVentaDs());
             balance.setTotalTarjeta(balanceDto.getTotalTarjeta());
+            balance.setTotalTarjetaRs(balanceDto.getTotalTarjetaRs());
+            balance.setTotalTarjetaDs(balanceDto.getTotalTarjetaDs());
+            balance.setTotalTransferencia(balanceDto.getTotalTransferencia());
+            balance.setTotalTransferenciaRs(balanceDto.getTotalTransferenciaRs());
+            balance.setTotalTransferenciaDs(balanceDto.getTotalTransferenciaDs());
             balance.setTotalCredito(balanceDto.getTotalCredito());
             balance.setTotalRetiroGs(balanceDto.getTotalRetiroGs());
             balance.setTotalRetiroRs(balanceDto.getTotalRetiroRs());
@@ -485,8 +509,271 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
     }
 
     public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, Pageable pageable) {
-        Page<PdvCaja> aux = repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, stringToDate(fechaInicio), stringToDate(fechaFin), sucId, verificado, pageable);
-        return aux;
+        return repository.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio != null ? stringToDate(fechaInicio) : null, fechaFin != null ? stringToDate(fechaFin) : null, sucId, verificado, pageable);
+    }
+
+    public Page<PdvCaja> findAllForAnalisisDiferencias(
+            Long cajaId,
+            Long cajaAnteriorId,
+            PdvCajaEstado estado,
+            Long maletinId,
+            String maletinDescripcion,
+            Long cajeroId,
+            String fechaInicio,
+            String fechaFin,
+            Long sucId,
+            Boolean verificado,
+            String difEstado,
+            Pageable pageable) {
+
+        if (cajaAnteriorId != null && maletinDescripcion == null && sucId == null && estado == null && fechaInicio == null && fechaFin == null) {
+            return findCajasByAnteriorIdOptimized(cajaAnteriorId, sucId, pageable);
+        }
+
+        final LocalDateTime inicio = fechaInicio != null ? stringToDate(fechaInicio) : null;
+        final LocalDateTime fin = fechaFin != null ? stringToDate(fechaFin) : null;
+
+        Specification<PdvCaja> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            
+            if (sucId != null) {
+                predicates.add(cb.equal(root.get("sucursalId"), sucId));
+            }
+            
+            Join<PdvCaja, Maletin> maletinJoin = root.join("maletin", JoinType.LEFT);
+
+            if (cajaId != null) {
+                predicates.add(cb.equal(root.get("id"), cajaId));
+            }
+            if (estado != null) {
+                predicates.add(cb.equal(root.get("estado"), estado));
+            }
+            if (maletinId != null) {
+                predicates.add(cb.equal(maletinJoin.get("id"), maletinId));
+            }
+            if (maletinDescripcion != null) {
+                predicates.add(cb.like(cb.lower(maletinJoin.get("descripcion")), "%" + maletinDescripcion.toLowerCase() + "%"));
+            }
+            if (cajeroId != null) {
+                predicates.add(cb.equal(root.get("usuario").get("id"), cajeroId));
+            }
+            if (verificado != null) {
+                predicates.add(cb.equal(root.get("verificado"), verificado));
+            }
+            if (inicio != null && fin != null) {
+                predicates.add(cb.between(root.get("creadoEn"), inicio, fin));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("maletin.id", "creadoEn").descending());
+        Page<PdvCaja> page = repository.findAll(spec, sortedPageable);
+
+        List<PdvCaja> cajas = new ArrayList<>(page.getContent());
+        cajas.forEach(this::enriquecerConCajaAnterior);
+
+        List<PdvCaja> cajasFiltradas = cajas;
+
+        if(cajaAnteriorId != null){
+            cajasFiltradas = cajasFiltradas.stream().filter(c -> cajaAnteriorId.equals(c.getCajaAnteriorId())).collect(Collectors.toList());
+        }
+
+        if (difEstado != null) {
+            cajasFiltradas = cajasFiltradas.stream()
+                .filter(c -> {
+                    String estadoCalculado = calcularEstadoDiferenciaConsecutiva(c);
+                    return difEstado.equals(estadoCalculado);
+                })
+                .collect(Collectors.toList());
+        }
+
+        if (difEstado != null || cajaAnteriorId != null) {
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), cajasFiltradas.size());
+            List<PdvCaja> sublist = (start <= end) ? cajasFiltradas.subList(start, end) : new ArrayList<>();
+            return new PageImpl<PdvCaja>(sublist, pageable, cajasFiltradas.size());
+        } else {
+            return new PageImpl<PdvCaja>(cajasFiltradas, page.getPageable(), page.getTotalElements());
+        }
+    }
+
+    /**
+     * @param sucursalId
+     * @return
+     */
+    public List<CajaBalance> getBalanceActiveCajasBySucursalId(Long sucursalId) {
+        List<PdvCaja> activeCajas = repository.findBySucursalIdAndActivo(sucursalId, true);
+        List<CajaBalance> balanceList = new ArrayList<>();
+        
+        if (activeCajas.isEmpty()) {
+            return balanceList;
+        }
+        
+        for (PdvCaja caja : activeCajas) {
+            CajaBalance cajaBalance = getBalance(new EmbebedPrimaryKey(caja.getId(), sucursalId));
+            if (cajaBalance != null) {
+                cajaBalance.setPdvCaja(caja);
+                balanceList.add(cajaBalance);
+            }
+        }
+        
+        return balanceList;
+    }
+
+    /**
+     * @param sucursalId
+     * @return
+     */
+    public List<PdvCaja> findActiveBySucursalId(Long sucursalId) {
+        return repository.findBySucursalIdAndActivo(sucursalId, true);
+    }
+
+    public List<PdvCaja> findCajasWithVentaObservaciones() {
+        return repository.findCajasWithVentaObservaciones();
+    }
+
+    /**
+     * @param cajaActual
+     */
+    private void enriquecerConCajaAnterior(PdvCaja cajaActual) {
+        if(cajaActual.getConteoApertura() == null || cajaActual.getMaletin() == null || cajaActual.getFechaApertura() == null){
+            cajaActual.setEstadoDiferenciaConsecutiva("SIN_DATOS");
+            return;
+        }
+
+        List<PdvCaja> cajasAnteriores = repository.findPreviousCajaByMaletinAndFecha(
+            cajaActual.getMaletin().getId(), 
+            cajaActual.getFechaApertura(), 
+            PageRequest.of(0, 1)
+        );
+
+        if(!cajasAnteriores.isEmpty()){
+            PdvCaja cajaAnterior = cajasAnteriores.get(0);
+            cajaActual.setCajaAnteriorId(cajaAnterior.getId());
+            cajaActual.setEstadoDiferenciaConsecutiva(calcularEstadoDiferenciaConsecutiva(cajaActual));
+            
+        } else {
+            cajaActual.setEstadoDiferenciaConsecutiva("SIN_DATOS");
+        }
+    }
+    
+    /**
+     * @param cajaActual
+     * @return
+     */
+    private String calcularEstadoDiferenciaConsecutiva(PdvCaja cajaActual){
+        if(cajaActual.getConteoApertura() == null || cajaActual.getMaletin() == null || cajaActual.getFechaApertura() == null){
+            return "SIN_DATOS";
+        }
+
+        List<PdvCaja> cajasAnteriores = repository.findPreviousCajaByMaletinAndFecha(
+            cajaActual.getMaletin().getId(), 
+            cajaActual.getFechaApertura(), 
+            PageRequest.of(0, 1)
+        );
+
+        if(cajasAnteriores.isEmpty()){
+            return "SIN_DATOS";
+        }
+
+        PdvCaja cajaAnterior = cajasAnteriores.get(0);
+
+        if(cajaAnterior.getConteoCierre() == null){
+            return "SIN_DATOS";
+        }
+
+        return calcularEstadoDiferenciaConsecutivaConCajaAnterior(cajaAnterior, cajaActual);
+    }
+
+    /**
+     * @param cajaAnterior
+     * @param cajaActual
+     * @return
+     */
+    private String calcularEstadoDiferenciaConsecutivaConCajaAnterior(PdvCaja cajaAnterior, PdvCaja cajaActual){
+        if(cajaAnterior.getConteoCierre() == null || cajaActual.getConteoApertura() == null){
+            return "SIN_DATOS";
+        }
+
+        List<ConteoMoneda> cierreAnteriorList = conteoMonedaService.findByConteoId(
+            cajaAnterior.getConteoCierre().getId(), 
+            cajaAnterior.getSucursalId()
+        );
+
+        Double totalCierreAnterior = cierreAnteriorList.stream()
+                .mapToDouble(cm -> cm.getCantidad() * cm.getMonedaBilletes().getValor()).sum();
+
+        List<ConteoMoneda> aperturaActualList = conteoMonedaService.findByConteoId(
+            cajaActual.getConteoApertura().getId(), 
+            cajaActual.getSucursalId()
+        );
+
+        Double totalAperturaActual = aperturaActualList.stream()
+                .mapToDouble(cm -> cm.getCantidad() * cm.getMonedaBilletes().getValor()).sum();
+
+        if(!totalCierreAnterior.equals(totalAperturaActual)){
+            return "CON_DIFERENCIA";
+        } else {
+            return "SIN_DIFERENCIA";
+        }
+    }
+
+    /**
+     * @param cajaAnteriorId 
+     * @param sucId
+     * @param pageable
+     * @return
+     */
+    private Page<PdvCaja> findCajasByAnteriorIdOptimized(Long cajaAnteriorId, Long sucId, Pageable pageable) {
+        final List<PdvCaja> posiblesCajasAnteriores = buscarCajasPorId(cajaAnteriorId, sucId);
+
+        if (posiblesCajasAnteriores.isEmpty()) {
+            return new PageImpl<>(new ArrayList<>(), pageable, 0);
+        }
+
+        List<PdvCaja> resultadosTotales = new ArrayList<>();
+
+        for (PdvCaja cajaAnterior : posiblesCajasAnteriores) {
+            if (cajaAnterior.getMaletin() == null || cajaAnterior.getFechaCierre() == null) {
+                continue;
+            }
+
+            Specification<PdvCaja> specSucesores = (root, query, cb) -> {
+                List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("maletin").get("id"), cajaAnterior.getMaletin().getId()));
+                predicates.add(cb.isNotNull(root.get("conteoApertura")));
+                predicates.add(cb.greaterThan(root.get("fechaApertura"), cajaAnterior.getFechaCierre()));
+                query.orderBy(cb.asc(root.get("fechaApertura")));
+                return cb.and(predicates.toArray(new Predicate[0]));
+            };
+
+            repository.findAll(specSucesores).stream()
+                .peek(this::enriquecerConCajaAnterior)
+                .filter(c -> cajaAnterior.getId().equals(c.getCajaAnteriorId()))
+                .findFirst()
+                .ifPresent(resultadosTotales::add);
+        }
+        
+        resultadosTotales.sort((a, b) -> b.getFechaApertura().compareTo(a.getFechaApertura()));
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), resultadosTotales.size());
+        List<PdvCaja> pageContent = start <= end ? resultadosTotales.subList(start, end) : new ArrayList<>();
+
+        return new PageImpl<>(pageContent, pageable, resultadosTotales.size());
+    }
+
+    private List<PdvCaja> buscarCajasPorId(Long cajaId, Long sucId) {
+        Specification<PdvCaja> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("id"), cajaId));
+            if (sucId != null) {
+                predicates.add(cb.equal(root.get("sucursalId"), sucId));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+        List<PdvCaja> cajas = repository.findAll(spec);
+        return cajas;
     }
 }
 

@@ -13,6 +13,8 @@ public interface FormaPagoRepository extends HelperRepository<FormaPago, Long> {
         return FormaPago.class;
     }
 
+    java.util.Optional<FormaPago> findFirstByDescripcionIgnoreCase(String descripcion);
+
 //    @Query("select m from Moneda m " +
 //            "where UPPER(CAST(id as text)) like %?1% or UPPER(denominacion) like %?1%")
 //    public List<Moneda> findByAll(String texto);

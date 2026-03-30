@@ -21,7 +21,7 @@ input PuntoDeVentaInput {
 
 extend type Query {
     puntoDeVenta(id:ID!):PuntoDeVenta
-    puntoDeVentas(page:Int = 0, size:Int = 10):[PuntoDeVenta]!
+    puntoDeVentas(page:Int, size:Int = 10):[PuntoDeVenta]!
     countPuntoDeVenta: Int
     puntoDeVentaPorSucursalId(id:Int):[PuntoDeVenta]
 }

@@ -3,7 +3,8 @@ package com.franco.dev.domain.operaciones;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Documento;
-import com.franco.dev.domain.operaciones.enums.NecesidadEstado;
+import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
@@ -21,11 +22,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "nota_recepcion", schema = "operaciones")
 @TypeDef(
-        name = "necesidad_estado",
+        name = "nota_recepcion_estado",
         typeClass = PostgreSQLEnumType.class
 )
+@Table(name = "nota_recepcion", schema = "operaciones")
 public class NotaRecepcion implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
@@ -53,15 +54,41 @@ public class NotaRecepcion implements Identifiable<Long> {
     @JoinColumn(name = "documento_id", nullable = true)
     private Documento documento;
 
+    @Column(name = "numero")
     private Integer numero;
+
+    @Column(name = "tipo_boleta")
     private String tipoBoleta;
+
+    @Column(name = "timbrado")
     private Integer timbrado;
+
+    @Column(name = "fecha")
+    private LocalDateTime fecha;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "moneda_id", nullable = false)
+    private Moneda moneda;
+
+    @Column(name = "cotizacion")
+    private Double cotizacion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false)
+    @Type(type = "nota_recepcion_estado")
+    private NotaRecepcionEstado estado;
+
+    @Column(name = "valor")
+    private Double valor;
+
+    @Column(name = "pagado")
     private Boolean pagado;
+
+    @Column(name = "es_nota_rechazo")
+    private Boolean esNotaRechazo = false;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
-
-    private LocalDateTime fecha;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)

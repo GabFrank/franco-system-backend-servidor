@@ -68,6 +68,18 @@ public class TransferenciaItemService extends CrudService<TransferenciaItem, Tra
 //        personaPublisher.publish(p);
         return e;
     }
+    @Transactional
+    public TransferenciaItem verificarProducto(Long id, Boolean vencimientoVerificado) {
+        // Use orElseThrow to unwrap the Optional and throw an exception if not found
+        TransferenciaItem ti = findById(id)
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + id));
+
+        // Update the field
+        ti.setVencimientoVerificado(vencimientoVerificado);
+
+        // Save the updated entity
+        return save(ti);
+    }
 
 
 }

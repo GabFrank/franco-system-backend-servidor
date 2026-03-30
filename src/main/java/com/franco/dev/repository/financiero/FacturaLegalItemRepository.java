@@ -20,4 +20,6 @@ public interface FacturaLegalItemRepository extends HelperRepository<FacturaLega
 
     public List<FacturaLegalItem> findByFacturaLegalIdAndSucursalId(Long id, Long sucId);
 
+    public List<FacturaLegalItem> findByFacturaLegalId(Long id);
+
 }

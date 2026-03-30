@@ -7,12 +7,14 @@ import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JoinColumnOrFormula;
 import org.hibernate.annotations.JoinColumnsOrFormulas;
 import org.hibernate.annotations.JoinFormula;
 
 import javax.persistence.*;
+
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
@@ -34,7 +36,10 @@ public class FacturaLegal implements Serializable {
     private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "timbrado_detalle_id", nullable = true)
+    @JoinColumns({
+            @JoinColumn(name = "timbrado_detalle_id", referencedColumnName = "id", insertable = false, updatable = false),
+            @JoinColumn(name = "sucursal_id", referencedColumnName = "sucursal_id", insertable = false, updatable = false)
+    })
     private TimbradoDetalle timbradoDetalle;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -67,6 +72,13 @@ public class FacturaLegal implements Serializable {
     private String nombre;
     private String ruc;
     private String direccion;
+    private String cdc;
+
+    @Column(name = "moneda_extranjera", length = 3)
+    private String monedaExtranjera;
+
+    @Column(name = "tipo_cambio", precision = 10, scale = 4)
+    private Double tipoCambio;
 
     @Column(name = "iva_parcial_0")
     private Double ivaParcial0;
@@ -87,11 +99,13 @@ public class FacturaLegal implements Serializable {
     private Boolean activo;
 
     @CreationTimestamp
+    @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
 }
 
 

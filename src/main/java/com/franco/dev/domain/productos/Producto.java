@@ -3,7 +3,6 @@ package com.franco.dev.domain.productos;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
-import com.franco.dev.rabbit.RabbitEntity;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -59,6 +58,7 @@ public class Producto implements Identifiable<Long> {
     private String imagenes;
     private Boolean isEnvase;
     private Boolean activo;
+    private Boolean lote;
 
 
 

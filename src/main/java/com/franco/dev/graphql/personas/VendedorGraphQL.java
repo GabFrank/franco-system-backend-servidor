@@ -4,12 +4,10 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.personas.Vendedor;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.VendedorInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.personas.VendedorService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -36,8 +34,6 @@ public class VendedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private ProveedorService proveedorService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

@@ -1,0 +1,26 @@
+type CategoriaObservacion {
+    id:ID!
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input CategoriaObservacionInput {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    usuarioId: ID
+}
+
+extend type Query {
+    categoriaObservacion(id:ID!): CategoriaObservacion
+    categoriasObservaciones: [CategoriaObservacion]!
+    categoriaObservacionSearch(id:ID, texto:String): [CategoriaObservacion]
+}
+
+extend type Mutation {
+    saveCategoriaObservacion(categoriaObservacion:CategoriaObservacionInput!): CategoriaObservacion!
+    deleteCategoriaObservacion(id:ID!): Boolean!
+}

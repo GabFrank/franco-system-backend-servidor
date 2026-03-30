@@ -8,10 +8,13 @@ import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -33,15 +36,24 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
         return repository;
     }
 
-    public List<Sucursal> findByAll(String texto) {
+    public List<Sucursal> findByAll(String texto, Boolean activo) {
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return repository.findByAll(texto);
+        return repository.findByAllWithActivoFilter(texto, activo != null ? activo : true);
+    }
 
+    public Page<Sucursal> findByAllPage(String texto, Boolean activo, Pageable pageable) {
+        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
+        return repository.findByAllWithActivoFilterPage(texto, activo != null ? activo : true, pageable);
+    }
+
+    public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable) {
+        nombre = nombre != null ? nombre.replace(" ", "%").toUpperCase() : "";
+        return repository.findByNombreConFiltros(nombre, deposito, activo, pageable).getContent();
     }
 
     @Override
     public List<Sucursal> findAll(Pageable pageable) {
-        return repository.findAllByOrderByIdAsc();
+        return repository.findAllByActivoTrueOrderByIdAsc();
     }
 
     public List<Sucursal> findAllNotConfigured() {
@@ -50,11 +62,55 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
 
     @Override
     public Sucursal save(Sucursal entity) {
-        Sucursal e = super.save(entity);
-        return e;
+        if(entity.getId() == null){
+            entity.setCreadoEn(LocalDateTime.now());
+        }
+        return super.save(entity);
     }
 
     public Sucursal sucursalActual() {
         return findById(Long.valueOf(environment.getProperty("sucursalId"))).orElse(null);
+    }
+
+    /**
+     * Obtiene todas las sucursales activas excluyendo el servidor (id 0)
+     * 
+     * Usado en:
+     * - Desktop: Sí (módulo de compras, opción "Todos" en sucursales)
+     * - Mobile: No
+     */
+    public List<Sucursal> findAllExcludingServer() {
+        return repository.findAllByActivoTrueOrderByIdAsc()
+                .stream()
+                .filter(s -> !s.getId().equals(0L))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene todas las sucursales de entrega: deposito=true y activo=true
+     * 
+     * Usado en:
+     * - Desktop: Sí (módulo de compras, opción "Todos" en sucursales de entrega)
+     * - Mobile: No
+     */
+    public List<Sucursal> findAllSucursalesEntrega() {
+        return repository.findAllByActivoTrueOrderByIdAsc()
+                .stream()
+                .filter(s -> Boolean.TRUE.equals(s.getDeposito()) && Boolean.TRUE.equals(s.getActivo()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene todas las sucursales de influencia: activo=true y excluir servidor (id 0)
+     * 
+     * Usado en:
+     * - Desktop: Sí (módulo de compras, opción "Todos" en sucursales de influencia)
+     * - Mobile: No
+     */
+    public List<Sucursal> findAllSucursalesInfluencia() {
+        return repository.findAllByActivoTrueOrderByIdAsc()
+                .stream()
+                .filter(s -> Boolean.TRUE.equals(s.getActivo()) && !s.getId().equals(0L))
+                .collect(Collectors.toList());
     }
 }

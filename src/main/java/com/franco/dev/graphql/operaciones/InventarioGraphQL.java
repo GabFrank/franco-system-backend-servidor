@@ -16,13 +16,13 @@ import com.franco.dev.service.operaciones.InventarioService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -47,8 +47,6 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private TicketReportService ticketReportService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MovimientoStockService movimientoStockService;
@@ -65,6 +63,15 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private com.franco.dev.fmc.service.NotificationTemplateService notificationTemplateService;
+
+    @Autowired
+    private com.franco.dev.fmc.service.PushNotificationService pushNotificationService;
+
+    @Autowired
+    private com.franco.dev.fmc.service.NotificationRoleService notificationRoleService;
+
     public Optional<Inventario> inventario(Long id) {
         return service.findById(id);
     }
@@ -74,23 +81,40 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findAll(pageable);
     }
 
-//    public List<Inventario> inventarioSearch(String texto){
-//        return service.findByAll(texto);
-//    }
+    // public List<Inventario> inventarioSearch(String texto){
+    // return service.findByAll(texto);
+    // }
 
     public List<Inventario> inventarioPorUsuario(Long id) {
         return service.findByUsuario(id);
     }
 
+    public Page<Inventario> getInventariosPorUsuarioPaginado(Long usuarioId, int page, int size, String sortOrder) {
+        return service.findPageByUsuarioId(usuarioId, page, size, sortOrder);
+    }
+
+    @Autowired
+    private org.springframework.context.ApplicationEventPublisher publisher;
 
     public Inventario saveInventario(InventarioInput input) {
         ModelMapper m = new ModelMapper();
         Inventario e = m.map(input, Inventario.class);
-        if (input.getFechaInicio() != null) e.setFechaInicio(stringToDate(input.getFechaInicio()));
-        if (input.getFechaFin() != null) e.setFechaFin(stringToDate(input.getFechaFin()));
-        if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if (input.getSucursalId() != null) e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        boolean esNuevo = input.getId() == null;
+        if (input.getFechaInicio() != null)
+            e.setFechaInicio(stringToDate(input.getFechaInicio()));
+        if (input.getFechaFin() != null)
+            e.setFechaFin(stringToDate(input.getFechaFin()));
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getSucursalId() != null)
+            e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         e = service.save(e);
+        if (esNuevo && e.getId() != null) {
+            // publisher.publishEvent(new
+            // com.franco.dev.fmc.event.InventarioIniciadoEvent(this, e));
+            sendInventarioIniciadoNotification(e);
+        }
+
         return e;
     }
 
@@ -119,7 +143,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             Inventario inventario = service.findById(id).orElse(null);
             if (inventario.getId() != null) {
                 inventario.setEstado(InventarioEstado.CANCELADO);
-                List<MovimientoStock> movimientoStockList = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
+                List<MovimientoStock> movimientoStockList = movimientoStockService
+                        .findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.AJUSTE, inventario.getId(),
+                                inventario.getSucursal().getId());
                 for (MovimientoStock ms : movimientoStockList) {
                     if (ms != null) {
                         ms.setEstado(false);
@@ -142,7 +168,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             if (inventario.getId() != null) {
                 inventario.setEstado(InventarioEstado.ABIERTO);
                 inventario.setAbierto(true);
-                List<MovimientoStock> movimientoStockList = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId());
+                List<MovimientoStock> movimientoStockList = movimientoStockService
+                        .findByTipoMovimientoAndReferenciaAndSucursalId(TipoMovimiento.AJUSTE, inventario.getId(),
+                                inventario.getSucursal().getId());
                 for (MovimientoStock ms : movimientoStockList) {
                     if (ms != null) {
                         ms.setEstado(true);
@@ -183,14 +211,14 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 List<InventarioProducto> inventarioProductoList = inventarioProductoService.findByInventarioId(id);
                 List<MovimientoStock> movimientoStockList = new ArrayList<>();
                 for (InventarioProducto ip : inventarioProductoList) {
-                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService.findByInventarioProductoId(ip.getId());
+                    List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService
+                            .findByInventarioProductoId(ip.getId());
                     for (InventarioProductoItem ipi : inventarioProductoItemList) {
                         selectedProducto = ipi.getPresentacion().getProducto();
                         cantidadesPorProducto.merge(
                                 ipi.getPresentacion().getProducto().getId(),
                                 ipi.getCantidad() * ipi.getPresentacion().getCantidad(),
-                                Double::sum
-                        );
+                                Double::sum);
                     }
 
                     for (Map.Entry<Long, Double> entry : cantidadesPorProducto.entrySet()) {
@@ -198,11 +226,16 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                         Producto foundProducto = productoService.findById(productoId).orElse(null);
                         Double cantidadTotal = entry.getValue();
                         Double stockSistema = 0.0;
-                        MovimientoStock movimientoStockEncontrado = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE, inventario.getId(), inventario.getSucursal().getId(), productoId);
+                        MovimientoStock movimientoStockEncontrado = movimientoStockService
+                                .findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE,
+                                        inventario.getId(), inventario.getSucursal().getId(), productoId);
                         if (movimientoStockEncontrado != null) {
-                            stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId(), inventario.getSucursal().getId());
+                            stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(
+                                    movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId(),
+                                    inventario.getSucursal().getId());
                         } else {
-                            stockSistema = movimientoStockService.stockByProductoIdAndSucursalId(productoId, inventario.getSucursal().getId());
+                            stockSistema = movimientoStockService.stockByProductoIdAndSucursalId(productoId,
+                                    inventario.getSucursal().getId());
                         }
                         if (movimientoStockEncontrado == null) {
                             movimientoStockEncontrado = new MovimientoStock();
@@ -213,7 +246,7 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                             movimientoStockEncontrado.setUsuario(inventario.getUsuario());
                             movimientoStockEncontrado.setEstado(true);
                         }
-                        Double diferencia = cantidadTotal - stockSistema; //9 - 10 = -1, 11 - 10 = 1
+                        Double diferencia = cantidadTotal - stockSistema; // 9 - 10 = -1, 11 - 10 = 1
                         movimientoStockEncontrado.setCantidad(diferencia);
                         movimientoStockEncontrado = movimientoStockService.save(movimientoStockEncontrado);
                     }
@@ -225,5 +258,66 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             throw e;
         }
 
+    }
+
+    private void sendInventarioIniciadoNotification(Inventario inventario) {
+        try {
+            Long inventarioId = inventario.getId();
+
+            // Initialize Lazy Objects or use what we have
+            String sucursalNombre = "Sucursal no especificada";
+            if (inventario.getSucursal() != null) {
+                // If it's a proxy, we might need to fetch it, but usually if it came from
+                // save(e) it might be attached or detached but with ID
+                // Let's try to get name safely
+                if (inventario.getSucursal().getNombre() != null) {
+                    sucursalNombre = inventario.getSucursal().getNombre();
+                } else {
+                    com.franco.dev.domain.empresarial.Sucursal s = sucursalService
+                            .findById(inventario.getSucursal().getId()).orElse(null);
+                    if (s != null)
+                        sucursalNombre = s.getNombre();
+                }
+            }
+
+            String usuarioNombre = "Usuario";
+            if (inventario.getUsuario() != null) {
+                try {
+                    // Try to get persona name if possible, or fallback to nickname
+                    if (inventario.getUsuario().getPersona() != null
+                            && inventario.getUsuario().getPersona().getNombre() != null) {
+                        usuarioNombre = inventario.getUsuario().getPersona().getNombre();
+                    } else {
+                        usuarioNombre = inventario.getUsuario().getNickname();
+                    }
+                } catch (Exception e) {
+                    usuarioNombre = inventario.getUsuario().getNickname();
+                }
+            }
+
+            String tipoInventario = inventario.getTipo() != null ? inventario.getTipo().name() : "";
+
+            List<String> roles = Arrays.asList(
+                    "ADMIN",
+                    "SOPORTE",
+                    "CREAR INVENTARIO",
+                    "VER INVENTARIO",
+                    "PARTICIPAR DEL INVENTARIO");
+            List<Long> usuarioIds = notificationRoleService.getUserIdsByRoles(roles);
+
+            if (!usuarioIds.isEmpty()) {
+                com.franco.dev.fmc.model.PushNotificationRequest request = notificationTemplateService
+                        .inventarioIniciado(
+                                tipoInventario,
+                                sucursalNombre,
+                                usuarioNombre,
+                                inventario.getId());
+                request.setUsuarioIds(usuarioIds);
+
+                pushNotificationService.sendPushNotificationToToken(request);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 }

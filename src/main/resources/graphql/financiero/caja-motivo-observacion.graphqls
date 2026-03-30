@@ -1,0 +1,28 @@
+type CajaMotivoObservacion {
+    id: ID!
+    descripcion: String
+    cajaSubCategoriaObservacion: CajaSubCategoriaObservacion
+    activo: Boolean
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input CajaMotivoObservacionInput {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    cajaSubCategoriaObsId: Int
+    usuarioId: Int
+}
+
+extend type Query {
+    cajaMotivoObservacion(id:ID!): CajaMotivoObservacion
+    cajaMotivoObservaciones: [CajaMotivoObservacion]!
+    findByCajaMotivoIdOrDesc(id:ID, texto:String): [CajaMotivoObservacion]
+}
+
+extend type Mutation {
+    saveCajaMotivoObservacion(cajaMotivoObservacion: CajaMotivoObservacionInput!): CajaMotivoObservacion!
+    deleteCajaMotivoObservacion(id: ID!): Boolean!
+}

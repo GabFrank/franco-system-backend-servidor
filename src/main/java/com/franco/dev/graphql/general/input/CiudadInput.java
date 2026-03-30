@@ -9,4 +9,5 @@ public class CiudadInput {
     private String codigo;
     private Long paisId;
     private Long usuarioId;
+    private String creadoEn;
 }

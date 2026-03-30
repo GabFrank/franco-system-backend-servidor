@@ -13,7 +13,7 @@ type MovimientoStock {
 }
 
 input MovimientoStockInput {
-    id:ID!
+    id:ID
     productoId: Int
     tipoMovimiento: TipoMovimiento
     referencia: Int
@@ -45,15 +45,40 @@ type StockPorTipoMovimientoDto {
     stock: Int
 }
 
+type ProductoSaldoDto {
+    productoId: ID!
+    productoDescripcion: String
+    sucursalId: ID!
+    saldoTotal: Float
+    imagenPrincipal: String
+}
+
+type ProductoSaldoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ProductoSaldoDto]
+    getPageable: Pageable
+}
+
 extend type Query {
     movimientoStock(id:ID!, sucId: ID):MovimientoStock
     movimientosStock(page:Int = 0, size:Int = 10, sucId: ID):[MovimientoStock]!
     countMovimientoStock: Int
     movimientoStockByFecha(inicio: String, fin: String, sucId: ID):[MovimientoStock]
     stockPorProducto(id:ID!, sucId: ID):Float
+    stockByProductoIdExeptMovimientoId(productoId: ID!, movimientoId: ID!, sucursalId: ID!): Float
+    stockByProductoIdAntesDeFecha(productoId: ID!, sucursalId: ID!, fecha: String!): Float
     findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int, page: Int, size: Int): MovimientoStockPage
     findStockWithFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): Float
     findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): [StockPorTipoMovimientoDto]
+    productosConCantidadPositiva(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
+    productosConCantidadNegativa(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
+    productosFaltantes(sucursalId: ID!, productoId: ID, fechaInicio: String!, fechaFin: String!, page: Int = 0, size: Int = 10): ProductoSaldoPage
 }
 
 extend type Mutation {
@@ -64,5 +89,3 @@ extend type Mutation {
 enum TipoMovimiento {
     COMPRA, VENTA, DEVOLUCION, DESCARTE, AJUSTE, TRANSFERENCIA, CALCULO, ENTRADA, SALIDA
 }
-
-

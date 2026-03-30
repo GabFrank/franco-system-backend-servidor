@@ -1,0 +1,2 @@
+ALTER TABLE financiero.lote_de
+ADD COLUMN activo BOOLEAN DEFAULT TRUE;

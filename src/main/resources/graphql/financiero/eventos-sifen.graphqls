@@ -1,0 +1,164 @@
+type EventoCancelacionDE {
+    id: ID!
+    sucursalId: Int
+    documentoElectronico: DocumentoElectronico!
+    eventoId: String!
+    fechaFirma: Date!
+    cdcDocumento: String!
+    motivoCancelacion: String
+    xmlEvento: String
+    estado: EstadoEvento!
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+type EventoNominacionDE {
+    id: ID!
+    sucursalId: Int
+    documentoElectronico: DocumentoElectronico!
+    eventoId: String
+    fechaFirma: Date
+    cdcDocumento: String
+    cliente: Cliente
+    nombreReceptor: String!
+    documentoReceptor: String!
+    tipoReceptor: String!
+    totalFactura: Float!
+    fechaEmision: Date!
+    fechaRecepcion: Date
+    xmlEvento: String
+    estado: EstadoEvento
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+type EventoInutilizacionDE {
+    id: ID!
+    sucursalId: Int
+    sucursal: Sucursal
+    timbrado: Timbrado
+    timbradoDetalle: TimbradoDetalle
+    eventoId: String!
+    fechaFirma: Date!
+    establecimiento: String!
+    puntoExpedicion: String!
+    numeroInicio: Int!
+    numeroFin: Int!
+    tipoDE: String!
+    motivoInutilizacion: String!
+    xmlEvento: String
+    estado: EstadoEvento!
+    fechaProcesamiento: Date
+    protocoloAutorizacion: String
+    codigoRespuesta: String
+    mensajeRespuesta: String
+    respuestaBruta: String
+    activo: Boolean
+    creadoEn: Date!
+    actualizadoEn: Date!
+    usuario: Usuario
+}
+
+type EventoInutilizacionDEPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EventoInutilizacionDE]
+    getPageable: Pageable
+}
+
+input EventoCancelacionDEInput {
+    documentoElectronicoId: ID!
+    motivoCancelacion: String!
+    usuarioId: Int
+}
+
+input EventoNominacionDEInput {
+    documentoElectronicoId: ID!
+    clienteId: ID!
+    usuarioId: Int
+}
+
+input EventoInutilizacionDEInput {
+    timbradoId: ID!
+    timbradoDetalleId: ID
+    sucursalId: ID!
+    establecimiento: String!
+    puntoExpedicion: String!
+    numeroInicio: Int!
+    numeroFin: Int!
+    motivo: String!
+    usuarioId: Int
+}
+
+extend type Query {
+    eventoCancelacion(id: ID!, sucursalId: ID!): EventoCancelacionDE
+    eventosCancelacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoCancelacionDE]!
+    eventosCancelacionPorEstado(estado: EstadoEvento!, sucursalId: ID!): [EventoCancelacionDE]!
+
+    eventoNominacion(id: ID!, sucursalId: ID!): EventoNominacionDE
+    eventosNominacionPorDocumento(documentoId: ID!, sucursalId: ID!): [EventoNominacionDE]!
+    eventosNominacionPorEstado(estado: EstadoEvento!): [EventoNominacionDE]!
+
+    eventoInutilizacion(id: ID!, sucursalId: ID!): EventoInutilizacionDE
+    eventosInutilizacionPorTimbrado(timbradoId: ID!, sucursalId: ID!): [EventoInutilizacionDE]!
+    eventosInutilizacionPorEstado(estado: EstadoEvento!, sucursalId: ID!): [EventoInutilizacionDE]!
+    eventosInutilizacionPorSucursal(sucursalId: ID!): [EventoInutilizacionDE]!
+    eventosInutilizacionConFiltros(
+        sucursalId: ID
+        timbradoId: ID
+        estado: EstadoEvento
+        fechaInicio: String
+        fechaFin: String
+        page: Int
+        size: Int
+    ): EventoInutilizacionDEPage
+}
+
+extend type Mutation {
+    # Cancela un Documento Electrónico previamente enviado a SIFEN
+    # Retorna el evento de cancelación con toda la información (estado, código respuesta, etc.)
+    cancelarDocumentoElectronico(cdc: String!, motivo: String!): EventoCancelacionDE!
+    
+    # Nomina un receptor para un DE innominado
+    # Retorna el evento de nominación con toda la información
+    nominarReceptorDocumento(cdc: String!, clienteId: ID!): EventoNominacionDE!
+    
+    # Declara un rango de números como inutilizados en SIFEN
+    # Retorna el evento de inutilización con toda la información (estado, código respuesta, etc.)
+    inutilizarNumeros(
+        timbradoId: ID!
+        establecimiento: String!
+        puntoExpedicion: String!
+        numeroInicio: Int!
+        numeroFin: Int!
+        motivo: String!
+        sucursalId: ID!
+        timbradoDetalleId: ID
+    ): EventoInutilizacionDE!
+}
+
+enum EstadoEvento {
+    PENDIENTE
+    APROBADO
+    RECHAZADO
+    ERROR_ENVIO
+}

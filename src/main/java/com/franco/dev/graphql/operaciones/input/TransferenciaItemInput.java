@@ -40,7 +40,8 @@ public class TransferenciaItemInput {
     private TransferenciaItemMotivoRechazo motivoRechazoRecepcion;
     private Boolean activo;
     private Boolean poseeVencimiento;
-    private LocalDateTime creadoEn;
+    private String creadoEn;
     private Long usuarioId;
+    private Boolean vencimientoVerificado;
 
 }

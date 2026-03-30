@@ -1,0 +1,138 @@
+type RecepcionMercaderia {
+    id: ID
+    proveedor: Proveedor
+    sucursalRecepcion: Sucursal
+    fecha: Date
+    moneda: Moneda
+    cotizacion: Float
+    estado: RecepcionMercaderiaEstado
+    usuario: Usuario
+    items: [RecepcionMercaderiaItem]
+    costosAdicionales: [RecepcionCostoAdicional]
+    notas: [NotaRecepcion]
+}
+
+input RecepcionMercaderiaInput {
+    id: ID
+    proveedorId: Int
+    sucursalRecepcionId: Int
+    fecha: String
+    monedaId: Int
+    cotizacion: Float
+    estado: RecepcionMercaderiaEstado
+    usuarioId: Int
+    creadoEn: String
+    items: [RecepcionMercaderiaItemInput]
+    costosAdicionales: [RecepcionCostoAdicionalInput]
+    notaRecepcionIds: [Int]
+}
+
+type RecepcionMercaderiaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [RecepcionMercaderia]
+    getPageable: Pageable
+}
+
+type PedidoRecepcionProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PedidoRecepcionProductoDto]
+    getPageable: Pageable
+}
+
+type PedidoRecepcionProductoDto {
+    producto: Producto
+    totalCantidadARecibirPorUnidad: Float
+    totalCantidadRecibidaPorUnidad: Float
+    totalCantidadRechazadaPorUnidad: Float
+    cantidadPendientePorUnidad: Float
+    mostrarEnUnidadBase: Boolean
+    presentacionInicialSugerida: Presentacion
+    cantidadInicialPorPresentacion: Float
+    estado: PedidoRecepcionProductoEstado
+}
+
+enum PedidoRecepcionProductoEstado {
+    PENDIENTE
+    RECIBIDO
+    RECIBIDO_PARCIALMENTE
+}
+
+extend type Query {
+    recepcionMercaderia(id: ID!): RecepcionMercaderia
+    recepcionMercaderiaConFiltros(
+        proveedorId: ID,
+        sucursalId: ID,
+        estado: RecepcionMercaderiaEstado,
+        estados: [RecepcionMercaderiaEstado!],
+        usuarioId: ID,
+        fechaInicio: String,
+        fechaFin: String,
+        page: Int = 0,
+        size: Int = 20
+    ): RecepcionMercaderiaPage
+    recepcionesPorProveedor(proveedorId: ID!): [RecepcionMercaderia]
+    recepcionesPorEstado(estado: RecepcionMercaderiaEstado!): [RecepcionMercaderia]
+    generarConstanciaRecepcionPDF(recepcionId: ID!): ConstanciaRecepcionPDF
+    pedidoRecepcionProductoPorRecepcionMercaderia(
+        recepcionMercaderiaId: ID!,
+        estado: PedidoRecepcionProductoEstado,
+        page: Int = 0,
+        size: Int = 20
+    ): PedidoRecepcionProductoPage
+    pedidoRecepcionProductoPorRecepcionMercaderiaAndProducto(
+        recepcionMercaderiaId: ID!,
+        productoId: ID!,
+        estado: PedidoRecepcionProductoEstado
+    ): PedidoRecepcionProductoDto
+    verificarRecepcionActivaPorNotaYSucursal(
+        notaRecepcionId: ID!,
+        sucursalRecepcionId: ID!
+    ): RecepcionMercaderia
+}
+
+"Input para rechazar items pendientes al finalizar (un motivo general aplicado a todos)"
+input RechazoPendientesInput {
+    motivoRechazo: MotivoRechazoFisico!
+}
+
+extend type Mutation {
+    saveRecepcionMercaderia(entity: RecepcionMercaderiaInput!): RecepcionMercaderia!
+    "Finaliza recepción. Si hay items pendientes, opcionalmente se pueden marcar como rechazados (rechazoPendientes)."
+    finalizarRecepcionMercaderia(recepcionId: ID!, rechazoPendientes: RechazoPendientesInput): RecepcionMercaderia!
+    iniciarRecepcion(sucursalId: ID!, notaRecepcionIds: [ID!]!, proveedorId: ID!, monedaId: ID!, usuarioId: ID!, cotizacion: Float): RecepcionMercaderia!
+    crearRecepcionMercaderia(
+        proveedorId: ID!,
+        sucursalId: ID!,
+        monedaId: ID!,
+        cotizacion: Float,
+        usuarioId: ID!
+    ): RecepcionMercaderia!
+    asociarNotasARecepcion(recepcionId: ID!, notaRecepcionIds: [Int]!): Boolean
+    reabrirRecepcionMercaderia(recepcionId: ID!): RecepcionMercaderia!
+}
+
+enum RecepcionMercaderiaEstado {
+    PENDIENTE
+    EN_PROCESO
+    FINALIZADA
+    CANCELADA
+}
+
+type ConstanciaRecepcionPDF {
+    pdfBase64: String!
+    nombreArchivo: String!
+    tamanioBytes: Int!
+    fechaGeneracion: Date!
+} 

@@ -34,6 +34,11 @@ input VentaCreditoInput {
     fechaCobro: String
 }
 
+input ClienteVentaCreditoInput {
+    clienteId: ID!
+    ventaCreditoInputList: [VentaCreditoInput]!
+}
+
 type VentaCreditoQRAuthUpdate {
     clienteId: Int
     timestamp: String
@@ -64,6 +69,7 @@ extend type Query {
     ventaCreditoQrAuth(id:ID!, timestamp: String, sucursalId:Int, secretKey:String): Boolean
     imprimirVentaCredito(id:ID!, sucId:ID!, printerName:String):Boolean
     imprimirRecibo(clienteId:ID!, ventaCreditoInputList: [VentaCreditoInput]!, usuarioId:ID!):String
+    imprimirReciboMultiplesClientes(clienteVentaCreditoList: [ClienteVentaCreditoInput]!, usuarioId:ID!):String
 }
 
 extend type Mutation {
@@ -71,6 +77,7 @@ extend type Mutation {
     deleteVentaCredito(id:ID!, sucId: ID!):Boolean!
     cancelarVentaCredito(id:ID!, sucId:ID!):Boolean
     finalizarVentaCredito(id:ID!, sucId:ID!):Boolean
+    finalizarVentaCreditos(ventaCreditoInputList:[VentaCreditoInput]!):Boolean
 }
 
 extend type Subscription {

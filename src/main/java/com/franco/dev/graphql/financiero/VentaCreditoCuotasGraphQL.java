@@ -3,12 +3,10 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.VentaCreditoCuota;
 import com.franco.dev.graphql.financiero.input.VentaCreditoCuotaInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.VentaCreditoCuotaService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.operaciones.CobroService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -37,8 +35,6 @@ public class VentaCreditoCuotasGraphQL implements GraphQLQueryResolver, GraphQLM
     @Autowired
     private CobroService cobroService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<VentaCreditoCuota> ventaCreditoCuota(Long id, Long sucId) {
         return service.findById(new EmbebedPrimaryKey(id, sucId));

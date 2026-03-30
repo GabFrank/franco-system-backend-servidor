@@ -1,0 +1,163 @@
+type LogicalReplication {
+    name: String!
+    enabled: Boolean!
+    sucursal: Sucursal
+    tables: [String]
+}
+
+type ReplicationPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LogicalReplication]
+    getPageable: Pageable
+}
+
+input LogicalReplicationInput {
+    sucursalId: ID!
+    tables: [String]
+}
+
+type ReplicationStatus {
+    success: Boolean!
+    message: String
+}
+
+type ReplicationSetupState {
+    centralPublicationExists: Boolean!
+    centralSubscriptionExists: Boolean!
+    filialReachable: Boolean!
+    filialPublicationExists: Boolean!
+    filialSubscriptionBidiExists: Boolean!
+    filialSubscriptionCentralExists: Boolean!
+}
+
+enum RemoveTarget {
+    SUBSCRIPTION
+    PUBLICATION
+    BOTH
+}
+
+enum RemoveScope {
+    CENTRAL
+    FILIAL
+    BOTH
+}
+
+extend type Query {
+    # Local server queries
+    # Get all active subscriptions with pagination
+    replicationSubscriptions(page: Int = 0, size: Int = 10): ReplicationPage!
+    
+    # Get all active publications with pagination
+    replicationPublications(page: Int = 0, size: Int = 10): ReplicationPage!
+    
+    # Get all subscriptions and publications without pagination
+    allReplicationSubscriptions: [LogicalReplication]!
+    allReplicationPublications: [LogicalReplication]!
+    
+    # Search for subscriptions by name (useful for filtering)
+    searchReplicationSubscriptions(query: String, page: Int = 0, size: Int = 10): ReplicationPage!
+    
+    # Remote branch queries
+    # Get all active subscriptions from a remote branch with pagination
+    remoteReplicationSubscriptions(sucursalId: ID!, page: Int = 0, size: Int = 10): ReplicationPage!
+    
+    # Get all active publications from a remote branch with pagination
+    remoteReplicationPublications(sucursalId: ID!, page: Int = 0, size: Int = 10): ReplicationPage!
+    
+    # Search for subscriptions by name from a remote branch
+    searchRemoteReplicationSubscriptions(sucursalId: ID!, query: String, page: Int = 0, size: Int = 10): ReplicationPage!
+    
+    # Utility queries for generating connection strings and replication names
+    # Generate a connection string
+    generateConnectionString(host: String!, port: Int!, dbName: String!, username: String!, password: String!): String!
+    
+    # Generate a central server connection string
+    generateCentralConnectionString: String!
+    
+    # Generate standard replication names
+    generateBranchPublicationName(sucursalId: ID!): String!
+    generateBranchSubscriptionName(sucursalId: ID!): String!
+    generateCentralToBranchPublicationName(sucursalId: ID!): String!
+    generateCentralToBranchSubscriptionName(sucursalId: ID!): String!
+    
+    # Current replication setup state for a branch (what exists on central and filial). Used to avoid creating duplicates.
+    getReplicationSetupState(sucursalId: ID!): ReplicationSetupState!
+}
+
+extend type Mutation {
+    # Local server mutations
+    # Setup a new logical replication from central server to a branch
+    setupReplication(input: LogicalReplicationInput!): ReplicationStatus!
+    
+    # Setup replication with granular control (target: subscription/publication/both, scope: central/filial/both)
+    setupReplicationAdvanced(sucursalId: ID!, target: RemoveTarget!, scope: RemoveScope!): ReplicationStatus!
+    
+    # Setup branch-side replication (to be called on branch server)
+    setupBranchReplication(sucursalId: ID!): ReplicationStatus!
+    
+    # Remove central server replication for a branch
+    removeReplication(sucursalId: ID!): ReplicationStatus!
+    
+    # Remove replication with granular control (target: subscription/publication/both, scope: central/filial/both)
+    removeReplicationAdvanced(sucursalId: ID!, target: RemoveTarget!, scope: RemoveScope!): ReplicationStatus!
+    
+    # Remove branch-side replication (to be called on branch server)
+    removeBranchReplication(sucursalId: ID!): ReplicationStatus!
+    
+    # Enable or disable a replication
+    toggleReplication(sucursalId: ID!, enabled: Boolean!, isSubscription: Boolean = true): ReplicationStatus!
+    
+    # Refresh a specific subscription (sync with publication)
+    refreshSubscription(subscriptionName: String!): ReplicationStatus!
+    
+    # Refresh all subscriptions in the database
+    refreshAllSubscriptions: ReplicationStatus!
+    
+    # Remote branch mutations
+    # Toggle a subscription on a remote branch
+    toggleRemoteSubscription(branchSucursalId: ID!, subscriptionName: String!, enabled: Boolean!): ReplicationStatus!
+    
+    # Drop a publication on a remote branch
+    dropRemotePublication(branchSucursalId: ID!, publicationName: String!): ReplicationStatus!
+    
+    # Create a publication on a remote branch
+    createRemotePublication(branchSucursalId: ID!, publicationName: String!, tables: [String]!): ReplicationStatus!
+    
+    # Create a subscription on a remote branch
+    createRemoteSubscription(
+        branchSucursalId: ID!, 
+        subscriptionName: String!, 
+        connectionString: String!, 
+        publicationName: String!
+    ): ReplicationStatus!
+    
+    # Edit a publication on a remote branch (update tables)
+    editRemotePublication(
+        branchSucursalId: ID!, 
+        publicationName: String!, 
+        tables: [String]!
+    ): ReplicationStatus!
+    
+    # Edit a subscription on a remote branch
+    editRemoteSubscription(
+        branchSucursalId: ID!, 
+        subscriptionName: String!, 
+        connectionString: String, 
+        publicationName: String
+    ): ReplicationStatus!
+    
+    # Refresh a specific subscription on a remote branch
+    refreshRemoteSubscription(branchSucursalId: ID!, subscriptionName: String!): ReplicationStatus!
+    
+    # Refresh all subscriptions on a remote branch
+    refreshAllRemoteSubscriptions(branchSucursalId: ID!): ReplicationStatus!
+    
+    # Sync existing publications with replication_table (add missing tables on central and all filiales)
+    syncPublicationsWithReplicationTable: ReplicationStatus!
+} 

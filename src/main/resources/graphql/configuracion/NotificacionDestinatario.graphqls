@@ -1,0 +1,30 @@
+type NotificacionDestinatario {
+    id: Int
+    notificacion: Notificacion
+    usuario: Usuario
+    leida: Boolean
+    fechaLeida: Date
+    fechaEntrega: Date
+    creadoEn: Date
+}
+
+type NotificacionDestinatarioPage {
+    content: [NotificacionDestinatario]
+    pageNumber: Int
+    pageSize: Int
+    totalElements: Int
+    totalPages: Int
+}
+
+extend type Query {
+    notificacionesUsuario(leidas: Boolean, page: Int, size: Int, estadoTablero: String, fechaInicio: String, fechaFin: String): NotificacionDestinatarioPage
+    conteoNotificacionesNoLeidas: Int
+    usuariosDestinatariosNotificacion(notificacionId: Int!): [Usuario]
+    usuariosConAccesoNotificacion(notificacionId: Int!): [Usuario]
+}
+
+extend type Mutation {
+    marcarNotificacionLeida(notificacionId: Int!): Boolean
+    marcarTodasNotificacionesLeidas: Boolean
+    cambiarEstadoTableroNotificacion(notificacionId: Int!, estado: String!): Boolean
+}

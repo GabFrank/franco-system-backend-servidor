@@ -9,7 +9,7 @@ import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.operaciones.VentaItemService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
+import com.franco.dev.service.productos.ProductoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -37,7 +37,8 @@ public class FacturaLegalItemGraphQL implements GraphQLQueryResolver, GraphQLMut
     private VentaItemService ventaItemService;
 
     @Autowired
-    private PropagacionService propagacionService;
+    private ProductoService productoService;
+
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -60,6 +61,9 @@ public class FacturaLegalItemGraphQL implements GraphQLQueryResolver, GraphQLMut
             e.setFacturaLegal(facturaLegalService.findByIdAndSucursalId(input.getFacturaLegalId(), sucId));
         if (input.getVentaItemId() != null)
             e.setVentaItem(ventaItemService.findByIdAndSucursalId(input.getVentaItemId(), sucId));
+        if (input.getProductoId() != null) {
+            e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
+        }
         e = service.save(e);
         return e;
     }

@@ -5,7 +5,6 @@ import com.franco.dev.domain.general.Contacto;
 import com.franco.dev.graphql.general.input.ContactoInput;
 import com.franco.dev.service.general.ContactoService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -26,8 +25,6 @@ public class ContactoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

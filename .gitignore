@@ -1,9 +1,28 @@
-HELP.md
+# Maven / build
+/target/
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-
+HELP.md
+.DS_Store
+**/.DS_Store
+src/.DS_Store
+tokens/
 ### STS ###
 .apt_generated
+.classpath
+.project
+.factorypath
+.vscode*/
+.classpath
+.factorypath
+informacion.txt
 
+.DS_Store
+.factorypath
+src/main/resources/application-dev.properties
+src/main/resources/application-user-dev.properties
+bodega-franco-frc-18e8c6ef35cf.json
+src/main/resources/bodega-franco-frc-18e8c6ef35cf.json
+src/main/resources/bodega-franco-frc-firebase-admin.json

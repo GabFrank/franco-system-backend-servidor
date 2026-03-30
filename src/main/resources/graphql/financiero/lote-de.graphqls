@@ -1,0 +1,80 @@
+type LoteDE {
+    id: ID!
+    sucursalId: Int
+    estado: EstadoLoteDE
+    fechaProcesado: Date
+    fechaUltimoIntento: Date
+    intentos: Int
+    respuestaSifen: String
+    protocolo: String
+    documentosElectronicos: [DocumentoElectronico]
+    creadoEn: Date
+    actualizadoEn: Date
+    usuario: Usuario
+}
+
+input LoteDEInput {
+    id: ID
+    sucursalId: Int
+    estado: EstadoLoteDE
+    fechaProcesado: String
+    fechaUltimoIntento: String
+    intentos: Int
+    respuestaSifen: String
+    protocolo: String
+    usuarioId: Int
+}
+
+extend type Query {
+    loteDe(id: ID!, sucursalId: ID!): LoteDE
+    loteDes(page: Int = 0, size: Int = 10, estado: EstadoLoteDE, fechaInicio: String, fechaFin: String): PageLoteDE!
+    loteDesPaginado(page: Int = 0, size: Int = 10): [LoteDE]!
+    lotesPendientes: [LoteDE]!
+    lotesEnProceso: [LoteDE]!
+}
+
+extend type Mutation {
+    saveLoteDe(input: LoteDEInput!): LoteDE!
+    crearLote: LoteDE!
+    vincularDocumentosALote(loteId: ID!, sucursalId: ID!, documentoIds: [ID!]!): Boolean!
+    enviarLote(loteId: ID!, sucursalId: ID!): EnvioLoteResponse!
+    consultarLote(loteId: ID!, sucursalId: ID!): ConsultaLoteResponse!
+}
+
+type PageLoteDE {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LoteDE]
+    getPageable: Pageable
+}
+
+enum EstadoLoteDE {
+    PENDIENTE_ENVIO
+    EN_PROCESO
+    PROCESADO
+    PROCESADO_CON_ERRORES
+    ERROR_ENVIO
+    ERROR_RED
+    ERROR_PERMANENTE
+    RECHAZADO
+}
+
+type EnvioLoteResponse {
+    exitoso: Boolean!
+    protocolo: String
+    mensaje: String
+    lote: LoteDE
+}
+
+type ConsultaLoteResponse {
+    exitoso: Boolean!
+    estado: EstadoLoteDE
+    mensaje: String
+    documentosProcesados: Int
+    lote: LoteDE
+}

@@ -1,0 +1,67 @@
+type Devolucion {
+    id: ID
+    proveedor: Proveedor
+    sucursalOrigen: Sucursal
+    fecha: Date
+    motivo: String
+    estado: DevolucionEstado
+    usuario: Usuario
+    items: [DevolucionItem]
+}
+
+input DevolucionInput {
+    id: ID
+    proveedorId: Int
+    sucursalOrigenId: Int
+    fecha: String
+    motivo: String
+    estado: DevolucionEstado
+    usuarioId: Int
+    creadoEn: String
+    items: [DevolucionItemInput]
+}
+
+type DevolucionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Devolucion]
+    getPageable: Pageable
+}
+
+extend type Query {
+    devolucion(id: ID!): Devolucion
+    devolucionConFiltros(
+        proveedorId: ID,
+        sucursalId: ID,
+        estado: DevolucionEstado,
+        fechaInicio: String,
+        fechaFin: String,
+        page: Int = 0,
+        size: Int = 20
+    ): DevolucionPage
+    devolucionesPorProveedor(proveedorId: ID!): [Devolucion]
+    devolucionesPorEstado(estado: DevolucionEstado!): [Devolucion]
+}
+
+extend type Mutation {
+    saveDevolucion(entity: DevolucionInput!): Devolucion!
+    crearDevolucion(
+        proveedorId: ID!,
+        sucursalOrigenId: ID!,
+        motivo: String,
+        usuarioId: ID!
+    ): Devolucion!
+    confirmarDevolucion(devolucionId: ID!): Devolucion!
+    cancelarDevolucion(devolucionId: ID!, motivoCancelacion: String): Devolucion!
+}
+
+enum DevolucionEstado {
+    EN_PROCESO,
+    FINALIZADA,
+    CANCELADA
+} 

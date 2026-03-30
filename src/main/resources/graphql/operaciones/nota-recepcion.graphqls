@@ -1,35 +1,39 @@
 type NotaRecepcion {
-    id:ID!,
-    pedido: Pedido,
-    compra: Compra,
-    documento: Documento,
-    valor: Float,
-    descuento: Float,
+    id: ID!
+    pedido: Pedido
+    compra: Compra
+    documento: Documento
+    numero: Int
     tipoBoleta: String
-    pagado: Boolean,
-    numero: Int,
-    timbrado: Int,
-    creadoEn: Date,
-    usuario: Usuario,
-    cantidadItens: Int
+    timbrado: Int
     fecha: Date
-    cantidadItensVerificadoRecepcionMercaderia: Int
+    moneda: Moneda!
+    cotizacion: Float
+    estado: NotaRecepcionEstado!
+    pagado: Boolean
+    esNotaRechazo: Boolean
+    creadoEn: Date
+    usuario: Usuario
+    valorTotal: Float
 }
 
 input NotaRecepcionInput {
-    id:ID
-    pedidoId: Int,
-    compraId: Int,
-    documentoId: Int,
+    id: ID
+    pedidoId: Int
+    compraId: Int
+    documentoId: Int
+    numero: Int
     tipoBoleta: String
-    valor: Float,
-    descuento: Float,
-    pagado: Boolean,
-    numero: Int,
-    timbrado: Int,
-    creadoEn: String,
-    usuarioId: Int
+    timbrado: Int
     fecha: String
+    monedaId: Int!
+    cotizacion: Float
+    estado: NotaRecepcionEstado!
+    pagado: Boolean
+    esNotaRechazo: Boolean
+    creadoEn: String
+    usuarioId: Int
+    assignAllItems: Boolean
 }
 
 type NotaRecepcionPage {
@@ -44,17 +48,71 @@ type NotaRecepcionPage {
     getPageable: Pageable
 }
 
+type ProductoAgrupadoDTO {
+    producto: Producto
+    cantidadTotalEsperada: Float
+    presentacionConsolidada: Presentacion
+    distribuciones: [NotaRecepcionItemDistribucion]
+}
+
 extend type Query {
-    notaRecepcion(id:ID!):NotaRecepcion
-    notaRecepcions(page:Int = 0, size:Int = 10):[NotaRecepcion]!
+    notaRecepcion(id: ID!): NotaRecepcion
+    notaRecepcions(page: Int = 0, size: Int = 10): [NotaRecepcion]!
     countNotaRecepcion: Int
-    notaRecepcionPorPedidoId(id:ID!):[NotaRecepcion]
-    notaRecepcionPorPedidoIdAndNumero(id:ID!, numero: Int, page: Int, size: Int):NotaRecepcionPage
+    notaRecepcionPorPedidoId(id: ID!): [NotaRecepcion]
+    notaRecepcionPorPedidoIdAndNumero(id: ID!, numero: Int, page: Int, size: Int): NotaRecepcionPage
+    countNotaRecepcionPorPedidoId(id: ID!): Int
+    findByProveedorAndNumero(id: ID!, numero: Int!, sucursalId: ID): [NotaRecepcion]
+    findByNumero(numero: Int!): [NotaRecepcion]
+    findNotasDisponiblesParaRecepcion(numero: Int, proveedorId: ID, sucursalId: ID): [NotaRecepcion]
+    productosAgrupadosPorNotas(notaRecepcionIds: [ID!]!): [ProductoAgrupadoDTO]
+    productosAgrupadosPorNotasPaginados(
+        notaRecepcionIds: [ID!]!, 
+        page: Int = 0, 
+        size: Int = 20, 
+        filtroTexto: String
+    ): ProductoAgrupadoPage
+    notasPendientes(sucursalId: ID!, proveedorId: ID): [NotaRecepcion]
+    notasPendientesPage(sucursalId: ID!, proveedorId: ID, page: Int = 0, size: Int = 20): NotaRecepcionPage
 }
 
 extend type Mutation {
-    saveNotaRecepcion(entity:NotaRecepcionInput!):NotaRecepcion!
-    deleteNotaRecepcion(id:ID!):Boolean!
+    saveNotaRecepcion(entity: NotaRecepcionInput!): NotaRecepcion!
+    deleteNotaRecepcion(id: ID!): Boolean!
+    asignarItemsANota(notaRecepcionId: ID!, pedidoItemIds: [ID!]!): AsignacionResult!
+}
+
+enum NotaRecepcionEstado {
+    PENDIENTE_CONCILIACION
+    CONCILIADA
+    EN_RECEPCION
+    RECEPCION_PARCIAL
+    RECEPCION_COMPLETA
+    CERRADA
+}
+
+type AsignacionResult {
+    success: Boolean!
+    message: String
+    notaRecepcionItems: [NotaRecepcionItem!]
+    errores: [AsignacionError!]
+}
+
+type AsignacionError {
+    pedidoItemId: ID!
+    error: String!
+}
+
+type ProductoAgrupadoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ProductoAgrupadoDTO]
+    getPageable: Pageable
 }
 
 

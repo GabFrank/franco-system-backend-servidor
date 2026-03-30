@@ -6,10 +6,8 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.graphql.productos.input.FamiliaInput;
 import com.franco.dev.graphql.productos.input.TipoPrecioInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.productos.FamiliaService;
 import com.franco.dev.service.productos.TipoPrecioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -27,8 +25,6 @@ public class TipoPrecioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private TipoPrecioService service;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

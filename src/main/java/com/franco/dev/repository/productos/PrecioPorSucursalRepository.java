@@ -1,6 +1,5 @@
 package com.franco.dev.repository.productos;
 
-import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,6 +13,7 @@ public interface PrecioPorSucursalRepository extends HelperRepository<PrecioPorS
     }
 
     public List<PrecioPorSucursal> findByPresentacionId(Long id);
+
     public List<PrecioPorSucursal> findBySucursalId(Long id);
 
     @Query(value = "select * from productos.presentacion p " +
@@ -21,4 +21,8 @@ public interface PrecioPorSucursalRepository extends HelperRepository<PrecioPorS
             "            where c.principal = true and p.id = ?1 limit 1", nativeQuery = true)
     public PrecioPorSucursal findPrincipalByPresentacionId(Long id);
 
+    PrecioPorSucursal findBySucursalIdAndPresentacionId(Long sucId, Long preId);
+
+    PrecioPorSucursal findBySucursalIdAndPresentacionIdAndTipoPrecioId(Long sucursalId, Long presentacionId,
+            Long tipoPrecioId);
 }

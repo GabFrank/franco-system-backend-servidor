@@ -49,4 +49,3 @@ public class DateScalar extends GraphQLScalarType {
         });
     }
 }
-

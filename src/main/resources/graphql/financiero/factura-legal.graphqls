@@ -11,6 +11,7 @@ type FacturaLegal {
     nombre:String
     ruc:String
     direccion:String
+    cdc:String
     ivaParcial0:Float
     ivaParcial5:Float
     ivaParcial10:Float
@@ -24,12 +25,19 @@ type FacturaLegal {
     sucursalId: Int
     facturaLegalItemList: [FacturaLegalItem]
     sucursal:Sucursal
+    activo: Boolean
+    documentoElectronico: DocumentoElectronico
+    monedaExtranjera: String
+    tipoCambio: Float
 }
 
 input FacturaLegalInput {
     id:ID
     cajaId: Int
+    timbradoDetalleId: Int
+    autoimpreso: Boolean
     viaTributaria: Boolean
+    numeroFactura: Int
     clienteId: Int
     ventaId: Int
     fecha:String
@@ -37,6 +45,7 @@ input FacturaLegalInput {
     nombre:String
     ruc:String
     direccion:String
+    cdc:String
     ivaParcial0:Float
     ivaParcial5:Float
     ivaParcial10:Float
@@ -47,6 +56,10 @@ input FacturaLegalInput {
     descuento:Float
     usuarioId: Int
     sucursalId: Int
+    activo: Boolean
+    monedaExtranjera: String
+    tipoCambio: Float
+    email: String
 }
 
 type FacturaLegalPage {
@@ -71,17 +84,34 @@ type ResumenFacturasDto {
     total0: Float
 }
 
+type SaveFacturaLegalToFilialResponse {
+    facturaId: ID
+    numeroFactura: Int
+    cdc: String
+    urlQr: String
+    estadoDocumentoElectronico: String
+    mensajeRespuestaSifen: String
+    documentoElectronicoGenerado: Boolean
+}
+
 extend type Query {
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
-    facturaLegales(page: Int, size: Int, fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):FacturaLegalPage!
+    facturaLegales(page: Int, size: Int, fechaInicio: String, fechaFin: String, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, isElectronico: Boolean, activo: Boolean, sinNombre: Boolean):FacturaLegalPage!
     countFacturaLegal: Int
+    facturaLegalByCdc(cdc: String):FacturaLegal
     reimprimirFacturaLegal(id:ID!, sucId:ID!, printerName: String):Boolean
-    findResumenFacturas(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean):ResumenFacturasDto!
+    findResumenFacturas(fechaInicio: String!, fechaFin: String!, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, sinNombre: Boolean):ResumenFacturasDto!
     generarExcelFacturas(fechaInicio: String!, fechaFin: String!, sucId: ID):String
     generarExcelFacturasZip(fechaInicio: String!, fechaFin: String!, sucId: [ID]):String
+    descargarXmlFacturaElectronica(id: ID!, sucId: ID!): String!
+    descargarPdfFacturaElectronica(id: ID!, sucId: ID!): String!
 }
 
 extend type Mutation {
     deleteFacturaLegal(id:ID!, sucId: ID):Boolean!
+    updateFacturaLegal(input: FacturaLegalInput!): FacturaLegal!
+    nominarFacturaElectronica(facturaLegalId: ID!, sucursalId: ID!, clienteId: ID!): Boolean!
+    cancelarFacturaLegal(facturaLegalId: ID!, sucursalId: ID!, cancelarVenta: Boolean!): String!
+    saveFacturaLegalToFilial(entity: FacturaLegalInput!, detalleList: [FacturaLegalItemInput], sucursalId: ID!, timbradoDetalleId: ID!, monedaId: ID, tipoCambio: Float): SaveFacturaLegalToFilialResponse!
 }
 

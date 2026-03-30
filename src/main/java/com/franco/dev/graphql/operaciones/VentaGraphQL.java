@@ -20,12 +20,13 @@ import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.operaciones.DeliveryService;
 import com.franco.dev.service.operaciones.VentaItemService;
+import com.franco.dev.service.operaciones.VentaObservacionService;
 import com.franco.dev.service.operaciones.VentaService;
+import com.franco.dev.domain.operaciones.VentaObservacion;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
@@ -93,8 +94,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private PrintingService printingService;
     @Autowired
     private DeliveryService deliveryService;
-    @Autowired
-    private PropagacionService propagacionService;
     @Autowired
     private CostosPorProductoService costosPorProductoService;
 
@@ -292,32 +291,18 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 escpos.write(" ");
             }
             escpos.writeLF(valorDs);
+            
             if (sucursal != null && sucursal.getNroDelivery() != null) {
                 escpos.write(center, "Delivery? Escaneá el código qr o escribinos al ");
                 escpos.writeLF(center, sucursal.getNroDelivery());
             }
-//        escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), "wa.me/595986128000");
+            //    escpos.write(qrCode.setSize(5).setJustification(EscPosConst.Justification.Center), "wa.me/595986128000");
             escpos.feed(1);
             escpos.writeLF(center.setBold(true), "GRACIAS POR LA PREFERENCIA");
             escpos.feed(5);
             escpos.close();
             printerOutputStream.close();
         }
-
-
-    }
-
-    public Page<Venta> ventasPorCajaId(Long idVenta, Long idCaja, Integer page, Integer size, Boolean asc, Long sucId, Long formaPago, VentaEstado estado, Boolean isDelivery, Long monedaId) {
-        if (idVenta != null) {
-            Venta venta = service.findById(new EmbebedPrimaryKey(idVenta, sucId)).orElse(null);
-            return new PageImpl<>(Arrays.asList(venta), PageRequest.of(0, 1), 1);
-        }
-        return service.findByCajaId(new EmbebedPrimaryKey(idCaja, sucId), page, size, asc, formaPago, estado, isDelivery, monedaId);
-    }
-
-    public Boolean cancelarVenta(Long id, Long sucId) {
-        Venta venta = service.findByIdAndSucursalId(id, sucId);
-        return service.cancelarVenta(venta);
     }
 
     public Boolean reimprimirVenta(Long id, String printerName, String local, Long sucId) throws Exception {
@@ -339,6 +324,47 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return false;
     }
 
+    public Page<Venta> ventasPorCajaId(
+        Long idVenta, 
+        Long idCaja, 
+        Integer page, 
+        Integer size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento) {
+
+        Pageable pageable;
+        if (page != null) {
+            pageable = PageRequest.of(page, size);
+        } else {
+            pageable = PageRequest.of(0, 15);
+        }
+        return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento, conAumento);
+    }
+
+    public Page<Venta> searchVenta(
+        Long idVenta, 
+        Long idCaja, 
+        int page, 
+        int size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento) {
+            
+        Pageable pageable = PageRequest.of(page, size);
+        return service.onSearch(idVenta, idCaja, pageable, asc, sucId, formaPago, estado, isDelivery, monedaId, conDescuento, conAumento);
+    }
+
 //    public List<VentaPorPeriodoV1Dto> ventaPorPeriodo(String inicio, String fin, Long sucId) {
 //        return service.ventaPorPeriodo(inicio, fin);
 //    }
@@ -346,4 +372,51 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 //    public List<VentaPorSucursal> ventaPorSucursal(String inicio, String fin) {
 //        return service.ventaPorSucursal(inicio, fin);
 //    }
+
+    public Boolean cancelarVenta(Long id, Long sucId) {
+        Venta venta = service.findByIdAndSucursalId(id, sucId);
+        return service.cancelarVenta(venta);
+    }
+
+    public Page<Venta> ventasGenericFilter(
+        Long idVenta, 
+        Long idCaja, 
+        Integer page, 
+        Integer size, 
+        Boolean asc, 
+        Long sucId, 
+        Long formaPago, 
+        VentaEstado estado, 
+        Boolean isDelivery, 
+        Long monedaId, 
+        Boolean conDescuento, 
+        Boolean conAumento,
+        Boolean conObservacion,
+        Long clienteId,
+        String fechaInicio,
+        String fechaFin) {
+
+        Pageable pageable;
+        if (page != null) {
+            pageable = PageRequest.of(page, size);
+        } else {
+            pageable = PageRequest.of(0, 15);
+        }
+        return service.onGenericSearch(
+          idVenta, 
+          idCaja, 
+          pageable, 
+          asc, 
+          sucId, 
+          formaPago, 
+          estado, 
+          isDelivery, 
+          monedaId, 
+          conDescuento, 
+          conAumento, 
+          conObservacion, 
+          clienteId, 
+          fechaInicio, fechaFin
+        );
+    }
 }

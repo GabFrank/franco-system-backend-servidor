@@ -1,0 +1,28 @@
+type CajaSubCategoriaObservacion {
+    id:ID!
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    cajaCategoriaObservacion: CajaCategoriaObservacion
+    usuario: Usuario
+}
+
+input CajaSubCategoriaObservacionInput {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    cajaCategoriaObsId: ID
+    usuarioId: ID
+}
+
+extend type Query {
+    cajaSubCategoriaObservacion(id:ID!):CajaSubCategoriaObservacion
+    cajaSubCategoriasObservaciones:[CajaSubCategoriaObservacion]!
+    findByCajaSubCategoriaIdOrDesc(id:ID, texto: String):[CajaSubCategoriaObservacion]
+}
+
+extend type Mutation {
+    saveCajaSubCategoriaObservacion(cajaSubCategoriaObservacion: CajaSubCategoriaObservacionInput!): CajaSubCategoriaObservacion!
+    deleteCajaSubCategoriaObservacion(id:ID!):Boolean!
+}

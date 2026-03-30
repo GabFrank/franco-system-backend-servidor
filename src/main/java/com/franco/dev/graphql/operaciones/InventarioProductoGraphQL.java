@@ -5,13 +5,11 @@ import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.ZonaService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.InventarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.GraphQLException;
 import graphql.GraphqlErrorException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -43,8 +41,6 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
     @Autowired
     private InventarioService inventarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -62,11 +58,6 @@ public class InventarioProductoGraphQL implements GraphQLQueryResolver, GraphQLM
         ModelMapper m = new ModelMapper();
         InventarioProducto e = m.map(input, InventarioProducto.class);
         if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if (input.getProductoId() != null) {
-            e.setProducto(productoService.findById(input.getProductoId()).orElse(null));
-        } else {
-            e.setProducto(null);
-        }
         if (input.getZonaId() != null) e.setZona(zonaService.findById(input.getZonaId()).orElse(null));
         if (input.getInventarioId() != null)
             e.setInventario(inventarioService.findById(input.getInventarioId()).orElse(null));

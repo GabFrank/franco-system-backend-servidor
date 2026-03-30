@@ -1,0 +1,59 @@
+type ImagenMaster {
+    id: ID!
+    tipoReferencia: String
+    referenciaId: ID
+    nombre: String
+    url: String
+    principal: Boolean
+    checksum: String
+    creadoEn: String
+    usuario: Usuario
+    extension: String
+}
+
+type MigrationStatus {
+    success: Boolean
+    message: String
+    count: Int
+}
+
+extend type Query {
+    imagenMaster(id: ID!): ImagenMaster
+    imagenesMaster: [ImagenMaster]
+    imagenesByEntityTypeAndId(tipoReferencia: String!, referenciaId: ID!): [ImagenMaster]
+    imagenPrincipal(tipoReferencia: String!, referenciaId: ID!): ImagenMaster
+    imagenAsBase64(id: ID!): String
+    imagenesAsBase64(tipoReferencia: String!, referenciaId: ID!): [String]
+    getImageWithBackwardCompatibility(tipoReferencia: String!, referenciaId: ID!): String
+}
+
+extend type Mutation {
+    saveImagenMaster(
+        base64Image: String!
+        tipoReferencia: String!
+        referenciaId: ID!
+        nombre: String
+        principal: Boolean
+        usuarioId: ID
+    ): ImagenMaster
+    
+    deleteImagenMaster(id: ID!): Boolean
+    
+    setPrincipalImagen(id: ID!): Boolean
+    
+    getOrSaveDefaultImage(
+        tipoReferencia: String!
+        referenciaId: ID!
+        usuarioId: ID
+    ): ImagenMaster
+    
+    # Image migration operations
+    migrateSingleImage(
+        tipoReferencia: String!
+        referenciaId: ID!
+    ): String
+    
+    migrateAllImagesForType(
+        tipoReferencia: String!
+    ): MigrationStatus
+} 

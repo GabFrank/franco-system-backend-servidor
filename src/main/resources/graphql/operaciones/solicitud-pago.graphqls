@@ -1,0 +1,186 @@
+type SolicitudPago {
+    id: ID!
+    proveedor: Proveedor!
+    numeroSolicitud: String!
+    fechaSolicitud: String!
+    fechaPagoPropuesta: String
+    montoTotal: Float!
+    moneda: Moneda!
+    formaPago: FormaPago
+    estado: SolicitudPagoEstado!
+    observaciones: String
+    creadoEn: String
+    usuario: Usuario
+    pago: Pago
+    notasRecepcion: [SolicitudPagoNotaRecepcion]
+    detalles: [SolicitudPagoDetalle]
+}
+
+type SolicitudPagoDetalle {
+    id: ID!
+    solicitudPago: SolicitudPago!
+    moneda: Moneda!
+    formaPago: FormaPago!
+    valor: Float!
+    fechaPago: String
+    observacion: String
+    cotizacion: Float
+    orden: Int
+    fechaEmisionCheque: String
+    portador: String
+    nominal: Boolean
+    diferido: Boolean
+    creadoEn: String
+}
+
+type SolicitudPagoNotaRecepcion {
+    id: ID!
+    solicitudPago: SolicitudPago!
+    notaRecepcion: NotaRecepcion!
+    montoIncluido: Float!
+    creadoEn: String
+}
+
+type SolicitudPagoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [SolicitudPago]
+    getPageable: Pageable
+}
+
+# Datos pre-cargados para crear solicitud de pago desde una recepción de mercadería (mobile).
+type DatosInicialesSolicitudPago {
+    notas: [NotaRecepcion!]!
+    monedaId: ID
+    formaPagoId: ID
+    fechaPagoPropuesta: String
+}
+
+input SolicitudPagoInput {
+    id: ID
+    proveedorId: Int!
+    numeroSolicitud: String
+    fechaSolicitud: String
+    fechaPagoPropuesta: String
+    montoTotal: Float!
+    monedaId: Int
+    formaPagoId: Int
+    estado: SolicitudPagoEstado!
+    observaciones: String
+    notaRecepcionIds: [ID!]!
+    usuarioId: ID
+    detalles: [SolicitudPagoDetalleInput]
+}
+
+input SolicitudPagoDetalleInput {
+    id: ID
+    monedaId: Int!
+    formaPagoId: Int!
+    valor: Float!
+    fechaPago: String
+    observacion: String
+    cotizacion: Float
+    orden: Int
+    fechaEmisionCheque: String
+    portador: String
+    nominal: Boolean
+    diferido: Boolean
+}
+
+input SolicitudPagoNotaRecepcionInput {
+    id: ID
+    solicitudPagoId: Int!
+    notaRecepcionId: Int!
+    montoIncluido: Float!
+}
+
+extend type Query {
+    # Get single solicitud pago by ID
+    solicitudPago(id: ID!): SolicitudPago
+    
+    # Get all solicitudes pago for a specific pedido
+    solicitudesPagoPorPedido(pedidoId: ID!): [SolicitudPago]
+    
+    # Get solicitudes pago with pagination
+    solicitudesPagoPaginated(
+        page: Int = 0
+        size: Int = 10
+        proveedorId: ID
+        estado: SolicitudPagoEstado
+        numero: String
+        fechaDesde: String
+        fechaHasta: String
+    ): SolicitudPagoPage
+    
+    # Get notas de recepcion available for payment for a specific pedido
+    notasDisponiblesParaPago(pedidoId: ID!): [NotaRecepcion]
+    
+    # Get all notas asociadas with a solicitud pago
+    notasAsociadasASolicitud(solicitudPagoId: ID!): [NotaRecepcion]
+    
+    # Check if a nota is already included in any solicitud
+    isNotaIncludedInSolicitud(notaId: ID!): Boolean
+    
+    # Get a single NotaRecepcion eligible for payment by numero and proveedor (independent of pedido)
+    notaRecepcionDisponibleParaPagoPorNumero(numero: Int!, proveedorId: ID!): NotaRecepcion
+
+    # Get all NotaRecepcion eligible for payment for a proveedor (for searchable select in desktop dialog)
+    notasDisponiblesParaPagoPorProveedor(proveedorId: ID!): [NotaRecepcion]
+
+    # Paginated: notas disponibles para pago por proveedor (filtro en BD; filtroTexto = por número de nota)
+    notasDisponiblesParaPagoPorProveedorPaginated(proveedorId: ID!, page: Int, size: Int, filtroTexto: String): NotaRecepcionPage
+
+    # Datos iniciales para pantalla de nueva solicitud de pago desde recepción (notas elegibles, moneda/forma pago sugeridos, fecha)
+    datosInicialesSolicitudPagoPorRecepcion(recepcionMercaderiaId: ID!): DatosInicialesSolicitudPago
+}
+
+extend type Mutation {
+    # Save/create solicitud pago
+    saveSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
+
+    # Update solicitud pago (only when estado is PENDIENTE)
+    actualizarSolicitudPago(entity: SolicitudPagoInput!): SolicitudPago!
+    
+    # Delete solicitud pago (only if in PENDIENTE state)
+    deleteSolicitudPago(id: ID!): Boolean!
+    
+    # Update estado of solicitud pago
+    actualizarEstadoSolicitudPago(id: ID!, estado: SolicitudPagoEstado!): SolicitudPago!
+    
+    # Add nota recepcion to solicitud pago
+    agregarNotaASolicitudPago(
+        solicitudPagoId: ID!
+        notaRecepcionId: ID!
+        montoIncluido: Float!
+    ): SolicitudPagoNotaRecepcion!
+    
+    # Remove nota recepcion from solicitud pago
+    removerNotaDeSolicitudPago(
+        solicitudPagoId: ID!
+        notaRecepcionId: ID!
+    ): Boolean!
+    
+    # Print solicitud pago PDF
+    imprimirSolicitudPagoPDF(solicitudPagoId: ID!): String!
+    
+    # Print solicitud pago ticket 58mm
+    imprimirSolicitudPagoTicket(solicitudPagoId: ID!, printerName: String): Boolean!
+
+    # Remove a single solicitud pago detalle (forma de pago) by id
+    eliminarSolicitudPagoDetalle(id: ID!): Boolean!
+
+    # Add a single solicitud pago detalle (forma de pago) to an existing solicitud
+    agregarSolicitudPagoDetalle(solicitudPagoId: ID!, detalle: SolicitudPagoDetalleInput!): SolicitudPagoDetalle!
+}
+
+enum SolicitudPagoEstado {
+    PENDIENTE
+    PARCIAL
+    CONCLUIDO
+    CANCELADO
+}

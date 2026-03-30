@@ -38,10 +38,6 @@ public class InventarioProducto implements Identifiable<Long> {
     private Inventario inventario;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "producto_id", nullable = true)
-    private Producto producto;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "zona_id", nullable = true)
     private Zona zona;
 

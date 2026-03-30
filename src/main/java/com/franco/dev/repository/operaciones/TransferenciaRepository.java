@@ -2,6 +2,7 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.Necesidad;
 import com.franco.dev.domain.operaciones.Transferencia;
+import com.franco.dev.domain.operaciones.dto.VencimientoProductoDto;
 import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
@@ -58,4 +59,23 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
             LocalDateTime creadoEnDesde,
             LocalDateTime creadoEnHasta,
             Pageable pageable);
+
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.VencimientoProductoDto(" +
+            "t, " +
+            "p, " +
+            "pp, " +
+            "s, " +
+            "ti) " +
+            "FROM TransferenciaItem ti " +
+            "JOIN ti.transferencia t " +
+            "JOIN t.sucursalDestino s " +
+            "JOIN ti.presentacionRecepcion p " +
+            "JOIN p.producto pp " +
+            "WHERE s.id = ?1 " +
+            "AND ti.vencimientoRecepcion BETWEEN ?2 AND ?3 " +
+            "ORDER BY ti.vencimientoRecepcion ASC")
+    public List<VencimientoProductoDto> findProductoVencido(
+            Long sucId,
+            LocalDateTime fechaInicio,
+            LocalDateTime fechaFin);
 }

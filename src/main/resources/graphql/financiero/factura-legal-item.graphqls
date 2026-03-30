@@ -4,11 +4,14 @@ type FacturaLegalItem {
     ventaItem:VentaItem
     cantidad:Float
     descripcion:String
+    unidadMedida:String
     precioUnitario:Float
+    iva:Int
     total:Float
     creadoEn: Date
     usuario: Usuario
     sucursalId: Int
+    producto:Producto
 }
 
 input FacturaLegalItemInput {
@@ -17,10 +20,13 @@ input FacturaLegalItemInput {
     ventaItemId:Int
     cantidad:Float
     descripcion:String
+    unidadMedida:String
     precioUnitario:Float
+    iva:Int
     total:Float
     usuarioId: Int
     sucursalId: Int
+    productoId: Int
 }
 
 #extend type Query {

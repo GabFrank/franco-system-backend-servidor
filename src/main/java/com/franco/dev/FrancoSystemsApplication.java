@@ -2,6 +2,8 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -13,6 +15,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.Ordered;
 import org.springframework.orm.jpa.support.OpenEntityManagerInViewFilter;
 import org.springframework.retry.annotation.EnableRetry;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -25,7 +29,9 @@ import java.util.Collections;
 
 @EnableRetry
 @SpringBootApplication
-@EnableAutoConfiguration(exclude = {DataSourceTransactionManagerAutoConfiguration.class})
+@EnableAutoConfiguration(exclude = { DataSourceTransactionManagerAutoConfiguration.class })
+@EnableAsync
+@EnableScheduling
 public class FrancoSystemsApplication {
 
     @Autowired
@@ -41,6 +47,25 @@ public class FrancoSystemsApplication {
     @Bean
     public RestTemplate getResTemplate() {
         return new RestTemplate();
+    }
+
+    /**
+     * Global ModelMapper configuration with strict matching strategy.
+     * This prevents fuzzy matching that can cause confusion between similar field names
+     * and ensures predictable, type-safe mapping behavior across the entire application.
+     */
+    @Bean
+    public ModelMapper modelMapper() {
+        ModelMapper mapper = new ModelMapper();
+        
+        // Configure for exact field name matching only
+        mapper.getConfiguration()
+            .setFieldMatchingEnabled(true)
+            .setMethodAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
+            .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
+            .setMatchingStrategy(MatchingStrategies.STRICT);
+            
+        return mapper;
     }
 
     /**
@@ -80,8 +105,9 @@ public class FrancoSystemsApplication {
     @Bean
     public FlywayMigrationStrategy cleanMigrateStrategy() {
         return flyway -> {
-//            flyway.repair();
+            flyway.repair();
             flyway.migrate();
+
         };
     }
 

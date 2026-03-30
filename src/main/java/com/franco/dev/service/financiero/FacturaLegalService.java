@@ -12,7 +12,6 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.enums.TipoCliente;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.financiero.FacturaLegalRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -29,14 +28,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static com.franco.dev.repository.financiero.FacturaLegalSpecification.withFilters;
 import static com.franco.dev.utilitarios.DateUtils.dateToStringWithFormat;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -70,7 +73,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return repository.findByCajaId(id);
     }
 
-    public FacturaLegal findByIdAndSucursalId(Long id, Long sucId){
+    public FacturaLegal findByIdAndSucursalId(Long id, Long sucId) {
         return repository.findByIdAndSucursalId(id, sucId);
     }
 
@@ -78,29 +81,77 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
-    public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
-        LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
-        Pageable pageable = PageRequest.of(page, size);
-        return repository.findByCreadoEnBetweenAndSucursalId(inicio, fin, sucId, nombre, ruc, pageable);
+    public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin,
+            List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico,
+            Boolean activo, Boolean sinNombre) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
+        Page<FacturaLegal> response = repository.findAll(
+                withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre), pageable);
+        return response;
     }
 
-    public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10) {
+    public Optional<FacturaLegal> findByCdc(String cdc) {
+        return repository.findByDocumentoElectronicoCdc(cdc);
+    }
+
+    public ResumenFacturasDto findResumenFacturas(String fechaInicio, String fechaFin, List<Long> sucId, String ruc,
+            String nombre, Boolean iva5, Boolean iva10, Boolean sinNombre) {
         LocalDateTime inicio = stringToDate(fechaInicio);
         LocalDateTime fin = stringToDate(fechaFin);
-        return repository.findResumenFacturas(inicio, fin, sucId, nombre, ruc);
+        return repository.findResumenFacturas(inicio, fin, sucId, nombre, ruc, sinNombre);
     }
 
     @Override
     public FacturaLegal save(FacturaLegal entity) {
-        if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
-        if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
-        if (entity.getCliente() == null) {
-            Cliente newCliente = crearCliente(entity.getNombre(), entity.getRuc(), entity.getDireccion(), entity.getUsuario());
-            entity.setCliente(newCliente);
-        }
+        if (entity.getId() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getCreadoEn() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+        // NO crear cliente automáticamente aquí
+        // El GraphQL resolver (FacturaLegalGraphQL.saveFacturaLegal) es responsable de
+        // crear cliente si es necesario
+        // Esto permite que el frontend pueda crear facturas sin cliente cuando sea
+        // necesario
+        // Si se necesita crear cliente, debe hacerse en el GraphQL resolver antes de
+        // llamar a este método
         FacturaLegal e = super.save(entity);
         return e;
+    }
+
+    public FacturaLegal update(FacturaLegal entity) {
+        // Validate that the factura exists
+        if (entity.getId() == null || entity.getSucursalId() == null) {
+            throw new IllegalArgumentException("ID y SucursalId son requeridos para actualizar una factura");
+        }
+
+        FacturaLegal existing = findByIdAndSucursalId(entity.getId(), entity.getSucursalId());
+        if (existing == null) {
+            throw new IllegalArgumentException("Factura no encontrada");
+        }
+
+        // Validate electronic invoice editing rules
+        if (existing.getCdc() != null && !existing.getCdc().isEmpty()) {
+            // Es factura electrónica - solo permitir edición si no está nominada
+            if (existing.getCliente() != null) {
+                throw new IllegalStateException("No se puede editar una factura electrónica que ya está nominada");
+            }
+        }
+
+        // Update allowed fields
+        if (entity.getCliente() != null) {
+            existing.setCliente(entity.getCliente());
+        }
+        if (entity.getNombre() != null) {
+            existing.setNombre(entity.getNombre());
+        }
+        if (entity.getRuc() != null) {
+            existing.setRuc(entity.getRuc());
+        }
+        if (entity.getDireccion() != null) {
+            existing.setDireccion(entity.getDireccion());
+        }
+
+        return super.save(existing);
     }
 
     public Cliente crearCliente(String nombre, String ruc, String direccion, Usuario usuario) {
@@ -113,14 +164,14 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 foundPersona.setDireccion(direccion);
                 foundPersona.setUsuario(usuario);
                 foundPersona = personaService.save(foundPersona);
-//                propagacionService.propagarEntidad(foundPersona, TipoEntidad.PERSONA);
+                // propagacionService.propagarEntidad(foundPersona, TipoEntidad.PERSONA);
             }
             Cliente newCliente = new Cliente();
             newCliente.setUsuario(usuario);
             newCliente.setPersona(foundPersona);
             newCliente.setTipo(TipoCliente.NORMAL);
             newCliente = clienteService.save(newCliente);
-//            propagacionService.propagarEntidad(newCliente, TipoEntidad.CLIENTE);
+            // propagacionService.propagarEntidad(newCliente, TipoEntidad.CLIENTE);
             return newCliente;
         } else {
             return null;
@@ -135,7 +186,8 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         XSSFWorkbook workbook;
         XSSFSheet sheet;
 
-        if (dataList == null || dataList.size() == 0) return "";
+        if (dataList == null || dataList.size() == 0)
+            return "";
         try {
             workbook = new XSSFWorkbook();
             sheet = workbook.createSheet(sucursal.getNombre().replace(" ", "_").toLowerCase() + "_" + fechaInicio);
@@ -260,10 +312,12 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         XSSFSheet sheet;
         Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
 
-        if (dataList == null || dataList.size() == 0) return null;
+        if (dataList == null || dataList.size() == 0)
+            return null;
         try {
             workbook = new XSSFWorkbook();
-            sheet = workbook.createSheet(sucursal.getNombre().replace(" ", "_").toLowerCase() + "_" + fechaInicio.substring(0, 10));
+            sheet = workbook.createSheet(
+                    sucursal.getNombre().replace(" ", "_").toLowerCase() + "_" + fechaInicio.substring(0, 10));
             // Create the header row
             Row headerRow = sheet.createRow(0);
             String[] columnHeaders = {
@@ -408,7 +462,8 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 row.createCell(59).setCellValue(data.getNotimbfacnotcre());
                 row.createCell(60).setCellValue(data.getVentipodoc());
                 row.createCell(61).setCellValue(data.getVentanoiva());
-                row.createCell(62).setCellValue(data.getVenProvee().equals("X") ? "15" : data.getVenProvee().contains("-") ? "11" : "12");
+                row.createCell(62).setCellValue(
+                        data.getVenProvee().equals("X") ? "15" : data.getVenProvee().contains("-") ? "11" : "12");
                 row.createCell(63).setCellValue(data.getGdcbienid());
                 row.createCell(64).setCellValue(data.getGdctipobien());
                 row.createCell(65).setCellValue(data.getGdcimpcosto());
@@ -439,7 +494,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         dto.setVenTipimp("I");
         if (f.getTotalParcial5() != null) {
             Double totalParcial5 = f.getTotalParcial5();
-            if(porcentrajeDesc!=null){
+            if (porcentrajeDesc != null) {
                 totalParcial5 = totalParcial5 - (totalParcial5 * porcentrajeDesc);
             }
             dto.setVenGra05(totalParcial5 - totalParcial5 / 21);
@@ -448,7 +503,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         }
         if (f.getTotalParcial5() != null) {
             Double totalParcial5 = f.getTotalParcial5();
-            if(porcentrajeDesc!=null){
+            if (porcentrajeDesc != null) {
                 totalParcial5 = totalParcial5 - (totalParcial5 * porcentrajeDesc);
             }
             dto.setVenIva05(totalParcial5 / 21);
@@ -494,7 +549,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         dto.setVenExenta(0.0);
         if (f.getTotalParcial10() != null) {
             Double totalParcial10 = f.getTotalParcial10();
-            if(porcentrajeDesc!=null){
+            if (porcentrajeDesc != null) {
                 totalParcial10 = totalParcial10 - (totalParcial10 * porcentrajeDesc);
             }
             dto.setVenGravad(totalParcial10 - totalParcial10 / 11);
@@ -503,7 +558,7 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         }
         if (f.getTotalParcial10() != null) {
             Double totalParcial10 = f.getTotalParcial10();
-            if(porcentrajeDesc!=null){
+            if (porcentrajeDesc != null) {
                 totalParcial10 = totalParcial10 - (totalParcial10 * porcentrajeDesc);
             }
             dto.setVenIva(totalParcial10 / 11);
@@ -515,7 +570,24 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         return dto;
     }
 
-    public Boolean deleteByIdAndSucursalId(Long id, Long sucId){
+    public Boolean deleteByIdAndSucursalId(Long id, Long sucId) {
         return repository.deleteByIdAndSucursalId(id, sucId);
+    }
+
+    /**
+     * Buscar facturas legales por timbrado detalle, sucursal y rango de números de
+     * factura.
+     * Útil para encontrar facturas afectadas por un evento de inutilización.
+     */
+    public List<FacturaLegal> findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+            Long timbradoDetalleId,
+            Long sucursalId,
+            Integer numeroInicio,
+            Integer numeroFin) {
+        return repository.findByTimbradoDetalleIdAndSucursalIdAndNumeroFacturaBetween(
+                timbradoDetalleId,
+                sucursalId,
+                numeroInicio,
+                numeroFin);
     }
 }

@@ -22,23 +22,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "inventario_producto_item", schema = "operaciones")
-@TypeDef(
-        name = "inventario_producto_estado",
-        typeClass = PostgreSQLEnumType.class
-)
+@TypeDef(name = "inventario_producto_estado", typeClass = PostgreSQLEnumType.class)
 public class InventarioProductoItem implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GenericGenerator(
-            name = "assigned-identity",
-            strategy = "com.franco.dev.config.AssignedIdentityGenerator"
-    )
-    @GeneratedValue(
-            generator = "assigned-identity",
-            strategy = GenerationType.IDENTITY
-    )
+    @GenericGenerator(name = "assigned-identity", strategy = "com.franco.dev.config.AssignedIdentityGenerator")
+    @GeneratedValue(generator = "assigned-identity", strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -57,6 +48,14 @@ public class InventarioProductoItem implements Identifiable<Long> {
 
     private Double cantidadFisica;
 
+    private Double cantidadAnterior;
+
+    private LocalDateTime fechaVerificado;
+
+    private Boolean verificado;
+
+    private Boolean revisado;
+
     @JoinColumn(name = "vencimiento", nullable = true)
     private LocalDateTime vencimiento;
 
@@ -71,11 +70,4 @@ public class InventarioProductoItem implements Identifiable<Long> {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
-    public LocalDateTime getVenticimiento(){
-        return vencimiento;
-    }
-
-    public void setVencimiento(LocalDateTime v){
-        vencimiento = v;
-    }
 }

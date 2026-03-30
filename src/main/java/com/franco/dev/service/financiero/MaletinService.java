@@ -4,9 +4,9 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Maletin;
 import com.franco.dev.repository.financiero.MaletinRepository;
 import com.franco.dev.service.CrudService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -17,8 +17,6 @@ import java.util.List;
 public class MaletinService extends CrudService<Maletin, MaletinRepository, Long> {
 
     private final MaletinRepository repository;
-    @Autowired
-    private PropagacionService propagacionService;
     @Autowired
     private MultiTenantService multiTenantService;
 
@@ -49,7 +47,23 @@ public class MaletinService extends CrudService<Maletin, MaletinRepository, Long
 
     public List<Maletin> searchByAll(String texto, Long sucId) {
         texto = texto != null ? texto.toUpperCase() : "";
-        return repository.findByAll(texto, sucId);
+        if (sucId != null) {
+            return repository.findByAllWithSucursal(texto, sucId);
+        } else {
+            return repository.findByAllWithoutSucursal(texto);
+        }
+    }
+
+    public List<Maletin> findBySucursalId(Long id){
+        return repository.findBySucursalId(id);
+    }
+
+    public List<Maletin> findBySucursalIdOrAll(Long sucId) {
+        if (sucId != null) {
+            return repository.findBySucursalId(sucId);
+        } else {
+            return repository.findAll(PageRequest.of(0, 1000)).getContent();
+        }
     }
 
     @Override

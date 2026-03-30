@@ -64,11 +64,13 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "JOIN CobroDetalle cd ON cd.cobro = c " +
             "join cd.formaPago fp " +
             "join cd.moneda m " +
-            "where ca.id = :id and v.sucursalId = :sucId and c = c2 and " +
+            "where ca.id = :id and v.sucursalId = :sucId and " +
             "(:formaPagoId is null or fp.id = :formaPagoId) and " +
             "(:monedaId is null or m.id = :monedaId) and " +
+            "(:conDescuento = false or cd.descuento = true) and " +
+            "(:conAumento = false or cd.aumento = true) and " +
             "(v.estado = :estado or cast(:estado as com.franco.dev.domain.operaciones.enums.VentaEstado) is null) group by (v.id, v.sucursalId)")
-    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Long monedaId);
+    public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId, VentaEstado estado, Pageable pageable, Long monedaId, @Param("conDescuento") Boolean conDescuento, @Param("conAumento") Boolean conAumento);
 
 //    @Query(value = "select v from Venta v, CobroDetalle cd, Delivery d " +
 //            "join v.caja ca " +
@@ -97,7 +99,12 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
             "SUM(CASE WHEN m.denominacion = 'GUARANI' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaGs, \n" +
             "SUM(CASE WHEN m.denominacion = 'REAL' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaRs, \n" +
             "SUM(CASE WHEN m.denominacion = 'DOLAR' AND fp.descripcion = 'EFECTIVO' AND cd.pago THEN cd.valor ELSE 0 END) AS totalVentaDs, \n" +
-            "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS totalTarjeta, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS totalTarjetaRs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TARJETA' AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS totalTarjetaDs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'GUARANI' THEN cd.valor ELSE 0 END) AS totalTransferencia, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'REAL' THEN cd.valor ELSE 0 END) AS totalTransferenciaRs, \n" +
+            "SUM(CASE WHEN fp.descripcion = 'TRANSFERENCIA' AND m.denominacion = 'DOLAR' THEN cd.valor ELSE 0 END) AS totalTransferenciaDs, \n" +
             "SUM(CASE WHEN fp.descripcion = 'CONVENIO' THEN cd.valor ELSE 0 END) AS totalConvenio, \n" +
             "SUM(CASE WHEN cd.descuento THEN cd.valor ELSE 0 END) AS totalDescuento, \n" +
             "SUM(CASE WHEN cd.aumento THEN cd.valor ELSE 0 END) AS totalAumento, \n" +

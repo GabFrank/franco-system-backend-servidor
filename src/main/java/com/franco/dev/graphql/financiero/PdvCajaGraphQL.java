@@ -14,7 +14,6 @@ import com.franco.dev.service.financiero.ConteoService;
 import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -48,8 +47,6 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private ConteoMonedaGraphQL conteoMonedaGraphQL;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -73,6 +70,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findAllWithFilters(cajaId, estado, maletinId, cajeroId, fechaInicio, fechaFin, sucId, verificado, pageable);
     }
 
+    public Page<PdvCaja> cajasAnalisisDiferencias(Long cajaId, Long cajaAnteriorId, PdvCajaEstado estado, Long maletinId, String maletinDescripcion, Long cajeroId, String fechaInicio, String fechaFin, Long sucId, Boolean verificado, String difEstado, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findAllForAnalisisDiferencias(cajaId, cajaAnteriorId, estado, maletinId, maletinDescripcion, cajeroId, fechaInicio, fechaFin, sucId, verificado, difEstado, pageable);
+    }
+
     public CajaBalance balancePorFecha(String inicio, String fin, Long sucId) {
         List<PdvCaja> pdvCajaList = service.findByDate(inicio, fin, sucId);
         Double totalGeneral = 0.0;
@@ -90,6 +92,14 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return cajaBalance;
     }
 
+    /**
+     * Get a list of balances for all active cajas in a specific sucursal
+     * @param sucursalId The ID of the sucursal
+     * @return A list of CajaBalance objects, one for each active caja
+     */
+    public List<CajaBalance> balanceActiveCajasBySucursalId(Long sucursalId) {
+        return service.getBalanceActiveCajasBySucursalId(sucursalId);
+    }
 
     public PdvCaja savePdvCaja(PdvCajaInput input) {
         ModelMapper m = new ModelMapper();
@@ -141,6 +151,15 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return null;
     }
 
+    /**
+     * Find all active cajas for a specific sucursal
+     * @param sucursalId The ID of the sucursal
+     * @return A list of active PdvCaja objects for the specified sucursal
+     */
+    public List<PdvCaja> cajaAbiertoPorSucursal(Long sucursalId) {
+        return service.findActiveBySucursalId(sucursalId);
+    }
+
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
         return service.imprimirBalance(new EmbebedPrimaryKey(id, sucId), printerName, local);
     }
@@ -173,6 +192,10 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         } catch (Exception e){
             throw new GraphQLException("No se pudo verificar la caja");
         }
+    }
+
+    public List<PdvCaja> findCajasWithVentaObservaciones () {
+        return service.findCajasWithVentaObservaciones();
     }
 
 }

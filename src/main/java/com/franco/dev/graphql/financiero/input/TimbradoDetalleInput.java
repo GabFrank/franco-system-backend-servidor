@@ -23,4 +23,20 @@ public class TimbradoDetalleInput {
     private Boolean activo;
 
     private Long usuarioId;
+
+    private String departamento;
+
+    private String ciudad;
+
+    private String codigoCiudad;
+
+    private String localidad;
+
+    private String barrio;
+
+    private String direccion;
+
+    private String telefono;
+
+    private Long sucursalId;
 }

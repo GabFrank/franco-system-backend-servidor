@@ -5,6 +5,22 @@ type Timbrado {
     numero: String
     fechaInicio: Date
     fechaFin: Date
+    isElectronico: Boolean
+    csc: String
+    cscId: String
+    email: String
+    tipoSociedad: String
+    domicilioFiscalDepartamento: String
+    domicilioFiscalCiudad: String
+    domicilioFiscalCodigoCiudad: String
+    domicilioFiscalLocalidad: String
+    domicilioFiscalBarrio: String
+    domicilioFiscalDireccion: String
+    telefono: String
+    codActividadEconomicaPrincipal: String
+    descActividadEconomicaPrincipal: String
+    listCodigoActividadEconomicaSecundaria: String
+    listDescripcionActividadEconomicaSecundaria: String
     activo: Boolean
     creadoEn: Date
     usuario: Usuario
@@ -17,7 +33,24 @@ input TimbradoInput {
     numero: String
     fechaInicio: String
     fechaFin: String
+    isElectronico: Boolean
+    csc: String
+    cscId: String
+    email: String
+    tipoSociedad: String
+    domicilioFiscalDepartamento: String
+    domicilioFiscalCiudad: String
+    domicilioFiscalCodigoCiudad: String
+    domicilioFiscalLocalidad: String
+    domicilioFiscalBarrio: String
+    domicilioFiscalDireccion: String
+    telefono: String
+    codActividadEconomicaPrincipal: String
+    descActividadEconomicaPrincipal: String
+    listCodigoActividadEconomicaSecundaria: String
+    listDescripcionActividadEconomicaSecundaria: String
     activo: Boolean
+    creadoEn: String
     usuarioId: Int
 }
 
@@ -25,6 +58,34 @@ extend type Query {
     timbrado(id:ID!):Timbrado
     timbrados(page:Int = 0, size:Int = 10):[Timbrado]!
     countTimbrado: Int
+    timbradosSearch(texto:String):[Timbrado]!
+    findByNumero(numero:String, page:Int, size:Int):TimbradoPage
+    existeTimbradoActivo(excludeId:ID):Boolean!
+    findTimbradoDetallesByTimbradoId(timbradoId:ID!, page:Int, size:Int):TimbradoDetallePage
+}
+
+type TimbradoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Timbrado]
+    getPageable: Pageable
+}
+
+type TimbradoDetallePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TimbradoDetalle]
+    getPageable: Pageable
 }
 
 extend type Mutation {

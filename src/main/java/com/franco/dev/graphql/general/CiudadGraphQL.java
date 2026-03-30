@@ -6,11 +6,9 @@ import com.franco.dev.domain.general.Pais;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.general.input.CiudadInput;
 import com.franco.dev.graphql.general.input.PaisInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -19,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,8 +33,6 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PaisService ciudadService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -57,6 +54,9 @@ public class CiudadGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         Ciudad e = m.map(input, Ciudad.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         e.setPais(ciudadService.findById(input.getPaisId()).orElse(null));
+        if(input.getCreadoEn() != null){
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        }
         e = service.save(e);
         return e;    }
 

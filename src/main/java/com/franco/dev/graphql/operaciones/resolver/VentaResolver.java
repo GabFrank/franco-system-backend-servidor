@@ -12,6 +12,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+import com.franco.dev.domain.financiero.FormaPago;
+
 @Component
 public class VentaResolver implements GraphQLResolver<Venta> {
 
@@ -23,6 +25,30 @@ public class VentaResolver implements GraphQLResolver<Venta> {
 
     @Autowired
     private VentaItemService ventaItemService;
+
+    @Autowired
+    private VentaObservacionService ventaObservacionService;
+
+    @Autowired
+    private CobroDetalleService cobroDetalleService;
+
+    public FormaPago formaPago(Venta v) {
+        if (v.getFormaPago() != null) {
+            return v.getFormaPago();
+        } else {
+            if (v.getCobro() != null) {
+                List<CobroDetalle> cobroDetalleList = cobroDetalleService.findByCobroId(v.getCobro().getId(), v.getSucursalId());
+                if (cobroDetalleList != null && !cobroDetalleList.isEmpty()) {
+                    return cobroDetalleList.get(0).getFormaPago();
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<VentaObservacion> ventaObservacionList(Venta v) {
+        return ventaObservacionService.findByVentaIdAndSucursalId(v.getId(), v.getSucursalId());
+    }
 
     public List<VentaItem> ventaItemList(Venta v){
         return ventaItemService.findByVentaId(v.getId(), v.getSucursalId());

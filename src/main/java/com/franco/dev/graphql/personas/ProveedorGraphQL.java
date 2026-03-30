@@ -7,19 +7,19 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
 import com.franco.dev.graphql.personas.input.ProveedorInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -37,8 +37,6 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private PersonaService personaService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -83,5 +81,14 @@ public class ProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public List<Proveedor> proveedorSearchByPersona(String texto) { return service.findByPersonaNombre(texto); }
+
+    public Page<Proveedor> proveedorSearchByPersonaPage(String texto, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("persona.nombre"));
+        if (texto == null || texto.trim().isEmpty()) {
+            return service.getRepository().findAll(pageable);
+        }
+        String pattern = "%" + texto.trim().replace(" ", "%") + "%";
+        return service.getRepository().findByPersonaNombreOrApodoOrDocumentoIgnoreCase(pattern, pattern, pattern, pageable);
+    }
 
 }

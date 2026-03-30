@@ -1,14 +1,7 @@
 package com.franco.dev.graphql.operaciones.input;
 
-import com.franco.dev.domain.financiero.Documento;
-import com.franco.dev.domain.operaciones.Compra;
-import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import lombok.Data;
-
-import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
-import java.time.LocalDateTime;
 
 @Data
 public class NotaRecepcionInput {
@@ -16,13 +9,15 @@ public class NotaRecepcionInput {
     private Long pedidoId;
     private Long compraId;
     private Long documentoId;
-    private String tipoBoleta;
-    private Double valor;
-    private Double descuento;
     private Integer numero;
+    private String tipoBoleta;
     private Integer timbrado;
+    private String fecha;
+    private Long monedaId;
+    private Double cotizacion;
+    private NotaRecepcionEstado estado;
     private Boolean pagado;
     private String creadoEn;
     private Long usuarioId;
-    private String fecha;
+    private Boolean assignAllItems;
 }

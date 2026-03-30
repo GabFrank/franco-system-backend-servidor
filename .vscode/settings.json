@@ -1,0 +1,11 @@
+{
+  // Desactiva la validación de SQL en strings de Java
+  "java.jdt.ls.java.sql.validation": false,
+  // Si estás usando una extensión de PostgreSQL, desactiva su linter
+  "pgsql.enableIntelliSense": false,
+  // Desactiva validación de SQL en general
+  "sql.linter.run": "off",
+  // Configuración adicional para extensiones SQL comunes
+  "sqltools.useNodeRuntime": false,
+  "sqltools.disableNodeDetectNotifications": true
+}

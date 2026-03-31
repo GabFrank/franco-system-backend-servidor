@@ -3,7 +3,9 @@ package com.franco.dev.graphql.activos;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.activos.Vehiculo;
+import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.graphql.activos.input.VehiculoInput;
+import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.activos.ModeloService;
 import com.franco.dev.service.activos.TipoCombustibleService;
@@ -47,6 +49,9 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private EnteService enteService;
 
     public Optional<Vehiculo> vehiculo(Long id) {
         return service.findById(id);
@@ -123,6 +128,32 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setCantidadCuotas(input.getCantidadCuotas());
         e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
+
+        if ("PAGADO".equalsIgnoreCase(input.getSituacionPago())) {
+            e.setCantidadCuotasPagadas(input.getCantidadCuotas() != null ? input.getCantidadCuotas() : 0);
+            e.setMontoYaPagado(input.getMontoTotal() != null ? input.getMontoTotal() : java.math.BigDecimal.ZERO);
+        } else if ("PAGANDO".equalsIgnoreCase(input.getSituacionPago())) {
+            boolean hasMonto = input.getMontoTotal() != null && input.getMontoTotal().compareTo(java.math.BigDecimal.ZERO) > 0;
+            boolean hasCuotas = input.getCantidadCuotas() != null && input.getCantidadCuotas() > 0;
+            
+            boolean isMontoPagado = hasMonto && input.getMontoYaPagado() != null && input.getMontoYaPagado().compareTo(input.getMontoTotal()) >= 0;
+            boolean isCuotasPagadas = hasCuotas && input.getCantidadCuotasPagadas() != null && input.getCantidadCuotasPagadas() >= input.getCantidadCuotas();
+            
+            boolean isFullyPaid = false;
+            if (hasMonto && hasCuotas) {
+                isFullyPaid = isMontoPagado && isCuotasPagadas;
+            } else if (hasMonto) {
+                isFullyPaid = isMontoPagado;
+            } else if (hasCuotas) {
+                isFullyPaid = isCuotasPagadas;
+            }
+
+            if (isFullyPaid) {
+                e.setSituacionPago("PAGADO");
+                if (hasMonto) e.setMontoYaPagado(input.getMontoTotal());
+                if (hasCuotas) e.setCantidadCuotasPagadas(input.getCantidadCuotas());
+            }
+        }
         if (input.getModeloId() != null)
             e.setModelo(modeloService.findById(input.getModeloId()).orElse(null));
         if (input.getTipoVehiculoId() != null)
@@ -143,6 +174,7 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
         try {
             e = service.save(e);
+            enteService.ensureEnteForReferencia(TipoEnte.VEHICULO, e.getId(), e.getUsuario());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el vehículo: " + err.getMessage());

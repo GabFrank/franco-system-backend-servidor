@@ -51,6 +51,35 @@ public class InmuebleService extends CrudService<Inmueble, InmuebleRepository, L
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
         }
+        normalizeFinancialData(entity);
         return super.save(entity);
+    }
+
+    private void normalizeFinancialData(Inmueble entity) {
+        if (entity.getSituacionPago() != null) {
+            String situacion = entity.getSituacionPago().toUpperCase();
+            if (situacion.equals("PAGADO") || situacion.equals("DADO") || 
+                situacion.equals("GANADO") || situacion.equals("COMODATO")) {
+                
+                if (entity.getMontoTotal() != null) {
+                    entity.setMontoYaPagado(entity.getMontoTotal());
+                }
+                if (entity.getCantidadCuotas() != null) {
+                    entity.setCantidadCuotasPagadas(entity.getCantidadCuotas());
+                } else {
+                    entity.setCantidadCuotas(0);
+                    entity.setCantidadCuotasPagadas(0);
+                }
+            } else if (situacion.equals("PAGANDO")) {
+                java.math.BigDecimal total = entity.getMontoTotal() != null ? entity.getMontoTotal() : java.math.BigDecimal.ZERO;
+                java.math.BigDecimal pagado = entity.getMontoYaPagado() != null ? entity.getMontoYaPagado() : java.math.BigDecimal.ZERO;
+                Integer cuotasTotal = entity.getCantidadCuotas() != null ? entity.getCantidadCuotas() : 0;
+                Integer cuotasPagadas = entity.getCantidadCuotasPagadas() != null ? entity.getCantidadCuotasPagadas() : 0;
+
+                if (total.compareTo(java.math.BigDecimal.ZERO) > 0 && pagado.compareTo(total) >= 0 && cuotasPagadas >= cuotasTotal) {
+                    entity.setSituacionPago("PAGADO");
+                }
+            }
+        }
     }
 }

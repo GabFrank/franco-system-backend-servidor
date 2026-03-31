@@ -3,7 +3,9 @@ package com.franco.dev.graphql.activos;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.activos.Inmueble;
+import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.graphql.activos.input.InmuebleInput;
+import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
@@ -42,6 +44,9 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private EnteService enteService;
 
     public Optional<Inmueble> inmueble(Long id) {
         return service.findById(id);
@@ -102,6 +107,32 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
 
+        if ("PAGADO".equalsIgnoreCase(input.getSituacionPago())) {
+            e.setCantidadCuotasPagadas(input.getCantidadCuotas() != null ? input.getCantidadCuotas() : 0);
+            e.setMontoYaPagado(input.getMontoTotal() != null ? input.getMontoTotal() : java.math.BigDecimal.ZERO);
+        } else if ("PAGANDO".equalsIgnoreCase(input.getSituacionPago())) {
+            boolean hasMonto = input.getMontoTotal() != null && input.getMontoTotal().compareTo(java.math.BigDecimal.ZERO) > 0;
+            boolean hasCuotas = input.getCantidadCuotas() != null && input.getCantidadCuotas() > 0;
+            
+            boolean isMontoPagado = hasMonto && input.getMontoYaPagado() != null && input.getMontoYaPagado().compareTo(input.getMontoTotal()) >= 0;
+            boolean isCuotasPagadas = hasCuotas && input.getCantidadCuotasPagadas() != null && input.getCantidadCuotasPagadas() >= input.getCantidadCuotas();
+            
+            boolean isFullyPaid = false;
+            if (hasMonto && hasCuotas) {
+                isFullyPaid = isMontoPagado && isCuotasPagadas;
+            } else if (hasMonto) {
+                isFullyPaid = isMontoPagado;
+            } else if (hasCuotas) {
+                isFullyPaid = isCuotasPagadas;
+            }
+
+            if (isFullyPaid) {
+                e.setSituacionPago("PAGADO");
+                if (hasMonto) e.setMontoYaPagado(input.getMontoTotal());
+                if (hasCuotas) e.setCantidadCuotasPagadas(input.getCantidadCuotas());
+            }
+        }
+
         if (input.getProveedorId() != null) {
             e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
         }
@@ -111,6 +142,7 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
         try {
             e = service.save(e);
+            enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), e.getUsuario());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el inmueble: " + err.getMessage());

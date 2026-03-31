@@ -3,9 +3,14 @@ package com.franco.dev.graphql.activos;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.activos.Ente;
+import com.franco.dev.domain.activos.EnteSucursal;
 import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.graphql.activos.input.EnteInput;
+import com.franco.dev.graphql.activos.input.EnteSucursalInput;
 import com.franco.dev.service.activos.EnteService;
+import com.franco.dev.service.activos.EnteSucursalService;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -25,6 +30,15 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     @Autowired
     private EnteService service;
+
+    @Autowired
+    private EnteSucursalService enteSucursalService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
+    @Autowired
+    private FuncionarioService funcionarioService;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -53,14 +67,36 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         return service.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).orElse(null);
     }
 
-    public CustomPage<Ente> enteSearchPage(String texto, Integer page, Integer size) {
+    public CustomPage<Ente> enteSearchPage(String texto, Long sucursalId, Integer page, Integer size) {
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 15 : size;
 
         Pageable pageable = PageRequest.of(p, s);
-        Page<Ente> pageResult = service.findAllWithFilters(texto, p, s);
+        Page<Ente> pageResult = service.findAllWithFilters(texto, sucursalId, p, s);
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
+
+    public Optional<EnteSucursal> enteSucursal(Long id) {
+        return enteSucursalService.findById(id);
+    }
+
+    public List<EnteSucursal> entesSucursalesByEnteId(Long enteId) {
+        return enteSucursalService.findByEnteId(enteId);
+    }
+
+    public List<EnteSucursal> entesSucursalesBySucursalId(Long sucursalId) {
+        return enteSucursalService.findBySucursalId(sucursalId);
+    }
+
+    public CustomPage<EnteSucursal> enteSucursalSearchPage(String texto, Long sucursalId, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+
+        Pageable pageable = PageRequest.of(p, s);
+        Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, p, s);
+        return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
+    }
+
 
     public Ente saveEnte(EnteInput input) {
         Ente e = modelMapper.map(input, Ente.class);
@@ -79,12 +115,52 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         return e;
     }
 
+    public EnteSucursal saveEnteSucursal(EnteSucursalInput input) {
+        EnteSucursal e;
+        if (input.getId() != null) {
+            e = enteSucursalService.findById(input.getId()).orElse(new EnteSucursal());
+        } else {
+            e = new EnteSucursal();
+        }
+
+        if (input.getEnteId() != null) {
+            e.setEnte(service.findById(input.getEnteId()).orElse(null));
+        }
+        if (input.getSucursalId() != null) {
+            e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        }
+        if (input.getResponsableId() != null) {
+            e.setResponsable(funcionarioService.findById(input.getResponsableId()).orElse(null));
+        } else {
+            e.setResponsable(null);
+        }
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        try {
+            e = enteSucursalService.save(e);
+        } catch (Exception err) {
+            err.printStackTrace();
+            throw new GraphQLException("No se pudo guardar la asignación: " + err.getMessage());
+        }
+        return e;
+    }
+
     public Boolean deleteEnte(Long id) {
         try {
             return service.deleteById(id);
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo eliminar el ente: " + err.getMessage());
+        }
+    }
+
+    public Boolean deleteEnteSucursal(Long id) {
+        try {
+            return enteSucursalService.deleteById(id);
+        } catch (Exception err) {
+            err.printStackTrace();
+            throw new GraphQLException("No se pudo eliminar la asignación: " + err.getMessage());
         }
     }
 }

@@ -2,6 +2,7 @@ package com.franco.dev.service.activos;
 
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.enums.TipoEnte;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.activos.EnteRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -37,9 +38,9 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
         return repository.findAllActivos();
     }
 
-    public Page<Ente> findAllWithFilters(String tipoEnte, int page, int size) {
+    public Page<Ente> findAllWithFilters(String tipoEnte, Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return repository.findAllWithFilters(tipoEnte, pageable);
+        return repository.findAllWithFilters(tipoEnte, sucursalId, pageable);
     }
 
     @Override
@@ -51,5 +52,20 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
             entity.setActivo(true);
         }
         return super.save(entity);
+    }
+
+    public Ente ensureEnteForReferencia(TipoEnte tipoEnte, Long referenciaId, Usuario usuario) {
+        if (tipoEnte == null || referenciaId == null) {
+            return null;
+        }
+
+        Ente ente = repository.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).orElseGet(Ente::new);
+        ente.setTipoEnte(tipoEnte);
+        ente.setReferenciaId(referenciaId);
+        ente.setActivo(true);
+        if (usuario != null) {
+            ente.setUsuario(usuario);
+        }
+        return save(ente);
     }
 }

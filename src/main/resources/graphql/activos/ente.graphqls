@@ -27,16 +27,51 @@ type EntePage {
     getPageable: Pageable
 }
 
+type EnteSucursal {
+    id: ID!
+    ente: Ente
+    sucursal: Sucursal
+    responsable: Funcionario
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input EnteSucursalInput {
+    id: ID
+    enteId: ID
+    sucursalId: ID
+    responsableId: ID
+    usuarioId: ID
+}
+
+type EnteSucursalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EnteSucursal]
+    getPageable: Pageable
+}
+
 extend type Query {
     ente(id:ID!):Ente
     entes(page:Int = 0, size:Int = 10):[Ente]!
     countEnte: Int
     entesByTipoEnte(tipoEnte:TipoEnte!):[Ente]
     enteByReferenciaId(tipoEnte:TipoEnte!, referenciaId:ID!):Ente
-    enteSearchPage(texto: String, page: Int, size: Int): EntePage
+    enteSearchPage(texto: String, sucursalId: ID, page: Int, size: Int): EntePage
+    enteSucursal(id: ID!): EnteSucursal
+    entesSucursalesByEnteId(enteId: ID!): [EnteSucursal]
+    entesSucursalesBySucursalId(sucursalId: ID!): [EnteSucursal]
+    enteSucursalSearchPage(texto: String, sucursalId: ID, page: Int, size: Int): EnteSucursalPage
 }
 
 extend type Mutation {
     saveEnte(ente:EnteInput!):Ente!
     deleteEnte(id:ID!):Boolean!
+    saveEnteSucursal(enteSucursal: EnteSucursalInput!): EnteSucursal!
+    deleteEnteSucursal(id: ID!): Boolean!
 }

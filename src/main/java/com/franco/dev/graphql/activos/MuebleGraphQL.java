@@ -3,7 +3,9 @@ package com.franco.dev.graphql.activos;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.activos.Mueble;
+import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.graphql.activos.input.MuebleInput;
+import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.FamiliaMuebleService;
 import com.franco.dev.service.activos.MuebleService;
 import com.franco.dev.service.activos.TipoMuebleService;
@@ -42,6 +44,9 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private EnteService enteService;
 
     public Optional<Mueble> mueble(Long id) {
         return service.findById(id);
@@ -92,6 +97,32 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
 
+        if ("PAGADO".equalsIgnoreCase(input.getSituacionPago())) {
+            e.setCantidadCuotasPagadas(input.getCantidadCuotas() != null ? input.getCantidadCuotas() : 0);
+            e.setMontoYaPagado(input.getMontoTotal() != null ? input.getMontoTotal() : java.math.BigDecimal.ZERO);
+        } else if ("PAGANDO".equalsIgnoreCase(input.getSituacionPago())) {
+            boolean hasMonto = input.getMontoTotal() != null && input.getMontoTotal().compareTo(java.math.BigDecimal.ZERO) > 0;
+            boolean hasCuotas = input.getCantidadCuotas() != null && input.getCantidadCuotas() > 0;
+            
+            boolean isMontoPagado = hasMonto && input.getMontoYaPagado() != null && input.getMontoYaPagado().compareTo(input.getMontoTotal()) >= 0;
+            boolean isCuotasPagadas = hasCuotas && input.getCantidadCuotasPagadas() != null && input.getCantidadCuotasPagadas() >= input.getCantidadCuotas();
+            
+            boolean isFullyPaid = false;
+            if (hasMonto && hasCuotas) {
+                isFullyPaid = isMontoPagado && isCuotasPagadas;
+            } else if (hasMonto) {
+                isFullyPaid = isMontoPagado;
+            } else if (hasCuotas) {
+                isFullyPaid = isCuotasPagadas;
+            }
+
+            if (isFullyPaid) {
+                e.setSituacionPago("PAGADO");
+                if (hasMonto) e.setMontoYaPagado(input.getMontoTotal());
+                if (hasCuotas) e.setCantidadCuotasPagadas(input.getCantidadCuotas());
+            }
+        }
+
         if (input.getPropietarioId() != null) {
             e.setPropietario(personaService.findById(input.getPropietarioId()).orElse(null));
         }
@@ -112,6 +143,7 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         try {
             e = service.save(e);
+            enteService.ensureEnteForReferencia(TipoEnte.MUEBLE, e.getId(), e.getUsuario());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el mueble: " + err.getMessage());

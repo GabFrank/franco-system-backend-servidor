@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -31,10 +33,12 @@ public class Vehiculo implements Identifiable<Long> {
 
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "modelo_id", nullable = true)
+        @NotFound(action = NotFoundAction.IGNORE)
         private Modelo modelo;
 
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "tipo_vehiculo", nullable = true)
+        @NotFound(action = NotFoundAction.IGNORE)
         private TipoVehiculo tipoVehiculo;
 
         private String chapa;

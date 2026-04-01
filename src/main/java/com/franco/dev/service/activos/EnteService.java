@@ -38,9 +38,9 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
         return repository.findAllActivos();
     }
 
-    public Page<Ente> findAllWithFilters(String tipoEnte, Long sucursalId, int page, int size) {
+    public Page<Ente> findAllWithFilters(String texto, Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return repository.findAllWithFilters(tipoEnte, sucursalId, pageable);
+        return repository.findAllWithFilters(texto, sucursalId, pageable);
     }
 
     @Override

@@ -15,19 +15,19 @@ public interface InmuebleRepository extends HelperRepository<Inmueble, Long> {
     }
 
     @Query("select i from Inmueble i left join i.propietario p where " +
-            "CAST(i.id as text) like %?1% or " +
-            "UPPER(i.nombreAsignado) like %?1% or " +
-            "UPPER(i.direccion) like %?1% or " +
-            "UPPER(i.codigoCatastral) like %?1% or " +
-            "UPPER(p.nombre) like %?1%")
+            "CAST(i.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(i.nombreAsignado) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(i.direccion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(i.codigoCatastral) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))")
     List<Inmueble> findByAll(String texto);
 
     @Query("select i from Inmueble i left join i.propietario p where " +
-            "(CAST(i.id as text) like %?1% or " +
-            "UPPER(i.nombreAsignado) like %?1% or " +
-            "UPPER(i.direccion) like %?1% or " +
-            "UPPER(i.codigoCatastral) like %?1% or " +
-            "UPPER(p.nombre) like %?1%) " +
+            "(CAST(i.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(i.nombreAsignado) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(i.direccion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(i.codigoCatastral) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))) " +
             "order by i.id desc")
     Page<Inmueble> findByAllWithPage(String texto, Pageable pageable);
 

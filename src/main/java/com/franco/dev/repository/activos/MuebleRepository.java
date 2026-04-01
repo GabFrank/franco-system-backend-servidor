@@ -15,21 +15,21 @@ public interface MuebleRepository extends HelperRepository<Mueble, Long> {
     }
 
     @Query("select m from Mueble m left join m.propietario p left join m.familia f left join m.tipoMueble tm where " +
-            "CAST(m.id as text) like %?1% or " +
-            "UPPER(m.identificador) like %?1% or " +
-            "UPPER(m.descripcion) like %?1% or " +
-            "UPPER(f.descripcion) like %?1% or " +
-            "UPPER(tm.descripcion) like %?1% or " +
-            "UPPER(p.nombre) like %?1%")
+            "CAST(m.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(m.identificador) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(m.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(f.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(tm.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))")
     List<Mueble> findByAll(String texto);
 
     @Query("select m from Mueble m left join m.propietario p left join m.familia f left join m.tipoMueble tm where " +
-            "(CAST(m.id as text) like %?1% or " +
-            "UPPER(m.identificador) like %?1% or " +
-            "UPPER(m.descripcion) like %?1% or " +
-            "UPPER(f.descripcion) like %?1% or " +
-            "UPPER(tm.descripcion) like %?1% or " +
-            "UPPER(p.nombre) like %?1%) " +
+            "(CAST(m.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(m.identificador) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(m.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(f.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(tm.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))) " +
             "order by m.id desc")
     Page<Mueble> findByAllWithPage(String texto, Pageable pageable);
 

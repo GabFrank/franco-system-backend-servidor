@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -29,6 +31,7 @@ public class VehiculoSucursal implements Identifiable<Long> {
 
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "vehiculo_id", nullable = true)
+        @NotFound(action = NotFoundAction.IGNORE)
         private Vehiculo vehiculo;
 
         @ManyToOne(fetch = FetchType.LAZY)

@@ -17,23 +17,23 @@ public interface VehiculoRepository extends HelperRepository<Vehiculo, Long> {
     public Vehiculo findByChapa(String chapa);
 
     @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma left join v.propietario p where " +
-            "CAST(v.id as text) like %?1% or " +
-            "UPPER(v.chapa) like %?1% or " +
-            "UPPER(v.color) like %?1% or " +
-            "UPPER(v.identificadorInterno) like %?1% or " +
-            "UPPER(m.descripcion) like %?1% or " +
-            "UPPER(ma.descripcion) like %?1% or " +
-            "UPPER(p.nombre) like %?1%")
+            "CAST(v.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(v.chapa) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(v.color) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(v.identificadorInterno) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(m.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(ma.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))")
     public List<Vehiculo> findByAll(String texto);
 
     @Query("select v from Vehiculo v left join v.modelo m left join m.marca ma left join v.propietario p where " +
-            "(CAST(v.id as text) like %?1% or " +
-            "UPPER(v.chapa) like %?1% or " +
-            "UPPER(v.color) like %?1% or " +
-            "UPPER(v.identificadorInterno) like %?1% or " +
-            "UPPER(m.descripcion) like %?1% or " +
-            "UPPER(ma.descripcion) like %?1% or " +
-            "UPPER(p.nombre) like %?1%) " +
+            "(CAST(v.id as text) like concat('%', ?1, '%') or " +
+            "UPPER(v.chapa) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(v.color) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(v.identificadorInterno) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(m.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(ma.descripcion) like UPPER(concat('%', ?1, '%')) or " +
+            "UPPER(p.nombre) like UPPER(concat('%', ?1, '%'))) " +
             "order by v.id asc")
     public Page<Vehiculo> findByAllWithPage(String texto, Pageable pageable);
 

@@ -22,7 +22,9 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
         @Query("select f from Funcionario f " +
                         "join f.persona p " +
                         "left join Usuario usr with usr.persona = p " +
-                        "where CAST(f.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(usr.nickname) like %?1%")
+                        "where CAST(f.id as text) like concat('%', ?1, '%') or " +
+                        "UPPER(p.nombre) like UPPER(concat('%', ?1, '%')) or " +
+                        "UPPER(usr.nickname) like UPPER(concat('%', ?1, '%'))")
         public List<Funcionario> findByIdOrPersonaNombre(String texto);
 
         public Funcionario findByUsuarioId(Long id);
@@ -31,7 +33,7 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "join u.persona p " +
                         "left join u.sucursal s where " +
                         "((:id) is null or u.id = (:id) ) and " +
-                        "((:nombre) is null or UPPER(p.nombre) like %:nombre%) and " +
+                        "((:nombre) is null or UPPER(p.nombre) like UPPER(concat('%', :nombre, '%'))) and " +
                         "((:sucursalList) is null or s.id IN (:sucursalList)) " +
                         "order by u.id")
         public Page<Funcionario> findAllWithFilterAndPage(

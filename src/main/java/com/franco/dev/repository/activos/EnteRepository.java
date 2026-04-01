@@ -25,12 +25,14 @@ public interface EnteRepository extends HelperRepository<Ente, Long> {
     List<Ente> findAllActivos();
 
     @Query("select e from Ente e where " +
-            "(:tipoEnte is null or trim(:tipoEnte) = '' or cast(e.tipoEnte as text) = :tipoEnte) " +
-            "and (:sucursalId is null or exists (select es from EnteSucursal es where es.ente.id = e.id and es.sucursal.id = :sucursalId)) " +
+            "(:texto is null or trim(:texto) = '' or cast(e.tipoEnte as text) = :texto) " +
+            "and (:sucursalId is null or " +
+            "exists (select es from EnteSucursal es where es.ente.id = e.id and es.sucursal.id = :sucursalId) or " +
+            "(cast(e.tipoEnte as text) = 'VEHICULO' and exists (select vs from VehiculoSucursal vs where vs.vehiculo.id = e.referenciaId and vs.sucursal.id = :sucursalId))) " +
             "and e.activo = true " +
             "order by e.id desc")
     Page<Ente> findAllWithFilters(
-            @org.springframework.data.repository.query.Param("tipoEnte") String tipoEnte,
+            @org.springframework.data.repository.query.Param("texto") String texto,
             @org.springframework.data.repository.query.Param("sucursalId") Long sucursalId,
             Pageable pageable);
 }

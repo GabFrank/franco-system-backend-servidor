@@ -1,5 +1,6 @@
 package com.franco.dev.domain.financiero;
 
+import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.personas.Usuario;
@@ -39,6 +40,9 @@ public class TipoGasto implements Identifiable<Long> {
     private Boolean autorizacion;
 
     private String descripcion;
+
+    @Enumerated(EnumType.STRING)
+    private TipoNaturalezaGasto tipoNaturaleza;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "clasificacion_gasto_id", nullable = true)

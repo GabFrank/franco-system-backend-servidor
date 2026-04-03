@@ -2,6 +2,7 @@ package com.franco.dev.graphql.financiero.input;
 
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 
@@ -29,4 +30,6 @@ public class TipoGastoInput {
     private Date creadoEn;
 
     private Long usuarioId;
+
+    private TipoNaturalezaGasto tipoNaturaleza;
 }

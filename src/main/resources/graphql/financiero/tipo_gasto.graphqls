@@ -1,6 +1,7 @@
 enum TipoNaturalezaGasto {
     VARIABLE
     CONTINUO
+    RECURRENTE
 }
 
 type TipoGasto {
@@ -30,12 +31,25 @@ input TipoGastoInput {
     usuarioId: Int
 }
 
+type TipoGastoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TipoGasto]
+    getPageable: Pageable
+}
+
 extend type Query {
     tipoGasto(id:ID!):TipoGasto
     tipoGastosSearch(texto: String):[TipoGasto]
     tipoGastos(page:Int = 0, size:Int = 10):[TipoGasto]!
     rootTipoGasto:[TipoGasto]!
     countTipoGasto: Int
+    filterTipoGastos(naturaleza: String, texto: String, page: Int, size: Int): TipoGastoPage
 }
 
 extend type Mutation {

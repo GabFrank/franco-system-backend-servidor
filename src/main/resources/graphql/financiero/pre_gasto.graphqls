@@ -47,12 +47,25 @@ input PreGastoInput {
     creadoEn: Date
 }
 
+type PreGastoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PreGasto]
+    getPageable: Pageable
+}
+
 extend type Query {
     preGasto(id: ID!, sucId: ID): PreGasto
     preGastos(estado: String, sucId: ID): [PreGasto]!
     preGastosPorSucursal(estado: String!, sucursalId: Int!): [PreGasto]!
     preGastosPorFuncionario(funcionarioId: Int!): [PreGasto]!
     preGastosSearch(texto: String!, sucId: ID): [PreGasto]!
+    filterPreGastos(estado: String, inicio: String, fin: String, page: Int, size: Int): PreGastoPage
 }
 
 extend type Mutation {

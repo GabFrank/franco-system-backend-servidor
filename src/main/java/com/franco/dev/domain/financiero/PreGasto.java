@@ -1,16 +1,22 @@
 package com.franco.dev.domain.financiero;
 
-import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.service.EmbeddedEntity;
+import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Type;
+import org.hibernate.annotations.TypeDef;
 import javax.persistence.*;
+
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -19,13 +25,16 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "pre_gasto", schema = "financiero")
-public class PreGasto implements Identifiable<Long> {
+@TypeDef(name = "estado_pre_gasto", typeClass = PostgreSQLEnumType.class)
+@IdClass(EmbebedPrimaryKey.class)
+public class PreGasto extends EmbeddedEntity implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GenericGenerator(name = "assigned-identity", strategy = "com.franco.dev.config.AssignedIdentityGenerator")
-    @GeneratedValue(generator = "assigned-identity", strategy = GenerationType.IDENTITY)
     private Long id;
+    @Id
+    @Column(name = "sucursal_id")
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "funcionario_id")
@@ -53,6 +62,7 @@ public class PreGasto implements Identifiable<Long> {
     private Sucursal sucursalCaja;
 
     @Enumerated(EnumType.STRING)
+    @Type(type = "estado_pre_gasto")
     private EstadoPreGasto estado;
 
     @Column(name = "qr_token")
@@ -77,7 +87,7 @@ public class PreGasto implements Identifiable<Long> {
 
     @Column(name = "saldo_devolver")
     private BigDecimal saldoDevolver;
-    
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

@@ -42,6 +42,9 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private SucursalService sucursalService;
 
+    @Autowired
+    private com.franco.dev.service.impresion.ImpresionService impresionService;
+
     public PreGasto preGasto(Long id, Long sucId) {
         return service.findByIdAndSucursalId(id, sucId);
     }
@@ -72,6 +75,14 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Page<PreGasto> filterPreGastos(String estado, String inicio, String fin, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
         return service.filterPreGastos(estado, inicio, fin, pageable);
+    }
+
+    public String imprimirPreGasto(Long id, Long sucId) {
+        PreGasto preGasto = service.findByIdAndSucursalId(id, sucId);
+        if (preGasto != null) {
+            return impresionService.imprimirPreGasto(preGasto);
+        }
+        return "";
     }
 
     // === Mutations ===

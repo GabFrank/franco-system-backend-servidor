@@ -3,7 +3,10 @@ package com.franco.dev.graphql.replication;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.replication.input.LogicalReplicationInput;
 import com.franco.dev.graphql.replication.types.LogicalReplication;
+import com.franco.dev.graphql.replication.types.ReplicationSetupState;
 import com.franco.dev.graphql.replication.types.ReplicationStatus;
+import com.franco.dev.graphql.replication.RemoveScope;
+import com.franco.dev.graphql.replication.RemoveTarget;
 import com.franco.dev.service.empresarial.LogicalReplicationService;
 import com.franco.dev.service.empresarial.SucursalService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -95,6 +98,13 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         return publications.stream()
             .map(this::mapToLogicalReplication)
             .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get current replication setup state for a branch (what exists on central and filial).
+     */
+    public ReplicationSetupState getReplicationSetupState(String sucursalId) {
+        return replicationService.getReplicationSetupState(Long.parseLong(sucursalId));
     }
     
     /**
@@ -203,23 +213,20 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     // Mutation resolvers
     
     public ReplicationStatus setupReplication(LogicalReplicationInput input) {
-        ReplicationStatus status = new ReplicationStatus();
         Long sucursalId = Long.parseLong(input.getSucursalId());
-        
-        try {
-            boolean success = replicationService.setupCentralServerReplication(sucursalId);
-            
-            status.setSuccess(success);
-            if (success) {
-                status.setMessage("Logical replication successfully set up for branch " + sucursalId);
-            } else {
-                status.setMessage("Failed to set up logical replication for branch " + sucursalId);
-            }
-        } catch (Exception e) {
-            status.setSuccess(false);
-            status.setMessage("Error: " + e.getMessage());
-        }
-        
+        LogicalReplicationService.SetupFullReplicationResult result = replicationService.setupFullReplication(sucursalId);
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
+        return status;
+    }
+    
+    public ReplicationStatus setupReplicationAdvanced(String sucursalId, RemoveTarget target, RemoveScope scope) {
+        LogicalReplicationService.SetupFullReplicationResult result = replicationService.setupReplicationAdvanced(
+            Long.parseLong(sucursalId), target.name(), scope.name());
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
         return status;
     }
     
@@ -260,6 +267,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
             status.setMessage("Error: " + e.getMessage());
         }
         
+        return status;
+    }
+    
+    public ReplicationStatus removeReplicationAdvanced(String sucursalId, RemoveTarget target, RemoveScope scope) {
+        LogicalReplicationService.SetupFullReplicationResult result = replicationService.removeReplicationAdvanced(
+            Long.parseLong(sucursalId), target.name(), scope.name());
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
         return status;
     }
     
@@ -645,6 +661,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
             status.setMessage("Error: " + e.getMessage());
         }
         
+        return status;
+    }
+
+    public ReplicationStatus syncPublicationsWithReplicationTable() {
+        LogicalReplicationService.SetupFullReplicationResult result =
+            replicationService.syncPublicationsWithReplicationTable();
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
         return status;
     }
 } 

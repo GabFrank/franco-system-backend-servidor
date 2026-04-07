@@ -2,12 +2,10 @@ package com.franco.dev.graphql.personas;
 
 import com.franco.dev.domain.personas.ClienteAdicional;
 import com.franco.dev.graphql.personas.input.ClienteAdicionalInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.personas.ClienteAdicionalService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -32,8 +30,6 @@ public class ClienteAdicionalGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private ClienteService clienteService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<ClienteAdicional> clienteAdicional(Long id) {
         return service.findById(id);

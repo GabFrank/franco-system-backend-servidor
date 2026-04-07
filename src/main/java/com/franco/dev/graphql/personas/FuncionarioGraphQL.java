@@ -9,7 +9,6 @@ import com.franco.dev.graphql.personas.input.FuncionarioInput;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.*;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -41,8 +40,6 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private SucursalService sucursalService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private ClienteService clienteService;

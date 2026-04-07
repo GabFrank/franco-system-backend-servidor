@@ -64,25 +64,21 @@ public class ReplicationTableGraphQL implements GraphQLQueryResolver, GraphQLMut
     public ReplicationTable saveReplicationTable(ReplicationTableInput input) {
         ModelMapper m = new ModelMapper();
         ReplicationTable table = m.map(input, ReplicationTable.class);
-        
-        // Handle special case where we might be updating an existing record
+        table.setBranchIdsList(input.getBranchIds());
+        table.setReplicateCentralToBranchWithFilter(Boolean.TRUE.equals(input.getReplicateCentralToBranchWithFilter()));
         if (input.getId() != null) {
             Optional<ReplicationTable> existingTable = service.findById(input.getId());
             if (existingTable.isPresent()) {
                 ReplicationTable existing = existingTable.get();
-                // Preserve created date and user if just updating
                 table.setCreadoEn(existing.getCreadoEn());
                 if (existing.getUsuario() != null && (input.getUsuarioId() == null || input.getUsuarioId().equals(existing.getUsuario().getId()))) {
                     table.setUsuario(existing.getUsuario());
                 }
             }
         }
-        
-        // If enabled is not provided, default to true
         if (table.getEnabled() == null) {
             table.setEnabled(true);
         }
-        
         return service.save(table, input.getUsuarioId());
     }
     

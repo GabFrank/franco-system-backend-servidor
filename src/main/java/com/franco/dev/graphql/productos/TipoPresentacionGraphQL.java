@@ -4,9 +4,7 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPresentacion;
 import com.franco.dev.graphql.productos.input.TipoPresentacionInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.productos.TipoPresentacionService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -24,8 +22,6 @@ public class TipoPresentacionGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private TipoPresentacionService service;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

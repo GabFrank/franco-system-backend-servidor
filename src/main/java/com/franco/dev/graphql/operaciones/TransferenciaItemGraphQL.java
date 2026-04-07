@@ -17,7 +17,6 @@ import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.PresentacionService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -48,8 +47,6 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private PresentacionService presentacionService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private CostosPorProductoService costosPorProductoService;

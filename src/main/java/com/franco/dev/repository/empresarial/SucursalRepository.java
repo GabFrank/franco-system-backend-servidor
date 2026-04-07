@@ -28,6 +28,9 @@ public interface SucursalRepository extends HelperRepository<Sucursal, Long> {
     @Query("select p from Sucursal p where p.id != 0 and p.activo = ?2 and (?1 is null or ?1 = '' or CAST(p.id as string) like CONCAT('%', ?1, '%') or UPPER(p.nombre) like CONCAT('%', UPPER(?1), '%')) order by p.id asc")
     public List<Sucursal> findByAllWithActivoFilter(String texto, Boolean activo);
 
+    @Query("select p from Sucursal p where p.id != 0 and p.activo = ?2 and (?1 is null or ?1 = '' or CAST(p.id as string) like CONCAT('%', ?1, '%') or UPPER(p.nombre) like CONCAT('%', UPPER(?1), '%')) order by p.id asc")
+    public Page<Sucursal> findByAllWithActivoFilterPage(String texto, Boolean activo, Pageable page);
+
     public List<Sucursal> findByIsConfiguredFalseAndActivoTrue();
 
     // Método original modificado para incluir filtro de activo

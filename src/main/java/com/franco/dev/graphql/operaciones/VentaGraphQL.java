@@ -27,7 +27,6 @@ import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
@@ -95,8 +94,6 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     private PrintingService printingService;
     @Autowired
     private DeliveryService deliveryService;
-    @Autowired
-    private PropagacionService propagacionService;
     @Autowired
     private CostosPorProductoService costosPorProductoService;
 

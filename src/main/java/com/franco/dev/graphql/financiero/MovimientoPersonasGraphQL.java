@@ -4,12 +4,10 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.MovimientoPersonas;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.MovimientoPersonasInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.MovimientoPersonasService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -38,8 +36,6 @@ public class MovimientoPersonasGraphQL implements GraphQLQueryResolver, GraphQLM
     @Autowired
     private PersonaService personaService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

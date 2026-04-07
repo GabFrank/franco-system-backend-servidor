@@ -74,7 +74,7 @@ import java.util.List;
  */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = false)
 public class SifenService {
 
     private final DocumentoElectronicoService documentoElectronicoService;

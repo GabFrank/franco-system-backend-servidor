@@ -18,7 +18,6 @@ import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -47,8 +46,6 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private SucursalService sucursalService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private ImpresionService impresionService;

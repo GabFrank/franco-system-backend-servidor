@@ -14,7 +14,6 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.graphql.financiero.input.FacturaLegalInput;
 import com.franco.dev.graphql.financiero.input.FacturaLegalItemInput;
-import com.franco.dev.rabbit.dto.SaveFacturaDto;
 import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.CambioService;
@@ -33,7 +32,6 @@ import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.productos.CodigoService;
 import com.franco.dev.domain.productos.Codigo;
@@ -101,9 +99,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private TimbradoDetalleService timbradoDetalleService;
-
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private PersonaService personaService;
@@ -289,7 +284,6 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
         }
 
-        SaveFacturaDto saveFacturaDto = new SaveFacturaDto();
         printService = PrinterOutputStream.getPrintServiceByName(printerName);
         Sucursal sucursal = sucursalService.findById(facturaLegal.getSucursalId()).orElse(null);
         Delivery delivery = null;

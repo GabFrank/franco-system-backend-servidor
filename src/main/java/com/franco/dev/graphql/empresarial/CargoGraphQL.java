@@ -5,12 +5,10 @@ import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.CargoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -31,8 +29,6 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

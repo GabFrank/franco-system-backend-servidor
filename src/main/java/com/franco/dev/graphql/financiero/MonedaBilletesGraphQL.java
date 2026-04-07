@@ -4,13 +4,11 @@ import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.MonedaBilletes;
 import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.MonedaBilletesInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.BancoService;
 import com.franco.dev.service.financiero.MonedaBilleteService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -34,8 +32,6 @@ public class MonedaBilletesGraphQL implements GraphQLQueryResolver, GraphQLMutat
     @Autowired
     private MonedaService monedaService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<MonedaBilletes> monedaBillete(Long id) {return service.findById(id);}
 

@@ -1,6 +1,7 @@
 package com.franco.dev.service.impresion;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
@@ -67,7 +68,10 @@ public class ImpresionService {
 
     private static final Logger log = LoggerFactory.getLogger(ImpresionService.class);
 
-    /** Cache de reportes Jasper compilados para evitar recompilación y problemas de classloader (web app stopped) */
+    /**
+     * Cache de reportes Jasper compilados para evitar recompilación y problemas de
+     * classloader (web app stopped)
+     */
     private static final Map<String, JasperReport> REPORT_CACHE = new ConcurrentHashMap<>();
 
     PrintService selectedPrintService = null;
@@ -94,8 +98,11 @@ public class ImpresionService {
 
     /**
      * Compila un reporte JRXML desde los recursos del classpath (dentro del JAR).
-     * Usa ClassPathResource y cache para evitar problemas de classloader (web app stopped) y mejorar rendimiento.
-     * @param resourcePath Ruta del archivo JRXML (ej: "reports/solicitud-pago.jrxml")
+     * Usa ClassPathResource y cache para evitar problemas de classloader (web app
+     * stopped) y mejorar rendimiento.
+     * 
+     * @param resourcePath Ruta del archivo JRXML (ej:
+     *                     "reports/solicitud-pago.jrxml")
      * @return JasperReport compilado
      * @throws JRException Si hay error compilando el reporte
      */
@@ -551,7 +558,8 @@ public class ImpresionService {
 
     /**
      * Imprime solicitud de pago en ticket 58mm.
-     * Estructura: Header (logo, proveedor, nro, hora reporte) | Lista notas | Lista formas pago | Firma | QR
+     * Estructura: Header (logo, proveedor, nro, hora reporte) | Lista notas | Lista
+     * formas pago | Firma | QR
      */
     public void printSolicitudPagoTicket(SolicitudPago solicitudPago, String proveedorNombre,
             String usuario, String printerName,
@@ -579,7 +587,8 @@ public class ImpresionService {
                 escpos.writeLF("--------------------------------");
                 escpos.write(imageWrapper, escposImage);
                 String prov = (proveedorNombre != null ? proveedorNombre : "");
-                if (prov.length() > 23) prov = prov.substring(0, 23);
+                if (prov.length() > 23)
+                    prov = prov.substring(0, 23);
                 escpos.writeLF(center.setBold(true), prov);
                 escpos.writeLF(center.setBold(true), "Nro " + solicitudPago.getId());
                 String horaReporte = LocalDateTime.now().format(formatter);
@@ -616,7 +625,8 @@ public class ImpresionService {
 
                 // --- FIRMA DEL RESPONSABLE ---
                 String usr = (usuario != null ? usuario : "");
-                if (usr.length() > 23) usr = usr.substring(0, 23);
+                if (usr.length() > 23)
+                    usr = usr.substring(0, 23);
                 escpos.writeLF(center.setBold(true), "Responsable:");
                 escpos.writeLF(center, usr);
                 escpos.writeLF(center, "_________________________");
@@ -624,7 +634,8 @@ public class ImpresionService {
 
                 // --- CODIGO QR ---
                 escpos.feed(2);
-                String qrData = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
+                String qrData = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId()
+                        + "-ListSolicitudPagoComponent-null-null";
                 escpos.write(qrCode.setSize(8).setJustification(EscPosConst.Justification.Center), qrData);
                 escpos.feed(4);
                 escpos.close();
@@ -1066,29 +1077,48 @@ public class ImpresionService {
         }
     }
 
-    public String imprimirMarcaciones(List<Marcacion> marcacionList, String fechaInicio, String fechaFin,
+    public String imprimirMarcaciones(List<Jornada> jornadaList, String fechaInicio, String fechaFin,
             Usuario usuario) {
         try {
             List<MarcacionItemDto> marcacionItemDtoList = new ArrayList<>();
-            for (Marcacion marcacion : marcacionList) {
+            for (Jornada jornada : jornadaList) {
                 MarcacionItemDto dto = new MarcacionItemDto();
-                dto.setId(marcacion.getId());
-                String nickname = marcacion.getUsuario() != null && marcacion.getUsuario().getNickname() != null
-                        ? marcacion.getUsuario().getNickname()
+                dto.setId(jornada.getId());
+                String nickname = jornada.getUsuario() != null && jornada.getUsuario().getNickname() != null
+                        ? jornada.getUsuario().getNickname()
                         : "";
                 dto.setUsuario(nickname);
-                dto.setSucursalEntrada(marcacion.getSucursalEntrada() != null
-                        ? marcacion.getSucursalEntrada().getNombre()
-                        : "");
-                dto.setFechaEntrada(marcacion.getFechaEntrada() != null
-                        ? DateUtils.toString(marcacion.getFechaEntrada())
-                        : "");
-                dto.setSucursalSalida(marcacion.getSucursalSalida() != null
-                        ? marcacion.getSucursalSalida().getNombre()
-                        : null);
-                dto.setFechaSalida(marcacion.getFechaSalida() != null
-                        ? DateUtils.toString(marcacion.getFechaSalida())
-                        : null);
+
+                if (jornada.getMarcacionEntrada() != null) {
+                    Marcacion ent = jornada.getMarcacionEntrada();
+                    Sucursal sucEnt = ent.getSucursalEntrada() != null ? ent.getSucursalEntrada()
+                            : ent.getSucursalSalida();
+                    dto.setSucursalEntrada(sucEnt != null ? sucEnt.getNombre() : "");
+
+                    LocalDateTime fEnt = ent.getFechaEntrada() != null ? ent.getFechaEntrada() : ent.getFechaSalida();
+                    dto.setFechaEntrada(fEnt != null ? DateUtils.toString(fEnt) : "");
+                } else {
+                    dto.setSucursalEntrada("");
+                    dto.setFechaEntrada("");
+                }
+
+                if (jornada.getMarcacionSalida() != null) {
+                    Marcacion sal = jornada.getMarcacionSalida();
+                    Sucursal sucSal = sal.getSucursalSalida() != null ? sal.getSucursalSalida()
+                            : sal.getSucursalEntrada();
+                    dto.setSucursalSalida(sucSal != null ? sucSal.getNombre() : "");
+
+                    LocalDateTime fSal = sal.getFechaSalida() != null ? sal.getFechaSalida() : sal.getFechaEntrada();
+                    dto.setFechaSalida(fSal != null ? DateUtils.toString(fSal) : "");
+                } else {
+                    dto.setSucursalSalida(null);
+                    dto.setFechaSalida(null);
+                }
+
+                dto.setLlegadaTardia(formatMinutes(jornada.getMinutosLlegadaTardia()));
+                dto.setHoraExtra(formatMinutes(jornada.getMinutosExtras()));
+                dto.setTurno(jornada.getTurno() != null ? jornada.getTurno().toString() : "");
+
                 marcacionItemDtoList.add(dto);
             }
             JasperReport jasperReport = compileReportFromClasspath("reports/marcaciones.jrxml");
@@ -1235,6 +1265,9 @@ public class ImpresionService {
         private String fechaEntrada;
         private String sucursalSalida;
         private String fechaSalida;
+        private String llegadaTardia;
+        private String horaExtra;
+        private String turno;
     }
 
     public String imprimirSolicitudPagoPDF(
@@ -1245,7 +1278,7 @@ public class ImpresionService {
             Double valorTotal,
             java.util.List<SolicitudPagoNotaRowDto> notas,
             java.util.List<SolicitudPagoFormaPagoDetalleDto> detalleFormasPago) {
-        
+
         try {
             if (numerosFactura == null || numerosFactura.isEmpty()) {
                 numerosFactura = "---";
@@ -1263,43 +1296,52 @@ public class ImpresionService {
             // Usuario: ya viene cargado con findByIdWithUsuarioAndMoneda
             String usuario = "";
             if (solicitudPago.getUsuario() != null) {
-                if (solicitudPago.getUsuario().getPersona() != null && solicitudPago.getUsuario().getPersona().getNombre() != null) {
+                if (solicitudPago.getUsuario().getPersona() != null
+                        && solicitudPago.getUsuario().getPersona().getNombre() != null) {
                     usuario = solicitudPago.getUsuario().getPersona().getNombre();
                 } else if (solicitudPago.getUsuario().getNickname() != null) {
                     usuario = solicitudPago.getUsuario().getNickname();
                 }
             }
-            
+
             JasperReport jasperReport = compileReportFromClasspath("reports/solicitud-pago.jrxml");
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(new ArrayList<>());
-            
+
             Map<String, Object> parameters = new HashMap<>();
             parameters.put("solicitudPagoId", solicitudPago.getId());
             parameters.put("proveedorNombre", proveedorNombre != null ? proveedorNombre : "");
             parameters.put("observaciones", observaciones != null ? observaciones : "");
             parameters.put("numerosFactura", numerosFactura);
             parameters.put("valorTotal", valorTotal != null ? valorTotal : 0.0);
-            parameters.put("monedaSimbolo", solicitudPago.getMoneda() != null && solicitudPago.getMoneda().getSimbolo() != null ? solicitudPago.getMoneda().getSimbolo() : "");
+            parameters.put("monedaSimbolo",
+                    solicitudPago.getMoneda() != null && solicitudPago.getMoneda().getSimbolo() != null
+                            ? solicitudPago.getMoneda().getSimbolo()
+                            : "");
             String estadoStr = solicitudPago.getEstado() != null ? solicitudPago.getEstado().toString() : "";
             parameters.put("estado", estadoStr);
             parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
             parameters.put("usuario", usuario);
             parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
-            // QR mismo formato que transferencia: frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
-            String qrText = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId() + "-ListSolicitudPagoComponent-null-null";
+            // QR mismo formato que transferencia:
+            // frc-{sucursalId}-{tipoEntidad}-{idOrigen}-{idCentral}-{componentToOpen}-null-null
+            String qrText = "frc-0-SOLPAG-" + solicitudPago.getId() + "-" + solicitudPago.getId()
+                    + "-ListSolicitudPagoComponent-null-null";
             parameters.put("qrText", qrText);
-            parameters.put("notasSubreport", compileReportFromClasspath("reports/solicitud-pago-notas-subreport.jrxml"));
+            parameters.put("notasSubreport",
+                    compileReportFromClasspath("reports/solicitud-pago-notas-subreport.jrxml"));
             parameters.put("notasDataSource", new JRBeanCollectionDataSource(notas));
-            parameters.put("formasSubreport", compileReportFromClasspath("reports/solicitud-pago-formas-subreport.jrxml"));
+            parameters.put("formasSubreport",
+                    compileReportFromClasspath("reports/solicitud-pago-formas-subreport.jrxml"));
             parameters.put("formasDataSource", new JRBeanCollectionDataSource(detalleFormasPago.isEmpty()
-                ? java.util.Collections.singletonList(new SolicitudPagoFormaPagoDetalleDto("—", "", "Sin formas de pago", 0.0, "—", "", "—", "—", false))
-                : detalleFormasPago));
-            
+                    ? java.util.Collections.singletonList(new SolicitudPagoFormaPagoDetalleDto("—", "",
+                            "Sin formas de pago", 0.0, "—", "", "—", "—", false))
+                    : detalleFormasPago));
+
             JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
             String base64String = Base64.getEncoder().encodeToString(pdfBytes);
             return base64String;
-            
+
         } catch (JRException e) {
             log.error("Error al generar PDF de solicitud de pago: {}", e.getMessage(), e);
             throw new RuntimeException("Error al generar el PDF: " + e.getMessage(), e);
@@ -1351,5 +1393,12 @@ public class ImpresionService {
         private Boolean esCheque;
     }
 
-//    public void printVueltoGasto(GastoDto gastoDto){
+    private String formatMinutes(Long minutes) {
+        if (minutes == null || minutes == 0) {
+            return "00:00";
+        }
+        long hours = minutes / 60;
+        long remainingMinutes = minutes % 60;
+        return String.format("%02d:%02d", hours, remainingMinutes);
+    }
 }

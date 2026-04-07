@@ -41,6 +41,31 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
         return repository.findByMarcacionEntradaId(id);
     }
 
+    public Jornada ajustarA8Horas(Long id, Long sucursalId, String observacion) {
+        Optional<Jornada> optionalJornada = repository.findById(new EmbebedPrimaryKey(id, sucursalId));
+        if (optionalJornada.isPresent()) {
+            Jornada jornada = optionalJornada.get();
+            jornada.setMinutosTrabajados(480L);
+            jornada.setMinutosExtras(0L);
+            jornada.setEstado(com.franco.dev.domain.administrativo.enums.EstadoJornada.NORMAL);
+            if (observacion != null) {
+                jornada.setObservacion(observacion);
+            }
+            return repository.save(jornada);
+        }
+        return null;
+    }
+
+    public Jornada guardarObservacion(Long id, Long sucursalId, String observacion) {
+        Optional<Jornada> optionalJornada = repository.findById(new EmbebedPrimaryKey(id, sucursalId));
+        if (optionalJornada.isPresent()) {
+            Jornada jornada = optionalJornada.get();
+            jornada.setObservacion(observacion);
+            return repository.save(jornada);
+        }
+        return null;
+    }
+
     @Override
     @org.springframework.transaction.annotation.Transactional(isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE)
     public Jornada save(Jornada entity) {

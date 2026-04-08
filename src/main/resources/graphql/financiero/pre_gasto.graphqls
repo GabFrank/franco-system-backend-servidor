@@ -65,7 +65,7 @@ extend type Query {
     preGastosPorSucursal(estado: String!, sucursalId: Int!): [PreGasto]!
     preGastosPorFuncionario(funcionarioId: Int!): [PreGasto]!
     preGastosSearch(texto: String!, sucId: ID): [PreGasto]!
-    filterPreGastos(estado: String, inicio: String, fin: String, page: Int, size: Int): PreGastoPage
+    filterPreGastos(id: ID, estado: String, inicio: String, fin: String, page: Int, size: Int): PreGastoPage
     imprimirPreGasto(id: ID!, sucId: ID): String
 }
 

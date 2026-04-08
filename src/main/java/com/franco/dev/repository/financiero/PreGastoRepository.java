@@ -45,16 +45,19 @@ public interface PreGastoRepository extends HelperRepository<PreGasto, EmbebedPr
     List<PreGasto> buscarPorTexto(@Param("texto") String texto, @Param("sucursalId") Long sucursalId);
 
     @Query(value = "SELECT pg.* FROM financiero.pre_gasto pg " +
-            "WHERE (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
+            "WHERE (CAST(:id AS bigint) IS NULL OR pg.id = CAST(:id AS bigint)) " +
+            "AND (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
             "AND (CAST(:inicio AS text) IS NULL OR pg.creado_en >= CAST(CAST(:inicio AS text) AS timestamp)) " +
             "AND (CAST(:fin AS text) IS NULL OR pg.creado_en <= CAST(CAST(:fin AS text) AS timestamp)) " +
             "ORDER BY pg.id DESC",
             countQuery = "SELECT count(*) FROM financiero.pre_gasto pg " +
-            "WHERE (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
+            "WHERE (CAST(:id AS bigint) IS NULL OR pg.id = CAST(:id AS bigint)) " +
+            "AND (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
             "AND (CAST(:inicio AS text) IS NULL OR pg.creado_en >= CAST(CAST(:inicio AS text) AS timestamp)) " +
             "AND (CAST(:fin AS text) IS NULL OR pg.creado_en <= CAST(CAST(:fin AS text) AS timestamp))",
             nativeQuery = true)
-    Page<PreGasto> filterPreGastos(@Param("estado") String estado,
+    Page<PreGasto> filterPreGastos(@Param("id") Long id,
+                                   @Param("estado") String estado,
                                    @Param("inicio") String inicio,
                                    @Param("fin") String fin,
                                    Pageable pageable);

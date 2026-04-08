@@ -70,8 +70,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return repository.buscarPorTexto(texto, sucursalId);
     }
 
-    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(String estado, String inicio, String fin, org.springframework.data.domain.Pageable pageable) {
-        return repository.filterPreGastos(estado, inicio, fin, pageable);
+    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(Long id, String estado, String inicio, String fin, org.springframework.data.domain.Pageable pageable) {
+        return repository.filterPreGastos(id, estado, inicio, fin, pageable);
     }
 
     public PreGasto autorizar(Long id, Long autorizadorId, Long sucId) {

@@ -72,9 +72,9 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.buscarPorTexto(texto, sucId);
     }
 
-    public Page<PreGasto> filterPreGastos(String estado, String inicio, String fin, Integer page, Integer size) {
+    public Page<PreGasto> filterPreGastos(Long id, String estado, String inicio, String fin, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
-        return service.filterPreGastos(estado, inicio, fin, pageable);
+        return service.filterPreGastos(id, estado, inicio, fin, pageable);
     }
 
     public String imprimirPreGasto(Long id, Long sucId) {

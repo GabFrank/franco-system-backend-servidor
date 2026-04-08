@@ -40,6 +40,8 @@ public class TipoGasto implements Identifiable<Long> {
     private Boolean autorizacion;
 
     private String descripcion;
+    
+    private Boolean afectaFinanzasActivo;
 
     @Enumerated(EnumType.STRING)
     private TipoNaturalezaGasto tipoNaturaleza;

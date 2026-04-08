@@ -4,7 +4,9 @@ import com.franco.dev.domain.activos.EnteArchivo;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,4 +30,9 @@ public interface EnteArchivoRepository extends HelperRepository<EnteArchivo, Lon
     Page<EnteArchivo> findAllByEnteId(
             @org.springframework.data.repository.query.Param("enteId") Long enteId,
             Pageable pageable);
+
+    @Modifying
+    @Transactional
+    @Query("update EnteArchivo ea set ea.vigente = false where ea.ente.id = ?1 and ea.tipoArchivo = ?2 and ea.vigente = true")
+    void desactivarAnteriores(Long enteId, com.franco.dev.domain.activos.enums.TipoArchivoEnte tipoArchivo);
 }

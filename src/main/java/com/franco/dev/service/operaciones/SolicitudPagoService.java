@@ -298,17 +298,25 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                                                               Usuario usuario) {
         
         // Validate that all notas belong to the same proveedor
-        List<NotaRecepcion> notas = notaRecepcionRepository.findAllById(notaRecepcionIds);
+        List<NotaRecepcion> notas = (notaRecepcionIds != null && !notaRecepcionIds.isEmpty()) 
+            ? notaRecepcionRepository.findAllById(notaRecepcionIds) 
+            : new ArrayList<>();
+            
         for (NotaRecepcion nota : notas) {
-            if (!nota.getPedido().getProveedor().getId().equals(proveedor.getId())) {
-                throw new IllegalArgumentException("Todas las notas deben pertenecer al mismo proveedor");
+            if (nota.getPedido() != null && nota.getPedido().getProveedor() != null) {
+                if (!nota.getPedido().getProveedor().getId().equals(proveedor.getId())) {
+                    throw new IllegalArgumentException("Todas las notas deben pertenecer al mismo proveedor");
+                }
             }
         }
         
         // Calculate total amount
-        Double montoTotal = notas.stream()
-            .mapToDouble(this::calcularMontoNota)
-            .sum();
+        Double montoTotal = 0.0;
+        if (!notas.isEmpty()) {
+            montoTotal = notas.stream()
+                .mapToDouble(this::calcularMontoNota)
+                .sum();
+        }
         
         // Create solicitud pago
         SolicitudPago solicitud = new SolicitudPago();
@@ -330,14 +338,14 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                 solicitudGuardada.getId(), nota.getId(), montoNota);
         }
         
-        // Iniciar etapa SOLICITUD_PAGO si es la primera solicitud del pedido
-        Long pedidoId = notas.get(0).getPedido().getId();
-        try {
-            procesoEtapaService.actualizarEtapaAEnProceso(pedidoId, ProcesoEtapaTipo.SOLICITUD_PAGO);
-        } catch (Exception e) {
-            // La etapa podría no existir aún, crear si es necesario
-            // Esto ocurre si se salta directamente a solicitud de pago
-            System.out.println("Etapa SOLICITUD_PAGO no encontrada, esto es normal si viene de recepción mercadería");
+        // Iniciar etapa SOLICITUD_PAGO si hay notas vinculadas a pedidos
+        if (!notas.isEmpty() && notas.get(0).getPedido() != null) {
+            Long pedidoId = notas.get(0).getPedido().getId();
+            try {
+                procesoEtapaService.actualizarEtapaAEnProceso(pedidoId, ProcesoEtapaTipo.SOLICITUD_PAGO);
+            } catch (Exception e) {
+                System.out.println("Etapa SOLICITUD_PAGO no encontrada, esto es normal si viene de recepción mercadería o pre-gasto");
+            }
         }
         
         return solicitudGuardada;

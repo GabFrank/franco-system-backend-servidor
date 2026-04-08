@@ -92,6 +92,9 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    @Column(name = "solicitud_pago_id")
+    private Long solicitudPagoId;
+
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 }

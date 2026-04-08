@@ -4,6 +4,7 @@ enum EstadoPreGasto {
     AUTORIZADO
     RECHAZADO
     COMPLETADO
+    ENVIADO_A_TESORERIA
 }
 
 type PreGasto {
@@ -25,6 +26,7 @@ type PreGasto {
     montoGastado: Float
     saldoDevolver: Float
     usuario: Usuario
+    solicitudPagoId: ID
     creadoEn: Date
 }
 
@@ -75,5 +77,6 @@ extend type Mutation {
     rechazarPreGasto(id: ID!, motivo: String!, sucId: ID): PreGasto
     tramitarPreGasto(id: ID!, sucId: ID): PreGasto
     completarPreGasto(id: ID!, sucId: ID): PreGasto
+    enviarPreGastoATesoreria(id: ID!, sucId: ID, usuarioId: ID): PreGasto
     deletePreGasto(id: ID!, sucId: ID): Boolean!
 }

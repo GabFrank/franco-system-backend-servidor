@@ -138,6 +138,10 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.completar(id, sucId);
     }
 
+    public PreGasto enviarPreGastoATesoreria(Long id, Long sucId, Long usuarioId) {
+        return service.enviarATesoreria(id, sucId, usuarioId);
+    }
+
     public Boolean deletePreGasto(Long id, Long sucId) {
         PreGasto e = service.findByIdAndSucursalId(id, sucId);
         return service.delete(e);

@@ -40,6 +40,10 @@ public class EnteArchivoService extends CrudService<EnteArchivo, EnteArchivoRepo
     public EnteArchivo save(EnteArchivo entity) {
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
+            // Si es un nuevo archivo, marcar los anteriores del mismo tipo como no vigentes
+            if(entity.getEnte() != null && entity.getTipoArchivo() != null) {
+                repository.desactivarAnteriores(entity.getEnte().getId(), entity.getTipoArchivo());
+            }
         }
         if (entity.getVigente() == null) {
             entity.setVigente(true);

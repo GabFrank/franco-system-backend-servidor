@@ -25,4 +25,6 @@ public class EnteFinancialSummaryDTO {
     private String proveedorNombre;
     private String tipoGastoSugeridoId;
     private String situacionPago;
+    private Double porcentajePagado;
+    private BigDecimal montoSugerido;
 }

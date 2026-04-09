@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -38,4 +39,35 @@ public class Ente implements Identifiable<Long> {
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    @Transient
+    private String descripcion;
+    @Transient
+    private String sucursalesConcatenadas;
+    @Transient
+    private List<Long> sucursalIds;
+    @Transient
+    private Double montoTotal;
+    @Transient
+    private Double montoYaPagado;
+    @Transient
+    private Double montoPendiente;
+    @Transient
+    private Integer cuotasTotales;
+    @Transient
+    private Integer cuotasPagadas;
+    @Transient
+    private Integer cuotasFaltantes;
+    @Transient
+    private Integer diaVencimiento;
+    @Transient
+    private Integer diasParaVencer;
+    @Transient
+    private String estadoCuota;
+    @Transient
+    private String situacionPago;
+    @Transient
+    private String monedaSimbolo;
+    @Transient
+    private String proveedorNombre;
 }

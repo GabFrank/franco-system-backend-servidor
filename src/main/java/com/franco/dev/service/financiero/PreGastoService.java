@@ -340,6 +340,16 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             }
         }
 
+        // Cálculos adicionales para el resumen
+        if (dto.getMontoTotal() != null && dto.getMontoTotal().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal pagado = dto.getMontoYaPagado() != null ? dto.getMontoYaPagado() : BigDecimal.ZERO;
+            dto.setPorcentajePagado(pagado.multiply(new BigDecimal(100)).divide(dto.getMontoTotal(), 2, java.math.RoundingMode.HALF_UP).doubleValue());
+            
+            if (dto.getCuotasTotales() != null && dto.getCuotasTotales() > 0) {
+                dto.setMontoSugerido(dto.getMontoTotal().divide(new BigDecimal(dto.getCuotasTotales()), 2, java.math.RoundingMode.HALF_UP));
+            }
+        }
+
         return dto;
     }
 

@@ -9,14 +9,22 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.franco.dev.domain.activos.Ente;
+import com.franco.dev.domain.activos.enums.TipoEnte;
+import org.springframework.context.annotation.Lazy;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
-@AllArgsConstructor
 public class InmuebleService extends CrudService<Inmueble, InmuebleRepository, Long> {
 
     private final InmuebleRepository repository;
+    private final EnteService enteService;
+
+    public InmuebleService(InmuebleRepository repository, @Lazy EnteService enteService) {
+        this.repository = repository;
+        this.enteService = enteService;
+    }
 
     @Override
     public InmuebleRepository getRepository() {
@@ -45,14 +53,25 @@ public class InmuebleService extends CrudService<Inmueble, InmuebleRepository, L
     public List<Inmueble> findByCiudadId(Long ciudadId) {
         return repository.findByCiudadId(ciudadId);
     }
-
     @Override
     public Inmueble save(Inmueble entity) {
         if (entity.getId() == null) {
             entity.setCreadoEn(LocalDateTime.now());
         }
         normalizeFinancialData(entity);
-        return super.save(entity);
+        Inmueble e = super.save(entity);
+        if (e != null) {
+            enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), e.getUsuario());
+        }
+        return e;
+    }
+
+    @Override
+    public Boolean deleteById(Long id) {
+        enteService.findByTipoEnteAndReferenciaId(TipoEnte.INMUEBLE, id).ifPresent(ente -> {
+            enteService.deleteById(ente.getId());
+        });
+        return super.deleteById(id);
     }
 
     private void normalizeFinancialData(Inmueble entity) {

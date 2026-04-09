@@ -11,15 +11,27 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.franco.dev.domain.activos.EnteSucursal;
+import com.franco.dev.service.financiero.PreGastoService;
+import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import org.springframework.context.annotation.Lazy;
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Optional;
 
 @Service
-@AllArgsConstructor
 public class EnteService extends CrudService<Ente, EnteRepository, Long> {
 
     private final EnteRepository repository;
+    private final PreGastoService preGastoService;
+    private final EnteSucursalService enteSucursalService;
+
+    public EnteService(EnteRepository repository, @Lazy PreGastoService preGastoService, @Lazy EnteSucursalService enteSucursalService) {
+        this.repository = repository;
+        this.preGastoService = preGastoService;
+        this.enteSucursalService = enteSucursalService;
+    }
 
     @Override
     public EnteRepository getRepository() {
@@ -40,7 +52,37 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
 
     public Page<Ente> findAllWithFilters(String texto, Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return repository.findAllWithFilters(texto, sucursalId, pageable);
+        Page<Ente> res = repository.findAllWithFilters(texto, sucursalId, pageable);
+        res.getContent().forEach(ente -> {
+            EnteFinancialSummaryDTO summary = preGastoService.getFinancialSummary(ente.getId());
+            if (summary != null) {
+                ente.setDescripcion(summary.getDescripcion());
+                ente.setMontoTotal(summary.getMontoTotal() != null ? summary.getMontoTotal().doubleValue() : null);
+                ente.setMontoYaPagado(summary.getMontoYaPagado() != null ? summary.getMontoYaPagado().doubleValue() : null);
+                ente.setMontoPendiente(summary.getMontoPendiente() != null ? summary.getMontoPendiente().doubleValue() : null);
+                ente.setCuotasTotales(summary.getCuotasTotales());
+                ente.setCuotasPagadas(summary.getCuotasPagadas());
+                ente.setCuotasFaltantes(summary.getCuotasFaltantes());
+                ente.setDiaVencimiento(summary.getDiaVencimiento());
+                ente.setDiasParaVencer(summary.getDiasParaVencer());
+                ente.setEstadoCuota(summary.getEstadoCuota());
+                ente.setSituacionPago(summary.getSituacionPago());
+                ente.setMonedaSimbolo(summary.getMonedaSimbolo());
+                ente.setProveedorNombre(summary.getProveedorNombre());
+            }
+            List<EnteSucursal> asignaciones = enteSucursalService.findByEnteId(ente.getId());
+            if (asignaciones != null && !asignaciones.isEmpty()) {
+                ente.setSucursalesConcatenadas(asignaciones.stream()
+                        .map(a -> a.getSucursal().getNombre())
+                        .collect(Collectors.joining(", ")));
+                ente.setSucursalIds(asignaciones.stream()
+                        .map(a -> a.getSucursal().getId())
+                        .collect(Collectors.toList()));
+            } else {
+                ente.setSucursalesConcatenadas("Sin sucursal");
+            }
+        });
+        return res;
     }
 
     @Override

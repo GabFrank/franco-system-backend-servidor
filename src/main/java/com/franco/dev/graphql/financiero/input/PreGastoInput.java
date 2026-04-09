@@ -24,4 +24,8 @@ public class PreGastoInput {
     private BigDecimal montoRetirado;
     private Long usuarioId;
     private Date creadoEn;
+    private String urgencia;
+    private String formaPago;
+    private String beneficiario;
+    private String observaciones;
 }

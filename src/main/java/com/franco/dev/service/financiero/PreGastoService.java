@@ -11,11 +11,19 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.PreGastoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.activos.EnteService;
+import com.franco.dev.service.activos.InmuebleService;
+import com.franco.dev.service.activos.VehiculoService;
+import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import com.franco.dev.domain.activos.Ente;
+import com.franco.dev.domain.activos.Inmueble;
+import com.franco.dev.domain.activos.Mueble;
+import com.franco.dev.domain.activos.Vehiculo;
+import com.franco.dev.domain.activos.enums.TipoEnte;
+import com.franco.dev.service.activos.MuebleService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.domain.activos.Mueble;
-import com.franco.dev.service.activos.MuebleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -36,6 +44,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final ProveedorService proveedorService;
     private final UsuarioService usuarioService;
     private final MuebleService muebleService;
+    private final EnteService enteService;
+    private final InmuebleService inmuebleService;
+    private final VehiculoService vehiculoService;
 
     @Value("${sucursalId:0}")
     private Long currentSucursalId;
@@ -264,5 +275,97 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         BigDecimal montoCuota = cuota.getMonto() != null ? cuota.getMonto() : BigDecimal.ZERO;
         financiero.setMontoYaPagado(montoYaPagado.add(montoCuota));
         enteFinancieroService.save(financiero);
+    }
+
+    /**
+     * Obtiene el resumen financiero de un Ente para la creación de PreGastos.
+     * Centraliza la lógica que antes residía en el frontend.
+     */
+    public EnteFinancialSummaryDTO getFinancialSummary(Long enteId) {
+        Ente ente = enteService.findById(enteId).orElse(null);
+        if (ente == null)
+            return null;
+
+        EnteFinancialSummaryDTO dto = new EnteFinancialSummaryDTO();
+        dto.setEnteId(enteId);
+
+        // Buscar datos financieros genéricos si existen
+        Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(enteId);
+        if (optFinanciero.isPresent()) {
+            EnteFinanciero f = optFinanciero.get();
+            dto.setMontoTotal(f.getMontoTotal());
+            dto.setMontoYaPagado(f.getMontoYaPagado());
+            BigDecimal pendiente = (f.getMontoTotal() != null ? f.getMontoTotal() : BigDecimal.ZERO)
+                    .subtract(f.getMontoYaPagado() != null ? f.getMontoYaPagado() : BigDecimal.ZERO);
+            dto.setMontoPendiente(pendiente.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pendiente);
+            if (f.getMoneda() != null) {
+                dto.setMonedaId(f.getMoneda().getId());
+                dto.setMonedaSimbolo(f.getMoneda().getSimbolo());
+            }
+        }
+
+        // Buscar datos específicos según el tipo de Ente
+        if (ente.getTipoEnte() != null && ente.getReferenciaId() != null) {
+            if (ente.getTipoEnte() == TipoEnte.MUEBLE) {
+                Mueble m = muebleService.findById(ente.getReferenciaId()).orElse(null);
+                if (m != null) {
+                    dto.setDescripcion(m.getDescripcion() != null ? m.getDescripcion() : m.getIdentificador());
+                    if (m.getProveedor() != null)
+                        dto.setProveedorNombre(m.getProveedor().getNombre());
+                    dto.setSituacionPago(m.getSituacionPago());
+                    llenarDatosCuotas(dto, m.getCantidadCuotas(), m.getCantidadCuotasPagadas(), m.getDiaVencimiento());
+                }
+                dto.setTipoGastoSugeridoId("VARIABLE"); // Naturaleza sugerida
+            } else if (ente.getTipoEnte() == TipoEnte.INMUEBLE) {
+                Inmueble i = inmuebleService.findById(ente.getReferenciaId()).orElse(null);
+                if (i != null) {
+                    dto.setDescripcion(i.getNombreAsignado() != null ? i.getNombreAsignado() : i.getDireccion());
+                    if (i.getProveedor() != null)
+                        dto.setProveedorNombre(i.getProveedor().getNombre());
+                    dto.setSituacionPago(i.getSituacionPago());
+                    llenarDatosCuotas(dto, i.getCantidadCuotas(), i.getCantidadCuotasPagadas(), i.getDiaVencimiento());
+                }
+                dto.setTipoGastoSugeridoId("CONTINUO");
+            } else if (ente.getTipoEnte() == TipoEnte.VEHICULO) {
+                Vehiculo v = vehiculoService.findById(ente.getReferenciaId()).orElse(null);
+                if (v != null) {
+                    dto.setDescripcion(v.getChapa() != null ? "Chapa: " + v.getChapa()
+                            : (v.getModelo() != null ? v.getModelo().getDescripcion() : "Vehículo #" + v.getId()));
+                    if (v.getProveedor() != null)
+                        dto.setProveedorNombre(v.getProveedor().getNombre());
+                    dto.setSituacionPago(v.getSituacionPago());
+                    llenarDatosCuotas(dto, v.getCantidadCuotas(), v.getCantidadCuotasPagadas(), v.getDiaVencimiento());
+                }
+                dto.setTipoGastoSugeridoId("VARIABLE");
+            }
+        }
+
+        return dto;
+    }
+
+    private void llenarDatosCuotas(EnteFinancialSummaryDTO dto, Integer total, Integer pagadas, Integer diaVenc) {
+        if (total != null)
+            dto.setCuotasTotales(total);
+        if (pagadas != null)
+            dto.setCuotasPagadas(pagadas);
+        if (total != null && pagadas != null)
+            dto.setCuotasFaltantes(Math.max(total - pagadas, 0));
+        if (diaVenc != null) {
+            dto.setDiaVencimiento(diaVenc);
+            calcularEstadoVencimiento(dto, diaVenc);
+        }
+    }
+
+    private void calcularEstadoVencimiento(EnteFinancialSummaryDTO dto, Integer diaVencimiento) {
+        int diaActual = java.time.LocalDate.now().getDayOfMonth();
+        int dias = diaVencimiento - diaActual;
+        dto.setDiasParaVencer(dias);
+        if (dias < 0) {
+            dto.setEstadoCuota("VENCIDO");
+        } else if (dias <= 10) {
+            dto.setEstadoCuota("POR VENCER");
+        } else {
+            dto.setEstadoCuota("AL DIA");
+        }
     }
 }

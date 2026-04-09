@@ -9,6 +9,7 @@ import com.franco.dev.service.financiero.PreGastoService;
 import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -72,7 +73,8 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.buscarPorTexto(texto, sucId);
     }
 
-    public Page<PreGasto> filterPreGastos(Long id, String estado, String inicio, String fin, Integer page, Integer size) {
+    public Page<PreGasto> filterPreGastos(Long id, String estado, String inicio, String fin, Integer page,
+            Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
         return service.filterPreGastos(id, estado, inicio, fin, pageable);
     }
@@ -85,11 +87,31 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return "";
     }
 
-    // === Mutations ===
+    public EnteFinancialSummaryDTO getEnteFinancialSummary(Long enteId) {
+        return service.getFinancialSummary(enteId);
+    }
 
     public PreGasto savePreGasto(PreGastoInput input) {
         ModelMapper m = new ModelMapper();
         PreGasto e = m.map(input, PreGasto.class);
+        String desc = input.getDescripcion() != null ? input.getDescripcion() : "";
+        StringBuilder extras = new StringBuilder();
+        if (input.getUrgencia() != null && !input.getUrgencia().equals("NORMAL")) {
+            extras.append("[URGENCIA: ").append(input.getUrgencia()).append("] ");
+        }
+        if (input.getFormaPago() != null && !input.getFormaPago().equals("EFECTIVO")) {
+            extras.append("[FORMA PAGO: ").append(input.getFormaPago()).append("] ");
+        }
+        if (input.getBeneficiario() != null && !input.getBeneficiario().isEmpty()) {
+            extras.append("[BENEFICIARIO: ").append(input.getBeneficiario()).append("] ");
+        }
+        if (input.getObservaciones() != null && !input.getObservaciones().isEmpty()) {
+            extras.append("[OBS: ").append(input.getObservaciones()).append("] ");
+        }
+
+        if (extras.length() > 0) {
+            e.setDescripcion(desc + (desc.isEmpty() ? "" : " | ") + extras.toString().trim());
+        }
 
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

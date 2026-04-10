@@ -15,6 +15,7 @@ import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.activos.VehiculoService;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.Inmueble;
 import com.franco.dev.domain.activos.Mueble;
@@ -294,7 +295,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                         dto.setProveedorNombre(i.getProveedor().getNombre());
                     dto.setSituacionPago(i.getSituacionPago());
 
-                    // Fallback para montos
                     if (dto.getMontoTotal() == null)
                         dto.setMontoTotal(i.getMontoTotal());
                     if (dto.getMontoYaPagado() == null)
@@ -346,6 +346,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             }
         }
 
+        if (dto.getDescripcion() != null) {
+            dto.setDescripcionSugerida("Pago - " + dto.getDescripcion());
+        }
+
         return dto;
     }
 
@@ -373,5 +377,15 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         } else {
             dto.setEstadoCuota("AL DIA");
         }
+    }
+
+    public List<PreGastoStatusMetadataDTO> getStatusMetadataList() {
+        return List.of(
+                new PreGastoStatusMetadataDTO("PENDIENTE", "Pendiente", "hourglass_empty", "#ffa726"),
+                new PreGastoStatusMetadataDTO("TRAMITE", "En Trámite", "swap_horiz", "#42a5f5"),
+                new PreGastoStatusMetadataDTO("AUTORIZADO", "Autorizado", "check_circle", "#66bb6a"),
+                new PreGastoStatusMetadataDTO("ENVIADO_A_TESORERIA", "Enviado a Tesorería", "send", "#26a69a"),
+                new PreGastoStatusMetadataDTO("RECHAZADO", "Rechazado", "cancel", "#ef5350"),
+                new PreGastoStatusMetadataDTO("COMPLETADO", "Completado", "task_alt", "#78909c"));
     }
 }

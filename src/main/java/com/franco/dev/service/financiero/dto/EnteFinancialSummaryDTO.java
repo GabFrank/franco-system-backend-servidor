@@ -19,7 +19,7 @@ public class EnteFinancialSummaryDTO {
     private Integer cuotasFaltantes;
     private Integer diaVencimiento;
     private Integer diasParaVencer;
-    private String estadoCuota; // AL DIA, POR VENCER, VENCIDO
+    private String estadoCuota;
     private String monedaSimbolo;
     private Long monedaId;
     private String proveedorNombre;
@@ -27,4 +27,5 @@ public class EnteFinancialSummaryDTO {
     private String situacionPago;
     private Double porcentajePagado;
     private BigDecimal montoSugerido;
+    private String descripcionSugerida;
 }

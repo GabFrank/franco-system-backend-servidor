@@ -10,6 +10,7 @@ import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -89,6 +90,10 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public EnteFinancialSummaryDTO getEnteFinancialSummary(Long enteId) {
         return service.getFinancialSummary(enteId);
+    }
+
+    public List<PreGastoStatusMetadataDTO> getPreGastoStatusMetadataList() {
+        return service.getStatusMetadataList();
     }
 
     public PreGasto savePreGasto(PreGastoInput input) {

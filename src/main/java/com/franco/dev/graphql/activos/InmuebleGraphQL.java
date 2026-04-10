@@ -142,7 +142,7 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
         try {
             e = service.save(e);
-            enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), e.getUsuario());
+            enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), e.getNombreAsignado(), e.getUsuario());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el inmueble: " + err.getMessage());

@@ -42,6 +42,22 @@ type EntePage {
     getPageable: Pageable
 }
 
+type EnteDashboardSummary {
+    totalBienes: Int
+    pagados: Int
+    enPago: Int
+    cuotasFaltantes: Int
+    totalGastado: Float
+    totalComprometido: Float
+    totalPendiente: Float
+    monedaPrincipal: String
+}
+
+type EnteSearchResponse {
+    page: EntePage
+    summary: EnteDashboardSummary
+}
+
 type EnteSucursal {
     id: ID!
     ente: Ente
@@ -78,10 +94,11 @@ extend type Query {
     entesByTipoEnte(tipoEnte:TipoEnte!):[Ente]
     enteByReferenciaId(tipoEnte:TipoEnte!, referenciaId:ID!):Ente
     enteSearchPage(texto: String, sucursalId: ID, page: Int, size: Int): EntePage
+    enteSearchWithSummary(texto: String, sucursalId: ID, tipoEnte: TipoEnte, situacionPago: String, estadoCuota: String, page: Int, size: Int): EnteSearchResponse
     enteSucursal(id: ID!): EnteSucursal
     entesSucursalesByEnteId(enteId: ID!): [EnteSucursal]
     entesSucursalesBySucursalId(sucursalId: ID!): [EnteSucursal]
-    enteSucursalSearchPage(texto: String, sucursalId: ID, page: Int, size: Int): EnteSucursalPage
+    enteSucursalSearchPage(texto: String, sucursalId: ID, tipoEnte: TipoEnte, responsableId: ID, page: Int, size: Int): EnteSucursalPage
 }
 
 extend type Mutation {

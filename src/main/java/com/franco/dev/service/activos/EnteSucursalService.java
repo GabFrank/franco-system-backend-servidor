@@ -1,6 +1,7 @@
 package com.franco.dev.service.activos;
 
 import com.franco.dev.domain.activos.EnteSucursal;
+import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.repository.activos.EnteSucursalRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -36,9 +37,10 @@ public class EnteSucursalService extends CrudService<EnteSucursal, EnteSucursalR
         return repository.findByEnteIdAndSucursalId(enteId, sucursalId);
     }
 
-    public Page<EnteSucursal> findAllWithFilters(String texto, Long sucursalId, int page, int size) {
+    public Page<EnteSucursal> findAllWithFilters(String texto, Long sucursalId, TipoEnte tipoEnte, Long responsableId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return repository.findAllWithFilters(texto, sucursalId, pageable);
+        String formattedText = (texto != null && !texto.trim().isEmpty()) ? "%" + texto.trim().toLowerCase() + "%" : null;
+        return repository.findAllWithFilters(formattedText, sucursalId, tipoEnte, responsableId, pageable);
     }
 
     @Override

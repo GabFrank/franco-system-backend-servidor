@@ -174,7 +174,8 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
         try {
             e = service.save(e);
-            enteService.ensureEnteForReferencia(TipoEnte.VEHICULO, e.getId(), e.getUsuario());
+            String descripcion = e.getChapa() != null ? "Vehículo - " + e.getChapa() : "Vehículo #" + e.getId();
+            enteService.ensureEnteForReferencia(TipoEnte.VEHICULO, e.getId(), descripcion, e.getUsuario());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el vehículo: " + err.getMessage());

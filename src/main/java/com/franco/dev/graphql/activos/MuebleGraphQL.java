@@ -143,7 +143,7 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
         try {
             e = service.save(e);
-            enteService.ensureEnteForReferencia(TipoEnte.MUEBLE, e.getId(), e.getUsuario());
+            enteService.ensureEnteForReferencia(TipoEnte.MUEBLE, e.getId(), e.getDescripcion(), e.getUsuario());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el mueble: " + err.getMessage());

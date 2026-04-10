@@ -9,6 +9,7 @@ import com.franco.dev.graphql.activos.input.EnteInput;
 import com.franco.dev.graphql.activos.input.EnteSucursalInput;
 import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.EnteSucursalService;
+import com.franco.dev.graphql.activos.dto.EnteSearchResponse;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -80,6 +81,12 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
+    public EnteSearchResponse enteSearchWithSummary(String texto, Long sucursalId, TipoEnte tipoEnte, String situacionPago, String estadoCuota, Integer page, Integer size) {
+        int p = (page == null || page < 0) ? 0 : page;
+        int s = (size == null || size <= 0) ? 15 : size;
+        return service.searchWithSummary(texto, sucursalId, tipoEnte, situacionPago, estadoCuota, p, s);
+    }
+
     public Optional<EnteSucursal> enteSucursal(Long id) {
         Optional<EnteSucursal> res = enteSucursalService.findById(id);
         res.ifPresent(a -> {
@@ -108,12 +115,12 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         return res;
     }
 
-    public CustomPage<EnteSucursal> enteSucursalSearchPage(String texto, Long sucursalId, Integer page, Integer size) {
+    public CustomPage<EnteSucursal> enteSucursalSearchPage(String texto, Long sucursalId, TipoEnte tipoEnte, Long responsableId, Integer page, Integer size) {
         int p = (page == null || page < 0) ? 0 : page;
         int s = (size == null || size <= 0) ? 15 : size;
 
         Pageable pageable = PageRequest.of(p, s);
-        Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, p, s);
+        Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, tipoEnte, responsableId, p, s);
         pageResult.getContent().forEach(a -> {
             if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
         });

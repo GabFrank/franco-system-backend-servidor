@@ -27,8 +27,7 @@ public interface EnteRepository extends HelperRepository<Ente, Long> {
     @Query("select e from Ente e where " +
             "(:texto is null or trim(:texto) = '' or cast(e.tipoEnte as text) = :texto) " +
             "and (:sucursalId is null or " +
-            "exists (select es from EnteSucursal es where es.ente.id = e.id and es.sucursal.id = :sucursalId) or " +
-            "(cast(e.tipoEnte as text) = 'VEHICULO' and exists (select vs from VehiculoSucursal vs where vs.vehiculo.id = e.referenciaId and vs.sucursal.id = :sucursalId))) " +
+            "exists (select es from EnteSucursal es where es.ente.id = e.id and es.sucursal.id = :sucursalId)) " +
             "and e.activo = true " +
             "order by e.id desc")
     Page<Ente> findAllWithFilters(

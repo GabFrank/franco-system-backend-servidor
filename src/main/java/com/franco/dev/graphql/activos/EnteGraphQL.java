@@ -47,12 +47,14 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private ModelMapper modelMapper;
 
     public Optional<Ente> ente(Long id) {
-        return service.findById(id);
+        return service.findById(id).map(service::populateTransientFields);
     }
 
     public List<Ente> entes(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return service.findAll(pageable);
+        List<Ente> res = service.findAll(pageable);
+        if (res != null) res.forEach(service::populateTransientFields);
+        return res;
     }
 
     public Long countEnte() {
@@ -60,11 +62,13 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public List<Ente> entesByTipoEnte(TipoEnte tipoEnte) {
-        return service.findByTipoEnte(tipoEnte);
+        List<Ente> res = service.findByTipoEnte(tipoEnte);
+        if (res != null) res.forEach(service::populateTransientFields);
+        return res;
     }
 
     public Ente enteByReferenciaId(TipoEnte tipoEnte, Long referenciaId) {
-        return service.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).orElse(null);
+        return service.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).map(service::populateTransientFields).orElse(null);
     }
 
     public CustomPage<Ente> enteSearchPage(String texto, Long sucursalId, Integer page, Integer size) {
@@ -77,15 +81,31 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Optional<EnteSucursal> enteSucursal(Long id) {
-        return enteSucursalService.findById(id);
+        Optional<EnteSucursal> res = enteSucursalService.findById(id);
+        res.ifPresent(a -> {
+            if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+        });
+        return res;
     }
 
     public List<EnteSucursal> entesSucursalesByEnteId(Long enteId) {
-        return enteSucursalService.findByEnteId(enteId);
+        List<EnteSucursal> res = enteSucursalService.findByEnteId(enteId);
+        if (res != null) {
+            res.forEach(a -> {
+                if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+            });
+        }
+        return res;
     }
 
     public List<EnteSucursal> entesSucursalesBySucursalId(Long sucursalId) {
-        return enteSucursalService.findBySucursalId(sucursalId);
+        List<EnteSucursal> res = enteSucursalService.findBySucursalId(sucursalId);
+        if (res != null) {
+            res.forEach(a -> {
+                if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+            });
+        }
+        return res;
     }
 
     public CustomPage<EnteSucursal> enteSucursalSearchPage(String texto, Long sucursalId, Integer page, Integer size) {
@@ -94,6 +114,9 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
         Pageable pageable = PageRequest.of(p, s);
         Page<EnteSucursal> pageResult = enteSucursalService.findAllWithFilters(texto, sucursalId, p, s);
+        pageResult.getContent().forEach(a -> {
+            if (a.getEnte() != null) service.populateTransientFields(a.getEnte());
+        });
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
     }
 
@@ -108,6 +131,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         }
         try {
             e = service.save(e);
+            service.populateTransientFields(e);
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el ente: " + err.getMessage());
@@ -139,6 +163,7 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         }
         try {
             e = enteSucursalService.save(e);
+            if (e.getEnte() != null) service.populateTransientFields(e.getEnte());
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar la asignación: " + err.getMessage());

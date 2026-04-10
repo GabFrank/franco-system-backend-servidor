@@ -62,7 +62,8 @@ public class MuebleService extends CrudService<Mueble, MuebleRepository, Long> {
         normalizeFinancialData(entity);
         Mueble e = super.save(entity);
         if (e != null) {
-            enteService.ensureEnteForReferencia(TipoEnte.MUEBLE, e.getId(), e.getUsuario());
+            String descripcion = e.getDescripcion() != null ? e.getDescripcion() : (e.getIdentificador() != null ? e.getIdentificador() : "Mueble #" + e.getId());
+            enteService.ensureEnteForReferencia(TipoEnte.MUEBLE, e.getId(), descripcion, e.getUsuario());
         }
         return e;
     }

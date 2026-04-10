@@ -53,36 +53,40 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
     public Page<Ente> findAllWithFilters(String texto, Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Ente> res = repository.findAllWithFilters(texto, sucursalId, pageable);
-        res.getContent().forEach(ente -> {
-            EnteFinancialSummaryDTO summary = preGastoService.getFinancialSummary(ente.getId());
-            if (summary != null) {
-                ente.setDescripcion(summary.getDescripcion());
-                ente.setMontoTotal(summary.getMontoTotal() != null ? summary.getMontoTotal().doubleValue() : null);
-                ente.setMontoYaPagado(summary.getMontoYaPagado() != null ? summary.getMontoYaPagado().doubleValue() : null);
-                ente.setMontoPendiente(summary.getMontoPendiente() != null ? summary.getMontoPendiente().doubleValue() : null);
-                ente.setCuotasTotales(summary.getCuotasTotales());
-                ente.setCuotasPagadas(summary.getCuotasPagadas());
-                ente.setCuotasFaltantes(summary.getCuotasFaltantes());
-                ente.setDiaVencimiento(summary.getDiaVencimiento());
-                ente.setDiasParaVencer(summary.getDiasParaVencer());
-                ente.setEstadoCuota(summary.getEstadoCuota());
-                ente.setSituacionPago(summary.getSituacionPago());
-                ente.setMonedaSimbolo(summary.getMonedaSimbolo());
-                ente.setProveedorNombre(summary.getProveedorNombre());
-            }
-            List<EnteSucursal> asignaciones = enteSucursalService.findByEnteId(ente.getId());
-            if (asignaciones != null && !asignaciones.isEmpty()) {
-                ente.setSucursalesConcatenadas(asignaciones.stream()
-                        .map(a -> a.getSucursal().getNombre())
-                        .collect(Collectors.joining(", ")));
-                ente.setSucursalIds(asignaciones.stream()
-                        .map(a -> a.getSucursal().getId())
-                        .collect(Collectors.toList()));
-            } else {
-                ente.setSucursalesConcatenadas("Sin sucursal");
-            }
-        });
+        res.getContent().forEach(this::populateTransientFields);
         return res;
+    }
+
+    public Ente populateTransientFields(Ente ente) {
+        if (ente == null) return null;
+        EnteFinancialSummaryDTO summary = preGastoService.getFinancialSummary(ente.getId());
+        if (summary != null) {
+            ente.setDescripcion(summary.getDescripcion());
+            ente.setMontoTotal(summary.getMontoTotal() != null ? summary.getMontoTotal().doubleValue() : null);
+            ente.setMontoYaPagado(summary.getMontoYaPagado() != null ? summary.getMontoYaPagado().doubleValue() : null);
+            ente.setMontoPendiente(summary.getMontoPendiente() != null ? summary.getMontoPendiente().doubleValue() : null);
+            ente.setCuotasTotales(summary.getCuotasTotales());
+            ente.setCuotasPagadas(summary.getCuotasPagadas());
+            ente.setCuotasFaltantes(summary.getCuotasFaltantes());
+            ente.setDiaVencimiento(summary.getDiaVencimiento());
+            ente.setDiasParaVencer(summary.getDiasParaVencer());
+            ente.setEstadoCuota(summary.getEstadoCuota());
+            ente.setSituacionPago(summary.getSituacionPago());
+            ente.setMonedaSimbolo(summary.getMonedaSimbolo());
+            ente.setProveedorNombre(summary.getProveedorNombre());
+        }
+        List<EnteSucursal> asignaciones = enteSucursalService.findByEnteId(ente.getId());
+        if (asignaciones != null && !asignaciones.isEmpty()) {
+            ente.setSucursalesConcatenadas(asignaciones.stream()
+                    .map(a -> a.getSucursal().getNombre())
+                    .collect(Collectors.joining(", ")));
+            ente.setSucursalIds(asignaciones.stream()
+                    .map(a -> a.getSucursal().getId())
+                    .collect(Collectors.toList()));
+        } else {
+            ente.setSucursalesConcatenadas("Sin sucursal");
+        }
+        return ente;
     }
 
     @Override
@@ -96,7 +100,7 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
         return super.save(entity);
     }
 
-    public Ente ensureEnteForReferencia(TipoEnte tipoEnte, Long referenciaId, Usuario usuario) {
+    public Ente ensureEnteForReferencia(TipoEnte tipoEnte, Long referenciaId, String descripcion, Usuario usuario) {
         if (tipoEnte == null || referenciaId == null) {
             return null;
         }
@@ -104,6 +108,7 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
         Ente ente = repository.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).orElseGet(Ente::new);
         ente.setTipoEnte(tipoEnte);
         ente.setReferenciaId(referenciaId);
+        ente.setDescripcion(descripcion);
         ente.setActivo(true);
         if (usuario != null) {
             ente.setUsuario(usuario);

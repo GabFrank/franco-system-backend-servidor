@@ -40,7 +40,6 @@ public class Ente implements Identifiable<Long> {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    @Transient
     private String descripcion;
     @Transient
     private String sucursalesConcatenadas;

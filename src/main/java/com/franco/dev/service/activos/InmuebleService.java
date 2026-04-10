@@ -61,7 +61,8 @@ public class InmuebleService extends CrudService<Inmueble, InmuebleRepository, L
         normalizeFinancialData(entity);
         Inmueble e = super.save(entity);
         if (e != null) {
-            enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), e.getUsuario());
+            String descripcion = e.getNombreAsignado() != null ? e.getNombreAsignado() : (e.getDireccion() != null ? e.getDireccion() : "Inmueble #" + e.getId());
+            enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), descripcion, e.getUsuario());
         }
         return e;
     }

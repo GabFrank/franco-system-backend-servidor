@@ -99,7 +99,9 @@ public class VehiculoService extends CrudService<Vehiculo, VehiculoRepository, L
         normalizeFinancialData(entity);
         Vehiculo e = super.save(entity);
         if (e != null) {
-            enteService.ensureEnteForReferencia(TipoEnte.VEHICULO, e.getId(), e.getUsuario());
+            String descripcion = e.getChapa() != null ? "Chapa: " + e.getChapa()
+                    : (e.getModelo() != null ? e.getModelo().getDescripcion() : "Vehículo #" + e.getId());
+            enteService.ensureEnteForReferencia(TipoEnte.VEHICULO, e.getId(), descripcion, e.getUsuario());
         }
         return e;
     }

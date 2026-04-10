@@ -25,7 +25,7 @@ public interface EnteRepository extends HelperRepository<Ente, Long> {
     List<Ente> findAllActivos();
 
     @Query("select e from Ente e where " +
-            "(:texto is null or trim(:texto) = '' or cast(e.tipoEnte as text) = :texto) " +
+            "(:texto is null or trim(:texto) = '' or cast(e.tipoEnte as text) = :texto or upper(e.descripcion) like upper(concat('%', :texto, '%'))) " +
             "and (:sucursalId is null or " +
             "exists (select es from EnteSucursal es where es.ente.id = e.id and es.sucursal.id = :sucursalId)) " +
             "and e.activo = true " +

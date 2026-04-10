@@ -64,7 +64,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 if (optFinanciero.isPresent()) {
                     EnteFinanciero financiero = optFinanciero.get();
 
-                    // Validar consistencia de moneda (Punto 2)
                     if (entity.getMoneda() != null && financiero.getMoneda() != null &&
                             !entity.getMoneda().getId().equals(financiero.getMoneda().getId())) {
                         throw new RuntimeException(
@@ -138,15 +137,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         preGasto.setEstado(EstadoPreGasto.AUTORIZADO);
         preGasto.setQrToken(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
 
-        // Ya no descontamos cuota en la autorizacion, se hara al completar la operacion
-        // (Punto 1)
-        // if (preGasto.getEnte() != null && preGasto.getEnte().getId() != null) {
-        // if (preGasto.getTipoGasto() != null &&
-        // Boolean.TRUE.equals(preGasto.getTipoGasto().getAfectaFinanzasActivo())) {
-        // descontarCuota(preGasto);
-        // }
-        // }
-
         return super.save(preGasto);
     }
 
@@ -172,10 +162,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (preGasto == null)
             return null;
 
-        // Buscar proveedor asociado al funcionario
         Proveedor proveedor = proveedorService.findByPersonaId(preGasto.getFuncionario().getId());
         if (proveedor == null) {
-            // Si no existe proveedor, lo creamos automáticamente para permitir el pago
             proveedor = new Proveedor();
             proveedor.setPersona(preGasto.getFuncionario());
             proveedor.setCredito(false);
@@ -183,7 +171,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             proveedor = proveedorService.save(proveedor);
         }
 
-        // Crear Solicitud de Pago
         Usuario usuario = null;
         if (usuarioId != null) {
             usuario = usuarioService.findById(usuarioId).orElse(null);
@@ -192,8 +179,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         SolicitudPago solicitudPago = solicitudPagoService.crearSolicitudPago(proveedor, null, preGasto.getMoneda(),
                 null, LocalDateTime.now(), "Generado desde PreGasto " + preGasto.getId(), usuario);
 
-        // Actualizar monto y guardar (crearSolicitudPago inicializa en 0 si no hay
-        // notas)
         solicitudPago.setMontoTotal(preGasto.getMontoSolicitado().doubleValue());
         solicitudPago = solicitudPagoService.save(solicitudPago);
 
@@ -208,8 +193,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             return null;
         preGasto.setEstado(EstadoPreGasto.COMPLETADO);
 
-        // Si el gasto está vinculado a un ente (activo) y afecta finanzas, descontar la
-        // cuota automáticamente (Punto 1)
         if (preGasto.getEnte() != null && preGasto.getEnte().getId() != null) {
             if (preGasto.getTipoGasto() != null
                     && Boolean.TRUE.equals(preGasto.getTipoGasto().getAfectaFinanzasActivo())) {
@@ -217,7 +200,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             }
         }
 
-        // Automatización del Inventario (Punto 4)
         if (preGasto.getTipoGasto() != null && preGasto.getTipoGasto().getDescripcion() != null &&
                 preGasto.getTipoGasto().getDescripcion().toUpperCase().contains("COMPRA DE ACTIVO")) {
             crearActivoAutomatico(preGasto);
@@ -237,21 +219,13 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             mueble.setMoneda(preGasto.getMoneda());
             mueble.setSituacionPago("PAGADO");
             mueble.setCreadoEn(LocalDateTime.now());
-            // Marcar como "Pendiente de Etiquetado" en la descripción o un campo si
-            // existiera
             mueble.setDescripcion(preGasto.getDescripcion() + " (Pendiente de Etiquetado)");
             muebleService.save(mueble);
         } catch (Exception e) {
-            // Log error but don't stop completion
             System.err.println("Error al crear activo automático: " + e.getMessage());
         }
     }
 
-    /**
-     * Descuenta la siguiente cuota pendiente del EnteFinanciero asociado al ente
-     * del PreGasto.
-     * Marca la cuota como pagada y actualiza el montoYaPagado del EnteFinanciero.
-     */
     private void descontarCuota(PreGasto preGasto) {
         Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(preGasto.getEnte().getId());
         if (!optFinanciero.isPresent())
@@ -259,17 +233,14 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
 
         EnteFinanciero financiero = optFinanciero.get();
 
-        // Buscar la próxima cuota pendiente (no pagada)
         List<EnteCuota> cuotasPendientes = enteCuotaService.findPendientesByEnteFinancieroId(financiero.getId());
         if (cuotasPendientes.isEmpty())
             return;
 
-        // Tomar la primera cuota pendiente (están ordenadas por numero_cuota asc)
         EnteCuota cuota = cuotasPendientes.get(0);
         cuota.setPagado(true);
         enteCuotaService.save(cuota);
 
-        // Actualizar el monto ya pagado del EnteFinanciero
         BigDecimal montoYaPagado = financiero.getMontoYaPagado() != null ? financiero.getMontoYaPagado()
                 : BigDecimal.ZERO;
         BigDecimal montoCuota = cuota.getMonto() != null ? cuota.getMonto() : BigDecimal.ZERO;
@@ -277,10 +248,6 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         enteFinancieroService.save(financiero);
     }
 
-    /**
-     * Obtiene el resumen financiero de un Ente para la creación de PreGastos.
-     * Centraliza la lógica que antes residía en el frontend.
-     */
     public EnteFinancialSummaryDTO getFinancialSummary(Long enteId) {
         Ente ente = enteService.findById(enteId).orElse(null);
         if (ente == null)
@@ -288,23 +255,16 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
 
         EnteFinancialSummaryDTO dto = new EnteFinancialSummaryDTO();
         dto.setEnteId(enteId);
-
-        // Buscar datos financieros genéricos si existen
         Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(enteId);
         if (optFinanciero.isPresent()) {
             EnteFinanciero f = optFinanciero.get();
             dto.setMontoTotal(f.getMontoTotal());
             dto.setMontoYaPagado(f.getMontoYaPagado());
-            BigDecimal pendiente = (f.getMontoTotal() != null ? f.getMontoTotal() : BigDecimal.ZERO)
-                    .subtract(f.getMontoYaPagado() != null ? f.getMontoYaPagado() : BigDecimal.ZERO);
-            dto.setMontoPendiente(pendiente.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pendiente);
             if (f.getMoneda() != null) {
                 dto.setMonedaId(f.getMoneda().getId());
                 dto.setMonedaSimbolo(f.getMoneda().getSimbolo());
             }
         }
-
-        // Buscar datos específicos según el tipo de Ente
         if (ente.getTipoEnte() != null && ente.getReferenciaId() != null) {
             if (ente.getTipoEnte() == TipoEnte.MUEBLE) {
                 Mueble m = muebleService.findById(ente.getReferenciaId()).orElse(null);
@@ -313,9 +273,19 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                     if (m.getProveedor() != null)
                         dto.setProveedorNombre(m.getProveedor().getNombre());
                     dto.setSituacionPago(m.getSituacionPago());
+
+                    if (dto.getMontoTotal() == null)
+                        dto.setMontoTotal(m.getMontoTotal());
+                    if (dto.getMontoYaPagado() == null)
+                        dto.setMontoYaPagado(m.getMontoYaPagado());
+                    if (dto.getMonedaId() == null && m.getMoneda() != null) {
+                        dto.setMonedaId(m.getMoneda().getId());
+                        dto.setMonedaSimbolo(m.getMoneda().getSimbolo());
+                    }
+
                     llenarDatosCuotas(dto, m.getCantidadCuotas(), m.getCantidadCuotasPagadas(), m.getDiaVencimiento());
                 }
-                dto.setTipoGastoSugeridoId("VARIABLE"); // Naturaleza sugerida
+                dto.setTipoGastoSugeridoId("VARIABLE");
             } else if (ente.getTipoEnte() == TipoEnte.INMUEBLE) {
                 Inmueble i = inmuebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (i != null) {
@@ -323,6 +293,17 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                     if (i.getProveedor() != null)
                         dto.setProveedorNombre(i.getProveedor().getNombre());
                     dto.setSituacionPago(i.getSituacionPago());
+
+                    // Fallback para montos
+                    if (dto.getMontoTotal() == null)
+                        dto.setMontoTotal(i.getMontoTotal());
+                    if (dto.getMontoYaPagado() == null)
+                        dto.setMontoYaPagado(i.getMontoYaPagado());
+                    if (dto.getMonedaId() == null && i.getMoneda() != null) {
+                        dto.setMonedaId(i.getMoneda().getId());
+                        dto.setMonedaSimbolo(i.getMoneda().getSimbolo());
+                    }
+
                     llenarDatosCuotas(dto, i.getCantidadCuotas(), i.getCantidadCuotasPagadas(), i.getDiaVencimiento());
                 }
                 dto.setTipoGastoSugeridoId("CONTINUO");
@@ -334,19 +315,34 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                     if (v.getProveedor() != null)
                         dto.setProveedorNombre(v.getProveedor().getNombre());
                     dto.setSituacionPago(v.getSituacionPago());
+
+                    // Fallback para montos
+                    if (dto.getMontoTotal() == null)
+                        dto.setMontoTotal(v.getMontoTotal());
+                    if (dto.getMontoYaPagado() == null)
+                        dto.setMontoYaPagado(v.getMontoYaPagado());
+                    if (dto.getMonedaId() == null && v.getMoneda() != null) {
+                        dto.setMonedaId(v.getMoneda().getId());
+                        dto.setMonedaSimbolo(v.getMoneda().getSimbolo());
+                    }
+
                     llenarDatosCuotas(dto, v.getCantidadCuotas(), v.getCantidadCuotasPagadas(), v.getDiaVencimiento());
                 }
                 dto.setTipoGastoSugeridoId("VARIABLE");
             }
         }
+        BigDecimal total = dto.getMontoTotal() != null ? dto.getMontoTotal() : BigDecimal.ZERO;
+        BigDecimal pagado = dto.getMontoYaPagado() != null ? dto.getMontoYaPagado() : BigDecimal.ZERO;
+        BigDecimal pendiente = total.subtract(pagado);
+        dto.setMontoPendiente(pendiente.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pendiente);
 
-        // Cálculos adicionales para el resumen
-        if (dto.getMontoTotal() != null && dto.getMontoTotal().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal pagado = dto.getMontoYaPagado() != null ? dto.getMontoYaPagado() : BigDecimal.ZERO;
-            dto.setPorcentajePagado(pagado.multiply(new BigDecimal(100)).divide(dto.getMontoTotal(), 2, java.math.RoundingMode.HALF_UP).doubleValue());
-            
+        if (total.compareTo(BigDecimal.ZERO) > 0) {
+            dto.setPorcentajePagado(pagado.multiply(new BigDecimal(100))
+                    .divide(total, 2, java.math.RoundingMode.HALF_UP).doubleValue());
+
             if (dto.getCuotasTotales() != null && dto.getCuotasTotales() > 0) {
-                dto.setMontoSugerido(dto.getMontoTotal().divide(new BigDecimal(dto.getCuotasTotales()), 2, java.math.RoundingMode.HALF_UP));
+                dto.setMontoSugerido(
+                        total.divide(new BigDecimal(dto.getCuotasTotales()), 2, java.math.RoundingMode.HALF_UP));
             }
         }
 

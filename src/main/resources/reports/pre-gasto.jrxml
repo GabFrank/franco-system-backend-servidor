@@ -34,6 +34,7 @@
 	<parameter name="formaPago" class="java.lang.String"/>
 	<parameter name="beneficiario" class="java.lang.String"/>
 	<parameter name="observaciones" class="java.lang.String"/>
+	<parameter name="isPagoCuota" class="java.lang.Boolean"/>
 	<title>
 		<band height="350" splitType="Stretch">
 			<image hAlign="Center">
@@ -208,91 +209,117 @@
 					<textFieldExpression><![CDATA[$P{bienNombre}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="125" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e88"/>
+					<reportElement x="125" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e88">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[MONTO TOTAL]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="125" y="18" width="100" height="15" forecolor="#2196F3" uuid="4b5215b3-a694-4f65-8590-c6723733ca35"/>
+					<reportElement x="125" y="18" width="100" height="15" forecolor="#2196F3" uuid="4b5215b3-a694-4f65-8590-c6723733ca35">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="9" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienMontoTotal}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="260" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e89"/>
+					<reportElement x="260" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e89">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[YA PAGADO]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="260" y="18" width="100" height="15" forecolor="#4CAF50" uuid="4b5215b3-a694-4f65-8590-c6723733ca36"/>
+					<reportElement x="260" y="18" width="100" height="15" forecolor="#4CAF50" uuid="4b5215b3-a694-4f65-8590-c6723733ca36">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="9" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienMontoPagado}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="395" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e90"/>
+					<reportElement x="395" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e90">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[PENDIENTE]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="395" y="18" width="100" height="15" forecolor="#F44336" uuid="4b5215b3-a694-4f65-8590-c6723733ca37"/>
+					<reportElement x="395" y="18" width="100" height="15" forecolor="#F44336" uuid="4b5215b3-a694-4f65-8590-c6723733ca37">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="9" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienSaldoPendiente}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="10" y="45" width="75" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e92"/>
+					<reportElement x="10" y="45" width="75" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e92">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement verticalAlignment="Middle">
 						<font size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[PLAN DE CUOTAS]]></text>
 				</staticText>
 				<staticText>
-					<reportElement x="15" y="58" width="40" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e93"/>
+					<reportElement x="15" y="58" width="40" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e93">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement>
 						<font size="7"/>
 					</textElement>
 					<text><![CDATA[Totales:]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="55" y="58" width="45" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca39"/>
+					<reportElement x="55" y="58" width="45" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca39">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement textAlignment="Left">
 						<font size="7" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienCuotasTotales}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="125" y="58" width="60" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e99"/>
+					<reportElement x="125" y="58" width="60" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e99">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement textAlignment="Left" verticalAlignment="Middle">
 						<font size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[SITUACIÓN:]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="185" y="58" width="100" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca45"/>
+					<reportElement x="185" y="58" width="100" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca45">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement textAlignment="Left" verticalAlignment="Middle">
 						<font size="7" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienSituacion}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="300" y="58" width="70" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e97"/>
+					<reportElement x="300" y="58" width="70" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e97">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement verticalAlignment="Middle">
 						<font size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[CUOTA ACTUAL:]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="375" y="58" width="120" height="10" forecolor="#673AB7" uuid="4b5215b3-a694-4f65-8590-c6723733ca43"/>
+					<reportElement x="375" y="58" width="120" height="10" forecolor="#673AB7" uuid="4b5215b3-a694-4f65-8590-c6723733ca43">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
 					<textElement verticalAlignment="Middle">
 						<font size="7" isBold="true"/>
 					</textElement>

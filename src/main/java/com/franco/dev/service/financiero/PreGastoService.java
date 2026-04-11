@@ -60,7 +60,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     @Override
     public PreGasto save(PreGasto entity) {
         if (entity.getEnte() != null && entity.getEnte().getId() != null) {
-            if (entity.getTipoGasto() != null && Boolean.TRUE.equals(entity.getTipoGasto().getAfectaFinanzasActivo())) {
+            boolean isPagoCuota = (entity.getTipoGasto() != null && Boolean.TRUE.equals(entity.getTipoGasto().getEsPagoCuotaActivo())) || 
+                                  (entity.getDescripcion() != null && entity.getDescripcion().toUpperCase().startsWith("PAGO -"));
+            if (isPagoCuota) {
                 Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(entity.getEnte().getId());
                 if (optFinanciero.isPresent()) {
                     EnteFinanciero financiero = optFinanciero.get();
@@ -195,8 +197,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         preGasto.setEstado(EstadoPreGasto.COMPLETADO);
 
         if (preGasto.getEnte() != null && preGasto.getEnte().getId() != null) {
-            if (preGasto.getTipoGasto() != null
-                    && Boolean.TRUE.equals(preGasto.getTipoGasto().getAfectaFinanzasActivo())) {
+            boolean isPagoCuota = (preGasto.getTipoGasto() != null && Boolean.TRUE.equals(preGasto.getTipoGasto().getEsPagoCuotaActivo())) || 
+                                  (preGasto.getDescripcion() != null && preGasto.getDescripcion().toUpperCase().startsWith("PAGO -"));
+            if (isPagoCuota) {
                 descontarCuota(preGasto);
             }
         }

@@ -1457,6 +1457,15 @@ public class ImpresionService {
 
             Boolean isBien = preGasto.getEnte() != null;
             parameters.put("isBien", isBien);
+            
+            boolean isPagoCuota = false;
+            if (preGasto.getTipoGasto() != null && Boolean.TRUE.equals(preGasto.getTipoGasto().getEsPagoCuotaActivo())) {
+                isPagoCuota = true;
+            } else if (rawDesc != null && rawDesc.toUpperCase().startsWith("PAGO -")) {
+                isPagoCuota = true;
+            }
+            parameters.put("isPagoCuota", isPagoCuota);
+            
             if (isBien) {
                 Long refId = preGasto.getEnte().getReferenciaId();
                 String bienNombre = "";

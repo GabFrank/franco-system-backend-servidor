@@ -79,10 +79,10 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Inmueble());
         }
-        e.setNombreAsignado(input.getNombreAsignado());
-        e.setDireccion(input.getDireccion());
+        e.setNombreAsignado(toUpperCase(input.getNombreAsignado()));
+        e.setDireccion(toUpperCase(input.getDireccion()));
         e.setGoogleMapsUrl(input.getGoogleMapsUrl());
-        e.setCodigoCatastral(input.getCodigoCatastral());
+        e.setCodigoCatastral(toUpperCase(input.getCodigoCatastral()));
         e.setValorTasacion(input.getValorTasacion());
         e.setValorTasacionPyg(input.getValorTasacionPyg());
         e.setValorTasacionBrl(input.getValorTasacionBrl());
@@ -100,7 +100,7 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }
         
-        e.setSituacionPago(input.getSituacionPago());
+        e.setSituacionPago(toUpperCase(input.getSituacionPago()));
         e.setMontoTotal(input.getMontoTotal());
         e.setMontoYaPagado(input.getMontoYaPagado());
         e.setCantidadCuotas(input.getCantidadCuotas());
@@ -157,5 +157,9 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             err.printStackTrace();
             throw new GraphQLException("No se pudo eliminar el inmueble: " + err.getMessage());
         }
+    }
+
+    private String toUpperCase(String value) {
+        return value != null ? value.toUpperCase() : null;
     }
 }

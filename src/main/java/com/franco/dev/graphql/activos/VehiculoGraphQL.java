@@ -103,8 +103,8 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Vehiculo saveVehiculo(VehiculoInput input) {
         Vehiculo e = new Vehiculo();
         e.setId(input.getId());
-        e.setChapa(input.getChapa());
-        e.setColor(input.getColor());
+        e.setChapa(toUpperCase(input.getChapa()));
+        e.setColor(toUpperCase(input.getColor()));
         e.setAnho(input.getAnho());
         e.setDocumentacion(input.getDocumentacion());
         e.setRefrigerado(input.getRefrigerado());
@@ -114,15 +114,15 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setCapacidadPasajeros(input.getCapacidadPasajeros());
         e.setImagenesVehiculo(input.getImagenesVehiculo());
         e.setImagenesDocumentos(input.getImagenesDocumentos());
-        e.setIdentificadorInterno(input.getIdentificadorInterno());
-        e.setChasis(input.getChasis());
+        e.setIdentificadorInterno(toUpperCase(input.getIdentificadorInterno()));
+        e.setChasis(toUpperCase(input.getChasis()));
         e.setAireAcondicionado(input.getAireAcondicionado());
         e.setValorEstimado(input.getValorEstimado());
         e.setValorEstimadoPyg(input.getValorEstimadoPyg());
         e.setValorEstimadoBrl(input.getValorEstimadoBrl());
         e.setMantenimientoMotorIntervalo(input.getMantenimientoMotorIntervalo());
         e.setMantenimientoCajaIntervalo(input.getMantenimientoCajaIntervalo());
-        e.setSituacionPago(input.getSituacionPago());
+        e.setSituacionPago(toUpperCase(input.getSituacionPago()));
         e.setMontoTotal(input.getMontoTotal());
         e.setMontoYaPagado(input.getMontoYaPagado());
         e.setCantidadCuotas(input.getCantidadCuotas());
@@ -195,5 +195,9 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public Long countVehiculo() {
         return service.count();
+    }
+
+    private String toUpperCase(String value) {
+        return value != null ? value.toUpperCase() : null;
     }
 }

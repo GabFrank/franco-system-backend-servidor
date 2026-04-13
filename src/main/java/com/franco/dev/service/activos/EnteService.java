@@ -187,7 +187,7 @@ public class EnteService extends CrudService<Ente, EnteRepository, Long> {
         Ente ente = repository.findByTipoEnteAndReferenciaId(tipoEnte, referenciaId).orElseGet(Ente::new);
         ente.setTipoEnte(tipoEnte);
         ente.setReferenciaId(referenciaId);
-        ente.setDescripcion(descripcion);
+        ente.setDescripcion(descripcion != null ? descripcion.toUpperCase() : null);
         ente.setActivo(true);
         if (usuario != null) {
             ente.setUsuario(usuario);

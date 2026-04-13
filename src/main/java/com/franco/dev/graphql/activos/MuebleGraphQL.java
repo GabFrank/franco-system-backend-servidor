@@ -83,14 +83,14 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Mueble());
         }
-        e.setIdentificador(input.getIdentificador());
-        e.setDescripcion(input.getDescripcion());
+        e.setIdentificador(toUpperCase(input.getIdentificador()));
+        e.setDescripcion(toUpperCase(input.getDescripcion()));
         e.setConsumeEnergia(input.getConsumeEnergia());
-        e.setConsumoValor(input.getConsumoValor());
+        e.setConsumoValor(toUpperCase(input.getConsumoValor()));
         e.setValorTasacion(input.getValorTasacion());
         e.setValorTasacionPyg(input.getValorTasacionPyg());
         e.setValorTasacionBrl(input.getValorTasacionBrl());
-        e.setSituacionPago(input.getSituacionPago());
+        e.setSituacionPago(toUpperCase(input.getSituacionPago()));
         e.setMontoTotal(input.getMontoTotal());
         e.setMontoYaPagado(input.getMontoYaPagado());
         e.setCantidadCuotas(input.getCantidadCuotas());
@@ -158,5 +158,9 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             err.printStackTrace();
             throw new GraphQLException("No se pudo eliminar el mueble: " + err.getMessage());
         }
+    }
+
+    private String toUpperCase(String value) {
+        return value != null ? value.toUpperCase() : null;
     }
 }

@@ -5,13 +5,13 @@ import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.EmbeddedEntity;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 import javax.persistence.*;
@@ -94,6 +94,23 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
 
     @Column(name = "solicitud_pago_id")
     private Long solicitudPagoId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "beneficiario_proveedor_id")
+    private Proveedor beneficiarioProveedor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "beneficiario_persona_id")
+    private Persona beneficiarioPersona;
+
+    @Column(name = "fecha_vencimiento")
+    private LocalDateTime fechaVencimiento;
+
+    @Column(name = "nivel_urgencia")
+    private String nivelUrgencia;
+
+    @Column(name = "observaciones")
+    private String observaciones;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

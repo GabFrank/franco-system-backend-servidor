@@ -20,8 +20,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
+import com.franco.dev.graphql.financiero.input.PreGastoDetalleFinanzasInput;
+import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
+import com.franco.dev.service.personas.ProveedorService;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Optional;
 
 @Component
 public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -43,6 +50,12 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private ProveedorService proveedorService;
+
+    @Autowired
+    private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
 
     @Autowired
     private com.franco.dev.service.impresion.ImpresionService impresionService;
@@ -101,14 +114,8 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         PreGasto e = m.map(input, PreGasto.class);
         String desc = input.getDescripcion() != null ? input.getDescripcion() : "";
         StringBuilder extras = new StringBuilder();
-        if (input.getUrgencia() != null && !input.getUrgencia().equals("NORMAL")) {
-            extras.append("[URGENCIA: ").append(input.getUrgencia()).append("] ");
-        }
-        if (input.getFormaPago() != null && !input.getFormaPago().equals("EFECTIVO")) {
-            extras.append("[FORMA PAGO: ").append(input.getFormaPago()).append("] ");
-        }
-        if (input.getBeneficiario() != null && !input.getBeneficiario().isEmpty()) {
-            extras.append("[BENEFICIARIO: ").append(input.getBeneficiario()).append("] ");
+        if (input.getNivelUrgencia() != null && !input.getNivelUrgencia().equals("NORMAL")) {
+            extras.append("[URGENCIA: ").append(input.getNivelUrgencia()).append("] ");
         }
         if (input.getObservaciones() != null && !input.getObservaciones().isEmpty()) {
             extras.append("[OBS: ").append(input.getObservaciones()).append("] ");
@@ -116,6 +123,15 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
         if (extras.length() > 0) {
             e.setDescripcion(desc + (desc.isEmpty() ? "" : " | ") + extras.toString().trim());
+        }
+
+        if (input.getFechaVencimiento() != null && !input.getFechaVencimiento().isEmpty()) {
+            try {
+                e.setFechaVencimiento(
+                        LocalDateTime.parse(input.getFechaVencimiento(), DateTimeFormatter.ISO_DATE_TIME));
+            } catch (Exception ex) {
+                // Ignore parse errors or use default
+            }
         }
 
         if (input.getUsuarioId() != null) {
@@ -139,8 +155,50 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getDelegadoAId() != null) {
             e.setDelegadoA(personaService.findById(input.getDelegadoAId()).orElse(null));
         }
+        if (input.getBeneficiarioPersonaId() != null) {
+            e.setBeneficiarioPersona(personaService.findById(input.getBeneficiarioPersonaId()).orElse(null));
+        }
+        if (input.getBeneficiarioProveedorId() != null) {
+            e.setBeneficiarioProveedor(proveedorService.findById(input.getBeneficiarioProveedorId()).orElse(null));
+        }
 
         e = service.save(e);
+
+        // Save details finanzas
+        if (input.getFinanzas() != null && !input.getFinanzas().isEmpty() && e.getId() != null) {
+            // First delete old entries if taking full list update
+            List<PreGastoDetalleFinanzas> oldList = preGastoDetalleFinanzasService
+                    .findByPreGastoIdAndSucursalId(e.getId(), e.getSucursalId());
+            for (PreGastoDetalleFinanzas old : oldList) {
+                preGastoDetalleFinanzasService.delete(old);
+            }
+
+            // Calcular montoSolicitado como suma de todos los detalles de finanzas
+            BigDecimal totalFinanzas = BigDecimal.ZERO;
+
+            for (PreGastoDetalleFinanzasInput fInput : input.getFinanzas()) {
+                PreGastoDetalleFinanzas det = new PreGastoDetalleFinanzas();
+                det.setPreGasto(e);
+                det.setFormaPago(fInput.getFormaPago());
+                det.setMonto(fInput.getMonto());
+                if (fInput.getMonedaId() != null) {
+                    det.setMoneda(monedaService.findById(fInput.getMonedaId()).orElse(null));
+                }
+                preGastoDetalleFinanzasService.save(det);
+
+                if (fInput.getMonto() != null) {
+                    totalFinanzas = totalFinanzas.add(fInput.getMonto());
+                }
+            }
+            e.setMontoSolicitado(totalFinanzas);
+
+            PreGastoDetalleFinanzasInput primerDetalle = input.getFinanzas().get(0);
+            if (primerDetalle.getMonedaId() != null) {
+                e.setMoneda(monedaService.findById(primerDetalle.getMonedaId()).orElse(null));
+            }
+            e = service.save(e);
+        }
+
         return e;
     }
 

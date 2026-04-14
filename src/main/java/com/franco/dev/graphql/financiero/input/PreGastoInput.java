@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 @Data
 public class PreGastoInput {
@@ -24,8 +25,10 @@ public class PreGastoInput {
     private BigDecimal montoRetirado;
     private Long usuarioId;
     private Date creadoEn;
-    private String urgencia;
-    private String formaPago;
-    private String beneficiario;
+    private String nivelUrgencia;
     private String observaciones;
+    private Long beneficiarioProveedorId;
+    private Long beneficiarioPersonaId;
+    private String fechaVencimiento;
+    private List<PreGastoDetalleFinanzasInput> finanzas;
 }

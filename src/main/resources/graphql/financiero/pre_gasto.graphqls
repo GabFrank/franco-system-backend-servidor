@@ -7,6 +7,14 @@ enum EstadoPreGasto {
     ENVIADO_A_TESORERIA
 }
 
+type PreGastoDetalleFinanzas {
+    id: ID
+    moneda: Moneda
+    formaPago: String
+    monto: Float
+    creadoEn: Date
+}
+
 type PreGasto {
     id: ID!
     sucursalId: Int
@@ -27,6 +35,12 @@ type PreGasto {
     saldoDevolver: Float
     usuario: Usuario
     solicitudPagoId: ID
+    beneficiarioProveedor: Proveedor
+    beneficiarioPersona: Persona
+    fechaVencimiento: Date
+    nivelUrgencia: String
+    observaciones: String
+    finanzas: [PreGastoDetalleFinanzas]
     creadoEn: Date
 }
 
@@ -52,6 +66,15 @@ type EnteFinancialSummary {
     descripcionSugerida: String
 }
 
+input PreGastoDetalleFinanzasInput {
+    id: ID
+    preGastoId: ID
+    sucursalId: ID
+    monedaId: Int
+    formaPago: String
+    monto: Float
+}
+
 input PreGastoInput {
     id: ID
     sucursalId: Int
@@ -69,10 +92,12 @@ input PreGastoInput {
     montoRetirado: Float
     usuarioId: Int
     creadoEn: Date
-    urgencia: String
-    formaPago: String
-    beneficiario: String
+    nivelUrgencia: String
     observaciones: String
+    beneficiarioProveedorId: Int
+    beneficiarioPersonaId: Int
+    fechaVencimiento: String
+    finanzas: [PreGastoDetalleFinanzasInput]
 }
 
 type PreGastoPage {

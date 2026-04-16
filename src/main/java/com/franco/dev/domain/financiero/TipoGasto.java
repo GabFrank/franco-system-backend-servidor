@@ -1,6 +1,7 @@
 package com.franco.dev.domain.financiero;
 
 import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
+import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.personas.Usuario;
@@ -11,9 +12,7 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
-import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
@@ -21,8 +20,6 @@ import java.util.Date;
 @Entity
 @Table(name = "tipo_gasto", schema = "financiero")
 public class TipoGasto implements Identifiable<Long> {
-
-    private static final long serialVersionUID = 1L;
 
     @Id
     @GenericGenerator(
@@ -46,6 +43,10 @@ public class TipoGasto implements Identifiable<Long> {
 
     @Enumerated(EnumType.STRING)
     private TipoNaturalezaGasto tipoNaturaleza;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "modulo_padre")
+    private TipoPadreGastoModulo moduloPadre;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "clasificacion_gasto_id", nullable = true)

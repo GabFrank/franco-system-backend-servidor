@@ -1,14 +1,8 @@
 package com.franco.dev.graphql.financiero.input;
 
-import com.franco.dev.domain.empresarial.Cargo;
-import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
+import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
-
-import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import java.util.Date;
 
 @Data
@@ -32,4 +26,6 @@ public class TipoGastoInput {
     private Long usuarioId;
 
     private TipoNaturalezaGasto tipoNaturaleza;
+
+    private TipoPadreGastoModulo moduloPadre;
 }

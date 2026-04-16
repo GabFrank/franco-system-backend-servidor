@@ -4,12 +4,23 @@ enum TipoNaturalezaGasto {
     RECURRENTE
 }
 
+enum TipoPadreGastoModulo {
+    MUEBLE
+    INMUEBLE
+    PERSONAS
+    VEHICULO
+    OPERACIONES
+    FINANCIERO
+    OTRO
+}
+
 type TipoGasto {
     id:ID!
     isClasificacion: Boolean
     clasificacionGasto: TipoGasto
     descripcion: String
     tipoNaturaleza: TipoNaturalezaGasto
+    moduloPadre: TipoPadreGastoModulo
     autorizacion: Boolean
     cargo: Cargo
     activo: Boolean
@@ -26,6 +37,7 @@ input TipoGastoInput {
     clasificacionGastoId: Int
     descripcion: String
     tipoNaturaleza: TipoNaturalezaGasto
+    moduloPadre: TipoPadreGastoModulo
     autorizacion: Boolean
     cargoId: Int
     activo: Boolean

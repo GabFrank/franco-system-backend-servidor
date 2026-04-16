@@ -1,12 +1,9 @@
 package com.franco.dev.graphql.financiero;
-
-import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.graphql.financiero.input.TipoGastoInput;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -30,12 +27,6 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     @Autowired
     private CargoService cargoService;
-
-    @Autowired
-    private PropagacionService propagacionService;
-
-    @Autowired
-    private MultiTenantService multiTenantService;
 
     public Optional<TipoGasto> tipoGasto(Long id) {
         return service.findById(id);

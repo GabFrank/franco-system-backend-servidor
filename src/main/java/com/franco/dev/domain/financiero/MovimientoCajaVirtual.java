@@ -47,6 +47,12 @@ public class MovimientoCajaVirtual implements Serializable {
 
     private Double cantidad;
 
+    @Column(name = "saldo_anterior")
+    private Double saldoAnterior;
+
+    @Column(name = "saldo_posterior")
+    private Double saldoPosterior;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;

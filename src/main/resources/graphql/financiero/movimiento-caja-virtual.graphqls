@@ -3,6 +3,8 @@ type MovimientoCajaVirtual {
     cajaVirtual: CajaVirtual
     tipoMovimiento: CajaVirtualTipoMovimiento
     cantidad: Float
+    saldoAnterior: Float
+    saldoPosterior: Float
     moneda: Moneda
     referenciaId: Int
     descripcion: String
@@ -18,6 +20,8 @@ input MovimientoCajaVirtualInput {
     cajaVirtualId: Int!
     tipoMovimiento: CajaVirtualTipoMovimiento!
     cantidad: Float!
+    saldoAnterior: Float
+    saldoPosterior: Float
     monedaId: Int
     referenciaId: Int
     descripcion: String

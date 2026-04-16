@@ -53,6 +53,16 @@ public class MovimientoCajaVirtualService {
                 || movimiento.getTipoMovimiento() == CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA
                 || movimiento.getTipoMovimiento() == CajaVirtualTipoMovimiento.PAGO_PROVEEDOR;
 
+        CajaVirtual caja = cajaVirtualService.findById(movimiento.getCajaVirtual().getId())
+                .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada"));
+
+        Double saldoAnterior = 0.0;
+        if (monedaDenominacion.toUpperCase().contains("GUARANI")) saldoAnterior = caja.getSaldoGs() != null ? caja.getSaldoGs() : 0.0;
+        else if (monedaDenominacion.toUpperCase().contains("REAL")) saldoAnterior = caja.getSaldoRs() != null ? caja.getSaldoRs() : 0.0;
+        else if (monedaDenominacion.toUpperCase().contains("DOLAR")) saldoAnterior = caja.getSaldoDs() != null ? caja.getSaldoDs() : 0.0;
+
+        movimiento.setSaldoAnterior(saldoAnterior);
+
         if (esEgreso) {
             // Verificar saldo suficiente antes de operar
             boolean tieneSaldo = cajaVirtualService.verificarSaldo(
@@ -61,8 +71,10 @@ public class MovimientoCajaVirtualService {
                 throw new GraphQLException("Saldo insuficiente en la caja virtual");
             }
             cajaVirtualService.actualizarSaldo(movimiento.getCajaVirtual().getId(), -cantidad, monedaDenominacion);
+            movimiento.setSaldoPosterior(saldoAnterior - cantidad);
         } else {
             cajaVirtualService.actualizarSaldo(movimiento.getCajaVirtual().getId(), cantidad, monedaDenominacion);
+            movimiento.setSaldoPosterior(saldoAnterior + cantidad);
         }
 
         return repository.save(movimiento);

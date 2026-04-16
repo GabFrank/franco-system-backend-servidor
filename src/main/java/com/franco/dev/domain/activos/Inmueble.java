@@ -4,6 +4,7 @@ import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.general.Ciudad;
 import com.franco.dev.domain.general.Pais;
 import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -63,7 +64,7 @@ public class Inmueble implements Identifiable<Long> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "proveedor_id")
-    private Persona proveedor;
+    private Proveedor proveedor;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id")

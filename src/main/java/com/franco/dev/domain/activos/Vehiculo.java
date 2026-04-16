@@ -10,12 +10,11 @@ import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 
 import javax.persistence.*;
-import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import com.franco.dev.domain.financiero.Moneda;
-import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Proveedor;
 
 @Data
 @AllArgsConstructor
@@ -57,36 +56,12 @@ public class Vehiculo implements Identifiable<Long> {
         @Column(name = "fecha_adquisicion")
         private LocalDate fechaAdquisicion;
 
-        @Column(name = "primer_kilometraje")
-        private BigDecimal primerKilometraje;
-
-        @Column(name = "capacidad_kg")
-        private BigDecimal capacidadKg;
-
-        @Column(name = "capacidad_pasajeros")
-        private Integer capacidadPasajeros;
-
-        @Column(name = "imagenes_vehiculo")
-        private String imagenesVehiculo;
-
-        @Column(name = "imagenes_documentos")
-        private String imagenesDocumentos;
-
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "propietario_id")
         private com.franco.dev.domain.personas.Persona propietario;
 
         @Column(name = "identificador_interno")
         private String identificadorInterno;
-
-        @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "tipo_combustible_id")
-        private TipoCombustible tipoCombustible;
-
-        private String chasis;
-
-        @Column(name = "aire_acondicionado")
-        private Boolean aireAcondicionado;
 
         @Column(name = "valor_estimado")
         private BigDecimal valorEstimado;
@@ -97,37 +72,14 @@ public class Vehiculo implements Identifiable<Long> {
         @Column(name = "valor_estimado_brl")
         private BigDecimal valorEstimadoBrl;
 
-        @Column(name = "mantenimiento_motor_intervalo")
-        private Integer mantenimientoMotorIntervalo;
+        @OneToOne(mappedBy = "vehiculo", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+        private VehiculoEspecificaciones especificaciones;
 
-        @Column(name = "mantenimiento_caja_intervalo")
-        private Integer mantenimientoCajaIntervalo;
+        @OneToOne(mappedBy = "vehiculo", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+        private VehiculoAdjuntos adjuntos;
 
-        @Column(name = "situacion_pago")
-        private String situacionPago;
-
-        @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "proveedor_id")
-        private Persona proveedor;
-
-        @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "moneda_id")
-        private Moneda moneda;
-
-        @Column(name = "monto_total")
-        private BigDecimal montoTotal;
-
-        @Column(name = "monto_ya_pagado")
-        private BigDecimal montoYaPagado;
-
-        @Column(name = "cantidad_cuotas")
-        private Integer cantidadCuotas;
-
-        @Column(name = "cantidad_cuotas_pagadas")
-        private Integer cantidadCuotasPagadas;
-
-        @Column(name = "dia_vencimiento")
-        private Integer diaVencimiento;
+        @OneToOne(mappedBy = "vehiculo", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+        private VehiculoFinanzas finanzas;
 
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "usuario_id", nullable = true)
@@ -135,4 +87,193 @@ public class Vehiculo implements Identifiable<Long> {
 
         @Column(name = "creado_en")
         private LocalDateTime creadoEn;
+
+        @Transient
+        public BigDecimal getPrimerKilometraje() {
+                return especificaciones != null ? especificaciones.getPrimerKilometraje() : null;
+        }
+
+        public void setPrimerKilometraje(BigDecimal primerKilometraje) {
+                getOrCreateEspecificaciones().setPrimerKilometraje(primerKilometraje);
+        }
+
+        @Transient
+        public BigDecimal getCapacidadKg() {
+                return especificaciones != null ? especificaciones.getCapacidadKg() : null;
+        }
+
+        public void setCapacidadKg(BigDecimal capacidadKg) {
+                getOrCreateEspecificaciones().setCapacidadKg(capacidadKg);
+        }
+
+        @Transient
+        public Integer getCapacidadPasajeros() {
+                return especificaciones != null ? especificaciones.getCapacidadPasajeros() : null;
+        }
+
+        public void setCapacidadPasajeros(Integer capacidadPasajeros) {
+                getOrCreateEspecificaciones().setCapacidadPasajeros(capacidadPasajeros);
+        }
+
+        @Transient
+        public String getImagenesVehiculo() {
+                return adjuntos != null ? adjuntos.getImagenesVehiculo() : null;
+        }
+
+        public void setImagenesVehiculo(String imagenesVehiculo) {
+                getOrCreateAdjuntos().setImagenesVehiculo(imagenesVehiculo);
+        }
+
+        @Transient
+        public String getImagenesDocumentos() {
+                return adjuntos != null ? adjuntos.getImagenesDocumentos() : null;
+        }
+
+        public void setImagenesDocumentos(String imagenesDocumentos) {
+                getOrCreateAdjuntos().setImagenesDocumentos(imagenesDocumentos);
+        }
+
+        @Transient
+        public TipoCombustible getTipoCombustible() {
+                return especificaciones != null ? especificaciones.getTipoCombustible() : null;
+        }
+
+        public void setTipoCombustible(TipoCombustible tipoCombustible) {
+                getOrCreateEspecificaciones().setTipoCombustible(tipoCombustible);
+        }
+
+        @Transient
+        public String getChasis() {
+                return especificaciones != null ? especificaciones.getChasis() : null;
+        }
+
+        public void setChasis(String chasis) {
+                getOrCreateEspecificaciones().setChasis(chasis);
+        }
+
+        @Transient
+        public Boolean getAireAcondicionado() {
+                return especificaciones != null ? especificaciones.getAireAcondicionado() : null;
+        }
+
+        public void setAireAcondicionado(Boolean aireAcondicionado) {
+                getOrCreateEspecificaciones().setAireAcondicionado(aireAcondicionado);
+        }
+
+        @Transient
+        public Integer getMantenimientoMotorIntervalo() {
+                return especificaciones != null ? especificaciones.getMantenimientoMotorIntervalo() : null;
+        }
+
+        public void setMantenimientoMotorIntervalo(Integer mantenimientoMotorIntervalo) {
+                getOrCreateEspecificaciones().setMantenimientoMotorIntervalo(mantenimientoMotorIntervalo);
+        }
+
+        @Transient
+        public Integer getMantenimientoCajaIntervalo() {
+                return especificaciones != null ? especificaciones.getMantenimientoCajaIntervalo() : null;
+        }
+
+        public void setMantenimientoCajaIntervalo(Integer mantenimientoCajaIntervalo) {
+                getOrCreateEspecificaciones().setMantenimientoCajaIntervalo(mantenimientoCajaIntervalo);
+        }
+
+        @Transient
+        public String getSituacionPago() {
+                return finanzas != null ? finanzas.getSituacionPago() : null;
+        }
+
+        public void setSituacionPago(String situacionPago) {
+                getOrCreateFinanzas().setSituacionPago(situacionPago);
+        }
+
+        @Transient
+        public Proveedor getProveedor() {
+                return finanzas != null ? finanzas.getProveedor() : null;
+        }
+
+        public void setProveedor(Proveedor proveedor) {
+                getOrCreateFinanzas().setProveedor(proveedor);
+        }
+
+        @Transient
+        public Moneda getMoneda() {
+                return finanzas != null ? finanzas.getMoneda() : null;
+        }
+
+        public void setMoneda(Moneda moneda) {
+                getOrCreateFinanzas().setMoneda(moneda);
+        }
+
+        @Transient
+        public BigDecimal getMontoTotal() {
+                return finanzas != null ? finanzas.getMontoTotal() : null;
+        }
+
+        public void setMontoTotal(BigDecimal montoTotal) {
+                getOrCreateFinanzas().setMontoTotal(montoTotal);
+        }
+
+        @Transient
+        public BigDecimal getMontoYaPagado() {
+                return finanzas != null ? finanzas.getMontoYaPagado() : null;
+        }
+
+        public void setMontoYaPagado(BigDecimal montoYaPagado) {
+                getOrCreateFinanzas().setMontoYaPagado(montoYaPagado);
+        }
+
+        @Transient
+        public Integer getCantidadCuotas() {
+                return finanzas != null ? finanzas.getCantidadCuotas() : null;
+        }
+
+        public void setCantidadCuotas(Integer cantidadCuotas) {
+                getOrCreateFinanzas().setCantidadCuotas(cantidadCuotas);
+        }
+
+        @Transient
+        public Integer getCantidadCuotasPagadas() {
+                return finanzas != null ? finanzas.getCantidadCuotasPagadas() : null;
+        }
+
+        public void setCantidadCuotasPagadas(Integer cantidadCuotasPagadas) {
+                getOrCreateFinanzas().setCantidadCuotasPagadas(cantidadCuotasPagadas);
+        }
+
+        @Transient
+        public Integer getDiaVencimiento() {
+                return finanzas != null ? finanzas.getDiaVencimiento() : null;
+        }
+
+        public void setDiaVencimiento(Integer diaVencimiento) {
+                getOrCreateFinanzas().setDiaVencimiento(diaVencimiento);
+        }
+
+        private VehiculoEspecificaciones getOrCreateEspecificaciones() {
+                if (this.especificaciones == null) {
+                        VehiculoEspecificaciones created = new VehiculoEspecificaciones();
+                        created.setVehiculo(this);
+                        this.especificaciones = created;
+                }
+                return this.especificaciones;
+        }
+
+        private VehiculoAdjuntos getOrCreateAdjuntos() {
+                if (this.adjuntos == null) {
+                        VehiculoAdjuntos created = new VehiculoAdjuntos();
+                        created.setVehiculo(this);
+                        this.adjuntos = created;
+                }
+                return this.adjuntos;
+        }
+
+        private VehiculoFinanzas getOrCreateFinanzas() {
+                if (this.finanzas == null) {
+                        VehiculoFinanzas created = new VehiculoFinanzas();
+                        created.setVehiculo(this);
+                        this.finanzas = created;
+                }
+                return this.finanzas;
+        }
 }

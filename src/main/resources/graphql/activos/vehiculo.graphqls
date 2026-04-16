@@ -25,7 +25,7 @@ type Vehiculo {
     mantenimientoMotorIntervalo: Int
     mantenimientoCajaIntervalo: Int
     situacionPago: String
-    proveedor: Persona
+    proveedor: Proveedor
     moneda: Moneda
     montoTotal: Float
     montoYaPagado: Float

@@ -13,6 +13,7 @@ import com.franco.dev.service.activos.TipoVehiculoService;
 import com.franco.dev.service.activos.VehiculoService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.PersonaService;
+import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -52,6 +53,9 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private EnteService enteService;
+
+    @Autowired
+    private ProveedorService proveedorService;
 
     public Optional<Vehiculo> vehiculo(Long id) {
         return service.findById(id);
@@ -163,7 +167,8 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getTipoCombustibleId() != null)
             e.setTipoCombustible(tipoCombustibleService.findById(input.getTipoCombustibleId()).orElse(null));
         if (input.getProveedorId() != null)
-            e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
+            e.setProveedor(proveedorService.findById(input.getProveedorId())
+                    .orElseThrow(() -> new GraphQLException("El proveedor seleccionado no es valido.")));
         if (input.getMonedaId() != null)
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getUsuarioId() != null)

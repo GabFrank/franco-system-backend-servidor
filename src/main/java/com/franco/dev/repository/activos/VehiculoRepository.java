@@ -48,7 +48,7 @@ public interface VehiculoRepository extends HelperRepository<Vehiculo, Long> {
 
     public List<Vehiculo> findByPropietarioId(Long propietarioId);
 
-    @Query("select v from Vehiculo v where v.tipoCombustible.id = ?1")
+    @Query("select v from Vehiculo v join v.especificaciones e where e.tipoCombustible.id = ?1")
     public List<Vehiculo> findByTipoCombustibleId(Long tipoCombustibleId);
 
 }

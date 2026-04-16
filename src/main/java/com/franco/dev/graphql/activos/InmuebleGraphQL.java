@@ -11,6 +11,7 @@ import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.PersonaService;
+import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -47,6 +48,9 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private EnteService enteService;
+
+    @Autowired
+    private ProveedorService proveedorService;
 
     public Optional<Inmueble> inmueble(Long id) {
         return service.findById(id);
@@ -134,7 +138,8 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
 
         if (input.getProveedorId() != null) {
-            e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
+            e.setProveedor(proveedorService.findById(input.getProveedorId())
+                    .orElseThrow(() -> new GraphQLException("El proveedor seleccionado no es valido.")));
         }
         if (input.getMonedaId() != null) {
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));

@@ -12,6 +12,7 @@ import com.franco.dev.service.activos.TipoMuebleService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.personas.ProveedorService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -44,6 +45,9 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private ProveedorService proveedorService;
 
     @Autowired
     private EnteService enteService;
@@ -133,7 +137,8 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             e.setTipoMueble(tipoMuebleService.findById(input.getTipoMuebleId()).orElse(null));
         }
         if (input.getProveedorId() != null) {
-            e.setProveedor(personaService.findById(input.getProveedorId()).orElse(null));
+            e.setProveedor(proveedorService.findById(input.getProveedorId())
+                    .orElseThrow(() -> new GraphQLException("El proveedor seleccionado no es valido.")));
         }
         if (input.getMonedaId() != null) {
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));

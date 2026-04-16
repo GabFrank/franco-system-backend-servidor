@@ -11,7 +11,7 @@ type Inmueble {
     valorTasacionPyg: Float
     valorTasacionBrl: Float
     situacionPago: String
-    proveedor: Persona
+    proveedor: Proveedor
     moneda: Moneda
     montoTotal: Float
     montoYaPagado: Float

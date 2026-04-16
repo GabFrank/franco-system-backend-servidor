@@ -7,10 +7,13 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.PreGastoService;
 import com.franco.dev.service.financiero.TipoGastoService;
+import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
 import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -112,6 +115,7 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public PreGasto savePreGasto(PreGastoInput input) {
         ModelMapper m = new ModelMapper();
         PreGasto e = m.map(input, PreGasto.class);
+        validarBeneficiarioInput(input);
         String desc = input.getDescripcion() != null ? input.getDescripcion() : "";
         StringBuilder extras = new StringBuilder();
         if (input.getNivelUrgencia() != null && !input.getNivelUrgencia().equals("NORMAL")) {
@@ -156,10 +160,16 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             e.setDelegadoA(personaService.findById(input.getDelegadoAId()).orElse(null));
         }
         if (input.getBeneficiarioPersonaId() != null) {
-            e.setBeneficiarioPersona(personaService.findById(input.getBeneficiarioPersonaId()).orElse(null));
+            Persona beneficiarioPersona = personaService.findById(input.getBeneficiarioPersonaId())
+                    .orElseThrow(() -> new GraphQLException("El beneficiario persona no existe."));
+            e.setBeneficiarioPersona(beneficiarioPersona);
+            e.setBeneficiarioProveedor(null);
         }
         if (input.getBeneficiarioProveedorId() != null) {
-            e.setBeneficiarioProveedor(proveedorService.findById(input.getBeneficiarioProveedorId()).orElse(null));
+            Proveedor beneficiarioProveedor = proveedorService.findById(input.getBeneficiarioProveedorId())
+                    .orElseThrow(() -> new GraphQLException("El beneficiario proveedor no existe."));
+            e.setBeneficiarioProveedor(beneficiarioProveedor);
+            e.setBeneficiarioPersona(null);
         }
 
         e = service.save(e);
@@ -200,6 +210,12 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
 
         return e;
+    }
+
+    private void validarBeneficiarioInput(PreGastoInput input) {
+        if (input.getBeneficiarioPersonaId() != null && input.getBeneficiarioProveedorId() != null) {
+            throw new GraphQLException("Debe seleccionar solo un beneficiario: persona o proveedor.");
+        }
     }
 
     public PreGasto autorizarPreGasto(Long id, Long autorizadorId, Long sucId) {

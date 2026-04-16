@@ -1489,7 +1489,9 @@ public class ImpresionService {
                             montoPagado = v.getMontoYaPagado();
                             cuotasTotales = v.getCantidadCuotas();
                             cuotasPagadas = v.getCantidadCuotasPagadas();
-                            proveedor = v.getProveedor() != null ? v.getProveedor().getNombre() : "";
+                            proveedor = (v.getProveedor() != null && v.getProveedor().getPersona() != null)
+                                    ? v.getProveedor().getPersona().getNombre()
+                                    : "";
                             situacion = v.getSituacionPago();
                             mnd = v.getMoneda() != null ? v.getMoneda().getSimbolo() : simbolo;
                         }
@@ -1504,7 +1506,9 @@ public class ImpresionService {
                             montoPagado = i.getMontoYaPagado();
                             cuotasTotales = i.getCantidadCuotas();
                             cuotasPagadas = i.getCantidadCuotasPagadas();
-                            proveedor = i.getProveedor() != null ? i.getProveedor().getNombre() : "";
+                            proveedor = (i.getProveedor() != null && i.getProveedor().getPersona() != null)
+                                    ? i.getProveedor().getPersona().getNombre()
+                                    : "";
                             situacion = i.getSituacionPago();
                             mnd = i.getMoneda() != null ? i.getMoneda().getSimbolo() : simbolo;
                         }
@@ -1519,7 +1523,9 @@ public class ImpresionService {
                             montoPagado = m.getMontoYaPagado();
                             cuotasTotales = m.getCantidadCuotas();
                             cuotasPagadas = m.getCantidadCuotasPagadas();
-                            proveedor = m.getProveedor() != null ? m.getProveedor().getNombre() : "";
+                            proveedor = (m.getProveedor() != null && m.getProveedor().getPersona() != null)
+                                    ? m.getProveedor().getPersona().getNombre()
+                                    : "";
                             situacion = m.getSituacionPago();
                             mnd = m.getMoneda() != null ? m.getMoneda().getSimbolo() : simbolo;
                         }

@@ -274,8 +274,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 Mueble m = muebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (m != null) {
                     dto.setDescripcion(m.getDescripcion() != null ? m.getDescripcion() : m.getIdentificador());
-                    if (m.getProveedor() != null)
-                        dto.setProveedorNombre(m.getProveedor().getNombre());
+                    if (m.getProveedor() != null && m.getProveedor().getPersona() != null)
+                        dto.setProveedorNombre(m.getProveedor().getPersona().getNombre());
                     dto.setSituacionPago(m.getSituacionPago());
 
                     if (dto.getMontoTotal() == null)
@@ -294,8 +294,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 Inmueble i = inmuebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (i != null) {
                     dto.setDescripcion(i.getNombreAsignado() != null ? i.getNombreAsignado() : i.getDireccion());
-                    if (i.getProveedor() != null)
-                        dto.setProveedorNombre(i.getProveedor().getNombre());
+                    if (i.getProveedor() != null && i.getProveedor().getPersona() != null)
+                        dto.setProveedorNombre(i.getProveedor().getPersona().getNombre());
                     dto.setSituacionPago(i.getSituacionPago());
 
                     if (dto.getMontoTotal() == null)
@@ -315,8 +315,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 if (v != null) {
                     dto.setDescripcion(v.getChapa() != null ? "Chapa: " + v.getChapa()
                             : (v.getModelo() != null ? v.getModelo().getDescripcion() : "Vehículo #" + v.getId()));
-                    if (v.getProveedor() != null)
-                        dto.setProveedorNombre(v.getProveedor().getNombre());
+                    if (v.getProveedor() != null && v.getProveedor().getPersona() != null)
+                        dto.setProveedorNombre(v.getProveedor().getPersona().getNombre());
                     dto.setSituacionPago(v.getSituacionPago());
 
                     // Fallback para montos

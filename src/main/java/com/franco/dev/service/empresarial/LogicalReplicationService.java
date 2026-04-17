@@ -1553,7 +1553,25 @@ public class LogicalReplicationService {
     public String generateBranchToCentralSubscriptionName(Long sucursalId) {
         return getCentralDbName() + "_filial" + sucursalId + "_central_sub";
     }
-    
+
+    /**
+     * Extract sucursal ID from a publication or subscription name.
+     * Handles dynamic DB-prefixed names like: beta_filial2_pub, central_beta_filial2_sub, etc.
+     */
+    public Long extractSucursalIdFromName(String name) {
+        if (name == null) return null;
+        try {
+            // Pattern: ...filial<id>_pub, ...filial<id>_sub, ...filial<id>_central_sub
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("filial(\\d+)_").matcher(name);
+            if (m.find()) {
+                return Long.parseLong(m.group(1));
+            }
+        } catch (NumberFormatException e) {
+            // ignore
+        }
+        return null;
+    }
+
     /**
      * Refresh a specific subscription to sync with its publication
      * @param subscriptionName Name of the subscription to refresh
@@ -1742,12 +1760,13 @@ public class LogicalReplicationService {
             }
 
             // 2. central_filialX_pub: for each existing publication, add missing tables with WHERE (sucursal_id = X)
+            String centralPubPrefix = "central_" + getCentralDbName() + "_filial";
             List<Map<String, Object>> pubs = jdbcTemplate.queryForList(
-                "SELECT pubname FROM pg_publication WHERE pubname LIKE 'central_filial%_pub' ORDER BY pubname");
+                "SELECT pubname FROM pg_publication WHERE pubname LIKE '" + centralPubPrefix + "%_pub' ORDER BY pubname");
             for (Map<String, Object> row : pubs) {
                 String pubname = (String) row.get("pubname");
                 if (pubname == null) continue;
-                String suffix = pubname.replace("central_filial", "").replace("_pub", "");
+                String suffix = pubname.replace(centralPubPrefix, "").replace("_pub", "");
                 Long sucursalId = null;
                 try {
                     sucursalId = Long.parseLong(suffix);
@@ -1784,7 +1803,7 @@ public class LogicalReplicationService {
                 for (Sucursal sucursal : sucursales) {
                     Long sid = sucursal.getId();
                     if (sid == null || sid == 0) continue;
-                    String filialPubName = "filial" + sid + "_pub";
+                    String filialPubName = generateBranchPublicationName(sid);
                     try {
                         JdbcTemplate remoteJdbc = createRemoteJdbcTemplate(
                             sucursal.getIp(),
@@ -1822,14 +1841,17 @@ public class LogicalReplicationService {
                 Long sid = sucursal.getId();
                 if (sid == null || sid == 0) continue;
                 try {
-                    if (refreshRemoteSubscription(sid, "filial" + sid + "_central_sub")) {
-                        log.append("  Filial ").append(sid).append(": filial").append(sid).append("_central_sub refrescada.\n");
+                    String branchToCentralSubName = generateBranchToCentralSubscriptionName(sid);
+                    if (refreshRemoteSubscription(sid, branchToCentralSubName)) {
+                        log.append("  Filial ").append(sid).append(": ").append(branchToCentralSubName).append(" refrescada.\n");
                     }
-                    if (refreshRemoteSubscription(sid, "central_filial" + sid + "_sub")) {
-                        log.append("  Filial ").append(sid).append(": central_filial").append(sid).append("_sub refrescada.\n");
+                    String centralToBranchSubName = generateCentralToBranchSubscriptionName(sid);
+                    if (refreshRemoteSubscription(sid, centralToBranchSubName)) {
+                        log.append("  Filial ").append(sid).append(": ").append(centralToBranchSubName).append(" refrescada.\n");
                     }
-                    if (refreshSubscription("filial" + sid + "_sub")) {
-                        log.append("  Central: filial").append(sid).append("_sub refrescada.\n");
+                    String branchSubName = generateBranchSubscriptionName(sid);
+                    if (refreshSubscription(branchSubName)) {
+                        log.append("  Central: ").append(branchSubName).append(" refrescada.\n");
                     }
                 } catch (Exception e) {
                     log.append("  Refresco sucursal ").append(sid).append(": ").append(e.getMessage()).append("\n");

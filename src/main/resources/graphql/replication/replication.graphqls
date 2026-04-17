@@ -101,6 +101,9 @@ extend type Mutation {
     # Setup branch-side replication (to be called on branch server)
     setupBranchReplication(sucursalId: ID!): ReplicationStatus!
     
+    # Remove all replication objects for a branch (pubs, subs, orphan slots on central and filial). Idempotent, best-effort.
+    removeFullReplication(sucursalId: ID!): ReplicationStatus!
+
     # Remove central server replication for a branch
     removeReplication(sucursalId: ID!): ReplicationStatus!
     

@@ -579,8 +579,16 @@ public class LogicalReplicationService {
         boolean subCentralCreated = false;
         boolean subFilialBidiCreated = false;
         boolean subFilialCentralCreated = false;
-        
+
         try {
+            logger.info("[setupFullReplication] Iniciando setup completo para sucursalId={}", sucursalId);
+
+            // 0. Remove any existing replication objects (idempotent: ensures clean slate)
+            logger.info("[setupFullReplication] Paso 0: limpiando objetos previos para sucursalId={}", sucursalId);
+            SetupFullReplicationResult removeResult = removeFullReplication(sucursalId);
+            log("Paso 0 (limpieza previa): " + removeResult.getMessage().replace("\n", " | "), log);
+            logger.info("[setupFullReplication] Paso 0 completado: {}", removeResult.getMessage().replace("\n", " | "));
+
             // 1. Validate sucursal
             Sucursal sucursal = sucursalService.findById(sucursalId)
                 .orElseThrow(() -> new RuntimeException("Sucursal con ID " + sucursalId + " no encontrada"));
@@ -591,74 +599,98 @@ public class LogicalReplicationService {
                 throw new RuntimeException("Sucursal sin IP o puerto configurado");
             }
             log("Paso 1: Sucursal validada (activa, IP/puerto).", log);
-            
+            logger.info("[setupFullReplication] Paso 1: sucursal validada id={} ip={} puerto={}", sucursalId, sucursal.getIp(), sucursal.getPuerto());
+
             // 2. Verify central connection
             verifyConnectionCentral(log);
             log("Paso 2: Conexión a base central OK.", log);
-            
+            logger.info("[setupFullReplication] Paso 2: conexión central OK");
+
             // 3. Verify filial connection
             verifyConnectionFilial(sucursalId, log);
             log("Paso 3: Conexión a base filial OK.", log);
-            
+            logger.info("[setupFullReplication] Paso 3: conexión filial OK ip={} puerto={}", sucursal.getIp(), sucursal.getPuerto());
+
             // 4. Create publication central_filial{id}_pub
+            String centralPubName = generateCentralToBranchPublicationName(sucursalId);
+            logger.info("[setupFullReplication] Paso 4: creando publicación {} en central", centralPubName);
             if (!createCentralToBranchPublication(sucursalId)) {
-                throw new RuntimeException("No se pudo crear la publicación " + generateCentralToBranchPublicationName(sucursalId));
+                throw new RuntimeException("No se pudo crear la publicación " + centralPubName);
             }
             pubCentralCreated = true;
-            log("Paso 4: Publicación " + generateCentralToBranchPublicationName(sucursalId) + " creada en central.", log);
-            
+            log("Paso 4: Publicación " + centralPubName + " creada en central.", log);
+            logger.info("[setupFullReplication] Paso 4: publicación {} creada en central", centralPubName);
+
             // 4b. Ensure replication_test table exists on filial (it's in BRANCH_TO_MAIN; filial may not have run V115 yet)
+            logger.info("[setupFullReplication] Paso 4b: verificando tabla replication_test en filial");
             ensureReplicationTestTableRemote(sucursalId);
-            
+
             // 5. Create publication filial{id}_pub on branch (remote) — use DB-backed list so it's always up to date
+            String branchPubName = generateBranchPublicationName(sucursalId);
             List<String> branchTables = replicationTableService.getBranchToMainTableNames();
             if (branchTables == null || branchTables.isEmpty()) {
                 throw new RuntimeException("No hay tablas BRANCH_TO_MAIN configuradas en replication_table (enabled = true)");
             }
-            if (!createRemotePublication(sucursalId, generateBranchPublicationName(sucursalId), branchTables)) {
-                throw new RuntimeException("No se pudo crear la publicación " + generateBranchPublicationName(sucursalId) + " en filial");
+            logger.info("[setupFullReplication] Paso 5: creando publicación {} en filial ({} tablas)", branchPubName, branchTables.size());
+            if (!createRemotePublication(sucursalId, branchPubName, branchTables)) {
+                throw new RuntimeException("No se pudo crear la publicación " + branchPubName + " en filial");
             }
             pubFilialCreated = true;
-            log("Paso 5: Publicación " + generateBranchPublicationName(sucursalId) + " creada en filial.", log);
-            
+            log("Paso 5: Publicación " + branchPubName + " creada en filial.", log);
+            logger.info("[setupFullReplication] Paso 5: publicación {} creada en filial", branchPubName);
+
             // 6. Create subscription filial{id}_sub on central (subscribes to filial's pub)
+            String centralSubName = generateBranchSubscriptionName(sucursalId);
             String branchDbName = getBranchDbName();
+            logger.info("[setupFullReplication] Paso 6: creando suscripción {} en central -> filial {}:{}/{}", centralSubName, sucursal.getIp(), sucursal.getPuerto(), branchDbName);
             if (!createCentralToBranchSubscription(sucursalId, sucursal.getIp(), sucursal.getPuerto(), branchDbName)) {
-                throw new RuntimeException("No se pudo crear la suscripción " + generateBranchSubscriptionName(sucursalId) + " en central");
+                throw new RuntimeException("No se pudo crear la suscripción " + centralSubName + " en central");
             }
             subCentralCreated = true;
-            log("Paso 6: Suscripción " + generateBranchSubscriptionName(sucursalId) + " creada en central.", log);
-            
+            log("Paso 6: Suscripción " + centralSubName + " creada en central.", log);
+            logger.info("[setupFullReplication] Paso 6: suscripción {} creada en central", centralSubName);
+
             // 7. Create subscription central_filial{id}_sub on branch (to central_filial{id}_pub on central)
             String centralConnStr = createCentralConnectionString();
-            if (!createRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId), centralConnStr, generateCentralToBranchPublicationName(sucursalId))) {
-                throw new RuntimeException("No se pudo crear la suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " en filial");
+            String filialBidiSubName = generateCentralToBranchSubscriptionName(sucursalId);
+            logger.info("[setupFullReplication] Paso 7: creando suscripción {} en filial -> pub {}", filialBidiSubName, centralPubName);
+            if (!createRemoteSubscription(sucursalId, filialBidiSubName, centralConnStr, centralPubName)) {
+                throw new RuntimeException("No se pudo crear la suscripción " + filialBidiSubName + " en filial");
             }
             subFilialBidiCreated = true;
-            log("Paso 7: Suscripción " + generateCentralToBranchSubscriptionName(sucursalId) + " creada en filial.", log);
-            
+            log("Paso 7: Suscripción " + filialBidiSubName + " creada en filial.", log);
+            logger.info("[setupFullReplication] Paso 7: suscripción {} creada en filial", filialBidiSubName);
+
             // 8. Create subscription filial{id}_central_sub on branch (to central_pub)
-            if (!createRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId), centralConnStr, "central_pub")) {
-                throw new RuntimeException("No se pudo crear la suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " en filial");
+            String filialCentralSubName = generateBranchToCentralSubscriptionName(sucursalId);
+            logger.info("[setupFullReplication] Paso 8: creando suscripción {} en filial -> pub central_pub", filialCentralSubName);
+            if (!createRemoteSubscription(sucursalId, filialCentralSubName, centralConnStr, "central_pub")) {
+                throw new RuntimeException("No se pudo crear la suscripción " + filialCentralSubName + " en filial");
             }
             subFilialCentralCreated = true;
-            log("Paso 8: Suscripción " + generateBranchToCentralSubscriptionName(sucursalId) + " creada en filial.", log);
-            
+            log("Paso 8: Suscripción " + filialCentralSubName + " creada en filial.", log);
+            logger.info("[setupFullReplication] Paso 8: suscripción {} creada en filial", filialCentralSubName);
+
             // 9. Wait and verify workers
+            logger.info("[setupFullReplication] Paso 9: esperando workers de replicación (3s)...");
             Thread.sleep(3000);
             String verifyMsg = verifyReplicationWorkers(sucursalId, log);
             log("Paso 9: " + verifyMsg, log);
-            
+            logger.info("[setupFullReplication] Paso 9: {}", verifyMsg);
+
             // 10. E2E test
+            logger.info("[setupFullReplication] Paso 10: ejecutando test E2E bidireccional");
             String e2eMsg = testReplicationE2E(sucursalId, log);
             log("Paso 10: " + e2eMsg, log);
-            
+            logger.info("[setupFullReplication] Paso 10: {}", e2eMsg);
+
             log.append("\nSetup de replicación completado correctamente.");
+            logger.info("[setupFullReplication] Setup completo exitoso para sucursalId={}", sucursalId);
             return new SetupFullReplicationResult(true, log.toString());
-            
+
         } catch (Exception e) {
             log.append("\nERROR: ").append(e.getMessage());
-            logger.error("setupFullReplication failed: {}", e.getMessage(), e);
+            logger.error("[setupFullReplication] Falló para sucursalId={}: {}", sucursalId, e.getMessage(), e);
             // Rollback in reverse order
             if (subFilialCentralCreated) {
                 try {
@@ -1081,7 +1113,7 @@ public class LogicalReplicationService {
      * @return JdbcTemplate for the remote connection
      */
     private JdbcTemplate createRemoteJdbcTemplate(String host, int port, String dbName, String username, String password) {
-        logger.info("Replicación: creando conexión JDBC remota host={} port={} dbName={}", host, port, dbName);
+        logger.debug("Replicación: conexión JDBC remota host={} port={} dbName={}", host, port, dbName);
         String url = String.format("jdbc:postgresql://%s:%d/%s", host, port, dbName);
         
         DriverManagerDataSource dataSource = new DriverManagerDataSource();
@@ -1305,31 +1337,31 @@ public class LogicalReplicationService {
             try {
                 String checkQuery = "SELECT COUNT(*) FROM pg_publication WHERE pubname = ?";
                 int count = remoteJdbcTemplate.queryForObject(checkQuery, Integer.class, publicationName);
-                
+
                 if (count > 0) {
-                    // Publication already exists
-                    logger.info("Publication " + publicationName + " already exists on remote branch " + branchId);
+                    logger.info("[Replicación] Publicación {} ya existe en filial {} (OK, omitiendo)", publicationName, branchId);
                     return true;
                 }
             } catch (Exception e) {
-                logger.error("Error checking for existing remote publication: " + e.getMessage());
+                logger.error("[Replicación] Error verificando publicación existente en filial {}: {}", branchId, e.getMessage());
             }
-            
+
             // Build the CREATE PUBLICATION command
             StringBuilder sql = new StringBuilder("CREATE PUBLICATION ")
                 .append(publicationName)
                 .append(" FOR TABLE ");
-            
+
             for (int i = 0; i < tables.size(); i++) {
                 if (i > 0) {
                     sql.append(", ");
                 }
                 sql.append(tables.get(i));
             }
-            
+
+            logger.info("[Replicación] Creando publicación {} en filial {} ({} tablas)", publicationName, branchId, tables.size());
             // Execute the command
             remoteJdbcTemplate.execute(sql.toString());
-            logger.info("Successfully created remote publication " + publicationName + " on branch " + branchId);
+            logger.info("[Replicación] Publicación {} creada en filial {}", publicationName, branchId);
             
             return true;
         } catch (Exception e) {
@@ -1368,25 +1400,25 @@ public class LogicalReplicationService {
             try {
                 String checkQuery = "SELECT COUNT(*) FROM pg_subscription WHERE subname = ?";
                 int count = remoteJdbcTemplate.queryForObject(checkQuery, Integer.class, subscriptionName);
-                
+
                 if (count > 0) {
-                    // Subscription already exists
-                    logger.info("Subscription " + subscriptionName + " already exists on remote branch " + branchId);
+                    logger.info("[Replicación] Suscripción {} ya existe en filial {} (OK, omitiendo)", subscriptionName, branchId);
                     return true;
                 }
             } catch (Exception e) {
-                logger.error("Error checking for existing remote subscription: " + e.getMessage());
+                logger.error("[Replicación] Error verificando suscripción existente en filial {}: {}", branchId, e.getMessage());
             }
-            
+
             // Build the CREATE SUBSCRIPTION command
-            String sql = "CREATE SUBSCRIPTION " + subscriptionName + 
+            String sql = "CREATE SUBSCRIPTION " + subscriptionName +
                     " CONNECTION '" + connectionString + "' " +
-                    " PUBLICATION " + publicationName + 
+                    " PUBLICATION " + publicationName +
                     " WITH (copy_data = false, origin = 'none')";
-            
+
+            logger.info("[Replicación] Creando suscripción {} en filial {} -> publicación {}", subscriptionName, branchId, publicationName);
             // Execute the command
             remoteJdbcTemplate.execute(sql);
-            logger.info("Successfully created remote subscription " + subscriptionName + " on branch " + branchId);
+            logger.info("[Replicación] Suscripción {} creada en filial {}", subscriptionName, branchId);
             
             return true;
         } catch (Exception e) {
@@ -1914,5 +1946,211 @@ public class LogicalReplicationService {
 
     private List<String> getPublicationTableNamesLocal(String pubname) {
         return getPublicationTableNames(jdbcTemplate, pubname);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // removeFullReplication — limpieza completa de una sucursal
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Elimina completamente todos los objetos de replicación (publicaciones, suscripciones y slots
+     * huérfanos) de central y filial para la sucursal indicada. Operación best-effort: cada paso
+     * registra un warning en el log si falla pero continúa con los demás. Idempotente: seguro de
+     * llamar aunque los objetos no existan.
+     * <p>
+     * Llamado automáticamente al inicio de {@link #setupFullReplication(Long)} para garantizar
+     * un estado limpio antes de recrear todo.
+     *
+     * @param sucursalId ID de la sucursal
+     * @return resultado con log detallado de lo que se eliminó
+     */
+    public SetupFullReplicationResult removeFullReplication(Long sucursalId) {
+        StringBuilder log = new StringBuilder();
+        logger.info("[removeFullReplication] Iniciando limpieza para sucursalId={}", sucursalId);
+        log("Limpieza de replicación para sucursal " + sucursalId + ":", log);
+
+        // ── 1. Suscripción en central (beta_filialX_sub) ───────────────────────
+        //    Su slot vive en la filial (publisher). SET slot_name=NONE para que el
+        //    DROP no necesite conectarse a la filial y luego limpiamos el slot allá.
+        safeDropLocalSubscription(generateBranchSubscriptionName(sucursalId), log);
+
+        // ── 2. Suscripciones en filial ────────────────────────────────────────
+        //    Sus slots viven en central (publisher de central_pub y central_filialX_pub).
+        try {
+            safeDropRemoteSubscription(sucursalId, generateCentralToBranchSubscriptionName(sucursalId), log);
+            safeDropRemoteSubscription(sucursalId, generateBranchToCentralSubscriptionName(sucursalId), log);
+        } catch (Exception e) {
+            log("  Warning: filial no accesible para limpiar suscripciones remotas: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Filial {} no accesible para limpiar subs: {}", sucursalId, e.getMessage());
+        }
+
+        // ── 3. Publicaciones ──────────────────────────────────────────────────
+        safeDropLocalPublication(generateCentralToBranchPublicationName(sucursalId), log);
+        try {
+            safeDropRemotePublication(sucursalId, generateBranchPublicationName(sucursalId), log);
+        } catch (Exception e) {
+            log("  Warning: no se pudo eliminar publicación remota: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error eliminando pub remota en filial {}: {}", sucursalId, e.getMessage());
+        }
+
+        // ── 4. Slots huérfanos en central ────────────────────────────────────
+        dropOrphanSlotsLocal(sucursalId, log);
+
+        // ── 5. Slots huérfanos en filial ──────────────────────────────────────
+        try {
+            dropOrphanSlotsRemote(sucursalId, log);
+        } catch (Exception e) {
+            log("  Warning: no se pudieron verificar slots en filial: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error verificando slots en filial {}: {}", sucursalId, e.getMessage());
+        }
+
+        log("Limpieza finalizada.", log);
+        logger.info("[removeFullReplication] Limpieza completada para sucursalId={}", sucursalId);
+        return new SetupFullReplicationResult(true, log.toString());
+    }
+
+    /**
+     * Desactiva y elimina una suscripción local (en central) de forma segura.
+     * Usa SET slot_name=NONE antes del DROP para no necesitar conectarse al publisher remoto.
+     */
+    private void safeDropLocalSubscription(String subName, StringBuilder log) {
+        try {
+            Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM pg_subscription WHERE subname = ?", Integer.class, subName);
+            if (exists == null || exists == 0) {
+                log("  " + subName + " no existe en central (OK).", log);
+                return;
+            }
+            try { jdbcTemplate.execute("ALTER SUBSCRIPTION " + subName + " DISABLE"); } catch (Exception ignored) {}
+            try { jdbcTemplate.execute("ALTER SUBSCRIPTION " + subName + " SET (slot_name = NONE)"); } catch (Exception ignored) {}
+            jdbcTemplate.execute("DROP SUBSCRIPTION IF EXISTS " + subName);
+            log("  Suscripción " + subName + " eliminada en central.", log);
+            logger.info("[removeFullReplication] Suscripción {} eliminada en central", subName);
+        } catch (Exception e) {
+            log("  Warning: error eliminando suscripción " + subName + " en central: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error eliminando sub {} en central: {}", subName, e.getMessage());
+        }
+    }
+
+    /**
+     * Desactiva y elimina una suscripción remota (en filial) de forma segura.
+     * Usa SET slot_name=NONE antes del DROP para no necesitar conectarse al publisher remoto (central).
+     */
+    private void safeDropRemoteSubscription(Long sucursalId, String subName, StringBuilder log) {
+        try {
+            Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+            if (sucursal == null || sucursal.getIp() == null || sucursal.getPuerto() == null) {
+                log("  Warning: sucursal " + sucursalId + " sin IP/puerto, no se puede limpiar sub remota " + subName, log);
+                return;
+            }
+            JdbcTemplate remote = createRemoteJdbcTemplate(
+                sucursal.getIp(), sucursal.getPuerto(), getBranchDbName(), dbUsername, dbPassword);
+            Integer exists = remote.queryForObject(
+                "SELECT COUNT(*) FROM pg_subscription WHERE subname = ?", Integer.class, subName);
+            if (exists == null || exists == 0) {
+                log("  " + subName + " no existe en filial (OK).", log);
+                return;
+            }
+            try { remote.execute("ALTER SUBSCRIPTION " + subName + " DISABLE"); } catch (Exception ignored) {}
+            try { remote.execute("ALTER SUBSCRIPTION " + subName + " SET (slot_name = NONE)"); } catch (Exception ignored) {}
+            remote.execute("DROP SUBSCRIPTION IF EXISTS " + subName);
+            log("  Suscripción " + subName + " eliminada en filial.", log);
+            logger.info("[removeFullReplication] Suscripción {} eliminada en filial {}", subName, sucursalId);
+        } catch (Exception e) {
+            log("  Warning: error eliminando suscripción " + subName + " en filial: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error eliminando sub {} en filial {}: {}", subName, sucursalId, e.getMessage());
+        }
+    }
+
+    /** Elimina una publicación local (en central) de forma segura; no falla si no existe. */
+    private void safeDropLocalPublication(String pubName, StringBuilder log) {
+        try {
+            jdbcTemplate.execute("DROP PUBLICATION IF EXISTS " + pubName);
+            log("  Publicación " + pubName + " eliminada en central (o no existía).", log);
+            logger.info("[removeFullReplication] Publicación {} eliminada en central", pubName);
+        } catch (Exception e) {
+            log("  Warning: error eliminando publicación " + pubName + " en central: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error eliminando pub {} en central: {}", pubName, e.getMessage());
+        }
+    }
+
+    /** Elimina una publicación remota (en filial) de forma segura; no falla si no existe. */
+    private void safeDropRemotePublication(Long sucursalId, String pubName, StringBuilder log) {
+        try {
+            Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+            if (sucursal == null || sucursal.getIp() == null || sucursal.getPuerto() == null) return;
+            JdbcTemplate remote = createRemoteJdbcTemplate(
+                sucursal.getIp(), sucursal.getPuerto(), getBranchDbName(), dbUsername, dbPassword);
+            remote.execute("DROP PUBLICATION IF EXISTS " + pubName);
+            log("  Publicación " + pubName + " eliminada en filial (o no existía).", log);
+            logger.info("[removeFullReplication] Publicación {} eliminada en filial {}", pubName, sucursalId);
+        } catch (Exception e) {
+            log("  Warning: error eliminando publicación " + pubName + " en filial: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error eliminando pub {} en filial {}: {}", pubName, sucursalId, e.getMessage());
+        }
+    }
+
+    /**
+     * Elimina slots de replicación inactivos (huérfanos) en central cuyo nombre contiene "filialX".
+     * Solo elimina slots con active = false para no interrumpir replicación en curso.
+     */
+    private void dropOrphanSlotsLocal(Long sucursalId, StringBuilder log) {
+        try {
+            String pattern = "%filial" + sucursalId + "%";
+            List<Map<String, Object>> slots = jdbcTemplate.queryForList(
+                "SELECT slot_name FROM pg_replication_slots WHERE slot_name LIKE ? AND active = false", pattern);
+            if (slots.isEmpty()) {
+                log("  Sin slots huérfanos en central.", log);
+                return;
+            }
+            for (Map<String, Object> slot : slots) {
+                String slotName = (String) slot.get("slot_name");
+                try {
+                    jdbcTemplate.execute("SELECT pg_drop_replication_slot('" + slotName.replace("'", "''") + "')");
+                    log("  Slot huérfano " + slotName + " eliminado en central.", log);
+                    logger.info("[removeFullReplication] Slot huérfano {} eliminado en central", slotName);
+                } catch (Exception e) {
+                    log("  Warning: no se pudo eliminar slot " + slotName + " en central: " + e.getMessage(), log);
+                    logger.warn("[removeFullReplication] Error eliminando slot {} en central: {}", slotName, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log("  Warning: error verificando slots en central: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error verificando slots en central: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Elimina slots de replicación inactivos (huérfanos) en la filial cuyo nombre contiene "filialX".
+     * Solo elimina slots con active = false.
+     */
+    private void dropOrphanSlotsRemote(Long sucursalId, StringBuilder log) {
+        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+        if (sucursal == null || sucursal.getIp() == null || sucursal.getPuerto() == null) return;
+        try {
+            JdbcTemplate remote = createRemoteJdbcTemplate(
+                sucursal.getIp(), sucursal.getPuerto(), getBranchDbName(), dbUsername, dbPassword);
+            String pattern = "%filial" + sucursalId + "%";
+            List<Map<String, Object>> slots = remote.queryForList(
+                "SELECT slot_name FROM pg_replication_slots WHERE slot_name LIKE ? AND active = false", pattern);
+            if (slots.isEmpty()) {
+                log("  Sin slots huérfanos en filial.", log);
+                return;
+            }
+            for (Map<String, Object> slot : slots) {
+                String slotName = (String) slot.get("slot_name");
+                try {
+                    remote.execute("SELECT pg_drop_replication_slot('" + slotName.replace("'", "''") + "')");
+                    log("  Slot huérfano " + slotName + " eliminado en filial.", log);
+                    logger.info("[removeFullReplication] Slot huérfano {} eliminado en filial {}", slotName, sucursalId);
+                } catch (Exception e) {
+                    log("  Warning: no se pudo eliminar slot " + slotName + " en filial: " + e.getMessage(), log);
+                    logger.warn("[removeFullReplication] Error eliminando slot {} en filial {}: {}", slotName, sucursalId, e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log("  Warning: error verificando slots en filial: " + e.getMessage(), log);
+            logger.warn("[removeFullReplication] Error verificando slots en filial {}: {}", sucursalId, e.getMessage());
+        }
     }
 } 

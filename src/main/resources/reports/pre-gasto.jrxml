@@ -35,8 +35,14 @@
 	<parameter name="beneficiario" class="java.lang.String"/>
 	<parameter name="observaciones" class="java.lang.String"/>
 	<parameter name="isPagoCuota" class="java.lang.Boolean"/>
+	<parameter name="fechaVencimiento" class="java.lang.String"/>
+	<parameter name="nivelUrgencia" class="java.lang.String"/>
+	<parameter name="beneficiarioTipo" class="java.lang.String"/>
+	<parameter name="beneficiarioNombre" class="java.lang.String"/>
+	<parameter name="finanzasDetalle" class="java.lang.String"/>
+	<parameter name="qrImage" class="java.lang.String"/>
 	<title>
-		<band height="350" splitType="Stretch">
+		<band height="520" splitType="Stretch">
 			<image hAlign="Center">
 				<reportElement x="0" y="0" width="120" height="55" uuid="94883631-a913-43e2-b182-ab8d77d0181e"/>
 				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
@@ -98,20 +104,6 @@
 				<textFieldExpression><![CDATA[$P{solicitante}]]></textFieldExpression>
 			</textField>
 			<staticText>
-				<reportElement x="355" y="20" width="55" height="11" forecolor="#666666" uuid="e3a3a3e3-3e3e-3e3e-3e3e-1e1e1e1e1e1e"/>
-				<textElement>
-					<font size="8" isBold="true"/>
-				</textElement>
-				<text><![CDATA[URGENCIA:]]></text>
-			</staticText>
-			<textField textAdjust="ScaleFont">
-				<reportElement x="410" y="20" width="125" height="11" uuid="e4a4a4e4-4e4e-4e4e-4e4e-1e1e1e1e1e1e"/>
-				<textElement>
-					<font size="8" isBold="true"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{urgencia}]]></textFieldExpression>
-			</textField>
-			<staticText>
 				<reportElement x="130" y="32" width="55" height="11" forecolor="#666666" uuid="e5a5a5e5-5e5e-5e5e-5e5e-1e1e1e1e1e1e"/>
 				<textElement>
 					<font size="8" isBold="true"/>
@@ -126,20 +118,6 @@
 				<textFieldExpression><![CDATA[$P{sucursalCaja}]]></textFieldExpression>
 			</textField>
 			<staticText>
-				<reportElement x="355" y="32" width="55" height="11" forecolor="#666666" uuid="e7a7a7e7-7e7e-7e7e-7e7e-1e1e1e1e1e1e"/>
-				<textElement>
-					<font size="8" isBold="true"/>
-				</textElement>
-				<text><![CDATA[PAGO:]]></text>
-			</staticText>
-			<textField textAdjust="ScaleFont">
-				<reportElement x="410" y="32" width="125" height="11" uuid="e8a8a8e8-8e8e-8e8e-8e8e-1e1e1e1e1e1e"/>
-				<textElement>
-					<font size="8" isBold="true"/>
-				</textElement>
-				<textFieldExpression><![CDATA[$P{formaPago}]]></textFieldExpression>
-			</textField>
-			<staticText>
 				<reportElement x="130" y="44" width="55" height="9" uuid="6a3fd251-362f-4df0-9246-2596c6649ee2"/>
 				<textElement>
 					<font size="7" isBold="true"/>
@@ -147,12 +125,16 @@
 				<text><![CDATA[Autorizado:]]></text>
 			</staticText>
 			<textField>
-				<reportElement x="185" y="44" width="350" height="9" uuid="740782c3-06a7-4894-9817-409937f28955"/>
+				<reportElement x="185" y="44" width="235" height="9" uuid="740782c3-06a7-4894-9817-409937f28955"/>
 				<textElement>
 					<font size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$P{autorizador}]]></textFieldExpression>
 			</textField>
+			<image hAlign="Center" vAlign="Middle">
+				<reportElement positionType="FixRelativeToTop" x="430" y="0" width="105" height="78" uuid="1ecdd29b-8afb-49c6-8f7f-7be9dd412fce"/>
+				<imageExpression><![CDATA[$P{qrImage}]]></imageExpression>
+			</image>
 			<textField>
 				<reportElement x="0" y="58" width="535" height="20" uuid="bc2c2c2c-2c2c-2c2c-2c2c-2c2c2c2c2c2c"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
@@ -191,156 +173,260 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$P{moneda} + " " + $P{monto}]]></textFieldExpression>
 			</textField>
+			<line>
+				<reportElement positionType="Float" x="0" y="118" width="535" height="1" forecolor="#EEEEEE" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e00"/>
+			</line>
+			<staticText>
+				<reportElement positionType="Float" x="10" y="122" width="110" height="12" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e01"/>
+				<textElement verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[BENEFICIARIO:]]></text>
+			</staticText>
+			<textField>
+				<reportElement positionType="Float" x="120" y="122" width="270" height="12" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e02"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{beneficiarioTipo} + " - " + $P{beneficiarioNombre}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="395" y="122" width="70" height="12" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e03"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[VENCIMIENTO:]]></text>
+			</staticText>
+			<textField>
+				<reportElement positionType="Float" x="470" y="122" width="75" height="12" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e04"/>
+				<textElement textAlignment="Right">
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{fechaVencimiento}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement positionType="Float" x="395" y="136" width="70" height="12" uuid="dfaa3dcb-c0da-4a43-a528-7255cae4d112"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[URGENCIA:]]></text>
+			</staticText>
+			<textField>
+				<reportElement positionType="Float" x="470" y="136" width="75" height="12" uuid="45c312f1-ec31-4f4f-8e84-dca66d91785f"/>
+				<textElement textAlignment="Right">
+					<font size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{nivelUrgencia} != null && !$P{nivelUrgencia}.trim().isEmpty()) ? $P{nivelUrgencia} : $P{urgencia}]]></textFieldExpression>
+			</textField>
+			<rectangle radius="2">
+				<reportElement positionType="Float" x="5" y="152" width="260" height="55" forecolor="#EEEEEE" backcolor="#F9F9F9" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e09"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement positionType="Float" x="12" y="156" width="170" height="10" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e10"/>
+				<textElement>
+					<font size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[DETALLE FINANZAS (MONEDA / METODO / MONTO)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="12" y="168" width="60" height="10" uuid="8b16eb5a-5c9d-4f9f-bbd9-57bc0f5d5f55"/>
+				<textElement>
+					<font size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[URGENCIA:]]></text>
+			</staticText>
+			<textField>
+				<reportElement positionType="Float" x="75" y="168" width="182" height="10" uuid="6e1f6348-164f-4d37-9a4f-723a9fdb7bcb"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[($P{nivelUrgencia} != null && !$P{nivelUrgencia}.trim().isEmpty()) ? $P{nivelUrgencia} : $P{urgencia}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement positionType="Float" x="12" y="180" width="245" height="23" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e11"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{finanzasDetalle}]]></textFieldExpression>
+			</textField>
+			<rectangle radius="2">
+				<reportElement positionType="Float" x="5" y="212" width="260" height="45" forecolor="#EEEEEE" backcolor="#F9F9F9" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e14"/>
+				<graphicElement>
+					<pen lineWidth="0.5"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement positionType="Float" x="12" y="216" width="120" height="10" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e15"/>
+				<textElement>
+					<font size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[OBSERVACIONES INTERNAS]]></text>
+			</staticText>
+			<textField textAdjust="StretchHeight">
+				<reportElement positionType="Float" x="12" y="228" width="245" height="25" uuid="fa60eeb4-1364-42ec-81c4-3c92969e6e16"/>
+				<textElement>
+					<font size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{observaciones}]]></textFieldExpression>
+			</textField>
 			<frame>
-				<reportElement positionType="Float" x="5" y="125" width="545" height="85" uuid="a6b8f362-e64e-4f1b-90f7-336712334455">
+				<reportElement positionType="Float" x="275" y="152" width="270" height="105" uuid="a6b8f362-e64e-4f1b-90f7-336712334455">
 					<printWhenExpression><![CDATA[$P{isBien}]]></printWhenExpression>
 				</reportElement>
 				<rectangle radius="2">
-					<reportElement x="-5" y="0" width="545" height="85" forecolor="#EEEEEE" backcolor="#F9F9F9" uuid="3006dae7-3228-4979-bda4-adc9f14e5566"/>
+					<reportElement x="0" y="0" width="270" height="105" forecolor="#EEEEEE" backcolor="#F9F9F9" uuid="3006dae7-3228-4979-bda4-adc9f14e5566"/>
 					<graphicElement>
 						<pen lineWidth="0.5"/>
 					</graphicElement>
 				</rectangle>
 				<textField>
-					<reportElement x="10" y="5" width="105" height="15" uuid="4b5215b3-a694-4f65-8590-c6723733ca33"/>
+					<reportElement x="8" y="4" width="254" height="12" uuid="4b5215b3-a694-4f65-8590-c6723733ca33"/>
 					<textElement verticalAlignment="Middle">
-						<font size="9" isBold="true"/>
+						<font size="7" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienNombre}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="125" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e88">
+					<reportElement x="8" y="18" width="80" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e88">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement>
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
-					<text><![CDATA[MONTO TOTAL]]></text>
+					<text><![CDATA[TOTAL]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="125" y="18" width="100" height="15" forecolor="#2196F3" uuid="4b5215b3-a694-4f65-8590-c6723733ca35">
+					<reportElement x="94" y="18" width="168" height="10" forecolor="#2196F3" uuid="4b5215b3-a694-4f65-8590-c6723733ca35">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
-					<textElement>
-						<font size="9" isBold="true"/>
+					<textElement textAlignment="Right">
+						<font size="7" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienMontoTotal}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="260" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e89">
+					<reportElement x="8" y="30" width="80" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e89">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement>
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
-					<text><![CDATA[YA PAGADO]]></text>
+					<text><![CDATA[PAGADO]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="260" y="18" width="100" height="15" forecolor="#4CAF50" uuid="4b5215b3-a694-4f65-8590-c6723733ca36">
+					<reportElement x="94" y="30" width="168" height="10" forecolor="#4CAF50" uuid="4b5215b3-a694-4f65-8590-c6723733ca36">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
-					<textElement>
-						<font size="9" isBold="true"/>
+					<textElement textAlignment="Right">
+						<font size="7" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienMontoPagado}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="395" y="5" width="80" height="12" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e90">
+					<reportElement x="8" y="42" width="80" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e90">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement>
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
 					<text><![CDATA[PENDIENTE]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="395" y="18" width="100" height="15" forecolor="#F44336" uuid="4b5215b3-a694-4f65-8590-c6723733ca37">
+					<reportElement x="94" y="42" width="168" height="10" forecolor="#F44336" uuid="4b5215b3-a694-4f65-8590-c6723733ca37">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
-					<textElement>
-						<font size="9" isBold="true"/>
+					<textElement textAlignment="Right">
+						<font size="7" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienSaldoPendiente}]]></textFieldExpression>
 				</textField>
+				<line>
+					<reportElement x="8" y="56" width="254" height="1" forecolor="#E3E3E3" uuid="2b55cd4e-3cf2-4ce7-bb70-8a3f9f68044a">
+						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
+					</reportElement>
+				</line>
 				<staticText>
-					<reportElement x="10" y="45" width="75" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e92">
+					<reportElement x="8" y="60" width="90" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e92">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement verticalAlignment="Middle">
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
-					<text><![CDATA[PLAN DE CUOTAS]]></text>
+					<text><![CDATA[PLAN CUOTAS]]></text>
 				</staticText>
 				<staticText>
-					<reportElement x="15" y="58" width="40" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e93">
+					<reportElement x="8" y="72" width="46" height="10" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e93">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement>
-						<font size="7"/>
+						<font size="6"/>
 					</textElement>
-					<text><![CDATA[Totales:]]></text>
+					<text><![CDATA[Tot:]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="55" y="58" width="45" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca39">
+					<reportElement x="40" y="72" width="44" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca39">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement textAlignment="Left">
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienCuotasTotales}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="125" y="58" width="60" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e99">
+					<reportElement x="94" y="72" width="34" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e99">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement textAlignment="Left" verticalAlignment="Middle">
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
-					<text><![CDATA[SITUACIÓN:]]></text>
+					<text><![CDATA[SIT:]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="185" y="58" width="100" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca45">
+					<reportElement x="122" y="72" width="140" height="10" uuid="4b5215b3-a694-4f65-8590-c6723733ca45">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
-					<textElement textAlignment="Left" verticalAlignment="Middle">
-						<font size="7" isBold="true"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="6" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$P{bienSituacion}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="300" y="58" width="70" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e97">
+					<reportElement x="8" y="84" width="50" height="10" forecolor="#666666" uuid="cf50eeb4-1364-42ec-81c4-3c92969e6e97">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
 					<textElement verticalAlignment="Middle">
-						<font size="7" isBold="true"/>
+						<font size="6" isBold="true"/>
 					</textElement>
-					<text><![CDATA[CUOTA ACTUAL:]]></text>
+					<text><![CDATA[ACTUAL:]]></text>
 				</staticText>
 				<textField>
-					<reportElement x="375" y="58" width="120" height="10" forecolor="#673AB7" uuid="4b5215b3-a694-4f65-8590-c6723733ca43">
+					<reportElement x="60" y="84" width="202" height="10" forecolor="#673AB7" uuid="4b5215b3-a694-4f65-8590-c6723733ca43">
 						<printWhenExpression><![CDATA[$P{isPagoCuota}]]></printWhenExpression>
 					</reportElement>
-					<textElement verticalAlignment="Middle">
-						<font size="7" isBold="true"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font size="6" isBold="true"/>
 					</textElement>
 					<textFieldExpression><![CDATA["Cuota " + $P{bienCuotaActual} + " / " + $P{bienCuotasTotales}]]></textFieldExpression>
 				</textField>
 			</frame>
 			<line>
-				<reportElement positionType="Float" x="15" y="240" width="190" height="1" uuid="8543975f-28d8-42e2-a889-9f5ed331c5c1"/>
+				<reportElement positionType="Float" x="15" y="295" width="190" height="1" uuid="8543975f-28d8-42e2-a889-9f5ed331c5c1"/>
 			</line>
 			<staticText>
-				<reportElement positionType="Float" x="15" y="241" width="190" height="14" uuid="122d10fb-fb62-4f13-ac27-a60c354e5200"/>
+				<reportElement positionType="Float" x="15" y="296" width="190" height="14" uuid="122d10fb-fb62-4f13-ac27-a60c354e5200"/>
 				<textElement textAlignment="Center">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Solicitante]]></text>
 			</staticText>
 			<line>
-				<reportElement positionType="Float" x="315" y="240" width="190" height="1" uuid="8543975f-28d8-42e2-a889-9f5ed331c5c2"/>
+				<reportElement positionType="Float" x="315" y="295" width="190" height="1" uuid="8543975f-28d8-42e2-a889-9f5ed331c5c2"/>
 			</line>
 			<staticText>
-				<reportElement positionType="Float" x="315" y="241" width="190" height="14" uuid="122d10fb-fb62-4f13-ac27-a60c354e520f"/>
+				<reportElement positionType="Float" x="315" y="296" width="190" height="14" uuid="122d10fb-fb62-4f13-ac27-a60c354e520f"/>
 				<textElement textAlignment="Center">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>

@@ -4,6 +4,7 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.PreGasto;
+import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
@@ -15,6 +16,7 @@ import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
 import com.franco.dev.service.impresion.dto.GastoDto;
 import com.franco.dev.service.impresion.dto.RetiroDto;
 import com.franco.dev.service.productos.CodigoService;
@@ -22,6 +24,7 @@ import com.franco.dev.service.productos.PrecioPorSucursalService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
 import com.franco.dev.utilitarios.DateUtils;
+import com.google.zxing.WriterException;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -54,6 +57,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -87,6 +91,8 @@ public class ImpresionService {
     private PrecioPorSucursalService precioPorSucursalService;
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -1378,40 +1384,15 @@ public class ImpresionService {
         private Boolean esCheque;
     }
 
-    private void parseDescriptionExtras(String rawDesc, Map<String, Object> parameters) {
-        String cleanDesc = rawDesc;
-        String urgencia = "NORMAL";
-        String formaPago = "EFECTIVO";
-        String beneficiario = "";
-        String obs = "";
-
-        if (rawDesc != null && rawDesc.contains(" | ")) {
-            String[] parts = rawDesc.split(" \\| ", 2);
-            cleanDesc = parts[0];
-            String extras = parts[1];
-
-            urgencia = extractTag(extras, "URGENCIA", "NORMAL");
-            formaPago = extractTag(extras, "FORMA PAGO", "EFECTIVO");
-            beneficiario = extractTag(extras, "BENEFICIARIO", "");
-            obs = extractTag(extras, "OBS", "");
+    private String safeUpper(String value, String fallback) {
+        if (value == null || value.trim().isEmpty()) {
+            return fallback;
         }
-
-        parameters.put("descripcion", cleanDesc.toUpperCase());
-        parameters.put("urgencia", urgencia.toUpperCase());
-        parameters.put("formaPago", formaPago.toUpperCase());
-        parameters.put("beneficiario", beneficiario.toUpperCase());
-        parameters.put("observaciones", obs.toUpperCase());
+        return value.toUpperCase();
     }
 
-    private String extractTag(String text, String tag, String defaultValue) {
-        String pattern = "[" + tag + ": ";
-        int start = text.indexOf(pattern);
-        if (start == -1)
-            return defaultValue;
-        int end = text.indexOf("]", start);
-        if (end == -1)
-            return defaultValue;
-        return text.substring(start + pattern.length(), end).trim();
+    private String formatFecha(java.time.LocalDateTime fecha) {
+        return fecha != null ? DateUtils.toString(fecha) : "---";
     }
 
     public String imprimirPreGasto(PreGasto preGasto) {
@@ -1420,10 +1401,8 @@ public class ImpresionService {
             JasperReport jasperReport = compileReportFromClasspath("reports/pre-gasto.jrxml");
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(new ArrayList<>());
             Map<String, Object> parameters = new HashMap<>();
-            parameters.put("urgencia", "NORMAL");
-            parameters.put("formaPago", "EFECTIVO");
-            parameters.put("beneficiario", "---");
-            parameters.put("observaciones", "---");
+            parameters.put("urgencia", safeUpper(preGasto.getNivelUrgencia(), "NORMAL"));
+            parameters.put("observaciones", safeUpper(preGasto.getObservaciones(), "---"));
 
             parameters.put("idPreGasto", preGasto.getId());
             parameters.put("creadoEn", preGasto.getCreadoEn() != null ? DateUtils.toString(preGasto.getCreadoEn()) : "---");
@@ -1439,13 +1418,31 @@ public class ImpresionService {
             parameters.put("autorizador",
                     preGasto.getAutorizadoPor() != null ? preGasto.getAutorizadoPor().getNombre().toUpperCase() : "PENDIENTE");
             String rawDesc = preGasto.getDescripcion() != null ? preGasto.getDescripcion() : "";
-            parseDescriptionExtras(rawDesc, parameters);
+            String descripcionLimpia = rawDesc;
+            if (rawDesc.contains(" | ")) {
+                descripcionLimpia = rawDesc.split(" \\| ", 2)[0];
+            }
+            parameters.put("descripcion", safeUpper(descripcionLimpia, "---"));
 
             String simbolo = preGasto.getMoneda() != null ? preGasto.getMoneda().getSimbolo() : "GS";
             parameters.put("moneda", simbolo);
 
             log.info("Parámetros del reporte: " + parameters);
             parameters.put("monto", formatMonto(preGasto.getMontoSolicitado(), simbolo));
+            parameters.put("fechaVencimiento", formatFecha(preGasto.getFechaVencimiento()));
+            parameters.put("nivelUrgencia", safeUpper(preGasto.getNivelUrgencia(), "NORMAL"));
+
+            String beneficiarioTipo = "SIN BENEFICIARIO";
+            String beneficiarioNombre = "---";
+            if (preGasto.getBeneficiarioPersona() != null) {
+                beneficiarioTipo = "PERSONA";
+                beneficiarioNombre = safeUpper(preGasto.getBeneficiarioPersona().getNombre(), "---");
+            } else if (preGasto.getBeneficiarioProveedor() != null && preGasto.getBeneficiarioProveedor().getPersona() != null) {
+                beneficiarioTipo = "PROVEEDOR";
+                beneficiarioNombre = safeUpper(preGasto.getBeneficiarioProveedor().getPersona().getNombre(), "---");
+            }
+            parameters.put("beneficiarioTipo", beneficiarioTipo);
+            parameters.put("beneficiarioNombre", beneficiarioNombre);
 
             String usuarioNick = "";
             if (preGasto.getUsuario() != null) {
@@ -1530,6 +1527,10 @@ public class ImpresionService {
                             mnd = m.getMoneda() != null ? m.getMoneda().getSimbolo() : simbolo;
                         }
                         break;
+                    case INSTITUCION:
+                        bienNombre = "INSTITUCION";
+                        bienReferencia = "Ref #" + refId + " - Ente #" + preGasto.getEnte().getId();
+                        break;
                 }
 
                 parameters.put("bienNombre", bienNombre.toUpperCase());
@@ -1564,6 +1565,43 @@ public class ImpresionService {
             String qrText = "frc-" + preGasto.getSucursalId() + "-PREGASTO-" + preGasto.getId() + "-" + preGasto.getId()
                     + "-AdicionarPreGastoComponent-null-null";
             parameters.put("qr", qrText);
+
+            List<PreGastoDetalleFinanzas> finanzas = preGastoDetalleFinanzasService
+                    .findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId());
+            StringBuilder finanzasDetalle = new StringBuilder();
+            String formaPagoPrincipal = "---";
+            if (finanzas != null && !finanzas.isEmpty()) {
+                for (PreGastoDetalleFinanzas f : finanzas) {
+                    String monedaFin = f.getMoneda() != null && f.getMoneda().getSimbolo() != null
+                            ? f.getMoneda().getSimbolo()
+                            : simbolo;
+                    String forma = safeUpper(f.getFormaPago(), "SIN METODO");
+                    if ("---".equals(formaPagoPrincipal)) {
+                        formaPagoPrincipal = forma;
+                    }
+                    finanzasDetalle
+                            .append(forma)
+                            .append(": ")
+                            .append(monedaFin)
+                            .append(" ")
+                            .append(formatMonto(f.getMonto(), monedaFin))
+                            .append("\n");
+                }
+            }
+            parameters.put("formaPago", formaPagoPrincipal);
+            parameters.put("finanzasDetalle",
+                    finanzasDetalle.length() > 0 ? finanzasDetalle.toString().trim() : "SIN DETALLE DE FINANZAS");
+
+            try {
+                BufferedImage qrImage = com.franco.dev.utilitarios.print.QRCodeImageGenerator.generateQRCodeImage(qrText, 160, 160);
+                File qrTmpFile = Files.createTempFile("pregasto-qr-" + preGasto.getId() + "-", ".png").toFile();
+                qrTmpFile.deleteOnExit();
+                ImageIO.write(qrImage, "png", qrTmpFile);
+                parameters.put("qrImage", qrTmpFile.getAbsolutePath());
+            } catch (WriterException | IOException qrEx) {
+                log.warn("No se pudo generar QR para pre-gasto {}: {}", preGasto.getId(), qrEx.getMessage());
+                parameters.put("qrImage", null);
+            }
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);

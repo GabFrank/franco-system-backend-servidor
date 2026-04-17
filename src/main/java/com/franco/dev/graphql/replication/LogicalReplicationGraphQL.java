@@ -232,6 +232,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         return status;
     }
     
+    public ReplicationStatus removeFullReplication(String sucursalId) {
+        LogicalReplicationService.SetupFullReplicationResult result =
+            replicationService.removeFullReplication(Long.parseLong(sucursalId));
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
+        return status;
+    }
+
     public ReplicationStatus removeReplication(String sucursalId) {
         ReplicationStatus status = new ReplicationStatus();
         

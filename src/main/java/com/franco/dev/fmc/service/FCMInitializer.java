@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 @Service
+@ConditionalOnProperty(name = "app.firebase-enabled", havingValue = "true", matchIfMissing = false)
 public class FCMInitializer {
 
     @Value("${app.firebase-configuration-file}")

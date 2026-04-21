@@ -7,11 +7,9 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.graphql.productos.input.PresentacionInput;
 import com.franco.dev.graphql.productos.input.TipoPrecioInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.productos.TipoPrecioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -39,8 +37,6 @@ public class PresentacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private ImageService imageService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

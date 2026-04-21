@@ -19,7 +19,7 @@ import java.nio.file.Paths;
 @Slf4j
 @Configuration
 @EnableConfigurationProperties(SifenProperties.class)
-@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = false)
 public class SifenConfiguration {
 
     @Bean

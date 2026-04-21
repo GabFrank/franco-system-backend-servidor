@@ -7,7 +7,6 @@ import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.PreRegistroFuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -36,8 +35,6 @@ public class PreRegistroFuncionarioGraphQL implements GraphQLQueryResolver, Grap
     @Autowired
     private SucursalService sucursalService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private FuncionarioService funcionarioService;

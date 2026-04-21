@@ -6,7 +6,6 @@ import com.franco.dev.graphql.productos.input.PrecioPorSucursalInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.*;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -56,8 +55,6 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
     private Environment env;
 
     @SuppressWarnings("unused")
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<PrecioPorSucursal> precioPorSucursal(Long id) {
         return service.findById(id);

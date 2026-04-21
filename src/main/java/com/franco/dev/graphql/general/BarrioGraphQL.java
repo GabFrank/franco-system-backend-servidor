@@ -4,12 +4,10 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.general.Barrio;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.general.input.BarrioInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.general.BarrioService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.operaciones.PrecioDeliveryService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -36,8 +34,6 @@ public class BarrioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PrecioDeliveryService precioDeliveryService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

@@ -4,6 +4,7 @@ import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.personas.UsuarioService;
+import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -14,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Component
-public class JornadaGraphQL implements GraphQLQueryResolver {
+public class JornadaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
     private JornadaService service;
@@ -43,5 +44,13 @@ public class JornadaGraphQL implements GraphQLQueryResolver {
             return service.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin);
         }
         return service.findByUsuarioId(usuarioId);
+    }
+
+    public Jornada ajustarJornadaA8Horas(Long id, Long sucursalId, String observacion) {
+        return service.ajustarA8Horas(id, sucursalId, observacion);
+    }
+
+    public Jornada guardarObservacionJornada(Long id, Long sucursalId, String observacion) {
+        return service.guardarObservacion(id, sucursalId, observacion);
     }
 }

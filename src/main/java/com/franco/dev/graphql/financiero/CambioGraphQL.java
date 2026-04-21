@@ -10,13 +10,11 @@ import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.graphql.financiero.input.CambioInput;
 import com.franco.dev.graphql.financiero.input.MonedaInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -41,8 +39,6 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private MonedaService monedaService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

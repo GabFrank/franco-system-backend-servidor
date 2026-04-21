@@ -194,7 +194,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
-        preGasto.setEstado(EstadoPreGasto.TRAMITE);
+        preGasto.setEstado(EstadoPreGasto.COMPLETADO);
 
         if (preGasto.getEnte() != null && preGasto.getEnte().getId() != null) {
             boolean isPagoCuota = (preGasto.getTipoGasto() != null && Boolean.TRUE.equals(preGasto.getTipoGasto().getEsPagoCuotaActivo())) || 

@@ -4,11 +4,9 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.BancoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.BancoService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -32,8 +30,6 @@ public class BancoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private PaisService paisService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

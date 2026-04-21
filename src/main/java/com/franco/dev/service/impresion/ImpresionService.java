@@ -1,6 +1,7 @@
 package com.franco.dev.service.impresion;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.PreGasto;
@@ -431,8 +432,15 @@ public class ImpresionService {
                     escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre());
                 }
                 escpos.writeLF("Fecha " + gastoDto.getFecha().format(formatter));
-                escpos.writeLF(new Style().setBold(true), "Tipo " + gastoDto.getTipoGasto().getId() + " - "
-                        + gastoDto.getTipoGasto().getDescripcion().toUpperCase());
+                String tipoGastoTexto = "SIN TIPO DE GASTO";
+                if (gastoDto.getTipoGasto() != null) {
+                    String tipoId = gastoDto.getTipoGasto().getId() != null ? gastoDto.getTipoGasto().getId().toString() : "N/A";
+                    String tipoDesc = gastoDto.getTipoGasto().getDescripcion() != null
+                            ? gastoDto.getTipoGasto().getDescripcion().toUpperCase()
+                            : "SIN DESCRIPCION";
+                    tipoGastoTexto = "Tipo " + tipoId + " - " + tipoDesc;
+                }
+                escpos.writeLF(new Style().setBold(true), tipoGastoTexto);
                 if (gastoDto.getObservacion() != null) {
                     escpos.writeLF("Obs: " + gastoDto.getObservacion().toUpperCase());
                 }
@@ -514,8 +522,15 @@ public class ImpresionService {
                     escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre());
                 }
                 escpos.writeLF("Fecha " + gastoDto.getFecha().format(formatter));
-                escpos.writeLF(new Style().setBold(true), "Tipo " + gastoDto.getTipoGasto().getId() + " - "
-                        + gastoDto.getTipoGasto().getDescripcion().toUpperCase());
+                String tipoGastoTexto = "SIN TIPO DE GASTO";
+                if (gastoDto.getTipoGasto() != null) {
+                    String tipoId = gastoDto.getTipoGasto().getId() != null ? gastoDto.getTipoGasto().getId().toString() : "N/A";
+                    String tipoDesc = gastoDto.getTipoGasto().getDescripcion() != null
+                            ? gastoDto.getTipoGasto().getDescripcion().toUpperCase()
+                            : "SIN DESCRIPCION";
+                    tipoGastoTexto = "Tipo " + tipoId + " - " + tipoDesc;
+                }
+                escpos.writeLF(new Style().setBold(true), tipoGastoTexto);
                 if (gastoDto.getObservacion() != null) {
                     escpos.writeLF("Obs: " + gastoDto.getObservacion().toUpperCase());
                 }
@@ -1090,29 +1105,48 @@ public class ImpresionService {
         }
     }
 
-    public String imprimirMarcaciones(List<Marcacion> marcacionList, String fechaInicio, String fechaFin,
+    public String imprimirMarcaciones(List<Jornada> jornadaList, String fechaInicio, String fechaFin,
             Usuario usuario) {
         try {
             List<MarcacionItemDto> marcacionItemDtoList = new ArrayList<>();
-            for (Marcacion marcacion : marcacionList) {
+            for (Jornada jornada : jornadaList) {
                 MarcacionItemDto dto = new MarcacionItemDto();
-                dto.setId(marcacion.getId());
-                String nickname = marcacion.getUsuario() != null && marcacion.getUsuario().getNickname() != null
-                        ? marcacion.getUsuario().getNickname()
+                dto.setId(jornada.getId());
+                String nickname = jornada.getUsuario() != null && jornada.getUsuario().getNickname() != null
+                        ? jornada.getUsuario().getNickname()
                         : "";
                 dto.setUsuario(nickname);
-                dto.setSucursalEntrada(marcacion.getSucursalEntrada() != null
-                        ? marcacion.getSucursalEntrada().getNombre()
-                        : "");
-                dto.setFechaEntrada(marcacion.getFechaEntrada() != null
-                        ? DateUtils.toString(marcacion.getFechaEntrada())
-                        : "");
-                dto.setSucursalSalida(marcacion.getSucursalSalida() != null
-                        ? marcacion.getSucursalSalida().getNombre()
-                        : null);
-                dto.setFechaSalida(marcacion.getFechaSalida() != null
-                        ? DateUtils.toString(marcacion.getFechaSalida())
-                        : null);
+
+                if (jornada.getMarcacionEntrada() != null) {
+                    Marcacion ent = jornada.getMarcacionEntrada();
+                    Sucursal sucEnt = ent.getSucursalEntrada() != null ? ent.getSucursalEntrada()
+                            : ent.getSucursalSalida();
+                    dto.setSucursalEntrada(sucEnt != null ? sucEnt.getNombre() : "");
+
+                    LocalDateTime fEnt = ent.getFechaEntrada() != null ? ent.getFechaEntrada() : ent.getFechaSalida();
+                    dto.setFechaEntrada(fEnt != null ? DateUtils.toString(fEnt) : "");
+                } else {
+                    dto.setSucursalEntrada("");
+                    dto.setFechaEntrada("");
+                }
+
+                if (jornada.getMarcacionSalida() != null) {
+                    Marcacion sal = jornada.getMarcacionSalida();
+                    Sucursal sucSal = sal.getSucursalSalida() != null ? sal.getSucursalSalida()
+                            : sal.getSucursalEntrada();
+                    dto.setSucursalSalida(sucSal != null ? sucSal.getNombre() : "");
+
+                    LocalDateTime fSal = sal.getFechaSalida() != null ? sal.getFechaSalida() : sal.getFechaEntrada();
+                    dto.setFechaSalida(fSal != null ? DateUtils.toString(fSal) : "");
+                } else {
+                    dto.setSucursalSalida(null);
+                    dto.setFechaSalida(null);
+                }
+
+                dto.setLlegadaTardia(formatMinutes(jornada.getMinutosLlegadaTardia()));
+                dto.setHoraExtra(formatMinutes(jornada.getMinutosExtras()));
+                dto.setTurno(jornada.getTurno() != null ? jornada.getTurno().toString() : "");
+
                 marcacionItemDtoList.add(dto);
             }
             JasperReport jasperReport = compileReportFromClasspath("reports/marcaciones.jrxml");
@@ -1223,7 +1257,6 @@ public class ImpresionService {
             e.printStackTrace();
         }
     }
-
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
@@ -1259,6 +1292,9 @@ public class ImpresionService {
         private String fechaEntrada;
         private String sucursalSalida;
         private String fechaSalida;
+        private String llegadaTardia;
+        private String horaExtra;
+        private String turno;
     }
 
     public String imprimirSolicitudPagoPDF(
@@ -1383,7 +1419,6 @@ public class ImpresionService {
         private String diferido;
         private Boolean esCheque;
     }
-
     private String safeUpper(String value, String fallback) {
         if (value == null || value.trim().isEmpty()) {
             return fallback;
@@ -1621,5 +1656,14 @@ public class ImpresionService {
         } else {
             return String.format("%.2f", monto.doubleValue());
         }
+    }
+
+    private String formatMinutes(Long minutes) {
+        if (minutes == null || minutes == 0) {
+            return "00:00";
+        }
+        long hours = minutes / 60;
+        long remainingMinutes = minutes % 60;
+        return String.format("%02d:%02d", hours, remainingMinutes);
     }
 }

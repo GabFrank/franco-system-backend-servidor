@@ -12,7 +12,6 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.enums.TipoCliente;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.repository.financiero.FacturaLegalRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;

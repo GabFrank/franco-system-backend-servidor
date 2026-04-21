@@ -2,12 +2,10 @@ package com.franco.dev.graphql.empresarial;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.empresarial.input.SucursalInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -37,8 +35,6 @@ public class SucursalGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private CiudadService ciudadService;
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<Sucursal> sucursal(Long id) {
         return service.findById(id);

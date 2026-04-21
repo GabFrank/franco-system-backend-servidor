@@ -5,11 +5,9 @@ import com.franco.dev.domain.financiero.Timbrado;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.financiero.input.TimbradoInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.TimbradoService;
 import com.franco.dev.service.financiero.TimbradoDetalleService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import org.springframework.data.domain.Page;
 
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -36,8 +34,6 @@ public class TimbradoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

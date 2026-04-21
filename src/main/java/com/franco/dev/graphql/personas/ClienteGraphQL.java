@@ -10,14 +10,12 @@ import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.ClienteInput;
 import com.franco.dev.graphql.personas.input.ClienteUpdateInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.general.ContactoService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -48,8 +46,6 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private ContactoService contactoService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private FuncionarioService funcionarioService;

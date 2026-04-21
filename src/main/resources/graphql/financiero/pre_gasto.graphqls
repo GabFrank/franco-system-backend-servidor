@@ -33,6 +33,13 @@ type PreGasto {
     montoRetirado: Float
     montoGastado: Float
     saldoDevolver: Float
+    montoPendienteRetiro: Float
+    montoNoRendido: Float
+    porcentajeRendicion: Float
+    desvioVsSolicitado: Float
+    estadoEtiqueta: String
+    estadoIcono: String
+    estadoColor: String
     usuario: Usuario
     solicitudPagoId: ID
     beneficiarioProveedor: Proveedor
@@ -112,23 +119,15 @@ type PreGastoPage {
     getPageable: Pageable
 }
 
-type PreGastoStatusMetadata {
-    estado: String
-    etiqueta: String
-    icono: String
-    color: String
-}
-
 extend type Query {
     preGasto(id: ID!, sucId: ID): PreGasto
     preGastos(estado: String, sucId: ID): [PreGasto]!
     preGastosPorSucursal(estado: String!, sucursalId: Int!): [PreGasto]!
     preGastosPorFuncionario(funcionarioId: Int!): [PreGasto]!
     preGastosSearch(texto: String!, sucId: ID): [PreGasto]!
-    filterPreGastos(id: ID, estado: String, inicio: String, fin: String, page: Int, size: Int): PreGastoPage
+    filterPreGastos(id: ID, estado: String, estados: [String], inicio: String, fin: String, page: Int, size: Int): PreGastoPage
     imprimirPreGasto(id: ID!, sucId: ID): String
     getEnteFinancialSummary(enteId: ID!): EnteFinancialSummary
-    getPreGastoStatusMetadataList: [PreGastoStatusMetadata]
 }
 
 extend type Mutation {

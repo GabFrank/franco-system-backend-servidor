@@ -12,7 +12,6 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
-import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -90,10 +89,10 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.buscarPorTexto(texto, sucId);
     }
 
-    public Page<PreGasto> filterPreGastos(Long id, String estado, String inicio, String fin, Integer page,
+    public Page<PreGasto> filterPreGastos(Long id, String estado, List<String> estados, String inicio, String fin, Integer page,
             Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
-        return service.filterPreGastos(id, estado, inicio, fin, pageable);
+        return service.filterPreGastos(id, estado, estados, inicio, fin, pageable);
     }
 
     public String imprimirPreGasto(Long id, Long sucId) {
@@ -106,10 +105,6 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public EnteFinancialSummaryDTO getEnteFinancialSummary(Long enteId) {
         return service.getFinancialSummary(enteId);
-    }
-
-    public List<PreGastoStatusMetadataDTO> getPreGastoStatusMetadataList() {
-        return service.getStatusMetadataList();
     }
 
     public PreGasto savePreGasto(PreGastoInput input) {

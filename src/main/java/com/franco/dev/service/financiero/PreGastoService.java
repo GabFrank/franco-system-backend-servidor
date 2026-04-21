@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -128,9 +129,13 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return repository.buscarPorTexto(texto, sucursalId);
     }
 
-    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(Long id, String estado, String inicio,
+    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(Long id, String estado, List<String> estados, String inicio,
             String fin, org.springframework.data.domain.Pageable pageable) {
-        return repository.filterPreGastos(id, estado, inicio, fin, pageable);
+        List<String> estadosFiltro = estados != null ? estados : new ArrayList<>();
+        if (estadosFiltro.isEmpty()) {
+            return repository.filterPreGastosSinEstados(id, estado, inicio, fin, pageable);
+        }
+        return repository.filterPreGastos(id, estado, estadosFiltro, inicio, fin, pageable);
     }
 
     public PreGasto autorizar(Long id, Long autorizadorId, Long sucId) {

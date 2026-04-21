@@ -47,20 +47,41 @@ public interface PreGastoRepository extends HelperRepository<PreGasto, EmbebedPr
     @Query(value = "SELECT pg.* FROM financiero.pre_gasto pg " +
             "WHERE (CAST(:id AS bigint) IS NULL OR pg.id = CAST(:id AS bigint)) " +
             "AND (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
+            "AND cast(pg.estado as text) IN (:estados) " +
             "AND (CAST(:inicio AS text) IS NULL OR pg.creado_en >= CAST(CAST(:inicio AS text) AS timestamp)) " +
             "AND (CAST(:fin AS text) IS NULL OR pg.creado_en <= CAST(CAST(:fin AS text) AS timestamp)) " +
             "ORDER BY pg.id DESC",
             countQuery = "SELECT count(*) FROM financiero.pre_gasto pg " +
             "WHERE (CAST(:id AS bigint) IS NULL OR pg.id = CAST(:id AS bigint)) " +
             "AND (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
+            "AND cast(pg.estado as text) IN (:estados) " +
             "AND (CAST(:inicio AS text) IS NULL OR pg.creado_en >= CAST(CAST(:inicio AS text) AS timestamp)) " +
             "AND (CAST(:fin AS text) IS NULL OR pg.creado_en <= CAST(CAST(:fin AS text) AS timestamp))",
             nativeQuery = true)
     Page<PreGasto> filterPreGastos(@Param("id") Long id,
                                    @Param("estado") String estado,
+                                   @Param("estados") List<String> estados,
                                    @Param("inicio") String inicio,
                                    @Param("fin") String fin,
                                    Pageable pageable);
+
+    @Query(value = "SELECT pg.* FROM financiero.pre_gasto pg " +
+            "WHERE (CAST(:id AS bigint) IS NULL OR pg.id = CAST(:id AS bigint)) " +
+            "AND (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
+            "AND (CAST(:inicio AS text) IS NULL OR pg.creado_en >= CAST(CAST(:inicio AS text) AS timestamp)) " +
+            "AND (CAST(:fin AS text) IS NULL OR pg.creado_en <= CAST(CAST(:fin AS text) AS timestamp)) " +
+            "ORDER BY pg.id DESC",
+            countQuery = "SELECT count(*) FROM financiero.pre_gasto pg " +
+                    "WHERE (CAST(:id AS bigint) IS NULL OR pg.id = CAST(:id AS bigint)) " +
+                    "AND (CAST(:estado AS text) IS NULL OR cast(pg.estado as text) = CAST(:estado AS text)) " +
+                    "AND (CAST(:inicio AS text) IS NULL OR pg.creado_en >= CAST(CAST(:inicio AS text) AS timestamp)) " +
+                    "AND (CAST(:fin AS text) IS NULL OR pg.creado_en <= CAST(CAST(:fin AS text) AS timestamp))",
+            nativeQuery = true)
+    Page<PreGasto> filterPreGastosSinEstados(@Param("id") Long id,
+                                             @Param("estado") String estado,
+                                             @Param("inicio") String inicio,
+                                             @Param("fin") String fin,
+                                             Pageable pageable);
 
     @Query(value = "SELECT max(pg.id) FROM financiero.pre_gasto pg WHERE pg.sucursal_id = CAST(:sucursalId AS bigint)", nativeQuery = true)
     Long findMaxId(@Param("sucursalId") Long sucursalId);

@@ -25,6 +25,7 @@ type PreGasto {
     moneda: Moneda
     montoSolicitado: Float
     sucursalCaja: Sucursal
+    cajaId: ID
     estado: EstadoPreGasto
     qrToken: String
     autorizadoPor: Persona
@@ -92,6 +93,7 @@ input PreGastoInput {
     monedaId: Int
     montoSolicitado: Float
     sucursalCajaId: Int
+    cajaId: Int
     estado: EstadoPreGasto
     autorizadoPorId: Int
     delegadoAId: Int
@@ -125,7 +127,7 @@ extend type Query {
     preGastosPorSucursal(estado: String!, sucursalId: Int!): [PreGasto]!
     preGastosPorFuncionario(funcionarioId: Int!): [PreGasto]!
     preGastosSearch(texto: String!, sucId: ID): [PreGasto]!
-    filterPreGastos(id: ID, estado: String, estados: [String], inicio: String, fin: String, page: Int, size: Int): PreGastoPage
+    filterPreGastos(id: ID, cajaId: ID, estado: String, estados: [String], inicio: String, fin: String, page: Int, size: Int): PreGastoPage
     imprimirPreGasto(id: ID!, sucId: ID): String
     getEnteFinancialSummary(enteId: ID!): EnteFinancialSummary
 }

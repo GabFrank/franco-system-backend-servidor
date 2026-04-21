@@ -61,6 +61,9 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "sucursal_caja_id")
     private Sucursal sucursalCaja;
 
+    @Column(name = "caja_id")
+    private Long cajaId;
+
     @Enumerated(EnumType.STRING)
     @Type(type = "estado_pre_gasto")
     private EstadoPreGasto estado;

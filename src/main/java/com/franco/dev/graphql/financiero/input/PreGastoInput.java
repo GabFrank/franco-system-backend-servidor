@@ -18,6 +18,7 @@ public class PreGastoInput {
     private Long sucursalId;
     private BigDecimal montoSolicitado;
     private Long sucursalCajaId;
+    private Long cajaId;
     private EstadoPreGasto estado;
     private Long autorizadoPorId;
     private Long delegadoAId;

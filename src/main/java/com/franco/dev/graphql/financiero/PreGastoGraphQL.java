@@ -89,10 +89,10 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.buscarPorTexto(texto, sucId);
     }
 
-    public Page<PreGasto> filterPreGastos(Long id, String estado, List<String> estados, String inicio, String fin, Integer page,
+    public Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado, List<String> estados, String inicio, String fin, Integer page,
             Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
-        return service.filterPreGastos(id, estado, estados, inicio, fin, pageable);
+        return service.filterPreGastos(id, cajaId, estado, estados, inicio, fin, pageable);
     }
 
     public String imprimirPreGasto(Long id, Long sucId) {
@@ -148,6 +148,7 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getSucursalCajaId() != null) {
             e.setSucursalCaja(sucursalService.findById(input.getSucursalCajaId()).orElse(null));
         }
+        e.setCajaId(input.getCajaId());
         if (input.getAutorizadoPorId() != null) {
             e.setAutorizadoPor(personaService.findById(input.getAutorizadoPorId()).orElse(null));
         }

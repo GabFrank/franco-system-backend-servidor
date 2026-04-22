@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.financiero.resolver;
 
 import com.franco.dev.domain.financiero.PreGasto;
+import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.financiero.PreGastoService;
 import graphql.kickstart.tools.GraphQLResolver;
 import org.springframework.stereotype.Component;
@@ -10,6 +12,7 @@ import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -19,6 +22,8 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
     private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
     @Autowired
     private PreGastoService preGastoService;
+    @Autowired
+    private GastoRepository gastoRepository;
 
     public List<PreGastoDetalleFinanzas> finanzas(PreGasto preGasto) {
         if (preGasto.getId() == null || preGasto.getSucursalId() == null) {
@@ -34,12 +39,19 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
     }
 
     public BigDecimal montoNoRendido(PreGasto preGasto) {
+        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
+            BigDecimal retiradoPendiente = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+            return retiradoPendiente.compareTo(BigDecimal.ZERO) > 0 ? retiradoPendiente : BigDecimal.ZERO;
+        }
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         return retirado.subtract(gastado);
     }
 
     public Double porcentajeRendicion(PreGasto preGasto) {
+        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
+            return 0d;
+        }
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         if (retirado.compareTo(BigDecimal.ZERO) <= 0) {
@@ -73,5 +85,45 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
                 .filter(m -> m.getEstado().equals(preGasto.getEstado().name()))
                 .map(m -> m.getColor())
                 .findFirst().orElse("#9e9e9e");
+    }
+
+    public Gasto gasto(PreGasto preGasto) {
+        if (preGasto.getId() == null || preGasto.getSucursalId() == null) {
+            return null;
+        }
+        return gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(
+                preGasto.getId(), preGasto.getSucursalId());
+    }
+
+    public String estadoRendicion(PreGasto preGasto) {
+        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
+            return "NO_RENDIDO";
+        }
+        if (preGasto.getEstadoRendicion() != null && !preGasto.getEstadoRendicion().isBlank()) {
+            return preGasto.getEstadoRendicion();
+        }
+        BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+        BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
+        if (retirado.compareTo(BigDecimal.ZERO) <= 0 || gastado.compareTo(BigDecimal.ZERO) <= 0) {
+            return "NO_RENDIDO";
+        }
+        if (gastado.compareTo(retirado) >= 0) {
+            return "RENDIDO_COMPLETO";
+        }
+        return "RENDIDO_PARCIAL";
+    }
+
+    public Boolean rindioGasto(PreGasto preGasto) {
+        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
+            return false;
+        }
+        return Boolean.TRUE.equals(preGasto.getRindioGasto());
+    }
+
+    public LocalDateTime fechaRendicion(PreGasto preGasto) {
+        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
+            return null;
+        }
+        return preGasto.getFechaRendicion();
     }
 }

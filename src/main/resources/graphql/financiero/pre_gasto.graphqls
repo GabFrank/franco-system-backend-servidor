@@ -48,6 +48,10 @@ type PreGasto {
     fechaVencimiento: Date
     nivelUrgencia: String
     observaciones: String
+    rindioGasto: Boolean
+    estadoRendicion: String
+    fechaRendicion: Date
+    gasto: Gasto
     finanzas: [PreGastoDetalleFinanzas]
     creadoEn: Date
 }
@@ -137,7 +141,7 @@ extend type Mutation {
     autorizarPreGasto(id: ID!, autorizadorId: ID!, sucId: ID): PreGasto
     rechazarPreGasto(id: ID!, motivo: String!, sucId: ID): PreGasto
     tramitarPreGasto(id: ID!, sucId: ID): PreGasto
-    completarPreGasto(id: ID!, sucId: ID): PreGasto
+    completarPreGasto(id: ID!, sucId: ID, rindioGasto: Boolean, montoGastado: Float): PreGasto
     enviarPreGastoATesoreria(id: ID!, sucId: ID, usuarioId: ID): PreGasto
     deletePreGasto(id: ID!, sucId: ID): Boolean!
 }

@@ -19,6 +19,7 @@ type Gasto {
     vueltoDs: Float
     sucursalVuelto: Sucursal
     sucursal: Sucursal
+    preGasto: PreGasto
 }
 
 input GastoInput {
@@ -39,6 +40,8 @@ input GastoInput {
     activo: Boolean
     finalizado: Boolean
     sucursalId: Int
+    preGastoId: Int
+    preGastoSucursalId: Int
 }
 
 type GastoPage {

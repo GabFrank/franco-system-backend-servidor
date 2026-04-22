@@ -5,6 +5,7 @@ import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.graphql.financiero.input.GastoInput;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.PreGastoService;
 import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -49,6 +50,9 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private PreGastoService preGastoService;
+
     public Gasto gasto(Long id, Long sucId) {
         return service.findByIdAndSucursalId(id, sucId);
     }
@@ -69,6 +73,10 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Gasto saveGasto(GastoInput input, String printerName, String local) throws GraphQLException {
         ModelMapper m = new ModelMapper();
         Gasto e = m.map(input, Gasto.class);
+        Gasto existente = null;
+        if (input.getId() != null) {
+            existente = service.findByIdAndSucursalId(input.getId(), input.getSucursalId());
+        }
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getCajaId() != null)
@@ -79,6 +87,12 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             e.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
         if (input.getAutorizadoPorId() != null)
             e.setAutorizadoPor(funcionarioService.findById(input.getAutorizadoPorId()).orElse(null));
+        if (input.getPreGastoId() != null && input.getPreGastoSucursalId() != null) {
+            e.setPreGasto(preGastoService.findByIdAndSucursalId(input.getPreGastoId(), input.getPreGastoSucursalId()));
+        } else if (existente != null) {
+            // Preserve existing linkage when updating gasto without explicit preGasto fields.
+            e.setPreGasto(existente.getPreGasto());
+        }
 
         e = service.save(e);
         return e;

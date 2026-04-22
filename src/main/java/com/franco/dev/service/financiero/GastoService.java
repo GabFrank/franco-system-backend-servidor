@@ -20,6 +20,7 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
 
     private final GastoRepository repository;
     private final org.springframework.context.ApplicationEventPublisher publisher;
+    private final PreGastoService preGastoService;
 
     public static final DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -53,6 +54,9 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     @Override
     public Gasto save(Gasto entity) {
         Gasto e = super.save(entity);
+        if (e.getPreGasto() != null) {
+            preGastoService.actualizarRendicionDesdeGasto(e);
+        }
         publisher.publishEvent(new com.franco.dev.fmc.event.GastoRealizadoEvent(this, e));
         return e;
     }

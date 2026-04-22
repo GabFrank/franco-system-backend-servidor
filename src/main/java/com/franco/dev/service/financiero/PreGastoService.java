@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 
 import com.franco.dev.domain.financiero.EnteCuota;
 import com.franco.dev.domain.financiero.EnteFinanciero;
+import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.domain.operaciones.SolicitudPago;
@@ -195,7 +196,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return save(preGasto);
     }
 
-    public PreGasto completar(Long id, Long sucId) {
+    public PreGasto completar(Long id, Long sucId, Boolean rindioGasto, Double montoGastadoInformado) {
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
@@ -215,9 +216,99 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         }
 
         BigDecimal montoRetirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+        if (montoGastadoInformado != null) {
+            BigDecimal montoGastadoNormalizado = BigDecimal.valueOf(montoGastadoInformado);
+            if (montoGastadoNormalizado.compareTo(BigDecimal.ZERO) < 0) {
+                montoGastadoNormalizado = BigDecimal.ZERO;
+            }
+            if (montoGastadoNormalizado.compareTo(montoRetirado) > 0) {
+                montoGastadoNormalizado = montoRetirado;
+            }
+            preGasto.setMontoGastado(montoGastadoNormalizado);
+        } else if (!Boolean.TRUE.equals(rindioGasto)) {
+            preGasto.setMontoGastado(BigDecimal.ZERO);
+        }
         BigDecimal montoGastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         preGasto.setSaldoDevolver(montoRetirado.subtract(montoGastado));
+        if (montoGastado.compareTo(BigDecimal.ZERO) > 0) {
+            preGasto.setFechaRendicion(LocalDateTime.now());
+        } else {
+            preGasto.setFechaRendicion(null);
+        }
+        recalcularEstadoRendicion(preGasto);
         return super.save(preGasto);
+    }
+
+    public void actualizarRendicionDesdeGasto(Gasto gasto) {
+        if (gasto == null || gasto.getPreGasto() == null) {
+            return;
+        }
+        PreGasto preGasto = repository.findByIdAndSucursalId(gasto.getPreGasto().getId(), gasto.getPreGasto().getSucursalId());
+        if (preGasto == null) {
+            return;
+        }
+
+        BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, gasto.getRetiroGs(), gasto.getRetiroRs(), gasto.getRetiroDs());
+        BigDecimal montoVuelto = obtenerMontoMoneda(preGasto, gasto.getVueltoGs(), gasto.getVueltoRs(), gasto.getVueltoDs());
+        if (montoVuelto.compareTo(BigDecimal.ZERO) < 0) {
+            montoVuelto = BigDecimal.ZERO;
+        }
+        BigDecimal montoRendido = montoRetirado.subtract(montoVuelto);
+        if (montoRendido.compareTo(BigDecimal.ZERO) < 0) {
+            montoRendido = BigDecimal.ZERO;
+        }
+
+        preGasto.setMontoRetirado(montoRetirado);
+        preGasto.setMontoGastado(montoRendido);
+        preGasto.setSaldoDevolver(montoVuelto);
+        preGasto.setFechaRendicion(gasto.getFinalizado() != null && gasto.getFinalizado()
+                ? LocalDateTime.now()
+                : preGasto.getFechaRendicion());
+        recalcularEstadoRendicion(preGasto);
+        super.save(preGasto);
+    }
+
+    private BigDecimal obtenerMontoMoneda(PreGasto preGasto, Double gs, Double rs, Double ds) {
+        String simbolo = preGasto.getMoneda() != null && preGasto.getMoneda().getSimbolo() != null
+                ? preGasto.getMoneda().getSimbolo().trim().toUpperCase()
+                : "";
+        String denominacion = preGasto.getMoneda() != null && preGasto.getMoneda().getDenominacion() != null
+                ? preGasto.getMoneda().getDenominacion().trim().toUpperCase()
+                : "";
+        if (simbolo.contains("GS") || denominacion.contains("GUARANI")) {
+            return toBigDecimal(gs);
+        }
+        if (simbolo.contains("R$") || simbolo.contains("RS") || denominacion.contains("REAL")) {
+            return toBigDecimal(rs);
+        }
+        if (simbolo.contains("USD") || simbolo.contains("US$") || "$".equals(simbolo) || denominacion.contains("DOLAR")) {
+            return toBigDecimal(ds);
+        }
+        if (toBigDecimal(gs).compareTo(BigDecimal.ZERO) > 0) return toBigDecimal(gs);
+        if (toBigDecimal(rs).compareTo(BigDecimal.ZERO) > 0) return toBigDecimal(rs);
+        return toBigDecimal(ds);
+    }
+
+    private BigDecimal toBigDecimal(Double value) {
+        return value == null ? BigDecimal.ZERO : BigDecimal.valueOf(value);
+    }
+
+    private void recalcularEstadoRendicion(PreGasto preGasto) {
+        BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+        BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
+
+        if (retirado.compareTo(BigDecimal.ZERO) <= 0 || gastado.compareTo(BigDecimal.ZERO) <= 0) {
+            preGasto.setEstadoRendicion("NO_RENDIDO");
+            preGasto.setRindioGasto(false);
+            return;
+        }
+        if (gastado.compareTo(retirado) >= 0) {
+            preGasto.setEstadoRendicion("RENDIDO_COMPLETO");
+            preGasto.setRindioGasto(true);
+            return;
+        }
+        preGasto.setEstadoRendicion("RENDIDO_PARCIAL");
+        preGasto.setRindioGasto(true);
     }
 
     private void crearActivoAutomatico(PreGasto preGasto) {

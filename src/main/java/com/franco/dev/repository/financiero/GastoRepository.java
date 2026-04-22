@@ -1,10 +1,7 @@
 package com.franco.dev.repository.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Gasto;
-import com.franco.dev.domain.financiero.Retiro;
-import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -48,4 +45,6 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
     Page<Gasto> findByAllPage(Long id, Long cajaId, Long sucId, Long responsableId, String descripcion, Pageable pageable);
 
     public Gasto findByIdAndSucursalId(Long id, Long sucId);
+
+    Gasto findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(Long preGastoId, Long preGastoSucursalId);
 }

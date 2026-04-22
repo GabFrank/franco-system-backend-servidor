@@ -115,6 +115,15 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
     @Column(name = "observaciones")
     private String observaciones;
 
+    @Column(name = "rindio_gasto")
+    private Boolean rindioGasto;
+
+    @Column(name = "estado_rendicion")
+    private String estadoRendicion;
+
+    @Column(name = "fecha_rendicion")
+    private LocalDateTime fechaRendicion;
+
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 }

@@ -30,7 +30,9 @@ import com.franco.dev.service.personas.ProveedorService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -68,10 +70,11 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public List<PreGasto> preGastos(String estado, Long sucId) {
         if (estado != null && !estado.isEmpty()) {
+            String estadoNormalizado = normalizarEstadoPreGasto(estado);
             if (sucId != null && sucId > 0) {
-                return service.buscarPorEstadoYSucursal(EstadoPreGasto.valueOf(estado), sucId);
+                return service.buscarPorEstadoYSucursal(EstadoPreGasto.valueOf(estadoNormalizado), sucId);
             } else {
-                return service.buscarPorEstado(EstadoPreGasto.valueOf(estado));
+                return service.buscarPorEstado(EstadoPreGasto.valueOf(estadoNormalizado));
             }
         }
         return service.findAll2();
@@ -92,7 +95,11 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado, List<String> estados, String inicio, String fin, Integer page,
             Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
-        return service.filterPreGastos(id, cajaId, estado, estados, inicio, fin, pageable);
+        String estadoNormalizado = normalizarEstadoPreGasto(estado);
+        List<String> estadosNormalizados = estados != null
+                ? estados.stream().map(this::normalizarEstadoPreGasto).toList()
+                : null;
+        return service.filterPreGastos(id, cajaId, estadoNormalizado, estadosNormalizados, inicio, fin, pageable);
     }
 
     public String imprimirPreGasto(Long id, Long sucId) {
@@ -170,6 +177,8 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
         e = service.save(e);
 
+        validarFinanzasInput(input.getFinanzas());
+
         // Save details finanzas
         if (input.getFinanzas() != null && !input.getFinanzas().isEmpty() && e.getId() != null) {
             // First delete old entries if taking full list update
@@ -179,8 +188,10 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 preGastoDetalleFinanzasService.delete(old);
             }
 
-            // Calcular montoSolicitado como suma de todos los detalles de finanzas
-            BigDecimal totalFinanzas = BigDecimal.ZERO;
+            // Mantenemos monto/moneda principal en base al primer detalle.
+            // Si existen varias monedas, no se deben sumar importes heterogeneos.
+            BigDecimal montoPrincipal = null;
+            Long monedaPrincipalId = null;
 
             for (PreGastoDetalleFinanzasInput fInput : input.getFinanzas()) {
                 PreGastoDetalleFinanzas det = new PreGastoDetalleFinanzas();
@@ -192,15 +203,17 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 }
                 preGastoDetalleFinanzasService.save(det);
 
-                if (fInput.getMonto() != null) {
-                    totalFinanzas = totalFinanzas.add(fInput.getMonto());
+                if (montoPrincipal == null && fInput.getMonto() != null) {
+                    montoPrincipal = fInput.getMonto();
+                    monedaPrincipalId = fInput.getMonedaId();
                 }
             }
-            e.setMontoSolicitado(totalFinanzas);
 
-            PreGastoDetalleFinanzasInput primerDetalle = input.getFinanzas().get(0);
-            if (primerDetalle.getMonedaId() != null) {
-                e.setMoneda(monedaService.findById(primerDetalle.getMonedaId()).orElse(null));
+            if (montoPrincipal != null) {
+                e.setMontoSolicitado(montoPrincipal);
+            }
+            if (monedaPrincipalId != null) {
+                e.setMoneda(monedaService.findById(monedaPrincipalId).orElse(null));
             }
             e = service.save(e);
         }
@@ -211,6 +224,21 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private void validarBeneficiarioInput(PreGastoInput input) {
         if (input.getBeneficiarioPersonaId() != null && input.getBeneficiarioProveedorId() != null) {
             throw new GraphQLException("Debe seleccionar solo un beneficiario: persona o proveedor.");
+        }
+    }
+
+    private void validarFinanzasInput(List<PreGastoDetalleFinanzasInput> finanzas) {
+        if (finanzas == null || finanzas.isEmpty()) {
+            return;
+        }
+        Set<Long> monedas = new HashSet<>();
+        for (PreGastoDetalleFinanzasInput f : finanzas) {
+            if (f == null || f.getMonedaId() == null) {
+                continue;
+            }
+            if (!monedas.add(f.getMonedaId())) {
+                throw new GraphQLException("No se permite repetir la misma moneda en la solicitud.");
+            }
         }
     }
 
@@ -231,8 +259,8 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.enviarATramite(id, sucId);
     }
 
-    public PreGasto completarPreGasto(Long id, Long sucId) {
-        return service.completar(id, sucId);
+    public PreGasto completarPreGasto(Long id, Long sucId, Boolean rindioGasto, Double montoGastado) {
+        return service.completar(id, sucId, rindioGasto, montoGastado);
     }
 
     public PreGasto enviarPreGastoATesoreria(Long id, Long sucId, Long usuarioId) {
@@ -242,5 +270,16 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Boolean deletePreGasto(Long id, Long sucId) {
         PreGasto e = service.findByIdAndSucursalId(id, sucId);
         return service.delete(e);
+    }
+
+    private String normalizarEstadoPreGasto(String estado) {
+        if (estado == null || estado.isBlank()) {
+            return estado;
+        }
+        String estadoUpper = estado.toUpperCase();
+        if ("COMPLETADOS".equals(estadoUpper)) {
+            return "COMPLETADO";
+        }
+        return estadoUpper;
     }
 }

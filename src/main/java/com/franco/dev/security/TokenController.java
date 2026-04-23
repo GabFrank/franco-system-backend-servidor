@@ -2,13 +2,11 @@ package com.franco.dev.security;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.repository.configuracion.InicioSesionRepository;
 import com.franco.dev.security.jwt.JwtGenerator;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,11 +16,16 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin
 public class TokenController {
 
-    @Autowired
     private final UsuarioService service;
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private JwtValidator jwtValidator;
+
+    @Autowired
+    private InicioSesionRepository inicioSesionRepository;
 
     private JwtGenerator jwtGenerator;
 
@@ -68,7 +71,90 @@ public class TokenController {
         } else {
             throw new GraphQLException("Ups!! El usuario no existe");
         }
-        LoginResponse response = new LoginResponse(usuario.getId(),jwtGenerator.generate(jwtUser), sucursalService.sucursalActual());
+        LoginResponse response = new LoginResponse(
+                usuario.getId(),
+                jwtGenerator.generate(jwtUser),
+                sanitizeSucursal(sucursalService.sucursalActual()));
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(path = "/biometric")
+    @ResponseBody
+    public ResponseEntity<LoginResponse> biometricLogin(@RequestBody final BiometricLoginRequest request) {
+        if (request == null || request.getBiometricToken() == null
+                || request.getBiometricToken().isBlank() || request.getIdDispositivo() == null
+                || request.getIdDispositivo().isBlank()) {
+            throw new GraphQLException("Datos biométricos incompletos.");
+        }
+
+        Long biometricOwnerId = inicioSesionRepository
+                .findFirstByIdDispositivoAndUsuarioIsNotNullOrderByIdAsc(request.getIdDispositivo())
+                .map(inicioSesion -> inicioSesion.getUsuario() != null ? inicioSesion.getUsuario().getId() : null)
+                .orElse(null);
+        if (biometricOwnerId == null) {
+            throw new GraphQLException("No se encontró usuario biométrico para este dispositivo.");
+        }
+
+        JwtUser tokenPayload = jwtValidator.validate(request.getBiometricToken());
+        if (tokenPayload == null || tokenPayload.getNickname() == null || tokenPayload.getNickname().isBlank()) {
+            throw new GraphQLException("Token biométrico inválido.");
+        }
+
+        Usuario usuarioToken = service.findByNickname(tokenPayload.getNickname()).orElse(null);
+        if (usuarioToken == null || !usuarioToken.getId().equals(biometricOwnerId)) {
+            throw new GraphQLException("El token biométrico no corresponde al usuario.");
+        }
+
+        boolean existeSesionDelOwnerEnDispositivo = inicioSesionRepository
+                .existsByUsuarioIdAndIdDispositivo(biometricOwnerId, request.getIdDispositivo());
+        if (!existeSesionDelOwnerEnDispositivo) {
+            throw new GraphQLException("No existe historial de sesión del usuario biométrico en el dispositivo.");
+        }
+
+        JwtUser jwtUser = new JwtUser();
+        jwtUser.setId(usuarioToken.getId());
+        jwtUser.setNickname(usuarioToken.getNickname().toUpperCase());
+        jwtUser.setPassword(usuarioToken.getPassword().toUpperCase());
+        jwtUser.setRoles(service.getRoles(usuarioToken.getId()));
+
+        LoginResponse response = new LoginResponse(
+                usuarioToken.getId(),
+                jwtGenerator.generate(jwtUser),
+                sanitizeSucursal(sucursalService.sucursalActual()));
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping(path = "/biometric-owner/{idDispositivo}")
+    @ResponseBody
+    public ResponseEntity<Long> biometricOwner(@PathVariable String idDispositivo) {
+        if (idDispositivo == null || idDispositivo.isBlank()) {
+            throw new GraphQLException("Dispositivo inválido.");
+        }
+        Long biometricOwnerId = inicioSesionRepository
+                .findFirstByIdDispositivoAndUsuarioIsNotNullOrderByIdAsc(idDispositivo)
+                .map(inicioSesion -> inicioSesion.getUsuario() != null ? inicioSesion.getUsuario().getId() : null)
+                .orElse(null);
+        return ResponseEntity.ok(biometricOwnerId);
+    }
+
+    private Sucursal sanitizeSucursal(Sucursal sucursal) {
+        if (sucursal == null) {
+            return null;
+        }
+        Sucursal safeSucursal = new Sucursal();
+        safeSucursal.setId(sucursal.getId());
+        safeSucursal.setNombre(sucursal.getNombre());
+        safeSucursal.setLocalizacion(sucursal.getLocalizacion());
+        safeSucursal.setDeposito(sucursal.getDeposito());
+        safeSucursal.setIsConfigured(sucursal.getIsConfigured());
+        safeSucursal.setDepositoPredeterminado(sucursal.getDepositoPredeterminado());
+        safeSucursal.setDireccion(sucursal.getDireccion());
+        safeSucursal.setNroDelivery(sucursal.getNroDelivery());
+        safeSucursal.setCodigoEstablecimientoFactura(sucursal.getCodigoEstablecimientoFactura());
+        safeSucursal.setIp(sucursal.getIp());
+        safeSucursal.setPuerto(sucursal.getPuerto());
+        safeSucursal.setActivo(sucursal.getActivo());
+        safeSucursal.setCreadoEn(sucursal.getCreadoEn());
+        return safeSucursal;
     }
 }

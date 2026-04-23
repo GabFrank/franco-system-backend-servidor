@@ -15323,4 +15323,3 @@ CREATE SUBSCRIPTION filial_farmacia_4_sub CONNECTION 'dbname=general host=172.25
 --
 -- PostgreSQL database dump complete
 --
-

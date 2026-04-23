@@ -188,26 +188,8 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         return lr;
     }
     
-    // Helper method to extract sucursal ID from name
     private Long extractSucursalIdFromName(String name) {
-        try {
-            if (name.startsWith("filial") && name.contains("_")) {
-                // Format: filial<id>_pub or filial<id>_sub
-                String idPart = name.substring(6, name.indexOf("_"));
-                return Long.parseLong(idPart);
-            } else if (name.startsWith("central_filial") && name.contains("_pub")) {
-                // Format: central_filial<id>_pub
-                String idPart = name.substring(14, name.indexOf("_pub"));
-                return Long.parseLong(idPart);
-            } else if (name.startsWith("central_filial") && name.contains("_sub")) {
-                // Format: central_filial<id>_sub
-                String idPart = name.substring(14, name.indexOf("_sub"));
-                return Long.parseLong(idPart);
-            }
-        } catch (NumberFormatException | IndexOutOfBoundsException e) {
-            // Handle parsing error
-        }
-        return null;
+        return replicationService.extractSucursalIdFromName(name);
     }
     
     // Mutation resolvers
@@ -250,6 +232,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         return status;
     }
     
+    public ReplicationStatus removeFullReplication(String sucursalId) {
+        LogicalReplicationService.SetupFullReplicationResult result =
+            replicationService.removeFullReplication(Long.parseLong(sucursalId));
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
+        return status;
+    }
+
     public ReplicationStatus removeReplication(String sucursalId) {
         ReplicationStatus status = new ReplicationStatus();
         
@@ -307,7 +298,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
             
             if (isSubscription) {
                 // Toggle subscription
-                String subscriptionName = "filial" + sucursalId + "_sub";
+                String subscriptionName = replicationService.generateBranchSubscriptionName(Long.parseLong(sucursalId));
                 success = replicationService.alterSubscription(subscriptionName, enabled);
                 
                 if (success) {
@@ -331,7 +322,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
                     }
                 } else {
                     // Disable publication (drop it)
-                    String publicationName = "central_filial" + sucursalId + "_pub";
+                    String publicationName = replicationService.generateCentralToBranchPublicationName(Long.parseLong(sucursalId));
                     success = replicationService.dropPublication(publicationName);
                     
                     if (success) {

@@ -2,6 +2,7 @@ package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.graphql.financiero.input.GastoInput;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.financiero.PdvCajaService;
@@ -87,8 +88,17 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             e.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
         if (input.getAutorizadoPorId() != null)
             e.setAutorizadoPor(funcionarioService.findById(input.getAutorizadoPorId()).orElse(null));
-        if (input.getPreGastoId() != null && input.getPreGastoSucursalId() != null) {
-            e.setPreGasto(preGastoService.findByIdAndSucursalId(input.getPreGastoId(), input.getPreGastoSucursalId()));
+        if (input.getPreGastoId() != null || input.getPreGastoSucursalId() != null) {
+            if (input.getPreGastoId() == null || input.getPreGastoSucursalId() == null) {
+                throw new GraphQLException("Debe enviar preGastoId y preGastoSucursalId para asociar el gasto.");
+            }
+            PreGasto preGasto = preGastoService.findByIdAndSucursalId(input.getPreGastoId(), input.getPreGastoSucursalId());
+            if (preGasto == null) {
+                throw new GraphQLException(
+                        "No existe la solicitud de gasto para la clave compuesta (" +
+                                input.getPreGastoId() + ", " + input.getPreGastoSucursalId() + ").");
+            }
+            e.setPreGasto(preGasto);
         } else if (existente != null) {
             // Preserve existing linkage when updating gasto without explicit preGasto fields.
             e.setPreGasto(existente.getPreGasto());

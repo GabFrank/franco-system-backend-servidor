@@ -155,6 +155,12 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getSucursalCajaId() != null) {
             e.setSucursalCaja(sucursalService.findById(input.getSucursalCajaId()).orElse(null));
         }
+        if (input.getSucursalId() != null) {
+            e.setSucursalId(input.getSucursalId());
+        }
+        if (e.getSucursalId() == null || e.getSucursalId() <= 0) {
+            throw new GraphQLException("Debe indicar una sucursal válida para registrar la solicitud.");
+        }
         e.setCajaId(input.getCajaId());
         if (input.getAutorizadoPorId() != null) {
             e.setAutorizadoPor(personaService.findById(input.getAutorizadoPorId()).orElse(null));

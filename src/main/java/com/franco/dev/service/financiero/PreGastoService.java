@@ -96,6 +96,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                                                                                                            // sucursal
                                                                                                            // from
                                                                                                            // config
+            if (sucursalId == null || sucursalId <= 0) {
+                throw new RuntimeException("No se puede crear la solicitud sin una sucursal válida.");
+            }
             Long maxId = repository.findMaxId(sucursalId);
             if (maxId == null)
                 maxId = 0L;

@@ -24,6 +24,7 @@ import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,10 @@ import org.springframework.util.ResourceUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.InputStream;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -258,8 +262,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         }
 
         try {
-            File file = ResourceUtils.getFile("classpath:reports/productos.jrxml");
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            ClassPathResource resource = new ClassPathResource("reports/productos.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
 
             // Preparar parámetros del reporte
@@ -292,17 +297,13 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             parameters.put("totalProductos", productosDtoList.size());
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-            JasperExportManager.exportReportToPdfFile(jasperPrint,
-                    imageService.getStorageDirectoryPathReports() + "productos.pdf");
-
-            // Leer el PDF generado y convertir a Base64
-            File pdf = new File(imageService.getStorageDirectoryPathReports() + "productos.pdf");
-            byte[] bytes = Files.readAllBytes(pdf.toPath());
-            String b64 = Base64.getEncoder().encodeToString(bytes);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            String b64 = Base64.getEncoder().encodeToString(pdfBytes);
             return b64;
 
         } catch (Exception e) {
-            return "Error al generar el reporte: " + e.getMessage();
+            log.severe("Error al generar el reporte: " + e.getMessage());
+            throw new RuntimeException("Error al generar el reporte de productos: " + e.getMessage(), e);
         }
     }
 
@@ -482,8 +483,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         }
 
         try {
-            File file = ResourceUtils.getFile("classpath:reports/productos.jrxml");
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            ClassPathResource resource = new ClassPathResource("reports/productos.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(productosDtoList);
 
             // Preparar parámetros del reporte
@@ -500,9 +502,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             }
 
             // Fecha actual formateada
-            java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter
-                    .ofPattern("dd/MM/yyyy HH:mm:ss");
+            LocalDateTime now = LocalDateTime.now();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
             parameters.put("fechaReporte", now.format(formatter));
 
             // Usuario actual - usar el parámetro recibido
@@ -520,17 +521,13 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             parameters.put("totalProductos", productosDtoList.size());
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
-            JasperExportManager.exportReportToPdfFile(jasperPrint,
-                    imageService.getStorageDirectoryPathReports() + "productos.pdf");
-
-            // Leer el PDF generado y convertir a Base64
-            File pdf = new File(imageService.getStorageDirectoryPathReports() + "productos.pdf");
-            byte[] bytes = Files.readAllBytes(pdf.toPath());
-            String b64 = Base64.getEncoder().encodeToString(bytes);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            String b64 = Base64.getEncoder().encodeToString(pdfBytes);
             return b64;
 
         } catch (Exception e) {
-            return "Error al generar el reporte: " + e.getMessage();
+            log.severe("Error al generar el reporte: " + e.getMessage());
+            throw new RuntimeException("Error al generar el reporte de productos: " + e.getMessage(), e);
         }
     }
 

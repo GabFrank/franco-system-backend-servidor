@@ -9,6 +9,14 @@ type FormaPago {
     usuario: Usuario
 }
 
+type FormaPagoEstadistica {
+    formaPagoId: ID
+    descripcion: String
+    cantidadTransacciones: Int
+    totalMonto: Float
+    porcentaje: Float
+}
+
 input FormaPagoInput {
     id:Int
     descripcion: String
@@ -23,6 +31,9 @@ extend type Query {
     formaPago(id:ID!):FormaPago
     formasPago(page:Int = 0, size:Int = 10):[FormaPago]!
     countFormaPago: Int
+    formaPagoEstadisticas:[FormaPagoEstadistica]!
+    formaPagoEstadisticasPorSucursal(sucursalId:ID!):[FormaPagoEstadistica]!
+    formaPagoEstadisticasConFiltros(inicio:String, fin:String, sucursalId:ID):[FormaPagoEstadistica]!
 }
 
 extend type Mutation {

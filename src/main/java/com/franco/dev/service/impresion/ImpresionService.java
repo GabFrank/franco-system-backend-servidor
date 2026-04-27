@@ -933,6 +933,7 @@ public class ImpresionService {
                     tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
                     tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
                     tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
+                    tiDto.setDireccionCliente(cliente.getPersona().getDireccion());
                     ventaCreditoItemDtoList.add(tiDto);
                 }
                 // file =
@@ -1044,6 +1045,7 @@ public class ImpresionService {
                         tiDto.setCreadoEn(DateUtils.toString(ti.getCreadoEn()));
                         tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
                         tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
+                        tiDto.setDireccionCliente(cliente.getPersona().getDireccion());
                         ventaCreditoItemDtoList.add(tiDto);
                         totalCliente += ti.getValorTotal();
                         totalGeneral += ti.getValorTotal();
@@ -1254,6 +1256,7 @@ public class ImpresionService {
         private String creadoEn;
         private String nombreCliente;
         private String documentoCliente;
+        private String direccionCliente;
     }
 
     @Data
@@ -1393,7 +1396,6 @@ public class ImpresionService {
         private String diferido;
         private Boolean esCheque;
     }
-
     public String imprimirReporteGenericVentas(
             List<ReporteVentaItemDto> itemList,
             String filtroIdVenta,

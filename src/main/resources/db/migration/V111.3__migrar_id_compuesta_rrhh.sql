@@ -1,7 +1,3 @@
--- Limpiar datos de prueba para poder aplicar constraints limpiamente
-TRUNCATE TABLE administrativo.jornada CASCADE;
-TRUNCATE TABLE administrativo.marcacion CASCADE;
-
 -- Eliminar constraints y secuencias actuales
 ALTER TABLE administrativo.jornada DROP CONSTRAINT IF EXISTS pk_jornada CASCADE;
 ALTER TABLE administrativo.marcacion DROP CONSTRAINT IF EXISTS uq_marcacion_id CASCADE;

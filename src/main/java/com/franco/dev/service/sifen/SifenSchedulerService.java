@@ -37,7 +37,7 @@ import java.util.List;
 @Slf4j
 @Service
 @EnableScheduling
-@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(name = "sifen.enabled", havingValue = "true", matchIfMissing = false)
 public class SifenSchedulerService {
 
     @Value("${sifen.scheduler.enabled:false}")

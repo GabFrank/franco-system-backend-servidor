@@ -64,20 +64,22 @@ public class PushNotificationController {
                         @PathVariable Long ventaCreditoId,
                         @PathVariable Long sucursalId,
                         @PathVariable Long personaId,
-                        @PathVariable Double valorTotal) {
+                        @PathVariable Double valorTotal,
+                        @RequestParam(required = false) String usuarioNombre,
+                        @RequestParam(required = false) String sucursalNombre) {
                 try {
-                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
-                        VentaCredito ventaCreditoTemp = new VentaCredito();
-                        ventaCreditoTemp.setId(ventaCreditoId);
-                        ventaCreditoTemp.setSucursalId(sucursalId);
-                        ventaCreditoTemp.setValorTotal(valorTotal);
+                        if (sucursalNombre == null || sucursalNombre.isEmpty()) {
+                                Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                                sucursalNombre = sucursal != null ? sucursal.getNombre() : "";
+                        }
+
 
                         List<String> rolesRelevantes = notificationRoleService.getRolesForVentaCredito();
                         List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
 
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest requestAdmin = notificationTemplateService
-                                                .ventaCreditoRealizada(ventaCreditoTemp, sucursal, df);
+                                                .ventaCreditoRealizada(ventaCreditoId, sucursalId, valorTotal, sucursalNombre, df);
                                 requestAdmin.setType("VENTA_CREDITO_ADMIN");
                                 requestAdmin.setUsuarioIds(usuariosRelevantes);
                                 pushNotificationService.sendPushNotificationToToken(requestAdmin);
@@ -86,7 +88,7 @@ public class PushNotificationController {
                         Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
                         if (usuarioCliente != null) {
                                 PushNotificationRequest requestCliente = notificationTemplateService
-                                                .ventaCreditoRealizadaCliente(ventaCreditoTemp, sucursal, df);
+                                                .ventaCreditoRealizadaCliente(ventaCreditoId, sucursalId, valorTotal, sucursalNombre, df);
                                 requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
                                 pushNotificationService.sendPushNotificationToToken(requestCliente);
                         }
@@ -150,25 +152,25 @@ public class PushNotificationController {
                         @PathVariable Long gastoId,
                         @PathVariable Long sucursalId,
                         @PathVariable Long personaId,
-                        @PathVariable Double valorTotal) {
+                        @PathVariable Double valorTotal,
+                        @RequestParam(required = false) String usuarioNombre,
+                        @RequestParam(required = false) String sucursalNombre) {
                 try {
-                        com.franco.dev.domain.financiero.Gasto gasto = gastoService.findByIdAndSucursalId(gastoId,
-                                        sucursalId);
-                        if (gasto == null) {
-                                gasto = new com.franco.dev.domain.financiero.Gasto();
-                                gasto.setId(gastoId);
-                                gasto.setRetiroGs(valorTotal);
-                                Usuario u = usuarioService.findByPersonaId(personaId);
-                                gasto.setUsuario(u);
+                        if (sucursalNombre == null || sucursalNombre.isEmpty()) {
+                                Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                                sucursalNombre = sucursal != null ? sucursal.getNombre() : "";
                         }
-                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                        if (usuarioNombre == null || usuarioNombre.isEmpty()) {
+                                Usuario u = usuarioService.findByPersonaId(personaId);
+                                usuarioNombre = u != null && u.getPersona() != null ? u.getPersona().getNombre() : "";
+                        }
 
                         List<String> rolesRelevantes = notificationRoleService.getRolesForGastoRetiro();
                         List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
 
                         if (!usuariosRelevantes.isEmpty()) {
-                                PushNotificationRequest request = notificationTemplateService.gastoRealizado(gasto,
-                                                sucursal, df);
+                                PushNotificationRequest request = notificationTemplateService.gastoRealizado(
+                                                gastoId, valorTotal, 0.0, 0.0, sucursalNombre, usuarioNombre, df);
                                 request.setUsuarioIds(usuariosRelevantes);
                                 pushNotificationService.sendPushNotificationToToken(request);
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
@@ -192,24 +194,26 @@ public class PushNotificationController {
                         @PathVariable Long retiroId,
                         @PathVariable Long sucursalId,
                         @PathVariable Long personaId,
-                        @PathVariable Double valorTotal) {
+                        @PathVariable Double valorTotal,
+                        @RequestParam(required = false) String usuarioNombre,
+                        @RequestParam(required = false) String sucursalNombre) {
                 try {
-                        com.franco.dev.domain.financiero.Retiro retiro = retiroService.findByIdAndSucursalId(retiroId,
-                                        sucursalId);
-                        if (retiro == null) {
-                                retiro = new com.franco.dev.domain.financiero.Retiro();
-                                retiro.setId(retiroId);
-                                Usuario u = usuarioService.findByPersonaId(personaId);
-                                retiro.setUsuario(u);
+                        // Si no se enviaron los nombres, intentar buscarlos en la DB como fallback
+                        if (sucursalNombre == null || sucursalNombre.isEmpty()) {
+                                Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                                sucursalNombre = sucursal != null ? sucursal.getNombre() : "";
                         }
-                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                        if (usuarioNombre == null || usuarioNombre.isEmpty()) {
+                                Usuario u = usuarioService.findByPersonaId(personaId);
+                                usuarioNombre = u != null && u.getPersona() != null ? u.getPersona().getNombre() : "";
+                        }
 
                         List<String> rolesRelevantes = notificationRoleService.getRolesForGastoRetiro();
                         List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
 
                         if (!usuariosRelevantes.isEmpty()) {
-                                PushNotificationRequest request = notificationTemplateService.retiroRealizado(retiro,
-                                                sucursal);
+                                PushNotificationRequest request = notificationTemplateService.retiroRealizado(
+                                                retiroId, sucursalNombre, usuarioNombre, valorTotal, df);
                                 request.setUsuarioIds(usuariosRelevantes);
                                 pushNotificationService.sendPushNotificationToToken(request);
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
@@ -232,20 +236,21 @@ public class PushNotificationController {
         public ResponseEntity<PushNotificationResponse> sendVentaTransferenciaNotification(
                         @PathVariable Long ventaId,
                         @PathVariable Long sucursalId,
-                        @PathVariable Double valorTotal) {
+                        @PathVariable Double valorTotal,
+                        @RequestParam(required = false) String usuarioNombre,
+                        @RequestParam(required = false) String sucursalNombre) {
                 try {
-                        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
-                        Venta venta = new Venta();
-                        venta.setId(ventaId);
-                        venta.setSucursalId(sucursalId);
+                        if (sucursalNombre == null || sucursalNombre.isEmpty()) {
+                                Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                                sucursalNombre = sucursal != null ? sucursal.getNombre() : "";
+                        }
 
                         List<String> rolesRelevantes = notificationRoleService.getRolesForVentaTransferencia();
                         List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
 
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest request = notificationTemplateService
-                                                .ventaTransferenciaRealizada(venta, sucursal,
-                                                                valorTotal, df);
+                                                .ventaTransferenciaRealizada(ventaId, sucursalId, valorTotal, sucursalNombre, usuarioNombre, df);
                                 request.setUsuarioIds(usuariosRelevantes);
                                 pushNotificationService.sendPushNotificationToToken(request);
                                 return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),

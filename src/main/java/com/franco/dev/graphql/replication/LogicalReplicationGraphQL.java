@@ -3,7 +3,10 @@ package com.franco.dev.graphql.replication;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.replication.input.LogicalReplicationInput;
 import com.franco.dev.graphql.replication.types.LogicalReplication;
+import com.franco.dev.graphql.replication.types.ReplicationSetupState;
 import com.franco.dev.graphql.replication.types.ReplicationStatus;
+import com.franco.dev.graphql.replication.RemoveScope;
+import com.franco.dev.graphql.replication.RemoveTarget;
 import com.franco.dev.service.empresarial.LogicalReplicationService;
 import com.franco.dev.service.empresarial.SucursalService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -98,6 +101,13 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
     }
     
     /**
+     * Get current replication setup state for a branch (what exists on central and filial).
+     */
+    public ReplicationSetupState getReplicationSetupState(String sucursalId) {
+        return replicationService.getReplicationSetupState(Long.parseLong(sucursalId));
+    }
+    
+    /**
      * Get subscriptions from a remote branch with pagination
      */
     public Page<LogicalReplication> remoteReplicationSubscriptions(String sucursalId, int page, int size) {
@@ -178,48 +188,27 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         return lr;
     }
     
-    // Helper method to extract sucursal ID from name
     private Long extractSucursalIdFromName(String name) {
-        try {
-            if (name.startsWith("filial") && name.contains("_")) {
-                // Format: filial<id>_pub or filial<id>_sub
-                String idPart = name.substring(6, name.indexOf("_"));
-                return Long.parseLong(idPart);
-            } else if (name.startsWith("central_filial") && name.contains("_pub")) {
-                // Format: central_filial<id>_pub
-                String idPart = name.substring(14, name.indexOf("_pub"));
-                return Long.parseLong(idPart);
-            } else if (name.startsWith("central_filial") && name.contains("_sub")) {
-                // Format: central_filial<id>_sub
-                String idPart = name.substring(14, name.indexOf("_sub"));
-                return Long.parseLong(idPart);
-            }
-        } catch (NumberFormatException | IndexOutOfBoundsException e) {
-            // Handle parsing error
-        }
-        return null;
+        return replicationService.extractSucursalIdFromName(name);
     }
     
     // Mutation resolvers
     
     public ReplicationStatus setupReplication(LogicalReplicationInput input) {
-        ReplicationStatus status = new ReplicationStatus();
         Long sucursalId = Long.parseLong(input.getSucursalId());
-        
-        try {
-            boolean success = replicationService.setupCentralServerReplication(sucursalId);
-            
-            status.setSuccess(success);
-            if (success) {
-                status.setMessage("Logical replication successfully set up for branch " + sucursalId);
-            } else {
-                status.setMessage("Failed to set up logical replication for branch " + sucursalId);
-            }
-        } catch (Exception e) {
-            status.setSuccess(false);
-            status.setMessage("Error: " + e.getMessage());
-        }
-        
+        LogicalReplicationService.SetupFullReplicationResult result = replicationService.setupFullReplication(sucursalId);
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
+        return status;
+    }
+    
+    public ReplicationStatus setupReplicationAdvanced(String sucursalId, RemoveTarget target, RemoveScope scope) {
+        LogicalReplicationService.SetupFullReplicationResult result = replicationService.setupReplicationAdvanced(
+            Long.parseLong(sucursalId), target.name(), scope.name());
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
         return status;
     }
     
@@ -243,6 +232,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         return status;
     }
     
+    public ReplicationStatus removeFullReplication(String sucursalId) {
+        LogicalReplicationService.SetupFullReplicationResult result =
+            replicationService.removeFullReplication(Long.parseLong(sucursalId));
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
+        return status;
+    }
+
     public ReplicationStatus removeReplication(String sucursalId) {
         ReplicationStatus status = new ReplicationStatus();
         
@@ -260,6 +258,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
             status.setMessage("Error: " + e.getMessage());
         }
         
+        return status;
+    }
+    
+    public ReplicationStatus removeReplicationAdvanced(String sucursalId, RemoveTarget target, RemoveScope scope) {
+        LogicalReplicationService.SetupFullReplicationResult result = replicationService.removeReplicationAdvanced(
+            Long.parseLong(sucursalId), target.name(), scope.name());
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
         return status;
     }
     
@@ -291,7 +298,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
             
             if (isSubscription) {
                 // Toggle subscription
-                String subscriptionName = "filial" + sucursalId + "_sub";
+                String subscriptionName = replicationService.generateBranchSubscriptionName(Long.parseLong(sucursalId));
                 success = replicationService.alterSubscription(subscriptionName, enabled);
                 
                 if (success) {
@@ -315,7 +322,7 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
                     }
                 } else {
                     // Disable publication (drop it)
-                    String publicationName = "central_filial" + sucursalId + "_pub";
+                    String publicationName = replicationService.generateCentralToBranchPublicationName(Long.parseLong(sucursalId));
                     success = replicationService.dropPublication(publicationName);
                     
                     if (success) {
@@ -645,6 +652,15 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
             status.setMessage("Error: " + e.getMessage());
         }
         
+        return status;
+    }
+
+    public ReplicationStatus syncPublicationsWithReplicationTable() {
+        LogicalReplicationService.SetupFullReplicationResult result =
+            replicationService.syncPublicationsWithReplicationTable();
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMessage());
         return status;
     }
 } 

@@ -11,7 +11,6 @@ import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.utilitarios.DateUtils;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -52,8 +51,6 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     @Autowired
     private InventarioProductoService inventarioProductoService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private ImageService imageService;

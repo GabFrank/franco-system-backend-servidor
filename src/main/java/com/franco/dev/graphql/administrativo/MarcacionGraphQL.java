@@ -39,6 +39,9 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private ImpresionService impresionService;
 
+    @Autowired
+    private com.franco.dev.service.administrativo.JornadaService jornadaService;
+
     public Optional<Marcacion> marcacion(Long id, Long sucursalId) {
         return service.findById(new EmbebedPrimaryKey(id, sucursalId));
     }
@@ -66,9 +69,11 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findByUsuarioId(usuarioId, page, size);
     }
 
-    public Marcacion saveMarcacion(MarcacionInput input) {
-        if (input.getUsuarioId() != null && input.getEmbedding() != null && !input.getEmbedding().isEmpty()) {
-            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findById(input.getUsuarioId()).orElse(null);
+    public Marcacion saveMarcacion(MarcacionInput marcacion) {
+        if (marcacion.getUsuarioId() != null && marcacion.getEmbedding() != null
+                && !marcacion.getEmbedding().isEmpty()) {
+            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findById(marcacion.getUsuarioId())
+                    .orElse(null);
             if (usuario != null && usuario.getPersona() != null) {
                 String storedEmbeddingJson = usuario.getPersona().getEmbedding();
                 if (storedEmbeddingJson != null && !storedEmbeddingJson.isEmpty()) {
@@ -79,7 +84,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                                 new com.fasterxml.jackson.core.type.TypeReference<List<Double>>() {
                                 });
 
-                        double similarity = cosineSimilarity(input.getEmbedding(), storedEmbedding);
+                        double similarity = cosineSimilarity(marcacion.getEmbedding(), storedEmbedding);
                         if (similarity < 0.6) {
                             throw new graphql.GraphQLException("Verificación facial fallida: El rostro no coincide ("
                                     + String.format("%.2f", similarity * 100) + "% similitud)");
@@ -92,7 +97,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                     try {
                         if (objectMapper == null)
                             objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        String newEmbeddingJson = objectMapper.writeValueAsString(input.getEmbedding());
+                        String newEmbeddingJson = objectMapper.writeValueAsString(marcacion.getEmbedding());
                         usuario.getPersona().setEmbedding(newEmbeddingJson);
                         personaService.save(usuario.getPersona());
                     } catch (Exception e) {
@@ -103,53 +108,67 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         }
 
         Marcacion e = new Marcacion();
-        if (input.getId() != null && input.getSucursalId() != null) {
+        if (marcacion.getId() != null && marcacion.getSucursalId() != null) {
             Optional<Marcacion> existing = service
-                    .findById(new EmbebedPrimaryKey(input.getId(), input.getSucursalId()));
+                    .findById(new EmbebedPrimaryKey(marcacion.getId(), marcacion.getSucursalId()));
             if (existing.isPresent()) {
                 e = existing.get();
             } else {
-                e.setId(input.getId());
-                e.setSucursalId(input.getSucursalId());
+                e.setId(marcacion.getId());
+                e.setSucursalId(marcacion.getSucursalId());
             }
         } else {
-            if (input.getId() != null)
-                e.setId(input.getId());
-            if (input.getSucursalId() != null)
-                e.setSucursalId(input.getSucursalId());
+            if (marcacion.getId() != null)
+                e.setId(marcacion.getId());
+            if (marcacion.getSucursalId() != null)
+                e.setSucursalId(marcacion.getSucursalId());
         }
-        if (input.getDeviceId() != null)
-            e.setDeviceId(input.getDeviceId());
-        if (input.getDeviceInfo() != null)
-            e.setDeviceInfo(input.getDeviceInfo());
-        if (input.getCodigo() != null)
-            e.setCodigo(input.getCodigo());
-        if (input.getTipo() != null)
-            e.setTipo(input.getTipo());
+        if (marcacion.getDeviceId() != null)
+            e.setDeviceId(marcacion.getDeviceId());
+        if (marcacion.getDeviceInfo() != null)
+            e.setDeviceInfo(marcacion.getDeviceInfo());
+        if (marcacion.getCodigo() != null)
+            e.setCodigo(marcacion.getCodigo());
+        if (marcacion.getTipo() != null)
+            e.setTipo(marcacion.getTipo());
 
-        if (input.getUsuarioId() != null) {
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        }
-
-        if (input.getSucursalEntradaId() != null) {
-            e.setSucursalEntrada(sucursalService.findById(input.getSucursalEntradaId()).orElse(null));
+        if (marcacion.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(marcacion.getUsuarioId()).orElse(null));
         }
 
-        if (input.getSucursalSalidaId() != null) {
-            e.setSucursalSalida(sucursalService.findById(input.getSucursalSalidaId()).orElse(null));
+        if (marcacion.getSucursalEntradaId() != null) {
+            e.setSucursalEntrada(sucursalService.findById(marcacion.getSucursalEntradaId()).orElse(null));
+        } else if (marcacion.getSucursalId() != null) {
+            e.setSucursalEntrada(sucursalService.findById(marcacion.getSucursalId()).orElse(null));
+        }
+
+        if (marcacion.getSucursalSalidaId() != null) {
+            e.setSucursalSalida(sucursalService.findById(marcacion.getSucursalSalidaId()).orElse(null));
+        } else if (marcacion.getSucursalId() != null
+                && marcacion.getTipo() == com.franco.dev.domain.administrativo.enums.TipoMarcacion.SALIDA) {
+            e.setSucursalSalida(sucursalService.findById(marcacion.getSucursalId()).orElse(null));
         }
 
         DateTimeFormatter formatter = DateTimeFormatter.ISO_DATE_TIME;
-        if (input.getFechaEntrada() != null) {
-            e.setFechaEntrada(LocalDateTime.parse(input.getFechaEntrada(), formatter));
+        if (marcacion.getFechaEntrada() != null) {
+            e.setFechaEntrada(LocalDateTime.parse(marcacion.getFechaEntrada(), formatter));
         }
-        if (input.getFechaSalida() != null) {
-            e.setFechaSalida(LocalDateTime.parse(input.getFechaSalida(), formatter));
+        if (marcacion.getFechaSalida() != null) {
+            e.setFechaSalida(LocalDateTime.parse(marcacion.getFechaSalida(), formatter));
         }
 
-        if (input.getEsSalidaAlmuerzo() != null) {
-            e.setEsSalidaAlmuerzo(input.getEsSalidaAlmuerzo());
+        if (marcacion.getEsSalidaAlmuerzo() != null) {
+            e.setEsSalidaAlmuerzo(marcacion.getEsSalidaAlmuerzo());
         }
+
+        if (marcacion.getLatitud() != null)
+            e.setLatitud(marcacion.getLatitud());
+        if (marcacion.getLongitud() != null)
+            e.setLongitud(marcacion.getLongitud());
+        if (marcacion.getPrecisionGps() != null)
+            e.setPrecisionGps(marcacion.getPrecisionGps());
+        if (marcacion.getDistanciaSucursalMetros() != null)
+            e.setDistanciaSucursalMetros(marcacion.getDistanciaSucursalMetros());
 
         return service.save(e);
     }
@@ -183,19 +202,18 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             usuarioReporte = usuarioService.findById(usuarioResponsableId).orElse(null);
         }
 
-        List<Marcacion> marcacionList;
+        List<com.franco.dev.domain.administrativo.Jornada> jornadaList;
         if (usuarioId != null && fechaInicio != null && fechaFin != null) {
-            marcacionList = service.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin, 0,
-                    Integer.MAX_VALUE).getContent();
+            jornadaList = jornadaService.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin);
         } else if (usuarioId != null) {
-            marcacionList = service.findByUsuarioId(usuarioId, 0, Integer.MAX_VALUE).getContent();
+            jornadaList = jornadaService.findByUsuarioId(usuarioId);
         } else if (fechaInicio != null && fechaFin != null) {
-            marcacionList = service.findByFechaRange(fechaInicio, fechaFin, 0, Integer.MAX_VALUE).getContent();
+            jornadaList = jornadaService.findByFechaRange(fechaInicio, fechaFin);
         } else {
-            marcacionList = service.findAll2();
+            jornadaList = jornadaService.findAll2();
         }
 
-        return impresionService.imprimirMarcaciones(marcacionList, fechaInicio, fechaFin, usuarioReporte);
+        return impresionService.imprimirMarcaciones(jornadaList, fechaInicio, fechaFin, usuarioReporte);
     }
 
 }

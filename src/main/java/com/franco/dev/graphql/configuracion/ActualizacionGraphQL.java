@@ -5,7 +5,6 @@ import com.franco.dev.domain.configuracion.enums.TipoActualizacion;
 import com.franco.dev.graphql.configuracion.input.ActualizacionInput;
 import com.franco.dev.service.configuracion.ActualizacionService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -26,8 +25,6 @@ public class ActualizacionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<Actualizacion> actualizacion(Long id) {
         return service.findById(id);

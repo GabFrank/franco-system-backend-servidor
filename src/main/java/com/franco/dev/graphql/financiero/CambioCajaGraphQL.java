@@ -5,14 +5,12 @@ import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.CambioCaja;
 import com.franco.dev.graphql.financiero.input.BancoInput;
 import com.franco.dev.graphql.financiero.input.CambioCajaInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.financiero.BancoService;
 import com.franco.dev.service.financiero.CambioCajaService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -39,8 +37,6 @@ public class CambioCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private ClienteService clienteService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     public Optional<CambioCaja> cambioCaja(Long id, Long sucId) {return service.findById(new EmbebedPrimaryKey(id, sucId));}
 

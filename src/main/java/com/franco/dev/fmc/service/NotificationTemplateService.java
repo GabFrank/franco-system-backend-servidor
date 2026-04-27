@@ -19,23 +19,62 @@ import org.springframework.stereotype.Service;
 public class NotificationTemplateService {
 
     public PushNotificationRequest gastoRealizado(Gasto gasto, Sucursal sucursal, DecimalFormat decimalFormat) {
-        PushNotificationRequest request = base("GASTO REALIZADO", buildGastoMessage(gasto, sucursal, decimalFormat));
+        return gastoRealizado(
+            gasto.getId(),
+            gasto.getRetiroGs(),
+            gasto.getRetiroRs(),
+            gasto.getRetiroDs(),
+            sucursal != null ? sucursal.getNombre() : "",
+            gasto.getUsuario() != null && gasto.getUsuario().getNickname() != null ? gasto.getUsuario().getNickname().toUpperCase() : "",
+            decimalFormat
+        );
+    }
+
+    public PushNotificationRequest gastoRealizado(Long gastoId, Double retiroGs, Double retiroRs, Double retiroDs, String sucursalNombre, String usuarioNombre, DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA DETECTADO UN GASTO EN LA SUCURSAL ")
+                .append(sucursalNombre != null ? sucursalNombre : "")
+                .append(" POR EL VALOR DE ");
+        if (retiroGs != null && retiroGs > 0) {
+            builder.append(decimalFormat.format(retiroGs)).append(" Gs. ");
+        }
+        if (retiroRs != null && retiroRs > 0) {
+            builder.append(decimalFormat.format(retiroRs)).append(" Rs. ");
+        }
+        if (retiroDs != null && retiroDs > 0) {
+            builder.append(decimalFormat.format(retiroDs)).append(" Ds. ");
+        }
+        if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
+            builder.append("REALIZADO POR: ")
+                    .append(usuarioNombre.toUpperCase());
+        }
+        PushNotificationRequest request = base("GASTO REALIZADO", builder.toString());
         request.setType("GASTO");
-        request.setData("/financiero/gastos/" + (gasto.getId() != null ? gasto.getId() : ""));
+        request.setData("/financiero/gastos/" + (gastoId != null ? gastoId : ""));
         return request;
     }
 
     public PushNotificationRequest ventaCreditoRealizada(VentaCredito ventaCredito, Sucursal sucursal,
             DecimalFormat decimalFormat) {
+        return ventaCreditoRealizada(
+            ventaCredito.getId(),
+            ventaCredito.getSucursalId(),
+            ventaCredito.getValorTotal(),
+            sucursal != null ? sucursal.getNombre() : "",
+            decimalFormat
+        );
+    }
+
+    public PushNotificationRequest ventaCreditoRealizada(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
         builder.append("SE HA DETECTADO UNA VENTA A CRÉDITO EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(sucursalNombre != null ? sucursalNombre : "")
                 .append(" POR EL VALOR DE ")
-                .append(decimalFormat.format(ventaCredito.getValorTotal()))
+                .append(decimalFormat.format(valorTotal))
                 .append(" GS.");
         PushNotificationRequest request = base("VENTA A CRÉDITO REALIZADA", builder.toString());
         request.setType("VENTA_CREDITO_CLIENTE");
-        request.setData("/mis-finanzas/list-convenio/" + ventaCredito.getId() + "/" + ventaCredito.getSucursalId());
+        request.setData("/mis-finanzas/list-convenio/" + ventaCreditoId + "/" + sucursalId);
         return request;
     }
 
@@ -243,38 +282,30 @@ public class NotificationTemplateService {
     }
 
     private String buildGastoMessage(Gasto gasto, Sucursal sucursal, DecimalFormat decimalFormat) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("SE HA DETECTADO UN GASTO EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "")
-                .append(" POR EL VALOR DE ");
-        if (gasto.getRetiroGs() != null && gasto.getRetiroGs() > 0) {
-            builder.append(decimalFormat.format(gasto.getRetiroGs())).append(" Gs. ");
-        }
-        if (gasto.getRetiroRs() != null && gasto.getRetiroRs() > 0) {
-            builder.append(decimalFormat.format(gasto.getRetiroRs())).append(" Rs. ");
-        }
-        if (gasto.getRetiroDs() != null && gasto.getRetiroDs() > 0) {
-            builder.append(decimalFormat.format(gasto.getRetiroDs())).append(" Ds. ");
-        }
-        if (gasto.getUsuario() != null) {
-            builder.append("REALIZADO POR: ")
-                    .append(gasto.getUsuario().getNickname() != null ? gasto.getUsuario().getNickname().toUpperCase()
-                            : "");
-        }
-        return builder.toString();
+        return ""; // Obsolete, logic moved to gastoRealizado(Long...) directly
     }
 
     public PushNotificationRequest ventaCreditoRealizadaCliente(VentaCredito ventaCredito, Sucursal sucursal,
             DecimalFormat decimalFormat) {
+        return ventaCreditoRealizadaCliente(
+            ventaCredito.getId(),
+            ventaCredito.getSucursalId(),
+            ventaCredito.getValorTotal(),
+            sucursal != null ? sucursal.getNombre() : "",
+            decimalFormat
+        );
+    }
+
+    public PushNotificationRequest ventaCreditoRealizadaCliente(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
         builder.append("REALIZASTE UNA COMPRA CON TU CONVENIO EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(sucursalNombre != null ? sucursalNombre : "")
                 .append(" POR ")
-                .append(decimalFormat.format(ventaCredito.getValorTotal()))
+                .append(decimalFormat.format(valorTotal))
                 .append(" GS HA SIDO REGISTRADA EXITOSAMENTE.");
         PushNotificationRequest request = base("COMPRA A CRÉDITO REGISTRADA", builder.toString());
         request.setType("VENTA_CREDITO");
-        request.setData("/mis-compras/credito/" + ventaCredito.getId() + "/" + ventaCredito.getSucursalId());
+        request.setData("/mis-compras/credito/" + ventaCreditoId + "/" + sucursalId);
         return request;
     }
 
@@ -365,41 +396,68 @@ public class NotificationTemplateService {
     }
 
     public PushNotificationRequest retiroRealizado(Retiro retiro, Sucursal sucursal) {
+        return retiroRealizado(
+                retiro.getId(),
+                sucursal != null ? sucursal.getNombre() : "",
+                retiro.getUsuario() != null && retiro.getUsuario().getNickname() != null
+                        ? retiro.getUsuario().getNickname().toUpperCase() : "");
+    }
+
+    public PushNotificationRequest retiroRealizado(Long retiroId, String sucursalNombre, String usuarioNombre) {
+        return retiroRealizado(retiroId, sucursalNombre, usuarioNombre, null, null);
+    }
+
+    public PushNotificationRequest retiroRealizado(Long retiroId, String sucursalNombre, String usuarioNombre, Double valorTotal, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
         builder.append("SE HA REALIZADO UN RETIRO EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "");
+                .append(sucursalNombre != null ? sucursalNombre : "");
 
-        if (retiro.getUsuario() != null) {
+        if (valorTotal != null && decimalFormat != null && valorTotal > 0) {
+            builder.append(" POR EL VALOR DE ")
+                   .append(decimalFormat.format(valorTotal))
+                   .append(" Gs.");
+        }
+
+        if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
             builder.append(" REALIZADO POR: ")
-                    .append(retiro.getUsuario().getNickname() != null ? retiro.getUsuario().getNickname().toUpperCase()
-                            : "");
+                    .append(usuarioNombre.toUpperCase());
         }
         PushNotificationRequest request = base("RETIRO REALIZADO", builder.toString());
         request.setType("RETIRO");
-        request.setData("/financiero/retiros/" + (retiro.getId() != null ? retiro.getId() : ""));
+        request.setData("/financiero/retiros/" + (retiroId != null ? retiroId : ""));
         return request;
     }
 
     public PushNotificationRequest ventaTransferenciaRealizada(Venta venta, Sucursal sucursal, Double valorTotal,
             DecimalFormat decimalFormat) {
+        return ventaTransferenciaRealizada(
+            venta.getId(),
+            venta.getSucursalId(),
+            valorTotal,
+            sucursal != null ? sucursal.getNombre() : "",
+            venta.getUsuario() != null && venta.getUsuario().getNickname() != null ? venta.getUsuario().getNickname() : "",
+            decimalFormat
+        );
+    }
+
+    public PushNotificationRequest ventaTransferenciaRealizada(Long ventaId, Long sucursalId, Double valorTotal, String sucursalNombre, String usuarioNombre, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
         builder.append("SE HA REGISTRADO UN PAGO CON TRANSFERENCIA EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "")
+                .append(sucursalNombre != null ? sucursalNombre : "")
                 .append(" VENTA ID: ")
-                .append(venta.getId())
+                .append(ventaId)
                 .append(" POR EL VALOR DE ")
                 .append(decimalFormat.format(valorTotal))
                 .append(" GS.");
 
-        if (venta.getUsuario() != null) {
+        if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
             builder.append(" REALIZADO POR: ")
-                    .append(venta.getUsuario().getNickname() != null ? venta.getUsuario().getNickname().toUpperCase()
-                            : "");
+                    .append(usuarioNombre.toUpperCase());
         }
 
         PushNotificationRequest request = base("PAGO CON TRANSFERENCIA REGISTRADO", builder.toString());
         request.setType("VENTA_TRANSFERENCIA");
-        request.setData("/operaciones/ventas/" + venta.getId() + "/" + venta.getSucursalId());
+        request.setData("/operaciones/ventas/" + ventaId + "/" + sucursalId);
         return request;
     }
 }

@@ -4,11 +4,9 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Zona;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.empresarial.input.ZonaInput;
-import com.franco.dev.rabbit.enums.TipoEntidad;
 import com.franco.dev.service.empresarial.SectorService;
 import com.franco.dev.service.empresarial.ZonaService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -38,8 +36,6 @@ public class ZonaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     @Autowired
     private Environment env;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

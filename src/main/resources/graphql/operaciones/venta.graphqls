@@ -98,6 +98,22 @@ extend type Query {
         fechaInicio: String,
         fechaFin: String
     ):VentaPage
+    reporteGenericVentas(
+        idVenta: ID
+        idCaja: ID
+        sucId: ID
+        formaPago: ID
+        estado: VentaEstado
+        isDelivery: Boolean
+        monedaId: Int
+        conDescuento: Boolean
+        conAumento: Boolean
+        conObservacion: Boolean
+        clienteId: ID
+        fechaInicio: String
+        fechaFin: String
+        usuarioId: ID
+    ): String
 #    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
 #    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }

@@ -6,7 +6,6 @@ import com.franco.dev.graphql.financiero.input.MaletinInput;
 import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rabbitmq.PropagacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -28,8 +27,6 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     @Autowired
     private PaisService paisService;
 
-    @Autowired
-    private PropagacionService propagacionService;
 
     @Autowired
     private MultiTenantService multiTenantService;

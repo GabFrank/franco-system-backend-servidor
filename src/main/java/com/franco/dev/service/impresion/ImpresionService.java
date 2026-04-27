@@ -1,6 +1,7 @@
 package com.franco.dev.service.impresion;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
@@ -8,6 +9,7 @@ import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
+import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
@@ -240,6 +242,39 @@ public class ImpresionService {
                     escpos.write(" ");
                 }
                 escpos.writeLF(valorTarjeta);
+                escpos.write("Reales R$: ");
+                String valorTarjetaRs = String.format("%.2f", balanceDto.getTotalTarjetaRs());
+                for (int i = 21; i > valorTarjetaRs.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(valorTarjetaRs);
+                escpos.write("Dolares D$: ");
+                String valorTarjetaDs = String.format("%.2f", balanceDto.getTotalTarjetaDs());
+                for (int i = 20; i > valorTarjetaDs.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(valorTarjetaDs);
+                escpos.writeLF("--------------------------------");
+                escpos.writeLF(center, "VALORES DE TRANSFERENCIA");
+                escpos.write("Guaranies G$: ");
+                String valorTransferencia = NumberFormat.getNumberInstance(Locale.GERMAN)
+                        .format(balanceDto.getTotalTransferencia().intValue());
+                for (int i = 18; i > valorTransferencia.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(valorTransferencia);
+                escpos.write("Reales R$: ");
+                String valorTransferenciaRs = String.format("%.2f", balanceDto.getTotalTransferenciaRs());
+                for (int i = 21; i > valorTransferenciaRs.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(valorTransferenciaRs);
+                escpos.write("Dolares D$: ");
+                String valorTransferenciaDs = String.format("%.2f", balanceDto.getTotalTransferenciaDs());
+                for (int i = 20; i > valorTransferenciaDs.length(); i--) {
+                    escpos.write(" ");
+                }
+                escpos.writeLF(valorTransferenciaDs);
                 escpos.writeLF("--------------------------------");
                 escpos.writeLF(center, "VALORES DE CREDITO");
                 escpos.write("Guaranies G$: ");
@@ -1045,29 +1080,48 @@ public class ImpresionService {
         }
     }
 
-    public String imprimirMarcaciones(List<Marcacion> marcacionList, String fechaInicio, String fechaFin,
+    public String imprimirMarcaciones(List<Jornada> jornadaList, String fechaInicio, String fechaFin,
             Usuario usuario) {
         try {
             List<MarcacionItemDto> marcacionItemDtoList = new ArrayList<>();
-            for (Marcacion marcacion : marcacionList) {
+            for (Jornada jornada : jornadaList) {
                 MarcacionItemDto dto = new MarcacionItemDto();
-                dto.setId(marcacion.getId());
-                String nickname = marcacion.getUsuario() != null && marcacion.getUsuario().getNickname() != null
-                        ? marcacion.getUsuario().getNickname()
+                dto.setId(jornada.getId());
+                String nickname = jornada.getUsuario() != null && jornada.getUsuario().getNickname() != null
+                        ? jornada.getUsuario().getNickname()
                         : "";
                 dto.setUsuario(nickname);
-                dto.setSucursalEntrada(marcacion.getSucursalEntrada() != null
-                        ? marcacion.getSucursalEntrada().getNombre()
-                        : "");
-                dto.setFechaEntrada(marcacion.getFechaEntrada() != null
-                        ? DateUtils.toString(marcacion.getFechaEntrada())
-                        : "");
-                dto.setSucursalSalida(marcacion.getSucursalSalida() != null
-                        ? marcacion.getSucursalSalida().getNombre()
-                        : null);
-                dto.setFechaSalida(marcacion.getFechaSalida() != null
-                        ? DateUtils.toString(marcacion.getFechaSalida())
-                        : null);
+
+                if (jornada.getMarcacionEntrada() != null) {
+                    Marcacion ent = jornada.getMarcacionEntrada();
+                    Sucursal sucEnt = ent.getSucursalEntrada() != null ? ent.getSucursalEntrada()
+                            : ent.getSucursalSalida();
+                    dto.setSucursalEntrada(sucEnt != null ? sucEnt.getNombre() : "");
+
+                    LocalDateTime fEnt = ent.getFechaEntrada() != null ? ent.getFechaEntrada() : ent.getFechaSalida();
+                    dto.setFechaEntrada(fEnt != null ? DateUtils.toString(fEnt) : "");
+                } else {
+                    dto.setSucursalEntrada("");
+                    dto.setFechaEntrada("");
+                }
+
+                if (jornada.getMarcacionSalida() != null) {
+                    Marcacion sal = jornada.getMarcacionSalida();
+                    Sucursal sucSal = sal.getSucursalSalida() != null ? sal.getSucursalSalida()
+                            : sal.getSucursalEntrada();
+                    dto.setSucursalSalida(sucSal != null ? sucSal.getNombre() : "");
+
+                    LocalDateTime fSal = sal.getFechaSalida() != null ? sal.getFechaSalida() : sal.getFechaEntrada();
+                    dto.setFechaSalida(fSal != null ? DateUtils.toString(fSal) : "");
+                } else {
+                    dto.setSucursalSalida(null);
+                    dto.setFechaSalida(null);
+                }
+
+                dto.setLlegadaTardia(formatMinutes(jornada.getMinutosLlegadaTardia()));
+                dto.setHoraExtra(formatMinutes(jornada.getMinutosExtras()));
+                dto.setTurno(jornada.getTurno() != null ? jornada.getTurno().toString() : "");
+
                 marcacionItemDtoList.add(dto);
             }
             JasperReport jasperReport = compileReportFromClasspath("reports/marcaciones.jrxml");
@@ -1215,6 +1269,9 @@ public class ImpresionService {
         private String fechaEntrada;
         private String sucursalSalida;
         private String fechaSalida;
+        private String llegadaTardia;
+        private String horaExtra;
+        private String turno;
     }
 
     public String imprimirSolicitudPagoPDF(
@@ -1340,5 +1397,74 @@ public class ImpresionService {
         private Boolean esCheque;
     }
 
-    // public void printVueltoGasto(GastoDto gastoDto){
+    public String imprimirReporteGenericVentas(
+            List<ReporteVentaItemDto> itemList,
+            String filtroIdVenta,
+            String filtroFechaInicio,
+            String filtroFechaFin,
+            String filtroSucursal,
+            String filtroFormaPago,
+            String filtroMoneda,
+            String filtroEstado,
+            String filtroCliente,
+            String filtroModo,
+            String filtroConObservacion,
+            String filtroConDescuento,
+            String filtroConAumento,
+            Double totalGeneral,
+            Double totalEfectivo,
+            Double totalTarjeta,
+            Double totalConvenio,
+            Double totalTransferencia,
+            Double totalOtros,
+            Usuario usuario) {
+        try {
+            ClassPathResource resource = new ClassPathResource("reports/reporte-ventas.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(
+                    itemList != null ? itemList : new ArrayList<>());
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario != null ? usuario.getNickname() : "");
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            parameters.put("filtroIdVenta", filtroIdVenta != null ? filtroIdVenta : "");
+            parameters.put("filtroFechaInicio", filtroFechaInicio != null ? filtroFechaInicio : "");
+            parameters.put("filtroFechaFin", filtroFechaFin != null ? filtroFechaFin : "");
+            parameters.put("filtroSucursal", filtroSucursal != null ? filtroSucursal : "");
+            parameters.put("filtroFormaPago", filtroFormaPago != null ? filtroFormaPago : "");
+            parameters.put("filtroMoneda", filtroMoneda != null ? filtroMoneda : "");
+            parameters.put("filtroEstado", filtroEstado != null ? filtroEstado : "");
+            parameters.put("filtroCliente", filtroCliente != null ? filtroCliente : "");
+            parameters.put("filtroModo", filtroModo != null ? filtroModo : "");
+            parameters.put("filtroConObservacion", filtroConObservacion != null ? filtroConObservacion : "");
+            parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
+            parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
+            parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
+            parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
+            parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);
+            parameters.put("totalTransferencia", totalTransferencia != null ? totalTransferencia : 0.0);
+            parameters.put("totalOtros", totalOtros != null ? totalOtros : 0.0);
+            parameters.put("cantidadVentas", itemList != null ? (long) itemList.size() : 0L);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    private String formatMinutes(Long minutes) {
+        if (minutes == null || minutes == 0) {
+            return "00:00";
+        }
+        long hours = minutes / 60;
+        long remainingMinutes = minutes % 60;
+        return String.format("%02d:%02d", hours, remainingMinutes);
+    }
 }

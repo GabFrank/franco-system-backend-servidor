@@ -31,3 +31,8 @@ extend type Query {
     jornadasPorUsuario(usuarioId: ID!, fechaInicio: String, fechaFin: String): [Jornada]
     jornadas(fechaInicio: String, fechaFin: String, page: Int, size: Int): [Jornada]
 }
+
+extend type Mutation {
+    ajustarJornadaA8Horas(id: ID!, sucursalId: ID!, observacion: String): Jornada
+    guardarObservacionJornada(id: ID!, sucursalId: ID!, observacion: String!): Jornada
+}

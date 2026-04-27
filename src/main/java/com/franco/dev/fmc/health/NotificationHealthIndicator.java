@@ -7,9 +7,11 @@ import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.firebase-enabled", havingValue = "true", matchIfMissing = false)
 public class NotificationHealthIndicator implements HealthIndicator {
 
     private final ResourceLoader resourceLoader;

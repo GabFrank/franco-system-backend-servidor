@@ -8,6 +8,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,11 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
     public List<Sucursal> findByAll(String texto, Boolean activo) {
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
         return repository.findByAllWithActivoFilter(texto, activo != null ? activo : true);
+    }
+
+    public Page<Sucursal> findByAllPage(String texto, Boolean activo, Pageable pageable) {
+        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
+        return repository.findByAllWithActivoFilterPage(texto, activo != null ? activo : true, pageable);
     }
 
     public List<Sucursal> findByNombreConFiltros(String nombre, Boolean deposito, Boolean activo, Pageable pageable) {

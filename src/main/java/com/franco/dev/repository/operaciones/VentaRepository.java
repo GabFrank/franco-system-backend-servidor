@@ -73,14 +73,52 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "JOIN personas.usuario u ON v.usuario_id = u.id " +
                         "JOIN personas.persona p ON u.persona_id = p.id " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
-                        "AND (CAST(:sucId AS bigint) IS NULL OR v.sucursal_id = CAST(:sucId AS bigint)) " +
-                        "AND (CAST(:usuarioId AS bigint) IS NULL OR u.id = CAST(:usuarioId AS bigint)) " +
+                        "AND v.sucursal_id = :sucId " +
+                        "AND u.id = :usuarioId " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY u.id, p.nombre " +
                         "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
         List<Object[]> getVentasPorFuncionario(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId,
                         @Param("usuarioId") Long usuarioId,
+                        org.springframework.data.domain.Pageable pageable);
+
+        @Query(value = "SELECT u.id, p.nombre, SUM(v.total_gs), COUNT(v.id) " +
+                        "FROM operaciones.venta v " +
+                        "JOIN personas.usuario u ON v.usuario_id = u.id " +
+                        "JOIN personas.persona p ON u.persona_id = p.id " +
+                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
+                        "AND v.sucursal_id = :sucId " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY u.id, p.nombre " +
+                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+        List<Object[]> getVentasPorFuncionarioBySucursal(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId,
+                        org.springframework.data.domain.Pageable pageable);
+
+        @Query(value = "SELECT u.id, p.nombre, SUM(v.total_gs), COUNT(v.id) " +
+                        "FROM operaciones.venta v " +
+                        "JOIN personas.usuario u ON v.usuario_id = u.id " +
+                        "JOIN personas.persona p ON u.persona_id = p.id " +
+                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
+                        "AND u.id = :usuarioId " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY u.id, p.nombre " +
+                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+        List<Object[]> getVentasPorFuncionarioByUsuario(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("usuarioId") Long usuarioId,
+                        org.springframework.data.domain.Pageable pageable);
+
+        @Query(value = "SELECT u.id, p.nombre, SUM(v.total_gs), COUNT(v.id) " +
+                        "FROM operaciones.venta v " +
+                        "JOIN personas.usuario u ON v.usuario_id = u.id " +
+                        "JOIN personas.persona p ON u.persona_id = p.id " +
+                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY u.id, p.nombre " +
+                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
+        List<Object[]> getVentasPorFuncionarioAll(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin,
                         org.springframework.data.domain.Pageable pageable);
 
         @Query("SELECT DISTINCT CAST(v.sucursalId AS string) FROM Venta v WHERE v.usuario.id = :usuarioId AND v.creadoEn BETWEEN :inicio AND :fin AND v.estado = 'CONCLUIDA'")
@@ -174,11 +212,39 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         @Query(value = "SELECT CAST(extract(hour from v.creado_en) as integer), SUM(v.total_gs), COUNT(v.id) " +
                         "FROM operaciones.venta v " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
-                        "AND (CAST(:sucId AS bigint) IS NULL OR v.sucursal_id = CAST(:sucId AS bigint)) " +
+                        "AND v.sucursal_id = :sucId " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "GROUP BY extract(hour from v.creado_en) " +
                         "ORDER BY extract(hour from v.creado_en)", nativeQuery = true)
         List<Object[]> ventasPorHora(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
+
+        @Query(value = "SELECT CAST(extract(hour from v.creado_en) as integer), SUM(v.total_gs), COUNT(v.id) " +
+                        "FROM operaciones.venta v " +
+                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "GROUP BY extract(hour from v.creado_en) " +
+                        "ORDER BY extract(hour from v.creado_en)", nativeQuery = true)
+        List<Object[]> ventasPorHoraSinSucursal(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
+
+        @Query(value = "SELECT CAST(extract(month from v.creado_en) as integer) as mes, " +
+                        "SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) as total, " +
+                        "COUNT(DISTINCT v.id) as cantidad, " +
+                        "SUM(CASE WHEN fp.descripcion = 'EFECTIVO' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as efvo, " +
+                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as tarjeta, " +
+                        "SUM(CASE WHEN fp.descripcion NOT IN ('EFECTIVO', 'TARJETA') THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as otros " +
+                        "FROM operaciones.venta v " +
+                        "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
+                        "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id " +
+                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
+                        "AND v.sucursal_id = :sucId " +
+                        "AND v.estado = 'CONCLUIDA' " +
+                        "AND cd.pago = true " +
+                        "AND cd.valor < 2000000000 " +
+                        "GROUP BY extract(month from v.creado_en) " +
+                        "ORDER BY extract(month from v.creado_en)", nativeQuery = true)
+        List<Object[]> ventasPorMes(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
         @Query(value = "SELECT CAST(extract(month from v.creado_en) as integer) as mes, " +
@@ -191,13 +257,12 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
                         "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
-                        "AND (CAST(:sucId AS bigint) IS NULL OR v.sucursal_id = CAST(:sucId AS bigint)) " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "AND cd.pago = true " +
                         "AND cd.valor < 2000000000 " +
                         "GROUP BY extract(month from v.creado_en) " +
                         "ORDER BY extract(month from v.creado_en)", nativeQuery = true)
-        List<Object[]> ventasPorMes(@Param("inicio") LocalDateTime inicio,
-                        @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
+        List<Object[]> ventasPorMesSinSucursal(@Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin);
 
 }

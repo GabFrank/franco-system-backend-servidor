@@ -395,8 +395,17 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public List<VentaPorFuncionario> ventasPorFuncionario(String inicio, String fin, Long sucId, Long usuarioId) {
         LocalDateTime fechaInicio = stringToDate(inicio);
         LocalDateTime fechaFin = stringToDate(fin);
-        List<Object[]> results = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId, usuarioId,
-                PageRequest.of(0, 100));
+        List<Object[]> results;
+        Pageable top100 = PageRequest.of(0, 100);
+        if (sucId != null && usuarioId != null) {
+            results = repository.getVentasPorFuncionario(fechaInicio, fechaFin, sucId, usuarioId, top100);
+        } else if (sucId != null) {
+            results = repository.getVentasPorFuncionarioBySucursal(fechaInicio, fechaFin, sucId, top100);
+        } else if (usuarioId != null) {
+            results = repository.getVentasPorFuncionarioByUsuario(fechaInicio, fechaFin, usuarioId, top100);
+        } else {
+            results = repository.getVentasPorFuncionarioAll(fechaInicio, fechaFin, top100);
+        }
         List<VentaPorFuncionario> list = new ArrayList<>();
 
         for (Object[] obj : results) {
@@ -506,7 +515,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         java.time.LocalDate date = java.time.LocalDate.parse(fecha);
         LocalDateTime inicio = date.atStartOfDay();
         LocalDateTime fin = date.atTime(java.time.LocalTime.MAX);
-        List<Object[]> results = repository.ventasPorHora(inicio, fin, sucId);
+        List<Object[]> results = sucId != null
+                ? repository.ventasPorHora(inicio, fin, sucId)
+                : repository.ventasPorHoraSinSucursal(inicio, fin);
         List<com.franco.dev.domain.operaciones.VentaPorHora> list = new ArrayList<>();
         for (Object[] obj : results) {
             com.franco.dev.domain.operaciones.VentaPorHora dto = new com.franco.dev.domain.operaciones.VentaPorHora();
@@ -521,7 +532,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
     public List<com.franco.dev.domain.operaciones.VentaPorMes> ventasPorMes(Integer anio, Long sucId) {
         LocalDateTime inicio = LocalDateTime.of(anio, 1, 1, 0, 0);
         LocalDateTime fin = LocalDateTime.of(anio, 12, 31, 23, 59, 59);
-        List<Object[]> results = repository.ventasPorMes(inicio, fin, sucId);
+        List<Object[]> results = sucId != null
+                ? repository.ventasPorMes(inicio, fin, sucId)
+                : repository.ventasPorMesSinSucursal(inicio, fin);
         List<com.franco.dev.domain.operaciones.VentaPorMes> list = new ArrayList<>();
         for (Object[] obj : results) {
             com.franco.dev.domain.operaciones.VentaPorMes dto = new com.franco.dev.domain.operaciones.VentaPorMes();

@@ -60,6 +60,20 @@ extend type Query {
     gastosPorFecha(inicio:String, fin:String, sucId: ID):[Gasto]
     gastosPorCajaId(id:ID!, sucId: ID):[Gasto]
     filterGastos(id:ID, cajaId:ID, sucId:ID, responsableId:ID, descripcion:String, page:Int, size:Int):GastoPage
+    gastosPorCategoria(inicio:String, fin:String, sucId: ID): [GastoPorCategoria]
+    gastosPorMes(anio: Int!, sucId: ID): [GastoPorMes]
+}
+
+type GastoPorMes {
+    mes: Int
+    total: Float
+    cantidad: Int
+}
+
+type GastoPorCategoria {
+    categoria: String
+    total: Float
+    cantidad: Int
 }
 
 extend type Mutation {

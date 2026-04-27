@@ -109,4 +109,13 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return service.count();
     }
 
+    public List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(String inicio, String fin,
+            Long sucId) {
+        return service.gastosPorCategoria(inicio, fin, sucId);
+    }
+
+    public List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(Integer anio, Long sucId) {
+        return service.gastosPorMes(anio, sucId);
+    }
+
 }

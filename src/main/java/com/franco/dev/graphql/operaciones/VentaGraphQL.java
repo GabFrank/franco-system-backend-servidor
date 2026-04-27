@@ -12,6 +12,7 @@ import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.VentaItem;
+
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
@@ -468,6 +469,157 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 conObservacion,
                 clienteId,
                 fechaInicio, fechaFin);
+    }
+
+    public String reporteGenericVentas(
+            Long idVenta,
+            Long idCaja,
+            Long sucId,
+            Long formaPago,
+            VentaEstado estado,
+            Boolean isDelivery,
+            Long monedaId,
+            Boolean conDescuento,
+            Boolean conAumento,
+            Boolean conObservacion,
+            Long clienteId,
+            String fechaInicio,
+            String fechaFin,
+            Long usuarioId) {
+
+        // Cargar todas las ventas sin límite de paginación
+        Pageable allPages = PageRequest.of(0, Integer.MAX_VALUE);
+        Page<Venta> ventaPage = service.onGenericSearch(
+                idVenta, idCaja, allPages, false,
+                sucId, formaPago, estado, isDelivery, monedaId,
+                conDescuento, conAumento, conObservacion, clienteId,
+                fechaInicio, fechaFin);
+
+        List<Venta> ventas = ventaPage.getContent();
+
+        // Acumuladores de totales por forma de pago (en Gs.)
+        double totalGeneral       = 0.0;
+        double totalEfectivo      = 0.0;
+        double totalTarjeta       = 0.0;
+        double totalConvenio      = 0.0;
+        double totalTransferencia = 0.0;
+        double totalOtros         = 0.0;
+
+        List<ReporteVentaItemDto> itemList = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+        for (Venta v : ventas) {
+            double ventaTotalGs = v.getTotalGs() != null ? v.getTotalGs() : 0.0;
+            totalGeneral += ventaTotalGs;
+
+            // Resolver forma de pago y moneda usando la lógica del VentaResolver:
+            // si la venta no tiene formaPago directo, buscar en el cobro
+            FormaPago fp = v.getFormaPago();
+            Moneda moneda = null;
+            if (v.getCobro() != null) {
+                List<CobroDetalle> detalles = cobroDetalleService.findByCobroId(
+                        v.getCobro().getId(), v.getSucursalId());
+                if (detalles != null && !detalles.isEmpty()) {
+                    CobroDetalle primerDetalle = detalles.get(0);
+                    if (fp == null) {
+                        fp = primerDetalle.getFormaPago();
+                    }
+                    moneda = primerDetalle.getMoneda();
+                }
+            }
+
+            String fpDesc = fp != null && fp.getDescripcion() != null
+                    ? fp.getDescripcion().toUpperCase() : "";
+
+            if (fpDesc.contains("EFECTIVO")) {
+                totalEfectivo += ventaTotalGs;
+            } else if (fpDesc.contains("TARJETA")) {
+                totalTarjeta += ventaTotalGs;
+            } else if (fpDesc.contains("CONVENIO")) {
+                totalConvenio += ventaTotalGs;
+            } else if (fpDesc.contains("TRANSFERENCIA")) {
+                totalTransferencia += ventaTotalGs;
+            } else {
+                totalOtros += ventaTotalGs;
+            }
+
+            // Construir fila para el reporte
+            ReporteVentaItemDto dto = new ReporteVentaItemDto();
+            dto.setVentaId(v.getId());
+            dto.setSucursal(v.getSucursal() != null ? v.getSucursal().getNombre() : "");
+            dto.setCliente(v.getCliente() != null && v.getCliente().getPersona() != null
+                    ? v.getCliente().getPersona().getNombre() : "");
+            dto.setFecha(v.getCreadoEn() != null ? v.getCreadoEn().format(formatter) : "");
+            dto.setFormaPago(fp != null && fp.getDescripcion() != null ? fp.getDescripcion() : "");
+            dto.setMoneda(moneda != null && moneda.getDenominacion() != null ? moneda.getDenominacion() : "");
+            dto.setEstado(v.getEstado() != null ? v.getEstado().toString() : "");
+            dto.setTotalGs(ventaTotalGs);
+            itemList.add(dto);
+        }
+
+        // Resolver nombres reales de los filtros
+        Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+
+        String filtroSucursalStr;
+        if (sucId != null) {
+            Sucursal suc = sucursalService.findById(sucId).orElse(null);
+            filtroSucursalStr = suc != null ? suc.getNombre() : "Sucursal " + sucId;
+        } else {
+            filtroSucursalStr = "Todas";
+        }
+
+        String filtroFpStr;
+        if (formaPago != null) {
+            FormaPago fp = formaPagoService.findById(formaPago).orElse(null);
+            filtroFpStr = fp != null ? fp.getDescripcion() : "FormaPago " + formaPago;
+        } else {
+            filtroFpStr = "Todas";
+        }
+
+        String filtroMonedaStr;
+        if (monedaId != null) {
+            Moneda m = monedaService.findById(monedaId).orElse(null);
+            filtroMonedaStr = m != null ? m.getDenominacion() : "Moneda " + monedaId;
+        } else {
+            filtroMonedaStr = "Todas";
+        }
+
+        String filtroEstadoStr  = estado    != null ? estado.toString() : "Todos";
+        String filtroClienteStr;
+        if (clienteId != null) {
+            Cliente c = clienteService.findById(clienteId).orElse(null);
+            filtroClienteStr = (c != null && c.getPersona() != null) ? c.getPersona().getNombre() : "ID: " + clienteId;
+        } else {
+            filtroClienteStr = "Todos";
+        }
+
+        String filtroModoStr;
+        if (isDelivery == null) {
+            filtroModoStr = "Todos";
+        } else if (isDelivery) {
+            filtroModoStr = "Delivery";
+        } else {
+            filtroModoStr = "Local";
+        }
+
+        String filtroConObsStr   = conObservacion != null && conObservacion ? "Sí" : "Todos";
+        String filtroConDescStr  = conDescuento   != null && conDescuento   ? "Sí" : "Todos";
+        String filtroConAumStr   = conAumento     != null && conAumento     ? "Sí" : "Todos";
+        
+        String filtroIdVentaStr  = idVenta        != null ? idVenta.toString() : "Todos";
+
+        return impresionService.imprimirReporteGenericVentas(
+                itemList,
+                filtroIdVentaStr,
+                fechaInicio != null ? fechaInicio : "-",
+                fechaFin    != null ? fechaFin    : "-",
+                filtroSucursalStr, filtroFpStr, filtroMonedaStr,
+                filtroEstadoStr, filtroClienteStr,
+                filtroModoStr, filtroConObsStr, filtroConDescStr, filtroConAumStr,
+                totalGeneral, totalEfectivo, totalTarjeta,
+                totalConvenio, totalTransferencia, totalOtros,
+                usuario);
     }
 
     public String reporteGenericVentas(

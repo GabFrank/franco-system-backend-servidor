@@ -47,6 +47,17 @@ type VentaPage {
     getPageable: Pageable
 }
 
+
+
+type VentaPorFuncionario {
+    id: ID
+    funcionario: String
+    total: Float
+    cantidad: Int
+    productoMasVendido: String
+    sucursales: String
+}
+
 extend type Query {
     venta(id:ID!, sucId: ID):Venta
     ventas(page:Int = 0, size:Int = 10, sucId: ID):[Venta]!
@@ -65,6 +76,10 @@ extend type Query {
         conDescuento: Boolean, 
         conAumento: Boolean
     ):VentaPage
+    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
+    ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
+    ventasPorSucursal(inicio: String!, fin: String!): [VentaPorSucursal]
+    ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID, usuarioId: ID): [VentaPorFuncionario]
     ventasGenericFilter(
         idVenta:ID, 
         idCaja:ID, 
@@ -83,6 +98,22 @@ extend type Query {
         fechaInicio: String,
         fechaFin: String
     ):VentaPage
+    reporteGenericVentas(
+        idVenta: ID
+        idCaja: ID
+        sucId: ID
+        formaPago: ID
+        estado: VentaEstado
+        isDelivery: Boolean
+        monedaId: Int
+        conDescuento: Boolean
+        conAumento: Boolean
+        conObservacion: Boolean
+        clienteId: ID
+        fechaInicio: String
+        fechaFin: String
+        usuarioId: ID
+    ): String
 #    ventaPorPeriodo(inicio:String, fin:String, sucId: ID): [VentaPorPeriodo]
 #    ventaPorSucursal(inicio:String, fin:String): [VentaPorSucursal]
 }
@@ -104,12 +135,34 @@ type VentaPorPeriodo {
     valorDs: Float
     valorTotalGs: Float
     creadoEn: Date
+    cantVenta: Int
 }
+
 
 type VentaPorSucursal {
     sucId: ID,
-    nombre: Float
+    nombre: String
     total: Float
+}
+
+type VentaPorHora {
+    hora: Int
+    total: Float
+    cantidad: Int
+}
+
+extend type Query {
+    ventasPorHora(fecha: String!, sucId: ID): [VentaPorHora]
+    ventasPorMes(anio: Int!, sucId: ID): [VentaPorMes]
+}
+
+type VentaPorMes {
+    mes: Int
+    total: Float
+    cantidad: Int
+    efvo: Float
+    tarjeta: Float
+    otros: Float
 }
 
 

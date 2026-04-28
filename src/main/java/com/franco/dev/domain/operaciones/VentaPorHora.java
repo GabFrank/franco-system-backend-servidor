@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class VentaPorSucursal {
-    Long sucId;
-    String nombre;
-    Double total;
+public class VentaPorHora {
+    private Integer hora;
+    private Double total;
+    private Long cantidad;
 }

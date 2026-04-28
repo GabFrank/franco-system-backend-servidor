@@ -4,6 +4,7 @@ import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.repository.HelperRepository;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -22,6 +23,8 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
     List<InicioSesion> findByToken(String token);
 
     boolean existsByUsuarioIdAndIdDispositivo(Long usuarioId, String idDispositivo);
+    boolean existsByUsuarioIdAndIdDispositivoAndHoraFinIsNull(Long usuarioId, String idDispositivo);
+    Optional<InicioSesion> findFirstByIdDispositivoAndUsuarioIsNotNullOrderByIdAsc(String idDispositivo);
 
     @org.springframework.data.jpa.repository.Modifying
     @org.springframework.data.jpa.repository.Query("UPDATE InicioSesion s SET s.token = null WHERE s.token = :token")

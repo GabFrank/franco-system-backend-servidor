@@ -233,6 +233,9 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                 notaRecepcionItem.setCantidadEnNota(cantidadPendiente); // Usar cantidad pendiente en lugar de cantidad solicitada
                 notaRecepcionItem.setPrecioUnitarioEnNota(pedidoItem.getPrecioUnitarioSolicitado());
                 notaRecepcionItem.setEsBonificacion(false);
+                if (pedidoItem.getVencimientoEsperado() != null) {
+                    notaRecepcionItem.setVencimientoEnNota(pedidoItem.getVencimientoEsperado().toLocalDate());
+                }
                 notaRecepcionItem.setEstado(NotaRecepcionItemEstado.PENDIENTE_CONCILIACION);
                 notaRecepcionItem.setCreadoEn(LocalDateTime.now());
 

@@ -38,6 +38,9 @@ public class CobroDetalle extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "sucursal_id", nullable = true)
     private Sucursal sucursal;
 
+    @Column(name = "cobro_id", insertable = false, updatable = false)
+    private Long cobroId;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),

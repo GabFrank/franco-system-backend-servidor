@@ -33,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -97,7 +98,7 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
         String estadoNormalizado = normalizarEstadoPreGasto(estado);
         List<String> estadosNormalizados = estados != null
-                ? estados.stream().map(this::normalizarEstadoPreGasto).toList()
+                ? estados.stream().map(this::normalizarEstadoPreGasto).collect(Collectors.toList())
                 : null;
         return service.filterPreGastos(id, cajaId, estadoNormalizado, estadosNormalizados, inicio, fin, pageable);
     }
@@ -155,8 +156,12 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getSucursalCajaId() != null) {
             e.setSucursalCaja(sucursalService.findById(input.getSucursalCajaId()).orElse(null));
         }
-        if (input.getSucursalId() != null) {
+        if (input.getSucursalId() != null && input.getSucursalId() > 0) {
             e.setSucursalId(input.getSucursalId());
+        } else if (e.getSucursalCaja() != null && e.getSucursalCaja().getId() != null
+                && e.getSucursalCaja().getId() > 0) {
+            // Fallback: usar sucursal de caja cuando el frontend no envía sucursalId.
+            e.setSucursalId(e.getSucursalCaja().getId());
         }
         if (e.getSucursalId() == null || e.getSucursalId() <= 0) {
             throw new GraphQLException("Debe indicar una sucursal válida para registrar la solicitud.");
@@ -279,7 +284,7 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     private String normalizarEstadoPreGasto(String estado) {
-        if (estado == null || estado.isBlank()) {
+        if (estado == null || estado.trim().isEmpty()) {
             return estado;
         }
         String estadoUpper = estado.toUpperCase();

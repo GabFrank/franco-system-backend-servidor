@@ -31,6 +31,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -482,7 +483,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     }
 
     public List<PreGastoStatusMetadataDTO> getStatusMetadataList() {
-        return List.of(
+        return Arrays.asList(
                 new PreGastoStatusMetadataDTO("PENDIENTE", "Pendiente", "hourglass_empty", "#ffa726"),
                 new PreGastoStatusMetadataDTO("TRAMITE", "En Trámite", "swap_horiz", "#42a5f5"),
                 new PreGastoStatusMetadataDTO("AUTORIZADO", "Autorizado", "check_circle", "#66bb6a"),

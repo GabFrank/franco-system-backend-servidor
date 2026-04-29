@@ -99,7 +99,7 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
         if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
             return "NO_RENDIDO";
         }
-        if (preGasto.getEstadoRendicion() != null && !preGasto.getEstadoRendicion().isBlank()) {
+        if (preGasto.getEstadoRendicion() != null && !preGasto.getEstadoRendicion().trim().isEmpty()) {
             return preGasto.getEstadoRendicion();
         }
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;

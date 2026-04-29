@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +48,11 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         TipoGasto e = m.map(input, TipoGasto.class);
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        } else if (e.getId() == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                usuarioService.findByNickname(authentication.getName()).ifPresent(e::setUsuario);
+            }
         }
         if (input.getClasificacionGastoId() != null)
             e.setClasificacionGasto(service.findById(input.getClasificacionGastoId()).orElse(null));

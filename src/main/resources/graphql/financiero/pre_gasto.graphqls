@@ -141,7 +141,15 @@ extend type Mutation {
     autorizarPreGasto(id: ID!, autorizadorId: ID!, sucId: ID): PreGasto
     rechazarPreGasto(id: ID!, motivo: String!, sucId: ID): PreGasto
     tramitarPreGasto(id: ID!, sucId: ID): PreGasto
-    completarPreGasto(id: ID!, sucId: ID, rindioGasto: Boolean, montoGastado: Float): PreGasto
+    completarPreGasto(
+        id: ID!,
+        sucId: ID,
+        rindioGasto: Boolean,
+        montoGastado: Float,
+        montoGastadoGs: Float,
+        montoGastadoRs: Float,
+        montoGastadoDs: Float
+    ): PreGasto
     enviarPreGastoATesoreria(id: ID!, sucId: ID, usuarioId: ID): PreGasto
     deletePreGasto(id: ID!, sucId: ID): Boolean!
 }

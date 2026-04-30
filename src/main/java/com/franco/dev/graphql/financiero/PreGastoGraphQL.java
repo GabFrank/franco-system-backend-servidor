@@ -270,8 +270,9 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.enviarATramite(id, sucId);
     }
 
-    public PreGasto completarPreGasto(Long id, Long sucId, Boolean rindioGasto, Double montoGastado) {
-        return service.completar(id, sucId, rindioGasto, montoGastado);
+    public PreGasto completarPreGasto(Long id, Long sucId, Boolean rindioGasto, Double montoGastado,
+            Double montoGastadoGs, Double montoGastadoRs, Double montoGastadoDs) {
+        return service.completar(id, sucId, rindioGasto, montoGastado, montoGastadoGs, montoGastadoRs, montoGastadoDs);
     }
 
     public PreGasto enviarPreGastoATesoreria(Long id, Long sucId, Long usuarioId) {

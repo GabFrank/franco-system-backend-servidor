@@ -34,6 +34,8 @@ public class TipoGasto implements Identifiable<Long> {
 
     private Boolean isClasificacion;
     private Boolean activo;
+    @Column(name = "activo_en_sucursales")
+    private Boolean activoEnSucursales;
     private Boolean autorizacion;
 
     private String descripcion;

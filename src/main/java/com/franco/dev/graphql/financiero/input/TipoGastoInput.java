@@ -11,6 +11,7 @@ public class TipoGastoInput {
 
     private Boolean isClasificacion;
     private Boolean activo;
+    private Boolean activoEnSucursales;
     private Boolean autorizacion;
 
     private String descripcion;

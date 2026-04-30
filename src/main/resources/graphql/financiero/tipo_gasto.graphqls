@@ -24,6 +24,7 @@ type TipoGasto {
     autorizacion: Boolean
     cargo: Cargo
     activo: Boolean
+    activoEnSucursales: Boolean
     creadoEn: Date
     usuario: Usuario
     afectaFinanzasActivo: Boolean
@@ -41,6 +42,7 @@ input TipoGastoInput {
     autorizacion: Boolean
     cargoId: Int
     activo: Boolean
+    activoEnSucursales: Boolean
     afectaFinanzasActivo: Boolean
     esPagoCuotaActivo: Boolean
     creadoEn: Date

@@ -23,6 +23,7 @@ import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.operaciones.ProcesoEtapa;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaNota;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
+import com.franco.dev.domain.operaciones.enums.NotaRecepcionItemEstado;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
@@ -290,6 +291,12 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         NotaRecepcionItem notaItem = notaRecepcionItemService.findById(input.getNotaRecepcionItemId())
                 .orElseThrow(() -> new GraphQLException(
                         "NotaRecepcionItem no encontrado con ID: " + input.getNotaRecepcionItemId()));
+
+        // 3.1 Rechazar operación si el ítem fue rechazado documentalmente
+        if (notaItem.getEstado() == NotaRecepcionItemEstado.RECHAZADO) {
+            throw new GraphQLException(
+                    "No se puede recepcionar un ítem rechazado documentalmente (ID: " + notaItem.getId() + ")");
+        }
 
         // 4. Obtener o crear RecepcionMercaderia automáticamente
         RecepcionMercaderia recepcion = crearRecepcionAutomatica(input);
@@ -930,9 +937,11 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                     .orElseThrow(() -> new GraphQLException("Nota de recepción no encontrada: " + notaId));
 
             // 2. Obtener todas las distribuciones de la nota para las sucursales dadas
+            // Excluir items documentalmente rechazados (estado RECHAZADO en nota_recepcion_item)
             List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
                     .findByNotaRecepcionId(notaId);
             List<NotaRecepcionItemDistribucion> distribucionesFiltradas = distribuciones.stream()
+                    .filter(dist -> dist.getNotaRecepcionItem().getEstado() != NotaRecepcionItemEstado.RECHAZADO)
                     .filter(dist -> sucursalesIds.contains(dist.getSucursalEntrega().getId()))
                     .filter(dist -> itemIds == null || itemIds.contains(dist.getNotaRecepcionItem().getId()))
                     .collect(Collectors.toList());
@@ -1025,9 +1034,11 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                     .orElseThrow(() -> new GraphQLException("Nota de recepción no encontrada: " + notaId));
 
             // Obtener distribuciones de la nota para las sucursales dadas (y filtrar itemIds si corresponde)
+            // Excluir items documentalmente rechazados
             List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
                     .findByNotaRecepcionId(notaId);
             List<NotaRecepcionItemDistribucion> distribucionesFiltradas = distribuciones.stream()
+                    .filter(dist -> dist.getNotaRecepcionItem().getEstado() != NotaRecepcionItemEstado.RECHAZADO)
                     .filter(dist -> sucursalesIds.contains(dist.getSucursalEntrega().getId()))
                     .filter(dist -> itemIds == null || itemIds.contains(dist.getNotaRecepcionItem().getId()))
                     .collect(Collectors.toList());
@@ -1111,9 +1122,12 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             for (NotaRecepcion nota : notasPedido) {
                 System.out.println("Procesando nota: " + nota.getNumero());
 
-                // 2. Obtener todos los ítems de la nota
-                List<NotaRecepcionItem> itemsNota = notaRecepcionItemService.findByNotaRecepcionId(nota.getId());
-                System.out.println("Ítems de nota encontrados: " + itemsNota.size());
+                // 2. Obtener todos los ítems de la nota (excluyendo rechazados documentalmente)
+                List<NotaRecepcionItem> itemsNota = notaRecepcionItemService.findByNotaRecepcionId(nota.getId())
+                        .stream()
+                        .filter(item -> item.getEstado() != NotaRecepcionItemEstado.RECHAZADO)
+                        .collect(Collectors.toList());
+                System.out.println("Ítems de nota encontrados (sin rechazados): " + itemsNota.size());
 
                 for (NotaRecepcionItem item : itemsNota) {
                     // 3. Verificar si el ítem tiene distribuciones en las sucursales seleccionadas

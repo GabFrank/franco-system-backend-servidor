@@ -81,9 +81,8 @@ public class TokenController {
     @PostMapping(path = "/biometric")
     @ResponseBody
     public ResponseEntity<LoginResponse> biometricLogin(@RequestBody final BiometricLoginRequest request) {
-        if (request == null || request.getBiometricToken() == null
-                || request.getBiometricToken().isBlank() || request.getIdDispositivo() == null
-                || request.getIdDispositivo().isBlank()) {
+        if (request == null || isBlank(request.getBiometricToken())
+                || isBlank(request.getIdDispositivo())) {
             throw new GraphQLException("Datos biométricos incompletos.");
         }
 
@@ -96,7 +95,7 @@ public class TokenController {
         }
 
         JwtUser tokenPayload = jwtValidator.validate(request.getBiometricToken());
-        if (tokenPayload == null || tokenPayload.getNickname() == null || tokenPayload.getNickname().isBlank()) {
+        if (tokenPayload == null || isBlank(tokenPayload.getNickname())) {
             throw new GraphQLException("Token biométrico inválido.");
         }
 
@@ -127,7 +126,7 @@ public class TokenController {
     @GetMapping(path = "/biometric-owner/{idDispositivo}")
     @ResponseBody
     public ResponseEntity<Long> biometricOwner(@PathVariable String idDispositivo) {
-        if (idDispositivo == null || idDispositivo.isBlank()) {
+        if (isBlank(idDispositivo)) {
             throw new GraphQLException("Dispositivo inválido.");
         }
         Long biometricOwnerId = inicioSesionRepository
@@ -135,6 +134,10 @@ public class TokenController {
                 .map(inicioSesion -> inicioSesion.getUsuario() != null ? inicioSesion.getUsuario().getId() : null)
                 .orElse(null);
         return ResponseEntity.ok(biometricOwnerId);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private Sucursal sanitizeSucursal(Sucursal sucursal) {

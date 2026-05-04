@@ -9,6 +9,7 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -18,7 +19,10 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -38,6 +42,9 @@ public class ConfigController {
     @Autowired
     private ImageService imageService;
 
+    @Value("${app.timezone:America/Asuncion}")
+    private String appTimezone;
+
     @PostMapping
     @RequestMapping(value = "/verificar")
     @ResponseBody
@@ -51,9 +58,21 @@ public class ConfigController {
     @ResponseBody
     public ResponseEntity<java.util.Map<String, Object>> horaServidor() {
         java.util.Map<String, Object> response = new java.util.HashMap<>();
-        LocalDateTime ahora = LocalDateTime.now();
-        response.put("horaServidor", ahora.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        response.put("timestamp", System.currentTimeMillis());
+        ZoneId zone;
+        try {
+            zone = ZoneId.of(appTimezone.trim());
+        } catch (DateTimeException e) {
+            log.warn("app.timezone inválido '{}', usando America/Asuncion", appTimezone);
+            zone = ZoneId.of("America/Asuncion");
+        }
+        long epochMillis = System.currentTimeMillis();
+        ZonedDateTime zdt = Instant.ofEpochMilli(epochMillis).atZone(zone);
+        String isoConOffset = zdt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        response.put("epochMillis", epochMillis);
+        response.put("timestamp", epochMillis);
+        response.put("zoneId", zone.getId());
+        response.put("fechaHoraServidor", isoConOffset);
+        response.put("horaServidor", isoConOffset);
         return ResponseEntity.ok(response);
     }
 

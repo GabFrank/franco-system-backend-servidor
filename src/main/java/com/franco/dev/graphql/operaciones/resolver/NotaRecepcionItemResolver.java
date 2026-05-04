@@ -10,6 +10,7 @@ import graphql.kickstart.tools.GraphQLResolver;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +25,17 @@ public class NotaRecepcionItemResolver implements GraphQLResolver<NotaRecepcionI
     
     @Autowired
     private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
+
+    /**
+     * Resolver puntual para compatibilizar LocalDate del dominio con scalar Date (LocalDateTime).
+     * Se limita a NotaRecepcionItem para evitar impactos globales.
+     */
+    public LocalDateTime vencimientoEnNota(NotaRecepcionItem notaRecepcionItem) {
+        if (notaRecepcionItem == null || notaRecepcionItem.getVencimientoEnNota() == null) {
+            return null;
+        }
+        return notaRecepcionItem.getVencimientoEnNota().atStartOfDay();
+    }
     
     /**
      * Resolver para el campo distribucionConcluida

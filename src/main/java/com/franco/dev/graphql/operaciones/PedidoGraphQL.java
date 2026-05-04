@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.enums.ProcesoEtapaEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.ProductoProveedor;
+import com.franco.dev.graphql.operaciones.dto.PedidoRecepcionFisicaResumenDTO;
 import com.franco.dev.graphql.operaciones.input.PedidoInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.MonedaService;
@@ -77,6 +78,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private NotaRecepcionItemDistribucionService notaRecepcionItemDistribucionService;
+
+    @Autowired
+    private RecepcionMercaderiaService recepcionMercaderiaService;
 
     // ===== BASIC CRUD OPERATIONS =====
 
@@ -534,6 +538,18 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
             throw new GraphQLException("Error al obtener sucursales disponibles: " + e.getMessage());
+        }
+    }
+
+    public PedidoRecepcionFisicaResumenDTO getPedidoRecepcionFisicaResumen(Long pedidoId) {
+        try {
+            if (pedidoId == null) {
+                throw new GraphQLException("ID del pedido es requerido");
+            }
+            return recepcionMercaderiaService.getPedidoRecepcionFisicaResumen(pedidoId);
+        } catch (Exception e) {
+            System.err.println("Error obteniendo resumen de recepcion fisica para pedido " + pedidoId + ": " + e.getMessage());
+            throw new GraphQLException("Error al obtener resumen de recepcion fisica: " + e.getMessage());
         }
     }
 

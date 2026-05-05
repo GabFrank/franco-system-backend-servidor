@@ -49,19 +49,19 @@ jobs:
                 "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
                 | jq -r '.tag_name')
             elif [[ "${INSTANCE}" == "farmacia" || "${INSTANCE}" == "beta" ]]; then
-              # Beta channel: latest prerelease with -beta
+              # Beta channel: latest prerelease with -beta (sorted by published_at desc)
               TAG=$(curl -fsSL \
                 -H "Authorization: token ${GH_TOKEN}" \
                 -H "Accept: application/vnd.github.v3+json" \
                 "https://api.github.com/repos/${{ github.repository }}/releases" \
-                | jq -r '[.[] | select(.prerelease == true and (.tag_name | contains("beta")))][0].tag_name')
+                | jq -r '[.[] | select(.prerelease == true and (.tag_name | contains("beta")))] | sort_by(.published_at) | reverse | .[0].tag_name')
             else
-              # Alpha: latest prerelease with -alpha
+              # Alpha: latest prerelease with -alpha (sorted by published_at desc)
               TAG=$(curl -fsSL \
                 -H "Authorization: token ${GH_TOKEN}" \
                 -H "Accept: application/vnd.github.v3+json" \
                 "https://api.github.com/repos/${{ github.repository }}/releases" \
-                | jq -r '[.[] | select(.prerelease == true and (.tag_name | contains("alpha")))][0].tag_name')
+                | jq -r '[.[] | select(.prerelease == true and (.tag_name | contains("alpha")))] | sort_by(.published_at) | reverse | .[0].tag_name')
             fi
             VERSION="${TAG#v}"
             echo "Resolved version: ${VERSION}"

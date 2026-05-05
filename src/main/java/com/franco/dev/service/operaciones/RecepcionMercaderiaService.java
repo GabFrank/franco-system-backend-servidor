@@ -8,11 +8,14 @@ import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.ProcesoEtapaTipo;
 import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
+import com.franco.dev.graphql.operaciones.dto.PedidoRecepcionFisicaResumenDTO;
+import com.franco.dev.graphql.operaciones.dto.SucursalRecepcionFisicaDTO;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaRepository;
+import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -55,6 +58,9 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     @Autowired
     @Lazy
     private RecepcionMercaderiaItemService recepcionMercaderiaItemService;
+
+    @Autowired
+    private RecepcionMercaderiaItemRepository recepcionMercaderiaItemRepository;
     
     @Autowired
     private RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
@@ -629,6 +635,17 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
      */
     public List<RecepcionMercaderia> findByPedidoId(Long pedidoId) {
         return repository.findByPedidoId(pedidoId);
+    }
+
+    public PedidoRecepcionFisicaResumenDTO getPedidoRecepcionFisicaResumen(Long pedidoId) {
+        if (pedidoId == null) {
+            throw new IllegalArgumentException("ID del pedido es requerido");
+        }
+
+        List<SucursalRecepcionFisicaDTO> sucursales = recepcionMercaderiaItemRepository
+                .findSucursalesRecepcionFisicaByPedidoId(pedidoId, RecepcionMercaderiaEstado.FINALIZADA);
+
+        return new PedidoRecepcionFisicaResumenDTO(pedidoId, sucursales);
     }
 
     /**

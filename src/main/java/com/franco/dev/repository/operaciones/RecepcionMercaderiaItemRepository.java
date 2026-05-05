@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import com.franco.dev.domain.operaciones.EstadoVerificacion;
 import com.franco.dev.graphql.operaciones.dto.RecepcionSumarioDTO;
+import com.franco.dev.graphql.operaciones.dto.SucursalRecepcionFisicaDTO;
+import com.franco.dev.domain.operaciones.enums.RecepcionMercaderiaEstado;
 
 import java.util.List;
 
@@ -196,4 +198,21 @@ public interface RecepcionMercaderiaItemRepository extends HelperRepository<Rece
     List<RecepcionMercaderiaItem> findByNotaRecepcionItemIdAndRecepcionMercaderiaId(
             @Param("notaRecepcionItemId") Long notaRecepcionItemId,
             @Param("recepcionMercaderiaId") Long recepcionMercaderiaId);
+
+    @Query("SELECT new com.franco.dev.graphql.operaciones.dto.SucursalRecepcionFisicaDTO(" +
+            "rmi.sucursalEntrega.id, " +
+            "rmi.sucursalEntrega.nombre, " +
+            "COUNT(rmi.id), " +
+            "MAX(rm.fecha)) " +
+            "FROM RecepcionMercaderiaItem rmi " +
+            "JOIN rmi.recepcionMercaderia rm " +
+            "JOIN rmi.notaRecepcionItem nri " +
+            "JOIN nri.notaRecepcion nr " +
+            "WHERE nr.pedido.id = :pedidoId " +
+            "AND rm.estado = :estado " +
+            "GROUP BY rmi.sucursalEntrega.id, rmi.sucursalEntrega.nombre " +
+            "ORDER BY rmi.sucursalEntrega.nombre")
+    List<SucursalRecepcionFisicaDTO> findSucursalesRecepcionFisicaByPedidoId(
+            @Param("pedidoId") Long pedidoId,
+            @Param("estado") RecepcionMercaderiaEstado estado);
 }

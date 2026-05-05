@@ -15,6 +15,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Component
 public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -66,75 +68,42 @@ public class NotaRecepcionItemDistribucionGraphQL implements GraphQLQueryResolve
     // ===============================================
 
     public NotaRecepcionItemDistribucion saveNotaRecepcionItemDistribucion(NotaRecepcionItemDistribucionInput input) {
-        NotaRecepcionItemDistribucion entity = modelMapper.map(input, NotaRecepcionItemDistribucion.class);
-        
-        // Setear las relaciones
-        if (input.getNotaRecepcionItemId() != null) {
-            entity.setNotaRecepcionItem(notaRecepcionItemService.findById(input.getNotaRecepcionItemId()).orElse(null));
-        }
-        if (input.getSucursalEntregaId() != null) {
-            entity.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
-        }
-        if (input.getSucursalInfluenciaId() != null) {
-            entity.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
-        }
-        if (input.getUsuarioId() != null) {
-            entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        }
-        
+        NotaRecepcionItemDistribucion entity = inputToEntity(input);
         return service.save(entity);
     }
 
     public List<NotaRecepcionItemDistribucion> saveNotaRecepcionItemDistribuciones(List<NotaRecepcionItemDistribucionInput> inputs) {
         List<NotaRecepcionItemDistribucion> entities = inputs.stream()
-                .map(input -> {
-                    NotaRecepcionItemDistribucion entity = modelMapper.map(input, NotaRecepcionItemDistribucion.class);
-                    
-                    // Setear las relaciones
-                    if (input.getNotaRecepcionItemId() != null) {
-                        entity.setNotaRecepcionItem(notaRecepcionItemService.findById(input.getNotaRecepcionItemId()).orElse(null));
-                    }
-                    if (input.getSucursalEntregaId() != null) {
-                        entity.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
-                    }
-                    if (input.getSucursalInfluenciaId() != null) {
-                        entity.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
-                    }
-                    if (input.getUsuarioId() != null) {
-                        entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-                    }
-                    
-                    return entity;
-                })
+                .map(this::inputToEntity)
                 .collect(Collectors.toList());
-        
         return service.saveDistribuciones(entities);
     }
 
     public List<NotaRecepcionItemDistribucion> replaceNotaRecepcionItemDistribuciones(Long notaRecepcionItemId, List<NotaRecepcionItemDistribucionInput> inputs) {
         List<NotaRecepcionItemDistribucion> entities = inputs.stream()
-                .map(input -> {
-                    NotaRecepcionItemDistribucion entity = modelMapper.map(input, NotaRecepcionItemDistribucion.class);
-                    
-                    // Setear las relaciones
-                    if (input.getNotaRecepcionItemId() != null) {
-                        entity.setNotaRecepcionItem(notaRecepcionItemService.findById(input.getNotaRecepcionItemId()).orElse(null));
-                    }
-                    if (input.getSucursalEntregaId() != null) {
-                        entity.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
-                    }
-                    if (input.getSucursalInfluenciaId() != null) {
-                        entity.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
-                    }
-                    if (input.getUsuarioId() != null) {
-                        entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-                    }
-                    
-                    return entity;
-                })
+                .map(this::inputToEntity)
                 .collect(Collectors.toList());
-        
         return service.replaceDistribuciones(notaRecepcionItemId, entities);
+    }
+
+    private NotaRecepcionItemDistribucion inputToEntity(NotaRecepcionItemDistribucionInput input) {
+        NotaRecepcionItemDistribucion e = new NotaRecepcionItemDistribucion();
+        e.setId(input.getId());
+        e.setCantidad(input.getCantidad());
+        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getNotaRecepcionItemId() != null) {
+            e.setNotaRecepcionItem(notaRecepcionItemService.findById(input.getNotaRecepcionItemId()).orElse(null));
+        }
+        if (input.getSucursalEntregaId() != null) {
+            e.setSucursalEntrega(sucursalService.findById(input.getSucursalEntregaId()).orElse(null));
+        }
+        if (input.getSucursalInfluenciaId() != null) {
+            e.setSucursalInfluencia(sucursalService.findById(input.getSucursalInfluenciaId()).orElse(null));
+        }
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        return e;
     }
 
     public Boolean deleteNotaRecepcionItemDistribucion(Long id) {

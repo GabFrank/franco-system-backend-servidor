@@ -24,6 +24,19 @@ type PedidoResumen {
     cantidadItemsPendientesDistribucion: Int
 }
 
+type SucursalRecepcionFisica {
+    sucursalId: ID
+    sucursalNombre: String
+    cantidadItemsRecepcionados: Int
+    fechaUltimaRecepcion: String
+}
+
+type PedidoRecepcionFisicaResumen {
+    pedidoId: ID
+    sucursalesRecepcionFisica: [SucursalRecepcionFisica]
+    totalSucursalesRecepcionFisica: Int
+}
+
 input PedidoInput {
     id:ID
     proveedorId: Int
@@ -64,6 +77,7 @@ extend type Query {
     # Recepción Física queries
     getSucursalesDisponiblesRecepcionFisica(pedidoId:ID!): [Sucursal]!
     getSucursalesDisponiblesRecepcionFisicaSimple(pedidoId:ID!): [Sucursal]!
+    getPedidoRecepcionFisicaResumen(pedidoId:ID!): PedidoRecepcionFisicaResumen
 }
 
 extend type Mutation {

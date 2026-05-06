@@ -82,6 +82,9 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private RecepcionMercaderiaService recepcionMercaderiaService;
 
+    @Autowired
+    private com.franco.dev.service.impresion.ImpresionService impresionService;
+
     // ===== BASIC CRUD OPERATIONS =====
 
     public Optional<Pedido> pedido(Long id) {
@@ -595,5 +598,22 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
             e.printStackTrace();
             throw new GraphQLException("Error al obtener pedidos con filtros: " + e.getMessage());
         }
+    }
+
+    // ===== IMPRESION DE PEDIDO =====
+
+    public String imprimirPedidoPDF(Long pedidoId) {
+        Pedido pedido = service.findById(pedidoId)
+                .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
+        List<PedidoItem> items = pedidoItemService.findByPedidoId(pedidoId);
+        return impresionService.imprimirPedido(pedido, items, false, null);
+    }
+
+    public Boolean imprimirPedidoTicket(Long pedidoId, String printerName) {
+        Pedido pedido = service.findById(pedidoId)
+                .orElseThrow(() -> new GraphQLException("Pedido no encontrado: " + pedidoId));
+        List<PedidoItem> items = pedidoItemService.findByPedidoId(pedidoId);
+        impresionService.imprimirPedido(pedido, items, true, printerName);
+        return true;
     }
 }

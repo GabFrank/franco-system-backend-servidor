@@ -29,8 +29,11 @@ type PreGasto {
     estado: EstadoPreGasto
     qrToken: String
     autorizadoPor: Persona
+    autorizadoEn: Date
     delegadoA: Persona
     motivoRechazo: String
+    rechazadoPor: Persona
+    rechazadoEn: Date
     montoRetirado: Float
     montoGastado: Float
     saldoDevolver: Float
@@ -138,8 +141,8 @@ extend type Query {
 
 extend type Mutation {
     savePreGasto(entity: PreGastoInput!): PreGasto!
-    autorizarPreGasto(id: ID!, autorizadorId: ID!, sucId: ID): PreGasto
-    rechazarPreGasto(id: ID!, motivo: String!, sucId: ID): PreGasto
+    autorizarPreGasto(id: ID!, autorizadorId: ID!, usuarioId: ID, sucId: ID): PreGasto
+    rechazarPreGasto(id: ID!, motivo: String!, rechazadorId: ID, usuarioId: ID, sucId: ID): PreGasto
     tramitarPreGasto(id: ID!, sucId: ID): PreGasto
     completarPreGasto(
         id: ID!,

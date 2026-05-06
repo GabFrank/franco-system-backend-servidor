@@ -9,9 +9,12 @@ import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.repository.financiero.PreGastoRepository;
+import com.franco.dev.service.administrativo.AutorizacionAuditService;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
@@ -25,6 +28,8 @@ import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.service.activos.MuebleService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
+import com.franco.dev.service.personas.PersonaService;
+import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +54,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final SolicitudPagoService solicitudPagoService;
     private final ProveedorService proveedorService;
     private final UsuarioService usuarioService;
+    private final PersonaService personaService;
+    private final FuncionarioService funcionarioService;
+    private final AutorizacionAuditService autorizacionAuditService;
     private final MuebleService muebleService;
     private final EnteService enteService;
     private final InmuebleService inmuebleService;
@@ -145,23 +154,61 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return repository.filterPreGastos(id, cajaId, estado, estadosFiltro, inicio, fin, pageable);
     }
 
-    public PreGasto autorizar(Long id, Long autorizadorId, Long sucId) {
+    @Transactional
+    public PreGasto autorizar(Long id, Long autorizadorId, Long usuarioId, Long sucId) {
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
+        Persona autorizador = autorizadorId != null ? personaService.findById(autorizadorId).orElse(null) : null;
         preGasto.setEstado(EstadoPreGasto.AUTORIZADO);
-        preGasto.setQrToken(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-
-        return super.save(preGasto);
+        preGasto.setAutorizadoPor(autorizador);
+        preGasto.setAutorizadoEn(LocalDateTime.now());
+        preGasto.setRechazadoPor(null);
+        preGasto.setRechazadoEn(null);
+        preGasto.setMotivoRechazo(null);
+        if (preGasto.getQrToken() == null || preGasto.getQrToken().isEmpty()) {
+            preGasto.setQrToken(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        }
+        PreGasto saved = super.save(preGasto);
+        autorizacionAuditService.registrarPreGastoAutorizado(
+                obtenerFuncionarioIdParaAutorizacion(saved),
+                autorizadorId,
+                usuarioId,
+                saved.getSucursalId(),
+                "Autorizacion de pre-gasto " + saved.getId() + "-" + saved.getSucursalId()
+        );
+        return saved;
     }
 
-    public PreGasto rechazar(Long id, String motivo, Long sucId) {
+    @Transactional
+    public PreGasto rechazar(Long id, String motivo, Long rechazadorId, Long usuarioId, Long sucId) {
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
+        Persona rechazador = rechazadorId != null ? personaService.findById(rechazadorId).orElse(null) : null;
         preGasto.setEstado(EstadoPreGasto.RECHAZADO);
         preGasto.setMotivoRechazo(motivo);
-        return super.save(preGasto);
+        preGasto.setRechazadoPor(rechazador);
+        preGasto.setRechazadoEn(LocalDateTime.now());
+        preGasto.setAutorizadoPor(null);
+        preGasto.setAutorizadoEn(null);
+        PreGasto saved = super.save(preGasto);
+        autorizacionAuditService.registrarPreGastoRechazado(
+                obtenerFuncionarioIdParaAutorizacion(saved),
+                rechazadorId,
+                usuarioId,
+                saved.getSucursalId(),
+                "Rechazo de pre-gasto " + saved.getId() + "-" + saved.getSucursalId() + ". Motivo: " + motivo
+        );
+        return saved;
+    }
+
+    private Long obtenerFuncionarioIdParaAutorizacion(PreGasto preGasto) {
+        if (preGasto == null || preGasto.getFuncionario() == null || preGasto.getFuncionario().getId() == null) {
+            return null;
+        }
+        Funcionario funcionario = funcionarioService.findByPersonaId(preGasto.getFuncionario().getId());
+        return funcionario != null ? funcionario.getId() : null;
     }
 
     public PreGasto enviarATramite(Long id, Long sucId) {

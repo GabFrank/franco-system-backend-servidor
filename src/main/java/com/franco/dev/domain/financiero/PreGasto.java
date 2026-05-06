@@ -75,12 +75,22 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
     @JoinColumn(name = "autorizado_por_id")
     private Persona autorizadoPor;
 
+    @Column(name = "autorizado_en")
+    private LocalDateTime autorizadoEn;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "delegado_a_id")
     private Persona delegadoA;
 
     @Column(name = "motivo_rechazo")
     private String motivoRechazo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rechazado_por_id")
+    private Persona rechazadoPor;
+
+    @Column(name = "rechazado_en")
+    private LocalDateTime rechazadoEn;
 
     @Column(name = "monto_retirado")
     private BigDecimal montoRetirado;

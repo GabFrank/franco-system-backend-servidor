@@ -253,17 +253,12 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
     }
 
-    public PreGasto autorizarPreGasto(Long id, Long autorizadorId, Long sucId) {
-        PreGasto preGasto = service.autorizar(id, autorizadorId, sucId);
-        if (preGasto != null && autorizadorId != null) {
-            preGasto.setAutorizadoPor(personaService.findById(autorizadorId).orElse(null));
-            preGasto = service.save(preGasto);
-        }
-        return preGasto;
+    public PreGasto autorizarPreGasto(Long id, Long autorizadorId, Long usuarioId, Long sucId) {
+        return service.autorizar(id, autorizadorId, usuarioId, sucId);
     }
 
-    public PreGasto rechazarPreGasto(Long id, String motivo, Long sucId) {
-        return service.rechazar(id, motivo, sucId);
+    public PreGasto rechazarPreGasto(Long id, String motivo, Long rechazadorId, Long usuarioId, Long sucId) {
+        return service.rechazar(id, motivo, rechazadorId, usuarioId, sucId);
     }
 
     public PreGasto tramitarPreGasto(Long id, Long sucId) {

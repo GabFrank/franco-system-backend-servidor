@@ -92,6 +92,8 @@ extend type Mutation {
     deletePedido(id: ID!): Boolean!
     finalizarCreacionPedido(pedidoId: ID!): Pedido!
     finalizarRecepcionNotas(pedidoId: ID!): Pedido!
+    imprimirPedidoPDF(pedidoId: ID!): String!
+    imprimirPedidoTicket(pedidoId: ID!, printerName: String): Boolean!
 }
 
 

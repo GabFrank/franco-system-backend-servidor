@@ -4,6 +4,8 @@ type ProductoCompra{
     precio: Float
     creadoEn: Date
     presentacionEnNota: Presentacion
+    moneda: Moneda
+    cotizacion: Float
 }
 
 

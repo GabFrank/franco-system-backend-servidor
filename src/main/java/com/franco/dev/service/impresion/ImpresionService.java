@@ -5,6 +5,8 @@ import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.SolicitudPago;
@@ -1465,5 +1467,222 @@ public class ImpresionService {
         long hours = minutes / 60;
         long remainingMinutes = minutes % 60;
         return String.format("%02d:%02d", hours, remainingMinutes);
+    }
+
+    // ==================== PEDIDO DE COMPRA ====================
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class PedidoItemDto {
+        private Integer numero;
+        private String descripcion;
+        private String presentacion;
+        private Double cantidadUnidades;
+        private Double precioUnitario;
+        private Double subtotal;
+        private String vencimiento;
+    }
+
+    public String imprimirPedido(Pedido pedido, List<PedidoItem> items, Boolean ticket, String printerName) {
+        if (ticket != null && ticket) {
+            // ===== ESC/POS TICKET =====
+            try {
+                selectedPrintService = printingService.getPrintService(printerName);
+                if (selectedPrintService != null) {
+                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                    Style center = new Style().setJustification(EscPosConst.Justification.Center);
+                    QRCode qrCode = new QRCode();
+
+                    BufferedImage imageBufferedImage = ImageIO
+                            .read(new File(imageService.getImagePath() + "logo.png"));
+                    imageBufferedImage = resize(imageBufferedImage, 200, 100);
+                    BitImageWrapper imageWrapper = new BitImageWrapper();
+                    EscPos escpos = new EscPos(printerOutputStream);
+                    Bitonal algorithm = new BitonalThreshold();
+                    EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
+                    imageWrapper.setJustification(EscPosConst.Justification.Center);
+                    escpos.writeLF("--------------------------------");
+                    escpos.write(imageWrapper, escposImage);
+                    escpos.writeLF(center.setBold(true), "PEDIDO DE COMPRA");
+                    escpos.writeLF("--------------------------------");
+                    escpos.writeLF("Pedido Nro: " + pedido.getId());
+                    escpos.writeLF("Fecha: " + (pedido.getCreadoEn() != null
+                            ? pedido.getCreadoEn().format(formatter)
+                            : ""));
+                    String provNombre = pedido.getProveedor() != null
+                            && pedido.getProveedor().getPersona() != null
+                                    ? pedido.getProveedor().getPersona().getNombre()
+                                    : "";
+                    if (provNombre.length() > 28) {
+                        provNombre = provNombre.substring(0, 28);
+                    }
+                    escpos.writeLF("Prov: " + provNombre);
+                    String monedaStr = pedido.getMoneda() != null
+                            && pedido.getMoneda().getDenominacion() != null
+                                    ? pedido.getMoneda().getDenominacion()
+                                    : "";
+                    escpos.writeLF("Moneda: " + monedaStr);
+                    escpos.writeLF("--------------------------------");
+
+                    double totalPedido = 0;
+                    for (int i = 0; i < items.size(); i++) {
+                        PedidoItem item = items.get(i);
+                        String desc = item.getProducto() != null ? item.getProducto().getDescripcion() : "";
+                        if (desc.length() > 32) {
+                            desc = desc.substring(0, 32);
+                        }
+                        escpos.writeLF((i + 1) + ". " + desc);
+
+                        Double cant = item.getCantidadSolicitada() != null ? item.getCantidadSolicitada() : 0.0;
+                        Double precio = item.getPrecioUnitarioSolicitado() != null
+                                ? item.getPrecioUnitarioSolicitado()
+                                : 0.0;
+                        double sub = cant * precio;
+                        totalPedido += sub;
+
+                        String cantStr = String.format("%.0f", cant);
+                        String precioStr = NumberFormat.getNumberInstance(Locale.GERMAN)
+                                .format((long) Math.round(precio));
+                        String subStr = NumberFormat.getNumberInstance(Locale.GERMAN)
+                                .format((long) Math.round(sub));
+                        escpos.writeLF("  " + cantStr + " x " + precioStr + " = " + subStr);
+
+                        if (Boolean.TRUE.equals(item.getEsBonificacion())) {
+                            escpos.writeLF("  ** BONIFICACION **");
+                        }
+                    }
+
+                    escpos.writeLF("--------------------------------");
+                    String totalStr = NumberFormat.getNumberInstance(Locale.GERMAN)
+                            .format((long) Math.round(totalPedido));
+                    escpos.writeLF(center.setBold(true), "TOTAL: " + totalStr);
+                    escpos.writeLF("--------------------------------");
+
+                    String qrData = "frc-0-PEDIDO-" + pedido.getId() + "-" + pedido.getId()
+                            + "-GestionComprasComponent-null-null";
+                    escpos.write(qrCode.setSize(7).setJustification(EscPosConst.Justification.Center), qrData);
+
+                    escpos.feed(4);
+                    escpos.writeLF(center, ".......................");
+                    escpos.writeLF(center, "Comprador");
+                    escpos.feed(5);
+                    escpos.close();
+                    printerOutputStream.close();
+                }
+            } catch (IOException e) {
+                log.error("Error al imprimir ticket de pedido: {}", e.getMessage(), e);
+            }
+            return null;
+        } else {
+            // ===== JASPER PDF =====
+            try {
+                List<PedidoItemDto> dtoList = new ArrayList<>();
+                double montoTotal = 0;
+                for (int i = 0; i < items.size(); i++) {
+                    PedidoItem item = items.get(i);
+                    PedidoItemDto dto = new PedidoItemDto();
+                    dto.setNumero(i + 1);
+
+                    // Descripción + código de barras: "PRODUCTO (codBarra)"
+                    String desc = item.getProducto() != null ? item.getProducto().getDescripcion() : "";
+                    String codBarra = "";
+                    if (item.getPresentacionCreacion() != null) {
+                        Codigo codigo = codigoService
+                                .findPrincipalByPresentacionId(item.getPresentacionCreacion().getId());
+                        if (codigo != null && codigo.getCodigo() != null && !codigo.getCodigo().isEmpty()) {
+                            codBarra = codigo.getCodigo();
+                        }
+                    }
+                    if (!codBarra.isEmpty()) {
+                        desc = desc + " (" + codBarra + ")";
+                    }
+                    dto.setDescripcion(desc);
+
+                    // Presentación: "1 unid." o "Caja x N unid."
+                    String pres = "";
+                    if (item.getPresentacionCreacion() != null
+                            && item.getPresentacionCreacion().getCantidad() != null) {
+                        int cant = item.getPresentacionCreacion().getCantidad().intValue();
+                        if (cant <= 1) {
+                            pres = "1 unid.";
+                        } else {
+                            pres = "Caja x " + cant + " unid.";
+                        }
+                    }
+                    dto.setPresentacion(pres);
+
+                    Double cant = item.getCantidadSolicitada() != null ? item.getCantidadSolicitada() : 0.0;
+                    Double precio = item.getPrecioUnitarioSolicitado() != null
+                            ? item.getPrecioUnitarioSolicitado()
+                            : 0.0;
+                    double sub = cant * precio;
+                    montoTotal += sub;
+
+                    dto.setCantidadUnidades(cant);
+                    dto.setPrecioUnitario(precio);
+                    dto.setSubtotal(sub);
+                    dto.setVencimiento(item.getVencimientoEsperado() != null
+                            ? DateUtils.toStringOnlyDate(item.getVencimientoEsperado())
+                            : "");
+                    dtoList.add(dto);
+                }
+
+                JasperReport jasperReport = compileReportFromClasspath("reports/pedido-compra.jrxml");
+                JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(dtoList);
+                Map<String, Object> parameters = new HashMap<>();
+                parameters.put("pedidoId", pedido.getId());
+                parameters.put("proveedor", pedido.getProveedor() != null
+                        && pedido.getProveedor().getPersona() != null
+                                ? pedido.getProveedor().getPersona().getNombre()
+                                : "");
+                parameters.put("vendedor", pedido.getVendedor() != null
+                        && pedido.getVendedor().getPersona() != null
+                                ? pedido.getVendedor().getPersona().getNombre()
+                                : "");
+                parameters.put("moneda", pedido.getMoneda() != null
+                        && pedido.getMoneda().getDenominacion() != null
+                                ? pedido.getMoneda().getDenominacion()
+                                : "");
+                parameters.put("monedaSimbolo", pedido.getMoneda() != null
+                        && pedido.getMoneda().getSimbolo() != null
+                                ? pedido.getMoneda().getSimbolo()
+                                : "");
+                parameters.put("formaPago", pedido.getFormaPago() != null
+                        && pedido.getFormaPago().getDescripcion() != null
+                                ? pedido.getFormaPago().getDescripcion()
+                                : "");
+                parameters.put("plazoCredito", pedido.getPlazoCredito());
+                parameters.put("observacion", pedido.getObservacionFormaPago() != null
+                        ? pedido.getObservacionFormaPago()
+                        : "");
+                parameters.put("fechaCreacion", pedido.getCreadoEn() != null
+                        ? DateUtils.toString(pedido.getCreadoEn())
+                        : "");
+                String usuario = "";
+                if (pedido.getUsuario() != null) {
+                    if (pedido.getUsuario().getPersona() != null
+                            && pedido.getUsuario().getPersona().getNombre() != null) {
+                        usuario = pedido.getUsuario().getPersona().getNombre();
+                    } else if (pedido.getUsuario().getNickname() != null) {
+                        usuario = pedido.getUsuario().getNickname();
+                    }
+                }
+                parameters.put("usuario", usuario);
+                parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+                parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+                parameters.put("montoTotal", montoTotal);
+                parameters.put("qrText", "frc-0-PEDIDO-" + pedido.getId() + "-" + pedido.getId()
+                        + "-GestionComprasComponent-null-null");
+
+                JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+                byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+                return Base64.getEncoder().encodeToString(pdfBytes);
+
+            } catch (JRException e) {
+                log.error("Error al generar PDF de pedido: {}", e.getMessage(), e);
+                throw new RuntimeException("Error al generar PDF del pedido: " + e.getMessage(), e);
+            }
+        }
     }
 }

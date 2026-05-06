@@ -5,7 +5,5 @@ public enum TipoPadreGastoModulo {
     INMUEBLE,
     PERSONAS,
     VEHICULO,
-    OPERACIONES,
-    FINANCIERO,
     OTRO
 }

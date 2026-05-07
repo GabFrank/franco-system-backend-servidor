@@ -13,6 +13,7 @@ import com.franco.dev.graphql.financiero.input.MonedaInput;
 import com.franco.dev.service.configuracion.InicioSesionService;
 import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.financiero.NorteCambiosScraper;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -42,6 +43,9 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private MultiTenantService multiTenantService;
+
+    @Autowired
+    private NorteCambiosScraper norteCambiosScraper;
 
     @Autowired
     private PushNotificationService pushNotificationService;
@@ -151,6 +155,25 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Long countCambio() {
         return service.count();
+    }
+
+    public Boolean actualizarCotizacionesMercado() {
+        java.util.Map<String, double[]> rates = norteCambiosScraper.fetchRates();
+        if (rates.isEmpty()) {
+            throw new RuntimeException("No se pudieron obtener cotizaciones de nortecambios.com.py. Verifique la conexion a internet.");
+        }
+        int count = 0;
+        for (java.util.Map.Entry<String, double[]> entry : rates.entrySet()) {
+            Moneda moneda = monedaService.findByDescripcion(entry.getKey());
+            if (moneda == null) continue;
+            Cambio ultimo = service.findLastByMonedaId(moneda.getId());
+            if (ultimo == null) continue;
+            ultimo.setValorEnGsVentaMercado(entry.getValue()[0]);
+            ultimo.setValorEnGsCompraMercado(entry.getValue()[1]);
+            service.save(ultimo);
+            count++;
+        }
+        return count > 0;
     }
 
 }

@@ -643,7 +643,7 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         }
 
         List<SucursalRecepcionFisicaDTO> sucursales = recepcionMercaderiaItemRepository
-                .findSucursalesRecepcionFisicaByPedidoId(pedidoId, RecepcionMercaderiaEstado.FINALIZADA);
+                .findSucursalesRecepcionFisicaByPedidoId(pedidoId);
 
         return new PedidoRecepcionFisicaResumenDTO(pedidoId, sucursales);
     }

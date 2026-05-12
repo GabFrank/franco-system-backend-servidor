@@ -13,6 +13,8 @@ public class SucursalRecepcionFisicaDTO {
     private String sucursalNombre;
     private Long cantidadItemsRecepcionados;
     private String fechaUltimaRecepcion;
+    private String responsableRecepcionDocumental;
+    private String responsableRecepcionFisica;
 
     public SucursalRecepcionFisicaDTO() {
     }
@@ -29,13 +31,17 @@ public class SucursalRecepcionFisicaDTO {
             Long sucursalId,
             String sucursalNombre,
             Long cantidadItemsRecepcionados,
-            LocalDateTime fechaUltimaRecepcion) {
+            LocalDateTime fechaUltimaRecepcion,
+            String responsableRecepcionDocumental,
+            String responsableRecepcionFisica) {
         this.sucursalId = sucursalId;
         this.sucursalNombre = sucursalNombre;
         this.cantidadItemsRecepcionados = cantidadItemsRecepcionados;
         this.fechaUltimaRecepcion = fechaUltimaRecepcion != null
                 ? DateUtils.dateToString(fechaUltimaRecepcion)
                 : null;
+        this.responsableRecepcionDocumental = responsableRecepcionDocumental;
+        this.responsableRecepcionFisica = responsableRecepcionFisica;
     }
 
     public Long getSucursalId() {
@@ -68,5 +74,21 @@ public class SucursalRecepcionFisicaDTO {
 
     public void setFechaUltimaRecepcion(String fechaUltimaRecepcion) {
         this.fechaUltimaRecepcion = fechaUltimaRecepcion;
+    }
+
+    public String getResponsableRecepcionDocumental() {
+        return responsableRecepcionDocumental;
+    }
+
+    public void setResponsableRecepcionDocumental(String responsableRecepcionDocumental) {
+        this.responsableRecepcionDocumental = responsableRecepcionDocumental;
+    }
+
+    public String getResponsableRecepcionFisica() {
+        return responsableRecepcionFisica;
+    }
+
+    public void setResponsableRecepcionFisica(String responsableRecepcionFisica) {
+        this.responsableRecepcionFisica = responsableRecepcionFisica;
     }
 }

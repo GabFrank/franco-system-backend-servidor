@@ -51,7 +51,7 @@ public class TimbradoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findByAll(texto);
     }
 
-    public Page<Timbrado> findByNumero(String numero, int page, int size) {
+    public Page<Timbrado> findTimbradoByNumero(String numero, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         return service.findByNumeroLike(numero, pageable);
     }

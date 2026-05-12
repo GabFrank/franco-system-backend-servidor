@@ -59,7 +59,7 @@ extend type Query {
     timbrados(page:Int = 0, size:Int = 10):[Timbrado]!
     countTimbrado: Int
     timbradosSearch(texto:String):[Timbrado]!
-    findByNumero(numero:String, page:Int, size:Int):TimbradoPage
+    findTimbradoByNumero(numero:String, page:Int, size:Int):TimbradoPage
     existeTimbradoActivo(excludeId:ID):Boolean!
     findTimbradoDetallesByTimbradoId(timbradoId:ID!, page:Int, size:Int):TimbradoDetallePage
 }

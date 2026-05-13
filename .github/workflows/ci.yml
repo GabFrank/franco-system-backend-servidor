@@ -41,7 +41,7 @@ jobs:
             <servers>
               <server>
                 <id>github-jsifenlib</id>
-                <username>${env.GITHUB_ACTOR}</username>
+                <username>${env.GITHUB_REPOSITORY_OWNER}</username>
                 <password>${env.PACKAGES_PAT}</password>
               </server>
             </servers>
@@ -59,6 +59,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: franco
           PACKAGES_PAT: ${{ secrets.PACKAGES_PAT }}
           GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4

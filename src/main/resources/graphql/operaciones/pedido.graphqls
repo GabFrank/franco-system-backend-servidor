@@ -29,6 +29,8 @@ type SucursalRecepcionFisica {
     sucursalNombre: String
     cantidadItemsRecepcionados: Int
     fechaUltimaRecepcion: String
+    responsableRecepcionDocumental: String
+    responsableRecepcionFisica: String
 }
 
 type PedidoRecepcionFisicaResumen {

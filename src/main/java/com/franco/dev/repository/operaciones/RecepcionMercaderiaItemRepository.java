@@ -200,19 +200,24 @@ public interface RecepcionMercaderiaItemRepository extends HelperRepository<Rece
             @Param("recepcionMercaderiaId") Long recepcionMercaderiaId);
 
     @Query("SELECT new com.franco.dev.graphql.operaciones.dto.SucursalRecepcionFisicaDTO(" +
-            "rmi.sucursalEntrega.id, " +
-            "rmi.sucursalEntrega.nombre, " +
+            "s.id, " +
+            "s.nombre, " +
             "COUNT(rmi.id), " +
-            "MAX(rm.fecha)) " +
+            "MAX(rm.fecha), " +
+            "COALESCE(MAX(p_nr.nombre), 'Sin asignar'), " +
+            "COALESCE(MAX(p_rm.nombre), 'Sin asignar')) " +
             "FROM RecepcionMercaderiaItem rmi " +
             "JOIN rmi.recepcionMercaderia rm " +
             "JOIN rmi.notaRecepcionItem nri " +
             "JOIN nri.notaRecepcion nr " +
+            "JOIN rmi.sucursalEntrega s " +
+            "LEFT JOIN nr.usuario u_nr " +
+            "LEFT JOIN u_nr.persona p_nr " +
+            "LEFT JOIN rm.usuario u_rm " +
+            "LEFT JOIN u_rm.persona p_rm " +
             "WHERE nr.pedido.id = :pedidoId " +
-            "AND rm.estado = :estado " +
-            "GROUP BY rmi.sucursalEntrega.id, rmi.sucursalEntrega.nombre " +
-            "ORDER BY rmi.sucursalEntrega.nombre")
+            "GROUP BY s.id, s.nombre " +
+            "ORDER BY s.nombre")
     List<SucursalRecepcionFisicaDTO> findSucursalesRecepcionFisicaByPedidoId(
-            @Param("pedidoId") Long pedidoId,
-            @Param("estado") RecepcionMercaderiaEstado estado);
+            @Param("pedidoId") Long pedidoId);
 }

@@ -1,0 +1,37 @@
+type TipoVehiculo {
+    id:ID!
+    descripcion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input TipoVehiculoInput {
+    id:ID
+    descripcion: String
+    usuarioId: Int
+}
+
+type TipoVehiculoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TipoVehiculo]
+    getPageable: Pageable
+}
+
+extend type Query {
+    tipoVehiculo(id:ID!):TipoVehiculo
+    tiposVehiculo(page:Int = 0, size:Int = 10):[TipoVehiculo]!
+    countTipoVehiculo: Int
+    tipoVehiculoSearchPage(texto: String, page: Int, size: Int): TipoVehiculoPage
+}
+
+extend type Mutation {
+    saveTipoVehiculo(tipoVehiculo:TipoVehiculoInput!):TipoVehiculo!
+    deleteTipoVehiculo(id:ID!):Boolean!
+}
+

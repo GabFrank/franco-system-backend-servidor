@@ -2,7 +2,6 @@ package com.franco.dev.domain.configuracion;
 
 import com.franco.dev.domain.configuracion.enums.TipoDispositivo;
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.general.Pais;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
 import lombok.AllArgsConstructor;
@@ -15,17 +14,13 @@ import org.hibernate.annotations.TypeDef;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name = "inicio_sesion", schema = "configuraciones")
-@TypeDef(
-        name = "tipo_dispositivo",
-        typeClass = PostgreSQLEnumType.class
-)
+@TypeDef(name = "tipo_dispositivo", typeClass = PostgreSQLEnumType.class)
 public class InicioSesion implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -44,7 +39,7 @@ public class InicioSesion implements Serializable {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_dispositivo")
-    @Type( type = "tipo_dispositivo")
+    @Type(type = "tipo_dispositivo")
     private TipoDispositivo tipoDespositivo;
 
     private String idDispositivo;
@@ -61,6 +56,3 @@ public class InicioSesion implements Serializable {
     private LocalDateTime creadoEn;
 
 }
-
-
-

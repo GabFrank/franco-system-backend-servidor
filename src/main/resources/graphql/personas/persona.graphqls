@@ -39,9 +39,21 @@ input PersonaInput {
     isProveedor: Boolean
 }
 
+type PersonaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Persona]
+}
+
 extend type Query {
     persona(id:ID!):Persona
     personaSearch(texto:String):[Persona]
+    personaSearchPage(texto: String, page: Int, size: Int): PersonaPage
     personas(page:Int = 0, size:Int = 10):[Persona]!
     countPersona:Int
     personaPorDocumento(texto:String):Persona

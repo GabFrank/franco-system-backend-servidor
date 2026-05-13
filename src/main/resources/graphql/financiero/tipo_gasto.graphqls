@@ -1,13 +1,32 @@
+enum TipoNaturalezaGasto {
+    VARIABLE
+    CONTINUO
+    RECURRENTE
+}
+
+enum TipoPadreGastoModulo {
+    MUEBLE
+    INMUEBLE
+    PERSONAS
+    VEHICULO
+    OTRO
+}
+
 type TipoGasto {
     id:ID!
     isClasificacion: Boolean
     clasificacionGasto: TipoGasto
     descripcion: String
+    tipoNaturaleza: TipoNaturalezaGasto
+    moduloPadre: TipoPadreGastoModulo
     autorizacion: Boolean
     cargo: Cargo
     activo: Boolean
+    activoEnSucursales: Boolean
     creadoEn: Date
     usuario: Usuario
+    afectaFinanzasActivo: Boolean
+    esPagoCuotaActivo: Boolean
     subtipoList: [TipoGasto]
 }
 
@@ -16,11 +35,28 @@ input TipoGastoInput {
     isClasificacion: Boolean
     clasificacionGastoId: Int
     descripcion: String
+    tipoNaturaleza: TipoNaturalezaGasto
+    moduloPadre: TipoPadreGastoModulo
     autorizacion: Boolean
     cargoId: Int
     activo: Boolean
+    activoEnSucursales: Boolean
+    afectaFinanzasActivo: Boolean
+    esPagoCuotaActivo: Boolean
     creadoEn: Date
     usuarioId: Int
+}
+
+type TipoGastoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TipoGasto]
+    getPageable: Pageable
 }
 
 extend type Query {
@@ -29,6 +65,7 @@ extend type Query {
     tipoGastos(page:Int = 0, size:Int = 10):[TipoGasto]!
     rootTipoGasto:[TipoGasto]!
     countTipoGasto: Int
+    filterTipoGastos(naturaleza: String, texto: String, page: Int, size: Int): TipoGastoPage
 }
 
 extend type Mutation {

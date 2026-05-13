@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
@@ -17,31 +16,22 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "sector", schema = "empresarial")
 public class Sector implements Identifiable<Long> {
+        @Id
+        @GenericGenerator(name = "assigned-identity", strategy = "com.franco.dev.config.AssignedIdentityGenerator")
+        @GeneratedValue(generator = "assigned-identity", strategy = GenerationType.IDENTITY)
+        private Long id;
 
-private static final long serialVersionUID = 1L;
+        private String descripcion;
 
-@Id
-@GenericGenerator(
-        name = "assigned-identity",
-        strategy = "com.franco.dev.config.AssignedIdentityGenerator"
-)
-@GeneratedValue(
-        generator = "assigned-identity",
-        strategy = GenerationType.IDENTITY
-)
-private Long id;
+        @ManyToOne(fetch = FetchType.EAGER)
+        @JoinColumn(name = "sucursal_id", nullable = true)
+        private Sucursal sucursal;
 
-    private String descripcion;
+        private Boolean activo;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "sucursal_id", nullable = true)
-    private Sucursal sucursal;
+        private LocalDateTime creadoEn;
 
-    private Boolean activo;
-
-    private LocalDateTime creadoEn;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuario;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "usuario_id", nullable = true)
+        private Usuario usuario;
 }

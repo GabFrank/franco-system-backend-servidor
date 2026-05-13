@@ -71,6 +71,14 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         return repository.findbyIdOrPersona(texto.toUpperCase());
     }
 
+    public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size) {
+        if (texto == null) texto = "";
+        if (page == null) page = 0;
+        if (size == null) size = 15;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return repository.findbyIdOrPersonaPaginated(texto.toUpperCase(), pageable);
+    }
+
     public List<Role> getRoles(Long id) {
         List<UsuarioRole> usuarioRoleList = usuarioRoleService.findByUserId(id);
         List<Role> roleList = new ArrayList<Role>();

@@ -1,0 +1,37 @@
+type Telemetria {
+    id: ID!
+    dispositivo: Gps
+    fechaServidor: Date
+    fechaGps: Date
+    latitud: Float
+    longitud: Float
+    velocidad: Int
+    direccion: Int
+    ignicion: Boolean
+    alarma: String
+    jsonData: String
+}
+
+input TelemetriaInput {
+    id: ID
+    dispositivoId: Int
+    fechaGps: Date
+    latitud: Float
+    longitud: Float
+    velocidad: Int
+    direccion: Int
+    ignicion: Boolean
+    alarma: String
+    jsonData: String
+}
+
+extend type Query {
+    telemetria(id: ID!): Telemetria
+    telemetriaList(page: Int = 0, size: Int = 10): [Telemetria]!
+    telemetriaPorDispositivo(dispositivoId: ID!, startDate: String, endDate: String, page: Int = 0, size: Int = 10): [Telemetria]
+}
+
+extend type Mutation {
+    saveTelemetria(telemetria: TelemetriaInput!): Telemetria!
+    deleteTelemetria(id: ID!): Boolean!
+}

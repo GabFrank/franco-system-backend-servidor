@@ -1,0 +1,59 @@
+package com.franco.dev.service.activos;
+
+import com.franco.dev.domain.activos.TipoVehiculo;
+import com.franco.dev.repository.activos.TipoVehiculoRepository;
+import com.franco.dev.repository.activos.VehiculoRepository;
+import com.franco.dev.service.CrudService;
+import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@AllArgsConstructor
+public class TipoVehiculoService extends CrudService<TipoVehiculo, TipoVehiculoRepository, Long> {
+
+    private final TipoVehiculoRepository repository;
+    private final VehiculoRepository vehiculoRepository;
+
+    @Override
+    public TipoVehiculoRepository getRepository() {
+        return repository;
+    }
+
+    public List<TipoVehiculo> findByAll(String texto) {
+        texto = texto.replace(' ', '%');
+        return repository.findByAll(texto.toUpperCase());
+    }
+
+    public Page<TipoVehiculo> findByAllWithPage(String texto, int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        texto = texto != null ? texto.replace(' ', '%').toUpperCase() : "";
+        return repository.findByAllWithPage(texto, pageable);
+    }
+
+    @Override
+    public TipoVehiculo save(TipoVehiculo entity) {
+        if (entity.getId() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getDescripcion() != null) {
+            entity.setDescripcion(entity.getDescripcion().toUpperCase());
+        }
+        TipoVehiculo e = super.save(entity);
+        return e;
+    }
+
+    @Override
+    public Boolean deleteById(Long id) {
+        // Validación: no eliminar si hay vehículos asociados
+        List<com.franco.dev.domain.activos.Vehiculo> vehiculos = vehiculoRepository.findByTipoVehiculoId(id);
+        if (vehiculos != null && !vehiculos.isEmpty()) {
+            throw new RuntimeException("No se puede eliminar el tipo de vehículo porque tiene vehículos asociados");
+        }
+        return super.deleteById(id);
+    }
+}

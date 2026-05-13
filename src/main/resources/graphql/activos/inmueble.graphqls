@@ -1,0 +1,71 @@
+type Inmueble {
+    id:ID!
+    propietario: Persona
+    nombreAsignado: String
+    pais: Pais
+    ciudad: Ciudad
+    direccion: String
+    googleMapsUrl: String
+    codigoCatastral: String
+    valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
+    situacionPago: String
+    proveedor: Proveedor
+    moneda: Moneda
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input InmuebleInput {
+    id:ID
+    propietarioId: ID
+    nombreAsignado: String
+    paisId: ID
+    ciudadId: ID
+    direccion: String
+    googleMapsUrl: String
+    codigoCatastral: String
+    valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
+    situacionPago: String
+    proveedorId: ID
+    monedaId: ID
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+    usuarioId: ID
+}
+
+type InmueblePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Inmueble]
+    getPageable: Pageable
+}
+
+extend type Query {
+    inmueble(id:ID!):Inmueble
+    inmuebles(page:Int = 0, size:Int = 10):[Inmueble]!
+    countInmueble: Int
+    inmuebleSearch(texto:String):[Inmueble]
+    inmuebleSearchPage(texto: String, page: Int, size: Int): InmueblePage
+}
+
+extend type Mutation {
+    saveInmueble(inmueble:InmuebleInput!):Inmueble!
+    deleteInmueble(id:ID!):Boolean!
+}

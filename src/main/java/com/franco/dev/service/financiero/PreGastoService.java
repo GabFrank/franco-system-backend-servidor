@@ -74,8 +74,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     @Override
     public PreGasto save(PreGasto entity) {
         if (entity.getEnte() != null && entity.getEnte().getId() != null) {
-            boolean isPagoCuota = (entity.getTipoGasto() != null && Boolean.TRUE.equals(entity.getTipoGasto().getEsPagoCuotaActivo())) || 
-                                  (entity.getDescripcion() != null && entity.getDescripcion().toUpperCase().startsWith("PAGO -"));
+            boolean isPagoCuota = (entity.getTipoGasto() != null
+                    && Boolean.TRUE.equals(entity.getTipoGasto().getEsPagoCuotaActivo())) ||
+                    (entity.getDescripcion() != null && entity.getDescripcion().toUpperCase().startsWith("PAGO -"));
             if (isPagoCuota) {
                 Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(entity.getEnte().getId());
                 if (optFinanciero.isPresent()) {
@@ -145,7 +146,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return repository.buscarPorTexto(texto, sucursalId);
     }
 
-    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado, List<String> estados, String inicio,
+    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado,
+            List<String> estados, String inicio,
             String fin, org.springframework.data.domain.Pageable pageable) {
         List<String> estadosFiltro = estados != null ? estados : new ArrayList<>();
         if (estadosFiltro.isEmpty()) {
@@ -175,8 +177,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 autorizadorId,
                 usuarioId,
                 saved.getSucursalId(),
-                "Autorizacion de pre-gasto " + saved.getId() + "-" + saved.getSucursalId()
-        );
+                "Autorizacion de pre-gasto " + saved.getId() + "-" + saved.getSucursalId());
         return saved;
     }
 
@@ -198,8 +199,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 rechazadorId,
                 usuarioId,
                 saved.getSucursalId(),
-                "Rechazo de pre-gasto " + saved.getId() + "-" + saved.getSucursalId() + ". Motivo: " + motivo
-        );
+                "Rechazo de pre-gasto " + saved.getId() + "-" + saved.getSucursalId() + ". Motivo: " + motivo);
         return saved;
     }
 
@@ -254,11 +254,21 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
+        Gasto gastoAsociado = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(id,
+                sucId);
+        if (gastoAsociado == null) {
+            throw new RuntimeException(
+                    "No se puede completar la solicitud de gasto #" + id +
+                            " porque no tiene un gasto (retiro de dinero) asociado. " +
+                            "Primero debe realizar el retiro de dinero desde caja.");
+        }
+
         preGasto.setEstado(EstadoPreGasto.COMPLETADO);
 
         if (preGasto.getEnte() != null && preGasto.getEnte().getId() != null) {
-            boolean isPagoCuota = (preGasto.getTipoGasto() != null && Boolean.TRUE.equals(preGasto.getTipoGasto().getEsPagoCuotaActivo())) || 
-                                  (preGasto.getDescripcion() != null && preGasto.getDescripcion().toUpperCase().startsWith("PAGO -"));
+            boolean isPagoCuota = (preGasto.getTipoGasto() != null
+                    && Boolean.TRUE.equals(preGasto.getTipoGasto().getEsPagoCuotaActivo())) ||
+                    (preGasto.getDescripcion() != null && preGasto.getDescripcion().toUpperCase().startsWith("PAGO -"));
             if (isPagoCuota) {
                 descontarCuota(preGasto);
             }
@@ -269,12 +279,11 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             crearActivoAutomatico(preGasto);
         }
 
-        Gasto gasto = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(
-                preGasto.getId(), preGasto.getSucursalId());
+        Gasto gasto = gastoAsociado;
 
-        BigDecimal retiroGs = toBigDecimal(gasto != null ? gasto.getRetiroGs() : null);
-        BigDecimal retiroRs = toBigDecimal(gasto != null ? gasto.getRetiroRs() : null);
-        BigDecimal retiroDs = toBigDecimal(gasto != null ? gasto.getRetiroDs() : null);
+        BigDecimal retiroGs = toBigDecimal(gasto.getRetiroGs());
+        BigDecimal retiroRs = toBigDecimal(gasto.getRetiroRs());
+        BigDecimal retiroDs = toBigDecimal(gasto.getRetiroDs());
 
         BigDecimal rendidoGs = null;
         BigDecimal rendidoRs = null;
@@ -285,8 +294,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             rendidoRs = normalizarMontoRendido(montoGastadoRsInformado, retiroRs, null);
             rendidoDs = normalizarMontoRendido(montoGastadoDsInformado, retiroDs, null);
         } else if (montoGastadoInformado != null) {
-            BigDecimal montoRetirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
-            BigDecimal montoGastadoNormalizado = normalizarMontoRendido(montoGastadoInformado, montoRetirado, preGasto.getMontoSolicitado());
+            BigDecimal montoRetirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado()
+                    : BigDecimal.ZERO;
+            BigDecimal montoGastadoNormalizado = normalizarMontoRendido(montoGastadoInformado, montoRetirado,
+                    preGasto.getMontoSolicitado());
             preGasto.setMontoGastado(montoGastadoNormalizado);
         } else if (!Boolean.TRUE.equals(rindioGasto)) {
             preGasto.setMontoGastado(BigDecimal.ZERO);
@@ -312,7 +323,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             preGasto.setMontoGastado(montoGastadoMoneda);
             preGasto.setSaldoDevolver(montoRetiradoMoneda.subtract(montoGastadoMoneda).max(BigDecimal.ZERO));
         } else {
-            BigDecimal montoRetirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
+            BigDecimal montoRetirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado()
+                    : BigDecimal.ZERO;
             BigDecimal montoGastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
             preGasto.setSaldoDevolver(montoRetirado.subtract(montoGastado).max(BigDecimal.ZERO));
         }
@@ -335,13 +347,16 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (gasto == null || gasto.getPreGasto() == null) {
             return;
         }
-        PreGasto preGasto = repository.findByIdAndSucursalId(gasto.getPreGasto().getId(), gasto.getPreGasto().getSucursalId());
+        PreGasto preGasto = repository.findByIdAndSucursalId(gasto.getPreGasto().getId(),
+                gasto.getPreGasto().getSucursalId());
         if (preGasto == null) {
             return;
         }
 
-        BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, gasto.getRetiroGs(), gasto.getRetiroRs(), gasto.getRetiroDs());
-        BigDecimal montoVuelto = obtenerMontoMoneda(preGasto, gasto.getVueltoGs(), gasto.getVueltoRs(), gasto.getVueltoDs());
+        BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, gasto.getRetiroGs(), gasto.getRetiroRs(),
+                gasto.getRetiroDs());
+        BigDecimal montoVuelto = obtenerMontoMoneda(preGasto, gasto.getVueltoGs(), gasto.getVueltoRs(),
+                gasto.getVueltoDs());
         if (montoVuelto.compareTo(BigDecimal.ZERO) < 0) {
             montoVuelto = BigDecimal.ZERO;
         }
@@ -373,11 +388,14 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         if (simbolo.contains("R$") || simbolo.contains("RS") || denominacion.contains("REAL")) {
             return toBigDecimal(rs);
         }
-        if (simbolo.contains("USD") || simbolo.contains("US$") || "$".equals(simbolo) || denominacion.contains("DOLAR")) {
+        if (simbolo.contains("USD") || simbolo.contains("US$") || "$".equals(simbolo)
+                || denominacion.contains("DOLAR")) {
             return toBigDecimal(ds);
         }
-        if (toBigDecimal(gs).compareTo(BigDecimal.ZERO) > 0) return toBigDecimal(gs);
-        if (toBigDecimal(rs).compareTo(BigDecimal.ZERO) > 0) return toBigDecimal(rs);
+        if (toBigDecimal(gs).compareTo(BigDecimal.ZERO) > 0)
+            return toBigDecimal(gs);
+        if (toBigDecimal(rs).compareTo(BigDecimal.ZERO) > 0)
+            return toBigDecimal(rs);
         return toBigDecimal(ds);
     }
 

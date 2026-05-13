@@ -1,4 +1,4 @@
---
+[sudo] password for franco: --
 -- PostgreSQL database dump
 --
 
@@ -15296,31 +15296,30 @@ ALTER PUBLICATION central_pub ADD TABLE ONLY vehiculos.vehiculo_sucursal;
 -- Name: filial_farmacia_1_sub; Type: SUBSCRIPTION; Schema: -; Owner: -
 --
 
---CREATE SUBSCRIPTION filial_farmacia_1_sub CONNECTION 'dbname=general host=172.25.3.1 user=franco password=franco port=5551' PUBLICATION filial1_pub WITH (connect = false, slot_name = 'filial_farmacia_1_sub', origin = none);
+CREATE SUBSCRIPTION filial_farmacia_1_sub CONNECTION 'dbname=general host=172.25.3.1 user=franco password=franco port=5551' PUBLICATION filial1_pub WITH (connect = false, slot_name = 'filial_farmacia_1_sub', origin = none);
 
 
 --
 -- Name: filial_farmacia_2_sub; Type: SUBSCRIPTION; Schema: -; Owner: -
 --
 
---CREATE SUBSCRIPTION filial_farmacia_2_sub CONNECTION 'dbname=general host=172.25.3.2 user=franco password=franco port=5551' PUBLICATION filial2_pub WITH (connect = false, slot_name = 'filial_farmacia_2_sub', origin = none);
+CREATE SUBSCRIPTION filial_farmacia_2_sub CONNECTION 'dbname=general host=172.25.3.2 user=franco password=franco port=5551' PUBLICATION filial2_pub WITH (connect = false, slot_name = 'filial_farmacia_2_sub', origin = none);
 
 
 --
 -- Name: filial_farmacia_3_sub; Type: SUBSCRIPTION; Schema: -; Owner: -
 --
 
---CREATE SUBSCRIPTION filial_farmacia_3_sub CONNECTION 'dbname=general host=172.25.3.3 user=franco password=franco port=5551' PUBLICATION filial3_pub WITH (connect = false, slot_name = 'filial_farmacia_3_sub', origin = none);
+CREATE SUBSCRIPTION filial_farmacia_3_sub CONNECTION 'dbname=general host=172.25.3.3 user=franco password=franco port=5551' PUBLICATION filial3_pub WITH (connect = false, slot_name = 'filial_farmacia_3_sub', origin = none);
 
 
 --
 -- Name: filial_farmacia_4_sub; Type: SUBSCRIPTION; Schema: -; Owner: -
 --
 
---CREATE SUBSCRIPTION filial_farmacia_4_sub CONNECTION 'dbname=general host=172.25.3.4 user=franco password=franco port=5551' PUBLICATION filial4_pub WITH (connect = false, slot_name = 'filial_farmacia_4_sub', origin = none);
+CREATE SUBSCRIPTION filial_farmacia_4_sub CONNECTION 'dbname=general host=172.25.3.4 user=franco password=franco port=5551' PUBLICATION filial4_pub WITH (connect = false, slot_name = 'filial_farmacia_4_sub', origin = none);
 
 
 --
 -- PostgreSQL database dump complete
 --
-

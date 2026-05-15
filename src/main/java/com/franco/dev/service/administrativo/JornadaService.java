@@ -41,6 +41,22 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
         return repository.findByMarcacionEntradaId(id);
     }
 
+    public Optional<Jornada> findIncompletaSinSalidaNocturnaParaSalida(Long usuarioId, java.time.LocalDate fechaSalida) {
+        List<Jornada> jornadas = repository.findIncompletasSinSalidaNocturnasByUsuarioId(usuarioId);
+        if (jornadas == null || jornadas.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<Jornada> delMismoDia = jornadas.stream()
+                .filter(j -> j.getFecha().equals(fechaSalida))
+                .findFirst();
+        if (delMismoDia.isPresent()) {
+            return delMismoDia;
+        }
+        return jornadas.stream()
+                .filter(j -> j.getFecha().isBefore(fechaSalida))
+                .findFirst();
+    }
+
     public Jornada ajustarA8Horas(Long id, Long sucursalId, String observacion) {
         Optional<Jornada> optionalJornada = repository.findById(new EmbebedPrimaryKey(id, sucursalId));
         if (optionalJornada.isPresent()) {

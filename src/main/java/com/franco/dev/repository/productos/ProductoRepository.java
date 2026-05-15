@@ -169,7 +169,6 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
         @Query("select distinct p from Producto p " +
-                        "join p.subfamilia sub " +
                         "left join Presentacion pres on pres.producto.id = p.id " +
                         "left join Codigo cod on cod.presentacion.id = pres.id " +
                         "where  (CAST(p.id as string) like CONCAT('%', :texto, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') "
@@ -179,7 +178,9 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "and ((:stock) is null or p.stock = :stock) " +
                         "and ((:balanza) is null or p.balanza = :balanza) " +
                         "and ((:vencimiento) is null or p.vencimiento = :vencimiento) " +
-                        "and ((:subfamiliaId) is null or sub.id = :subfamiliaId) " +
+                        "and ((:subfamiliaId) is null or p.subfamilia.id = :subfamiliaId) " +
+                        "and ((:familiaId) is null or p.subfamilia.id IN " +
+                        "     (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
                         "and ((:costoCero) is null or " +
                         "     ((:costoCero) = true and (p.id IN (SELECT c1.producto.id FROM CostoPorProducto c1 " +
                         "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) "
@@ -207,6 +208,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("stock") Boolean stock,
                         @Param("balanza") Boolean balanza,
                         @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
                         @Param("vencimiento") Boolean vencimiento,
                         @Param("costoCero") Boolean costoCero,
                         @Param("stockFiltro") String stockFiltro,

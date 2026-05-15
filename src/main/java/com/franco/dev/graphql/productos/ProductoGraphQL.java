@@ -112,7 +112,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock,
-            Boolean balanza, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro,
+            Boolean balanza, Long familia, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro,
             Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
@@ -133,7 +133,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         }
 
         texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, vencimiento, costoCero, stockFiltro,
+        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, familia, vencimiento, costoCero, stockFiltro,
                 sucursalId, pageable);
     }
 
@@ -211,6 +211,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             Boolean balanza,
             Boolean vencimiento,
             Boolean costoCero,
+            Long familiaId,
             Long subfamiliaId,
             String stockFiltro,
             Long sucursalId,
@@ -218,7 +219,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             String usuario) throws FileNotFoundException {
         return service.exportarReporteConFiltros(
                 texto, codigo, activo, stock, balanza, vencimiento,
-                costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario);
+                costoCero, subfamiliaId, familiaId, stockFiltro, sucursalId, usuarioId, usuario);
     }
 
     public List<Producto> findByPdvGrupoProducto(Long id) {

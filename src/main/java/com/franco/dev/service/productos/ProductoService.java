@@ -5,6 +5,7 @@ import com.franco.dev.domain.dto.ProductoReportDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.CostoPorProducto;
+import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
@@ -52,6 +53,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final UsuarioService usuarioService;
     @Autowired
     private final SubFamiliaService subFamiliaService;
+    @Autowired
+    private final FamiliaService familiaService;
     @Autowired
     private final MovimientoStockService movimientoStockService;
     @Autowired
@@ -111,9 +114,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza,
-            Long subfamiliaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
+            Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
             Pageable page) {
-        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, costoCero,
+        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, familiaId, vencimiento, costoCero,
                 stockFiltro, sucursalId, page);
     }
 
@@ -316,6 +319,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             Boolean vencimiento,
             Boolean costoCero,
             Long subfamiliaId,
+            Long familiaId,
             String stockFiltro,
             Long sucursalId,
             Long usuarioId,
@@ -328,6 +332,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 stock,
                 balanza,
                 subfamiliaId,
+                familiaId,
                 vencimiento,
                 costoCero,
                 stockFiltro,
@@ -369,6 +374,23 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 }
             } catch (Exception e) {
                 filtroSubfamiliaStr = "SUBFAMILIA ID: " + subfamiliaId;
+            }
+        }
+
+        String filtroFamiliaStr = "FAMILIA: TODOS";
+        if (familiaId != null) {
+            try {
+                Familia familia = familiaService.findById(familiaId).orElse(null);
+                if (familia != null) {
+                    String nombreCorto = familia.getNombre().length() > 35
+                            ? familia.getNombre().substring(0, 32) + "..."
+                            : familia.getNombre();
+                    filtroFamiliaStr = "FAMILIA: " + nombreCorto.toUpperCase();
+                } else {
+                    filtroFamiliaStr = "FAMILIA ID: " + familiaId;
+                }
+            } catch (Exception e) {
+                filtroFamiliaStr = "FAMILIA ID: " + familiaId;
             }
         }
 
@@ -484,6 +506,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             parameters.put("filtroCostoCero", filtroCostoCero);
             parameters.put("filtroVencimiento", filtroVencimiento);
             parameters.put("filtroSubfamilia", filtroSubfamiliaStr);
+            parameters.put("filtroFamilia", filtroFamiliaStr);
             parameters.put("filtroStock", filtroStock.toString());
 
             // Total de productos encontrados

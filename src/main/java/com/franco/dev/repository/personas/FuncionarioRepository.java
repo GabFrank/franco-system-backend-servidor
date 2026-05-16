@@ -32,9 +32,9 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
         @Query("select u from Funcionario u " +
                         "join u.persona p " +
                         "left join u.sucursal s where " +
-                        "((:id) is null or u.id = (:id) ) and " +
-                        "((:nombre) is null or UPPER(p.nombre) like UPPER(concat('%', :nombre, '%'))) and " +
-                        "((:sucursalList) is null or s.id IN (:sucursalList)) " +
+                        "(cast(:id as long) is null or u.id = :id) and " +
+                        "(cast(:nombre as string) is null or upper(p.nombre) like concat('%', upper(cast(:nombre as string)), '%')) and " +
+                        "(:sucursalList is null or s.id in :sucursalList) " +
                         "order by u.id")
         public Page<Funcionario> findAllWithFilterAndPage(
                         @Param("id") Long id,

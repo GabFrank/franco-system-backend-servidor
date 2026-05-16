@@ -88,8 +88,8 @@ extend type Query {
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String
     exportarReporteConFiltros(texto: String, codigo: Boolean, activo: Boolean, stock: Boolean, balanza: Boolean, vencimiento: Boolean, costoCero: Boolean, familiaId: Int, subfamiliaId: ID, stockFiltro: String, sucursalId: ID, usuarioId: ID, usuario: String): String
-    lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID], subfamiliaId: ID): String
-    lucroPorProductoList(fechaInicio: String, fechaFin: String, sucursalIdList: [ID], usuarioIdList: [ID], productoIdList: [ID], subfamiliaId: ID, page: Int, size: Int): LucroPorProductoResponse
+    lucroPorProducto(fechaInicio: String, fechaFin: String, sucursalIdList: [Int], usuarioId: ID!, usuarioIdList:[ID], productoIdList:[ID], subfamiliaId: ID, familiaId: ID): String
+    lucroPorProductoList(fechaInicio: String, fechaFin: String, sucursalIdList: [ID], usuarioIdList: [ID], productoIdList: [ID], subfamiliaId: ID, page: Int, size: Int, familiaId: ID): LucroPorProductoResponse
     imprimirCodigoBarra(codigoId: Int): Boolean
     searchProductoWithFilters(texto: String, codigo: String, activo: Boolean, stock: Boolean, balanza: Boolean, familia: Int, subfamilia: Int, vencimiento: Boolean, costoCero: Boolean, stockFiltro: String, sucursalId: Int, page: Int, size: Int):ProductoPage
     productoDescripcionExists(descripcion: String): Boolean

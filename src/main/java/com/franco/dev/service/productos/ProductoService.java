@@ -535,7 +535,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
-            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId) {
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
         Map<Long, Double> totalVentaPacksMap = new HashMap<>();
 
@@ -548,14 +548,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
 
             List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
-                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario,
+                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario,
                     filtrarProducto);
             aggregatedResult.addAll(lucroPorProductosDtoList);
 
             // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
             // ventaMedia correctamente
             List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
-                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario, filtrarProducto);
+                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario, filtrarProducto);
             for (Object[] row : totalVentaPacksList) {
                 Long productoId = ((Number) row[0]).longValue();
                 Double totalVentaPacks = ((Number) row[1]).doubleValue();
@@ -574,7 +574,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
         // Calcular todos los campos derivados después de la agregación
         for (LucroPorProductosDto dto : result) {
-            // Log para debug
 
             if (dto.getCantidad() != null && dto.getCantidad() > 0) {
                 // Calcular costo unitario
@@ -618,15 +617,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                     dto.setPercent(0.0);
                 }
 
-                // Log para debug de cálculos
-                log.info("DEBUG - Cálculos para ID " + dto.getProductoId() +
-                        ": CostoUnitario=" + dto.getCostoUnitario() +
-                        ", VentaMedia=" + dto.getVentaMedia() +
-                        ", Lucro=" + dto.getLucro() +
-                        ", Margen=" + dto.getMargen() +
-                        ", Percent=" + dto.getPercent() +
-                        ", Descuento=" + dto.getTotalDescuento() +
-                        ", Aumento=" + dto.getTotalAumento());
             } else {
                 // Si no hay cantidad, todos los valores son 0
                 dto.setCostoUnitario(0.0);

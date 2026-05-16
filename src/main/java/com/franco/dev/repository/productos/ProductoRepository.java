@@ -131,7 +131,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "(:sucursalId is null or v.sucursalId = :sucursalId) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
                         "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
-                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) AND " +
+                        "((:familiaId) is null or pro.subfamilia.id IN (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
                         "group by pro.id " +
                         "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
         public List<LucroPorProductosDto> findLucroPorProducto(
@@ -141,6 +142,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
                         @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
@@ -156,7 +158,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
                         "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
-                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) AND " +
+                        "((:familiaId) is null or pro.subfamilia.id IN (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
                         "GROUP BY pro.id")
         public List<Object[]> findTotalVentaPacksPorProducto(
                         @Param("sucursalId") Long sucursalId,
@@ -165,6 +168,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
                         @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 

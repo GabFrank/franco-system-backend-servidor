@@ -80,10 +80,10 @@
 				<text><![CDATA[Reporte de lucro por productos]]></text>
 			</staticText>
 			<textField>
-				<reportElement x="153" y="80" width="70" height="11" forecolor="#000000" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6">
+				<reportElement x="150" y="80" width="80" height="11" forecolor="#000000" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
-				<textElement textAlignment="Center">
+				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="8"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$P{fechaReporte}]]></textFieldExpression>
@@ -91,6 +91,7 @@
 			<staticText>
 				<reportElement x="112" y="80" width="41" height="11" forecolor="#000000" uuid="4c91f639-4e4b-4bb2-965f-156eaed3a91c">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+					<property name="com.jaspersoft.studio.unit.width" value="pixel"/>
 				</reportElement>
 				<textElement>
 					<font size="8"/>
@@ -98,17 +99,17 @@
 				<text><![CDATA[Creado en:]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="223" y="80" width="16" height="11" forecolor="#000000" uuid="186428af-f5d4-4389-8c9b-cadb45c47034">
+				<reportElement x="230" y="80" width="17" height="11" forecolor="#000000" uuid="186428af-f5d4-4389-8c9b-cadb45c47034">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					<property name="com.jaspersoft.studio.unit.width" value="px"/>
 				</reportElement>
-				<textElement>
-					<font size="8"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font fontName="Verdana" size="8"/>
 				</textElement>
 				<text><![CDATA[por:]]></text>
 			</staticText>
 			<textField>
-				<reportElement x="239" y="80" width="85" height="11" forecolor="#000000" uuid="09ce4efd-2860-4013-b158-a83a2fdcc811">
+				<reportElement x="247" y="80" width="78" height="11" forecolor="#000000" uuid="09ce4efd-2860-4013-b158-a83a2fdcc811">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
 				<textElement>
@@ -171,7 +172,7 @@
 				<text><![CDATA[Total de lucro:]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="112" y="58" width="57" height="11" forecolor="#000000" uuid="952a2b7b-2b18-4daa-823e-3241f57c0708">
+				<reportElement x="112" y="58" width="56" height="11" forecolor="#000000" uuid="952a2b7b-2b18-4daa-823e-3241f57c0708">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 					<property name="com.jaspersoft.studio.unit.width" value="px"/>
 				</reportElement>
@@ -182,7 +183,7 @@
 				<text><![CDATA[Fecha Inicio:]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="112" y="69" width="57" height="11" forecolor="#000000" uuid="d6c50cb5-67d5-41eb-8304-19f12525266e">
+				<reportElement x="112" y="69" width="55" height="11" forecolor="#000000" uuid="d6c50cb5-67d5-41eb-8304-19f12525266e">
 					<property name="com.jaspersoft.studio.unit.width" value="px"/>
 				</reportElement>
 				<box rightPadding="4"/>
@@ -233,7 +234,7 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$P{costoTotal}]]></textFieldExpression>
 			</textField>
-			<textField pattern="#,##0.00'%'">
+			<textField pattern="#,##0.00&apos;%&apos;">
 				<reportElement x="491" y="80" width="62" height="11" forecolor="#000000" uuid="5bae2fe2-6a72-431f-80a2-939d18fe82f8">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
@@ -276,7 +277,7 @@
 				<textFieldExpression><![CDATA[$P{filtroTexto}]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="169" y="69" width="153" height="11" forecolor="#000000" uuid="de978e8e-d9c0-41b3-92c5-845bf8bbf604">
+				<reportElement x="167" y="69" width="153" height="11" forecolor="#000000" uuid="de978e8e-d9c0-41b3-92c5-845bf8bbf604">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
 				<textElement>
@@ -285,7 +286,7 @@
 				<textFieldExpression><![CDATA[$P{filtroFechaFin}]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="169" y="58" width="153" height="11" forecolor="#000000" uuid="9fea43b1-2dec-48a2-907d-79ceeb4c8b82">
+				<reportElement x="167" y="58" width="153" height="11" forecolor="#000000" uuid="9fea43b1-2dec-48a2-907d-79ceeb4c8b82">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
 				<textElement>

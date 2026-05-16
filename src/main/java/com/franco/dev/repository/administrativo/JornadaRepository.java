@@ -32,4 +32,12 @@ public interface JornadaRepository extends HelperRepository<Jornada, EmbebedPrim
 
     Optional<Jornada> findByMarcacionEntradaId(Long id);
 
+    @Query("SELECT j FROM Jornada j WHERE j.usuario.id = :usuarioId " +
+            "AND j.estado = 'INCOMPLETO' AND j.marcacionSalida IS NULL " +
+            "AND (j.turno IN ('NOCHE', 'MADRUGADA') " +
+            "OR (j.horaEntradaHorario IS NOT NULL AND j.horaSalidaHorario IS NOT NULL " +
+            "AND j.horaSalidaHorario < j.horaEntradaHorario)) " +
+            "ORDER BY j.fecha DESC, j.id DESC")
+    List<Jornada> findIncompletasSinSalidaNocturnasByUsuarioId(@Param("usuarioId") Long usuarioId);
+
 }

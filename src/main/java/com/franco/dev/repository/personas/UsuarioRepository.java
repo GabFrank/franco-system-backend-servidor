@@ -35,4 +35,11 @@ public interface UsuarioRepository extends HelperRepository<Usuario, Long> {
             "order by p.nombre asc")
     List<Usuario> findAllActivos();
 
+    @Query("select u from Usuario u " +
+            "join fetch u.persona p " +
+            "where u.activo = true " +
+            "and p.embedding is not null " +
+            "and trim(p.embedding) <> ''")
+    List<Usuario> findActivosConEmbedding();
+
 }

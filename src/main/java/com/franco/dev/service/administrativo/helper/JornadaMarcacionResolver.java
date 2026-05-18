@@ -32,31 +32,30 @@ public class JornadaMarcacionResolver {
     }
 
     private Jornada resolverSalida(Marcacion marcacion, LocalDate fechaReferencia) {
+        Long usuarioId = marcacion.getUsuario().getId();
+
         Optional<Jornada> jornadaNocturnaAbierta = jornadaService.findIncompletaSinSalidaNocturnaParaSalida(
-                marcacion.getUsuario().getId(), fechaReferencia);
+                usuarioId, fechaReferencia);
         if (jornadaNocturnaAbierta.isPresent()) {
             return jornadaNocturnaAbierta.get();
         }
 
-        List<Jornada> jornadasHoy = jornadaService.findByUsuarioIdAndFecha(
-                marcacion.getUsuario().getId(),
-                fechaReferencia.toString());
-
-        if (jornadasHoy != null && !jornadasHoy.isEmpty()) {
-            Jornada lastJornada = jornadasHoy.get(jornadasHoy.size() - 1);
-            if (!shouldCreateNewJornada(lastJornada, marcacion)) {
-                return lastJornada;
-            }
+        Optional<Jornada> jornadaAbierta = jornadaService.findJornadaAbiertaConEntradaSinSalida(
+                usuarioId, fechaReferencia);
+        if (jornadaAbierta.isPresent()) {
+            return jornadaAbierta.get();
         }
 
         log.warn("Salida rechazada: no hay jornada abierta para usuario {} en fecha {}",
-                marcacion.getUsuario().getId(), fechaReferencia);
+                usuarioId, fechaReferencia);
         throw new IllegalStateException("No existe una jornada abierta para registrar la salida");
     }
 
     private Jornada resolverEntrada(Marcacion marcacion, LocalDate fechaReferencia) {
+        Long usuarioId = marcacion.getUsuario().getId();
+
         Optional<Jornada> jornadaCruzaMedianoche = jornadaService.findIncompletaSinSalidaNocturnaParaSalida(
-                marcacion.getUsuario().getId(), fechaReferencia);
+                usuarioId, fechaReferencia);
         if (jornadaCruzaMedianoche.isPresent()) {
             Jornada abierta = jornadaCruzaMedianoche.get();
             if (abierta.getMarcacionEntrada() != null && abierta.getMarcacionSalida() == null) {
@@ -64,9 +63,19 @@ public class JornadaMarcacionResolver {
             }
         }
 
-        List<Jornada> jornadas = jornadaService.findByUsuarioIdAndFecha(
-                marcacion.getUsuario().getId(),
-                fechaReferencia.toString());
+        Optional<Jornada> jornadaAbiertaConEntrada = jornadaService.findJornadaAbiertaConEntradaSinSalida(
+                usuarioId, fechaReferencia);
+        if (jornadaAbiertaConEntrada.isPresent()) {
+            return jornadaAbiertaConEntrada.get();
+        }
+
+        Optional<Jornada> jornadaAbiertaSinEntrada = jornadaService.findJornadaAbiertaSinEntrada(
+                usuarioId, fechaReferencia);
+        if (jornadaAbiertaSinEntrada.isPresent()) {
+            return jornadaAbiertaSinEntrada.get();
+        }
+
+        List<Jornada> jornadas = jornadaService.findByUsuarioIdAndFecha(usuarioId, fechaReferencia.toString());
 
         if (jornadas == null || jornadas.isEmpty()) {
             return jornadaFactory.crearNuevaJornada(marcacion, fechaReferencia);

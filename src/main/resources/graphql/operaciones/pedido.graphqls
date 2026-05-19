@@ -5,6 +5,7 @@ type Pedido {
     formaPago: FormaPago
     tipoBoleta: String
     moneda: Moneda
+    cotizacion: Float
     plazoCredito: Int
     observacionFormaPago: String
     creadoEn: Date
@@ -46,6 +47,7 @@ input PedidoInput {
     formaPagoId: Int
     tipoBoleta: String
     monedaId: Int
+    cotizacion: Float
     plazoCredito: Int
     observacionFormaPago: String
     creadoEn: Date

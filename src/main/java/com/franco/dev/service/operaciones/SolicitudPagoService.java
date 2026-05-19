@@ -8,8 +8,10 @@ import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.SolicitudPagoNotaRecepcion;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
+import com.franco.dev.domain.financiero.Cambio;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.service.financiero.CambioService;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.dto.DatosInicialesSolicitudPagoDTO;
@@ -61,6 +63,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     private final RecepcionMercaderiaService recepcionMercaderiaService;
     private final MonedaRepository monedaRepository;
     private final FormaPagoRepository formaPagoRepository;
+    private final CambioService cambioService;
 
     @Override
     public SolicitudPagoRepository getRepository() {
@@ -278,6 +281,46 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
 
     /**
+     * Igual que {@link #calcularMontoNota} pero convertido a la moneda cabecera de la solicitud,
+     * usando la cotización propia de la nota (fallback último Cambio de la moneda).
+     * Si moneda cabecera == moneda nota o cualquiera es null → retorna valor raw.
+     */
+    public Double calcularMontoNotaEnMoneda(NotaRecepcion nota, Moneda monedaCabecera) {
+        Double valorRaw = calcularMontoNota(nota);
+        if (valorRaw == null || valorRaw == 0.0) return 0.0;
+        Moneda monedaNota = nota.getMoneda();
+        if (monedaCabecera == null || monedaNota == null
+                || monedaCabecera.getId() == null
+                || monedaCabecera.getId().equals(monedaNota.getId())) {
+            return valorRaw;
+        }
+        boolean monedaNotaEsGs = MONEDA_GUARANI.equalsIgnoreCase(monedaNota.getDenominacion());
+        boolean monedaCabEsGs = MONEDA_GUARANI.equalsIgnoreCase(monedaCabecera.getDenominacion());
+        Double cotNota = (nota.getCotizacion() != null && nota.getCotizacion() > 0)
+                ? nota.getCotizacion()
+                : ultimoCambioEnGs(monedaNota);
+        Double valorEnGs = monedaNotaEsGs ? valorRaw : valorRaw * cotNota;
+        if (monedaCabEsGs) return valorEnGs;
+        // Caso defensivo: cabecera no-Gs distinta de la nota — convertir Gs → cabecera vía último Cambio.
+        Double cambioCab = ultimoCambioEnGs(monedaCabecera);
+        return cambioCab > 0 ? valorEnGs / cambioCab : valorEnGs;
+    }
+
+    /** Última cotización conocida (Cambio.valorEnGs) de la moneda; 1.0 si no se encuentra. */
+    private Double ultimoCambioEnGs(Moneda moneda) {
+        if (moneda == null || moneda.getId() == null) return 1.0;
+        try {
+            Cambio cambio = cambioService.findLastByMonedaId(moneda.getId());
+            if (cambio != null && cambio.getValorEnGs() != null && cambio.getValorEnGs() > 0) {
+                return cambio.getValorEnGs();
+            }
+        } catch (Exception ignored) {
+            // Sin cambio registrado → fallback 1.0 (suma raw, mejor que romper).
+        }
+        return 1.0;
+    }
+
+    /**
      * Create a solicitud de pago with multiple notas de recepcion
      * @param proveedor The proveedor
      * @param notaRecepcionIds List of nota recepcion IDs
@@ -305,11 +348,11 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
             }
         }
         
-        // Calculate total amount
+        // Calculate total amount — converte a la moneda cabecera de la solicitud cuando difiere de la nota.
         Double montoTotal = notas.stream()
-            .mapToDouble(this::calcularMontoNota)
+            .mapToDouble(n -> calcularMontoNotaEnMoneda(n, moneda))
             .sum();
-        
+
         // Create solicitud pago
         SolicitudPago solicitud = new SolicitudPago();
         solicitud.setProveedor(proveedor);
@@ -320,12 +363,12 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         solicitud.setObservaciones(observaciones);
         solicitud.setUsuario(usuario);
         solicitud.setEstado(SolicitudPagoEstado.PENDIENTE);
-        
+
         SolicitudPago solicitudGuardada = save(solicitud);
-        
-        // Associate notas with solicitud
+
+        // Associate notas with solicitud — montoIncluido también en moneda cabecera para que recálculos sumen consistente.
         for (NotaRecepcion nota : notas) {
-            Double montoNota = calcularMontoNota(nota);
+            Double montoNota = calcularMontoNotaEnMoneda(nota, moneda);
             solicitudPagoNotaRecepcionService.agregarNotaASolicitud(
                 solicitudGuardada.getId(), nota.getId(), montoNota);
         }
@@ -386,7 +429,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                 if (!nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
                     throw new IllegalArgumentException("La nota debe pertenecer al mismo proveedor");
                 }
-                Double monto = calcularMontoNota(nota);
+                Double monto = calcularMontoNotaEnMoneda(nota, solicitud.getMoneda());
                 solicitudPagoNotaRecepcionService.agregarNotaASolicitud(solicitudId, notaId, monto);
             }
         }

@@ -1,0 +1,25 @@
+type Marca {
+    id:ID!
+    descripcion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input MarcaInput {
+    id:ID
+    descripcion: String
+    usuarioId: Int
+}
+
+extend type Query {
+    marca(id:ID!):Marca
+    marcas(page:Int = 0, size:Int = 10):[Marca]!
+    countMarca: Int
+    marcaSearch(texto:String):[Marca]
+}
+
+extend type Mutation {
+    saveMarca(marca:MarcaInput!):Marca!
+    deleteMarca(id:ID!):Boolean!
+}
+

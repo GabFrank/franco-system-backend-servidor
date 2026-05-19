@@ -1,0 +1,106 @@
+type Vehiculo {
+    id:ID!
+    modelo: Modelo
+    tipoVehiculo: TipoVehiculo
+    chapa: String
+    color: String
+    anho: Int
+    documentacion: Boolean
+    refrigerado: Boolean
+    nuevo: Boolean
+    fechaAdquisicion: Date
+    primerKilometraje: Float
+    capacidadKg: Float
+    capacidadPasajeros: Int
+    imagenesVehiculo: String
+    imagenesDocumentos: String
+    propietario: Persona
+    identificadorInterno: String
+    tipoCombustible: TipoCombustible
+    chasis: String
+    aireAcondicionado: Boolean
+    valorEstimado: Float
+    valorEstimadoPyg: Float
+    valorEstimadoBrl: Float
+    mantenimientoMotorIntervalo: Int
+    mantenimientoCajaIntervalo: Int
+    situacionPago: String
+    proveedor: Proveedor
+    moneda: Moneda
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input VehiculoInput {
+    id:ID
+    modeloId: ID
+    tipoVehiculoId: ID
+    chapa: String
+    color: String
+    anho: Int
+    documentacion: Boolean
+    refrigerado: Boolean
+    nuevo: Boolean
+    fechaAdquisicion: String
+    primerKilometraje: Float
+    capacidadKg: Float
+    capacidadPasajeros: Int
+    imagenesVehiculo: String
+    imagenesDocumentos: String
+    propietarioId: ID
+    identificadorInterno: String
+    tipoCombustibleId: ID
+    chasis: String
+    aireAcondicionado: Boolean
+    valorEstimado: Float
+    valorEstimadoPyg: Float
+    valorEstimadoBrl: Float
+    mantenimientoMotorIntervalo: Int
+    mantenimientoCajaIntervalo: Int
+    situacionPago: String
+    proveedorId: ID
+    monedaId: ID
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+    usuarioId: ID
+}
+
+type VehiculoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Vehiculo]
+    getPageable: Pageable
+}
+
+extend type Query {
+    vehiculo(id:ID!):Vehiculo
+    vehiculos(page:Int = 0, size:Int = 10):[Vehiculo]!
+    countVehiculo: Int
+    vehiculoSearch(texto:String):[Vehiculo]
+    vehiculoSearchWithPage(texto:String, page:Int = 0, size:Int = 10):[Vehiculo]
+    vehiculoSearchPage(texto: String, page: Int, size: Int): VehiculoPage
+    vehiculoByChapa(chapa:String):Vehiculo
+    vehiculosByMarca(marcaId:ID!):[Vehiculo]
+    vehiculosByModelo(modeloId:ID!):[Vehiculo]
+    vehiculosByTipoVehiculo(tipoVehiculoId:ID!):[Vehiculo]
+}
+
+
+extend type Mutation {
+    saveVehiculo(vehiculo:VehiculoInput!):Vehiculo!
+    deleteVehiculo(id:ID!):Boolean!
+}
+

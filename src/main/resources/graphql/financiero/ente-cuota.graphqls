@@ -1,0 +1,45 @@
+type EnteCuota {
+    id:ID!
+    enteFinanciero: EnteFinanciero
+    numeroCuota: Int
+    monto: Float
+    pagado: Boolean
+    fechaVencimiento: Date
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input EnteCuotaInput {
+    id:ID
+    enteFinancieroId: ID
+    numeroCuota: Int
+    monto: Float
+    pagado: Boolean
+    fechaVencimiento: String
+    usuarioId: ID
+}
+
+type EnteCuotaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EnteCuota]
+    getPageable: Pageable
+}
+
+extend type Query {
+    enteCuota(id:ID!):EnteCuota
+    enteCuotas(page:Int = 0, size:Int = 10):[EnteCuota]!
+    countEnteCuota: Int
+    enteCuotasByEnteFinanciero(enteFinancieroId:ID!):[EnteCuota]
+    enteCuotaSearchPage(enteFinancieroId: ID, page: Int, size: Int): EnteCuotaPage
+}
+
+extend type Mutation {
+    saveEnteCuota(enteCuota:EnteCuotaInput!):EnteCuota!
+    deleteEnteCuota(id:ID!):Boolean!
+}

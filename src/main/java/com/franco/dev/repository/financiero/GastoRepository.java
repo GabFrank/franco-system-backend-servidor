@@ -1,10 +1,7 @@
 package com.franco.dev.repository.financiero;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.Gasto;
-import com.franco.dev.domain.financiero.Retiro;
-import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,8 +50,6 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         @Param("responsableId") Long responsableId, @Param("descripcion") String descripcion,
                         Pageable pageable);
 
-        public Gasto findByIdAndSucursalId(Long id, Long sucId);
-
         @Query(value = "SELECT " +
                         "COALESCE(tg.descripcion, 'Sin Categoría'), " +
                         "SUM(g.retiro_gs - COALESCE(g.vuelto_gs, 0)), COUNT(g.id) " +
@@ -82,7 +77,8 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         @Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);
 
-        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs - g.vuelto_gs), COUNT(g.id) " +
+        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs - g.vuelto_gs), COUNT(g.id) "
+                        +
                         "FROM financiero.gasto g " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.sucursal_id = :sucId " +
@@ -92,7 +88,8 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
         List<Object[]> gastosPorMes(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
-        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs - g.vuelto_gs), COUNT(g.id) " +
+        @Query(value = "SELECT CAST(extract(month from g.creado_en) as integer), SUM(g.retiro_gs - g.vuelto_gs), COUNT(g.id) "
+                        +
                         "FROM financiero.gasto g " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.activo = true " +
@@ -101,4 +98,8 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
         List<Object[]> gastosPorMesSinSucursal(@Param("inicio") LocalDateTime inicio,
                         @Param("fin") LocalDateTime fin);
 
+        public Gasto findByIdAndSucursalId(Long id, Long sucId);
+
+        Gasto findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(Long preGastoId,
+                        Long preGastoSucursalId);
 }

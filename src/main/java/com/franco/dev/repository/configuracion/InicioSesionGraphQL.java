@@ -56,6 +56,19 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null)
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+
+        if (e.getSucursal() == null) {
+            e.setSucursal(sucursalService.sucursalActual());
+        }
+
+        if (e.getSucursal() == null) {
+            e.setSucursal(sucursalService.findById(0L).orElse(null));
+        }
+
+        e.setIdDispositivo(input.getIdDispositivo());
+        e.setToken(input.getToken());
+        e.setTipoDespositivo(input.getTipoDespositivo());
+
         if (input.getHoraInicio() != null)
             e.setHoraInicio(stringToDate(input.getHoraInicio()));
         if (input.getHoraFin() != null)

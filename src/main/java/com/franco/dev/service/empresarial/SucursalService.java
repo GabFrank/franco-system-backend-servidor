@@ -69,7 +69,16 @@ public class SucursalService extends CrudService<Sucursal, SucursalRepository, L
     }
 
     public Sucursal sucursalActual() {
-        return findById(Long.valueOf(environment.getProperty("sucursalId"))).orElse(null);
+        String sId = environment.getProperty("sucursalId");
+        Long id = 0L;
+        if (sId != null) {
+            try {
+                id = Long.valueOf(sId);
+            } catch (NumberFormatException e) {
+                id = 0L;
+            }
+        }
+        return findById(id).orElse(null);
     }
 
     /**

@@ -143,6 +143,11 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
     @Override
     @Transactional
     public NotaRecepcion save(NotaRecepcion entity) {
+        // Asegurar que tenga un usuario responsable (heredar del pedido si es nulo)
+        if (entity.getUsuario() == null && entity.getPedido() != null) {
+            entity.setUsuario(entity.getPedido().getUsuario());
+        }
+
         // Verificar si es la primera nota de recepción del pedido
         boolean esPrimeraNota = false;
         if (entity.getPedido() != null && entity.getId() == null) {
@@ -174,7 +179,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
      * @return Resultado de la asignación con ítems creados y errores
      */
     @Transactional
-    public AsignacionResult asignarItemsANota(Long notaRecepcionId, List<Long> pedidoItemIds) {
+    public AsignacionResult asignarItemsANota(Long notaRecepcionId, List<Long> pedidoItemIds, Usuario usuario) {
         AsignacionResult result = new AsignacionResult();
         result.setSuccess(true);
         result.setNotaRecepcionItems(new ArrayList<>());
@@ -238,6 +243,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                 }
                 notaRecepcionItem.setEstado(NotaRecepcionItemEstado.PENDIENTE_CONCILIACION);
                 notaRecepcionItem.setCreadoEn(LocalDateTime.now());
+                notaRecepcionItem.setUsuario(usuario);
 
                 // Guardar el NotaRecepcionItem asegurando mapeo correcto de presentación
                 NotaRecepcionItem savedItem = notaRecepcionItemService.saveWithPresentacionMapping(notaRecepcionItem);
@@ -256,6 +262,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
                         distribucion.setSucursalEntrega(pedidoDist.getSucursalEntrega());
                         distribucion.setCantidad(pedidoDist.getCantidadAsignada());
                         distribucion.setCreadoEn(LocalDateTime.now());
+                        distribucion.setUsuario(usuario);
                         distribuciones.add(distribucion);
                     }
                 }
@@ -300,7 +307,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
      * @param pedidoId ID del pedido
      */
     @Transactional
-    public void asignarTodosLosItemsPendientes(Long notaRecepcionId, Long pedidoId) {
+    public void asignarTodosLosItemsPendientes(Long notaRecepcionId, Long pedidoId, Usuario usuario) {
         // Obtener todos los ítems del pedido
         List<PedidoItem> todosLosItems = pedidoItemService.findByPedidoId(pedidoId);
         
@@ -315,7 +322,7 @@ public class NotaRecepcionService extends CrudService<NotaRecepcion, NotaRecepci
         
         // Si hay items pendientes, asignarlos a la nota
         if (!pedidoItemIds.isEmpty()) {
-            asignarItemsANota(notaRecepcionId, pedidoItemIds);
+            asignarItemsANota(notaRecepcionId, pedidoItemIds, usuario);
         }
     }
 

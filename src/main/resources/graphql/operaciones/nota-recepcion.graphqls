@@ -79,7 +79,7 @@ extend type Query {
 extend type Mutation {
     saveNotaRecepcion(entity: NotaRecepcionInput!): NotaRecepcion!
     deleteNotaRecepcion(id: ID!): Boolean!
-    asignarItemsANota(notaRecepcionId: ID!, pedidoItemIds: [ID!]!): AsignacionResult!
+    asignarItemsANota(notaRecepcionId: ID!, pedidoItemIds: [ID!]!, usuarioId: ID): AsignacionResult!
 }
 
 enum NotaRecepcionEstado {

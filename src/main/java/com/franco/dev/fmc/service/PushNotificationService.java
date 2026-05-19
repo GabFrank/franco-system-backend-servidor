@@ -180,6 +180,49 @@ public class PushNotificationService {
         return targets;
     }
 
+    /**
+     * Envía una notificación tipo push utilizando un tipo de notificación
+     * específico (para integración con preferencias), a todos los usuarios con
+     * sesión activa.
+     */
+    public void enviarAlertaTipo(String tipoNotificacion, String titulo, String mensaje, String data) {
+        if (titulo == null || titulo.trim().isEmpty()) {
+            LOGGER.warn("El título no puede estar vacío");
+            return;
+        }
+        if (mensaje == null || mensaje.trim().isEmpty()) {
+            LOGGER.warn("El mensaje no puede estar vacío");
+            return;
+        }
+        if (tipoNotificacion == null || tipoNotificacion.trim().isEmpty()) {
+            tipoNotificacion = "GENERAL";
+        }
+
+        List<com.franco.dev.domain.configuracion.InicioSesion> sesionesActivas = inicioSesionService
+                .findSessionsWithValidTokens();
+        List<Long> destinatariosIds = sesionesActivas.stream()
+                .filter(s -> s.getUsuario() != null)
+                .map(s -> s.getUsuario().getId())
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (destinatariosIds.isEmpty()) {
+            LOGGER.warn("No hay usuarios activos para enviar alerta tipo {}", tipoNotificacion);
+            return;
+        }
+
+        PushNotificationRequest request = new PushNotificationRequest();
+        request.setTitle(titulo);
+        request.setMessage(mensaje);
+        request.setType(tipoNotificacion);
+        request.setUsuarioIds(destinatariosIds);
+        if (data != null && !data.trim().isEmpty()) {
+            request.setData(data);
+        }
+
+        sendPushNotificationToToken(request);
+    }
+
     private NotificacionDestinatario buildNotificacionDestinatario(Notificacion notificacion, Usuario usuario) {
         NotificacionDestinatario entity = new NotificacionDestinatario();
         entity.setNotificacion(notificacion);

@@ -14,6 +14,7 @@ type Transferencia {
     etapa: EtapaTransferencia
     creadoEn: Date
     transferenciaItemList: [TransferenciaItem]
+    hojaRuta: HojaRuta
 }
 
 input TransferenciaInput {
@@ -32,6 +33,7 @@ input TransferenciaInput {
     usuarioRecepcionId: Int
     usuarioId: Int
     creadoEn: String
+    hojaRutaId: Int
 }
 
 type TransferenciaPage {

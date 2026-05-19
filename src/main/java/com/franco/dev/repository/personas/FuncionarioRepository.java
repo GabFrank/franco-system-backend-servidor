@@ -19,19 +19,22 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
         public Funcionario findByPersonaId(Long id);
 
+        @Query("select f from Funcionario f " +
+                        "join f.persona p " +
+                        "left join Usuario usr with usr.persona = p " +
+                        "where CAST(f.id as text) like concat('%', ?1, '%') or " +
+                        "UPPER(p.nombre) like UPPER(concat('%', ?1, '%')) or " +
+                        "UPPER(usr.nickname) like UPPER(concat('%', ?1, '%'))")
+        public List<Funcionario> findByIdOrPersonaNombre(String texto);
+
         public Funcionario findByUsuarioId(Long id);
 
         @Query("select u from Funcionario u " +
                         "join u.persona p " +
-                        "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1%")
-        public List<Funcionario> findByIdOrPersonaNombre(String texto);
-
-        @Query("select u from Funcionario u " +
-                        "join u.persona p " +
                         "left join u.sucursal s where " +
-                        "((:id) is null or u.id = (:id) ) and " +
-                        "((:nombre) is null or UPPER(p.nombre) like %:nombre%) and " +
-                        "((:sucursalList) is null or s.id IN (:sucursalList)) " +
+                        "(cast(:id as long) is null or u.id = :id) and " +
+                        "(cast(:nombre as string) is null or upper(p.nombre) like concat('%', upper(cast(:nombre as string)), '%')) and " +
+                        "(:sucursalList is null or s.id in :sucursalList) " +
                         "order by u.id")
         public Page<Funcionario> findAllWithFilterAndPage(
                         @Param("id") Long id,

@@ -13,7 +13,7 @@ public interface MonedaRepository extends HelperRepository<Moneda, Long> {
     }
 
     @Query("select m from Moneda m " +
-            "where UPPER(CAST(id as text)) like %?1% or UPPER(denominacion) like %?1%")
+            "where UPPER(CAST(m.id as text)) like UPPER(concat('%', ?1, '%')) or UPPER(m.denominacion) like UPPER(concat('%', ?1, '%'))")
     public List<Moneda> findByAll(String texto);
 
     public Moneda findByDenominacion(String texto);

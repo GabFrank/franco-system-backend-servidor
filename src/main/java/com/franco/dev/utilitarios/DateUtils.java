@@ -17,6 +17,7 @@ public class DateUtils {
     public static String toString(LocalDateTime d) {
         return formatter.format(d);
     }
+
     public static String dateToString(LocalDateTime d) {
         return formatter.format(d);
     }
@@ -26,10 +27,11 @@ public class DateUtils {
     }
 
     public static LocalDateTime stringToDate(String s) {
-        if(s == null) return null;
-        if(s.contains("T")) return LocalDateTime.parse(s, formatter_iso);
-        if(s.length() == 10) {
-            // Si la fecha tiene solo 10 caracteres (yyyy-MM-dd), agregar hora por defecto
+        if (s == null)
+            return null;
+        if (s.contains("T"))
+            return LocalDateTime.parse(s, formatter_iso);
+        if (s.length() == 10) {
             return LocalDateTime.parse(s + " 00:00", formatter);
         }
         return LocalDateTime.parse(s, formatter);
@@ -45,9 +47,16 @@ public class DateUtils {
         return hoy.with(TemporalAdjusters.lastDayOfMonth());
     }
 
-    public static String dateToStringWithFormat(LocalDateTime date, String format){
+    public static String dateToStringWithFormat(LocalDateTime date, String format) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
         return formatter.format(date);
+    }
+
+    public static LocalDateTime stringToDateEndOfDay(String s) {
+        if (s == null)
+            return null;
+        LocalDateTime date = stringToDate(s);
+        return date.withHour(23).withMinute(59).withSecond(59);
     }
 
 }

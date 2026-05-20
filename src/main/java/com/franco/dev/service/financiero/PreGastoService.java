@@ -34,6 +34,11 @@ import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -42,7 +47,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.criteria.Predicate;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @RequiredArgsConstructor
@@ -146,14 +156,59 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return repository.buscarPorTexto(texto, sucursalId);
     }
 
-    public org.springframework.data.domain.Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado,
-            List<String> estados, String inicio,
-            String fin, org.springframework.data.domain.Pageable pageable) {
-        List<String> estadosFiltro = estados != null ? estados : new ArrayList<>();
-        if (estadosFiltro.isEmpty()) {
-            return repository.filterPreGastosSinEstados(id, cajaId, estado, inicio, fin, pageable);
-        }
-        return repository.filterPreGastos(id, cajaId, estado, estadosFiltro, inicio, fin, pageable);
+    public Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado,
+            List<String> estados, String inicio, String fin, Pageable pageable) {
+        Specification<PreGasto> spec = buildFilterSpecification(id, cajaId, estado, estados, inicio, fin);
+        Pageable sorted = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "id"));
+        return repository.findAll(spec, sorted);
+    }
+
+    private Specification<PreGasto> buildFilterSpecification(Long id, Long cajaId, String estado,
+            List<String> estados, String inicio, String fin) {
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            if (id != null) {
+                predicates.add(cb.equal(root.get("id"), id));
+            } else if (cajaId != null) {
+                predicates.add(cb.equal(root.get("cajaId"), cajaId));
+            }
+
+            if (estado != null && !estado.trim().isEmpty()) {
+                predicates.add(cb.equal(root.get("estado"), EstadoPreGasto.valueOf(estado.trim())));
+            }
+
+            if (estados != null && !estados.isEmpty()) {
+                List<EstadoPreGasto> estadosEnum = estados.stream()
+                        .filter(e -> e != null && !e.trim().isEmpty())
+                        .map(e -> EstadoPreGasto.valueOf(e.trim()))
+                        .collect(Collectors.toList());
+                if (!estadosEnum.isEmpty()) {
+                    predicates.add(root.get("estado").in(estadosEnum));
+                }
+            }
+
+            LocalDateTime inicioDt = stringToDate(inicio);
+            if (inicioDt != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("creadoEn"), inicioDt));
+            }
+
+            LocalDateTime finDt = stringToDate(fin);
+            if (finDt != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("creadoEn"), finDt));
+            }
+
+            if (query != null) {
+                query.orderBy(cb.desc(root.get("id")));
+            }
+
+            return predicates.isEmpty()
+                    ? cb.conjunction()
+                    : cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     @Transactional

@@ -30,7 +30,9 @@ public class AlmuerzoProcessor {
     }
 
     private void handleSalida(Jornada jornada, Marcacion marcacion) {
-        if (jornada.getMarcacionEntrada() != null && jornada.getMarcacionSalidaAlmuerzo() == null) {
+        if (jornada.getMarcacionEntrada() != null
+                && jornada.getMarcacionSalida() == null
+                && jornada.getMarcacionSalidaAlmuerzo() == null) {
             if (Boolean.TRUE.equals(marcacion.getEsSalidaAlmuerzo())) {
                 jornada.setMarcacionSalidaAlmuerzo(marcacion);
             } else {
@@ -40,6 +42,8 @@ public class AlmuerzoProcessor {
         } else if (jornada.getMarcacionEntradaAlmuerzo() != null && jornada.getMarcacionSalida() == null) {
             jornada.setMarcacionSalida(marcacion);
             jornada.setEstado(EstadoJornada.NORMAL);
+        } else if (jornada.getMarcacionSalida() != null) {
+            log.warn("Salida ignorada: la jornada {} ya tiene salida definitiva registrada", jornada.getId());
         } else if (jornada.getMarcacionEntrada() == null) {
             log.error(
                     "Salida sin jornada con entrada previa. Jornada id={}, usuarioId={}, marcacionId={}",

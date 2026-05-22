@@ -4,6 +4,8 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.graphql.operaciones.dto.ProductoVendidoEstadistica;
+import com.franco.dev.graphql.operaciones.dto.ProductoCompraPorPeriodo;
+import com.franco.dev.graphql.operaciones.dto.ProductoVentaPorPeriodo;
 import com.franco.dev.graphql.operaciones.input.VentaItemInput;
 import com.franco.dev.service.operaciones.VentaItemService;
 import com.franco.dev.service.operaciones.VentaService;
@@ -22,6 +24,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.Optional;
 
 @Component
@@ -106,7 +109,7 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public List<ProductoVendidoEstadistica> productosMasVendidos(String inicio, String fin, Integer limit,
-            Long sucursalId, Long familiaId) {
+            Long sucursalId, Long familiaId, Boolean ascendente, Long productoId, List<Long> productoIds) {
         if (limit == null)
             limit = 10;
         LocalDateTime fechaInicio = null;
@@ -119,6 +122,71 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
         }
 
-        return service.obtenerProductosMasVendidos(fechaInicio, fechaFin, limit, sucursalId, familiaId);
+        List<Long> idsFiltro = productoIds != null
+                ? productoIds.stream().filter(id -> id != null && id > 0).collect(Collectors.toList())
+                : null;
+
+        return service.obtenerProductosMasVendidos(fechaInicio, fechaFin, limit, sucursalId, familiaId, ascendente,
+                productoId, idsFiltro != null && !idsFiltro.isEmpty() ? idsFiltro : null);
+    }
+
+    public List<ProductoVentaPorPeriodo> ventasProductoPorDia(String inicio, String fin, Long productoId,
+            Long sucursalId) {
+        LocalDateTime fechaInicio = null;
+        LocalDateTime fechaFin = null;
+
+        if (inicio != null && !inicio.isEmpty()) {
+            fechaInicio = LocalDateTime.parse(inicio, DATE_FORMATTER);
+        }
+        if (fin != null && !fin.isEmpty()) {
+            fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
+        }
+
+        return service.obtenerVentasProductoPorDia(fechaInicio, fechaFin, productoId, sucursalId);
+    }
+
+    public List<ProductoVentaPorPeriodo> ventasProductoPorMes(String inicio, String fin, Long productoId,
+            Long sucursalId) {
+        LocalDateTime fechaInicio = null;
+        LocalDateTime fechaFin = null;
+
+        if (inicio != null && !inicio.isEmpty()) {
+            fechaInicio = LocalDateTime.parse(inicio, DATE_FORMATTER);
+        }
+        if (fin != null && !fin.isEmpty()) {
+            fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
+        }
+
+        return service.obtenerVentasProductoPorMes(fechaInicio, fechaFin, productoId, sucursalId);
+    }
+
+    public List<ProductoCompraPorPeriodo> comprasProductoPorDia(String inicio, String fin, Long productoId,
+            Long sucursalId) {
+        LocalDateTime fechaInicio = null;
+        LocalDateTime fechaFin = null;
+
+        if (inicio != null && !inicio.isEmpty()) {
+            fechaInicio = LocalDateTime.parse(inicio, DATE_FORMATTER);
+        }
+        if (fin != null && !fin.isEmpty()) {
+            fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
+        }
+
+        return service.obtenerComprasProductoPorDia(fechaInicio, fechaFin, productoId, sucursalId);
+    }
+
+    public List<ProductoCompraPorPeriodo> comprasProductoPorMes(String inicio, String fin, Long productoId,
+            Long sucursalId) {
+        LocalDateTime fechaInicio = null;
+        LocalDateTime fechaFin = null;
+
+        if (inicio != null && !inicio.isEmpty()) {
+            fechaInicio = LocalDateTime.parse(inicio, DATE_FORMATTER);
+        }
+        if (fin != null && !fin.isEmpty()) {
+            fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
+        }
+
+        return service.obtenerComprasProductoPorMes(fechaInicio, fechaFin, productoId, sucursalId);
     }
 }

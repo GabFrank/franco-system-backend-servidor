@@ -2,6 +2,7 @@ package com.franco.dev;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import graphql.parser.ParserOptions;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,8 +41,19 @@ public class FrancoSystemsApplication {
     public static void main(String[] args) throws IOException {
 
         System.out.println("Iniciando sistema");
+        configureGraphQLParserLimits();
         SpringApplication.run(FrancoSystemsApplication.class, args);
 
+    }
+
+    private static void configureGraphQLParserLimits() {
+        ParserOptions schemaOptions = ParserOptions.getDefaultSdlParserOptions()
+                .transform(builder -> builder.maxTokens(500_000));
+        ParserOptions.setDefaultSdlParserOptions(schemaOptions);
+        ParserOptions.setDefaultParserOptions(
+                ParserOptions.getDefaultParserOptions().transform(builder -> builder.maxTokens(500_000)));
+        ParserOptions.setDefaultOperationParserOptions(
+                ParserOptions.getDefaultOperationParserOptions().transform(builder -> builder.maxTokens(500_000)));
     }
 
     @Bean
@@ -86,7 +98,7 @@ public class FrancoSystemsApplication {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(Collections.singletonList("*"));
+        config.setAllowedOriginPatterns(Collections.singletonList("*"));
         config.setAllowedMethods(Collections.singletonList("*"));
         config.setAllowedHeaders(Collections.singletonList("*"));
         source.registerCorsConfiguration("/**", config);

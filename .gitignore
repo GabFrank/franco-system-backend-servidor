@@ -9,11 +9,12 @@ HELP.md
 **/.DS_Store
 src/.DS_Store
 tokens/
-### STS ###
+### STS / Eclipse ###
 .apt_generated
 .classpath
 .project
 .factorypath
+.settings/
 .vscode*/
 .classpath
 .factorypath

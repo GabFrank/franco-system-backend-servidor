@@ -35,6 +35,7 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.productos.CodigoService;
 import com.franco.dev.domain.productos.Codigo;
+import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
@@ -1472,18 +1473,24 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 dto.setIva(item.getIva() != null ? item.getIva() : 0);
                 dto.setTotal(item.getTotal() != null ? item.getTotal() : 0.0);
 
-                // Obtener código principal de la presentación
+                // Obtener presentación desde el item o fallback desde el ventaItem
+                Presentacion presentacion = item.getPresentacion();
+                if (presentacion == null && item.getVentaItem() != null) {
+                    presentacion = item.getVentaItem().getPresentacion();
+                }
+
+                // Obtener ID de la presentación para la columna de código
                 String codigo = "";
-                if (item.getPresentacion() != null && item.getPresentacion().getId() != null) {
-                    Codigo codigoObj = codigoService.findPrincipalByPresentacionId(item.getPresentacion().getId());
-                    if (codigoObj != null && codigoObj.getCodigo() != null) {
-                        codigo = codigoObj.getCodigo();
-                    }
+                if (presentacion != null && presentacion.getId() != null) {
+                    codigo = String.valueOf(presentacion.getId());
                 }
                 dto.setCodigo(codigo);
-                // Usar unidadMedida en lugar de descripción de presentación (UNIDAD, KILO,
-                // LITRO, etc.)
-                dto.setDescripcionPresentacion(item.getUnidadMedida() != null ? item.getUnidadMedida() : "");
+                // Obtener la cantidad de la presentación
+                String descPresentacion = "";
+                if (presentacion != null && presentacion.getCantidad() != null) {
+                    descPresentacion = df.format(presentacion.getCantidad());
+                }
+                dto.setDescripcionPresentacion(descPresentacion);
 
                 // Si tiene moneda extranjera, convertir valores
                 if (tieneMonedaExtranjera && tipoCambio > 0) {

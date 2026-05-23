@@ -14,19 +14,22 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.productos.search.ProductoSearchService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.empresarial.SucursalService;
 import graphql.GraphQLException;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ResourceUtils;
@@ -39,11 +42,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class ProductoService extends CrudService<Producto, ProductoRepository, Long> {
 
     private static final Logger log = Logger.getLogger(String.valueOf(ProductoService.class));
@@ -71,6 +75,11 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final SucursalService sucursalService;
     @Autowired
     private final com.franco.dev.service.configuraciones.ModificacionService modificacionService;
+    @Autowired
+    private final ProductoSearchService productoSearchService;
+
+    @Value("${app.search.producto.enabled:true}")
+    private boolean productoSearchEnabled;
 
     @Override
     public ProductoRepository getRepository() {
@@ -91,18 +100,68 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             if (isEnvase != null && isEnvase == true) {
                 return repository.findEnvases("", offset, true);
             } else {
-                // Pasamos el String convertido
                 return repository.findbyAll("%", offset, sucursalIdStr, conStockStr);
             }
         }
 
-        texto = texto.replace(' ', '%').toUpperCase();
         if (isEnvase != null && isEnvase == true) {
-            return repository.findEnvases(texto, offset, true);
-        } else {
-            // Pasamos el String convertido
-            return repository.findbyAll(texto, offset, sucursalIdStr, conStockStr);
+            String textoEnvase = texto.replace(' ', '%').toUpperCase();
+            return repository.findEnvases(textoEnvase, offset, true);
         }
+
+        if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
+            Boolean activoFiltro = activo != null ? activo : true;
+            return buscarPorTextoLucene(texto, offset, sucursalIdStr, conStockStr, activoFiltro);
+        }
+
+        String textoSql = texto.replace(' ', '%').toUpperCase();
+        return repository.findbyAll(textoSql, offset, sucursalIdStr, conStockStr);
+    }
+
+    private List<Producto> buscarPorTextoLucene(
+            String texto,
+            int offset,
+            String sucursalIdStr,
+            String conStockStr,
+            Boolean activo) {
+        int fetchSize = Math.min(Math.max(offset + 10, 50), 200);
+        List<Long> ids = productoSearchService.buscarIdsPorTexto(texto, fetchSize, activo, false, null, null);
+        if (ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        boolean conStock = "true".equalsIgnoreCase(conStockStr);
+        Long sucursalId = null;
+        if (sucursalIdStr != null && !"0".equals(sucursalIdStr)) {
+            try {
+                sucursalId = Long.parseLong(sucursalIdStr);
+            } catch (NumberFormatException ignored) {
+                sucursalId = null;
+            }
+        }
+
+        List<Producto> encontrados;
+        if (conStock && sucursalId != null) {
+            encontrados = repository.searchWithFiltersByIds(
+                    ids, activo, null, null, null, null, null, null, null, sucursalId);
+        } else {
+            encontrados = new ArrayList<>(repository.findAllById(ids));
+        }
+
+        Map<Long, Producto> porId = encontrados.stream()
+                .collect(Collectors.toMap(Producto::getId, p -> p, (a, b) -> a, LinkedHashMap::new));
+
+        List<Producto> ordenados = ids.stream()
+                .map(porId::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        int from = Math.min(offset, ordenados.size());
+        int to = Math.min(from + 10, ordenados.size());
+        if (from >= to) {
+            return Collections.emptyList();
+        }
+        return ordenados.subList(from, to);
     }
 
     public boolean existsByDescripcion(String descripcion) {
@@ -116,8 +175,43 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza,
             Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
             Pageable page) {
-        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, familiaId, vencimiento, costoCero,
-                stockFiltro, sucursalId, page);
+        if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
+            return buscarConFiltrosLucene(texto, activo, stock, balanza, subfamiliaId, familiaId, vencimiento,
+                    costoCero, stockFiltro, sucursalId, page);
+        }
+        String textoSql = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
+        return repository.searchWithFilters(textoSql, activo, stock, balanza, subfamiliaId, familiaId, vencimiento,
+                costoCero, stockFiltro, sucursalId, page);
+    }
+
+    private Page<Producto> buscarConFiltrosLucene(String texto, Boolean activo, Boolean stock, Boolean balanza,
+            Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro,
+            Long sucursalId, Pageable page) {
+        int overFetch = Math.min(2000, (page.getPageNumber() + 1) * page.getPageSize() * 8);
+        overFetch = Math.max(overFetch, 100);
+
+        List<Long> ids = productoSearchService.buscarIdsPorTexto(
+                texto, overFetch, activo, null, familiaId, subfamiliaId);
+        if (ids.isEmpty()) {
+            return new PageImpl<>(Collections.emptyList(), page, 0);
+        }
+
+        List<Producto> filtrados = repository.searchWithFiltersByIds(
+                ids, activo, stock, balanza, subfamiliaId, familiaId, vencimiento, costoCero, stockFiltro, sucursalId);
+
+        Map<Long, Producto> porId = filtrados.stream()
+                .collect(Collectors.toMap(Producto::getId, p -> p, (a, b) -> a, LinkedHashMap::new));
+
+        List<Producto> ordenados = ids.stream()
+                .map(porId::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        int total = ordenados.size();
+        int from = (int) page.getOffset();
+        int to = Math.min(from + page.getPageSize(), total);
+        List<Producto> content = from >= total ? Collections.emptyList() : ordenados.subList(from, to);
+        return new PageImpl<>(content, page, total);
     }
 
     public Producto save(ProductoInput entity) throws GraphQLException {
@@ -325,9 +419,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             Long usuarioId,
             String usuario) throws FileNotFoundException {
 
-        // Usar el método de búsqueda con filtros existente
-        Page<Producto> productoPage = repository.searchWithFilters(
-                texto != null ? texto.replace(' ', '%').toUpperCase() : "%",
+        Page<Producto> productoPage = findWithFilters(
+                texto,
                 activo,
                 stock,
                 balanza,
@@ -337,8 +430,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 costoCero,
                 stockFiltro,
                 sucursalId,
-                null // No paginar para el reporte
-        );
+                Pageable.unpaged());
 
         List<Producto> productoList = productoPage.getContent();
 

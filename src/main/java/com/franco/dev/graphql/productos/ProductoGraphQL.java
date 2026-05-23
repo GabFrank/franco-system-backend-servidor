@@ -136,7 +136,6 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             }
         }
 
-        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
         return service.findWithFilters(texto, activo, stock, balanza, subfamilia, familia, vencimiento, costoCero, stockFiltro,
                 sucursalId, pageable);
     }

@@ -5,6 +5,7 @@ import com.franco.dev.domain.dto.ProductoReportDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.CostoPorProducto;
+import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
@@ -52,6 +53,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final UsuarioService usuarioService;
     @Autowired
     private final SubFamiliaService subFamiliaService;
+    @Autowired
+    private final FamiliaService familiaService;
     @Autowired
     private final MovimientoStockService movimientoStockService;
     @Autowired
@@ -111,9 +114,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza,
-            Long subfamiliaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
+            Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
             Pageable page) {
-        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, vencimiento, costoCero,
+        return repository.searchWithFilters(texto, activo, stock, balanza, subfamiliaId, familiaId, vencimiento, costoCero,
                 stockFiltro, sucursalId, page);
     }
 
@@ -316,6 +319,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             Boolean vencimiento,
             Boolean costoCero,
             Long subfamiliaId,
+            Long familiaId,
             String stockFiltro,
             Long sucursalId,
             Long usuarioId,
@@ -328,6 +332,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 stock,
                 balanza,
                 subfamiliaId,
+                familiaId,
                 vencimiento,
                 costoCero,
                 stockFiltro,
@@ -343,50 +348,19 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         StringBuilder filtroBusqueda = new StringBuilder();
         if (texto != null && !texto.trim().isEmpty()) {
             String textoBusqueda = texto.length() > 60 ? texto.substring(0, 57) + "..." : texto;
-            filtroBusqueda.append("Búsqueda: '").append(textoBusqueda).append("'");
+            filtroBusqueda.append("BÚSQUEDA: '").append(textoBusqueda.toUpperCase()).append("'");
         } else {
-            filtroBusqueda.append("Búsqueda: todos");
+            filtroBusqueda.append("BÚSQUEDA: TODOS");
         }
 
-        // Columna 1: Estado y Pesable
-        StringBuilder filtroColumna1 = new StringBuilder();
-        if (activo != null) {
-            filtroColumna1.append("Estado: ").append(activo ? "activos" : "inactivos");
-        } else {
-            filtroColumna1.append("Estado: todos");
-        }
-        filtroColumna1.append("\n");
-        if (balanza != null) {
-            filtroColumna1.append("Pesable: ").append(balanza ? "sí" : "no");
-        } else {
-            filtroColumna1.append("Pesable: todos");
-        }
+        // Nuevos parámetros individuales
+        String filtroEstado = "ESTADO: " + (activo != null ? (activo ? "ACTIVOS" : "INACTIVOS") : "TODOS");
+        String filtroPesable = "PESABLE: " + (balanza != null ? (balanza ? "SÍ" : "NO") : "TODOS");
+        String filtroMovStock = "MOV. STOCK: " + (stock != null ? (stock ? "SÍ" : "NO") : "TODOS");
+        String filtroCostoCero = "COSTO CERO: " + (costoCero != null ? (costoCero ? "SÍ" : "NO") : "TODOS");
+        String filtroVencimiento = "VENCIMIENTO: " + (vencimiento != null ? (vencimiento ? "SÍ" : "NO") : "TODOS");
 
-        // Columna 2: Movimiento stock y Costo cero
-        StringBuilder filtroColumna2 = new StringBuilder();
-        if (stock != null) {
-            filtroColumna2.append("Mov. stock: ").append(stock ? "sí" : "no");
-        } else {
-            filtroColumna2.append("Mov. stock: todos");
-        }
-        filtroColumna2.append("\n");
-        if (costoCero != null) {
-            filtroColumna2.append("Costo cero: ").append(costoCero ? "sí" : "no");
-        } else {
-            filtroColumna2.append("Costo cero: todos");
-        }
-
-        // Columna 3: Solo Vencimiento
-        StringBuilder filtroColumna3 = new StringBuilder();
-        if (vencimiento != null) {
-            filtroColumna3.append("Vencimiento: ").append(vencimiento ? "sí" : "no");
-        } else {
-            filtroColumna3.append("Vencimiento: todos");
-        }
-
-        // Columna 4: Subfamilia (debajo de vencimiento en la misma columna 3 del
-        // template)
-        StringBuilder filtroColumna4 = new StringBuilder();
+        String filtroSubfamiliaStr = "SUBFAMILIA: TODOS";
         if (subfamiliaId != null) {
             try {
                 Subfamilia subfamilia = subFamiliaService.findById(subfamiliaId).orElse(null);
@@ -394,21 +368,36 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                     String nombreCorto = subfamilia.getNombre().length() > 35
                             ? subfamilia.getNombre().substring(0, 32) + "..."
                             : subfamilia.getNombre();
-                    filtroColumna4.append("Subfamilia: ").append(nombreCorto);
+                    filtroSubfamiliaStr = "SUBFAMILIA: " + nombreCorto.toUpperCase();
                 } else {
-                    filtroColumna4.append("Subfamilia ID: ").append(subfamiliaId);
+                    filtroSubfamiliaStr = "SUBFAMILIA ID: " + subfamiliaId;
                 }
             } catch (Exception e) {
-                filtroColumna4.append("Subfamilia ID: ").append(subfamiliaId);
+                filtroSubfamiliaStr = "SUBFAMILIA ID: " + subfamiliaId;
             }
-        } else {
-            filtroColumna4.append("Subfamilia: todos");
+        }
+
+        String filtroFamiliaStr = "FAMILIA: TODOS";
+        if (familiaId != null) {
+            try {
+                Familia familia = familiaService.findById(familiaId).orElse(null);
+                if (familia != null) {
+                    String nombreCorto = familia.getNombre().length() > 35
+                            ? familia.getNombre().substring(0, 32) + "..."
+                            : familia.getNombre();
+                    filtroFamiliaStr = "FAMILIA: " + nombreCorto.toUpperCase();
+                } else {
+                    filtroFamiliaStr = "FAMILIA ID: " + familiaId;
+                }
+            } catch (Exception e) {
+                filtroFamiliaStr = "FAMILIA ID: " + familiaId;
+            }
         }
 
         // Filtro de Stock (columna 4 del template - separado)
         StringBuilder filtroStock = new StringBuilder();
         if (stockFiltro != null && !stockFiltro.equals("todos")) {
-            filtroStock.append("Stock: ").append(stockFiltro);
+            filtroStock.append("STOCK: ").append(stockFiltro.toUpperCase());
             if (sucursalId != null) {
                 try {
                     Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
@@ -417,7 +406,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                         String nombreSucursal = sucursal.getNombre().length() > 35
                                 ? sucursal.getNombre().substring(0, 32) + "..."
                                 : sucursal.getNombre();
-                        filtroStock.append(" (").append(nombreSucursal).append(")");
+                        filtroStock.append(" (").append(nombreSucursal.toUpperCase()).append(")");
                     } else {
                         filtroStock.append(" (ID: ").append(sucursalId).append(")");
                     }
@@ -426,7 +415,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 }
             }
         } else {
-            filtroStock.append("Stock: todos");
+            filtroStock.append("STOCK: TODOS");
         }
 
         // Crear la lista de DTOs para el reporte
@@ -509,12 +498,15 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             // Usuario actual - usar el parámetro recibido
             parameters.put("usuario", usuario != null ? usuario : "Usuario del Sistema");
 
-            // Filtro de búsqueda y filtros en columnas
+            // Filtro de búsqueda y filtros individuales
             parameters.put("filtroBusqueda", filtroBusqueda.toString());
-            parameters.put("filtroColumna1", filtroColumna1.toString());
-            parameters.put("filtroColumna2", filtroColumna2.toString());
-            parameters.put("filtroColumna3", filtroColumna3.toString());
-            parameters.put("filtroColumna4", filtroColumna4.toString());
+            parameters.put("filtroEstado", filtroEstado);
+            parameters.put("filtroPesable", filtroPesable);
+            parameters.put("filtroMovStock", filtroMovStock);
+            parameters.put("filtroCostoCero", filtroCostoCero);
+            parameters.put("filtroVencimiento", filtroVencimiento);
+            parameters.put("filtroSubfamilia", filtroSubfamiliaStr);
+            parameters.put("filtroFamilia", filtroFamiliaStr);
             parameters.put("filtroStock", filtroStock.toString());
 
             // Total de productos encontrados
@@ -543,7 +535,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public List<LucroPorProductosDto> findLucroPorProductos(String inicio, String fin, List<Long> sucIdList,
-            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId) {
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
         List<LucroPorProductosDto> aggregatedResult = new ArrayList<>();
         Map<Long, Double> totalVentaPacksMap = new HashMap<>();
 
@@ -556,14 +548,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
 
             List<LucroPorProductosDto> lucroPorProductosDtoList = repository.findLucroPorProducto(sucId,
-                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario,
+                    stringToDate(inicio), stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario,
                     filtrarProducto);
             aggregatedResult.addAll(lucroPorProductosDtoList);
 
             // Obtener totalVentaPacks (SUM(vi.precio * vi.cantidad)) para calcular
             // ventaMedia correctamente
             List<Object[]> totalVentaPacksList = repository.findTotalVentaPacksPorProducto(sucId, stringToDate(inicio),
-                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, filtrarUsuario, filtrarProducto);
+                    stringToDate(fin), finalUsuarioIdList, finalProductoIdList, subfamiliaId, familiaId, filtrarUsuario, filtrarProducto);
             for (Object[] row : totalVentaPacksList) {
                 Long productoId = ((Number) row[0]).longValue();
                 Double totalVentaPacks = ((Number) row[1]).doubleValue();
@@ -582,7 +574,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
         // Calcular todos los campos derivados después de la agregación
         for (LucroPorProductosDto dto : result) {
-            // Log para debug
 
             if (dto.getCantidad() != null && dto.getCantidad() > 0) {
                 // Calcular costo unitario
@@ -626,15 +617,6 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                     dto.setPercent(0.0);
                 }
 
-                // Log para debug de cálculos
-                log.info("DEBUG - Cálculos para ID " + dto.getProductoId() +
-                        ": CostoUnitario=" + dto.getCostoUnitario() +
-                        ", VentaMedia=" + dto.getVentaMedia() +
-                        ", Lucro=" + dto.getLucro() +
-                        ", Margen=" + dto.getMargen() +
-                        ", Percent=" + dto.getPercent() +
-                        ", Descuento=" + dto.getTotalDescuento() +
-                        ", Aumento=" + dto.getTotalAumento());
             } else {
                 // Si no hay cantidad, todos los valores son 0
                 dto.setCostoUnitario(0.0);

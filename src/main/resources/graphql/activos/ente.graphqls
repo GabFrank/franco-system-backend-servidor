@@ -1,0 +1,109 @@
+type Ente {
+    id:ID!
+    tipoEnte: TipoEnte
+    referenciaId: ID
+    activo: Boolean
+    creadoEn: Date
+    usuario: Usuario
+    descripcion: String
+    sucursalesConcatenadas: String
+    sucursalIds: [ID]
+    montoTotal: Float
+    montoYaPagado: Float
+    montoPendiente: Float
+    cuotasTotales: Int
+    cuotasPagadas: Int
+    cuotasFaltantes: Int
+    diaVencimiento: Int
+    diasParaVencer: Int
+    estadoCuota: String
+    situacionPago: String
+    monedaSimbolo: String
+    proveedorNombre: String
+}
+
+input EnteInput {
+    id:ID
+    tipoEnte: String
+    referenciaId: ID
+    activo: Boolean
+    usuarioId: ID
+}
+
+type EntePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Ente]
+    getPageable: Pageable
+}
+
+type EnteDashboardSummary {
+    totalBienes: Int
+    pagados: Int
+    enPago: Int
+    cuotasFaltantes: Int
+    totalGastado: Float
+    totalComprometido: Float
+    totalPendiente: Float
+    monedaPrincipal: String
+}
+
+type EnteSearchResponse {
+    page: EntePage
+    summary: EnteDashboardSummary
+}
+
+type EnteSucursal {
+    id: ID!
+    ente: Ente
+    sucursal: Sucursal
+    responsable: Funcionario
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input EnteSucursalInput {
+    id: ID
+    enteId: ID
+    sucursalId: ID
+    responsableId: ID
+    usuarioId: ID
+}
+
+type EnteSucursalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EnteSucursal]
+    getPageable: Pageable
+}
+
+extend type Query {
+    ente(id:ID!):Ente
+    entes(page:Int = 0, size:Int = 10):[Ente]!
+    countEnte: Int
+    entesByTipoEnte(tipoEnte:TipoEnte!):[Ente]
+    enteByReferenciaId(tipoEnte:TipoEnte!, referenciaId:ID!):Ente
+    enteSearchPage(texto: String, sucursalId: ID, page: Int, size: Int): EntePage
+    enteSearchWithSummary(texto: String, sucursalId: ID, tipoEnte: TipoEnte, situacionPago: String, estadoCuota: String, page: Int, size: Int): EnteSearchResponse
+    enteSucursal(id: ID!): EnteSucursal
+    entesSucursalesByEnteId(enteId: ID!): [EnteSucursal]
+    entesSucursalesBySucursalId(sucursalId: ID!): [EnteSucursal]
+    enteSucursalSearchPage(texto: String, sucursalId: ID, tipoEnte: TipoEnte, responsableId: ID, page: Int, size: Int): EnteSucursalPage
+}
+
+extend type Mutation {
+    saveEnte(ente:EnteInput!):Ente!
+    deleteEnte(id:ID!):Boolean!
+    saveEnteSucursal(enteSucursal: EnteSucursalInput!): EnteSucursal!
+    deleteEnteSucursal(id: ID!): Boolean!
+}

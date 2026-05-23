@@ -1,13 +1,13 @@
 package com.franco.dev.service.financiero;
 
-import com.franco.dev.domain.financiero.Banco;
 import com.franco.dev.domain.financiero.TipoGasto;
-import com.franco.dev.repository.financiero.BancoRepository;
 import com.franco.dev.repository.financiero.TipoGastoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
-import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.stereotype.Service;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,9 +44,15 @@ public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository
     public TipoGasto save(TipoGasto entity) {
         if(entity.getId()==null) entity.setCreadoEn(LocalDateTime.now());
         if(entity.getCreadoEn()==null) entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getActivo() == null) entity.setActivo(true);
+        if (entity.getActivoEnSucursales() == null) entity.setActivoEnSucursales(true);
         entity.setDescripcion(entity.getDescripcion().toUpperCase());
         TipoGasto e = super.save(entity);
 //        personaPublisher.publish(p);
         return e;
+    }
+
+    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, Pageable pageable) {
+        return repository.filterTipoGastos(naturaleza, texto, pageable);
     }
 }

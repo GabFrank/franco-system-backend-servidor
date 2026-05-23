@@ -42,6 +42,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     @Autowired
     private final ImageService imageService;
 
+    @Autowired
+    private final UsuarioEmbeddingCacheService embeddingCacheService;
+
     @Override
     public UsuarioRepository getRepository() {
         return repository;
@@ -69,6 +72,14 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
         texto = texto.replace(' ', '%');
         return repository.findbyIdOrPersona(texto.toUpperCase());
+    }
+
+    public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size) {
+        if (texto == null) texto = "";
+        if (page == null) page = 0;
+        if (size == null) size = 15;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return repository.findbyIdOrPersonaPaginated(texto.toUpperCase(), pageable);
     }
 
     public List<Role> getRoles(Long id) {
@@ -165,6 +176,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                     }
                 }
                 personaRepository.save(persona);
+                if (embedding != null && !embedding.isEmpty()) {
+                    embeddingCacheService.refreshUsuario(id);
+                }
             }
         }
         return saved;
@@ -190,69 +204,6 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
     public com.franco.dev.graphql.personas.UsuarioSimilitudResult findUsuarioByEmbedding(List<Double> embeddingInfo,
             List<Integer> excludeIds) {
-        List<Usuario> usuarios = repository.findAllActivos();
-        Usuario bestMatch = null;
-        Double maxSimilarity = -1.0;
-
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-
-        for (Usuario usuario : usuarios) {
-            if (excludeIds != null && !excludeIds.isEmpty() && excludeIds.contains(usuario.getId().intValue())) {
-                continue;
-            }
-
-            if (usuario.getPersona() != null && usuario.getPersona().getEmbedding() != null) {
-                try {
-                    List<Double> storedEmbedding = mapper.readValue(usuario.getPersona().getEmbedding(),
-                            new com.fasterxml.jackson.core.type.TypeReference<List<Double>>() {
-                            });
-
-                    Double similarity = cosineSimilarity(embeddingInfo, storedEmbedding);
-
-                    if (similarity > maxSimilarity) {
-                        maxSimilarity = similarity;
-                        bestMatch = usuario;
-                    }
-                } catch (Exception e) {
-                    System.err.println("Error parsing embedding for user " + usuario.getId() + ": " + e.getMessage());
-                }
-            }
-        }
-
-        if (bestMatch != null) {
-            if (maxSimilarity > 0.75) {
-                System.out
-                        .println("Best match found: " + bestMatch.getNickname() + " with similarity: " + maxSimilarity);
-                return new com.franco.dev.graphql.personas.UsuarioSimilitudResult(bestMatch, maxSimilarity);
-            } else {
-                System.out.println("No match found. Best candidate: " + bestMatch.getNickname() + " with similarity: "
-                        + maxSimilarity + " (Threshold: 0.75)");
-                return null;
-            }
-        }
-
-        System.out.println("No match found. Excluded IDs: " + (excludeIds != null ? excludeIds : "none"));
-        return null;
-    }
-
-    private Double cosineSimilarity(List<Double> v1, List<Double> v2) {
-        if (v1 == null || v2 == null || v1.size() != v2.size()) {
-            return 0.0;
-        }
-
-        double dotProduct = 0.0;
-        double normA = 0.0;
-        double normB = 0.0;
-
-        for (int i = 0; i < v1.size(); i++) {
-            dotProduct += v1.get(i) * v2.get(i);
-            normA += Math.pow(v1.get(i), 2);
-            normB += Math.pow(v2.get(i), 2);
-        }
-
-        if (normA == 0 || normB == 0)
-            return 0.0;
-
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+        return embeddingCacheService.findBestMatch(embeddingInfo, excludeIds);
     }
 }

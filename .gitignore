@@ -27,3 +27,5 @@ src/main/resources/application-user-dev.properties
 bodega-franco-frc-18e8c6ef35cf.json
 src/main/resources/bodega-franco-frc-18e8c6ef35cf.json
 src/main/resources/bodega-franco-frc-firebase-admin.json
+.m2/
+.m2repo/

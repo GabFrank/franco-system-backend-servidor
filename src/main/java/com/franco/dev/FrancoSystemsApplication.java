@@ -51,20 +51,22 @@ public class FrancoSystemsApplication {
 
     /**
      * Global ModelMapper configuration with strict matching strategy.
-     * This prevents fuzzy matching that can cause confusion between similar field names
-     * and ensures predictable, type-safe mapping behavior across the entire application.
+     * This prevents fuzzy matching that can cause confusion between similar field
+     * names
+     * and ensures predictable, type-safe mapping behavior across the entire
+     * application.
      */
     @Bean
     public ModelMapper modelMapper() {
         ModelMapper mapper = new ModelMapper();
-        
+
         // Configure for exact field name matching only
         mapper.getConfiguration()
-            .setFieldMatchingEnabled(true)
-            .setMethodAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
-            .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
-            .setMatchingStrategy(MatchingStrategies.STRICT);
-            
+                .setFieldMatchingEnabled(true)
+                .setMethodAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
+                .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
+                .setMatchingStrategy(MatchingStrategies.STRICT);
+
         return mapper;
     }
 

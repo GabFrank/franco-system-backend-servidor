@@ -1,0 +1,16 @@
+type ConfiguracionSistema {
+    clave: String!
+    valor: String
+    descripcion: String
+    encriptado: Boolean!
+    modificadoEn: Date
+}
+
+extend type Query {
+    configuracionSistema(clave: String!): ConfiguracionSistema
+}
+
+extend type Mutation {
+    setConfiguracionSistema(clave: String!, valor: String): ConfiguracionSistema!
+    testOpenAiConnection: String!
+}

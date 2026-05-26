@@ -8,5 +8,6 @@ public enum TipoReferencia {
     PRODUCTO,
     USUARIO,
     CLIENTE,
-    PROVEEDOR
-} 
+    PROVEEDOR,
+    FACTURA_PROVEEDOR_IMPORTADA
+}

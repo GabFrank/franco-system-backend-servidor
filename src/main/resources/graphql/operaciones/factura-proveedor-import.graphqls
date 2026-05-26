@@ -1,0 +1,35 @@
+type FacturaProveedorImport {
+    id: ID!
+    origen: String!
+    estado: String!
+    nombreArchivo: String
+    imagenMaster: ImagenMaster
+    jsonCrudo: String
+    jsonValidado: String
+    tokensPrompt: Int
+    tokensRespuesta: Int
+    modeloIa: String
+    errorMensaje: String
+    pedidoId: Int
+    usuario: Usuario
+    creadoEn: Date
+    modificadoEn: Date
+}
+
+type FacturaProveedorImportPage {
+    getContent: [FacturaProveedorImport]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+extend type Query {
+    facturaProveedorImport(id: ID!): FacturaProveedorImport
+    facturaProveedorImports(estado: String, page: Int, size: Int): FacturaProveedorImportPage
+}
+
+extend type Mutation {
+    importarFacturaProveedor(archivoBase64: String!, nombreArchivo: String!, mimeType: String!, usuarioId: Int!): FacturaProveedorImport!
+}

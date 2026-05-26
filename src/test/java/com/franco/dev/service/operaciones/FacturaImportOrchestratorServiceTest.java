@@ -32,6 +32,7 @@ class FacturaImportOrchestratorServiceTest {
 
     @Mock PdfConverterService pdfConverter;
     @Mock OpenAiVisionService openAi;
+    @Mock FacturaSifenXmlParserService xmlParser;
     @Mock ImagenMasterService imagenMasterService;
     @Mock FacturaProveedorImportService importService;
     @Mock UsuarioService usuarioService;
@@ -79,9 +80,38 @@ class FacturaImportOrchestratorServiceTest {
     }
 
     @Test
-    void procesarArchivo_xml_lanzaUnsupportedEnHito2() {
-        assertThrows(UnsupportedOperationException.class,
-                () -> orchestrator.procesarArchivo(new byte[]{1, 2}, "f.xml", "application/xml", 1L));
+    void procesarArchivo_xml_llamaParserNoIA_estadoRevisionPendiente() throws Exception {
+        FacturaIaResponse mockResp = new FacturaIaResponse();
+        mockResp.setEmisorRuc("80012345-6");
+        mockResp.setEsLegal(Boolean.TRUE);
+        when(xmlParser.parsearXml(anyString())).thenReturn(mockResp);
+
+        String xml = "<rDE><DE>...</DE></rDE>";
+        FacturaProveedorImport result = orchestrator.procesarArchivo(
+                xml.getBytes(), "factura.xml", "application/xml", 1L);
+
+        assertEquals(EstadoImport.REVISION_PENDIENTE, result.getEstado());
+        assertEquals(OrigenImport.XML_SIFEN, result.getOrigen());
+        assertEquals("XML_SIFEN_PARSER", result.getModeloIa());
+        assertNotNull(result.getJsonValidado());
+        verify(xmlParser).parsearXml(xml);
+        // XML no usa imagen ni IA
+        verify(openAi, never()).analizarImagen(any(), anyString());
+        verifyNoInteractions(imagenMasterService);
+        verifyNoInteractions(pdfConverter);
+    }
+
+    @Test
+    void procesarArchivo_xml_parserReportaError_marcaEstadoError() {
+        FacturaIaResponse errorResp = new FacturaIaResponse();
+        errorResp.setError("NO_ES_DE_SIFEN");
+        when(xmlParser.parsearXml(anyString())).thenReturn(errorResp);
+
+        FacturaProveedorImport result = orchestrator.procesarArchivo(
+                "<otro/>".getBytes(), "x.xml", "text/xml", 1L);
+
+        assertEquals(EstadoImport.ERROR, result.getEstado());
+        assertTrue(result.getErrorMensaje().contains("NO_ES_DE_SIFEN"));
     }
 
     @Test

@@ -43,6 +43,9 @@ public class FacturaImportOrchestratorService {
     private OpenAiVisionService openAi;
 
     @Autowired
+    private FacturaSifenXmlParserService xmlParser;
+
+    @Autowired
     private ImagenMasterService imagenMasterService;
 
     @Autowired
@@ -68,10 +71,6 @@ public class FacturaImportOrchestratorService {
         }
 
         OrigenImport origen = detectarOrigen(mimeType);
-        if (origen == OrigenImport.XML_SIFEN) {
-            throw new UnsupportedOperationException("Rama XML SIFEN sera habilitada en Hito 3");
-        }
-
         Optional<Usuario> usuarioOpt = usuarioId != null ? usuarioService.findById(usuarioId) : Optional.empty();
 
         // 1. Crear registro inicial en estado PROCESANDO
@@ -84,61 +83,89 @@ public class FacturaImportOrchestratorService {
         log.info("FacturaProveedorImport id={} creado en estado PROCESANDO origen={}", imp.getId(), origen);
 
         try {
-            // 2. Convertir PDF a JPEG si corresponde
-            byte[] jpegBytes;
-            String mimeFinal;
-            if (origen == OrigenImport.IA_PDF) {
-                jpegBytes = pdfConverter.primerPaginaComoJpeg(archivoBytes);
-                mimeFinal = "image/jpeg";
-            } else {
-                jpegBytes = archivoBytes;
-                mimeFinal = mimeType;
+            if (origen == OrigenImport.XML_SIFEN) {
+                return procesarXml(imp, archivoBytes);
             }
-
-            // 3. Persistir imagen en ImagenMaster (filesystem + DB)
-            String base64 = "data:" + mimeFinal + ";base64," + Base64.getEncoder().encodeToString(jpegBytes);
-            ImagenMaster imagenMaster = imagenMasterService.saveImage(
-                    base64,
-                    TipoReferencia.FACTURA_PROVEEDOR_IMPORTADA,
-                    imp.getId(),
-                    nombreArchivo != null ? nombreArchivo : ("import-" + imp.getId()),
-                    true,
-                    usuarioId
-            );
-            imp.setImagenMaster(imagenMaster);
-
-            // 4. Llamar a OpenAI Vision
-            OpenAiVisionService.Resultado resultado = openAi.analizarImagen(jpegBytes, mimeFinal);
-
-            // 5. Persistir json crudo + validado + tokens + modelo
-            imp.setJsonCrudo(resultado.rawJson);
-            imp.setJsonValidado(MAPPER.writeValueAsString(resultado.data));
-            imp.setTokensPrompt(resultado.tokensPrompt);
-            imp.setTokensRespuesta(resultado.tokensRespuesta);
-            imp.setModeloIa(resultado.modeloUsado);
-
-            // 6. Validar si la IA reporto error logico
-            FacturaIaResponse data = resultado.data;
-            if (data.getError() != null && !data.getError().isEmpty()) {
-                imp.setEstado(EstadoImport.ERROR);
-                imp.setErrorMensaje("IA reporto: " + data.getError());
-                log.warn("Import id={} - IA reporto error: {}", imp.getId(), data.getError());
-            } else {
-                imp.setEstado(EstadoImport.REVISION_PENDIENTE);
-                log.info("Import id={} - extraccion OK, items={}, tokens={}+{}",
-                        imp.getId(),
-                        data.getItems() != null ? data.getItems().size() : 0,
-                        resultado.tokensPrompt, resultado.tokensRespuesta);
-            }
-
-            return importService.save(imp);
-
+            return procesarIA(imp, archivoBytes, origen, mimeType, nombreArchivo, usuarioId);
         } catch (Exception e) {
             log.error("Fallo procesando import id={}: {}", imp.getId(), e.getMessage(), e);
             imp.setEstado(EstadoImport.ERROR);
             imp.setErrorMensaje(truncar(e.getMessage(), 1000));
             return importService.save(imp);
         }
+    }
+
+    private FacturaProveedorImport procesarXml(FacturaProveedorImport imp, byte[] archivoBytes) throws Exception {
+        String xmlContent = new String(archivoBytes, java.nio.charset.StandardCharsets.UTF_8);
+        FacturaIaResponse data = xmlParser.parsearXml(xmlContent);
+
+        imp.setJsonCrudo("{\"xml\":" + MAPPER.writeValueAsString(xmlContent) + "}");
+        imp.setJsonValidado(MAPPER.writeValueAsString(data));
+        // No hay tokens IA en XML, no hay modelo
+        imp.setModeloIa("XML_SIFEN_PARSER");
+
+        if (data.getError() != null && !data.getError().isEmpty()) {
+            imp.setEstado(EstadoImport.ERROR);
+            imp.setErrorMensaje("Parser XML reporto: " + data.getError());
+            log.warn("Import id={} - XML parser error: {}", imp.getId(), data.getError());
+        } else {
+            imp.setEstado(EstadoImport.REVISION_PENDIENTE);
+            log.info("Import id={} - XML SIFEN parseado, items={}",
+                    imp.getId(), data.getItems() != null ? data.getItems().size() : 0);
+        }
+        return importService.save(imp);
+    }
+
+    private FacturaProveedorImport procesarIA(FacturaProveedorImport imp, byte[] archivoBytes,
+                                              OrigenImport origen, String mimeType,
+                                              String nombreArchivo, Long usuarioId) throws Exception {
+        // Convertir PDF a JPEG si corresponde
+        byte[] jpegBytes;
+        String mimeFinal;
+        if (origen == OrigenImport.IA_PDF) {
+            jpegBytes = pdfConverter.primerPaginaComoJpeg(archivoBytes);
+            mimeFinal = "image/jpeg";
+        } else {
+            jpegBytes = archivoBytes;
+            mimeFinal = mimeType;
+        }
+
+        // Persistir imagen en ImagenMaster (filesystem + DB)
+        String base64 = "data:" + mimeFinal + ";base64," + Base64.getEncoder().encodeToString(jpegBytes);
+        ImagenMaster imagenMaster = imagenMasterService.saveImage(
+                base64,
+                TipoReferencia.FACTURA_PROVEEDOR_IMPORTADA,
+                imp.getId(),
+                nombreArchivo != null ? nombreArchivo : ("import-" + imp.getId()),
+                true,
+                usuarioId
+        );
+        imp.setImagenMaster(imagenMaster);
+
+        // Llamar a OpenAI Vision
+        OpenAiVisionService.Resultado resultado = openAi.analizarImagen(jpegBytes, mimeFinal);
+
+        // Persistir json crudo + validado + tokens + modelo
+        imp.setJsonCrudo(resultado.rawJson);
+        imp.setJsonValidado(MAPPER.writeValueAsString(resultado.data));
+        imp.setTokensPrompt(resultado.tokensPrompt);
+        imp.setTokensRespuesta(resultado.tokensRespuesta);
+        imp.setModeloIa(resultado.modeloUsado);
+
+        // Validar si la IA reporto error logico
+        FacturaIaResponse data = resultado.data;
+        if (data.getError() != null && !data.getError().isEmpty()) {
+            imp.setEstado(EstadoImport.ERROR);
+            imp.setErrorMensaje("IA reporto: " + data.getError());
+            log.warn("Import id={} - IA reporto error: {}", imp.getId(), data.getError());
+        } else {
+            imp.setEstado(EstadoImport.REVISION_PENDIENTE);
+            log.info("Import id={} - extraccion OK, items={}, tokens={}+{}",
+                    imp.getId(),
+                    data.getItems() != null ? data.getItems().size() : 0,
+                    resultado.tokensPrompt, resultado.tokensRespuesta);
+        }
+        return importService.save(imp);
     }
 
     OrigenImport detectarOrigen(String mimeType) {

@@ -290,7 +290,16 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public Producto findByCodigo(String texto) {
-        return repository.findByCodigo(texto);
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        for (String codigo : com.franco.dev.utilitarios.BarcodeSearchUtils.codigosParaBuscar(texto)) {
+            Producto producto = repository.findByCodigo(codigo);
+            if (producto != null) {
+                return producto;
+            }
+        }
+        return null;
     }
 
     public List<Producto> findAllForPdv() {

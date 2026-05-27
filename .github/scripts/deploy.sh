@@ -32,6 +32,13 @@ if [[ ! -f "${RELEASE_DIR}/${JAR_NAME}" ]]; then
   exit 1
 fi
 
+FIREBASE_FILE="bodega-franco-frc-18e8c6ef35cf.json"
+if jar tf "${RELEASE_DIR}/${JAR_NAME}" | grep -q "${FIREBASE_FILE}"; then
+  echo "Firebase credentials found in JAR"
+else
+  echo "WARNING: Firebase credentials not found in JAR (${FIREBASE_FILE}). Push notifications will fail."
+fi
+
 # --- Save current version for rollback ---
 PREVIOUS_VERSION=""
 if [[ -f "${INSTANCE_DIR}/.current-version" ]]; then

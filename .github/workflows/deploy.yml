@@ -85,44 +85,25 @@ jobs:
               | jq -r '.assets[] | select(.name == "frc-central-server.jar") | .url')"
           ls -lh frc-central-server.jar
 
-      - name: Inject Firebase credentials into JAR
-        env:
-          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
-        run: |
-          FIREBASE_FILE="bodega-franco-frc-18e8c6ef35cf.json"
-
-          if [[ -z "${FIREBASE_CREDENTIALS_JSON}" ]]; then
-            echo "WARNING: FIREBASE_CREDENTIALS_JSON secret is not set. Skipping Firebase injection."
-            exit 0
-          fi
-
-          echo "Injecting Firebase credentials into JAR..."
-          printf '%s\n' "${FIREBASE_CREDENTIALS_JSON}" > "/tmp/${FIREBASE_FILE}"
-
-          STAGING_DIR="/tmp/firebase-jar-staging/BOOT-INF/classes"
-          mkdir -p "${STAGING_DIR}"
-          cp "/tmp/${FIREBASE_FILE}" "${STAGING_DIR}/${FIREBASE_FILE}"
-
-          jar uf frc-central-server.jar \
-            -C /tmp/firebase-jar-staging \
-            "BOOT-INF/classes/${FIREBASE_FILE}"
-
-          rm -f "/tmp/${FIREBASE_FILE}"
-          rm -rf /tmp/firebase-jar-staging
-
-          if jar tf frc-central-server.jar | grep -q "${FIREBASE_FILE}"; then
-            echo "Firebase credentials injected successfully."
-          else
-            echo "ERROR: Firebase credentials were not found in JAR after injection."
-            exit 1
-          fi
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Upload Firebase credentials
+        if: ${{ secrets.FIREBASE_CREDENTIALS_JSON != '' }}
+        env:
+          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
+          printf '%s\n' "${FIREBASE_CREDENTIALS_JSON}" > firebase-credentials.json
+          scp -i ~/.ssh/deploy_key \
+            firebase-credentials.json \
+            deploy@${{ secrets.DEPLOY_HOST }}:${FIREBASE_REMOTE_PATH}
+          rm -f firebase-credentials.json
 
       - name: Upload JAR to server
         env:
@@ -146,8 +127,9 @@ jobs:
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
+          FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}'"
+            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}'"
 
       - name: Summary
         if: always()

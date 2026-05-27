@@ -8,8 +8,9 @@ set -euo pipefail
 # Example: ./deploy.sh 3.1.0-alpha.1 alpha
 # ============================================================
 
-VERSION="${1:?Usage: deploy.sh <version> <instance>}"
-INSTANCE="${2:?Usage: deploy.sh <version> <instance>}"
+VERSION="${1:?Usage: deploy.sh <version> <instance> [firebase_json_path]}"
+INSTANCE="${2:?Usage: deploy.sh <version> <instance> [firebase_json_path]}"
+FIREBASE_JSON_SOURCE="${3:-}"
 
 BASE_DIR="/opt/frc-backend-central"
 INSTANCE_DIR="${BASE_DIR}/${INSTANCE}"
@@ -20,6 +21,9 @@ SERVICE_NAME="frc-${INSTANCE}.service"
 HEALTH_URL="http://localhost:$(grep SERVER_PORT "${INSTANCE_DIR}/.env" | cut -d= -f2)/actuator/health"
 HEALTH_TIMEOUT=500
 HEALTH_INTERVAL=5
+FIREBASE_FILE="bodega-franco-frc-18e8c6ef35cf.json"
+FIREBASE_DIR="${INSTANCE_DIR}/secrets"
+FIREBASE_TARGET="${FIREBASE_DIR}/${FIREBASE_FILE}"
 
 # --- Validations ---
 if [[ ! -d "${INSTANCE_DIR}" ]]; then
@@ -32,11 +36,26 @@ if [[ ! -f "${RELEASE_DIR}/${JAR_NAME}" ]]; then
   exit 1
 fi
 
-FIREBASE_FILE="bodega-franco-frc-18e8c6ef35cf.json"
-if jar tf "${RELEASE_DIR}/${JAR_NAME}" | grep -q "${FIREBASE_FILE}"; then
-  echo "Firebase credentials found in JAR"
+if [[ -n "${FIREBASE_JSON_SOURCE}" && -f "${FIREBASE_JSON_SOURCE}" ]]; then
+  echo "Installing Firebase credentials for ${INSTANCE}..."
+  mkdir -p "${FIREBASE_DIR}"
+  cp "${FIREBASE_JSON_SOURCE}" "${FIREBASE_TARGET}"
+  chmod 600 "${FIREBASE_TARGET}"
+  rm -f "${FIREBASE_JSON_SOURCE}"
+  echo "Firebase credentials installed at ${FIREBASE_TARGET}"
 else
-  echo "WARNING: Firebase credentials not found in JAR (${FIREBASE_FILE}). Push notifications will fail."
+  echo "WARNING: Firebase credentials source file not provided. Reusing existing credentials if present."
+fi
+
+if [[ -f "${FIREBASE_TARGET}" ]]; then
+  if grep -q '^APP_FIREBASE_CONFIGURATION_FILE=' "${INSTANCE_DIR}/.env"; then
+    sed -i "s|^APP_FIREBASE_CONFIGURATION_FILE=.*|APP_FIREBASE_CONFIGURATION_FILE=${FIREBASE_TARGET}|" "${INSTANCE_DIR}/.env"
+  else
+    echo "APP_FIREBASE_CONFIGURATION_FILE=${FIREBASE_TARGET}" >> "${INSTANCE_DIR}/.env"
+  fi
+  echo "Firebase config path set in ${INSTANCE_DIR}/.env"
+else
+  echo "WARNING: Firebase credentials not found at ${FIREBASE_TARGET}. Push notifications will fail."
 fi
 
 # --- Save current version for rollback ---

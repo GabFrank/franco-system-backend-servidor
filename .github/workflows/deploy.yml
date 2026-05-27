@@ -93,11 +93,14 @@ jobs:
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Upload Firebase credentials
-        if: ${{ secrets.FIREBASE_CREDENTIALS_JSON != '' }}
         env:
           FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
           VERSION: ${{ steps.resolve.outputs.version }}
         run: |
+          if [[ -z "${FIREBASE_CREDENTIALS_JSON}" ]]; then
+            echo "WARNING: FIREBASE_CREDENTIALS_JSON secret is not set. Skipping Firebase credentials upload."
+            exit 0
+          fi
           FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
           printf '%s\n' "${FIREBASE_CREDENTIALS_JSON}" > firebase-credentials.json
           scp -i ~/.ssh/deploy_key \

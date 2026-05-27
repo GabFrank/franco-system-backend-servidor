@@ -27,6 +27,7 @@ input FacturaLegalItemInput {
     usuarioId: Int
     sucursalId: Int
     productoId: Int
+    presentacionId: Int
 }
 
 #extend type Query {

@@ -4,12 +4,19 @@ import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.enums.TipoConservacion;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
+import com.franco.dev.config.search.ProductoAnalysisConfigurer;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.FullTextField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.Indexed;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.IndexedEmbedded;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.IndexingDependency;
+import org.hibernate.search.mapper.pojo.automaticindexing.ReindexOnUpdate;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -19,6 +26,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
+@Indexed
 @TypeDef(
         name = "tipo_conservacion",
         typeClass = PostgreSQLEnumType.class
@@ -39,7 +47,11 @@ public class Producto implements Identifiable<Long> {
     )
     private Long id;
     private Boolean propagado;
+
+    @FullTextField(analyzer = ProductoAnalysisConfigurer.PRODUCTO_ANALYZER)
     private String descripcion;
+
+    @FullTextField(analyzer = ProductoAnalysisConfigurer.PRODUCTO_ANALYZER)
     private String descripcionFactura;
     private Integer iva;
     private Integer unidadPorCaja;
@@ -56,7 +68,10 @@ public class Producto implements Identifiable<Long> {
     private Integer diasVencimiento;
     private String observacion;
     private String imagenes;
+    @GenericField
     private Boolean isEnvase;
+
+    @GenericField
     private Boolean activo;
     private Boolean lote;
 
@@ -69,6 +84,8 @@ public class Producto implements Identifiable<Long> {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sub_familia_id", nullable = true)
+    @IndexedEmbedded(includePaths = {"id", "familia.id"})
+    @IndexingDependency(reindexOnUpdate = ReindexOnUpdate.SHALLOW)
     private Subfamilia subfamilia;
 
     @ManyToOne(fetch = FetchType.LAZY)

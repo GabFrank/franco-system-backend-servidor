@@ -197,7 +197,13 @@ public class ProductoResolver implements GraphQLResolver<Producto> {
             
             // Obtener presentación en nota
             pc.setPresentacionEnNota(notaItem.getPresentacionEnNota());
-            
+
+            // Moneda y cotización de la nota
+            if (notaItem.getNotaRecepcion() != null) {
+                pc.setMoneda(notaItem.getNotaRecepcion().getMoneda());
+                pc.setCotizacion(notaItem.getNotaRecepcion().getCotizacion());
+            }
+
             pcList.add(pc);
         }
         return pcList;

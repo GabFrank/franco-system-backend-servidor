@@ -9,11 +9,12 @@ HELP.md
 **/.DS_Store
 src/.DS_Store
 tokens/
-### STS ###
+### STS / Eclipse ###
 .apt_generated
 .classpath
 .project
 .factorypath
+.settings/
 .vscode*/
 .classpath
 .factorypath
@@ -26,3 +27,5 @@ src/main/resources/application-user-dev.properties
 bodega-franco-frc-18e8c6ef35cf.json
 src/main/resources/bodega-franco-frc-18e8c6ef35cf.json
 src/main/resources/bodega-franco-frc-firebase-admin.json
+.m2/
+.m2repo/

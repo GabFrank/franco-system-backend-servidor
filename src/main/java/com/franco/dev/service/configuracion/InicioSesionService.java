@@ -36,6 +36,14 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         boolean isNew = entity.getId() == null;
         if (isNew) {
             entity.setCreadoEn(LocalDateTime.now());
+            if (entity.getIdDispositivo() != null && entity.getUsuario() != null) {
+                List<InicioSesion> sesionesPrevias = repository.findByUsuarioIdAndIdDispositivoAndHoraFinIsNull(
+                        entity.getUsuario().getId(), entity.getIdDispositivo());
+                for (InicioSesion previa : sesionesPrevias) {
+                    previa.setHoraFin(LocalDateTime.now());
+                    repository.save(previa);
+                }
+            }
         }
         InicioSesion e = super.save(entity);
 

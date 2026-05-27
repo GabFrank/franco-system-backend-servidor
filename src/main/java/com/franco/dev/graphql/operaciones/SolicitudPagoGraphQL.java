@@ -98,8 +98,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             SolicitudPagoEstado estado,
             String numero,
             String fechaDesde,
-            String fechaHasta
-    ) {
+            String fechaHasta) {
         PageRequest pageRequest = PageRequest.of(page, size);
         Specification<SolicitudPago> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
@@ -147,7 +146,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
-     * Get a single NotaRecepcion eligible for payment by numero and proveedor (independent of pedido).
+     * Get a single NotaRecepcion eligible for payment by numero and proveedor
+     * (independent of pedido).
      * Returns null if none found or already included in a solicitud.
      */
     public NotaRecepcion notaRecepcionDisponibleParaPagoPorNumero(Integer numero, Long proveedorId) {
@@ -155,14 +155,16 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
-     * Get all NotaRecepcion eligible for payment for a proveedor (for desktop dialog searchable select).
+     * Get all NotaRecepcion eligible for payment for a proveedor (for desktop
+     * dialog searchable select).
      */
     public List<NotaRecepcion> notasDisponiblesParaPagoPorProveedor(Long proveedorId) {
         return solicitudPagoService.getNotasDisponiblesParaPagoPorProveedor(proveedorId);
     }
 
     /**
-     * Paginated: notas disponibles para pago por proveedor; filtro en BD por numero (filtroTexto).
+     * Paginated: notas disponibles para pago por proveedor; filtro en BD por numero
+     * (filtroTexto).
      */
     public Page<NotaRecepcion> notasDisponiblesParaPagoPorProveedorPaginated(
             Long proveedorId, Integer page, Integer size, String filtroTexto) {
@@ -187,7 +189,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public SolicitudPago saveSolicitudPago(SolicitudPagoInput input) {
         try {
             Proveedor proveedor = proveedorService.findById(Long.valueOf(input.getProveedorId()))
-                .orElseThrow(() -> new IllegalArgumentException("Proveedor no encontrado: " + input.getProveedorId()));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Proveedor no encontrado: " + input.getProveedorId()));
 
             List<SolicitudPagoDetalleService.DetalleInput> detalleInputs = mapToDetalleInputs(input.getDetalles());
             Moneda moneda = resolveMoneda(input, detalleInputs);
@@ -201,18 +204,18 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             Usuario usuario = null;
             if (input.getUsuarioId() != null) {
                 usuario = usuarioService.findById(Long.valueOf(input.getUsuarioId()))
-                    .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado: " + input.getUsuarioId()));
+                        .orElseThrow(
+                                () -> new IllegalArgumentException("Usuario no encontrado: " + input.getUsuarioId()));
             }
 
             SolicitudPago solicitudGuardada = solicitudPagoService.crearSolicitudPago(
-                proveedor,
-                input.getNotaRecepcionIds(),
-                moneda,
-                formaPago,
-                fechaPagoPropuesta,
-                input.getObservaciones(),
-                usuario
-            );
+                    proveedor,
+                    input.getNotaRecepcionIds(),
+                    moneda,
+                    formaPago,
+                    fechaPagoPropuesta,
+                    input.getObservaciones(),
+                    usuario);
             if (detalleInputs.isEmpty() && formaPago != null) {
                 SolicitudPagoDetalleService.DetalleInput uno = new SolicitudPagoDetalleService.DetalleInput();
                 uno.setMonedaId(moneda.getId());
@@ -221,7 +224,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 uno.setFechaPago(input.getFechaPagoPropuesta());
                 detalleInputs = Collections.singletonList(uno);
             }
-            solicitudPagoDetalleService.sincronizarDetalles(solicitudGuardada.getId(), solicitudGuardada, detalleInputs);
+            solicitudPagoDetalleService.sincronizarDetalles(solicitudGuardada.getId(), solicitudGuardada,
+                    detalleInputs);
             return solicitudGuardada;
 
         } catch (Exception e) {
@@ -239,7 +243,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 throw new IllegalArgumentException("Se requiere id para actualizar");
             }
             SolicitudPago existente = solicitudPagoService.findById(input.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Solicitud de pago no encontrada: " + input.getId()));
+                    .orElseThrow(
+                            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + input.getId()));
             List<SolicitudPagoDetalleService.DetalleInput> detalleInputs = mapToDetalleInputs(input.getDetalles());
             Moneda moneda = resolveMonedaForUpdate(input, detalleInputs, existente.getMoneda());
             FormaPago formaPago = resolveFormaPagoForUpdate(input, detalleInputs, existente.getFormaPago());
@@ -249,14 +254,14 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
             Long formaPagoIdForUpdate = formaPago != null ? formaPago.getId() : null;
             SolicitudPago actualizada = solicitudPagoService.actualizarSolicitudPago(
-                input.getId(),
-                moneda.getId(),
-                formaPagoIdForUpdate,
-                fechaPagoPropuesta,
-                input.getObservaciones(),
-                input.getNotaRecepcionIds()
-            );
-            solicitudPagoDetalleService.sincronizarDetalles(actualizada.getId(), actualizada, detalleInputs != null ? detalleInputs : Collections.emptyList());
+                    input.getId(),
+                    moneda.getId(),
+                    formaPagoIdForUpdate,
+                    fechaPagoPropuesta,
+                    input.getObservaciones(),
+                    input.getNotaRecepcionIds());
+            solicitudPagoDetalleService.sincronizarDetalles(actualizada.getId(), actualizada,
+                    detalleInputs != null ? detalleInputs : Collections.emptyList());
             return solicitudPagoService.findById(actualizada.getId()).orElse(actualizada);
         } catch (Exception e) {
             throw new RuntimeException("Error al actualizar solicitud de pago: " + e.getMessage(), e);
@@ -288,9 +293,11 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     /**
      * Add nota recepcion to solicitud pago
      */
-    public SolicitudPagoNotaRecepcion agregarNotaASolicitudPago(Long solicitudPagoId, Long notaRecepcionId, Double montoIncluido) {
+    public SolicitudPagoNotaRecepcion agregarNotaASolicitudPago(Long solicitudPagoId, Long notaRecepcionId,
+            Double montoIncluido) {
         try {
-            return solicitudPagoNotaRecepcionService.agregarNotaASolicitud(solicitudPagoId, notaRecepcionId, montoIncluido);
+            return solicitudPagoNotaRecepcionService.agregarNotaASolicitud(solicitudPagoId, notaRecepcionId,
+                    montoIncluido);
         } catch (Exception e) {
             throw new RuntimeException("Error al agregar nota a solicitud de pago: " + e.getMessage(), e);
         }
@@ -309,7 +316,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /**
      * Remove a single solicitud pago detalle (forma de pago) by id.
-     * Usado en: Desktop (diálogo create/edit, al confirmar eliminación de forma de pago).
+     * Usado en: Desktop (diálogo create/edit, al confirmar eliminación de forma de
+     * pago).
      */
     public Boolean eliminarSolicitudPagoDetalle(Long id) {
         try {
@@ -324,9 +332,10 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Add a single solicitud pago detalle (forma de pago) to an existing solicitud.
      * Usado en: Desktop (diálogo adicionar forma de pago al confirmar guardado).
      */
-    public SolicitudPagoDetalle agregarSolicitudPagoDetalle(Long solicitudPagoId, SolicitudPagoDetalleInput detalleInput) {
+    public SolicitudPagoDetalle agregarSolicitudPagoDetalle(Long solicitudPagoId,
+            SolicitudPagoDetalleInput detalleInput) {
         SolicitudPago solicitud = solicitudPagoService.findById(solicitudPagoId)
-            .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
+                .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
         SolicitudPagoDetalleService.DetalleInput in = new SolicitudPagoDetalleService.DetalleInput();
         in.setMonedaId(detalleInput.getMonedaId());
         in.setFormaPagoId(detalleInput.getFormaPagoId());
@@ -347,29 +356,40 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public String imprimirSolicitudPagoPDF(Long solicitudPagoId) {
         try {
             SolicitudPago solicitudPago = solicitudPagoService.getRepository()
-                .findByIdWithUsuarioAndMoneda(solicitudPagoId)
-                .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
-            
+                    .findByIdWithUsuarioAndMoneda(solicitudPagoId)
+                    .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
+
             // Obtener información del proveedor
-            String proveedorNombre = solicitudPago.getProveedor() != null && solicitudPago.getProveedor().getPersona() != null
-                ? solicitudPago.getProveedor().getPersona().getNombre() : "";
-            
-            // Detalles (formas de pago): cargar desde servicio para PDF (with moneda/formaPago fetched)
-            List<SolicitudPagoDetalle> detalles = solicitudPagoDetalleService.findBySolicitudPagoIdForPrint(solicitudPagoId);
+            String proveedorNombre = solicitudPago.getProveedor() != null
+                    && solicitudPago.getProveedor().getPersona() != null
+                            ? solicitudPago.getProveedor().getPersona().getNombre()
+                            : "";
+
+            // Detalles (formas de pago): cargar desde servicio para PDF (with
+            // moneda/formaPago fetched)
+            List<SolicitudPagoDetalle> detalles = solicitudPagoDetalleService
+                    .findBySolicitudPagoIdForPrint(solicitudPagoId);
             java.time.format.DateTimeFormatter dateFmtPago = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
             java.time.format.DateTimeFormatter dateFmtShort = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
             List<ImpresionService.SolicitudPagoFormaPagoDetalleDto> detalleFormasPago = new ArrayList<>();
             for (SolicitudPagoDetalle d : detalles) {
                 ImpresionService.SolicitudPagoFormaPagoDetalleDto row = new ImpresionService.SolicitudPagoFormaPagoDetalleDto();
-                row.setMoneda(d.getMoneda() != null && d.getMoneda().getDenominacion() != null ? d.getMoneda().getDenominacion().toUpperCase() : "—");
-                row.setMonedaSimbolo(d.getMoneda() != null && d.getMoneda().getSimbolo() != null ? d.getMoneda().getSimbolo() : "");
-                row.setFormaPago(d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null ? d.getFormaPago().getDescripcion() : "—");
+                row.setMoneda(d.getMoneda() != null && d.getMoneda().getDenominacion() != null
+                        ? d.getMoneda().getDenominacion().toUpperCase()
+                        : "—");
+                row.setMonedaSimbolo(
+                        d.getMoneda() != null && d.getMoneda().getSimbolo() != null ? d.getMoneda().getSimbolo() : "");
+                row.setFormaPago(d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null
+                        ? d.getFormaPago().getDescripcion()
+                        : "—");
                 row.setValor(d.getValor() != null ? d.getValor() : 0.0);
                 row.setFechaPago(d.getFechaPago() != null ? d.getFechaPago().format(dateFmtPago) : "—");
                 boolean esCheque = d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null
-                    && d.getFormaPago().getDescripcion().toUpperCase().contains("CHEQUE");
+                        && d.getFormaPago().getDescripcion().toUpperCase().contains("CHEQUE");
                 row.setEsCheque(esCheque);
-                row.setFechaEmisionCheque(esCheque && d.getFechaEmisionCheque() != null ? d.getFechaEmisionCheque().format(dateFmtShort) : "");
+                row.setFechaEmisionCheque(
+                        esCheque && d.getFechaEmisionCheque() != null ? d.getFechaEmisionCheque().format(dateFmtShort)
+                                : "");
                 if (esCheque) {
                     row.setNominal(Boolean.TRUE.equals(d.getNominal()) ? "Sí" : "No");
                     row.setDiferido(Boolean.TRUE.equals(d.getDiferido()) ? "Sí" : "No");
@@ -381,7 +401,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
 
             // Notas con NotaRecepcion cargada (para PDF y para numerosFactura/valorTotal)
-            List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService.getNotasDeSolicitudWithNotaRecepcion(solicitudPagoId);
+            List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService
+                    .getNotasDeSolicitudWithNotaRecepcion(solicitudPagoId);
             String numerosFactura = "";
             Double valorTotal = solicitudPago.getMontoTotal() != null ? solicitudPago.getMontoTotal() : 0.0;
             java.util.List<ImpresionService.SolicitudPagoNotaRowDto> notasRows = new java.util.ArrayList<>();
@@ -389,12 +410,14 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 valorTotal = 0.0;
                 java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
                 for (SolicitudPagoNotaRecepcion spnr : solicitudNotas) {
-                    if (spnr == null) continue;
+                    if (spnr == null)
+                        continue;
                     String nro = "?";
                     String fechaStr = "---";
                     if (spnr.getNotaRecepcion() != null) {
                         nro = spnr.getNotaRecepcion().getNumero() != null
-                            ? String.valueOf(spnr.getNotaRecepcion().getNumero()) : "?";
+                                ? String.valueOf(spnr.getNotaRecepcion().getNumero())
+                                : "?";
                         if (spnr.getNotaRecepcion().getFecha() != null) {
                             fechaStr = spnr.getNotaRecepcion().getFecha().toLocalDate().format(dateFmt);
                         }
@@ -403,17 +426,18 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     valorTotal += monto;
                     String montoStr;
                     try {
-                        montoStr = java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format((long) Math.round(monto));
+                        montoStr = java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN)
+                                .format((long) Math.round(monto));
                     } catch (Exception ignored) {
                         montoStr = String.valueOf((int) Math.round(monto));
                     }
                     notasRows.add(new ImpresionService.SolicitudPagoNotaRowDto(nro, fechaStr, montoStr));
                 }
                 numerosFactura = solicitudNotas.stream()
-                    .filter(spnr -> spnr.getNotaRecepcion() != null && spnr.getNotaRecepcion().getNumero() != null)
-                    .map(spnr -> String.valueOf(spnr.getNotaRecepcion().getNumero()))
-                    .distinct()
-                    .collect(Collectors.joining(", "));
+                        .filter(spnr -> spnr.getNotaRecepcion() != null && spnr.getNotaRecepcion().getNumero() != null)
+                        .map(spnr -> String.valueOf(spnr.getNotaRecepcion().getNumero()))
+                        .distinct()
+                        .collect(Collectors.joining(", "));
             } else {
                 if (SolicitudPagoEstado.CANCELADO.equals(solicitudPago.getEstado())) {
                     notasRows.add(new ImpresionService.SolicitudPagoNotaRowDto("—", "—", "CANCELADA - sin notas"));
@@ -423,22 +447,25 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 numerosFactura = "---";
             }
 
-            String observaciones = (solicitudPago.getObservaciones() != null && !solicitudPago.getObservaciones().trim().isEmpty())
-                ? solicitudPago.getObservaciones().trim().toUpperCase() : "";
+            String observaciones = (solicitudPago.getObservaciones() != null
+                    && !solicitudPago.getObservaciones().trim().isEmpty())
+                            ? solicitudPago.getObservaciones().trim().toUpperCase()
+                            : "";
 
-            log.info("[imprimirSolicitudPagoPDF] solicitudPagoId={} | proveedorNombre={} | numerosFactura={} | valorTotal={} | detalleFormasPago.size()={} | notasRows.size()={}",
-                solicitudPagoId, proveedorNombre, numerosFactura, valorTotal, detalleFormasPago.size(), notasRows.size());
+            log.info(
+                    "[imprimirSolicitudPagoPDF] solicitudPagoId={} | proveedorNombre={} | numerosFactura={} | valorTotal={} | detalleFormasPago.size()={} | notasRows.size()={}",
+                    solicitudPagoId, proveedorNombre, numerosFactura, valorTotal, detalleFormasPago.size(),
+                    notasRows.size());
 
             return impresionService.imprimirSolicitudPagoPDF(
-                solicitudPago,
-                proveedorNombre,
-                observaciones,
-                numerosFactura,
-                valorTotal,
-                notasRows,
-                detalleFormasPago
-            );
-            
+                    solicitudPago,
+                    proveedorNombre,
+                    observaciones,
+                    numerosFactura,
+                    valorTotal,
+                    notasRows,
+                    detalleFormasPago);
+
         } catch (Exception e) {
             throw new RuntimeException("Error al imprimir solicitud de pago: " + e.getMessage(), e);
         }
@@ -451,54 +478,68 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * - Desktop: Sí (lista y dashboard de solicitudes de pago)
      * - Mobile: No
      */
-    public Boolean imprimirSolicitudPagoTicket(java.lang.Number solicitudPagoId, String printerName, DataFetchingEnvironment env) {
+    public Boolean imprimirSolicitudPagoTicket(java.lang.Number solicitudPagoId, String printerName,
+            DataFetchingEnvironment env) {
         try {
             Long id = solicitudPagoId != null ? solicitudPagoId.longValue() : null;
             if (id == null) {
                 throw new RuntimeException("solicitudPagoId es requerido");
             }
             SolicitudPago solicitudPago = solicitudPagoService.getRepository()
-                .findByIdWithUsuarioAndMoneda(id)
-                .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
+                    .findByIdWithUsuarioAndMoneda(id)
+                    .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
 
-            String proveedorNombre = solicitudPago.getProveedor() != null && solicitudPago.getProveedor().getPersona() != null
-                ? solicitudPago.getProveedor().getPersona().getNombre() : "";
+            String proveedorNombre = solicitudPago.getProveedor() != null
+                    && solicitudPago.getProveedor().getPersona() != null
+                            ? solicitudPago.getProveedor().getPersona().getNombre()
+                            : "";
 
             List<SolicitudPagoDetalle> detallesTicket = solicitudPagoDetalleService.findBySolicitudPagoIdForPrint(id);
             java.time.format.DateTimeFormatter dateFmtTicket = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
-            String monedaSimboloPrincipal = solicitudPago.getMoneda() != null && solicitudPago.getMoneda().getSimbolo() != null
-                ? solicitudPago.getMoneda().getSimbolo() : "";
+            String monedaSimboloPrincipal = solicitudPago.getMoneda() != null
+                    && solicitudPago.getMoneda().getSimbolo() != null
+                            ? solicitudPago.getMoneda().getSimbolo()
+                            : "";
 
-            // Formas de pago: FormaPagoTicketDto (formaPago, fecha, valorFormateado = simbolo + valor)
+            // Formas de pago: FormaPagoTicketDto (formaPago, fecha, valorFormateado =
+            // simbolo + valor)
             java.util.List<ImpresionService.FormaPagoTicketDto> formasPago = new java.util.ArrayList<>();
             for (SolicitudPagoDetalle d : detallesTicket) {
-                String fp = d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null ? d.getFormaPago().getDescripcion() : "—";
+                String fp = d.getFormaPago() != null && d.getFormaPago().getDescripcion() != null
+                        ? d.getFormaPago().getDescripcion()
+                        : "—";
                 String fe = d.getFechaPago() != null ? d.getFechaPago().format(dateFmtTicket) : "—";
-                String simbolo = d.getMoneda() != null && d.getMoneda().getSimbolo() != null ? d.getMoneda().getSimbolo() : "";
+                String simbolo = d.getMoneda() != null && d.getMoneda().getSimbolo() != null
+                        ? d.getMoneda().getSimbolo()
+                        : "";
                 Double val = d.getValor() != null ? d.getValor() : 0.0;
-                String valorFormateado = (simbolo.isEmpty() ? "" : simbolo + " ") + java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(val);
+                String valorFormateado = (simbolo.isEmpty() ? "" : simbolo + " ")
+                        + java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(val);
                 formasPago.add(new ImpresionService.FormaPagoTicketDto(fp, fe, valorFormateado));
             }
 
             // Notas: NotaTicketDto (numero, fecha, valorFormateado = simbolo + valor)
-            List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService.getNotasDeSolicitudWithNotaRecepcion(id);
+            List<SolicitudPagoNotaRecepcion> solicitudNotas = solicitudPagoNotaRecepcionService
+                    .getNotasDeSolicitudWithNotaRecepcion(id);
             java.util.List<ImpresionService.NotaTicketDto> notas = new java.util.ArrayList<>();
             java.time.format.DateTimeFormatter dateFmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yy");
             if (!solicitudNotas.isEmpty()) {
                 for (SolicitudPagoNotaRecepcion spnr : solicitudNotas) {
-                    if (spnr == null) continue;
+                    if (spnr == null)
+                        continue;
                     String nro = "?";
                     String fechaStr = "---";
                     if (spnr.getNotaRecepcion() != null) {
                         nro = spnr.getNotaRecepcion().getNumero() != null
-                            ? String.valueOf(spnr.getNotaRecepcion().getNumero()) : "?";
+                                ? String.valueOf(spnr.getNotaRecepcion().getNumero())
+                                : "?";
                         if (spnr.getNotaRecepcion().getFecha() != null) {
                             fechaStr = spnr.getNotaRecepcion().getFecha().toLocalDate().format(dateFmt);
                         }
                     }
                     Double monto = spnr.getMontoIncluido() != null ? spnr.getMontoIncluido() : 0.0;
                     String valorFormateado = (monedaSimboloPrincipal.isEmpty() ? "" : monedaSimboloPrincipal + " ")
-                        + java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(monto);
+                            + java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(monto);
                     notas.add(new ImpresionService.NotaTicketDto(nro, fechaStr, valorFormateado));
                 }
             } else if (SolicitudPagoEstado.CANCELADO.equals(solicitudPago.getEstado())) {
@@ -507,7 +548,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
             String usuario = "";
             if (solicitudPago.getUsuario() != null) {
-                if (solicitudPago.getUsuario().getPersona() != null && solicitudPago.getUsuario().getPersona().getNombre() != null) {
+                if (solicitudPago.getUsuario().getPersona() != null
+                        && solicitudPago.getUsuario().getPersona().getNombre() != null) {
                     usuario = solicitudPago.getUsuario().getPersona().getNombre();
                 } else if (solicitudPago.getUsuario().getNickname() != null) {
                     usuario = solicitudPago.getUsuario().getNickname();
@@ -515,8 +557,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             }
 
             impresionService.printSolicitudPagoTicket(
-                solicitudPago, proveedorNombre, usuario, printerName, notas, formasPago
-            );
+                    solicitudPago, proveedorNombre, usuario, printerName, notas, formasPago);
             return true;
         } catch (Exception e) {
             throw new RuntimeException("Error al imprimir ticket de solicitud de pago: " + e.getMessage(), e);
@@ -541,48 +582,114 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         private List<SolicitudPagoDetalleInput> detalles;
 
         // Getters and setters
-        public Long getId() { return id; }
-        public void setId(Long id) { this.id = id; }
+        public Long getId() {
+            return id;
+        }
 
-        public Integer getProveedorId() { return proveedorId; }
-        public void setProveedorId(Integer proveedorId) { this.proveedorId = proveedorId; }
+        public void setId(Long id) {
+            this.id = id;
+        }
 
-        public String getNumeroSolicitud() { return numeroSolicitud; }
-        public void setNumeroSolicitud(String numeroSolicitud) { this.numeroSolicitud = numeroSolicitud; }
+        public Integer getProveedorId() {
+            return proveedorId;
+        }
 
-        public String getFechaSolicitud() { return fechaSolicitud; }
-        public void setFechaSolicitud(String fechaSolicitud) { this.fechaSolicitud = fechaSolicitud; }
+        public void setProveedorId(Integer proveedorId) {
+            this.proveedorId = proveedorId;
+        }
 
-        public String getFechaPagoPropuesta() { return fechaPagoPropuesta; }
-        public void setFechaPagoPropuesta(String fechaPagoPropuesta) { this.fechaPagoPropuesta = fechaPagoPropuesta; }
+        public String getNumeroSolicitud() {
+            return numeroSolicitud;
+        }
 
-        public Double getMontoTotal() { return montoTotal; }
-        public void setMontoTotal(Double montoTotal) { this.montoTotal = montoTotal; }
+        public void setNumeroSolicitud(String numeroSolicitud) {
+            this.numeroSolicitud = numeroSolicitud;
+        }
 
-        public Integer getMonedaId() { return monedaId; }
-        public void setMonedaId(Integer monedaId) { this.monedaId = monedaId; }
+        public String getFechaSolicitud() {
+            return fechaSolicitud;
+        }
 
-        public Integer getFormaPagoId() { return formaPagoId; }
-        public void setFormaPagoId(Integer formaPagoId) { this.formaPagoId = formaPagoId; }
+        public void setFechaSolicitud(String fechaSolicitud) {
+            this.fechaSolicitud = fechaSolicitud;
+        }
 
-        public SolicitudPagoEstado getEstado() { return estado; }
-        public void setEstado(SolicitudPagoEstado estado) { this.estado = estado; }
+        public String getFechaPagoPropuesta() {
+            return fechaPagoPropuesta;
+        }
 
-        public String getObservaciones() { return observaciones; }
-        public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
+        public void setFechaPagoPropuesta(String fechaPagoPropuesta) {
+            this.fechaPagoPropuesta = fechaPagoPropuesta;
+        }
 
-        public List<Long> getNotaRecepcionIds() { return notaRecepcionIds; }
-        public void setNotaRecepcionIds(List<Long> notaRecepcionIds) { this.notaRecepcionIds = notaRecepcionIds; }
+        public Double getMontoTotal() {
+            return montoTotal;
+        }
 
-        public List<SolicitudPagoDetalleInput> getDetalles() { return detalles; }
-        public void setDetalles(List<SolicitudPagoDetalleInput> detalles) { this.detalles = detalles; }
-        
-        public Long getUsuarioId() { return usuarioId; }
-        public void setUsuarioId(Long usuarioId) { this.usuarioId = usuarioId; }
+        public void setMontoTotal(Double montoTotal) {
+            this.montoTotal = montoTotal;
+        }
+
+        public Integer getMonedaId() {
+            return monedaId;
+        }
+
+        public void setMonedaId(Integer monedaId) {
+            this.monedaId = monedaId;
+        }
+
+        public Integer getFormaPagoId() {
+            return formaPagoId;
+        }
+
+        public void setFormaPagoId(Integer formaPagoId) {
+            this.formaPagoId = formaPagoId;
+        }
+
+        public SolicitudPagoEstado getEstado() {
+            return estado;
+        }
+
+        public void setEstado(SolicitudPagoEstado estado) {
+            this.estado = estado;
+        }
+
+        public String getObservaciones() {
+            return observaciones;
+        }
+
+        public void setObservaciones(String observaciones) {
+            this.observaciones = observaciones;
+        }
+
+        public List<Long> getNotaRecepcionIds() {
+            return notaRecepcionIds;
+        }
+
+        public void setNotaRecepcionIds(List<Long> notaRecepcionIds) {
+            this.notaRecepcionIds = notaRecepcionIds;
+        }
+
+        public List<SolicitudPagoDetalleInput> getDetalles() {
+            return detalles;
+        }
+
+        public void setDetalles(List<SolicitudPagoDetalleInput> detalles) {
+            this.detalles = detalles;
+        }
+
+        public Long getUsuarioId() {
+            return usuarioId;
+        }
+
+        public void setUsuarioId(Long usuarioId) {
+            this.usuarioId = usuarioId;
+        }
     }
 
     private List<SolicitudPagoDetalleService.DetalleInput> mapToDetalleInputs(List<SolicitudPagoDetalleInput> list) {
-        if (list == null || list.isEmpty()) return new ArrayList<>();
+        if (list == null || list.isEmpty())
+            return new ArrayList<>();
         List<SolicitudPagoDetalleService.DetalleInput> out = new ArrayList<>();
         for (SolicitudPagoDetalleInput in : list) {
             SolicitudPagoDetalleService.DetalleInput d = new SolicitudPagoDetalleService.DetalleInput();
@@ -606,16 +713,18 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Resolves Moneda from input, first detalle, or default (GUARANI).
      * Usado en: save/update cuando monedaId ya no va en cabecera (va en detalle).
      */
-    private Moneda resolveMoneda(SolicitudPagoInput input, List<SolicitudPagoDetalleService.DetalleInput> detalleInputs) {
+    private Moneda resolveMoneda(SolicitudPagoInput input,
+            List<SolicitudPagoDetalleService.DetalleInput> detalleInputs) {
         if (input.getMonedaId() != null) {
             return monedaService.findById(Long.valueOf(input.getMonedaId()))
-                .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada: " + input.getMonedaId()));
+                    .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada: " + input.getMonedaId()));
         }
         if (detalleInputs != null && !detalleInputs.isEmpty()) {
             SolicitudPagoDetalleService.DetalleInput first = detalleInputs.get(0);
             if (first.getMonedaId() != null) {
                 return monedaService.findById(Long.valueOf(first.getMonedaId()))
-                    .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada en detalle: " + first.getMonedaId()));
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Moneda no encontrada en detalle: " + first.getMonedaId()));
             }
         }
         Moneda defaultMoneda = monedaService.findByDescripcion("GUARANI");
@@ -626,9 +735,11 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
-     * Resolves FormaPago from input or first detalle. May return null (cabecera acepta formaPago null).
+     * Resolves FormaPago from input or first detalle. May return null (cabecera
+     * acepta formaPago null).
      */
-    private FormaPago resolveFormaPago(SolicitudPagoInput input, List<SolicitudPagoDetalleService.DetalleInput> detalleInputs) {
+    private FormaPago resolveFormaPago(SolicitudPagoInput input,
+            List<SolicitudPagoDetalleService.DetalleInput> detalleInputs) {
         final Long formaPagoId;
         if (input.getFormaPagoId() != null) {
             formaPagoId = Long.valueOf(input.getFormaPagoId());
@@ -637,20 +748,21 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         } else {
             formaPagoId = null;
         }
-        if (formaPagoId == null) return null;
+        if (formaPagoId == null)
+            return null;
         return formaPagoService.findById(formaPagoId)
-            .orElseThrow(() -> new IllegalArgumentException("Forma de pago no encontrada: " + formaPagoId));
+                .orElseThrow(() -> new IllegalArgumentException("Forma de pago no encontrada: " + formaPagoId));
     }
 
     private Moneda resolveMonedaForUpdate(SolicitudPagoInput input,
             List<SolicitudPagoDetalleService.DetalleInput> detalleInputs, Moneda existingMoneda) {
         if (input.getMonedaId() != null) {
             return monedaService.findById(Long.valueOf(input.getMonedaId()))
-                .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada: " + input.getMonedaId()));
+                    .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada: " + input.getMonedaId()));
         }
         if (detalleInputs != null && !detalleInputs.isEmpty() && detalleInputs.get(0).getMonedaId() != null) {
             return monedaService.findById(Long.valueOf(detalleInputs.get(0).getMonedaId()))
-                .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada en detalle"));
+                    .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada en detalle"));
         }
         return existingMoneda != null ? existingMoneda : resolveMoneda(input, detalleInputs);
     }

@@ -6,6 +6,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.IndexedEmbedded;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.IndexingDependency;
+import org.hibernate.search.mapper.pojo.automaticindexing.ReindexOnUpdate;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -29,6 +33,7 @@ public class Subfamilia implements Identifiable<Long> {
             generator = "assigned-identity",
             strategy = GenerationType.IDENTITY
     )
+    @GenericField
     private Long id;
     private String nombre;
     private String descripcion;
@@ -40,6 +45,8 @@ public class Subfamilia implements Identifiable<Long> {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "familia_id", nullable = false)
+    @IndexedEmbedded(includePaths = {"id"})
+    @IndexingDependency(reindexOnUpdate = ReindexOnUpdate.SHALLOW)
     private Familia familia;
 
     @ManyToOne(fetch = FetchType.LAZY)

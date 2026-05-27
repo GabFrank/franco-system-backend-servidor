@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.GenericField;
 
 import javax.persistence.*;
 import java.io.Serializable;
@@ -31,6 +32,7 @@ public class Familia implements Identifiable<Long> {
             generator = "assigned-identity",
             strategy = GenerationType.IDENTITY
     )
+    @GenericField
     private Long id;
     private String nombre;
     private String descripcion;

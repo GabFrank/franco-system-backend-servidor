@@ -36,6 +36,18 @@ extend type Query {
     isUserFaceAuth(id:ID!):Int
     usuariosActivos:[Usuario]
     usuarioPorEmbedding(embedding: [Float], excludeIds: [Int]): UsuarioSimilitud
+    usuarioSearchPaginated(texto: String, page: Int, size: Int): UsuarioPage
+}
+
+type UsuarioPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Usuario]
 }
 
 extend type Mutation {

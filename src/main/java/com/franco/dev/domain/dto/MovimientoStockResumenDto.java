@@ -3,9 +3,7 @@ package com.franco.dev.domain.dto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Producto;
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,9 +19,8 @@ public class MovimientoStockResumenDto {
     private List<TipoMovimiento> tipoMovimientoList;
     private Usuario usuario;
 
-    public MovimientoStockResumenDto(Double stockPorRangoFecha){
+    public MovimientoStockResumenDto(Double stockPorRangoFecha) {
         this.stockPorRangoFecha = stockPorRangoFecha;
     }
-
 
 }

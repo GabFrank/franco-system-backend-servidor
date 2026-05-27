@@ -24,6 +24,7 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
 
     boolean existsByUsuarioIdAndIdDispositivo(Long usuarioId, String idDispositivo);
     boolean existsByUsuarioIdAndIdDispositivoAndHoraFinIsNull(Long usuarioId, String idDispositivo);
+    List<InicioSesion> findByUsuarioIdAndIdDispositivoAndHoraFinIsNull(Long usuarioId, String idDispositivo);
     Optional<InicioSesion> findFirstByIdDispositivoAndUsuarioIsNotNullOrderByIdAsc(String idDispositivo);
 
     @org.springframework.data.jpa.repository.Modifying
@@ -31,13 +32,13 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
     void clearTokenByToken(@org.springframework.data.repository.query.Param("token") String token);
 
     @org.springframework.data.jpa.repository.Query("SELECT s FROM InicioSesion s WHERE s.usuario.id IN :usuarioIds " +
-            "AND s.token IS NOT NULL AND s.token != '' " +
+            "AND s.token IS NOT NULL AND s.token != '' AND s.horaFin IS NULL " +
             "ORDER BY s.id DESC")
     List<InicioSesion> findByUsuarioIdInWithValidTokens(
             @org.springframework.data.repository.query.Param("usuarioIds") Collection<Long> usuarioIds);
 
     @org.springframework.data.jpa.repository.Query("SELECT s FROM InicioSesion s WHERE " +
-            "s.token IS NOT NULL AND s.token != '' AND s.usuario IS NOT NULL " +
+            "s.token IS NOT NULL AND s.token != '' AND s.usuario IS NOT NULL AND s.horaFin IS NULL " +
             "ORDER BY s.id DESC")
     List<InicioSesion> findAllWithValidTokens();
 }

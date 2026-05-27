@@ -41,6 +41,43 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
         return repository.findByMarcacionEntradaId(id);
     }
 
+    public Optional<Jornada> findIncompletaSinSalidaNocturnaParaSalida(Long usuarioId, java.time.LocalDate fechaSalida) {
+        List<Jornada> jornadas = repository.findIncompletasSinSalidaNocturnasByUsuarioId(usuarioId);
+        if (jornadas == null || jornadas.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<Jornada> delMismoDia = jornadas.stream()
+                .filter(j -> j.getFecha().equals(fechaSalida))
+                .findFirst();
+        if (delMismoDia.isPresent()) {
+            return delMismoDia;
+        }
+        return jornadas.stream()
+                .filter(j -> j.getFecha().isBefore(fechaSalida))
+                .findFirst();
+    }
+
+    /**
+     * Jornada del día con entrada y sin salida definitiva, cualquier sucursal (p. ej. cloud con sucursal 0).
+     */
+    public Optional<Jornada> findJornadaAbiertaConEntradaSinSalida(Long usuarioId, java.time.LocalDate fecha) {
+        List<Jornada> jornadas = repository.findAbiertasConEntradaSinSalidaByUsuarioIdAndFecha(
+                usuarioId, fecha.toString());
+        if (jornadas == null || jornadas.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(jornadas.get(0));
+    }
+
+    public Optional<Jornada> findJornadaAbiertaSinEntrada(Long usuarioId, java.time.LocalDate fecha) {
+        List<Jornada> jornadas = repository.findAbiertasSinEntradaByUsuarioIdAndFecha(
+                usuarioId, fecha.toString());
+        if (jornadas == null || jornadas.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(jornadas.get(0));
+    }
+
     public Jornada ajustarA8Horas(Long id, Long sucursalId, String observacion) {
         Optional<Jornada> optionalJornada = repository.findById(new EmbebedPrimaryKey(id, sucursalId));
         if (optionalJornada.isPresent()) {

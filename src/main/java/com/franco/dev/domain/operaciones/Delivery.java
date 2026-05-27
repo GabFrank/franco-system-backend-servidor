@@ -1,6 +1,7 @@
 package com.franco.dev.domain.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.general.Barrio;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
@@ -25,74 +26,69 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Entity
 @Table(name = "delivery", schema = "operaciones")
-@TypeDef(
-        name = "delivery_estado",
-        typeClass = PostgreSQLEnumType.class
-)
+@TypeDef(name = "delivery_estado", typeClass = PostgreSQLEnumType.class)
 @IdClass(EmbebedPrimaryKey.class)
 public class Delivery implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+        private static final long serialVersionUID = 1L;
 
-    @Id
-    private Long id;
+        @Id
+        private Long id;
 
-    @Id
-    @Column(name = "sucursal_id", insertable = false, updatable = false)
-    private Long sucursalId;
+        @Id
+        @Column(name = "sucursal_id", insertable = false, updatable = false)
+        private Long sucursalId;
 
-    @Column(name = "valor_en_gs")
-    private Double valor;
+        @Column(name = "valor_en_gs")
+        private Double valor;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "entregador_id", nullable = true)
-    private Funcionario entregador;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "entregador_id", nullable = true)
+        private Funcionario entregador;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "barrio_id", nullable = true)
-    private Barrio barrio;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "barrio_id", nullable = true)
+        private Barrio barrio;
 
-    @Column(name = "vehiculo_id")
-    private Integer vehiculo;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "vehiculo_id", nullable = true)
+        private Vehiculo vehiculo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "precio_delivery_id", nullable = true)
-    private PrecioDelivery precio;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "precio_delivery_id", nullable = true)
+        private PrecioDelivery precio;
 
-    private String telefono;
+        private String telefono;
 
-    private String direccion;
+        private String direccion;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = true)
-    private Cliente cliente;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "cliente_id", nullable = true)
+        private Cliente cliente;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "forma_pago_id", nullable = true)
-    private FormaPago formaPago;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "forma_pago_id", nullable = true)
+        private FormaPago formaPago;
 
-    @Column(name = "creado_en")
-    private LocalDateTime creadoEn;
+        @Column(name = "creado_en")
+        private LocalDateTime creadoEn;
 
-    @Column(name = "fecha_concluido")
-    private LocalDateTime fechaConcluido;
+        @Column(name = "fecha_concluido")
+        private LocalDateTime fechaConcluido;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usuario_id", nullable = true)
-    private Usuario usuario;
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "usuario_id", nullable = true)
+        private Usuario usuario;
 
-    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
-    @JoinColumnsOrFormulas(value = {
-            @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
-            @JoinColumnOrFormula(column = @JoinColumn(name = "vuelto_id", referencedColumnName = "id"))
-    })
-    private Vuelto vuelto;
+        @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.PERSIST)
+        @JoinColumnsOrFormulas(value = {
+                        @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
+                        @JoinColumnOrFormula(column = @JoinColumn(name = "vuelto_id", referencedColumnName = "id"))
+        })
+        private Vuelto vuelto;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "estado")
-    @Type(type = "delivery_estado")
-    private DeliveryEstado estado;
+        @Enumerated(EnumType.STRING)
+        @Column(name = "estado")
+        @Type(type = "delivery_estado")
+        private DeliveryEstado estado;
 }
-
-
-

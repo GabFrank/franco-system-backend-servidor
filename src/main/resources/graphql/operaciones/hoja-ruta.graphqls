@@ -1,0 +1,40 @@
+type HojaRuta {
+    id: ID!
+    vehiculo: Vehiculo
+    chofer: Persona
+    fechaSalida: Date
+    fechaLlegada: Date
+    kmSalida: Float
+    kmLlegada: Float
+    estado: String
+    creadoEn: Date
+    acompanantes: [Persona]
+}
+
+input HojaRutaInput {
+    id: ID
+    vehiculoId: Int
+    choferId: Int
+    fechaSalida: Date
+    fechaLlegada: Date
+    kmSalida: Float
+    kmLlegada: Float
+    estado: String
+    acompanantesIds: [Int]
+}
+
+extend type Query {
+    hojaRuta(id: ID!): HojaRuta
+    hojaRutaList(page: Int = 0, size: Int = 10): [HojaRuta]!
+    hojaRutaPorVehiculo(vehiculoId: ID!, page: Int = 0, size: Int = 10): [HojaRuta]
+    hojaRutaPorChofer(choferId: ID!, page: Int = 0, size: Int = 10): [HojaRuta]
+    hojaRutaActivaPorVehiculo(vehiculoId: ID!): HojaRuta
+    hojasRutaConEntregas(page: Int = 0, size: Int = 20): [HojaRuta]!
+    transferenciasPorHojaRuta(hojaRutaId: ID!, page: Int = 0, size: Int = 20): [Transferencia]!
+    hojaRutaPorFecha(inicio: String, fin: String): [HojaRuta]
+}
+
+extend type Mutation {
+    saveHojaRuta(input: HojaRutaInput!): HojaRuta!
+    deleteHojaRuta(id: ID!): Boolean!
+}

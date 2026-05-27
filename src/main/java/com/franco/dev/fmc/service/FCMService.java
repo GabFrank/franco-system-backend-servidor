@@ -4,6 +4,7 @@ import com.franco.dev.fmc.model.DeliveryResult;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.AndroidNotification;
+import com.google.firebase.messaging.AndroidNotification.Priority;
 import com.google.firebase.messaging.ApnsConfig;
 import com.google.firebase.messaging.Aps;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -77,7 +78,7 @@ public class FCMService {
     private Message.Builder baseMessageBuilder(PushNotificationRequest request) {
         return Message.builder()
                 .setApnsConfig(getApnsConfig(request.getTopic()))
-                .setAndroidConfig(getAndroidConfig(request.getTopic()))
+                .setAndroidConfig(getAndroidConfig(request.getTopic(), request.getTitle(), request.getMessage()))
                 .setWebpushConfig(getWebpushConfig(request))
                 .setNotification(Notification.builder()
                         .setTitle(request.getTitle())
@@ -96,13 +97,22 @@ public class FCMService {
                 .build();
     }
 
-    private AndroidConfig getAndroidConfig(String topic) {
+    private AndroidConfig getAndroidConfig(String topic, String title, String body) {
         String collapseKey = topic != null ? topic : "direct-notification";
         return AndroidConfig.builder()
-                .setTtl(Duration.ofMinutes(2).toMillis())
+                .setTtl(Duration.ofHours(24).toMillis())
                 .setCollapseKey(collapseKey)
                 .setPriority(AndroidConfig.Priority.HIGH)
-                .setNotification(AndroidNotification.builder().setTag(collapseKey).build())
+                .setNotification(AndroidNotification.builder()
+                        .setTag(collapseKey)
+                        .setSound("default")
+                        .setTitle(title)
+                        .setBody(body)
+                        .setPriority(Priority.HIGH)
+                        .setDefaultSound(true)
+                        .setDefaultVibrateTimings(true)
+                        .setChannelId("fcm_default_channel")
+                        .build())
                 .build();
     }
 

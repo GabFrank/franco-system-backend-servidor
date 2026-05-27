@@ -12,6 +12,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
 @Service
 @ConditionalOnProperty(name = "app.firebase-enabled", havingValue = "true", matchIfMissing = false)
 public class FCMInitializer {
@@ -49,18 +50,11 @@ public class FCMInitializer {
 
     private Resource resolveFirebaseConfigResource() {
         if (firebaseConfigPath == null || firebaseConfigPath.trim().isEmpty()) {
-            return resourceLoader.getResource("classpath:missing-firebase-config");
+            return resourceLoader.getResource("file:/dev/null");
         }
-
-        if (firebaseConfigPath.startsWith("classpath:") || firebaseConfigPath.startsWith("file:")) {
+        if (firebaseConfigPath.startsWith("file:")) {
             return resourceLoader.getResource(firebaseConfigPath);
         }
-
-        Resource fileResource = resourceLoader.getResource("file:" + firebaseConfigPath);
-        if (fileResource.exists()) {
-            return fileResource;
-        }
-
-        return resourceLoader.getResource("classpath:" + firebaseConfigPath);
+        return resourceLoader.getResource("file:" + firebaseConfigPath);
     }
 }

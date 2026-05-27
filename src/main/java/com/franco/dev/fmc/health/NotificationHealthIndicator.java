@@ -42,21 +42,11 @@ public class NotificationHealthIndicator implements HealthIndicator {
 
     private Resource resolveFirebaseConfigResource() {
         if (firebaseConfigFile == null || firebaseConfigFile.trim().isEmpty()) {
-            return resourceLoader.getResource("classpath:missing-firebase-config");
+            return resourceLoader.getResource("file:/dev/null");
         }
-
-        if (firebaseConfigFile.startsWith("classpath:") || firebaseConfigFile.startsWith("file:")) {
+        if (firebaseConfigFile.startsWith("file:")) {
             return resourceLoader.getResource(firebaseConfigFile);
         }
-
-        Resource fileResource = resourceLoader.getResource("file:" + firebaseConfigFile);
-        if (fileResource.exists()) {
-            return fileResource;
-        }
-
-        return resourceLoader.getResource("classpath:" + firebaseConfigFile);
+        return resourceLoader.getResource("file:" + firebaseConfigFile);
     }
 }
-
-
-

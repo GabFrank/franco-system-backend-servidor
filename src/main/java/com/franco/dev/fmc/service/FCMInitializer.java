@@ -5,7 +5,8 @@ import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
@@ -17,12 +18,23 @@ public class FCMInitializer {
 
     @Value("${app.firebase-configuration-file}")
     private String firebaseConfigPath;
+    private final ResourceLoader resourceLoader;
     Logger logger = LoggerFactory.getLogger(FCMInitializer.class);
+
+    public FCMInitializer(ResourceLoader resourceLoader) {
+        this.resourceLoader = resourceLoader;
+    }
+
     @PostConstruct
     public void initialize() {
         try {
+            Resource configResource = resolveFirebaseConfigResource();
+            if (!configResource.exists()) {
+                logger.error("Error initializing Firebase: config file not found at {}", firebaseConfigPath);
+                return;
+            }
             FirebaseOptions options = new FirebaseOptions.Builder()
-                    .setCredentials(GoogleCredentials.fromStream(new ClassPathResource(firebaseConfigPath).getInputStream()))
+                    .setCredentials(GoogleCredentials.fromStream(configResource.getInputStream()))
                     .setProjectId("bodega-franco-frc")
                     .build();
             if (FirebaseApp.getApps().isEmpty()) {
@@ -33,5 +45,22 @@ public class FCMInitializer {
         } catch (IOException e) {
             logger.error("Error initializing Firebase: " + e.getMessage());
         }
+    }
+
+    private Resource resolveFirebaseConfigResource() {
+        if (firebaseConfigPath == null || firebaseConfigPath.trim().isEmpty()) {
+            return resourceLoader.getResource("classpath:missing-firebase-config");
+        }
+
+        if (firebaseConfigPath.startsWith("classpath:") || firebaseConfigPath.startsWith("file:")) {
+            return resourceLoader.getResource(firebaseConfigPath);
+        }
+
+        Resource fileResource = resourceLoader.getResource("file:" + firebaseConfigPath);
+        if (fileResource.exists()) {
+            return fileResource;
+        }
+
+        return resourceLoader.getResource("classpath:" + firebaseConfigPath);
     }
 }

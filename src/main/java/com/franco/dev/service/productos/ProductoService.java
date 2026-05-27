@@ -187,8 +187,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private Page<Producto> buscarConFiltrosLucene(String texto, Boolean activo, Boolean stock, Boolean balanza,
             Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro,
             Long sucursalId, Pageable page) {
-        int overFetch = Math.min(2000, (page.getPageNumber() + 1) * page.getPageSize() * 8);
-        overFetch = Math.max(overFetch, 100);
+        final int overFetch;
+        if (page.isUnpaged()) {
+            // En exportación se usa Pageable.unpaged(); evitar getPageNumber/getPageSize
+            // porque Unpaged lanza UnsupportedOperationException.
+            overFetch = 50000;
+        } else {
+            overFetch = Math.max(Math.min(2000, (page.getPageNumber() + 1) * page.getPageSize() * 8), 100);
+        }
 
         List<Long> ids = productoSearchService.buscarIdsPorTexto(
                 texto, overFetch, activo, null, familiaId, subfamiliaId);
@@ -208,6 +214,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
                 .collect(Collectors.toList());
 
         int total = ordenados.size();
+        if (page.isUnpaged()) {
+            return new PageImpl<>(ordenados, Pageable.unpaged(), total);
+        }
+
         int from = (int) page.getOffset();
         int to = Math.min(from + page.getPageSize(), total);
         List<Producto> content = from >= total ? Collections.emptyList() : ordenados.subList(from, to);
@@ -290,7 +300,16 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     }
 
     public Producto findByCodigo(String texto) {
-        return repository.findByCodigo(texto);
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        for (String codigo : com.franco.dev.utilitarios.BarcodeSearchUtils.codigosParaBuscar(texto)) {
+            Producto producto = repository.findByCodigo(codigo);
+            if (producto != null) {
+                return producto;
+            }
+        }
+        return null;
     }
 
     public List<Producto> findAllForPdv() {

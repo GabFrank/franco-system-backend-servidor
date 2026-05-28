@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.model.PushNotificationResponse;
+import com.franco.dev.fmc.model.VentaStockCriticoNotificationRequest;
 import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
@@ -23,6 +24,7 @@ import javax.validation.Valid;
 import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class PushNotificationController {
@@ -261,6 +263,46 @@ public class PushNotificationController {
                                                 HttpStatus.NOT_FOUND);
                         }
 
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @PostMapping("/notification/venta-stock-critico")
+        public ResponseEntity<PushNotificationResponse> sendVentaStockCriticoNotification(
+                        @RequestBody VentaStockCriticoNotificationRequest body) {
+                try {
+                        if (body == null || body.getVentaId() == null || body.getSucursalId() == null
+                                        || body.getItems() == null || body.getItems().isEmpty()) {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.BAD_REQUEST.value(),
+                                                "Parámetros insuficientes para notificación de stock crítico"),
+                                                HttpStatus.BAD_REQUEST);
+                        }
+
+                        List<String> rolesRelevantes = notificationRoleService.getRolesForVentaStockCritico();
+                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.ventaStockCritico(
+                                                body.getVentaId(),
+                                                body.getSucursalId(),
+                                                body.getSucursalNombre(),
+                                                body.getUsuarioNombre(),
+                                                body.getItems(),
+                                                df);
+                                request.setUsuarioIds(usuariosRelevantes.stream().distinct().collect(Collectors.toList()));
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación de stock crítico enviada exitosamente"),
+                                                HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
                 } catch (Exception e) {
                         return new ResponseEntity<>(
                                         new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),

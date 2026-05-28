@@ -16,6 +16,16 @@ on:
         description: 'Version override (leave empty for latest of the channel)'
         required: false
         type: string
+  workflow_call:
+    inputs:
+      instance:
+        description: 'Target instance'
+        required: true
+        type: string
+      version:
+        description: 'Version override (leave empty for latest of the channel)'
+        required: false
+        type: string
 
 jobs:
   deploy:
@@ -37,8 +47,9 @@ jobs:
           OVERRIDE="${{ inputs.version }}"
 
           if [[ -n "${OVERRIDE}" ]]; then
-            echo "Using manual version: ${OVERRIDE}"
-            echo "version=${OVERRIDE}" >> $GITHUB_OUTPUT
+            NORMALIZED_VERSION="${OVERRIDE#v}"
+            echo "Using manual version: ${NORMALIZED_VERSION}"
+            echo "version=${NORMALIZED_VERSION}" >> $GITHUB_OUTPUT
           else
             echo "Resolving latest version for instance: ${INSTANCE}"
             if [[ "${INSTANCE}" == "bodega" ]]; then
@@ -68,6 +79,57 @@ jobs:
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Resolve Firebase credentials by instance
+        id: firebase
+        env:
+          INSTANCE: ${{ inputs.instance }}
+          FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON }}
+          FIREBASE_CREDENTIALS_JSON_ALPHA: ${{ secrets.FIREBASE_CREDENTIALS_JSON_ALPHA }}
+          FIREBASE_CREDENTIALS_JSON_BETA: ${{ secrets.FIREBASE_CREDENTIALS_JSON_BETA }}
+          FIREBASE_CREDENTIALS_JSON_PROD: ${{ secrets.FIREBASE_CREDENTIALS_JSON_PROD }}
+          FIREBASE_TARGET_PATH: ${{ secrets.FIREBASE_TARGET_PATH }}
+          FIREBASE_TARGET_PATH_ALPHA: ${{ secrets.FIREBASE_TARGET_PATH_ALPHA }}
+          FIREBASE_TARGET_PATH_BETA: ${{ secrets.FIREBASE_TARGET_PATH_BETA }}
+          FIREBASE_TARGET_PATH_PROD: ${{ secrets.FIREBASE_TARGET_PATH_PROD }}
+        run: |
+          CREDENTIALS_JSON=""
+          TARGET_PATH=""
+          CHANNEL="alpha"
+
+          if [[ "${INSTANCE}" == "bodega" ]]; then
+            CHANNEL="prod"
+            CREDENTIALS_JSON="${FIREBASE_CREDENTIALS_JSON_PROD:-}"
+            TARGET_PATH="${FIREBASE_TARGET_PATH_PROD:-}"
+          elif [[ "${INSTANCE}" == "farmacia" || "${INSTANCE}" == "beta" ]]; then
+            CHANNEL="beta"
+            CREDENTIALS_JSON="${FIREBASE_CREDENTIALS_JSON_BETA:-}"
+            TARGET_PATH="${FIREBASE_TARGET_PATH_BETA:-}"
+          else
+            CREDENTIALS_JSON="${FIREBASE_CREDENTIALS_JSON_ALPHA:-}"
+            TARGET_PATH="${FIREBASE_TARGET_PATH_ALPHA:-}"
+          fi
+
+          if [[ -z "${CREDENTIALS_JSON}" ]]; then
+            CREDENTIALS_JSON="${FIREBASE_CREDENTIALS_JSON:-}"
+          fi
+          if [[ -z "${TARGET_PATH}" ]]; then
+            TARGET_PATH="${FIREBASE_TARGET_PATH:-}"
+          fi
+
+          if [[ -n "${CREDENTIALS_JSON}" ]]; then
+            {
+              echo "credentials_json<<EOF"
+              echo "${CREDENTIALS_JSON}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "target_path=${TARGET_PATH}" >> "$GITHUB_OUTPUT"
+          echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+
       - name: Download JAR from GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -92,6 +154,22 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
+      - name: Upload Firebase credentials
+        env:
+          FIREBASE_CREDENTIALS_JSON: ${{ steps.firebase.outputs.credentials_json }}
+          VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          if [[ -z "${FIREBASE_CREDENTIALS_JSON}" ]]; then
+            echo "WARNING: FIREBASE_CREDENTIALS_JSON secret is not set. Skipping Firebase credentials upload."
+            exit 0
+          fi
+          FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
+          printf '%s\n' "${FIREBASE_CREDENTIALS_JSON}" > firebase-credentials.json
+          scp -i ~/.ssh/deploy_key \
+            firebase-credentials.json \
+            deploy@${{ secrets.DEPLOY_HOST }}:${FIREBASE_REMOTE_PATH}
+          rm -f firebase-credentials.json
+
       - name: Upload JAR to server
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
@@ -113,9 +191,11 @@ jobs:
       - name: Execute deploy
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
+          FIREBASE_TARGET_PATH: ${{ steps.firebase.outputs.target_path }}
         run: |
+          FIREBASE_REMOTE_PATH="/tmp/firebase-${{ inputs.instance }}-${VERSION}.json"
           ssh -i ~/.ssh/deploy_key deploy@${{ secrets.DEPLOY_HOST }} \
-            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}'"
+            "chmod +x /tmp/deploy.sh && /tmp/deploy.sh '${VERSION}' '${{ inputs.instance }}' '${FIREBASE_REMOTE_PATH}' '${FIREBASE_TARGET_PATH}'"
 
       - name: Summary
         if: always()
@@ -125,4 +205,5 @@ jobs:
           echo "## Deploy Summary" >> $GITHUB_STEP_SUMMARY
           echo "- **Version:** ${VERSION}" >> $GITHUB_STEP_SUMMARY
           echo "- **Instance:** ${{ inputs.instance }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Firebase channel:** ${{ steps.firebase.outputs.channel }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY

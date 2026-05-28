@@ -10,18 +10,15 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "cobro", schema = "operaciones")
+@Table(name = "programar_precio", schema = "operaciones")
 
 public class ProgramarPrecio implements Identifiable<Long> {
-
-    private static final long serialVersionUID = 1L;
 
     @Id
     @GenericGenerator(

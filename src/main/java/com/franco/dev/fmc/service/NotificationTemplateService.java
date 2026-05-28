@@ -12,7 +12,9 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
+import com.franco.dev.fmc.model.VentaStockCriticoNotificationRequest;
 import java.text.DecimalFormat;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -457,6 +459,41 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("PAGO CON TRANSFERENCIA REGISTRADO", builder.toString());
         request.setType("VENTA_TRANSFERENCIA");
+        request.setData("/operaciones/ventas/" + ventaId + "/" + sucursalId);
+        return request;
+    }
+
+    public PushNotificationRequest ventaStockCritico(
+            Long ventaId,
+            Long sucursalId,
+            String sucursalNombre,
+            String usuarioNombre,
+            List<VentaStockCriticoNotificationRequest.VentaStockCriticoItem> items,
+            DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE DETECTÓ UNA VENTA CON UN PRODUCTO CON STOCK CERO O NEGATIVO");
+        if (sucursalNombre != null && !sucursalNombre.isEmpty()) {
+            builder.append(" EN LA SUCURSAL ").append(sucursalNombre);
+        }
+        builder.append(". VENTA ID: ").append(ventaId);
+        if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
+            builder.append(". REALIZADO POR: ").append(usuarioNombre.toUpperCase());
+        }
+
+        int maxItems = Math.min(items != null ? items.size() : 0, 3);
+        for (int i = 0; i < maxItems; i++) {
+            VentaStockCriticoNotificationRequest.VentaStockCriticoItem item = items.get(i);
+            builder.append(" | ")
+                    .append(item.getProductoDescripcion() != null ? item.getProductoDescripcion() : "PRODUCTO")
+                    .append(": ")
+                    .append(decimalFormat.format(item.getStockResultante() != null ? item.getStockResultante() : 0));
+        }
+        if (items != null && items.size() > maxItems) {
+            builder.append(" | +").append(items.size() - maxItems).append(" productos más");
+        }
+
+        PushNotificationRequest request = base("ALERTA DE STOCK CRÍTICO", builder.toString());
+        request.setType("VENTA_STOCK_CRITICO");
         request.setData("/operaciones/ventas/" + ventaId + "/" + sucursalId);
         return request;
     }

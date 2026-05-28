@@ -34,8 +34,10 @@ import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
@@ -146,6 +148,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private CodigoService codigoService;
+
+    @Autowired
+    private ProductoService productoService;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FacturaLegalGraphQL.class);
 
     public DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -418,8 +425,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     iva = vi.getPresentacion().getProducto().getIva();
                 }
 
-                // Default 10% si no se puede determinar el IVA
+                // Fallback: lookup producto por descripcion (UPPER+TRIM) si iva todavia null.
+                if (iva == null && vi.getDescripcion() != null) {
+                    List<Producto> matches = productoService.findByDescripcionNormalized(vi.getDescripcion());
+                    if (matches.size() == 1 && matches.get(0).getIva() != null) {
+                        iva = matches.get(0).getIva();
+                    }
+                }
                 if (iva == null) {
+                    log.warn("IVA no resoluble al imprimir ticket para item desc='{}', default 10", vi.getDescripcion());
                     iva = 10;
                 }
 
@@ -790,8 +804,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     iva = vi.getPresentacion().getProducto().getIva();
                 }
 
-                // Default 10% si no se puede determinar el IVA
+                // Fallback: lookup producto por descripcion (UPPER+TRIM) si iva todavia null.
+                if (iva == null && vi.getDescripcion() != null) {
+                    List<Producto> matches = productoService.findByDescripcionNormalized(vi.getDescripcion());
+                    if (matches.size() == 1 && matches.get(0).getIva() != null) {
+                        iva = matches.get(0).getIva();
+                    }
+                }
                 if (iva == null) {
+                    log.warn("IVA no resoluble al imprimir ticket para item desc='{}', default 10", vi.getDescripcion());
                     iva = 10;
                 }
 

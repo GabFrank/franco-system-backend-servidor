@@ -50,8 +50,7 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     public Double stockByProductoId(Long proId) {
         Double finalStock = 0.0;
-        List<Sucursal> sucursalList = sucursalService.findAll2().stream()
-                .filter(s -> s.getNombre().equals("COMPRAS") == false).collect(Collectors.toList());
+        List<Sucursal> sucursalList = sucursalService.findAll2();
         for (Sucursal s : sucursalList) {
             finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
         }

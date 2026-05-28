@@ -8,9 +8,10 @@ set -euo pipefail
 # Example: ./deploy.sh 3.1.0-alpha.1 alpha
 # ============================================================
 
-VERSION="${1:?Usage: deploy.sh <version> <instance> [firebase_json_path]}"
-INSTANCE="${2:?Usage: deploy.sh <version> <instance> [firebase_json_path]}"
+VERSION="${1:?Usage: deploy.sh <version> <instance> [firebase_json_path] [firebase_target_path]}"
+INSTANCE="${2:?Usage: deploy.sh <version> <instance> [firebase_json_path] [firebase_target_path]}"
 FIREBASE_JSON_SOURCE="${3:-}"
+FIREBASE_TARGET_OVERRIDE="${4:-}"
 
 BASE_DIR="/opt/frc-backend-central"
 INSTANCE_DIR="${BASE_DIR}/${INSTANCE}"
@@ -21,9 +22,16 @@ SERVICE_NAME="frc-${INSTANCE}.service"
 HEALTH_URL="http://localhost:$(grep SERVER_PORT "${INSTANCE_DIR}/.env" | cut -d= -f2)/actuator/health"
 HEALTH_TIMEOUT=500
 HEALTH_INTERVAL=5
-FIREBASE_FILE="bodega-franco-frc-18e8c6ef35cf.json"
+DEFAULT_FIREBASE_FILE="bodega-franco-frc-18e8c6ef35cf.json"
 FIREBASE_DIR="${INSTANCE_DIR}/secrets"
-FIREBASE_TARGET="${FIREBASE_DIR}/${FIREBASE_FILE}"
+FIREBASE_TARGET="${FIREBASE_DIR}/${DEFAULT_FIREBASE_FILE}"
+
+if [[ -n "${FIREBASE_TARGET_OVERRIDE}" ]]; then
+  FIREBASE_TARGET="${FIREBASE_TARGET_OVERRIDE}"
+elif [[ -n "${FIREBASE_JSON_SOURCE}" ]]; then
+  SOURCE_BASENAME=$(basename "${FIREBASE_JSON_SOURCE}")
+  FIREBASE_TARGET="${FIREBASE_DIR}/${SOURCE_BASENAME}"
+fi
 
 # --- Validations ---
 if [[ ! -d "${INSTANCE_DIR}" ]]; then
@@ -38,7 +46,7 @@ fi
 
 if [[ -n "${FIREBASE_JSON_SOURCE}" && -f "${FIREBASE_JSON_SOURCE}" ]]; then
   echo "Installing Firebase credentials for ${INSTANCE}..."
-  mkdir -p "${FIREBASE_DIR}"
+  mkdir -p "$(dirname "${FIREBASE_TARGET}")"
   cp "${FIREBASE_JSON_SOURCE}" "${FIREBASE_TARGET}"
   chmod 600 "${FIREBASE_TARGET}"
   rm -f "${FIREBASE_JSON_SOURCE}"

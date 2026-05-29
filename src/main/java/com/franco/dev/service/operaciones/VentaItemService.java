@@ -65,18 +65,56 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
     }
 
     /**
+     * Entradas de stock para análisis: recepciones (COMPRA) y transferencias desde
+     * sucursal COMPRAS hacia cualquier destino (movimiento positivo en destino).
+     */
+    private String sqlCondicionEntradasStock() {
+        return "ms.estado = true AND ms.cantidad > 0 AND ("
+                + "ms.tipo_movimiento = 'COMPRA' OR ("
+                + "ms.tipo_movimiento = 'TRANSFERENCIA' AND EXISTS ("
+                + "  SELECT 1 FROM operaciones.transferencia_item ti "
+                + "  JOIN operaciones.transferencia t ON t.id = ti.transferencia_id "
+                + "  WHERE ti.id = ms.referencia "
+                + "  AND t.sucursal_origen_id IN ("
+                + "    SELECT s.id FROM empresarial.sucursal s WHERE UPPER(s.nombre) LIKE '%COMPRAS%'"
+                + "  )"
+                + ")))";
+    }
+
+    /**
      * Obtiene estadísticas de productos más vendidos con filtros usando
      * CriteriaBuilder
      */
     public List<ProductoVendidoEstadistica> obtenerProductosMasVendidos(LocalDateTime inicio, LocalDateTime fin,
             Integer limit, Long sucursalId, Long familiaId, Boolean ascendente, Long productoId,
             List<Long> productoIds) {
+        String filtroFechaMs = "";
+        if (inicio != null) filtroFechaMs += "AND ms.creado_en >= :inicio ";
+        if (fin != null) filtroFechaMs += "AND ms.creado_en < :fin ";
+        String filtroSucursalMs = (sucursalId != null && sucursalId > 0) ? "AND ms.sucursal_id = :sucursalId " : "";
+
         String sql = "SELECT p.id, p.descripcion, SUM(vi.cantidad) as cantidad, " +
-                "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto " +
+                "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto, " +
+                "COALESCE(ent.cantidad_entrada, 0) as cantidad_entrada, " +
+                "COALESCE(ven.cantidad_venta_mov, 0) as cantidad_venta_mov " +
                 "FROM operaciones.venta_item vi " +
                 "JOIN productos.producto p ON vi.producto_id = p.id " +
                 "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
                 "LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id " +
+                "LEFT JOIN ( " +
+                "  SELECT ms.producto_id, SUM(ms.cantidad) AS cantidad_entrada " +
+                "  FROM operaciones.movimiento_stock ms " +
+                "  WHERE " + sqlCondicionEntradasStock() + " " +
+                filtroFechaMs + filtroSucursalMs +
+                "  GROUP BY ms.producto_id " +
+                ") ent ON ent.producto_id = p.id " +
+                "LEFT JOIN ( " +
+                "  SELECT ms.producto_id, SUM(ABS(ms.cantidad)) AS cantidad_venta_mov " +
+                "  FROM operaciones.movimiento_stock ms " +
+                "  WHERE ms.estado = true AND ms.tipo_movimiento = 'VENTA' AND ms.cantidad < 0 " +
+                filtroFechaMs + filtroSucursalMs +
+                "  GROUP BY ms.producto_id " +
+                ") ven ON ven.producto_id = p.id " +
                 "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true ";
 
         if (inicio != null) sql += "AND vi.creado_en >= :inicio ";
@@ -90,7 +128,8 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
         }
 
         boolean ordenAsc = Boolean.TRUE.equals(ascendente);
-        sql += "GROUP BY p.id, p.descripcion ORDER BY cantidad " + (ordenAsc ? "ASC" : "DESC");
+        sql += "GROUP BY p.id, p.descripcion, ent.cantidad_entrada, ven.cantidad_venta_mov " +
+                "ORDER BY cantidad " + (ordenAsc ? "ASC" : "DESC");
 
         javax.persistence.Query query = em.createNativeQuery(sql);
         if (inicio != null) query.setParameter("inicio", inicio);
@@ -163,17 +202,17 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
     public List<ProductoCompraPorPeriodo> obtenerComprasProductoPorDia(LocalDateTime inicio, LocalDateTime fin,
             Long productoId, Long sucursalId) {
-        String sql = "SELECT CAST(rm.fecha AS DATE) as periodo, SUM(rmi.cantidad_recibida) as cantidad, " +
-                "COUNT(DISTINCT rm.id) as cantidad_compras " +
-                "FROM operaciones.recepcion_mercaderia_item rmi " +
-                "JOIN operaciones.recepcion_mercaderia rm ON rmi.recepcion_mercaderia_id = rm.id " +
-                "WHERE rm.estado = 'FINALIZADA' AND rmi.producto_id = :productoId ";
+        String sql = "SELECT CAST(ms.creado_en AS DATE) as periodo, SUM(ms.cantidad) as cantidad, " +
+                "COUNT(*) as cantidad_compras " +
+                "FROM operaciones.movimiento_stock ms " +
+                "WHERE " + sqlCondicionEntradasStock() + " " +
+                "AND ms.producto_id = :productoId ";
 
-        if (inicio != null) sql += "AND rm.fecha >= :inicio ";
-        if (fin != null) sql += "AND rm.fecha < :fin ";
-        if (sucursalId != null && sucursalId > 0) sql += "AND rmi.sucursal_entrega_id = :sucursalId ";
+        if (inicio != null) sql += "AND ms.creado_en >= :inicio ";
+        if (fin != null) sql += "AND ms.creado_en < :fin ";
+        if (sucursalId != null && sucursalId > 0) sql += "AND ms.sucursal_id = :sucursalId ";
 
-        sql += "GROUP BY CAST(rm.fecha AS DATE) ORDER BY periodo ASC";
+        sql += "GROUP BY CAST(ms.creado_en AS DATE) ORDER BY periodo ASC";
 
         javax.persistence.Query query = em.createNativeQuery(sql);
         query.setParameter("productoId", productoId);
@@ -188,17 +227,17 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
     public List<ProductoCompraPorPeriodo> obtenerComprasProductoPorMes(LocalDateTime inicio, LocalDateTime fin,
             Long productoId, Long sucursalId) {
-        String sql = "SELECT TO_CHAR(rm.fecha, 'YYYY-MM') as periodo, SUM(rmi.cantidad_recibida) as cantidad, " +
-                "COUNT(DISTINCT rm.id) as cantidad_compras " +
-                "FROM operaciones.recepcion_mercaderia_item rmi " +
-                "JOIN operaciones.recepcion_mercaderia rm ON rmi.recepcion_mercaderia_id = rm.id " +
-                "WHERE rm.estado = 'FINALIZADA' AND rmi.producto_id = :productoId ";
+        String sql = "SELECT TO_CHAR(ms.creado_en, 'YYYY-MM') as periodo, SUM(ms.cantidad) as cantidad, " +
+                "COUNT(*) as cantidad_compras " +
+                "FROM operaciones.movimiento_stock ms " +
+                "WHERE " + sqlCondicionEntradasStock() + " " +
+                "AND ms.producto_id = :productoId ";
 
-        if (inicio != null) sql += "AND rm.fecha >= :inicio ";
-        if (fin != null) sql += "AND rm.fecha < :fin ";
-        if (sucursalId != null && sucursalId > 0) sql += "AND rmi.sucursal_entrega_id = :sucursalId ";
+        if (inicio != null) sql += "AND ms.creado_en >= :inicio ";
+        if (fin != null) sql += "AND ms.creado_en < :fin ";
+        if (sucursalId != null && sucursalId > 0) sql += "AND ms.sucursal_id = :sucursalId ";
 
-        sql += "GROUP BY TO_CHAR(rm.fecha, 'YYYY-MM') ORDER BY periodo ASC";
+        sql += "GROUP BY TO_CHAR(ms.creado_en, 'YYYY-MM') ORDER BY periodo ASC";
 
         javax.persistence.Query query = em.createNativeQuery(sql);
         query.setParameter("productoId", productoId);
@@ -250,6 +289,8 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
             String descripcion = fila[1] != null ? fila[1].toString() : "";
             Double cantidad = fila[2] != null ? ((Number) fila[2]).doubleValue() : 0.0;
             Double totalMonto = fila[3] != null ? ((Number) fila[3]).doubleValue() : 0.0;
+            Double cantidadEntrada = fila[4] != null ? ((Number) fila[4]).doubleValue() : 0.0;
+            Double cantidadVentaMovimiento = fila[5] != null ? ((Number) fila[5]).doubleValue() : 0.0;
 
             Double porcentaje = 0.0;
             if (montoTotalGeneral > 0) {
@@ -257,14 +298,36 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
                 porcentaje = Math.round(porcentaje * 100.0) / 100.0;
             }
 
+            Double indiceRotacion = calcularIndiceRotacion(cantidadEntrada, cantidadVentaMovimiento);
+
             estadisticas.add(new ProductoVendidoEstadistica(
                     productoId,
                     descripcion,
                     cantidad,
                     totalMonto,
-                    porcentaje));
+                    porcentaje,
+                    cantidadEntrada,
+                    cantidadVentaMovimiento,
+                    indiceRotacion));
         }
 
         return estadisticas;
+    }
+
+    /**
+     * Índice de rotación: unidades vendidas (mov. VENTA) / unidades que entraron (COMPRA + TRANSFERENCIA).
+     * Sin entradas en el período pero con ventas: 1.0 (rota stock previo).
+     */
+    private Double calcularIndiceRotacion(Double cantidadEntrada, Double cantidadVentaMovimiento) {
+        double entradas = cantidadEntrada != null ? cantidadEntrada : 0.0;
+        double ventas = cantidadVentaMovimiento != null ? cantidadVentaMovimiento : 0.0;
+        if (entradas > 0) {
+            double indice = ventas / entradas;
+            return Math.round(indice * 1000.0) / 1000.0;
+        }
+        if (ventas > 0) {
+            return 1.0;
+        }
+        return 0.0;
     }
 }

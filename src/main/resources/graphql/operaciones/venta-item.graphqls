@@ -37,6 +37,9 @@ type ProductoVendidoEstadistica {
     cantidad: Float
     totalMonto: Float
     porcentaje: Float
+    cantidadEntrada: Float
+    cantidadVentaMovimiento: Float
+    indiceRotacion: Float
 }
 
 type ProductoVentaPorPeriodo {

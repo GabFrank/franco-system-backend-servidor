@@ -451,7 +451,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             Long sucursalId,
             Long usuarioId,
             String usuario,
-            boolean puedeVerStockCompras) throws FileNotFoundException {
+            boolean puedeVerStockCompras,
+            boolean puedeVerCostos) throws FileNotFoundException {
 
         Page<Producto> productoPage = findWithFilters(
                 texto,
@@ -638,6 +639,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
             // Total de productos encontrados
             parameters.put("totalProductos", productosDtoList.size());
+            parameters.put("puedeVerCostos", puedeVerCostos);
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);

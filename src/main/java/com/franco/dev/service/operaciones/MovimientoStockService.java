@@ -57,6 +57,19 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return finalStock;
     }
 
+    public Double stockByProductoIdExcluyendoNombresSucursal(Long proId, List<String> nombresExcluidos) {
+        Double finalStock = 0.0;
+        List<Sucursal> sucursalList = sucursalService.findAll2();
+        for (Sucursal s : sucursalList) {
+            if (nombresExcluidos != null && nombresExcluidos.stream()
+                    .anyMatch(nombre -> nombre.equalsIgnoreCase(s.getNombre()))) {
+                continue;
+            }
+            finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
+        }
+        return finalStock;
+    }
+
     public Double stockByProductoIdExecptMovStockId(Long proId, Long movId, Long sucId) {
         Float stock = repository.stockByProductoIdExeptMovimientoId(proId, movId, sucId);
         return Double.valueOf(stock != null ? stock : 0);

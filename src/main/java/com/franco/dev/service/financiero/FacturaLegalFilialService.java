@@ -181,68 +181,46 @@ public class FacturaLegalFilialService {
                 .collect(Collectors.toList());
         request.setItems(itemsRequest);
         
-        // Calcular totales de IVA basándose en los items
-        Double totalParcial0 = 0.0;
-        Double totalParcial5 = 0.0;
-        Double totalParcial10 = 0.0;
-        Double ivaParcial0 = 0.0;
-        Double ivaParcial5 = 0.0;
-        Double ivaParcial10 = 0.0;
-        
+        // Calcular parciales con descuento distribuido proporcional usando
+        // ParcialesCalculator centralizado. Fix del bug: el codigo viejo restaba
+        // el descuento del total_final sin distribuirlo a los parciales,
+        // generando sum(parciales) > total_final.
+        java.util.List<com.franco.dev.service.financiero.builder.ParcialesCalculator.ItemIvaTuple> tuples =
+                new java.util.ArrayList<>();
         for (FacturaLegalItemFilialRequest item : itemsRequest) {
             if (item.getTotal() == null || item.getIva() == null) {
                 continue;
             }
-            
-            Double totalItem = item.getTotal();
-            Integer ivaItem = item.getIva();
-            
-            if (ivaItem == 0) {
-                // Item exento de IVA
-                totalParcial0 += totalItem;
-            } else if (ivaItem == 5) {
-                // Item con IVA 5%
-                totalParcial5 += totalItem;
-                // IVA 5%: iva = total / 21.0
-                ivaParcial5 += totalItem / 21.0;
-            } else if (ivaItem == 10) {
-                // Item con IVA 10%
-                totalParcial10 += totalItem;
-                // IVA 10%: iva = total / 11.0
-                ivaParcial10 += totalItem / 11.0;
-            }
+            tuples.add(new com.franco.dev.service.financiero.builder.ParcialesCalculator.ItemIvaTuple(
+                    item.getIva(), item.getTotal()));
         }
-        
+        Double descuento = facturaInput.getDescuento() != null ? facturaInput.getDescuento().doubleValue() : 0.0;
+        com.franco.dev.service.financiero.builder.ParcialesCalculator.Resultado calc =
+                com.franco.dev.service.financiero.builder.ParcialesCalculator.calcular(tuples, descuento);
+
         // Redondear los valores de IVA a 2 decimales
-        ivaParcial0 = Math.round(ivaParcial0 * 100.0) / 100.0;
-        ivaParcial5 = Math.round(ivaParcial5 * 100.0) / 100.0;
-        ivaParcial10 = Math.round(ivaParcial10 * 100.0) / 100.0;
-        
-        // Asignar los totales calculados
-        request.setIvaParcial0(ivaParcial0);
+        double ivaParcial5 = Math.round(calc.getIvaParcial5() * 100.0) / 100.0;
+        double ivaParcial10 = Math.round(calc.getIvaParcial10() * 100.0) / 100.0;
+
+        request.setIvaParcial0(0.0);
         request.setIvaParcial5(ivaParcial5);
         request.setIvaParcial10(ivaParcial10);
-        request.setTotalParcial0(totalParcial0);
-        request.setTotalParcial5(totalParcial5);
-        request.setTotalParcial10(totalParcial10);
-        
-        // Calcular totalFinal (suma de totales parciales - descuento)
-        Double descuento = facturaInput.getDescuento() != null ? facturaInput.getDescuento().doubleValue() : 0.0;
-        Double totalFinalCalculado = (totalParcial0 + totalParcial5 + totalParcial10) - descuento;
-        
-        // Usar siempre el totalFinal calculado para garantizar consistencia
-        // Si el totalFinal viene en el input, validar que sea consistente
+        request.setTotalParcial0(calc.getTotalParcial0());
+        request.setTotalParcial5(calc.getTotalParcial5());
+        request.setTotalParcial10(calc.getTotalParcial10());
+
+        double totalFinalCalculado = calc.getTotalFinal();
         Double totalFinalInput = facturaInput.getTotalFinal() != null ? facturaInput.getTotalFinal().doubleValue() : null;
         if (totalFinalInput != null) {
             double diferencia = Math.abs(totalFinalInput - totalFinalCalculado);
             if (diferencia > 0.01) {
-                log.warn("Diferencia entre totalFinal calculado ({}) e input ({}): {}. Se usará el calculado.", 
+                log.warn("Diferencia entre totalFinal calculado ({}) e input ({}): {}. Se usará el calculado.",
                         totalFinalCalculado, totalFinalInput, diferencia);
             }
         }
-        
+
         request.setTotalFinal(totalFinalCalculado);
-        request.setDescuento(facturaInput.getDescuento() != null ? facturaInput.getDescuento().doubleValue() : 0.0);
+        request.setDescuento(descuento);
         
         // Mapear moneda extranjera a código SIFEN (ISO 4217)
         String monedaExtranjera = facturaInput.getMonedaExtranjera();

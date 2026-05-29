@@ -222,7 +222,8 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             String usuario) throws FileNotFoundException {
 
         boolean puedeVerStockCompras = usuarioService.tieneRol(usuarioId, "VER STOCK COMPRAS", "ADMIN");
-
+        boolean puedeVerCostos = usuarioService.tieneRol(usuarioId, "EDITAR PRODUCTOS", "ADMIN");
+ 
         if (sucursalId != null) {
             Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
             if (sucursal != null && "COMPRAS".equalsIgnoreCase(sucursal.getNombre())) {
@@ -231,11 +232,11 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
                 }
             }
         }
-
+ 
         return service.exportarReporteConFiltros(
                 texto, codigo, activo, stock, balanza, vencimiento,
                 costoCero, subfamiliaId, familiaId, stockFiltro, sucursalId, usuarioId, usuario,
-                puedeVerStockCompras);
+                puedeVerStockCompras, puedeVerCostos);
     }
 
     public List<Producto> findByPdvGrupoProducto(Long id) {

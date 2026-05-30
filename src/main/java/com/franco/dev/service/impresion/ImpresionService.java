@@ -12,6 +12,7 @@ import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.SolicitudPago;
+import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
 import com.franco.dev.domain.personas.Cliente;
@@ -1030,6 +1031,62 @@ public class ImpresionService {
             parameters.put("filtroTexto", filtro);
             parameters.put("filtroSucursales", sucursales);
             parameters.put("cantProductos", cantProductos);
+            parameters.put("lucroTotalPorcentaje", lucroTotalPorcentaje);
+            parameters.put("lucroTotalGs", lucroTotalGs);
+            parameters.put("costoTotal", costoTotal);
+            parameters.put("ventaTotal", ventaTotal);
+            parameters.put("descuentoTotal", descuentoTotal);
+            parameters.put("aumentoTotal", aumentoTotal);
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario.getNickname());
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String imprimirReporteLucroPorFuncionario(List<LucroPorFuncionarioDto> lucroPorFuncionarioDtoList,
+            String fechaInicio, String fechaFin, String sucursales, String filtro, Usuario usuario) {
+        Long cantFuncionarios = Long.valueOf(0);
+        Double lucroTotalPorcentaje = 0.0;
+        Double lucroTotalGs = 0.0;
+        Double costoTotal = 0.0;
+        Double ventaTotal = 0.0;
+        Double descuentoTotal = 0.0;
+        Double aumentoTotal = 0.0;
+        List<LucroPorFuncionarioDto> auxList = new ArrayList<>();
+        try {
+            for (LucroPorFuncionarioDto dto : lucroPorFuncionarioDtoList) {
+                lucroTotalGs += dto.getLucro();
+                costoTotal += dto.getCostoTotal();
+                ventaTotal += dto.getTotalVenta();
+                descuentoTotal += (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0);
+                aumentoTotal += (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0);
+                auxList.add(dto);
+            }
+            cantFuncionarios = Long.valueOf(lucroPorFuncionarioDtoList.size());
+            lucroTotalPorcentaje = ventaTotal > 0 ? ((lucroTotalGs) / ventaTotal) * 100 : 0.0;
+            ClassPathResource resource = new ClassPathResource("reports/lucro-por-funcionario.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("filtroFechaInicio", fechaInicio);
+            parameters.put("filtroFechaFin", fechaFin);
+            parameters.put("filtroTexto", filtro);
+            parameters.put("filtroSucursales", sucursales);
+            parameters.put("cantFuncionarios", cantFuncionarios);
             parameters.put("lucroTotalPorcentaje", lucroTotalPorcentaje);
             parameters.put("lucroTotalGs", lucroTotalGs);
             parameters.put("costoTotal", costoTotal);

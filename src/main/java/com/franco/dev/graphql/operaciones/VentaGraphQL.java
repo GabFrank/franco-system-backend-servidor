@@ -13,12 +13,17 @@ import com.franco.dev.domain.operaciones.VentaItem;
 
 import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
+import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Familia;
+import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.graphql.financiero.FacturaLegalGraphQL;
 import com.franco.dev.graphql.financiero.VentaCreditoGraphQL;
+import com.franco.dev.graphql.operaciones.input.LucroPorFuncionarioResponse;
+import com.franco.dev.graphql.operaciones.input.LucroPorFuncionarioSummary;
 import com.franco.dev.graphql.operaciones.input.CobroDetalleInput;
 import com.franco.dev.graphql.operaciones.input.CobroInput;
 import com.franco.dev.graphql.operaciones.input.VentaInput;
@@ -40,7 +45,9 @@ import com.franco.dev.service.operaciones.CobroDetalleService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CostosPorProductoService;
+import com.franco.dev.service.productos.FamiliaService;
 import com.franco.dev.service.productos.ProductoService;
+import com.franco.dev.service.productos.SubFamiliaService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
@@ -127,6 +134,12 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private FamiliaService familiaService;
+
+    @Autowired
+    private SubFamiliaService subFamiliaService;
 
     private Sucursal sucursal;
 
@@ -621,5 +634,116 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 totalGeneral, totalEfectivo, totalTarjeta,
                 totalConvenio, totalTransferencia, totalOtros,
                 usuario);
+    }
+
+    public String lucroPorFuncionario(String fechaInicio, String fechaFin, List<Long> sucursalIdList, Long usuarioId,
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
+        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+        StringBuilder filtro = new StringBuilder();
+        if (usuarioIdList != null && !usuarioIdList.isEmpty()) {
+            filtro.append("Funcionario: ");
+            for (int i = 0; i < usuarioIdList.size(); i++) {
+                Usuario u = usuarioService.findById(usuarioIdList.get(i)).orElse(null);
+                if (u != null) {
+                    filtro.append(u.getNickname());
+                    if (i < usuarioIdList.size() - 1) {
+                        filtro.append(", ");
+                    }
+                }
+            }
+        }
+        if (filtro.length() > 0 && sucursalIdList != null && sucursalIdList.size() > 0) {
+            filtro.append("\n");
+        }
+        if (sucursalIdList != null && sucursalIdList.size() > 0) {
+            if (sucursalIdList.size() > 1) {
+                filtro.append("Sucursales: ");
+            } else {
+                filtro.append("Sucursal: ");
+            }
+        }
+        for (Long sucId : sucursalIdList) {
+            Sucursal suc = sucursalService.findById(sucId).orElse(null);
+            if (suc != null)
+                filtro.append(suc.getNombre() + ", ");
+        }
+        if (familiaId != null) {
+            Familia familia = familiaService.findById(familiaId).orElse(null);
+            if (familia != null && familia.getNombre() != null) {
+                filtro.append("\nFamilia: " + familia.getNombre());
+            }
+        }
+        if (subfamiliaId != null) {
+            Subfamilia subfamilia = subFamiliaService.findById(subfamiliaId).orElse(null);
+            if (subfamilia != null && subfamilia.getNombre() != null) {
+                filtro.append("\nSubfamilia: " + subfamilia.getNombre());
+            }
+        }
+        List<LucroPorFuncionarioDto> lucroPorFuncionarioDtoList = service.findLucroPorFuncionarios(fechaInicio, fechaFin,
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId);
+        return impresionService.imprimirReporteLucroPorFuncionario(lucroPorFuncionarioDtoList, fechaInicio, fechaFin, "",
+                filtro.toString(), usuario);
+    }
+
+    public LucroPorFuncionarioResponse lucroPorFuncionarioList(
+            String fechaInicio,
+            String fechaFin,
+            List<Long> sucursalIdList,
+            List<Long> usuarioIdList,
+            List<Long> productoIdList,
+            Long subfamiliaId,
+            Integer page,
+            Integer size,
+            Long familiaId) {
+
+        List<LucroPorFuncionarioDto> fullList = service.findLucroPorFuncionarios(fechaInicio, fechaFin,
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId);
+
+        LucroPorFuncionarioSummary summary = new LucroPorFuncionarioSummary();
+        summary.setCantidad(0.0);
+        summary.setCostoTotal(0.0);
+        summary.setTotalVenta(0.0);
+        summary.setLucro(0.0);
+        summary.setTotalDescuento(0.0);
+        summary.setTotalAumento(0.0);
+
+        for (LucroPorFuncionarioDto dto : fullList) {
+            summary.setCantidad(summary.getCantidad() + (dto.getCantidad() != null ? dto.getCantidad() : 0));
+            summary.setCostoTotal(summary.getCostoTotal() + (dto.getCostoTotal() != null ? dto.getCostoTotal() : 0));
+            summary.setTotalVenta(summary.getTotalVenta() + (dto.getTotalVenta() != null ? dto.getTotalVenta() : 0));
+            summary.setLucro(summary.getLucro() + (dto.getLucro() != null ? dto.getLucro() : 0));
+            summary.setTotalDescuento(
+                    summary.getTotalDescuento() + (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0));
+            summary.setTotalAumento(
+                    summary.getTotalAumento() + (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0));
+        }
+
+        if (summary.getTotalVenta() > 0) {
+            summary.setMargen((summary.getLucro() / summary.getTotalVenta()) * 100);
+        } else {
+            summary.setMargen(0.0);
+        }
+
+        int start = 0;
+        int end = fullList.size();
+
+        if (page != null && size != null) {
+            start = page * size;
+            end = Math.min(start + size, fullList.size());
+        }
+
+        List<LucroPorFuncionarioDto> pagedContent;
+        if (start >= fullList.size()) {
+            pagedContent = new ArrayList<>();
+        } else {
+            pagedContent = fullList.subList(start, end);
+        }
+
+        LucroPorFuncionarioResponse response = new LucroPorFuncionarioResponse();
+        response.setContent(pagedContent);
+        response.setTotalElements((long) fullList.size());
+        response.setSummary(summary);
+
+        return response;
     }
 }

@@ -497,19 +497,21 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
 
             escpos.writeLF("--------Liquidación IVA---------");
-            Double porcentajeDescuento = (facturaLegal.getDescuento() != null
-                    && facturaLegal.getDescuento().compareTo(0.0) != 0) ? (facturaLegal.getDescuento() / totalFinal)
-                            : null;
+            // Leer los parciales persistidos en la factura (ya tienen el descuento
+            // aplicado proporcionalmente por el builder). Antes este bloque
+            // recalculaba desde los items locales y aplicaba descuento extra,
+            // generando inconsistencia con PDF/KUDE que leen los parciales
+            // persistidos.
+            Double ivaParcial10Persist = facturaLegal.getIvaParcial10() != null ? facturaLegal.getIvaParcial10() : 0.0;
+            Double ivaParcial5Persist = facturaLegal.getIvaParcial5() != null ? facturaLegal.getIvaParcial5() : 0.0;
             escpos.write("Gravadas 10%:");
-            Double desc10 = porcentajeDescuento != null ? (totalIva10 - (totalIva10 * porcentajeDescuento)) : null;
-            String totalIva10S = df.format(desc10 == null ? totalIva10.intValue() : desc10.intValue());
+            String totalIva10S = df.format(ivaParcial10Persist.intValue());
             for (int i = 19; i > totalIva10S.length(); i--) {
                 escpos.write(" ");
             }
             escpos.writeLF(totalIva10S);
             escpos.write("Gravadas 5%: ");
-            Double desc5 = porcentajeDescuento != null ? (totalIva5 - (totalIva5 * porcentajeDescuento)) : null;
-            String totalIva5S = df.format(desc5 == null ? totalIva5.intValue() : desc5.intValue());
+            String totalIva5S = df.format(ivaParcial5Persist.intValue());
             for (int i = 19; i > totalIva5S.length(); i--) {
                 escpos.write(" ");
             }
@@ -519,10 +521,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 escpos.write(" ");
             }
             escpos.writeLF("0");
-            Double totalFinalIva = totalIva10 + totalIva5;
-            Double descFinal = porcentajeDescuento != null ? (totalFinalIva - (totalFinalIva * porcentajeDescuento))
-                    : null;
-            String totalFinalIvaS = df.format(descFinal == null ? totalFinalIva.intValue() : descFinal.intValue());
+            Double totalFinalIvaPersist = ivaParcial10Persist + ivaParcial5Persist;
+            String totalFinalIvaS = df.format(totalFinalIvaPersist.intValue());
             escpos.write("Total IVA:   ");
             for (int i = 19; i > totalFinalIvaS.length(); i--) {
                 escpos.write(" ");

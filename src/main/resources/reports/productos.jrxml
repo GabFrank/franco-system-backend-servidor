@@ -15,6 +15,7 @@
 	<parameter name="filtroFamilia" class="java.lang.String"/>
 	<parameter name="filtroStock" class="java.lang.String"/>
 	<parameter name="totalProductos" class="java.lang.Integer"/>
+	<parameter name="puedeVerCostos" class="java.lang.Boolean"/>
 	<field name="id" class="java.lang.Long"/>
 	<field name="descripcion" class="java.lang.String"/>
 	<field name="cantidad" class="java.lang.Double"/>
@@ -149,14 +150,14 @@
 				</textElement>
 				<text><![CDATA[COSTO TOTAL:]]></text>
 			</staticText>
-			<textField evaluationTime="Report" pattern="#,##0">
+			<textField evaluationTime="Report">
 				<reportElement x="500" y="90" width="50" height="14" uuid="a1b2c3d4-e5f6-7890-1234-567890abcdef">
 					<property name="com.jaspersoft.studio.unit.height" value="px"/>
 				</reportElement>
 				<textElement textAlignment="Right" verticalAlignment="Top">
 					<font fontName="SansSerif" size="8" isBold="true"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$V{costoTotalGeneral}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$P{puedeVerCostos} ? ( $V{costoTotalGeneral} != null ? new java.text.DecimalFormat("#,##0").format($V{costoTotalGeneral}) : "0" ) : "-"]]></textFieldExpression>
 			</textField>
 		</band>
 	</title>
@@ -246,19 +247,19 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$F{codigoPrincipal}]]></textFieldExpression>
 			</textField>
-			<textField pattern="#,##0">
+			<textField>
 				<reportElement x="335" y="1" width="65" height="15" uuid="8fb71000-51f6-46e1-bb3f-48fa3024a081"/>
 				<textElement textAlignment="Center">
 					<font fontName="SansSerif" size="9"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{precioCosto}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$P{puedeVerCostos} ? ( $F{precioCosto} != null ? new java.text.DecimalFormat("#,##0").format($F{precioCosto}) : "0" ) : "-"]]></textFieldExpression>
 			</textField>
-			<textField pattern="#,##0">
+			<textField>
 				<reportElement x="405" y="1" width="75" height="15" uuid="8fb81000-51f6-46e1-bb3f-48fa3024a082"/>
 				<textElement textAlignment="Center">
 					<font fontName="SansSerif" size="9"/>
 				</textElement>
-				<textFieldExpression><![CDATA[$F{precioCosto} * $F{cantidad}]]></textFieldExpression>
+				<textFieldExpression><![CDATA[$P{puedeVerCostos} ? ( ($F{precioCosto} != null && $F{cantidad} != null) ? new java.text.DecimalFormat("#,##0").format($F{precioCosto} * $F{cantidad}) : "0" ) : "-"]]></textFieldExpression>
 			</textField>
 			<textField pattern="#,##0">
 				<reportElement x="485" y="1" width="65" height="15" uuid="16091ed4-b9c8-4869-94d0-c0732c680193"/>

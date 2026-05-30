@@ -1,0 +1,21 @@
+type ConfiguracionTransferencia {
+    id: ID!
+    permitirStockNegativo: Boolean!
+    usuario: Usuario
+    creadoEn: Date
+    modificadoEn: Date
+}
+
+input ConfiguracionTransferenciaInput {
+    id: ID
+    permitirStockNegativo: Boolean
+    usuarioId: ID
+}
+
+extend type Query {
+    configuracionTransferencia: ConfiguracionTransferencia!
+}
+
+extend type Mutation {
+    saveConfiguracionTransferencia(input: ConfiguracionTransferenciaInput!): ConfiguracionTransferencia!
+}

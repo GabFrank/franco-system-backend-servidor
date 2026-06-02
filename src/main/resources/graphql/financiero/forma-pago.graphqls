@@ -9,12 +9,21 @@ type FormaPago {
     usuario: Usuario
 }
 
+type FormaPagoMonedaDesglose {
+    monedaId: ID
+    denominacion: String
+    simbolo: String
+    cantidadTransacciones: Int
+    totalMonto: Float
+}
+
 type FormaPagoEstadistica {
     formaPagoId: ID
     descripcion: String
     cantidadTransacciones: Int
     totalMonto: Float
     porcentaje: Float
+    desgloseMoneda: [FormaPagoMonedaDesglose]
 }
 
 input FormaPagoInput {

@@ -16,6 +16,8 @@ public class VentaPorCiudad {
     Long ciudadId;
     String nombre;
     Double total;
+    /** Cantidad de ventas (tickets) concluidos en el período. */
+    Double cantidadVentas;
     private List<DesglosePeriodoGrafico> desglosePeriodos = new ArrayList<>();
     private List<DesgloseAnhoGrafico> desgloseAnhos = new ArrayList<>();
 }

@@ -7,13 +7,17 @@ import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.VentaPorCiudad;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.graphql.financiero.dto.FormaPagoEstadistica;
+import com.franco.dev.graphql.grafico.input.GraficoExcelExportInput;
 import com.franco.dev.graphql.grafico.input.PeriodoGraficoInput;
 import com.franco.dev.graphql.operaciones.dto.ProductoVendidoEstadistica;
 import com.franco.dev.service.grafico.GraficoAggregationService;
+import com.franco.dev.service.grafico.excel.GraficoExcelExportService;
+import com.franco.dev.service.grafico.excel.GraficoExcelTipo;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Base64;
 import java.util.List;
 
 @Component
@@ -21,6 +25,7 @@ import java.util.List;
 public class GraficoGraphQL implements GraphQLQueryResolver {
 
     private final GraficoAggregationService graficoAggregationService;
+    private final GraficoExcelExportService graficoExcelExportService;
 
     public List<VentaPorFuncionario> ventasPorFuncionarioMulti(
             List<PeriodoGraficoInput> periodos,
@@ -70,5 +75,14 @@ public class GraficoGraphQL implements GraphQLQueryResolver {
             List<PeriodoGraficoInput> periodos,
             List<Long> sucIds) {
         return graficoAggregationService.ventasPorHoraMulti(periodos, sucIds);
+    }
+
+    public String exportarGraficoExcel(GraficoExcelTipo tipo, GraficoExcelExportInput input) {
+        try {
+            byte[] archivo = graficoExcelExportService.exportar(tipo, input);
+            return Base64.getEncoder().encodeToString(archivo);
+        } catch (Exception e) {
+            throw new RuntimeException("Error al exportar gráfico a Excel: " + e.getMessage(), e);
+        }
     }
 }

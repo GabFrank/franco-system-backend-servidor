@@ -415,6 +415,7 @@ public class GraficoAggregationService {
                     ? String.valueOf(item.getCiudadId())
                     : (item.getNombre() != null ? item.getNombre() : "sin-ciudad");
             double total = item.getTotal() != null ? item.getTotal() : 0.0;
+            double cantidad = item.getCantidadVentas() != null ? item.getCantidadVentas() : 0.0;
 
             VentaPorCiudad acc = mapa.get(key);
             if (acc == null) {
@@ -422,16 +423,19 @@ public class GraficoAggregationService {
                 acc.setCiudadId(item.getCiudadId());
                 acc.setNombre(item.getNombre());
                 acc.setTotal(0.0);
+                acc.setCantidadVentas(0.0);
                 acc.setDesglosePeriodos(new ArrayList<>());
                 acc.setDesgloseAnhos(new ArrayList<>());
                 mapa.put(key, acc);
             }
 
             acc.setTotal(acc.getTotal() + total);
+            acc.setCantidadVentas(
+                    (acc.getCantidadVentas() != null ? acc.getCantidadVentas() : 0.0) + cantidad);
 
             if (multiPeriodo) {
-                agregarDesglose(acc.getDesglosePeriodos(), etiquetaPeriodo, total, null);
-                agregarDesgloseAnho(acc.getDesgloseAnhos(), anio, total, null);
+                agregarDesglose(acc.getDesglosePeriodos(), etiquetaPeriodo, total, cantidad);
+                agregarDesgloseAnho(acc.getDesgloseAnhos(), anio, total, cantidad);
             }
         }
     }

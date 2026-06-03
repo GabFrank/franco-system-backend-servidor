@@ -377,6 +377,7 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             dto.setCiudadId(rawId != null && rawId == -1L ? null : rawId);
             dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "Sin Ciudad");
             dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            dto.setCantidadVentas(obj[3] != null ? ((Number) obj[3]).doubleValue() : 0.0);
             list.add(dto);
         }
         return list;

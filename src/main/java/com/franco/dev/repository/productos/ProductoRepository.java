@@ -193,7 +193,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("endDate") LocalDateTime endDate);
 
         /** Misma base que {@link #findTotalVentaPorSucursal}, agrupado por ciudad de la sucursal. */
-        @Query("SELECT COALESCE(c.id, -1L), COALESCE(c.descripcion, 'Sin Ciudad'), SUM(vi.precio * vi.cantidad) " +
+        @Query("SELECT COALESCE(c.id, -1L), COALESCE(c.descripcion, 'Sin Ciudad'), SUM(vi.precio * vi.cantidad), COUNT(DISTINCT v.id) " +
                         "FROM VentaItem vi " +
                         "JOIN vi.venta v " +
                         "JOIN v.usuario u " +

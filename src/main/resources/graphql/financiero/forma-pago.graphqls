@@ -24,6 +24,8 @@ type FormaPagoEstadistica {
     totalMonto: Float
     porcentaje: Float
     desgloseMoneda: [FormaPagoMonedaDesglose]
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 input FormaPagoInput {

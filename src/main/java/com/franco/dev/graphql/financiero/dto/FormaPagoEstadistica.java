@@ -1,5 +1,7 @@
 package com.franco.dev.graphql.financiero.dto;
 
+import com.franco.dev.domain.grafico.DesgloseAnhoGrafico;
+import com.franco.dev.domain.grafico.DesglosePeriodoGrafico;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,4 +24,6 @@ public class FormaPagoEstadistica {
     private BigDecimal totalMonto;
     private BigDecimal porcentaje;
     private List<FormaPagoMonedaDesglose> desgloseMoneda = new ArrayList<>();
+    private List<DesglosePeriodoGrafico> desglosePeriodos = new ArrayList<>();
+    private List<DesgloseAnhoGrafico> desgloseAnhos = new ArrayList<>();
 }

@@ -40,6 +40,8 @@ type ProductoVendidoEstadistica {
     cantidadEntrada: Float
     cantidadVentaMovimiento: Float
     indiceRotacion: Float
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 type ProductoVentaPorPeriodo {

@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.GastoPorCategoria;
 import com.franco.dev.domain.grafico.IngresoGastoSerieGrafico;
 import com.franco.dev.domain.grafico.VentasPorHoraSerieGrafico;
 import com.franco.dev.domain.operaciones.VentaPorFuncionario;
+import com.franco.dev.domain.operaciones.VentaPorCiudad;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.graphql.financiero.dto.FormaPagoEstadistica;
 import com.franco.dev.graphql.grafico.input.PeriodoGraficoInput;
@@ -42,6 +43,10 @@ public class GraficoGraphQL implements GraphQLQueryResolver {
 
     public List<VentaPorSucursal> ventasPorSucursalMulti(List<PeriodoGraficoInput> periodos) {
         return graficoAggregationService.ventasPorSucursalMulti(periodos);
+    }
+
+    public List<VentaPorCiudad> ventasPorCiudadMulti(List<PeriodoGraficoInput> periodos) {
+        return graficoAggregationService.ventasPorCiudadMulti(periodos);
     }
 
     public List<ProductoVendidoEstadistica> productosMasVendidosMulti(

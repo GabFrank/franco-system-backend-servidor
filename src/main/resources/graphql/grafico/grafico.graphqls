@@ -32,6 +32,14 @@ type VentasPorHoraSerieGrafico {
     datos: [VentaPorHora!]!
 }
 
+type VentaPorCiudad {
+    ciudadId: ID
+    nombre: String
+    total: Float
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
+}
+
 extend type Query {
     ventasPorFuncionarioMulti(
         periodos: [PeriodoGraficoInput!]!
@@ -52,6 +60,10 @@ extend type Query {
     ventasPorSucursalMulti(
         periodos: [PeriodoGraficoInput!]!
     ): [VentaPorSucursal!]!
+
+    ventasPorCiudadMulti(
+        periodos: [PeriodoGraficoInput!]!
+    ): [VentaPorCiudad!]!
 
     productosMasVendidosMulti(
         periodos: [PeriodoGraficoInput!]!

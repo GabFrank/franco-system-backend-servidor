@@ -5,6 +5,7 @@ import com.franco.dev.domain.grafico.DesglosePeriodoGrafico;
 import com.franco.dev.domain.grafico.IngresoGastoSerieGrafico;
 import com.franco.dev.domain.grafico.VentasPorHoraSerieGrafico;
 import com.franco.dev.domain.operaciones.VentaPorFuncionario;
+import com.franco.dev.domain.operaciones.VentaPorCiudad;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.graphql.financiero.dto.FormaPagoEstadistica;
 import com.franco.dev.graphql.financiero.dto.FormaPagoMonedaDesglose;
@@ -135,6 +136,23 @@ public class GraficoAggregationService {
         }
 
         return ordenarVentasPorSucursalDesc(mapa.values());
+    }
+
+    public List<VentaPorCiudad> ventasPorCiudadMulti(List<PeriodoGraficoInput> periodos) {
+        validarPeriodos(periodos);
+        boolean multiPeriodo = esMultiPeriodo(periodos);
+
+        Map<String, VentaPorCiudad> mapa = new LinkedHashMap<>();
+
+        for (PeriodoGraficoInput periodo : periodos) {
+            Integer anio = extraerAnho(periodo.getInicio());
+            List<VentaPorCiudad> items = ventaService.ventaPorCiudad(
+                    periodo.getInicio(),
+                    periodo.getFin());
+            acumularVentasPorCiudad(mapa, items, periodo.getEtiqueta(), multiPeriodo, anio);
+        }
+
+        return ordenarVentasPorCiudadDesc(mapa.values());
     }
 
     public List<ProductoVendidoEstadistica> productosMasVendidosMulti(
@@ -386,6 +404,38 @@ public class GraficoAggregationService {
         }
     }
 
+    private void acumularVentasPorCiudad(
+            Map<String, VentaPorCiudad> mapa,
+            List<VentaPorCiudad> items,
+            String etiquetaPeriodo,
+            boolean multiPeriodo,
+            Integer anio) {
+        for (VentaPorCiudad item : items) {
+            String key = item.getCiudadId() != null
+                    ? String.valueOf(item.getCiudadId())
+                    : (item.getNombre() != null ? item.getNombre() : "sin-ciudad");
+            double total = item.getTotal() != null ? item.getTotal() : 0.0;
+
+            VentaPorCiudad acc = mapa.get(key);
+            if (acc == null) {
+                acc = new VentaPorCiudad();
+                acc.setCiudadId(item.getCiudadId());
+                acc.setNombre(item.getNombre());
+                acc.setTotal(0.0);
+                acc.setDesglosePeriodos(new ArrayList<>());
+                acc.setDesgloseAnhos(new ArrayList<>());
+                mapa.put(key, acc);
+            }
+
+            acc.setTotal(acc.getTotal() + total);
+
+            if (multiPeriodo) {
+                agregarDesglose(acc.getDesglosePeriodos(), etiquetaPeriodo, total, null);
+                agregarDesgloseAnho(acc.getDesgloseAnhos(), anio, total, null);
+            }
+        }
+    }
+
     private void acumularProductos(
             Map<Long, ProductoVendidoEstadistica> mapa,
             List<ProductoVendidoEstadistica> items,
@@ -515,6 +565,14 @@ public class GraficoAggregationService {
         items.forEach(lista::add);
         lista.sort(Comparator.comparing(
                 (VentaPorSucursal v) -> v.getTotal() != null ? v.getTotal() : 0.0).reversed());
+        return lista;
+    }
+
+    private List<VentaPorCiudad> ordenarVentasPorCiudadDesc(Iterable<VentaPorCiudad> items) {
+        List<VentaPorCiudad> lista = new ArrayList<>();
+        items.forEach(lista::add);
+        lista.sort(Comparator.comparing(
+                (VentaPorCiudad v) -> v.getTotal() != null ? v.getTotal() : 0.0).reversed());
         return lista;
     }
 

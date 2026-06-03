@@ -366,6 +366,22 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
         return list;
     }
 
+    public List<VentaPorCiudad> ventaPorCiudad(String fechaInicio, String fechaFin) {
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = ajustarFinRangoGrafico(fechaFin, stringToDate(fechaFin));
+        List<Object[]> results = productoRepository.findTotalVentaPorCiudad(inicio, fin);
+        List<VentaPorCiudad> list = new ArrayList<>();
+        for (Object[] obj : results) {
+            VentaPorCiudad dto = new VentaPorCiudad();
+            Long rawId = obj[0] != null ? ((Number) obj[0]).longValue() : null;
+            dto.setCiudadId(rawId != null && rawId == -1L ? null : rawId);
+            dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "Sin Ciudad");
+            dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            list.add(dto);
+        }
+        return list;
+    }
+
     public List<VentaPorSucursal> ventaPorSucursalAndUsuario(Long usuarioId, String inicio, String fin) {
         LocalDateTime fechaInicio = stringToDate(inicio);
         LocalDateTime fechaFin = stringToDate(fin);

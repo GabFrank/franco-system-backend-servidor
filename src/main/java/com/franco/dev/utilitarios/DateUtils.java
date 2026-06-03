@@ -64,4 +64,22 @@ public class DateUtils {
         return date.withHour(23).withMinute(59).withSecond(59);
     }
 
+    /**
+     * Los gráficos envían fin de mes como {@code 23:59} (sin segundos); el parser deja
+     * {@code 23:59:00} y excluye ventas del último minuto. Ajusta a fin de día inclusivo.
+     */
+    public static LocalDateTime ajustarFinRangoGrafico(String raw, LocalDateTime fin) {
+        if (fin == null) {
+            return null;
+        }
+        boolean finSinSegundos = raw != null
+                && (raw.length() == 16 || raw.length() == 19)
+                && raw.contains("23:59")
+                && (raw.length() == 16 || raw.endsWith("23:59:00"));
+        if (finSinSegundos || (fin.getHour() == 23 && fin.getMinute() == 59 && fin.getSecond() == 0)) {
+            return fin.withSecond(59);
+        }
+        return fin;
+    }
+
 }

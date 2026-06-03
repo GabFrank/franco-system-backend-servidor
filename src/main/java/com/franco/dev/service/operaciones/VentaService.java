@@ -15,6 +15,7 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
+import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
@@ -41,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.franco.dev.utilitarios.DateUtils.ajustarFinRangoGrafico;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -82,6 +84,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private ProductoRepository productoRepository;
 
     @Autowired
     private VentaItemRepository ventaItemRepository;
@@ -348,8 +353,8 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {
         LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
-        List<Object[]> results = repository.getVentasPorSucursal(inicio, fin);
+        LocalDateTime fin = ajustarFinRangoGrafico(fechaFin, stringToDate(fechaFin));
+        List<Object[]> results = productoRepository.findTotalVentaPorSucursal(inicio, fin);
         List<VentaPorSucursal> list = new ArrayList<>();
         for (Object[] obj : results) {
             VentaPorSucursal dto = new VentaPorSucursal();

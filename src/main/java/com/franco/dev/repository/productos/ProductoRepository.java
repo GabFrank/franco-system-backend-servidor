@@ -176,6 +176,22 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
+        /** Misma base que {@link #findTotalVentaPacksPorProducto}, agrupado por sucursal (gráfico ventas). */
+        @Query("SELECT v.sucursalId, s.nombre, SUM(vi.precio * vi.cantidad) " +
+                        "FROM VentaItem vi " +
+                        "JOIN vi.venta v " +
+                        "JOIN v.usuario u " +
+                        "JOIN vi.presentacion pre " +
+                        "JOIN vi.producto pro " +
+                        "JOIN v.sucursal s " +
+                        "WHERE v.estado = 'CONCLUIDA' AND " +
+                        "v.creadoEn BETWEEN :startDate AND :endDate " +
+                        "GROUP BY v.sucursalId, s.nombre " +
+                        "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
+        List<Object[]> findTotalVentaPorSucursal(
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate);
+
         @Query("select distinct p from Producto p " +
                         "left join Presentacion pres on pres.producto.id = p.id " +
                         "left join Codigo cod on cod.presentacion.id = pres.id " +

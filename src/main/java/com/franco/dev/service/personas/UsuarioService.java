@@ -87,13 +87,22 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         List<Role> roleList = new ArrayList<Role>();
         if (!usuarioRoleList.isEmpty()) {
             usuarioRoleList.forEach(usuarioRole -> {
-                Role role = roleService.findById(usuarioRole.getUser().getId()).orElse(null);
+                Role role = usuarioRole.getRole();
                 if (role != null) {
                     roleList.add(role);
                 }
             });
         }
         return roleList;
+    }
+
+    public boolean tieneRol(Long usuarioId, String... nombresRol) {
+        if (usuarioId == null || nombresRol == null || nombresRol.length == 0) return false;
+        List<Role> roles = getRoles(usuarioId);
+        return roles.stream().anyMatch(r ->
+            java.util.Arrays.stream(nombresRol)
+                .anyMatch(nombre -> nombre.equalsIgnoreCase(r.getNombre()))
+        );
     }
 
     public Usuario findByEmail(String email) {

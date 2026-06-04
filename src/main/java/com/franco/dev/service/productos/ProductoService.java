@@ -172,6 +172,20 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         return existing != null;
     }
 
+    /**
+     * Match de producto por descripcion normalizada (UPPER+TRIM), aceptando
+     * tanto p.descripcion como p.descripcionFactura. Util para resolver iva de
+     * items de factura legal que llegan sin productoId ni iva (huerfanos).
+     * Retorna lista porque pueden haber duplicados en catalogo con distinto iva,
+     * en cuyo caso el caller debe decidir como manejar la ambiguedad.
+     */
+    public List<Producto> findByDescripcionNormalized(String descripcion) {
+        if (descripcion == null || descripcion.trim().isEmpty()) {
+            return Collections.emptyList();
+        }
+        return repository.findByDescripcionNormalized(descripcion);
+    }
+
     public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza,
             Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
             Pageable page) {
@@ -436,7 +450,9 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             String stockFiltro,
             Long sucursalId,
             Long usuarioId,
-            String usuario) throws FileNotFoundException {
+            String usuario,
+            boolean puedeVerStockCompras,
+            boolean puedeVerCostos) throws FileNotFoundException {
 
         Page<Producto> productoPage = findWithFilters(
                 texto,
@@ -507,38 +523,39 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
         // Filtro de Stock (columna 4 del template - separado)
         StringBuilder filtroStock = new StringBuilder();
-        if (stockFiltro != null && !stockFiltro.equals("todos")) {
-            filtroStock.append("STOCK: ").append(stockFiltro.toUpperCase());
-            if (sucursalId != null) {
-                try {
-                    Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
-                    if (sucursal != null) {
-                        // Mostrar nombre completo de sucursal, truncar solo si es muy largo
-                        String nombreSucursal = sucursal.getNombre().length() > 35
-                                ? sucursal.getNombre().substring(0, 32) + "..."
-                                : sucursal.getNombre();
-                        filtroStock.append(" (").append(nombreSucursal.toUpperCase()).append(")");
-                    } else {
-                        filtroStock.append(" (ID: ").append(sucursalId).append(")");
-                    }
-                } catch (Exception e) {
-                    filtroStock.append(" (ID: ").append(sucursalId).append(")");
+        String stockFiltroLabel = (stockFiltro != null && !stockFiltro.equals("todos"))
+                ? stockFiltro.toUpperCase() : "TODOS";
+        filtroStock.append("STOCK: ").append(stockFiltroLabel);
+        if (sucursalId != null) {
+            try {
+                Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                if (sucursal != null) {
+                    String nombreSucursal = sucursal.getNombre().length() > 35
+                            ? sucursal.getNombre().substring(0, 32) + "..."
+                            : sucursal.getNombre();
+                    filtroStock.append(" | SUCURSAL: ").append(nombreSucursal.toUpperCase());
+                } else {
+                    filtroStock.append(" | SUCURSAL ID: ").append(sucursalId);
                 }
+            } catch (Exception e) {
+                filtroStock.append(" | SUCURSAL ID: ").append(sucursalId);
             }
-        } else {
-            filtroStock.append("STOCK: TODOS");
         }
 
         // Crear la lista de DTOs para el reporte
         List<ProductoReportDto> productosDtoList = new ArrayList<>();
 
         for (Producto p : productoList) {
-            // Obtener stock real - usar stock por sucursal si se filtró por sucursal
-            // específica
+            // Obtener stock real
             Double stockCantidad;
-            if (sucursalId != null && (stockFiltro != null && !stockFiltro.equals("todos"))) {
-                // Si hay filtro de sucursal y stock específico, usar stock de esa sucursal
+            if (sucursalId != null) {
+                // Hay sucursal seleccionada: mostrar solo esa sucursal
                 stockCantidad = movimientoStockService.stockByProductoIdAndSucursalId(p.getId(), sucursalId);
+            } else if (!puedeVerStockCompras) {
+                // Sin permiso de ver COMPRAS: excluir esa sucursal del total para
+                // evitar que pueda deducir el stock de COMPRAS por diferencia matemática
+                stockCantidad = movimientoStockService.stockByProductoIdExcluyendoNombresSucursal(
+                        p.getId(), java.util.Arrays.asList("COMPRAS"));
             } else {
                 // Usar stock total (todas las sucursales)
                 stockCantidad = movimientoStockService.stockByProductoId(p.getId());
@@ -622,6 +639,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
 
             // Total de productos encontrados
             parameters.put("totalProductos", productosDtoList.size());
+            parameters.put("puedeVerCostos", puedeVerCostos);
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);

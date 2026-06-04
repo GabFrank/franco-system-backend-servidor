@@ -5,6 +5,9 @@ import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.graphql.financiero.input.PreGastoInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.domain.activos.Ente;
+import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.service.financiero.PreGastoEnteValidationService;
 import com.franco.dev.service.financiero.PreGastoService;
 import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.domain.personas.Persona;
@@ -64,6 +67,9 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private com.franco.dev.service.impresion.ImpresionService impresionService;
+
+    @Autowired
+    private PreGastoEnteValidationService preGastoEnteValidationService;
 
     public PreGasto preGasto(Long id, Long sucId) {
         return service.findByIdAndSucursalId(id, sucId);
@@ -147,9 +153,13 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getFuncionarioId() != null) {
             e.setFuncionario(personaService.findById(input.getFuncionarioId()).orElse(null));
         }
+        TipoGasto tipoGasto = null;
         if (input.getTipoGastoId() != null) {
-            e.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
+            tipoGasto = tipoGastoService.findById(input.getTipoGastoId()).orElse(null);
+            e.setTipoGasto(tipoGasto);
         }
+        Ente ente = preGastoEnteValidationService.validarYResolverEnte(tipoGasto, input.getEnteId());
+        e.setEnte(ente);
         if (input.getMonedaId() != null) {
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }

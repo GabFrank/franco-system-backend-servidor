@@ -34,8 +34,10 @@ import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
@@ -146,6 +148,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private CodigoService codigoService;
+
+    @Autowired
+    private ProductoService productoService;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FacturaLegalGraphQL.class);
 
     public DecimalFormat df = new DecimalFormat("#,###.##");
 
@@ -418,8 +425,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     iva = vi.getPresentacion().getProducto().getIva();
                 }
 
-                // Default 10% si no se puede determinar el IVA
+                // Fallback: lookup producto por descripcion (UPPER+TRIM) si iva todavia null.
+                if (iva == null && vi.getDescripcion() != null) {
+                    List<Producto> matches = productoService.findByDescripcionNormalized(vi.getDescripcion());
+                    if (matches.size() == 1 && matches.get(0).getIva() != null) {
+                        iva = matches.get(0).getIva();
+                    }
+                }
                 if (iva == null) {
+                    log.warn("IVA no resoluble al imprimir ticket para item desc='{}', default 10", vi.getDescripcion());
                     iva = 10;
                 }
 
@@ -483,19 +497,21 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
 
             escpos.writeLF("--------Liquidación IVA---------");
-            Double porcentajeDescuento = (facturaLegal.getDescuento() != null
-                    && facturaLegal.getDescuento().compareTo(0.0) != 0) ? (facturaLegal.getDescuento() / totalFinal)
-                            : null;
+            // Leer los parciales persistidos en la factura (ya tienen el descuento
+            // aplicado proporcionalmente por el builder). Antes este bloque
+            // recalculaba desde los items locales y aplicaba descuento extra,
+            // generando inconsistencia con PDF/KUDE que leen los parciales
+            // persistidos.
+            Double ivaParcial10Persist = facturaLegal.getIvaParcial10() != null ? facturaLegal.getIvaParcial10() : 0.0;
+            Double ivaParcial5Persist = facturaLegal.getIvaParcial5() != null ? facturaLegal.getIvaParcial5() : 0.0;
             escpos.write("Gravadas 10%:");
-            Double desc10 = porcentajeDescuento != null ? (totalIva10 - (totalIva10 * porcentajeDescuento)) : null;
-            String totalIva10S = df.format(desc10 == null ? totalIva10.intValue() : desc10.intValue());
+            String totalIva10S = df.format(ivaParcial10Persist.intValue());
             for (int i = 19; i > totalIva10S.length(); i--) {
                 escpos.write(" ");
             }
             escpos.writeLF(totalIva10S);
             escpos.write("Gravadas 5%: ");
-            Double desc5 = porcentajeDescuento != null ? (totalIva5 - (totalIva5 * porcentajeDescuento)) : null;
-            String totalIva5S = df.format(desc5 == null ? totalIva5.intValue() : desc5.intValue());
+            String totalIva5S = df.format(ivaParcial5Persist.intValue());
             for (int i = 19; i > totalIva5S.length(); i--) {
                 escpos.write(" ");
             }
@@ -505,10 +521,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 escpos.write(" ");
             }
             escpos.writeLF("0");
-            Double totalFinalIva = totalIva10 + totalIva5;
-            Double descFinal = porcentajeDescuento != null ? (totalFinalIva - (totalFinalIva * porcentajeDescuento))
-                    : null;
-            String totalFinalIvaS = df.format(descFinal == null ? totalFinalIva.intValue() : descFinal.intValue());
+            Double totalFinalIvaPersist = ivaParcial10Persist + ivaParcial5Persist;
+            String totalFinalIvaS = df.format(totalFinalIvaPersist.intValue());
             escpos.write("Total IVA:   ");
             for (int i = 19; i > totalFinalIvaS.length(); i--) {
                 escpos.write(" ");
@@ -790,8 +804,15 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     iva = vi.getPresentacion().getProducto().getIva();
                 }
 
-                // Default 10% si no se puede determinar el IVA
+                // Fallback: lookup producto por descripcion (UPPER+TRIM) si iva todavia null.
+                if (iva == null && vi.getDescripcion() != null) {
+                    List<Producto> matches = productoService.findByDescripcionNormalized(vi.getDescripcion());
+                    if (matches.size() == 1 && matches.get(0).getIva() != null) {
+                        iva = matches.get(0).getIva();
+                    }
+                }
                 if (iva == null) {
+                    log.warn("IVA no resoluble al imprimir ticket para item desc='{}', default 10", vi.getDescripcion());
                     iva = 10;
                 }
 

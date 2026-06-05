@@ -1,8 +1,10 @@
 package com.franco.dev.service.grafico.excel;
 
+import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xddf.usermodel.chart.AxisPosition;
@@ -18,9 +20,12 @@ import org.apache.poi.xddf.usermodel.chart.XDDFDataSourcesFactory;
 import org.apache.poi.xddf.usermodel.chart.XDDFNumericalDataSource;
 import org.apache.poi.xddf.usermodel.chart.XDDFPieChartData;
 import org.apache.poi.xddf.usermodel.chart.XDDFValueAxis;
+import org.apache.poi.xssf.usermodel.XSSFCellStyle;
 import org.apache.poi.xssf.usermodel.XSSFChart;
 import org.apache.poi.xssf.usermodel.XSSFClientAnchor;
+import org.apache.poi.xssf.usermodel.XSSFColor;
 import org.apache.poi.xssf.usermodel.XSSFDrawing;
+import org.apache.poi.xssf.usermodel.XSSFFont;
 import org.apache.poi.xssf.usermodel.XSSFSheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.openxmlformats.schemas.drawingml.x2006.chart.CTLineChart;
@@ -42,6 +47,10 @@ public final class GraficoExcelWorkbookSupport {
     static final int FILAS_ZONA_GRAFICO = 20;
     static final int COLUMNAS_SEPARACION_TABLAS = 2;
 
+    private static final byte[] COLOR_ENCABEZADO = new byte[]{(byte) 31, (byte) 78, (byte) 121};
+    private static final byte[] COLOR_ENCABEZADO_TEXTO = new byte[]{(byte) 255, (byte) 255, (byte) 255};
+    private static final byte[] COLOR_TOTAL = new byte[]{(byte) 255, (byte) 242, (byte) 204};
+
     private GraficoExcelWorkbookSupport() {
     }
 
@@ -52,19 +61,35 @@ public final class GraficoExcelWorkbookSupport {
     }
 
     static void escribirMetadatos(XSSFSheet sheet, GraficoExcelFiltrosContext filtros) {
+        XSSFWorkbook workbook = (XSSFWorkbook) sheet.getWorkbook();
+        CellStyle tituloStyle = crearEstiloTitulo(workbook);
+        CellStyle labelStyle = crearEstiloMetaLabel(workbook);
+
         String generado = LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-        crearFila(sheet, 0, filtros.getTitulo());
-        crearFila(sheet, 1, "Generado", generado);
-        crearFila(sheet, 2, "Años", nulo(filtros.getFiltroAnhos()));
-        crearFila(sheet, 3, "Meses", nulo(filtros.getFiltroMeses()));
-        crearFila(sheet, 4, "Rango de días", nulo(filtros.getFiltroRangoDias()));
+        Row tituloRow = sheet.createRow(0);
+        Cell tituloCell = tituloRow.createCell(0);
+        tituloCell.setCellValue(filtros.getTitulo());
+        tituloCell.setCellStyle(tituloStyle);
+
+        crearFilaMeta(sheet, 1, labelStyle, "Generado", generado);
+        crearFilaMeta(sheet, 2, labelStyle, "Años", nulo(filtros.getFiltroAnhos()));
+        crearFilaMeta(sheet, 3, labelStyle, "Meses", nulo(filtros.getFiltroMeses()));
+        crearFilaMeta(sheet, 4, labelStyle, "Rango de días", nulo(filtros.getFiltroRangoDias()));
         if (filtros.getFiltroSucursales() != null && !filtros.getFiltroSucursales().isBlank()) {
-            crearFila(sheet, 5, "Sucursales", filtros.getFiltroSucursales());
+            crearFilaMeta(sheet, 5, labelStyle, "Sucursales", filtros.getFiltroSucursales());
         }
         if (filtros.getFiltroExtra() != null && !filtros.getFiltroExtra().isBlank()) {
             int fila = sheet.getLastRowNum() + 1;
-            crearFila(sheet, fila, "Otros filtros", filtros.getFiltroExtra());
+            crearFilaMeta(sheet, fila, labelStyle, "Otros filtros", filtros.getFiltroExtra());
         }
+    }
+
+    private static void crearFilaMeta(XSSFSheet sheet, int rowIndex, CellStyle labelStyle, String etiqueta, String valor) {
+        Row row = sheet.createRow(rowIndex);
+        Cell label = row.createCell(0);
+        label.setCellValue(etiqueta);
+        label.setCellStyle(labelStyle);
+        row.createCell(1).setCellValue(valor);
     }
 
     static int filaInicioTablas() {
@@ -366,31 +391,89 @@ public final class GraficoExcelWorkbookSupport {
         return row != null ? row : sheet.createRow(fila);
     }
 
-    static void crearFila(XSSFSheet sheet, int rowIndex, String... valores) {
-        Row row = sheet.createRow(rowIndex);
-        for (int i = 0; i < valores.length; i++) {
-            row.createCell(i).setCellValue(valores[i]);
-        }
+    static CellStyle crearEstiloTitulo(XSSFWorkbook workbook) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        font.setFontHeightInPoints((short) 14);
+        font.setColor(new XSSFColor(COLOR_ENCABEZADO, null));
+        style.setFont(font);
+        return style;
+    }
+
+    static CellStyle crearEstiloMetaLabel(XSSFWorkbook workbook) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        return style;
     }
 
     static CellStyle crearEstiloEncabezado(XSSFWorkbook workbook) {
-        CellStyle style = workbook.createCellStyle();
-        Font font = workbook.createFont();
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
         font.setBold(true);
+        font.setColor(new XSSFColor(COLOR_ENCABEZADO_TEXTO, null));
         style.setFont(font);
+        style.setFillForegroundColor(new XSSFColor(COLOR_ENCABEZADO, null));
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+        aplicarBordes(style);
+        return style;
+    }
+
+    static CellStyle crearEstiloTexto(XSSFWorkbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        aplicarBordes(style);
         return style;
     }
 
     static CellStyle crearEstiloMoneda(XSSFWorkbook workbook) {
         CellStyle style = workbook.createCellStyle();
         style.setDataFormat(workbook.createDataFormat().getFormat("#,##0"));
+        aplicarBordes(style);
         return style;
     }
 
     static CellStyle crearEstiloEntero(XSSFWorkbook workbook) {
         CellStyle style = workbook.createCellStyle();
         style.setDataFormat(workbook.createDataFormat().getFormat("#,##0"));
+        aplicarBordes(style);
         return style;
+    }
+
+    static CellStyle crearEstiloTotalTexto(XSSFWorkbook workbook) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setFillForegroundColor(new XSSFColor(COLOR_TOTAL, null));
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        aplicarBordes(style);
+        return style;
+    }
+
+    static CellStyle crearEstiloTotalMoneda(XSSFWorkbook workbook) {
+        XSSFCellStyle style = workbook.createCellStyle();
+        XSSFFont font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        style.setDataFormat(workbook.createDataFormat().getFormat("#,##0"));
+        style.setFillForegroundColor(new XSSFColor(COLOR_TOTAL, null));
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        aplicarBordes(style);
+        return style;
+    }
+
+    static CellStyle crearEstiloTotalEntero(XSSFWorkbook workbook) {
+        return crearEstiloTotalMoneda(workbook);
+    }
+
+    private static void aplicarBordes(CellStyle style) {
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
     }
 
     static void ajustarAnchoColumna(XSSFSheet sheet, int indiceColumna) {

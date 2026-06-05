@@ -17,6 +17,7 @@ import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.a
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEncabezado;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEntero;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloMoneda;
+import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloTexto;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearGraficoBarras;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirMetadatos;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirWorkbook;
@@ -55,6 +56,7 @@ public class GraficoIngresoGastoExcelExporter {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             XSSFSheet sheet = workbook.createSheet("Ingresos vs Gastos");
             CellStyle headerStyle = crearEstiloEncabezado(workbook);
+            CellStyle textoStyle = crearEstiloTexto(workbook);
             CellStyle monedaStyle = crearEstiloMoneda(workbook);
             CellStyle enteroStyle = crearEstiloEntero(workbook);
 
@@ -70,7 +72,9 @@ public class GraficoIngresoGastoExcelExporter {
 
             for (int mes = 0; mes < 12; mes++) {
                 Row row = sheet.createRow(filaInicioDatos + mes);
-                row.createCell(0).setCellValue(MESES[mes]);
+                Cell mesCell = row.createCell(0);
+                mesCell.setCellValue(MESES[mes]);
+                mesCell.setCellStyle(textoStyle);
                 Cell ing = row.createCell(1);
                 ing.setCellValue(ingresos[mes]);
                 ing.setCellStyle(monedaStyle);
@@ -95,7 +99,9 @@ public class GraficoIngresoGastoExcelExporter {
             for (int mes = 0; mes < 12; mes++) {
                 Row row = obtenerOCrearFila(sheet, filaInicioDatos + mes);
                 int col = colInicioDetalle;
-                row.createCell(col++).setCellValue(MESES[mes]);
+                Cell mesDetCell = row.createCell(col++);
+                mesDetCell.setCellValue(MESES[mes]);
+                mesDetCell.setCellStyle(textoStyle);
                 Cell ing = row.createCell(col++);
                 ing.setCellValue(ingresos[mes]);
                 ing.setCellStyle(monedaStyle);

@@ -177,7 +177,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
         /** Misma base que {@link #findTotalVentaPacksPorProducto}, agrupado por sucursal (gráfico ventas). */
-        @Query("SELECT v.sucursalId, s.nombre, SUM(vi.precio * vi.cantidad) " +
+        @Query("SELECT v.sucursalId, s.nombre, SUM(vi.precio * vi.cantidad), COUNT(DISTINCT v.id) " +
                         "FROM VentaItem vi " +
                         "JOIN vi.venta v " +
                         "JOIN v.usuario u " +

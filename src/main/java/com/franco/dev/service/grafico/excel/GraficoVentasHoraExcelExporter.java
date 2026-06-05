@@ -17,6 +17,7 @@ import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.a
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEncabezado;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEntero;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloMoneda;
+import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloTexto;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearGraficoLineas;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirMetadatos;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirWorkbook;
@@ -62,6 +63,7 @@ public class GraficoVentasHoraExcelExporter {
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
             XSSFSheet sheet = workbook.createSheet("Ventas por Hora");
             CellStyle headerStyle = crearEstiloEncabezado(workbook);
+            CellStyle textoStyle = crearEstiloTexto(workbook);
             CellStyle monedaStyle = crearEstiloMoneda(workbook);
             CellStyle enteroStyle = crearEstiloEntero(workbook);
 
@@ -78,7 +80,9 @@ public class GraficoVentasHoraExcelExporter {
 
             for (int h = 0; h < 24; h++) {
                 Row row = sheet.createRow(filaInicioDatos + h);
-                row.createCell(0).setCellValue(String.format("%02d:00", h));
+                Cell horaCell = row.createCell(0);
+                horaCell.setCellValue(String.format("%02d:00", h));
+                horaCell.setCellStyle(textoStyle);
                 for (int s = 0; s < nombresSeries.size(); s++) {
                     Cell cell = row.createCell(s + 1);
                     cell.setCellValue(totalesSeries.get(s)[h]);
@@ -117,7 +121,9 @@ public class GraficoVentasHoraExcelExporter {
             for (int h = 0; h < 24; h++) {
                 Row row = obtenerOCrearFila(sheet, filaInicioDatos + h);
                 int col = colInicioDetalle;
-                row.createCell(col++).setCellValue(String.format("%02d:00", h));
+                Cell horaDetCell = row.createCell(col++);
+                horaDetCell.setCellValue(String.format("%02d:00", h));
+                horaDetCell.setCellStyle(textoStyle);
                 for (int s = 0; s < nombresSeries.size(); s++) {
                     Cell monto = row.createCell(col++);
                     monto.setCellValue(totalesSeries.get(s)[h]);

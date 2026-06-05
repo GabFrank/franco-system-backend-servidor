@@ -147,6 +147,7 @@ type VentaPorSucursal {
     sucId: ID,
     nombre: String
     total: Float
+    cantidadVentas: Float
     desglosePeriodos: [DesglosePeriodoGrafico!]
     desgloseAnhos: [DesgloseAnhoGrafico!]
 }

@@ -35,7 +35,7 @@ public class GraficoDesgloseFila {
         return new GraficoDesgloseFila(
                 item.getNombre() != null ? item.getNombre() : "Sucursal " + item.getSucId(),
                 valor(item.getTotal()),
-                0,
+                valor(item.getCantidadVentas()),
                 copiar(item.getDesglosePeriodos()),
                 copiarAnhos(item.getDesgloseAnhos())
         );

@@ -17,7 +17,7 @@ import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.a
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEncabezado;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEntero;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloMoneda;
-import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearGraficoBarras;
+import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearGraficoLineas;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirMetadatos;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirWorkbook;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.filaInicioTablas;
@@ -87,9 +87,9 @@ public class GraficoVentasHoraExcelExporter {
             }
 
             if (!nombresSeries.isEmpty()) {
-                crearGraficoBarras(
+                crearGraficoLineas(
                         sheet,
-                        "Ventas por Hora",
+                        tituloGraficoVentasHora(nombresSeries.size()),
                         filaEncabezado,
                         filaInicioDatos,
                         filaFinDatos,
@@ -137,6 +137,13 @@ public class GraficoVentasHoraExcelExporter {
 
             return escribirWorkbook(workbook);
         }
+    }
+
+    private String tituloGraficoVentasHora(int cantidadSeries) {
+        if (cantidadSeries > 2) {
+            return "Ventas por Hora - Comparativo por Sucursal";
+        }
+        return "Comparativo de Ventas por Hora (Ayer vs Hoy)";
     }
 
     private String etiquetaSerie(VentasPorHoraSerieGrafico serie) {

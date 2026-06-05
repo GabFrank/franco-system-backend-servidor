@@ -1,5 +1,6 @@
 package com.franco.dev.service.grafico.excel;
 
+import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.grafico.IngresoGastoSerieGrafico;
 import com.franco.dev.domain.grafico.VentasPorHoraSerieGrafico;
 import com.franco.dev.graphql.grafico.input.GraficoExcelExportInput;
@@ -10,8 +11,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
+
+import static com.franco.dev.service.grafico.GraficoPeriodoUtil.normalizarUsuarioIds;
 
 @Service
 @RequiredArgsConstructor
@@ -61,7 +66,8 @@ public class GraficoExcelExportService {
                 "Ciudad",
                 "Detalle por ciudad",
                 "Ventas por Ciudad",
-                filas
+                filas,
+                GraficoExcelFormatoVisual.BARRAS_VERTICALES
         );
     }
 
@@ -76,20 +82,36 @@ public class GraficoExcelExportService {
                 "Sucursal",
                 "Detalle por sucursal",
                 "Ventas por Sucursal",
-                filas
+                filas,
+                GraficoExcelFormatoVisual.BARRAS_VERTICALES
         );
     }
+
+    private static final int LIMITE_FUNCIONARIOS_SIN_FILTRO = 15;
 
     private byte[] exportarFuncionario(
             GraficoExcelFiltrosContext filtros,
             GraficoExcelExportInput input,
             List<PeriodoGraficoInput> periodos
     ) throws IOException {
-        List<GraficoDesgloseFila> filas = graficoAggregationService.ventasPorFuncionarioMulti(
-                        periodos,
-                        input.getSucIds(),
-                        input.getUsuarioIds())
-                .stream()
+        List<Long> usuarioIds = normalizarUsuarioIds(input.getUsuarioIds());
+        List<VentaPorFuncionario> items = graficoAggregationService.ventasPorFuncionarioMulti(
+                periodos,
+                input.getSucIds(),
+                usuarioIds);
+
+        if (!usuarioIds.isEmpty()) {
+            Set<Long> permitidos = new HashSet<>(usuarioIds);
+            items = items.stream()
+                    .filter(item -> item.getId() != null && permitidos.contains(item.getId()))
+                    .collect(Collectors.toList());
+        } else {
+            items = items.stream()
+                    .limit(LIMITE_FUNCIONARIOS_SIN_FILTRO)
+                    .collect(Collectors.toList());
+        }
+
+        List<GraficoDesgloseFila> filas = items.stream()
                 .map(GraficoDesgloseFila::desdeFuncionario)
                 .collect(Collectors.toList());
         return desgloseBarraExcelExporter.exportar(
@@ -98,7 +120,8 @@ public class GraficoExcelExportService {
                 "Funcionario",
                 "Detalle por funcionario",
                 "Ventas por Funcionario",
-                filas
+                filas,
+                GraficoExcelFormatoVisual.BARRAS_HORIZONTALES
         );
     }
 
@@ -111,6 +134,8 @@ public class GraficoExcelExportService {
                         periodos,
                         input.getSucIds())
                 .stream()
+                .filter(item -> item.getCantidadTransacciones() != null
+                        && item.getCantidadTransacciones() > 0)
                 .map(GraficoDesgloseFila::desdeFormaPago)
                 .collect(Collectors.toList());
         return desgloseBarraExcelExporter.exportar(
@@ -119,7 +144,8 @@ public class GraficoExcelExportService {
                 "Forma de pago",
                 "Detalle por forma de pago",
                 "Formas de Pago",
-                filas
+                filas,
+                GraficoExcelFormatoVisual.TORTA
         );
     }
 
@@ -140,7 +166,8 @@ public class GraficoExcelExportService {
                 "Categoría",
                 "Detalle por categoría",
                 "Gastos por Categoría",
-                filas
+                filas,
+                GraficoExcelFormatoVisual.BARRAS_HORIZONTALES
         );
     }
 
@@ -167,7 +194,8 @@ public class GraficoExcelExportService {
                 "Producto",
                 "Detalle por producto",
                 "Productos Vendidos",
-                filas
+                filas,
+                GraficoExcelFormatoVisual.TORTA
         );
     }
 

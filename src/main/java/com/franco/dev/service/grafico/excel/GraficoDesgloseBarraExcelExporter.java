@@ -23,7 +23,7 @@ import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.a
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEncabezado;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloEntero;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearEstiloMoneda;
-import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearGraficoBarras;
+import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.crearGraficoSegunFormato;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirMetadatos;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.escribirWorkbook;
 import static com.franco.dev.service.grafico.excel.GraficoExcelWorkbookSupport.filaInicioTablas;
@@ -38,9 +38,11 @@ public class GraficoDesgloseBarraExcelExporter {
             String columnaEtiqueta,
             String etiquetaDetalle,
             String tituloGrafico,
-            List<GraficoDesgloseFila> filas
+            List<GraficoDesgloseFila> filas,
+            GraficoExcelFormatoVisual formatoGrafico
     ) throws IOException {
         List<GraficoDesgloseFila> validas = filas.stream()
+                .filter(f -> f.getTotal() > 0)
                 .sorted(Comparator.comparing(GraficoDesgloseFila::getTotal).reversed())
                 .collect(Collectors.toList());
 
@@ -49,10 +51,11 @@ public class GraficoDesgloseBarraExcelExporter {
         }
 
         ColumnasExport columnas = recolectarColumnas(validas);
+        boolean graficoSoloTotal = formatoGrafico == GraficoExcelFormatoVisual.TORTA;
         int filaEncabezadoGrafico = filaInicioTablas();
         int filaInicioDatosGrafico = filaEncabezadoGrafico + 1;
         int filaFinDatosGrafico = filaInicioDatosGrafico + validas.size() - 1;
-        int colInicioDetalle = construirEncabezadosGrafico(columnaEtiqueta, columnas).size()
+        int colInicioDetalle = (graficoSoloTotal ? 2 : construirEncabezadosGrafico(columnaEtiqueta, columnas).size())
                 + COLUMNAS_SEPARACION_TABLAS;
 
         try (XSSFWorkbook workbook = new XSSFWorkbook()) {
@@ -70,11 +73,15 @@ public class GraficoDesgloseBarraExcelExporter {
                     filaEncabezadoGrafico,
                     filaInicioDatosGrafico,
                     headerStyle,
-                    monedaStyle
+                    monedaStyle,
+                    graficoSoloTotal
             );
 
-            int colFinSeries = columnas.mostrarTotalesAnho ? columnas.anhos.size() : 1;
-            crearGraficoBarras(
+            int colFinSeries = graficoSoloTotal
+                    ? 1
+                    : (columnas.mostrarTotalesAnho ? columnas.anhos.size() : 1);
+            crearGraficoSegunFormato(
+                    formatoGrafico,
                     sheet,
                     tituloGrafico,
                     filaEncabezadoGrafico,
@@ -99,7 +106,7 @@ public class GraficoDesgloseBarraExcelExporter {
                     enteroStyle
             );
 
-            ajustarAnchos(sheet, columnas, columnaEtiqueta, colInicioDetalle);
+            ajustarAnchos(sheet, columnas, columnaEtiqueta, colInicioDetalle, graficoSoloTotal);
             return escribirWorkbook(workbook);
         }
     }
@@ -112,10 +119,13 @@ public class GraficoDesgloseBarraExcelExporter {
             int filaEncabezado,
             int filaInicioDatos,
             CellStyle headerStyle,
-            CellStyle monedaStyle
+            CellStyle monedaStyle,
+            boolean soloTotal
     ) {
         Row header = sheet.createRow(filaEncabezado);
-        List<String> headersGrafico = construirEncabezadosGrafico(columnaEtiqueta, columnas);
+        List<String> headersGrafico = soloTotal
+                ? List.of(columnaEtiqueta, "Total")
+                : construirEncabezadosGrafico(columnaEtiqueta, columnas);
         for (int c = 0; c < headersGrafico.size(); c++) {
             Cell cell = header.createCell(c);
             cell.setCellValue(headersGrafico.get(c));
@@ -127,7 +137,11 @@ public class GraficoDesgloseBarraExcelExporter {
             Row row = sheet.createRow(fila++);
             int col = 0;
             row.createCell(col++).setCellValue(item.getEtiqueta());
-            if (columnas.mostrarTotalesAnho) {
+            if (soloTotal) {
+                Cell cell = row.createCell(col);
+                cell.setCellValue(item.getTotal());
+                cell.setCellStyle(monedaStyle);
+            } else if (columnas.mostrarTotalesAnho) {
                 Map<Integer, com.franco.dev.domain.grafico.DesgloseAnhoGrafico> mapa =
                         item.getDesgloseAnhos().stream()
                                 .collect(Collectors.toMap(
@@ -185,9 +199,12 @@ public class GraficoDesgloseBarraExcelExporter {
             XSSFSheet sheet,
             ColumnasExport columnas,
             String columnaEtiqueta,
-            int colInicioDetalle
+            int colInicioDetalle,
+            boolean graficoSoloTotal
     ) {
-        int colsGrafico = construirEncabezadosGrafico(columnaEtiqueta, columnas).size();
+        int colsGrafico = graficoSoloTotal
+                ? 2
+                : construirEncabezadosGrafico(columnaEtiqueta, columnas).size();
         int colsDetalle = construirEncabezadosDetalle(columnaEtiqueta, columnas).size();
         for (int i = 0; i < colsGrafico; i++) {
             ajustarAnchoColumna(sheet, i);

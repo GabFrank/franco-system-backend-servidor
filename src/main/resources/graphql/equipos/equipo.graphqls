@@ -1,0 +1,103 @@
+type EquipoFinancieroOutput {
+    id: ID!
+    costo: Float
+    valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
+    situacionPago: String
+    proveedor: Proveedor
+    moneda: Moneda
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+    creadoEn: Date
+    usuario: Usuario
+}
+
+type EquipoOutput {
+    id: ID!
+    propietario: Persona
+    identificador: String
+    modelo: ModeloEquipoOutput
+    descripcion: String
+    imagenes: String
+    tipoEquipo: TipoEquipoOutput
+    consumeEnergia: Boolean
+    consumoValor: String
+    financiero: EquipoFinancieroOutput
+    sucursal: Sucursal
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input EquipoFinancieroInput {
+    id: ID
+    costo: Float
+    valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
+    situacionPago: String
+    proveedorId: ID
+    monedaId: ID
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+    usuarioId: ID
+}
+
+input EquipoInput {
+    id: ID
+    propietarioId: ID
+    identificador: String
+    modeloId: ID
+    descripcion: String
+    imagenes: String
+    tipoEquipoId: ID
+    consumeEnergia: Boolean
+    consumoValor: String
+    financiero: EquipoFinancieroInput
+    sucursalId: ID
+    usuarioId: ID
+    costo: Float
+    valorTasacion: Float
+    valorTasacionPyg: Float
+    valorTasacionBrl: Float
+    situacionPago: String
+    proveedorId: ID
+    monedaId: ID
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    cantidadCuotasPagadas: Int
+    diaVencimiento: Int
+}
+
+type EquipoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EquipoOutput]
+    getPageable: Pageable
+}
+
+extend type Query {
+    equipo(id: ID!): EquipoOutput
+    equipos(page: Int = 0, size: Int = 10): [EquipoOutput]!
+    countEquipo: Int
+    equipoSearch(texto: String): [EquipoOutput]
+    equipoSearchPage(texto: String, page: Int, size: Int): EquipoPage
+    equiposByTipoEquipo(tipoEquipoId: ID!): [EquipoOutput]
+}
+
+extend type Mutation {
+    saveEquipo(equipo: EquipoInput!): EquipoOutput!
+    deleteEquipo(id: ID!): Boolean!
+}

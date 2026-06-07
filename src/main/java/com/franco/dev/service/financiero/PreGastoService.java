@@ -26,7 +26,10 @@ import com.franco.dev.domain.activos.Inmueble;
 import com.franco.dev.domain.activos.Mueble;
 import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.domain.activos.enums.TipoEnte;
+import com.franco.dev.domain.equipos.Equipo;
+import com.franco.dev.domain.equipos.EquipoFinanciero;
 import com.franco.dev.service.activos.MuebleService;
+import com.franco.dev.service.equipos.EquipoService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -71,6 +74,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final EnteService enteService;
     private final InmuebleService inmuebleService;
     private final VehiculoService vehiculoService;
+    private final EquipoService equipoService;
     private final GastoRepository gastoRepository;
 
     @Value("${sucursalId:0}")
@@ -610,6 +614,32 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                     }
 
                     llenarDatosCuotas(dto, v.getCantidadCuotas(), v.getCantidadCuotasPagadas(), v.getDiaVencimiento());
+                }
+                dto.setTipoGastoSugeridoId("VARIABLE");
+            } else if (ente.getTipoEnte() == TipoEnte.EQUIPO) {
+                Equipo eq = equipoService.findById(ente.getReferenciaId()).orElse(null);
+                if (eq != null) {
+                    EquipoFinanciero fin = equipoService.resolverFinanciero(eq);
+                    dto.setDescripcion(eq.getDescripcion() != null ? eq.getDescripcion() : eq.getIdentificador());
+                    if (fin != null) {
+                        if (fin.getProveedor() != null && fin.getProveedor().getPersona() != null) {
+                            dto.setProveedorNombre(fin.getProveedor().getPersona().getNombre());
+                        }
+                        dto.setSituacionPago(fin.getSituacionPago());
+
+                        if (dto.getMontoTotal() == null) {
+                            dto.setMontoTotal(fin.getMontoTotal());
+                        }
+                        if (dto.getMontoYaPagado() == null) {
+                            dto.setMontoYaPagado(fin.getMontoYaPagado());
+                        }
+                        if (dto.getMonedaId() == null && fin.getMoneda() != null) {
+                            dto.setMonedaId(fin.getMoneda().getId());
+                            dto.setMonedaSimbolo(fin.getMoneda().getSimbolo());
+                        }
+
+                        llenarDatosCuotas(dto, fin.getCantidadCuotas(), fin.getCantidadCuotasPagadas(), fin.getDiaVencimiento());
+                    }
                 }
                 dto.setTipoGastoSugeridoId("VARIABLE");
             }

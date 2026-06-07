@@ -17,7 +17,7 @@ public class PreGastoEnteValidationService {
 
     /**
      * Valida y resuelve el ente según el módulo padre del tipo de gasto.
-     * Para VEHICULO, MUEBLE e INMUEBLE el ente es obligatorio y debe coincidir en tipo.
+     * Para VEHICULO, MUEBLE, INMUEBLE y EQUIPO el ente es obligatorio y debe coincidir en tipo.
      */
     public Ente validarYResolverEnte(TipoGasto tipoGasto, Long enteId) {
         if (tipoGasto == null) {
@@ -34,7 +34,7 @@ public class PreGastoEnteValidationService {
             if (enteId != null) {
                 throw new GraphQLException(
                         "El tipo de gasto \"" + tipoGasto.getDescripcion()
-                                + "\" no admite vinculación a un activo (inmueble, vehículo o mueble).");
+                                + "\" no admite vinculación a un activo (inmueble, vehículo, mueble o equipo).");
             }
             return null;
         }
@@ -72,6 +72,8 @@ public class PreGastoEnteValidationService {
                 return TipoEnte.MUEBLE;
             case INMUEBLE:
                 return TipoEnte.INMUEBLE;
+            case EQUIPOS:
+                return TipoEnte.EQUIPO;
             default:
                 return null;
         }
@@ -85,6 +87,8 @@ public class PreGastoEnteValidationService {
                 return "un mueble";
             case INMUEBLE:
                 return "un inmueble";
+            case EQUIPO:
+                return "un equipo";
             default:
                 return "un activo";
         }

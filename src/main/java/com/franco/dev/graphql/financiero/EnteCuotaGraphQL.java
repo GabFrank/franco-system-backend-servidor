@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.EnteCuota;
 import com.franco.dev.graphql.financiero.input.EnteCuotaInput;
 import com.franco.dev.service.financiero.EnteCuotaService;
 import com.franco.dev.service.financiero.EnteFinancieroService;
+import com.franco.dev.domain.financiero.EnteFinanciero;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,6 +54,14 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     public List<EnteCuota> enteCuotasByEnteFinanciero(Long enteFinancieroId) {
         return service.findByEnteFinancieroId(enteFinancieroId);
+    }
+
+    public List<EnteCuota> enteCuotasByEnteId(Long enteId) {
+        Optional<EnteFinanciero> financiero = enteFinancieroService.findByEnteId(enteId);
+        if (financiero.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return service.findByEnteFinancieroId(financiero.get().getId());
     }
 
     public CustomPage<EnteCuota> enteCuotaSearchPage(Long enteFinancieroId, Integer page, Integer size) {

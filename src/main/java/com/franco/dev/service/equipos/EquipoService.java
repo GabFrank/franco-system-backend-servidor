@@ -10,6 +10,7 @@ import com.franco.dev.repository.equipos.EquipoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.ActivoFinancieroSyncFacade;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import org.springframework.context.annotation.Lazy;
@@ -33,6 +34,7 @@ public class EquipoService extends CrudService<Equipo, EquipoRepository, Long> {
     private final EquipoFinancieroService equipoFinancieroService;
     private final SucursalService sucursalService;
     private final UsuarioService usuarioService;
+    private final ActivoFinancieroSyncFacade activoFinancieroSyncFacade;
 
     public EquipoService(
             EquipoRepository repository,
@@ -42,7 +44,8 @@ public class EquipoService extends CrudService<Equipo, EquipoRepository, Long> {
             ModeloEquipoService modeloEquipoService,
             EquipoFinancieroService equipoFinancieroService,
             SucursalService sucursalService,
-            UsuarioService usuarioService) {
+            UsuarioService usuarioService,
+            ActivoFinancieroSyncFacade activoFinancieroSyncFacade) {
         this.repository = repository;
         this.enteService = enteService;
         this.personaService = personaService;
@@ -51,6 +54,7 @@ public class EquipoService extends CrudService<Equipo, EquipoRepository, Long> {
         this.equipoFinancieroService = equipoFinancieroService;
         this.sucursalService = sucursalService;
         this.usuarioService = usuarioService;
+        this.activoFinancieroSyncFacade = activoFinancieroSyncFacade;
     }
 
     @Override
@@ -157,6 +161,20 @@ public class EquipoService extends CrudService<Equipo, EquipoRepository, Long> {
         equipoFinancieroService.vincularAEquipo(entity, financieroInput);
 
         Equipo guardado = save(entity);
+        activoFinancieroSyncFacade.sync(
+                TipoEnte.EQUIPO,
+                guardado.getId(),
+                financieroInput.getSituacionPago(),
+                financieroInput.getProveedorId(),
+                financieroInput.getMonedaId(),
+                financieroInput.getMontoTotal(),
+                financieroInput.getMontoYaPagado(),
+                financieroInput.getCantidadCuotas(),
+                financieroInput.getCantidadCuotasPagadas(),
+                financieroInput.getDiaVencimiento(),
+                financieroInput.getCuotasDetalle(),
+                financieroInput.getUsuarioId() != null ? financieroInput.getUsuarioId() : input.getUsuarioId()
+        );
         return aOutput(guardado);
     }
 

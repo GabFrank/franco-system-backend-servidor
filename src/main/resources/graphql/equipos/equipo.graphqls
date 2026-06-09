@@ -47,6 +47,7 @@ input EquipoFinancieroInput {
     cantidadCuotasPagadas: Int
     diaVencimiento: Int
     usuarioId: ID
+    cuotasDetalle: [CuotaDetalleInput]
 }
 
 input EquipoInput {

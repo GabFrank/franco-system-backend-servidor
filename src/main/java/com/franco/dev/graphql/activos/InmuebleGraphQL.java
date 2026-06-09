@@ -11,6 +11,7 @@ import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.PersonaService;
+import com.franco.dev.service.financiero.ActivoFinancieroSyncFacade;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -51,6 +52,9 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private ProveedorService proveedorService;
+
+    @Autowired
+    private ActivoFinancieroSyncFacade activoFinancieroSyncFacade;
 
     public Optional<Inmueble> inmueble(Long id) {
         return service.findById(id);
@@ -148,6 +152,20 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         try {
             e = service.save(e);
             enteService.ensureEnteForReferencia(TipoEnte.INMUEBLE, e.getId(), e.getNombreAsignado(), e.getUsuario());
+            activoFinancieroSyncFacade.sync(
+                    TipoEnte.INMUEBLE,
+                    e.getId(),
+                    e.getSituacionPago(),
+                    input.getProveedorId(),
+                    input.getMonedaId(),
+                    input.getMontoTotal(),
+                    input.getMontoYaPagado(),
+                    input.getCantidadCuotas(),
+                    input.getCantidadCuotasPagadas(),
+                    input.getDiaVencimiento(),
+                    input.getCuotasDetalle(),
+                    input.getUsuarioId()
+            );
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el inmueble: " + err.getMessage());

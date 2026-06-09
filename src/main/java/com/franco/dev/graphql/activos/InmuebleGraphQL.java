@@ -115,6 +115,24 @@ public class InmuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         e.setCantidadCuotasPagadas(input.getCantidadCuotasPagadas());
         e.setDiaVencimiento(input.getDiaVencimiento());
 
+        boolean esPropio = input.getEsPropio() == null || Boolean.TRUE.equals(input.getEsPropio());
+        e.setEsPropio(esPropio);
+        if (esPropio) {
+            e.setAlquilerProveedor(null);
+            e.setAlquilerMonto(null);
+            e.setAlquilerDiaVencimiento(null);
+            e.setAlquilerVigencia(null);
+        } else {
+            if (input.getAlquilerProveedorId() != null) {
+                e.setAlquilerProveedor(personaService.findById(input.getAlquilerProveedorId()).orElse(null));
+            } else {
+                e.setAlquilerProveedor(null);
+            }
+            e.setAlquilerMonto(input.getAlquilerMonto());
+            e.setAlquilerDiaVencimiento(input.getAlquilerDiaVencimiento());
+            e.setAlquilerVigencia(input.getAlquilerVigencia());
+        }
+
         if ("PAGADO".equalsIgnoreCase(input.getSituacionPago())) {
             e.setCantidadCuotasPagadas(input.getCantidadCuotas() != null ? input.getCantidadCuotas() : 0);
             e.setMontoYaPagado(input.getMontoTotal() != null ? input.getMontoTotal() : java.math.BigDecimal.ZERO);

@@ -18,6 +18,12 @@ type Inmueble {
     cantidadCuotas: Int
     cantidadCuotasPagadas: Int
     diaVencimiento: Int
+    esPropio: Boolean
+    alquilerProveedor: Persona
+    alquilerMonto: Float
+    alquilerDiaVencimiento: Int
+    alquilerVigencia: Date
+    vinculacionesSucursal: [EnteVinculacion]
     creadoEn: Date
     usuario: Usuario
 }
@@ -42,6 +48,11 @@ input InmuebleInput {
     cantidadCuotas: Int
     cantidadCuotasPagadas: Int
     diaVencimiento: Int
+    esPropio: Boolean
+    alquilerProveedorId: ID
+    alquilerMonto: Float
+    alquilerDiaVencimiento: Int
+    alquilerVigencia: Date
     usuarioId: ID
     cuotasDetalle: [CuotaDetalleInput]
 }

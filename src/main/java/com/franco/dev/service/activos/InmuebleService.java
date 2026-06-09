@@ -90,14 +90,13 @@ public class InmuebleService extends CrudService<Inmueble, InmuebleRepository, L
                     entity.setCantidadCuotas(0);
                     entity.setCantidadCuotasPagadas(0);
                 }
-            } else if (situacion.equals("PAGANDO")) {
-                java.math.BigDecimal total = entity.getMontoTotal() != null ? entity.getMontoTotal() : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal pagado = entity.getMontoYaPagado() != null ? entity.getMontoYaPagado() : java.math.BigDecimal.ZERO;
-                Integer cuotasTotal = entity.getCantidadCuotas() != null ? entity.getCantidadCuotas() : 0;
-                Integer cuotasPagadas = entity.getCantidadCuotasPagadas() != null ? entity.getCantidadCuotasPagadas() : 0;
-
-                if (total.compareTo(java.math.BigDecimal.ZERO) > 0 && pagado.compareTo(total) >= 0 && cuotasPagadas >= cuotasTotal) {
-                    entity.setSituacionPago("PAGADO");
+            } else if (situacion.equals("PAGANDO")
+                    && com.franco.dev.service.activos.util.ActivoPagoNormalizer.debeMarcarComoPagado(
+                            entity.getSituacionPago(), entity.getMontoTotal(), entity.getMontoYaPagado(),
+                            entity.getCantidadCuotas())) {
+                entity.setSituacionPago("PAGADO");
+                if (entity.getCantidadCuotas() != null && entity.getCantidadCuotas() > 0) {
+                    entity.setCantidadCuotasPagadas(entity.getCantidadCuotas());
                 }
             }
         }

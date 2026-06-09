@@ -12,7 +12,6 @@ import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -35,9 +34,6 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     @Autowired
     private EnteFinancieroService enteFinancieroService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<EnteCuota> enteCuota(Long id) {
         return service.findById(id);
@@ -74,7 +70,13 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public EnteCuota saveEnteCuota(EnteCuotaInput input) {
-        EnteCuota e = modelMapper.map(input, EnteCuota.class);
+        EnteCuota e = new EnteCuota();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new EnteCuota());
+        }
+        e.setNumeroCuota(input.getNumeroCuota());
+        e.setMonto(input.getMonto());
+        e.setPagado(input.getPagado());
         if (input.getEnteFinancieroId() != null) {
             e.setEnteFinanciero(enteFinancieroService.findById(input.getEnteFinancieroId()).orElse(null));
         }

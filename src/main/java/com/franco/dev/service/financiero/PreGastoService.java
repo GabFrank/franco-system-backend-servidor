@@ -19,6 +19,7 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.activos.VehiculoService;
+import com.franco.dev.service.activos.util.ActivoPagoNormalizer;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
 import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
 import com.franco.dev.domain.activos.Ente;
@@ -648,6 +649,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         BigDecimal pagado = dto.getMontoYaPagado() != null ? dto.getMontoYaPagado() : BigDecimal.ZERO;
         BigDecimal pendiente = total.subtract(pagado);
         dto.setMontoPendiente(pendiente.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pendiente);
+        ActivoPagoNormalizer.normalizarResumenSiPagadoCompleto(dto);
 
         if (total.compareTo(BigDecimal.ZERO) > 0) {
             dto.setPorcentajePagado(pagado.multiply(new BigDecimal(100))

@@ -15,6 +15,10 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import com.franco.dev.service.financiero.dto.QrRetiroPreGastoPayloadDTO;
+import com.franco.dev.graphql.financiero.input.ConfirmarRetiroFuncionarioInput;
+import com.franco.dev.graphql.financiero.input.DevolucionSaldoPreGastoInput;
+import com.franco.dev.graphql.financiero.input.EjecutarRetiroPreGastoInput;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -287,6 +291,26 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Boolean deletePreGasto(Long id, Long sucId) {
         PreGasto e = service.findByIdAndSucursalId(id, sucId);
         return service.delete(e);
+    }
+
+    public List<PreGasto> preGastosParaRetiro(Long sucursalCajaId) {
+        return service.buscarAutorizadosParaRetiro(sucursalCajaId);
+    }
+
+    public QrRetiroPreGastoPayloadDTO qrRetiroPreGasto(Long preGastoId, Long sucursalId) {
+        return service.construirQrRetiro(preGastoId, sucursalId);
+    }
+
+    public PreGasto confirmarRetiroFuncionarioPreGasto(ConfirmarRetiroFuncionarioInput input) {
+        return service.confirmarRetiroFuncionario(input);
+    }
+
+    public PreGasto ejecutarRetiroPreGasto(EjecutarRetiroPreGastoInput input) {
+        return service.ejecutarRetiro(input);
+    }
+
+    public PreGasto registrarDevolucionSaldoPreGasto(DevolucionSaldoPreGastoInput input) {
+        return service.registrarDevolucionSaldo(input);
     }
 
     private String normalizarEstadoPreGasto(String estado) {

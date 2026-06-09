@@ -1,0 +1,84 @@
+type GastoRendicion {
+    id: ID
+    preGasto: PreGasto
+    tipoGasto: TipoGasto
+    montoTotal: Float
+    fotoFacturaUrl: String
+    fotoProductoUrl: String
+    ente: Ente
+    gasolineraId: ID
+    kmActual: Float
+    litros: Float
+    precioPorLitro: Float
+    ubicacionProvisoria: String
+    funcionariosComensales: [Persona]
+    establecimientoAlimentacion: String
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input GastoRendicionInput {
+    id: ID
+    preGastoId: ID
+    sucursalId: ID
+    tipoGastoId: ID
+    montoTotal: Float
+    fotoFacturaUrl: String
+    fotoProductoUrl: String
+    enteId: ID
+    gasolineraId: ID
+    kmActual: Float
+    litros: Float
+    precioPorLitro: Float
+    ubicacionProvisoria: String
+    funcionariosComensalesIds: [ID]
+    establecimientoAlimentacion: String
+    usuarioId: ID
+}
+
+input ConfirmarRetiroFuncionarioInput {
+    preGastoId: ID!
+    sucursalId: ID!
+    qrToken: String!
+    funcionarioPersonaId: ID!
+}
+
+input EjecutarRetiroPreGastoInput {
+    preGastoId: ID!
+    sucursalId: ID!
+    sucursalCajaId: ID!
+    cajaId: ID!
+    usuarioId: ID
+    gastoRegistroId: ID!
+}
+
+input DevolucionSaldoPreGastoInput {
+    preGastoId: ID!
+    sucursalId: ID!
+    cajaId: ID!
+    vueltoGs: Float
+    vueltoRs: Float
+    vueltoDs: Float
+    usuarioId: ID
+}
+
+type QrRetiroPreGastoPayload {
+    codigoQr: String!
+    preGastoId: ID!
+    sucursalId: ID!
+    qrToken: String!
+}
+
+extend type Query {
+    gastoRendicionesByPreGasto(preGastoId: ID!, sucursalId: ID!): [GastoRendicion]!
+    preGastosParaRetiro(sucursalCajaId: ID!): [PreGasto]!
+    qrRetiroPreGasto(preGastoId: ID!, sucursalId: ID!): QrRetiroPreGastoPayload
+}
+
+extend type Mutation {
+    saveGastoRendicion(input: GastoRendicionInput!): GastoRendicion!
+    deleteGastoRendicion(id: ID!): Boolean!
+    confirmarRetiroFuncionarioPreGasto(input: ConfirmarRetiroFuncionarioInput!): PreGasto!
+    ejecutarRetiroPreGasto(input: EjecutarRetiroPreGastoInput!): PreGasto!
+    registrarDevolucionSaldoPreGasto(input: DevolucionSaldoPreGastoInput!): PreGasto!
+}

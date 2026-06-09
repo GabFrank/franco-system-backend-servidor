@@ -39,9 +39,12 @@ public class GastoRendicionGraphQL implements GraphQLQueryResolver, GraphQLMutat
         if (input.getPreGastoId() != null && input.getSucursalId() != null) {
             PreGasto pg = preGastoService.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
             entity.setPreGasto(pg);
-        }
-        
-        if (input.getTipoGastoId() != null) {
+            if (input.getTipoGastoId() != null) {
+                entity.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
+            } else if (pg != null && pg.getTipoGasto() != null) {
+                entity.setTipoGasto(pg.getTipoGasto());
+            }
+        } else if (input.getTipoGastoId() != null) {
             entity.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
         }
         

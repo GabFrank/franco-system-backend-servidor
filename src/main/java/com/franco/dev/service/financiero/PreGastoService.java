@@ -6,6 +6,8 @@ import com.franco.dev.domain.financiero.EnteCuota;
 import com.franco.dev.domain.financiero.EnteFinanciero;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.PreGasto;
+import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
+import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
@@ -22,6 +24,10 @@ import com.franco.dev.service.activos.VehiculoService;
 import com.franco.dev.service.activos.util.ActivoPagoNormalizer;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
 import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
+import com.franco.dev.service.financiero.dto.QrRetiroPreGastoPayloadDTO;
+import com.franco.dev.graphql.financiero.input.ConfirmarRetiroFuncionarioInput;
+import com.franco.dev.graphql.financiero.input.DevolucionSaldoPreGastoInput;
+import com.franco.dev.graphql.financiero.input.EjecutarRetiroPreGastoInput;
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.Inmueble;
 import com.franco.dev.domain.activos.Mueble;
@@ -77,6 +83,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final VehiculoService vehiculoService;
     private final EquipoService equipoService;
     private final GastoRepository gastoRepository;
+    private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
+    private final PdvCajaService pdvCajaService;
 
     @Value("${sucursalId:0}")
     private Long currentSucursalId;
@@ -403,36 +411,179 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return completar(id, sucId, rindioGasto, montoGastadoInformado, null, null, null);
     }
 
-    public void actualizarRendicionDesdeGasto(Gasto gasto) {
+    @Transactional
+    public void actualizarRetiroDesdeGasto(Gasto gasto) {
         if (gasto == null || gasto.getPreGasto() == null) {
             return;
         }
-        PreGasto preGasto = repository.findByIdAndSucursalId(gasto.getPreGasto().getId(),
-                gasto.getPreGasto().getSucursalId());
+        PreGasto preGasto = repository.findByIdAndSucursalId(
+                gasto.getPreGasto().getId(), gasto.getPreGasto().getSucursalId());
         if (preGasto == null) {
             return;
         }
 
         BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, gasto.getRetiroGs(), gasto.getRetiroRs(),
                 gasto.getRetiroDs());
-        BigDecimal montoVuelto = obtenerMontoMoneda(preGasto, gasto.getVueltoGs(), gasto.getVueltoRs(),
-                gasto.getVueltoDs());
-        if (montoVuelto.compareTo(BigDecimal.ZERO) < 0) {
-            montoVuelto = BigDecimal.ZERO;
-        }
-        BigDecimal montoRendido = montoRetirado.subtract(montoVuelto);
-        if (montoRendido.compareTo(BigDecimal.ZERO) < 0) {
-            montoRendido = BigDecimal.ZERO;
-        }
+        BigDecimal montoGastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
 
         preGasto.setMontoRetirado(montoRetirado);
-        preGasto.setMontoGastado(montoRendido);
-        preGasto.setSaldoDevolver(montoVuelto);
-        preGasto.setFechaRendicion(gasto.getFinalizado() != null && gasto.getFinalizado()
-                ? LocalDateTime.now()
-                : preGasto.getFechaRendicion());
-        recalcularEstadoRendicion(preGasto);
+        preGasto.setSaldoDevolver(montoRetirado.subtract(montoGastado).max(BigDecimal.ZERO));
+        preGasto.setEstado(EstadoPreGasto.TRAMITE);
+        preGasto.setEstadoRendicion("NO_RENDIDO");
+        preGasto.setRindioGasto(false);
         super.save(preGasto);
+    }
+
+    public List<PreGasto> buscarAutorizadosParaRetiro(Long sucursalCajaId) {
+        if (sucursalCajaId == null || sucursalCajaId <= 0) {
+            return new ArrayList<>();
+        }
+        return repository.buscarAutorizadosParaRetiro(sucursalCajaId);
+    }
+
+    public QrRetiroPreGastoPayloadDTO construirQrRetiro(Long preGastoId, Long sucursalId) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+        if (preGasto.getQrToken() == null || preGasto.getQrToken().trim().isEmpty()) {
+            preGasto.setQrToken(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            super.save(preGasto);
+        }
+        Long sucursalCajaId = preGasto.getSucursalCaja() != null ? preGasto.getSucursalCaja().getId() : sucursalId;
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String codigoQr = "frc-" + sucursalCajaId + "-PRE_GASTO_RETIRO-" + preGastoId + "-" + sucursalId + "-"
+                + preGasto.getQrToken() + "-" + timestamp;
+        return new QrRetiroPreGastoPayloadDTO(codigoQr, preGastoId, sucursalId, preGasto.getQrToken());
+    }
+
+    @Transactional
+    public PreGasto confirmarRetiroFuncionario(ConfirmarRetiroFuncionarioInput input) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+        if (preGasto.getQrToken() == null || !preGasto.getQrToken().equalsIgnoreCase(input.getQrToken())) {
+            throw new RuntimeException("Código QR inválido o expirado.");
+        }
+        if (preGasto.getFuncionario() == null || preGasto.getFuncionario().getId() == null
+                || !preGasto.getFuncionario().getId().equals(input.getFuncionarioPersonaId())) {
+            throw new RuntimeException("Solo el funcionario autorizado puede confirmar el retiro.");
+        }
+        preGasto.setRetiroConfirmadoEn(LocalDateTime.now());
+        preGasto.setRetiroConfirmadoFuncionario(personaService.findById(input.getFuncionarioPersonaId()).orElse(null));
+        return super.save(preGasto);
+    }
+
+    @Transactional
+    public PreGasto ejecutarRetiro(EjecutarRetiroPreGastoInput input) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+        if (preGasto.getRetiroConfirmadoEn() == null) {
+            throw new RuntimeException("El funcionario aún no confirmó el retiro desde su dispositivo móvil.");
+        }
+        if (preGasto.getGastoCajaRegistroId() != null) {
+            throw new RuntimeException("Esta solicitud ya tiene un retiro registrado en caja.");
+        }
+        if (input.getGastoRegistroId() == null || input.getGastoRegistroId() <= 0) {
+            throw new RuntimeException("Debe registrar el gasto en la caja local antes de finalizar el retiro.");
+        }
+
+        double[] montos = calcularMontosRetiro(preGasto);
+        aplicarRetiroEnPreGasto(preGasto, montos[0], montos[1], montos[2]);
+        preGasto.setCajaId(input.getCajaId());
+        preGasto.setGastoCajaRegistroId(input.getGastoRegistroId());
+        super.save(preGasto);
+        return repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+    }
+
+    private double[] calcularMontosRetiro(PreGasto preGasto) {
+        double retiroGs = 0d;
+        double retiroRs = 0d;
+        double retiroDs = 0d;
+        List<PreGastoDetalleFinanzas> finanzas = preGastoDetalleFinanzasService
+                .findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId());
+        if (finanzas != null && !finanzas.isEmpty()) {
+            for (PreGastoDetalleFinanzas fin : finanzas) {
+                if (fin == null || fin.getMonto() == null || fin.getMoneda() == null) {
+                    continue;
+                }
+                String simbolo = fin.getMoneda().getSimbolo() != null
+                        ? fin.getMoneda().getSimbolo().trim().toUpperCase() : "";
+                String denominacion = fin.getMoneda().getDenominacion() != null
+                        ? fin.getMoneda().getDenominacion().trim().toUpperCase() : "";
+                double monto = fin.getMonto().doubleValue();
+                if (simbolo.contains("GS") || denominacion.contains("GUARANI")) {
+                    retiroGs += monto;
+                } else if (simbolo.contains("R$") || simbolo.contains("RS") || denominacion.contains("REAL")) {
+                    retiroRs += monto;
+                } else {
+                    retiroDs += monto;
+                }
+            }
+        } else if (preGasto.getMontoSolicitado() != null) {
+            BigDecimal monto = preGasto.getMontoSolicitado();
+            String simbolo = preGasto.getMoneda() != null && preGasto.getMoneda().getSimbolo() != null
+                    ? preGasto.getMoneda().getSimbolo().trim().toUpperCase() : "";
+            String denominacion = preGasto.getMoneda() != null && preGasto.getMoneda().getDenominacion() != null
+                    ? preGasto.getMoneda().getDenominacion().trim().toUpperCase() : "";
+            if (simbolo.contains("GS") || denominacion.contains("GUARANI")) {
+                retiroGs = monto.doubleValue();
+            } else if (simbolo.contains("R$") || simbolo.contains("RS") || denominacion.contains("REAL")) {
+                retiroRs = monto.doubleValue();
+            } else {
+                retiroDs = monto.doubleValue();
+            }
+        }
+        return new double[] { retiroGs, retiroRs, retiroDs };
+    }
+
+    private void aplicarRetiroEnPreGasto(PreGasto preGasto, double retiroGs, double retiroRs, double retiroDs) {
+        BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, retiroGs, retiroRs, retiroDs);
+        BigDecimal montoGastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
+        preGasto.setMontoRetirado(montoRetirado);
+        preGasto.setSaldoDevolver(montoRetirado.subtract(montoGastado).max(BigDecimal.ZERO));
+        preGasto.setEstado(EstadoPreGasto.TRAMITE);
+        preGasto.setEstadoRendicion("NO_RENDIDO");
+        preGasto.setRindioGasto(false);
+    }
+
+    @Transactional
+    public PreGasto registrarDevolucionSaldo(DevolucionSaldoPreGastoInput input) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.TRAMITE) {
+            throw new RuntimeException("Solo se puede devolver saldo en solicitudes en trámite.");
+        }
+        BigDecimal saldo = preGasto.getSaldoDevolver() != null ? preGasto.getSaldoDevolver() : BigDecimal.ZERO;
+        if (saldo.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("No hay saldo pendiente de devolución.");
+        }
+
+        double vueltoGs = input.getVueltoGs() != null ? input.getVueltoGs() : 0d;
+        double vueltoRs = input.getVueltoRs() != null ? input.getVueltoRs() : 0d;
+        double vueltoDs = input.getVueltoDs() != null ? input.getVueltoDs() : 0d;
+        if (vueltoGs + vueltoRs + vueltoDs <= 0d) {
+            throw new RuntimeException("Debe indicar el monto devuelto.");
+        }
+
+        BigDecimal devuelto = obtenerMontoMoneda(preGasto, vueltoGs, vueltoRs, vueltoDs);
+        BigDecimal nuevoSaldo = saldo.subtract(devuelto);
+        preGasto.setSaldoDevolver(nuevoSaldo.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : nuevoSaldo);
+        return super.save(preGasto);
     }
 
     private BigDecimal obtenerMontoMoneda(PreGasto preGasto, Double gs, Double rs, Double ds) {
@@ -478,6 +629,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             valor = limite;
         }
         return valor;
+    }
+
+    public void recalcularEstadoRendicionPublico(PreGasto preGasto) {
+        recalcularEstadoRendicion(preGasto);
     }
 
     private void recalcularEstadoRendicion(PreGasto preGasto) {

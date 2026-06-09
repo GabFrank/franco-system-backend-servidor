@@ -64,6 +64,9 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
     @Column(name = "caja_id")
     private Long cajaId;
 
+    @Column(name = "gasto_caja_registro_id")
+    private Long gastoCajaRegistroId;
+
     @Enumerated(EnumType.STRING)
     @Type(type = "estado_pre_gasto")
     private EstadoPreGasto estado;
@@ -133,6 +136,13 @@ public class PreGasto extends EmbeddedEntity implements Serializable {
 
     @Column(name = "fecha_rendicion")
     private LocalDateTime fechaRendicion;
+
+    @Column(name = "retiro_confirmado_en")
+    private LocalDateTime retiroConfirmadoEn;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "retiro_confirmado_funcionario_id")
+    private Persona retiroConfirmadoFuncionario;
 
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

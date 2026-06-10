@@ -47,6 +47,11 @@ input ConfirmarRetiroFuncionarioInput {
     funcionarioPersonaId: ID!
 }
 
+input RetiroPreGastoLineaInput {
+    monedaId: ID!
+    monto: Float!
+}
+
 input EjecutarRetiroPreGastoInput {
     preGastoId: ID!
     sucursalId: ID!
@@ -54,6 +59,18 @@ input EjecutarRetiroPreGastoInput {
     cajaId: ID!
     usuarioId: ID
     gastoRegistroId: ID!
+    lineas: [RetiroPreGastoLineaInput!]
+}
+
+type LineaRetiroSugerida {
+    monedaId: ID!
+    monto: Float!
+}
+
+type MontosRetiroPayload {
+    retiroGs: Float!
+    retiroRs: Float!
+    retiroDs: Float!
 }
 
 input DevolucionSaldoPreGastoInput {
@@ -77,6 +94,9 @@ extend type Query {
     gastoRendicionesByPreGasto(preGastoId: ID!, sucursalId: ID!): [GastoRendicion]!
     preGastosParaRetiro(sucursalCajaId: ID!): [PreGasto]!
     qrRetiroPreGasto(preGastoId: ID!, sucursalId: ID!): QrRetiroPreGastoPayload
+    lineasRetiroSugeridas(preGastoId: ID!, sucursalId: ID!): [LineaRetiroSugerida]!
+    montosRetiroDesdeLineas(lineas: [RetiroPreGastoLineaInput!]!): MontosRetiroPayload!
+    preGastoRetiroConfirmado(preGastoId: ID!, sucursalId: ID!): Boolean!
 }
 
 extend type Mutation {

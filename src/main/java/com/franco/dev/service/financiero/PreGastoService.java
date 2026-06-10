@@ -22,12 +22,16 @@ import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.activos.VehiculoService;
 import com.franco.dev.service.activos.util.ActivoPagoNormalizer;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import com.franco.dev.service.financiero.dto.LineaRetiroSugeridaDTO;
+import com.franco.dev.service.financiero.dto.MontosRetiroPayloadDTO;
 import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
 import com.franco.dev.service.financiero.dto.QrRetiroPreGastoPayloadDTO;
 import com.franco.dev.graphql.financiero.input.ConfirmarRetiroFuncionarioInput;
 import com.franco.dev.graphql.financiero.input.DevolucionSaldoPreGastoInput;
 import com.franco.dev.graphql.financiero.input.EjecutarRetiroPreGastoInput;
+import com.franco.dev.graphql.financiero.input.RetiroPreGastoLineaInput;
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.Inmueble;
 import com.franco.dev.domain.activos.Mueble;
@@ -85,6 +89,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final GastoRepository gastoRepository;
     private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
     private final PdvCajaService pdvCajaService;
+    private final MonedaService monedaService;
 
     @Value("${sucursalId:0}")
     private Long currentSucursalId;
@@ -500,12 +505,82 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             throw new RuntimeException("Debe registrar el gasto en la caja local antes de finalizar el retiro.");
         }
 
-        double[] montos = calcularMontosRetiro(preGasto);
+        double[] montos = input.getLineas() != null && !input.getLineas().isEmpty()
+                ? resolverMontosRetiroArrayDesdeLineas(input.getLineas())
+                : calcularMontosRetiro(preGasto);
         aplicarRetiroEnPreGasto(preGasto, montos[0], montos[1], montos[2]);
         preGasto.setCajaId(input.getCajaId());
         preGasto.setGastoCajaRegistroId(input.getGastoRegistroId());
         super.save(preGasto);
         return repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+    }
+
+    public boolean preGastoRetiroConfirmado(Long preGastoId, Long sucursalId) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
+        return preGasto != null && preGasto.getRetiroConfirmadoEn() != null;
+    }
+
+    public List<LineaRetiroSugeridaDTO> obtenerLineasRetiroSugeridas(Long preGastoId, Long sucursalId) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        List<LineaRetiroSugeridaDTO> lineas = new ArrayList<>();
+        List<PreGastoDetalleFinanzas> finanzas = preGastoDetalleFinanzasService
+                .findByPreGastoIdAndSucursalId(preGastoId, sucursalId);
+        if (finanzas != null && !finanzas.isEmpty()) {
+            for (PreGastoDetalleFinanzas fin : finanzas) {
+                if (fin == null || fin.getMonto() == null || fin.getMoneda() == null || fin.getMoneda().getId() == null) {
+                    continue;
+                }
+                double monto = fin.getMonto().doubleValue();
+                if (monto > 0) {
+                    lineas.add(new LineaRetiroSugeridaDTO(fin.getMoneda().getId(), monto));
+                }
+            }
+            return lineas;
+        }
+        if (preGasto.getMoneda() != null && preGasto.getMoneda().getId() != null
+                && preGasto.getMontoSolicitado() != null && preGasto.getMontoSolicitado().doubleValue() > 0) {
+            lineas.add(new LineaRetiroSugeridaDTO(
+                    preGasto.getMoneda().getId(),
+                    preGasto.getMontoSolicitado().doubleValue()));
+        }
+        return lineas;
+    }
+
+    public MontosRetiroPayloadDTO calcularMontosRetiroDesdeLineas(List<RetiroPreGastoLineaInput> lineas) {
+        double[] montos = resolverMontosRetiroArrayDesdeLineas(lineas);
+        return new MontosRetiroPayloadDTO(montos[0], montos[1], montos[2]);
+    }
+
+    private double[] resolverMontosRetiroArrayDesdeLineas(List<RetiroPreGastoLineaInput> lineas) {
+        double retiroGs = 0d;
+        double retiroRs = 0d;
+        double retiroDs = 0d;
+        if (lineas == null || lineas.isEmpty()) {
+            return new double[] { retiroGs, retiroRs, retiroDs };
+        }
+        for (RetiroPreGastoLineaInput linea : lineas) {
+            if (linea == null || linea.getMonedaId() == null || linea.getMonto() == null || linea.getMonto() <= 0) {
+                continue;
+            }
+            Moneda moneda = monedaService.findById(linea.getMonedaId()).orElse(null);
+            if (moneda == null) {
+                continue;
+            }
+            String simbolo = moneda.getSimbolo() != null ? moneda.getSimbolo().trim().toUpperCase() : "";
+            String denominacion = moneda.getDenominacion() != null ? moneda.getDenominacion().trim().toUpperCase() : "";
+            double monto = linea.getMonto();
+            if ("GUARANI".equals(denominacion) || simbolo.contains("GS")) {
+                retiroGs += monto;
+            } else if (denominacion.contains("REAL") || simbolo.contains("R$") || simbolo.contains("RS")) {
+                retiroRs += monto;
+            } else {
+                retiroDs += monto;
+            }
+        }
+        return new double[] { retiroGs, retiroRs, retiroDs };
     }
 
     private double[] calcularMontosRetiro(PreGasto preGasto) {

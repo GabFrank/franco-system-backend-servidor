@@ -50,4 +50,12 @@ public class GastoRendicionResolver implements GraphQLResolver<GastoRendicion> {
     public String fotoProductoUrl(GastoRendicion rendicion) {
         return gastoRendicionService.resolveImageAsDataUrl(rendicion.getFotoProductoUrl(), "producto");
     }
+
+    public List<String> fotosFacturaUrls(GastoRendicion rendicion) {
+        return gastoRendicionService.resolveImagesAsDataUrls(rendicion.getFotoFacturaUrl(), "factura");
+    }
+
+    public List<String> fotosProductoUrls(GastoRendicion rendicion) {
+        return gastoRendicionService.resolveImagesAsDataUrls(rendicion.getFotoProductoUrl(), "producto");
+    }
 }

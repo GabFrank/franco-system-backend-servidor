@@ -49,8 +49,10 @@ public class GastoRendicionGraphQL implements GraphQLQueryResolver, GraphQLMutat
         }
         
         entity.setMontoTotal(input.getMontoTotal());
-        entity.setFotoFacturaUrl(input.getFotoFacturaUrl());
-        entity.setFotoProductoUrl(input.getFotoProductoUrl());
+        entity.setFotoFacturaUrl(service.serializeIncomingImagePayload(
+                input.getFotosFacturaUrls(), input.getFotoFacturaUrl()));
+        entity.setFotoProductoUrl(service.serializeIncomingImagePayload(
+                input.getFotosProductoUrls(), input.getFotoProductoUrl()));
         
         if (input.getEnteId() != null) {
             entity.setEnte(enteService.findById(input.getEnteId()).orElse(null));

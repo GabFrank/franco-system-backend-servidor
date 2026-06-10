@@ -5,6 +5,8 @@ type GastoRendicion {
     montoTotal: Float
     fotoFacturaUrl: String
     fotoProductoUrl: String
+    fotosFacturaUrls: [String]
+    fotosProductoUrls: [String]
     ente: Ente
     gasolineraId: ID
     kmActual: Float
@@ -25,6 +27,8 @@ input GastoRendicionInput {
     montoTotal: Float
     fotoFacturaUrl: String
     fotoProductoUrl: String
+    fotosFacturaUrls: [String]
+    fotosProductoUrls: [String]
     enteId: ID
     gasolineraId: ID
     kmActual: Float

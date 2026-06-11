@@ -56,44 +56,6 @@ public class NotificationTemplateService {
         return request;
     }
 
-    public PushNotificationRequest ventaCreditoRealizada(VentaCredito ventaCredito, Sucursal sucursal,
-            DecimalFormat decimalFormat) {
-        return ventaCreditoRealizada(
-            ventaCredito.getId(),
-            ventaCredito.getSucursalId(),
-            ventaCredito.getValorTotal(),
-            sucursal != null ? sucursal.getNombre() : "",
-            decimalFormat
-        );
-    }
-
-    public PushNotificationRequest ventaCreditoRealizada(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("SE HA DETECTADO UNA VENTA A CRÉDITO EN LA SUCURSAL ")
-                .append(sucursalNombre != null ? sucursalNombre : "")
-                .append(" POR EL VALOR DE ")
-                .append(decimalFormat.format(valorTotal))
-                .append(" GS.");
-        PushNotificationRequest request = base("VENTA A CRÉDITO REALIZADA", builder.toString());
-        request.setType("VENTA_CREDITO_CLIENTE");
-        request.setData("/mis-finanzas/list-convenio/" + ventaCreditoId + "/" + sucursalId);
-        return request;
-    }
-
-    public PushNotificationRequest ventaConvenioRealizada(Venta venta, Sucursal sucursal, Double valor,
-            DecimalFormat decimalFormat) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("SE HA DETECTADO UNA VENTA CON CONVENIO EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "")
-                .append(" POR EL VALOR DE ")
-                .append(decimalFormat.format(valor))
-                .append(" GS.");
-        PushNotificationRequest request = base("VENTA CON CONVENIO REALIZADA", builder.toString());
-        request.setType("VENTA_CONVENIO");
-        request.setData("/operaciones/ventas/" + venta.getId() + "/" + venta.getSucursalId());
-        return request;
-    }
-
     public PushNotificationRequest manual(String titulo, String mensaje, String data, String tipo) {
         PushNotificationRequest request = base(titulo, mensaje);
         request.setData(data != null ? data : "/");
@@ -287,9 +249,9 @@ public class NotificationTemplateService {
         return ""; // Obsolete, logic moved to gastoRealizado(Long...) directly
     }
 
-    public PushNotificationRequest ventaCreditoRealizadaCliente(VentaCredito ventaCredito, Sucursal sucursal,
+    public PushNotificationRequest compraCreditoRegistrada(VentaCredito ventaCredito, Sucursal sucursal,
             DecimalFormat decimalFormat) {
-        return ventaCreditoRealizadaCliente(
+        return compraCreditoRegistrada(
             ventaCredito.getId(),
             ventaCredito.getSucursalId(),
             ventaCredito.getValorTotal(),
@@ -298,7 +260,7 @@ public class NotificationTemplateService {
         );
     }
 
-    public PushNotificationRequest ventaCreditoRealizadaCliente(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
+    public PushNotificationRequest compraCreditoRegistrada(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
         builder.append("REALIZASTE UNA COMPRA CON TU CONVENIO EN LA SUCURSAL ")
                 .append(sucursalNombre != null ? sucursalNombre : "")
@@ -306,7 +268,7 @@ public class NotificationTemplateService {
                 .append(decimalFormat.format(valorTotal))
                 .append(" GS HA SIDO REGISTRADA EXITOSAMENTE.");
         PushNotificationRequest request = base("COMPRA A CRÉDITO REGISTRADA", builder.toString());
-        request.setType("VENTA_CREDITO");
+        request.setType("VENTA_CREDITO_CLIENTE");
         request.setData("/mis-compras/credito/" + ventaCreditoId + "/" + sucursalId);
         return request;
     }

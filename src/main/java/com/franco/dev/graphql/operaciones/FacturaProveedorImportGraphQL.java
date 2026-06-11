@@ -2,6 +2,9 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.FacturaProveedorImport;
 import com.franco.dev.domain.operaciones.enums.EstadoImport;
+import com.franco.dev.graphql.operaciones.dto.FacturaImportPreviewDto;
+import com.franco.dev.graphql.operaciones.input.ConfirmarFacturaImportItemInput;
+import com.franco.dev.service.operaciones.FacturaImportConfirmService;
 import com.franco.dev.service.operaciones.FacturaImportOrchestratorService;
 import com.franco.dev.service.operaciones.FacturaProveedorImportService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -13,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -26,8 +30,24 @@ public class FacturaProveedorImportGraphQL implements GraphQLQueryResolver, Grap
     @Autowired
     private FacturaImportOrchestratorService orchestrator;
 
+    @Autowired
+    private FacturaImportConfirmService confirmService;
+
     public Optional<FacturaProveedorImport> facturaProveedorImport(Long id) {
         return service.findById(id);
+    }
+
+    public Optional<FacturaImportPreviewDto> facturaImportPreview(Long id) {
+        return confirmService.preview(id);
+    }
+
+    public FacturaProveedorImport confirmarFacturaImport(Long importId, Integer proveedorId,
+                                                         List<ConfirmarFacturaImportItemInput> items,
+                                                         String tipoBoleta, Boolean crearPedido,
+                                                         Integer usuarioId) {
+        Long pid = proveedorId != null ? proveedorId.longValue() : null;
+        Long uid = usuarioId != null ? usuarioId.longValue() : null;
+        return confirmService.confirmar(importId, pid, items, tipoBoleta, crearPedido, uid);
     }
 
     public Page<FacturaProveedorImport> facturaProveedorImports(String estado, Integer page, Integer size) {

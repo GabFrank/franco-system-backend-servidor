@@ -25,11 +25,54 @@ type FacturaProveedorImportPage {
     isLast: Boolean
 }
 
+type FacturaImportItemPreview {
+    textoOcr: String
+    codigoOcr: String
+    cantidad: Float
+    precioUnitario: Float
+    descuento: Float
+    totalItem: Float
+    productoSugerido: Producto
+    productoConfianza: String
+    productoRazon: String
+    candidatos: [Producto]
+}
+
+type FacturaImportPreview {
+    importId: ID!
+    estado: String
+    emisorRuc: String
+    emisorNombre: String
+    numeroFactura: String
+    timbrado: String
+    fechaEmision: String
+    moneda: String
+    totalGeneral: Float
+    esLegal: Boolean
+    proveedorSugerido: Proveedor
+    proveedorConfianza: String
+    proveedorRazon: String
+    items: [FacturaImportItemPreview]
+}
+
+input ConfirmarFacturaImportItemInput {
+    textoOcr: String
+    codigoOcr: String
+    productoId: Int
+    presentacionId: Int
+    cantidad: Float
+    precioUnitario: Float
+    descuento: Float
+    omitir: Boolean
+}
+
 extend type Query {
     facturaProveedorImport(id: ID!): FacturaProveedorImport
     facturaProveedorImports(estado: String, page: Int, size: Int): FacturaProveedorImportPage
+    facturaImportPreview(id: ID!): FacturaImportPreview
 }
 
 extend type Mutation {
     importarFacturaProveedor(archivoBase64: String!, nombreArchivo: String!, mimeType: String!, usuarioId: Int!): FacturaProveedorImport!
+    confirmarFacturaImport(importId: ID!, proveedorId: Int!, items: [ConfirmarFacturaImportItemInput!]!, tipoBoleta: String, crearPedido: Boolean!, usuarioId: Int!): FacturaProveedorImport!
 }

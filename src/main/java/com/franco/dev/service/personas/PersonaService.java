@@ -21,8 +21,22 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
     }
 
     public List<Persona> findByAll(String texto) {
+        if (texto == null) texto = "";
         texto = texto.replace(' ', '%');
         return repository.findbyAll(texto.toUpperCase());
+    }
+
+    public org.springframework.data.domain.Page<Persona> findByAll(String texto, org.springframework.data.domain.Pageable pageable) {
+        if (texto == null) texto = "";
+        texto = texto.replace(' ', '%');
+        return repository.findByAll(texto.toUpperCase(), pageable);
+    }
+
+    public org.springframework.data.domain.Page<Persona> findByAllWithPage(String texto, int page, int size) {
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        if (texto == null) texto = "";
+        texto = texto.replace(' ', '%');
+        return repository.findByAll(texto.toUpperCase(), pageable);
     }
 
     public Persona findByDocumento(String texto) {

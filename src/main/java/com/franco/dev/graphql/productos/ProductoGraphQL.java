@@ -5,6 +5,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
+import com.franco.dev.domain.productos.Familia;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.Subfamilia;
 import com.franco.dev.fmc.model.PushNotificationRequest;
@@ -57,6 +58,9 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private SubFamiliaService subFamiliaService;
+
+    @Autowired
+    private FamiliaService familiaService;
 
     @Autowired
     private IngredienteService ingredienteService;
@@ -112,7 +116,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Page<Producto> searchProductoWithFilters(String texto, String codigo, Boolean activo, Boolean stock,
-            Boolean balanza, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro,
+            Boolean balanza, Long familia, Long subfamilia, Boolean vencimiento, Boolean costoCero, String stockFiltro,
             Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
@@ -132,8 +136,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             }
         }
 
-        texto = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, vencimiento, costoCero, stockFiltro,
+        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, familia, vencimiento, costoCero, stockFiltro,
                 sucursalId, pageable);
     }
 
@@ -211,14 +214,29 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             Boolean balanza,
             Boolean vencimiento,
             Boolean costoCero,
+            Long familiaId,
             Long subfamiliaId,
             String stockFiltro,
             Long sucursalId,
             Long usuarioId,
             String usuario) throws FileNotFoundException {
+
+        boolean puedeVerStockCompras = usuarioService.tieneRol(usuarioId, "VER STOCK COMPRAS", "ADMIN");
+        boolean puedeVerCostos = usuarioService.tieneRol(usuarioId, "EDITAR PRODUCTOS", "ADMIN");
+ 
+        if (sucursalId != null) {
+            Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+            if (sucursal != null && "COMPRAS".equalsIgnoreCase(sucursal.getNombre())) {
+                if (!puedeVerStockCompras) {
+                    sucursalId = null;
+                }
+            }
+        }
+ 
         return service.exportarReporteConFiltros(
                 texto, codigo, activo, stock, balanza, vencimiento,
-                costoCero, subfamiliaId, stockFiltro, sucursalId, usuarioId, usuario);
+                costoCero, subfamiliaId, familiaId, stockFiltro, sucursalId, usuarioId, usuario,
+                puedeVerStockCompras, puedeVerCostos);
     }
 
     public List<Producto> findByPdvGrupoProducto(Long id) {
@@ -226,7 +244,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public String lucroPorProducto(String fechaInicio, String fechaFin, List<Long> sucursalIdList, Long usuarioId,
-            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId) {
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         StringBuilder filtro = new StringBuilder();
         if (usuarioIdList != null && !usuarioIdList.isEmpty()) {
@@ -256,6 +274,12 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             if (suc != null)
                 filtro.append(suc.getNombre() + ", ");
         }
+        if (familiaId != null) {
+            Familia familia = familiaService.findById(familiaId).orElse(null);
+            if (familia != null && familia.getNombre() != null) {
+                filtro.append("\nFamilia: " + familia.getNombre());
+            }
+        }
         if (subfamiliaId != null) {
             Subfamilia subfamilia = subFamiliaService.findById(subfamiliaId).orElse(null);
             if (subfamilia != null && subfamilia.getNombre() != null) {
@@ -263,7 +287,7 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             }
         }
         List<LucroPorProductosDto> lucroPorProductosDtoList = service.findLucroPorProductos(fechaInicio, fechaFin,
-                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId);
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId);
         return impresionService.imprimirReporteLucroPorProducto(lucroPorProductosDtoList, fechaInicio, fechaFin, "",
                 filtro.toString(), usuario);
     }
@@ -276,10 +300,11 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             List<Long> productoIdList,
             Long subfamiliaId,
             Integer page,
-            Integer size) {
+            Integer size,
+            Long familiaId) {
 
         List<LucroPorProductosDto> fullList = service.findLucroPorProductos(fechaInicio, fechaFin,
-                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId);
+                sucursalIdList, usuarioIdList, productoIdList, subfamiliaId, familiaId);
 
         // 1. Calculate Global Summary
         LucroPorProductoSummary summary = new LucroPorProductoSummary();

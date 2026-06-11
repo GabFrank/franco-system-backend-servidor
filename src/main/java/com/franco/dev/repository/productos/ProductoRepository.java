@@ -20,6 +20,10 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
 
         public Producto findByDescripcion(String texto);
 
+        @Query("SELECT p FROM Producto p WHERE UPPER(TRIM(p.descripcion)) = UPPER(TRIM(?1)) " +
+               "OR UPPER(TRIM(p.descripcionFactura)) = UPPER(TRIM(?1))")
+        public List<Producto> findByDescripcionNormalized(String descripcion);
+
         @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
                         "from productos.producto p " +
                         "left outer join productos.presentacion p2 on p2.producto_id = p.id " +
@@ -131,7 +135,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "(:sucursalId is null or v.sucursalId = :sucursalId) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
                         "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
-                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) AND " +
+                        "((:familiaId) is null or pro.subfamilia.id IN (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
                         "group by pro.id " +
                         "ORDER BY SUM(vi.precio * vi.cantidad * pre.cantidad) DESC")
         public List<LucroPorProductosDto> findLucroPorProducto(
@@ -141,6 +146,7 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
                         @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
@@ -156,7 +162,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "((:sucursalId) is null or v.sucursalId = (:sucursalId)) AND " +
                         "(:filtrarUsuario = false or u.id IN (:usuarioIdList)) AND " +
                         "(:filtrarProducto = false or pro.id IN (:productoIdList)) AND " +
-                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) " +
+                        "((:subfamiliaId) is null or pro.subfamilia.id = :subfamiliaId) AND " +
+                        "((:familiaId) is null or pro.subfamilia.id IN (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
                         "GROUP BY pro.id")
         public List<Object[]> findTotalVentaPacksPorProducto(
                         @Param("sucursalId") Long sucursalId,
@@ -165,11 +172,11 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("usuarioIdList") List<Long> usuarioIdList,
                         @Param("productoIdList") List<Long> productoIdList,
                         @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
 
         @Query("select distinct p from Producto p " +
-                        "join p.subfamilia sub " +
                         "left join Presentacion pres on pres.producto.id = p.id " +
                         "left join Codigo cod on cod.presentacion.id = pres.id " +
                         "where  (CAST(p.id as string) like CONCAT('%', :texto, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') "
@@ -179,7 +186,9 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "and ((:stock) is null or p.stock = :stock) " +
                         "and ((:balanza) is null or p.balanza = :balanza) " +
                         "and ((:vencimiento) is null or p.vencimiento = :vencimiento) " +
-                        "and ((:subfamiliaId) is null or sub.id = :subfamiliaId) " +
+                        "and ((:subfamiliaId) is null or p.subfamilia.id = :subfamiliaId) " +
+                        "and ((:familiaId) is null or p.subfamilia.id IN " +
+                        "     (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
                         "and ((:costoCero) is null or " +
                         "     ((:costoCero) = true and (p.id IN (SELECT c1.producto.id FROM CostoPorProducto c1 " +
                         "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) "
@@ -207,9 +216,51 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("stock") Boolean stock,
                         @Param("balanza") Boolean balanza,
                         @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
                         @Param("vencimiento") Boolean vencimiento,
                         @Param("costoCero") Boolean costoCero,
                         @Param("stockFiltro") String stockFiltro,
                         @Param("sucursalId") Long sucursalId,
                         Pageable pageable);
+
+        @Query("select distinct p from Producto p " +
+                        "where p.id in :ids " +
+                        "and ((:activo) is null or p.activo = :activo) " +
+                        "and ((:stock) is null or p.stock = :stock) " +
+                        "and ((:balanza) is null or p.balanza = :balanza) " +
+                        "and ((:vencimiento) is null or p.vencimiento = :vencimiento) " +
+                        "and ((:subfamiliaId) is null or p.subfamilia.id = :subfamiliaId) " +
+                        "and ((:familiaId) is null or p.subfamilia.id IN " +
+                        "     (SELECT sf.id FROM Subfamilia sf WHERE sf.familia.id = :familiaId)) " +
+                        "and ((:costoCero) is null or " +
+                        "     ((:costoCero) = true and (p.id IN (SELECT c1.producto.id FROM CostoPorProducto c1 " +
+                        "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) "
+                        +
+                        "FROM CostoPorProducto c2 WHERE c2.producto.id = c1.producto.id)) " +
+                        "OR p.id NOT IN (SELECT DISTINCT c4.producto.id FROM CostoPorProducto c4))) or " +
+                        "     ((:costoCero) = false and p.id NOT IN (SELECT c1.producto.id FROM CostoPorProducto c1 " +
+                        "WHERE (c1.costoMedio = 0 OR c1.costoMedio IS NULL) AND c1.creadoEn = (SELECT MAX(c2.creadoEn) FROM CostoPorProducto c2 "
+                        +
+                        "WHERE c2.producto.id = c1.producto.id)) AND EXISTS (SELECT 1 FROM CostoPorProducto c3 " +
+                        "WHERE c3.producto.id = p.id AND c3.costoMedio > 0))) " +
+                        "and ((:stockFiltro) is null or :stockFiltro = 'todos' or " +
+                        "     ((:stockFiltro) = 'positivo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms "
+                        +
+                        "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
+                        "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) > 0)) or " +
+                        "     ((:stockFiltro) = 'negativo' and p.id IN (SELECT ms.producto.id FROM MovimientoStock ms "
+                        +
+                        "WHERE ms.estado = true AND ((:sucursalId) is null or ms.sucursalId = :sucursalId) " +
+                        "GROUP BY ms.producto.id HAVING SUM(ms.cantidad) < 0)))")
+        List<Producto> searchWithFiltersByIds(
+                        @Param("ids") List<Long> ids,
+                        @Param("activo") Boolean activo,
+                        @Param("stock") Boolean stock,
+                        @Param("balanza") Boolean balanza,
+                        @Param("subfamiliaId") Long subfamiliaId,
+                        @Param("familiaId") Long familiaId,
+                        @Param("vencimiento") Boolean vencimiento,
+                        @Param("costoCero") Boolean costoCero,
+                        @Param("stockFiltro") String stockFiltro,
+                        @Param("sucursalId") Long sucursalId);
 }

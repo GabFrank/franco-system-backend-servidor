@@ -8,19 +8,19 @@ type MovimientoStock {
     cantidad: Float
     estado: Boolean
     proveedor: Proveedor
-    sucursalId: Int
+    sucursalId: ID
     sucursal: Sucursal
 }
 
 input MovimientoStockInput {
     id:ID
-    productoId: Int
+    productoId: ID
     tipoMovimiento: TipoMovimiento
     referencia: Int
-    usuarioId: Int
+    usuarioId: ID
     cantidad: Float
     estado: Boolean
-    sucursalId: Int
+    sucursalId: ID
 }
 
 type MovimientoStockPage {
@@ -73,9 +73,9 @@ extend type Query {
     stockPorProducto(id:ID!, sucId: ID):Float
     stockByProductoIdExeptMovimientoId(productoId: ID!, movimientoId: ID!, sucursalId: ID!): Float
     stockByProductoIdAntesDeFecha(productoId: ID!, sucursalId: ID!, fecha: String!): Float
-    findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int, page: Int, size: Int): MovimientoStockPage
-    findStockWithFilters(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): Float
-    findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [Int], productoId: Int,tipoMovimientoList: [TipoMovimiento],usuarioId: Int): [StockPorTipoMovimientoDto]
+    findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [ID], productoId: ID,tipoMovimientoList: [TipoMovimiento],usuarioId: ID, page: Int, size: Int): MovimientoStockPage
+    findStockWithFilters(inicio: String, fin: String, sucursalList: [ID], productoId: ID,tipoMovimientoList: [TipoMovimiento],usuarioId: ID): Float
+    findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [ID], productoId: ID,tipoMovimientoList: [TipoMovimiento],usuarioId: ID): [StockPorTipoMovimientoDto]
     productosConCantidadPositiva(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
     productosConCantidadNegativa(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
     productosFaltantes(sucursalId: ID!, productoId: ID, fechaInicio: String!, fechaFin: String!, page: Int = 0, size: Int = 10): ProductoSaldoPage

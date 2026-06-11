@@ -1,7 +1,6 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
-import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
@@ -58,6 +57,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private MultiTenantService multiTenantService;
+
+    @Autowired
+    private com.franco.dev.service.operaciones.HojaRutaService hojaRutaService;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -124,6 +126,9 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getHojaRutaId() != null) {
+            e.setHojaRuta(hojaRutaService.findById(input.getHojaRutaId()).orElse(null));
+        }
         boolean isNewTransferencia = (input.getId() == null);
 
         e = service.save(e);

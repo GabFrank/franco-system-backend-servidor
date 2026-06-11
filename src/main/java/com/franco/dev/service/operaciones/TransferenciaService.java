@@ -96,7 +96,10 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
         } else {
             publisher.publishEvent(new com.franco.dev.fmc.event.TransferenciaIniciadaEvent(this, e));
         }
-
         return e;
+    }
+
+    public Page<Transferencia> findByChoferId(Long choferId, Pageable pageable) {
+        return ((TransferenciaService) repository).findByChoferId(choferId, pageable);
     }
 }

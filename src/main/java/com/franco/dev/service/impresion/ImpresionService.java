@@ -4,10 +4,15 @@ import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.administrativo.Marcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.PreGasto;
+import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
 import com.franco.dev.domain.financiero.VentaCredito;
+import com.franco.dev.domain.operaciones.Pedido;
+import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.SolicitudPago;
+import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
 import com.franco.dev.domain.personas.Cliente;
@@ -16,6 +21,7 @@ import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
 import com.franco.dev.service.impresion.dto.GastoDto;
 import com.franco.dev.service.impresion.dto.RetiroDto;
 import com.franco.dev.service.productos.CodigoService;
@@ -23,6 +29,7 @@ import com.franco.dev.service.productos.PrecioPorSucursalService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
 import com.franco.dev.utilitarios.DateUtils;
+import com.google.zxing.WriterException;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -55,6 +62,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -88,9 +96,18 @@ public class ImpresionService {
     private PrecioPorSucursalService precioPorSucursalService;
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
 
     @Autowired
     private MultiTenantService multiTenantService;
+
+    @Autowired
+    private com.franco.dev.service.activos.VehiculoService vehiculoService;
+    @Autowired
+    private com.franco.dev.service.activos.InmuebleService inmuebleService;
+    @Autowired
+    private com.franco.dev.service.activos.MuebleService muebleService;
 
     public static DateTimeFormatter shortDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     public static DateTimeFormatter shortDateTime = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
@@ -419,8 +436,15 @@ public class ImpresionService {
                     escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre());
                 }
                 escpos.writeLF("Fecha " + gastoDto.getFecha().format(formatter));
-                escpos.writeLF(new Style().setBold(true), "Tipo " + gastoDto.getTipoGasto().getId() + " - "
-                        + gastoDto.getTipoGasto().getDescripcion().toUpperCase());
+                String tipoGastoTexto = "SIN TIPO DE GASTO";
+                if (gastoDto.getTipoGasto() != null) {
+                    String tipoId = gastoDto.getTipoGasto().getId() != null ? gastoDto.getTipoGasto().getId().toString() : "N/A";
+                    String tipoDesc = gastoDto.getTipoGasto().getDescripcion() != null
+                            ? gastoDto.getTipoGasto().getDescripcion().toUpperCase()
+                            : "SIN DESCRIPCION";
+                    tipoGastoTexto = "Tipo " + tipoId + " - " + tipoDesc;
+                }
+                escpos.writeLF(new Style().setBold(true), tipoGastoTexto);
                 if (gastoDto.getObservacion() != null) {
                     escpos.writeLF("Obs: " + gastoDto.getObservacion().toUpperCase());
                 }
@@ -502,8 +526,15 @@ public class ImpresionService {
                     escpos.writeLF("Cajero: " + gastoDto.getUsuario().getPersona().getNombre());
                 }
                 escpos.writeLF("Fecha " + gastoDto.getFecha().format(formatter));
-                escpos.writeLF(new Style().setBold(true), "Tipo " + gastoDto.getTipoGasto().getId() + " - "
-                        + gastoDto.getTipoGasto().getDescripcion().toUpperCase());
+                String tipoGastoTexto = "SIN TIPO DE GASTO";
+                if (gastoDto.getTipoGasto() != null) {
+                    String tipoId = gastoDto.getTipoGasto().getId() != null ? gastoDto.getTipoGasto().getId().toString() : "N/A";
+                    String tipoDesc = gastoDto.getTipoGasto().getDescripcion() != null
+                            ? gastoDto.getTipoGasto().getDescripcion().toUpperCase()
+                            : "SIN DESCRIPCION";
+                    tipoGastoTexto = "Tipo " + tipoId + " - " + tipoDesc;
+                }
+                escpos.writeLF(new Style().setBold(true), tipoGastoTexto);
                 if (gastoDto.getObservacion() != null) {
                     escpos.writeLF("Obs: " + gastoDto.getObservacion().toUpperCase());
                 }
@@ -1025,6 +1056,62 @@ public class ImpresionService {
         }
     }
 
+    public String imprimirReporteLucroPorFuncionario(List<LucroPorFuncionarioDto> lucroPorFuncionarioDtoList,
+            String fechaInicio, String fechaFin, String sucursales, String filtro, Usuario usuario) {
+        Long cantFuncionarios = Long.valueOf(0);
+        Double lucroTotalPorcentaje = 0.0;
+        Double lucroTotalGs = 0.0;
+        Double costoTotal = 0.0;
+        Double ventaTotal = 0.0;
+        Double descuentoTotal = 0.0;
+        Double aumentoTotal = 0.0;
+        List<LucroPorFuncionarioDto> auxList = new ArrayList<>();
+        try {
+            for (LucroPorFuncionarioDto dto : lucroPorFuncionarioDtoList) {
+                lucroTotalGs += dto.getLucro();
+                costoTotal += dto.getCostoTotal();
+                ventaTotal += dto.getTotalVenta();
+                descuentoTotal += (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0);
+                aumentoTotal += (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0);
+                auxList.add(dto);
+            }
+            cantFuncionarios = Long.valueOf(lucroPorFuncionarioDtoList.size());
+            lucroTotalPorcentaje = ventaTotal > 0 ? ((lucroTotalGs) / ventaTotal) * 100 : 0.0;
+            ClassPathResource resource = new ClassPathResource("reports/lucro-por-funcionario.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("filtroFechaInicio", fechaInicio);
+            parameters.put("filtroFechaFin", fechaFin);
+            parameters.put("filtroTexto", filtro);
+            parameters.put("filtroSucursales", sucursales);
+            parameters.put("cantFuncionarios", cantFuncionarios);
+            parameters.put("lucroTotalPorcentaje", lucroTotalPorcentaje);
+            parameters.put("lucroTotalGs", lucroTotalGs);
+            parameters.put("costoTotal", costoTotal);
+            parameters.put("ventaTotal", ventaTotal);
+            parameters.put("descuentoTotal", descuentoTotal);
+            parameters.put("aumentoTotal", aumentoTotal);
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario.getNickname());
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public String imprimirReporteCobroVentaCreditoMultiplesClientes(List<Cliente> clientesList,
             Map<Long, List<VentaCredito>> ventaCreditoMap, Usuario usuario) {
         try {
@@ -1232,7 +1319,6 @@ public class ImpresionService {
             e.printStackTrace();
         }
     }
-
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
@@ -1396,6 +1482,7 @@ public class ImpresionService {
         private String diferido;
         private Boolean esCheque;
     }
+
     public String imprimirReporteGenericVentas(
             List<ReporteVentaItemDto> itemList,
             String filtroIdVenta,
@@ -1458,6 +1545,246 @@ public class ImpresionService {
         }
     }
 
+    private String safeUpper(String value, String fallback) {
+        if (value == null || value.trim().isEmpty()) {
+            return fallback;
+        }
+        return value.toUpperCase();
+    }
+
+    private String formatFecha(java.time.LocalDateTime fecha) {
+        return fecha != null ? DateUtils.toString(fecha) : "---";
+    }
+
+    public String imprimirPreGasto(PreGasto preGasto) {
+        log.info("Iniciando impresión de PreGasto ID: " + preGasto.getId());
+        try {
+            JasperReport jasperReport = compileReportFromClasspath("reports/pre-gasto.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(new ArrayList<>());
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("urgencia", safeUpper(preGasto.getNivelUrgencia(), "NORMAL"));
+            parameters.put("observaciones", safeUpper(preGasto.getObservaciones(), "---"));
+
+            parameters.put("idPreGasto", preGasto.getId());
+            parameters.put("creadoEn", preGasto.getCreadoEn() != null ? DateUtils.toString(preGasto.getCreadoEn()) : "---");
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("sucursal", preGasto.getSucursalId() + " - "
+                    + sucursalService.findById(preGasto.getSucursalId()).map(s -> s.getNombre()).orElse(""));
+            parameters.put("sucursalCaja",
+                    preGasto.getSucursalCaja() != null ? preGasto.getSucursalCaja().getNombre() : "SIN ASIGNAR");
+            parameters.put("tipoGasto",
+                    preGasto.getTipoGasto() != null ? preGasto.getTipoGasto().getDescripcion().toUpperCase() : "N/A");
+            parameters.put("solicitante",
+                    preGasto.getFuncionario() != null ? preGasto.getFuncionario().getNombre().toUpperCase() : "SIN ESPECIFICAR");
+            parameters.put("autorizador",
+                    preGasto.getAutorizadoPor() != null ? preGasto.getAutorizadoPor().getNombre().toUpperCase() : "PENDIENTE");
+            String rawDesc = preGasto.getDescripcion() != null ? preGasto.getDescripcion() : "";
+            String descripcionLimpia = rawDesc;
+            if (rawDesc.contains(" | ")) {
+                descripcionLimpia = rawDesc.split(" \\| ", 2)[0];
+            }
+            parameters.put("descripcion", safeUpper(descripcionLimpia, "---"));
+
+            String simbolo = preGasto.getMoneda() != null ? preGasto.getMoneda().getSimbolo() : "GS";
+            parameters.put("moneda", simbolo);
+
+            log.info("Parámetros del reporte: " + parameters);
+            parameters.put("monto", formatMonto(preGasto.getMontoSolicitado(), simbolo));
+            parameters.put("fechaVencimiento", formatFecha(preGasto.getFechaVencimiento()));
+            parameters.put("nivelUrgencia", safeUpper(preGasto.getNivelUrgencia(), "NORMAL"));
+
+            String beneficiarioTipo = "SIN BENEFICIARIO";
+            String beneficiarioNombre = "---";
+            if (preGasto.getBeneficiarioPersona() != null) {
+                beneficiarioTipo = "PERSONA";
+                beneficiarioNombre = safeUpper(preGasto.getBeneficiarioPersona().getNombre(), "---");
+            } else if (preGasto.getBeneficiarioProveedor() != null && preGasto.getBeneficiarioProveedor().getPersona() != null) {
+                beneficiarioTipo = "PROVEEDOR";
+                beneficiarioNombre = safeUpper(preGasto.getBeneficiarioProveedor().getPersona().getNombre(), "---");
+            }
+            parameters.put("beneficiarioTipo", beneficiarioTipo);
+            parameters.put("beneficiarioNombre", beneficiarioNombre);
+
+            String usuarioNick = "";
+            if (preGasto.getUsuario() != null) {
+                usuarioNick = preGasto.getUsuario().getNickname();
+            }
+            parameters.put("usuario", usuarioNick != null ? usuarioNick : "---");
+
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+
+            Boolean isBien = preGasto.getEnte() != null;
+            parameters.put("isBien", isBien);
+            
+            boolean isPagoCuota = false;
+            if (preGasto.getTipoGasto() != null && Boolean.TRUE.equals(preGasto.getTipoGasto().getEsPagoCuotaActivo())) {
+                isPagoCuota = true;
+            } else if (rawDesc != null && rawDesc.toUpperCase().startsWith("PAGO -")) {
+                isPagoCuota = true;
+            }
+            parameters.put("isPagoCuota", isPagoCuota);
+            
+            if (isBien) {
+                Long refId = preGasto.getEnte().getReferenciaId();
+                String bienNombre = "";
+                String bienReferencia = "";
+                java.math.BigDecimal montoTotal = java.math.BigDecimal.ZERO;
+                java.math.BigDecimal montoPagado = java.math.BigDecimal.ZERO;
+                Integer cuotasTotales = 0;
+                Integer cuotasPagadas = 0;
+                String proveedor = "";
+                String situacion = "";
+                String mnd = "";
+
+                switch (preGasto.getEnte().getTipoEnte()) {
+                    case VEHICULO:
+                        com.franco.dev.domain.activos.Vehiculo v = vehiculoService.findById(refId).orElse(null);
+                        if (v != null) {
+                            bienNombre = "VEHICULO " + (v.getModelo() != null ? v.getModelo().getDescripcion() : "");
+                            bienReferencia = "Chapa: " + v.getChapa() + " - Ref #" + v.getId() + " - Ente #"
+                                    + preGasto.getEnte().getId();
+                            montoTotal = v.getMontoTotal();
+                            montoPagado = v.getMontoYaPagado();
+                            cuotasTotales = v.getCantidadCuotas();
+                            cuotasPagadas = v.getCantidadCuotasPagadas();
+                            proveedor = (v.getProveedor() != null && v.getProveedor().getPersona() != null)
+                                    ? v.getProveedor().getPersona().getNombre()
+                                    : "";
+                            situacion = v.getSituacionPago();
+                            mnd = v.getMoneda() != null ? v.getMoneda().getSimbolo() : simbolo;
+                        }
+                        break;
+                    case INMUEBLE:
+                        com.franco.dev.domain.activos.Inmueble i = inmuebleService.findById(refId).orElse(null);
+                        if (i != null) {
+                            bienNombre = "INMUEBLE " + (i.getNombreAsignado() != null ? i.getNombreAsignado() : "");
+                            bienReferencia = "Dirección: " + i.getDireccion() + " - Ref #" + i.getId() + " - Ente #"
+                                    + preGasto.getEnte().getId();
+                            montoTotal = i.getMontoTotal();
+                            montoPagado = i.getMontoYaPagado();
+                            cuotasTotales = i.getCantidadCuotas();
+                            cuotasPagadas = i.getCantidadCuotasPagadas();
+                            proveedor = (i.getProveedor() != null && i.getProveedor().getPersona() != null)
+                                    ? i.getProveedor().getPersona().getNombre()
+                                    : "";
+                            situacion = i.getSituacionPago();
+                            mnd = i.getMoneda() != null ? i.getMoneda().getSimbolo() : simbolo;
+                        }
+                        break;
+                    case MUEBLE:
+                        com.franco.dev.domain.activos.Mueble m = muebleService.findById(refId).orElse(null);
+                        if (m != null) {
+                            bienNombre = "MUEBLE " + (m.getIdentificador() != null ? m.getIdentificador() : "");
+                            bienReferencia = m.getDescripcion() + " - Ref #" + m.getId() + " - Ente #"
+                                    + preGasto.getEnte().getId();
+                            montoTotal = m.getMontoTotal();
+                            montoPagado = m.getMontoYaPagado();
+                            cuotasTotales = m.getCantidadCuotas();
+                            cuotasPagadas = m.getCantidadCuotasPagadas();
+                            proveedor = (m.getProveedor() != null && m.getProveedor().getPersona() != null)
+                                    ? m.getProveedor().getPersona().getNombre()
+                                    : "";
+                            situacion = m.getSituacionPago();
+                            mnd = m.getMoneda() != null ? m.getMoneda().getSimbolo() : simbolo;
+                        }
+                        break;
+                    case INSTITUCION:
+                        bienNombre = "INSTITUCION";
+                        bienReferencia = "Ref #" + refId + " - Ente #" + preGasto.getEnte().getId();
+                        break;
+                }
+
+                parameters.put("bienNombre", bienNombre.toUpperCase());
+                parameters.put("bienReferencia", bienReferencia);
+                parameters.put("bienMontoTotal", formatMonto(montoTotal, mnd));
+                parameters.put("bienMontoPagado", formatMonto(montoPagado, mnd));
+                java.math.BigDecimal pendiente = (montoTotal != null ? montoTotal : java.math.BigDecimal.ZERO)
+                        .subtract(montoPagado != null ? montoPagado : java.math.BigDecimal.ZERO);
+                parameters.put("bienSaldoPendiente", formatMonto(pendiente, mnd));
+                parameters.put("bienCuotasTotales", cuotasTotales != null ? cuotasTotales : 0);
+                parameters.put("bienCuotasPagadas", cuotasPagadas != null ? cuotasPagadas : 0);
+                parameters.put("bienCuotasFaltantes",
+                        (cuotasTotales != null ? cuotasTotales : 0) - (cuotasPagadas != null ? cuotasPagadas : 0));
+
+                java.math.BigDecimal montoCuota = java.math.BigDecimal.ZERO;
+                if (cuotasTotales != null && cuotasTotales > 0 && montoTotal != null) {
+                    montoCuota = montoTotal.divide(java.math.BigDecimal.valueOf(cuotasTotales), 2,
+                            java.math.RoundingMode.HALF_UP);
+                }
+                parameters.put("bienMontoCuota", formatMonto(montoCuota, mnd));
+                parameters.put("bienCuotaActual", (cuotasPagadas != null ? cuotasPagadas : 0) + 1);
+                parameters.put("bienProveedor", proveedor != null ? proveedor.toUpperCase() : "");
+                parameters.put("bienSituacion", situacion != null ? situacion.toUpperCase() : "");
+
+                String progreso = "0%";
+                if (montoTotal != null && montoTotal.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    double p = (montoPagado.doubleValue() / montoTotal.doubleValue()) * 100;
+                    progreso = String.format("%.0f%%", p);
+                }
+                parameters.put("bienProgreso", progreso);
+            }
+            String qrText = "frc-" + preGasto.getSucursalId() + "-PREGASTO-" + preGasto.getId() + "-" + preGasto.getId()
+                    + "-AdicionarPreGastoComponent-null-null";
+            parameters.put("qr", qrText);
+
+            List<PreGastoDetalleFinanzas> finanzas = preGastoDetalleFinanzasService
+                    .findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId());
+            StringBuilder finanzasDetalle = new StringBuilder();
+            String formaPagoPrincipal = "---";
+            if (finanzas != null && !finanzas.isEmpty()) {
+                for (PreGastoDetalleFinanzas f : finanzas) {
+                    String monedaFin = f.getMoneda() != null && f.getMoneda().getSimbolo() != null
+                            ? f.getMoneda().getSimbolo()
+                            : simbolo;
+                    String forma = safeUpper(f.getFormaPago(), "SIN METODO");
+                    if ("---".equals(formaPagoPrincipal)) {
+                        formaPagoPrincipal = forma;
+                    }
+                    finanzasDetalle
+                            .append(forma)
+                            .append(": ")
+                            .append(monedaFin)
+                            .append(" ")
+                            .append(formatMonto(f.getMonto(), monedaFin))
+                            .append("\n");
+                }
+            }
+            parameters.put("formaPago", formaPagoPrincipal);
+            parameters.put("finanzasDetalle",
+                    finanzasDetalle.length() > 0 ? finanzasDetalle.toString().trim() : "SIN DETALLE DE FINANZAS");
+
+            try {
+                BufferedImage qrImage = com.franco.dev.utilitarios.print.QRCodeImageGenerator.generateQRCodeImage(qrText, 160, 160);
+                File qrTmpFile = Files.createTempFile("pregasto-qr-" + preGasto.getId() + "-", ".png").toFile();
+                qrTmpFile.deleteOnExit();
+                ImageIO.write(qrImage, "png", qrTmpFile);
+                parameters.put("qrImage", qrTmpFile.getAbsolutePath());
+            } catch (WriterException | IOException qrEx) {
+                log.warn("No se pudo generar QR para pre-gasto {}: {}", preGasto.getId(), qrEx.getMessage());
+                parameters.put("qrImage", null);
+            }
+
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+
+        } catch (JRException e) {
+            log.error("Error al generar PDF de pre-gasto: {}", e.getMessage(), e);
+            throw new RuntimeException("Error al generar el PDF: " + e.getMessage(), e);
+        }
+    }
+
+    private String formatMonto(java.math.BigDecimal monto, String simbolo) {
+        if (monto == null)
+            return "";
+        if (simbolo != null && (simbolo.equals("Gs") || simbolo.equals("Gs."))) {
+            return java.text.NumberFormat.getNumberInstance(java.util.Locale.GERMAN).format(monto.longValue());
+        } else {
+            return String.format("%.2f", monto.doubleValue());
+
+        }
+    }
+
     private String formatMinutes(Long minutes) {
         if (minutes == null || minutes == 0) {
             return "00:00";
@@ -1465,5 +1792,222 @@ public class ImpresionService {
         long hours = minutes / 60;
         long remainingMinutes = minutes % 60;
         return String.format("%02d:%02d", hours, remainingMinutes);
+    }
+
+    // ==================== PEDIDO DE COMPRA ====================
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class PedidoItemDto {
+        private Integer numero;
+        private String descripcion;
+        private String presentacion;
+        private Double cantidadUnidades;
+        private Double precioUnitario;
+        private Double subtotal;
+        private String vencimiento;
+    }
+
+    public String imprimirPedido(Pedido pedido, List<PedidoItem> items, Boolean ticket, String printerName) {
+        if (ticket != null && ticket) {
+            // ===== ESC/POS TICKET =====
+            try {
+                selectedPrintService = printingService.getPrintService(printerName);
+                if (selectedPrintService != null) {
+                    printerOutputStream = new PrinterOutputStream(selectedPrintService);
+                    Style center = new Style().setJustification(EscPosConst.Justification.Center);
+                    QRCode qrCode = new QRCode();
+
+                    BufferedImage imageBufferedImage = ImageIO
+                            .read(new File(imageService.getImagePath() + "logo.png"));
+                    imageBufferedImage = resize(imageBufferedImage, 200, 100);
+                    BitImageWrapper imageWrapper = new BitImageWrapper();
+                    EscPos escpos = new EscPos(printerOutputStream);
+                    Bitonal algorithm = new BitonalThreshold();
+                    EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
+                    imageWrapper.setJustification(EscPosConst.Justification.Center);
+                    escpos.writeLF("--------------------------------");
+                    escpos.write(imageWrapper, escposImage);
+                    escpos.writeLF(center.setBold(true), "PEDIDO DE COMPRA");
+                    escpos.writeLF("--------------------------------");
+                    escpos.writeLF("Pedido Nro: " + pedido.getId());
+                    escpos.writeLF("Fecha: " + (pedido.getCreadoEn() != null
+                            ? pedido.getCreadoEn().format(formatter)
+                            : ""));
+                    String provNombre = pedido.getProveedor() != null
+                            && pedido.getProveedor().getPersona() != null
+                                    ? pedido.getProveedor().getPersona().getNombre()
+                                    : "";
+                    if (provNombre.length() > 28) {
+                        provNombre = provNombre.substring(0, 28);
+                    }
+                    escpos.writeLF("Prov: " + provNombre);
+                    String monedaStr = pedido.getMoneda() != null
+                            && pedido.getMoneda().getDenominacion() != null
+                                    ? pedido.getMoneda().getDenominacion()
+                                    : "";
+                    escpos.writeLF("Moneda: " + monedaStr);
+                    escpos.writeLF("--------------------------------");
+
+                    double totalPedido = 0;
+                    for (int i = 0; i < items.size(); i++) {
+                        PedidoItem item = items.get(i);
+                        String desc = item.getProducto() != null ? item.getProducto().getDescripcion() : "";
+                        if (desc.length() > 32) {
+                            desc = desc.substring(0, 32);
+                        }
+                        escpos.writeLF((i + 1) + ". " + desc);
+
+                        Double cant = item.getCantidadSolicitada() != null ? item.getCantidadSolicitada() : 0.0;
+                        Double precio = item.getPrecioUnitarioSolicitado() != null
+                                ? item.getPrecioUnitarioSolicitado()
+                                : 0.0;
+                        double sub = cant * precio;
+                        totalPedido += sub;
+
+                        String cantStr = String.format("%.0f", cant);
+                        String precioStr = NumberFormat.getNumberInstance(Locale.GERMAN)
+                                .format((long) Math.round(precio));
+                        String subStr = NumberFormat.getNumberInstance(Locale.GERMAN)
+                                .format((long) Math.round(sub));
+                        escpos.writeLF("  " + cantStr + " x " + precioStr + " = " + subStr);
+
+                        if (Boolean.TRUE.equals(item.getEsBonificacion())) {
+                            escpos.writeLF("  ** BONIFICACION **");
+                        }
+                    }
+
+                    escpos.writeLF("--------------------------------");
+                    String totalStr = NumberFormat.getNumberInstance(Locale.GERMAN)
+                            .format((long) Math.round(totalPedido));
+                    escpos.writeLF(center.setBold(true), "TOTAL: " + totalStr);
+                    escpos.writeLF("--------------------------------");
+
+                    String qrData = "frc-0-PEDIDO-" + pedido.getId() + "-" + pedido.getId()
+                            + "-GestionComprasComponent-null-null";
+                    escpos.write(qrCode.setSize(7).setJustification(EscPosConst.Justification.Center), qrData);
+
+                    escpos.feed(4);
+                    escpos.writeLF(center, ".......................");
+                    escpos.writeLF(center, "Comprador");
+                    escpos.feed(5);
+                    escpos.close();
+                    printerOutputStream.close();
+                }
+            } catch (IOException e) {
+                log.error("Error al imprimir ticket de pedido: {}", e.getMessage(), e);
+            }
+            return null;
+        } else {
+            // ===== JASPER PDF =====
+            try {
+                List<PedidoItemDto> dtoList = new ArrayList<>();
+                double montoTotal = 0;
+                for (int i = 0; i < items.size(); i++) {
+                    PedidoItem item = items.get(i);
+                    PedidoItemDto dto = new PedidoItemDto();
+                    dto.setNumero(i + 1);
+
+                    // Descripción + código de barras: "PRODUCTO (codBarra)"
+                    String desc = item.getProducto() != null ? item.getProducto().getDescripcion() : "";
+                    String codBarra = "";
+                    if (item.getPresentacionCreacion() != null) {
+                        Codigo codigo = codigoService
+                                .findPrincipalByPresentacionId(item.getPresentacionCreacion().getId());
+                        if (codigo != null && codigo.getCodigo() != null && !codigo.getCodigo().isEmpty()) {
+                            codBarra = codigo.getCodigo();
+                        }
+                    }
+                    if (!codBarra.isEmpty()) {
+                        desc = desc + " (" + codBarra + ")";
+                    }
+                    dto.setDescripcion(desc);
+
+                    // Presentación: "1 unid." o "Caja x N unid."
+                    String pres = "";
+                    if (item.getPresentacionCreacion() != null
+                            && item.getPresentacionCreacion().getCantidad() != null) {
+                        int cant = item.getPresentacionCreacion().getCantidad().intValue();
+                        if (cant <= 1) {
+                            pres = "1 unid.";
+                        } else {
+                            pres = "Caja x " + cant + " unid.";
+                        }
+                    }
+                    dto.setPresentacion(pres);
+
+                    Double cant = item.getCantidadSolicitada() != null ? item.getCantidadSolicitada() : 0.0;
+                    Double precio = item.getPrecioUnitarioSolicitado() != null
+                            ? item.getPrecioUnitarioSolicitado()
+                            : 0.0;
+                    double sub = cant * precio;
+                    montoTotal += sub;
+
+                    dto.setCantidadUnidades(cant);
+                    dto.setPrecioUnitario(precio);
+                    dto.setSubtotal(sub);
+                    dto.setVencimiento(item.getVencimientoEsperado() != null
+                            ? DateUtils.toStringOnlyDate(item.getVencimientoEsperado())
+                            : "");
+                    dtoList.add(dto);
+                }
+
+                JasperReport jasperReport = compileReportFromClasspath("reports/pedido-compra.jrxml");
+                JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(dtoList);
+                Map<String, Object> parameters = new HashMap<>();
+                parameters.put("pedidoId", pedido.getId());
+                parameters.put("proveedor", pedido.getProveedor() != null
+                        && pedido.getProveedor().getPersona() != null
+                                ? pedido.getProveedor().getPersona().getNombre()
+                                : "");
+                parameters.put("vendedor", pedido.getVendedor() != null
+                        && pedido.getVendedor().getPersona() != null
+                                ? pedido.getVendedor().getPersona().getNombre()
+                                : "");
+                parameters.put("moneda", pedido.getMoneda() != null
+                        && pedido.getMoneda().getDenominacion() != null
+                                ? pedido.getMoneda().getDenominacion()
+                                : "");
+                parameters.put("monedaSimbolo", pedido.getMoneda() != null
+                        && pedido.getMoneda().getSimbolo() != null
+                                ? pedido.getMoneda().getSimbolo()
+                                : "");
+                parameters.put("formaPago", pedido.getFormaPago() != null
+                        && pedido.getFormaPago().getDescripcion() != null
+                                ? pedido.getFormaPago().getDescripcion()
+                                : "");
+                parameters.put("plazoCredito", pedido.getPlazoCredito());
+                parameters.put("observacion", pedido.getObservacionFormaPago() != null
+                        ? pedido.getObservacionFormaPago()
+                        : "");
+                parameters.put("fechaCreacion", pedido.getCreadoEn() != null
+                        ? DateUtils.toString(pedido.getCreadoEn())
+                        : "");
+                String usuario = "";
+                if (pedido.getUsuario() != null) {
+                    if (pedido.getUsuario().getPersona() != null
+                            && pedido.getUsuario().getPersona().getNombre() != null) {
+                        usuario = pedido.getUsuario().getPersona().getNombre();
+                    } else if (pedido.getUsuario().getNickname() != null) {
+                        usuario = pedido.getUsuario().getNickname();
+                    }
+                }
+                parameters.put("usuario", usuario);
+                parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+                parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+                parameters.put("montoTotal", montoTotal);
+                parameters.put("qrText", "frc-0-PEDIDO-" + pedido.getId() + "-" + pedido.getId()
+                        + "-GestionComprasComponent-null-null");
+
+                JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+                byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+                return Base64.getEncoder().encodeToString(pdfBytes);
+
+            } catch (JRException e) {
+                log.error("Error al generar PDF de pedido: {}", e.getMessage(), e);
+                throw new RuntimeException("Error al generar PDF del pedido: " + e.getMessage(), e);
+            }
+        }
     }
 }

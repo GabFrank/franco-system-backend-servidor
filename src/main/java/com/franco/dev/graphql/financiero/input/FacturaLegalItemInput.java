@@ -11,6 +11,7 @@ public class FacturaLegalItemInput implements Serializable {
     private Long facturaLegalId;
     private Long ventaItemId;
     private Long productoId;
+    private Long presentacionId;
     private Double cantidad;
     private String descripcion;
     private String unidadMedida;

@@ -15,4 +15,10 @@ public class ProductoVendidoEstadistica {
     private Double cantidad;
     private Double totalMonto;
     private Double porcentaje;
+    /** Entradas por COMPRA + TRANSFERENCIA (movimiento_stock, cantidad > 0) */
+    private Double cantidadEntrada;
+    /** Ventas según movimiento_stock tipo VENTA */
+    private Double cantidadVentaMovimiento;
+    /** ventaMovimiento / cantidadEntrada cuando hay entradas en el período */
+    private Double indiceRotacion;
 }

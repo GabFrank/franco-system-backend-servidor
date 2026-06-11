@@ -1,6 +1,4 @@
 package com.franco.dev.graphql.financiero;
-
-import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.graphql.financiero.input.TipoGastoInput;
 import com.franco.dev.service.empresarial.CargoService;
@@ -10,10 +8,12 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -28,10 +28,6 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     @Autowired
     private CargoService cargoService;
-
-
-    @Autowired
-    private MultiTenantService multiTenantService;
 
     public Optional<TipoGasto> tipoGasto(Long id) {
         return service.findById(id);
@@ -52,6 +48,11 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         TipoGasto e = m.map(input, TipoGasto.class);
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        } else if (e.getId() == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                usuarioService.findByNickname(authentication.getName()).ifPresent(e::setUsuario);
+            }
         }
         if (input.getClasificacionGastoId() != null)
             e.setClasificacionGasto(service.findById(input.getClasificacionGastoId()).orElse(null));
@@ -73,5 +74,8 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.count();
     }
 
-
+    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
+        return service.filterTipoGastos(naturaleza, texto, pageable);
+    }
 }

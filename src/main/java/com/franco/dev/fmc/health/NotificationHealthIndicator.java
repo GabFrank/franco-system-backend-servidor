@@ -26,7 +26,7 @@ public class NotificationHealthIndicator implements HealthIndicator {
     @Override
     public Health health() {
         try {
-            Resource resource = resourceLoader.getResource("classpath:" + firebaseConfigFile);
+            Resource resource = resolveFirebaseConfigResource();
             if (!resource.exists()) {
                 return Health.down().withDetail("firebaseConfig", "Archivo no encontrado").build();
             }
@@ -39,7 +39,14 @@ public class NotificationHealthIndicator implements HealthIndicator {
             return Health.down(e).build();
         }
     }
+
+    private Resource resolveFirebaseConfigResource() {
+        if (firebaseConfigFile == null || firebaseConfigFile.trim().isEmpty()) {
+            return resourceLoader.getResource("file:/dev/null");
+        }
+        if (firebaseConfigFile.startsWith("file:")) {
+            return resourceLoader.getResource(firebaseConfigFile);
+        }
+        return resourceLoader.getResource("file:" + firebaseConfigFile);
+    }
 }
-
-
-

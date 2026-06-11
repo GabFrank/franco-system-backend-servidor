@@ -1,0 +1,51 @@
+type Gps {
+    id: ID!
+    imei: String
+    vehiculo: Vehiculo
+    modeloTracker: String
+    simNumero: String
+    activo: Boolean
+    creadoEm: Date
+    ultimaTelemetria: Telemetria
+    
+    ultimaLatitud: Float
+    ultimaLongitud: Float
+    ultimaFechaReporte: Date
+    ultimaIgnicion: Boolean
+    ultimaVelocidad: Int
+    modoSueno: Boolean
+    intervaloReporte: Int
+    motorBloqueado: Boolean
+    alertaVelocidad: Boolean
+    velocidadLimite: Int
+    alertaVibracion: Boolean
+    alertaBateriaBaja: Boolean
+    alertaAcc: Boolean
+}
+
+input GpsInput {
+    id: ID
+    imei: String
+    vehiculoId: Int
+    modeloTracker: String
+    simNumero: String
+    activo: Boolean
+}
+
+extend type Query {
+    gps(id: ID!): Gps
+    gpsList(page: Int = 0, size: Int = 10): [Gps]!
+    countGps: Int
+    gpsSearch(texto: String): [Gps]
+    gpsByImei(imei: String): Gps
+    gpsByVehiculo(vehiculoId: ID!): [Gps]
+    
+    gpsActivos: [Gps]
+}
+
+extend type Mutation {
+    saveGps(gps: GpsInput!): Gps!
+    deleteGps(id: ID!): Boolean!
+    enviarComandoGps(id: ID!, tipo: String!, valor: String): Boolean
+    guardarConfigAlertasGps(id: ID!, alertaVelocidad: Boolean, velocidadLimite: Int, alertaVibracion: Boolean, alertaBateriaBaja: Boolean, alertaAcc: Boolean): Gps
+}

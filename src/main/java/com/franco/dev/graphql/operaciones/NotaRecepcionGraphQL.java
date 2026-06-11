@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcion;
 import com.franco.dev.domain.operaciones.PedidoItem;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.dto.AsignacionResult;
 import com.franco.dev.graphql.operaciones.dto.ProductoAgrupadoDTO;
 import com.franco.dev.domain.operaciones.NotaRecepcionItemDistribucion;
@@ -97,7 +98,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
                     dto.setCantidadTotalEsperada(total);
                     // Heurística simple: usar presentacion del primer item
                     if (!entry.getValue().isEmpty()) {
-                        dto.setPresentacionConsolidada(entry.getValue().get(0).getNotaRecepcionItem().getPresentacionEnNota());
+                        dto.setPresentacionConsolidada(
+                                entry.getValue().get(0).getNotaRecepcionItem().getPresentacionEnNota());
                     }
                     dto.setDistribuciones(entry.getValue());
                     return dto;
@@ -109,20 +111,19 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Agrupa productos por notas con paginación y filtros
      */
     public Page<ProductoAgrupadoDTO> productosAgrupadosPorNotasPaginados(
-            List<Long> notaRecepcionIds, 
-            Integer page, 
-            Integer size, 
+            List<Long> notaRecepcionIds,
+            Integer page,
+            Integer size,
             String filtroTexto) {
-        
+
         if (notaRecepcionIds == null || notaRecepcionIds.isEmpty()) {
             throw new GraphQLException("Se requieren IDs de notas de recepción");
         }
 
         // Crear pageable para paginación
         Pageable pageable = PageRequest.of(
-            page != null ? page : 0, 
-            size != null ? size : 20
-        );
+                page != null ? page : 0,
+                size != null ? size : 20);
 
         // Obtener productos agrupados paginados desde el servicio
         return notaRecepcionItemDistribucionService
@@ -132,22 +133,30 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     public NotaRecepcion saveNotaRecepcion(NotaRecepcionInput input) {
         ModelMapper m = new ModelMapper();
         NotaRecepcion e = m.map(input, NotaRecepcion.class);
-        if (input.getCompraId() != null) e.setCompra(compraService.findById(input.getCompraId()).orElse(null));
+        if (input.getCompraId() != null)
+            e.setCompra(compraService.findById(input.getCompraId()).orElse(null));
         if (input.getDocumentoId() != null)
             e.setDocumento(documentoService.findById(input.getDocumentoId()).orElse(null));
-        if (input.getPedidoId() != null) e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
-        if (input.getUsuarioId() != null) e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        if (input.getFecha() != null) e.setFecha(stringToDate(input.getFecha()));
-        if (input.getCreadoEn() != null) e.setCreadoEn(stringToDate(input.getCreadoEn()));
-        if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
-        
+        if (input.getPedidoId() != null)
+            e.setPedido(pedidoService.findById(input.getPedidoId()).orElse(null));
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getFecha() != null)
+            e.setFecha(stringToDate(input.getFecha()));
+        if (input.getCreadoEn() != null)
+            e.setCreadoEn(stringToDate(input.getCreadoEn()));
+        if (input.getMonedaId() != null)
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+
         NotaRecepcion notaGuardada = service.save(e);
-        
-        // Si assignAllItems = true, asignar automáticamente todos los items pendientes del pedido
+
+        // Si assignAllItems = true, asignar automáticamente todos los items pendientes
+        // del pedido
         if (Boolean.TRUE.equals(input.getAssignAllItems()) && notaGuardada.getPedido() != null) {
-            service.asignarTodosLosItemsPendientes(notaGuardada.getId(), notaGuardada.getPedido().getId());
+            service.asignarTodosLosItemsPendientes(notaGuardada.getId(), notaGuardada.getPedido().getId(),
+                    notaGuardada.getUsuario());
         }
-        
+
         return notaGuardada;
     }
 
@@ -155,7 +164,7 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
         try {
             // With the refactor, PedidoItem no longer has direct notaRecepcion reference
             // The relationship is now through NotaRecepcionItem
-            // Simply delete the NotaRecepcion - related NotaRecepcionItem entities 
+            // Simply delete the NotaRecepcion - related NotaRecepcionItem entities
             // will handle their own cascade behavior
             return service.deleteById(id);
         } catch (Exception e) {
@@ -173,7 +182,8 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /**
      * Busca NotaRecepcion por proveedor y número.
-     * Cuando sucursalId es provisto, filtra solo notas con distribución para esa sucursal.
+     * Cuando sucursalId es provisto, filtra solo notas con distribución para esa
+     * sucursal.
      * El frontend mobile valida en procesarNotaUnica si la nota ya fue recepcionada
      * en la sucursal y muestra el mensaje correspondiente.
      *
@@ -193,9 +203,12 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
     /**
      * Find NotaRecepcion available for reception with complex filtering criteria
      * Used specifically for the reception process with business logic filtering
-     * @param numero Optional nota number (can be null if proveedor is provided)
+     * 
+     * @param numero      Optional nota number (can be null if proveedor is
+     *                    provided)
      * @param proveedorId Optional proveedor ID (can be null if numero is provided)
-     * @param sucursalId Optional sucursal ID for filtering by PedidoItemDistribucion 
+     * @param sucursalId  Optional sucursal ID for filtering by
+     *                    PedidoItemDistribucion
      * @return List of available NotaRecepcion for reception
      */
     public List<NotaRecepcion> findNotasDisponiblesParaRecepcion(Integer numero, Long proveedorId, Long sucursalId) {
@@ -212,10 +225,11 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /**
      * Notas pendientes para recepción con paginación
-     * @param sucursalId ID de la sucursal
+     * 
+     * @param sucursalId  ID de la sucursal
      * @param proveedorId ID del proveedor (opcional)
-     * @param page Número de página (0-based)
-     * @param size Tamaño de la página
+     * @param page        Número de página (0-based)
+     * @param size        Tamaño de la página
      * @return Página paginada de notas pendientes
      */
     public Page<NotaRecepcion> notasPendientesPage(Long sucursalId, Long proveedorId, Integer page, Integer size) {
@@ -225,13 +239,15 @@ public class NotaRecepcionGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     /**
      * Asigna ítems de pedido a una nota de recepción
+     * 
      * @param notaRecepcionId ID de la nota de recepción
-     * @param pedidoItemIds Lista de IDs de ítems de pedido a asignar
+     * @param pedidoItemIds   Lista de IDs de ítems de pedido a asignar
      * @return Resultado de la asignación con ítems creados y errores
      */
-    public AsignacionResult asignarItemsANota(Long notaRecepcionId, List<Long> pedidoItemIds) {
+    public AsignacionResult asignarItemsANota(Long notaRecepcionId, List<Long> pedidoItemIds, Long usuarioId) {
         try {
-            return service.asignarItemsANota(notaRecepcionId, pedidoItemIds);
+            Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+            return service.asignarItemsANota(notaRecepcionId, pedidoItemIds, usuario);
         } catch (Exception e) {
             throw new GraphQLException("Error al asignar ítems a la nota: " + e.getMessage());
         }

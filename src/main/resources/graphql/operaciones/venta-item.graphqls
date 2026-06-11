@@ -37,6 +37,21 @@ type ProductoVendidoEstadistica {
     cantidad: Float
     totalMonto: Float
     porcentaje: Float
+    cantidadEntrada: Float
+    cantidadVentaMovimiento: Float
+    indiceRotacion: Float
+}
+
+type ProductoVentaPorPeriodo {
+    periodo: String
+    cantidad: Float
+    totalMonto: Float
+}
+
+type ProductoCompraPorPeriodo {
+    periodo: String
+    cantidad: Float
+    cantidadCompras: Int
 }
 
 extend type Query {
@@ -44,7 +59,11 @@ extend type Query {
     ventaItems(page:Int = 0, size:Int = 10, sucId: ID):[VentaItem]!
     countVentaItem: Int
     ventaItemListPorVentaId(id:ID!, sucId: ID):[VentaItem]
-    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID, familiaId: ID): [ProductoVendidoEstadistica]
+    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID, familiaId: ID, ascendente: Boolean, productoId: ID, productoIds: [ID]): [ProductoVendidoEstadistica]
+    ventasProductoPorDia(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoVentaPorPeriodo]
+    ventasProductoPorMes(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoVentaPorPeriodo]
+    comprasProductoPorDia(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoCompraPorPeriodo]
+    comprasProductoPorMes(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoCompraPorPeriodo]
 }
 
 extend type Mutation {

@@ -75,6 +75,13 @@ public class Gasto extends EmbeddedEntity implements Serializable {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_vuelto_id", nullable = true)
     private Sucursal sucursalVuelto;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "pre_gasto_id", referencedColumnName = "id"),
+            @JoinColumn(name = "pre_gasto_sucursal_id", referencedColumnName = "sucursal_id")
+    })
+    private PreGasto preGasto;
 }
 
 

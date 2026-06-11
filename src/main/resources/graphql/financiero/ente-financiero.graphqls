@@ -1,0 +1,51 @@
+type EnteFinanciero {
+    id:ID!
+    ente: Ente
+    situacionPago: SituacionPagoEnte
+    proveedor: Persona
+    moneda: Moneda
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    diaVencimiento: Int
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input EnteFinancieroInput {
+    id:ID
+    enteId: ID
+    situacionPago: SituacionPagoEnte
+    proveedorId: ID
+    monedaId: ID
+    montoTotal: Float
+    montoYaPagado: Float
+    cantidadCuotas: Int
+    diaVencimiento: Int
+    usuarioId: ID
+}
+
+type EnteFinancieroPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EnteFinanciero]
+    getPageable: Pageable
+}
+
+extend type Query {
+    enteFinanciero(id:ID!):EnteFinanciero
+    entesFinanciero(page:Int = 0, size:Int = 10):[EnteFinanciero]!
+    countEnteFinanciero: Int
+    enteFinancieroByEnte(enteId:ID!):EnteFinanciero
+    enteFinancieroSearchPage(texto: String, page: Int, size: Int): EnteFinancieroPage
+}
+
+extend type Mutation {
+    saveEnteFinanciero(enteFinanciero:EnteFinancieroInput!):EnteFinanciero!
+    deleteEnteFinanciero(id:ID!):Boolean!
+}

@@ -1,5 +1,6 @@
 package com.franco.dev.domain.productos;
 
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.Pedido;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.productos.Presentacion;
@@ -20,5 +21,7 @@ public class ProductoCompra {
     private Pedido pedido;
     private LocalDateTime creadoEn;
     private Presentacion presentacionEnNota;
+    private Moneda moneda;
+    private Double cotizacion;
 
 }

@@ -1,0 +1,302 @@
+package com.franco.dev.graphql.financiero;
+
+import com.franco.dev.domain.financiero.PreGasto;
+import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
+import com.franco.dev.graphql.financiero.input.PreGastoInput;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.domain.activos.Ente;
+import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.service.financiero.PreGastoEnteValidationService;
+import com.franco.dev.service.financiero.PreGastoService;
+import com.franco.dev.service.financiero.TipoGastoService;
+import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.service.personas.PersonaService;
+import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import graphql.GraphQLException;
+import graphql.kickstart.tools.GraphQLMutationResolver;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
+
+import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
+import com.franco.dev.graphql.financiero.input.PreGastoDetalleFinanzasInput;
+import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
+import com.franco.dev.service.personas.ProveedorService;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Component
+public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PreGastoService service;
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @Autowired
+    private PersonaService personaService;
+
+    @Autowired
+    private TipoGastoService tipoGastoService;
+
+    @Autowired
+    private MonedaService monedaService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
+    @Autowired
+    private ProveedorService proveedorService;
+
+    @Autowired
+    private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
+
+    @Autowired
+    private com.franco.dev.service.impresion.ImpresionService impresionService;
+
+    @Autowired
+    private PreGastoEnteValidationService preGastoEnteValidationService;
+
+    public PreGasto preGasto(Long id, Long sucId) {
+        return service.findByIdAndSucursalId(id, sucId);
+    }
+
+    public List<PreGasto> preGastos(String estado, Long sucId) {
+        if (estado != null && !estado.isEmpty()) {
+            String estadoNormalizado = normalizarEstadoPreGasto(estado);
+            if (sucId != null && sucId > 0) {
+                return service.buscarPorEstadoYSucursal(EstadoPreGasto.valueOf(estadoNormalizado), sucId);
+            } else {
+                return service.buscarPorEstado(EstadoPreGasto.valueOf(estadoNormalizado));
+            }
+        }
+        return service.findAll2();
+    }
+
+    public List<PreGasto> preGastosPorSucursal(String estado, Long sucursalId) {
+        return service.buscarPorEstadoYSucursal(EstadoPreGasto.valueOf(estado), sucursalId);
+    }
+
+    public List<PreGasto> preGastosPorFuncionario(Long funcionarioId) {
+        return service.buscarPorFuncionario(funcionarioId);
+    }
+
+    public List<PreGasto> preGastosSearch(String texto, Long sucId) {
+        return service.buscarPorTexto(texto, sucId);
+    }
+
+    public Page<PreGasto> filterPreGastos(Long id, Long cajaId, String estado, List<String> estados, String inicio, String fin, Integer page,
+            Integer size) {
+        Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
+        String estadoNormalizado = normalizarEstadoPreGasto(estado);
+        List<String> estadosNormalizados = estados != null
+                ? estados.stream().map(this::normalizarEstadoPreGasto).collect(Collectors.toList())
+                : null;
+        return service.filterPreGastos(id, cajaId, estadoNormalizado, estadosNormalizados, inicio, fin, pageable);
+    }
+
+    public String imprimirPreGasto(Long id, Long sucId) {
+        PreGasto preGasto = service.findByIdAndSucursalId(id, sucId);
+        if (preGasto != null) {
+            return impresionService.imprimirPreGasto(preGasto);
+        }
+        return "";
+    }
+
+    public EnteFinancialSummaryDTO getEnteFinancialSummary(Long enteId) {
+        return service.getFinancialSummary(enteId);
+    }
+
+    public PreGasto savePreGasto(PreGastoInput input) {
+        ModelMapper m = new ModelMapper();
+        PreGasto e = m.map(input, PreGasto.class);
+        validarBeneficiarioInput(input);
+        String desc = input.getDescripcion() != null ? input.getDescripcion() : "";
+        StringBuilder extras = new StringBuilder();
+        if (input.getNivelUrgencia() != null && !input.getNivelUrgencia().equals("NORMAL")) {
+            extras.append("[URGENCIA: ").append(input.getNivelUrgencia()).append("] ");
+        }
+        if (input.getObservaciones() != null && !input.getObservaciones().isEmpty()) {
+            extras.append("[OBS: ").append(input.getObservaciones()).append("] ");
+        }
+
+        if (extras.length() > 0) {
+            e.setDescripcion(desc + (desc.isEmpty() ? "" : " | ") + extras.toString().trim());
+        }
+
+        if (input.getFechaVencimiento() != null && !input.getFechaVencimiento().isEmpty()) {
+            try {
+                e.setFechaVencimiento(
+                        LocalDateTime.parse(input.getFechaVencimiento(), DateTimeFormatter.ISO_DATE_TIME));
+            } catch (Exception ex) {
+                // Ignore parse errors or use default
+            }
+        }
+
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        if (input.getFuncionarioId() != null) {
+            e.setFuncionario(personaService.findById(input.getFuncionarioId()).orElse(null));
+        }
+        TipoGasto tipoGasto = null;
+        if (input.getTipoGastoId() != null) {
+            tipoGasto = tipoGastoService.findById(input.getTipoGastoId()).orElse(null);
+            e.setTipoGasto(tipoGasto);
+        }
+        Ente ente = preGastoEnteValidationService.validarYResolverEnte(tipoGasto, input.getEnteId());
+        e.setEnte(ente);
+        if (input.getMonedaId() != null) {
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        }
+        if (input.getSucursalCajaId() != null) {
+            e.setSucursalCaja(sucursalService.findById(input.getSucursalCajaId()).orElse(null));
+        }
+        if (input.getSucursalId() != null && input.getSucursalId() > 0) {
+            e.setSucursalId(input.getSucursalId());
+        } else if (e.getSucursalCaja() != null && e.getSucursalCaja().getId() != null
+                && e.getSucursalCaja().getId() > 0) {
+            // Fallback: usar sucursal de caja cuando el frontend no envía sucursalId.
+            e.setSucursalId(e.getSucursalCaja().getId());
+        }
+        if (e.getSucursalId() == null || e.getSucursalId() <= 0) {
+            throw new GraphQLException("Debe indicar una sucursal válida para registrar la solicitud.");
+        }
+        e.setCajaId(input.getCajaId());
+        if (input.getAutorizadoPorId() != null) {
+            e.setAutorizadoPor(personaService.findById(input.getAutorizadoPorId()).orElse(null));
+        }
+        if (input.getDelegadoAId() != null) {
+            e.setDelegadoA(personaService.findById(input.getDelegadoAId()).orElse(null));
+        }
+        if (input.getBeneficiarioPersonaId() != null) {
+            Persona beneficiarioPersona = personaService.findById(input.getBeneficiarioPersonaId())
+                    .orElseThrow(() -> new GraphQLException("El beneficiario persona no existe."));
+            e.setBeneficiarioPersona(beneficiarioPersona);
+            e.setBeneficiarioProveedor(null);
+        }
+        if (input.getBeneficiarioProveedorId() != null) {
+            Proveedor beneficiarioProveedor = proveedorService.findById(input.getBeneficiarioProveedorId())
+                    .orElseThrow(() -> new GraphQLException("El beneficiario proveedor no existe."));
+            e.setBeneficiarioProveedor(beneficiarioProveedor);
+            e.setBeneficiarioPersona(null);
+        }
+
+        e = service.save(e);
+
+        validarFinanzasInput(input.getFinanzas());
+
+        // Save details finanzas
+        if (input.getFinanzas() != null && !input.getFinanzas().isEmpty() && e.getId() != null) {
+            // First delete old entries if taking full list update
+            List<PreGastoDetalleFinanzas> oldList = preGastoDetalleFinanzasService
+                    .findByPreGastoIdAndSucursalId(e.getId(), e.getSucursalId());
+            for (PreGastoDetalleFinanzas old : oldList) {
+                preGastoDetalleFinanzasService.delete(old);
+            }
+
+            // Mantenemos monto/moneda principal en base al primer detalle.
+            // Si existen varias monedas, no se deben sumar importes heterogeneos.
+            BigDecimal montoPrincipal = null;
+            Long monedaPrincipalId = null;
+
+            for (PreGastoDetalleFinanzasInput fInput : input.getFinanzas()) {
+                PreGastoDetalleFinanzas det = new PreGastoDetalleFinanzas();
+                det.setPreGasto(e);
+                det.setFormaPago(fInput.getFormaPago());
+                det.setMonto(fInput.getMonto());
+                if (fInput.getMonedaId() != null) {
+                    det.setMoneda(monedaService.findById(fInput.getMonedaId()).orElse(null));
+                }
+                preGastoDetalleFinanzasService.save(det);
+
+                if (montoPrincipal == null && fInput.getMonto() != null) {
+                    montoPrincipal = fInput.getMonto();
+                    monedaPrincipalId = fInput.getMonedaId();
+                }
+            }
+
+            if (montoPrincipal != null) {
+                e.setMontoSolicitado(montoPrincipal);
+            }
+            if (monedaPrincipalId != null) {
+                e.setMoneda(monedaService.findById(monedaPrincipalId).orElse(null));
+            }
+            e = service.save(e);
+        }
+
+        return e;
+    }
+
+    private void validarBeneficiarioInput(PreGastoInput input) {
+        if (input.getBeneficiarioPersonaId() != null && input.getBeneficiarioProveedorId() != null) {
+            throw new GraphQLException("Debe seleccionar solo un beneficiario: persona o proveedor.");
+        }
+    }
+
+    private void validarFinanzasInput(List<PreGastoDetalleFinanzasInput> finanzas) {
+        if (finanzas == null || finanzas.isEmpty()) {
+            return;
+        }
+        Set<Long> monedas = new HashSet<>();
+        for (PreGastoDetalleFinanzasInput f : finanzas) {
+            if (f == null || f.getMonedaId() == null) {
+                continue;
+            }
+            if (!monedas.add(f.getMonedaId())) {
+                throw new GraphQLException("No se permite repetir la misma moneda en la solicitud.");
+            }
+        }
+    }
+
+    public PreGasto autorizarPreGasto(Long id, Long autorizadorId, Long usuarioId, Long sucId) {
+        return service.autorizar(id, autorizadorId, usuarioId, sucId);
+    }
+
+    public PreGasto rechazarPreGasto(Long id, String motivo, Long rechazadorId, Long usuarioId, Long sucId) {
+        return service.rechazar(id, motivo, rechazadorId, usuarioId, sucId);
+    }
+
+    public PreGasto tramitarPreGasto(Long id, Long sucId) {
+        return service.enviarATramite(id, sucId);
+    }
+
+    public PreGasto completarPreGasto(Long id, Long sucId, Boolean rindioGasto, Double montoGastado,
+            Double montoGastadoGs, Double montoGastadoRs, Double montoGastadoDs) {
+        return service.completar(id, sucId, rindioGasto, montoGastado, montoGastadoGs, montoGastadoRs, montoGastadoDs);
+    }
+
+    public PreGasto enviarPreGastoATesoreria(Long id, Long sucId, Long usuarioId) {
+        return service.enviarATesoreria(id, sucId, usuarioId);
+    }
+
+    public Boolean deletePreGasto(Long id, Long sucId) {
+        PreGasto e = service.findByIdAndSucursalId(id, sucId);
+        return service.delete(e);
+    }
+
+    private String normalizarEstadoPreGasto(String estado) {
+        if (estado == null || estado.trim().isEmpty()) {
+            return estado;
+        }
+        String estadoUpper = estado.toUpperCase();
+        if ("COMPLETADOS".equals(estadoUpper)) {
+            return "COMPLETADO";
+        }
+        return estadoUpper;
+    }
+}

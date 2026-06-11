@@ -1,6 +1,0 @@
-#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
-#Mon Apr 27 14:40:31 PYT 2026
-@default-github-jsifenlib-https\://maven.pkg.github.com/GabFrank/rshk-jsifenlib/.lastUpdated=1777311631725
-@default-central-https\://repo.maven.apache.org/maven2/.lastUpdated=1777311631741
-https\://maven.pkg.github.com/GabFrank/rshk-jsifenlib/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:2.1.15.RELEASE from/to github-jsifenlib (https\://maven.pkg.github.com/GabFrank/rshk-jsifenlib)\: maven.pkg.github.com\: Fallo temporal en la resoluci\u00F3n del nombre
-https\://repo.maven.apache.org/maven2/.error=Could not transfer artifact org.springframework.boot\:spring-boot-starter-parent\:pom\:2.1.15.RELEASE from/to central (https\://repo.maven.apache.org/maven2)\: repo.maven.apache.org\: Fallo temporal en la resoluci\u00F3n del nombre

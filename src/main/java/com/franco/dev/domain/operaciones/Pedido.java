@@ -61,6 +61,8 @@ public class Pedido implements Identifiable<Long> {
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;
 
+    private Double cotizacion;
+
     @Column(name = "plazo_credito")
     private Integer plazoCredito;
 

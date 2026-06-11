@@ -8,7 +8,7 @@ public class CustomPageable implements Pageable {
     private int offset;
 
     // Constructor could be expanded if sorting is needed
-    private Sort sort = new Sort(Sort.Direction.DESC, "id");
+    private Sort sort = Sort.by(Sort.Direction.DESC, "id");
     public CustomPageable(int limit, int offset) {
         if (limit < 1) {
             throw new IllegalArgumentException("Limit must not be less than one!");
@@ -36,6 +36,14 @@ public class CustomPageable implements Pageable {
     public Sort getSort() {
         return sort;
     }
+    @Override
+    public Pageable withPage(int pageNumber) {
+        if (pageNumber < 0) {
+            throw new IllegalArgumentException("Page index must not be less than zero!");
+        }
+        return new CustomPageable(getPageSize(), pageNumber * getPageSize());
+    }
+
     @Override
     public Pageable next() {
         // Typecast possible because number of entries cannot be bigger than integer (primary key is integer)

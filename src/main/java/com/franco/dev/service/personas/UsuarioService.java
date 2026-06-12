@@ -184,10 +184,8 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                         e.printStackTrace();
                     }
                 }
-                personaRepository.save(persona);
-                if (embedding != null && !embedding.isEmpty()) {
-                    embeddingCacheService.refreshUsuario(id);
-                }
+                personaRepository.saveAndFlush(persona);
+                embeddingCacheService.refreshUsuario(id, embedding);
             }
         }
         return saved;

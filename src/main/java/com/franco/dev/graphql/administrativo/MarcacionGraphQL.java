@@ -76,24 +76,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                     .orElse(null);
             if (usuario != null && usuario.getPersona() != null) {
                 String storedEmbeddingJson = usuario.getPersona().getEmbedding();
-                if (storedEmbeddingJson != null && !storedEmbeddingJson.isEmpty()) {
-                    try {
-                        if (objectMapper == null)
-                            objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        List<Double> storedEmbedding = objectMapper.readValue(storedEmbeddingJson,
-                                new com.fasterxml.jackson.core.type.TypeReference<List<Double>>() {
-                                });
-
-                        double similarity = cosineSimilarity(marcacion.getEmbedding(), storedEmbedding);
-                        if (similarity < 0.6) {
-                            throw new graphql.GraphQLException("Verificación facial fallida: El rostro no coincide ("
-                                    + String.format("%.2f", similarity * 100) + "% similitud)");
-                        }
-                    } catch (java.io.IOException e) {
-                        e.printStackTrace();
-                        throw new graphql.GraphQLException("Error verificando rostro: datos biometricos corruptos.");
-                    }
-                } else {
+                if (storedEmbeddingJson == null || storedEmbeddingJson.isEmpty()) {
                     try {
                         if (objectMapper == null)
                             objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -171,27 +154,6 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             e.setDistanciaSucursalMetros(marcacion.getDistanciaSucursalMetros());
 
         return service.save(e);
-    }
-
-    private double cosineSimilarity(List<Double> v1, List<Double> v2) {
-        if (v1 == null || v2 == null || v1.size() != v2.size()) {
-            return 0.0;
-        }
-
-        double dotProduct = 0.0;
-        double normA = 0.0;
-        double normB = 0.0;
-
-        for (int i = 0; i < v1.size(); i++) {
-            dotProduct += v1.get(i) * v2.get(i);
-            normA += Math.pow(v1.get(i), 2);
-            normB += Math.pow(v2.get(i), 2);
-        }
-
-        if (normA == 0 || normB == 0)
-            return 0.0;
-
-        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
     }
 
     public String imprimirReporteMarcaciones(Long usuarioId, String fechaInicio, String fechaFin,

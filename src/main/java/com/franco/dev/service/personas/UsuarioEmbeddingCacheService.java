@@ -22,7 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 public class UsuarioEmbeddingCacheService {
 
-    private static final double MATCH_THRESHOLD = 0.75;
+    private static final double MATCH_THRESHOLD = 0.55;
 
     private final UsuarioRepository usuarioRepository;
     private final ObjectMapper objectMapper;

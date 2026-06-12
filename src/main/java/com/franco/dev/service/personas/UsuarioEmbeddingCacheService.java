@@ -22,7 +22,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Slf4j
 public class UsuarioEmbeddingCacheService {
 
-    private static final double MATCH_THRESHOLD = 0.75;
+    private static final double MATCH_THRESHOLD = 0.55;
 
     private final UsuarioRepository usuarioRepository;
     private final ObjectMapper objectMapper;
@@ -50,14 +50,32 @@ public class UsuarioEmbeddingCacheService {
     }
 
     public void refreshUsuario(Long usuarioId) {
+        refreshUsuario(usuarioId, null);
+    }
+
+    /**
+     * Actualiza la entrada en caché del usuario. Si se provee embedding, lo usa directamente
+     * (evita leer datos obsoletos del persistence context de JPA).
+     */
+    public void refreshUsuario(Long usuarioId, List<Double> embedding) {
         if (usuarioId == null) {
             return;
         }
         entries.removeIf(e -> e.usuarioId.equals(usuarioId));
+
         usuarioRepository.findById(usuarioId).ifPresent(usuario -> {
-            if (Boolean.TRUE.equals(usuario.getActivo())) {
-                parseEntry(usuario).ifPresent(entries::add);
+            if (!Boolean.TRUE.equals(usuario.getActivo())) {
+                return;
             }
+            if (embedding != null && !embedding.isEmpty()) {
+                double[] arr = toArray(embedding);
+                if (arr.length > 0) {
+                    entries.add(new CachedEntry(usuarioId, arr, usuario));
+                    log.debug("Caché de embedding actualizada para usuario {}", usuarioId);
+                }
+                return;
+            }
+            parseEntry(usuario).ifPresent(entries::add);
         });
     }
 

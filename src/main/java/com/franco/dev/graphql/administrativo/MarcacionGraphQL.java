@@ -85,7 +85,7 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                                 });
 
                         double similarity = cosineSimilarity(marcacion.getEmbedding(), storedEmbedding);
-                        if (similarity < 0.6) {
+                        if (similarity < 0.55) {
                             throw new graphql.GraphQLException("Verificación facial fallida: El rostro no coincide ("
                                     + String.format("%.2f", similarity * 100) + "% similitud)");
                         }

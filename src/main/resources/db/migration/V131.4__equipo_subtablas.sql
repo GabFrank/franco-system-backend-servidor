@@ -34,57 +34,52 @@ ALTER TABLE equipos.equipo_financiero OWNER TO franco;
 ALTER SEQUENCE equipos.equipo_financiero_id_seq OWNED BY equipos.equipo_financiero.id;
 
 -- Migrar datos existentes desde equipos.equipo (columnas de V0 y V131.3).
-INSERT INTO equipos.equipo_financiero (
-    equipo_id,
-    costo,
-    valor_tasacion,
-    valor_tasacion_pyg,
-    valor_tasacion_brl,
-    situacion_pago,
-    proveedor_id,
-    moneda_id,
-    monto_total,
-    monto_ya_pagado,
-    cantidad_cuotas,
-    cantidad_cuotas_pagadas,
-    dia_vencimiento,
-    usuario_id,
-    creado_en
-)
-SELECT
-    e.id,
-    e.costo,
-    e.valor_tasacion,
-    e.valor_tasacion_pyg,
-    e.valor_tasacion_brl,
-    e.situacion_pago,
-    e.proveedor_id,
-    e.moneda_id,
-    e.monto_total,
-    e.monto_ya_pagado,
-    e.cantidad_cuotas,
-    e.cantidad_cuotas_pagadas,
-    e.dia_vencimiento,
-    e.usuario_id,
-    COALESCE(e.creado_en::timestamp without time zone, CURRENT_TIMESTAMP)
-FROM equipos.equipo e
-WHERE NOT EXISTS (
-    SELECT 1 FROM equipos.equipo_financiero ef WHERE ef.equipo_id = e.id
-)
-AND (
-    e.costo IS NOT NULL
-    OR e.valor_tasacion IS NOT NULL
-    OR e.valor_tasacion_pyg IS NOT NULL
-    OR e.valor_tasacion_brl IS NOT NULL
-    OR e.situacion_pago IS NOT NULL
-    OR e.proveedor_id IS NOT NULL
-    OR e.moneda_id IS NOT NULL
-    OR e.monto_total IS NOT NULL
-    OR e.monto_ya_pagado IS NOT NULL
-    OR e.cantidad_cuotas IS NOT NULL
-    OR e.cantidad_cuotas_pagadas IS NOT NULL
-    OR e.dia_vencimiento IS NOT NULL
-);
+-- SQL dinámico: tolera re-ejecución si flyway.repair() ya eliminó algunas columnas fuente.
+DO $$
+DECLARE
+    financial_columns text[] := ARRAY[
+        'costo', 'valor_tasacion', 'valor_tasacion_pyg', 'valor_tasacion_brl',
+        'situacion_pago', 'proveedor_id', 'moneda_id', 'monto_total',
+        'monto_ya_pagado', 'cantidad_cuotas', 'cantidad_cuotas_pagadas', 'dia_vencimiento'
+    ];
+    col_name text;
+    insert_columns text := 'equipo_id';
+    select_expressions text := 'e.id';
+    not_null_conditions text := '';
+BEGIN
+    FOREACH col_name IN ARRAY financial_columns LOOP
+        IF EXISTS (
+            SELECT 1
+            FROM information_schema.columns c
+            WHERE c.table_schema = 'equipos'
+              AND c.table_name = 'equipo'
+              AND c.column_name = col_name
+        ) THEN
+            insert_columns := insert_columns || ', ' || col_name;
+            select_expressions := select_expressions || ', e.' || col_name;
+
+            IF not_null_conditions <> '' THEN
+                not_null_conditions := not_null_conditions || ' OR ';
+            END IF;
+            not_null_conditions := not_null_conditions || 'e.' || col_name || ' IS NOT NULL';
+        END IF;
+    END LOOP;
+
+    IF not_null_conditions <> '' THEN
+        EXECUTE format(
+            'INSERT INTO equipos.equipo_financiero (%s, usuario_id, creado_en)
+             SELECT %s, e.usuario_id, COALESCE(e.creado_en::timestamp without time zone, CURRENT_TIMESTAMP)
+             FROM equipos.equipo e
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM equipos.equipo_financiero ef WHERE ef.equipo_id = e.id
+             )
+             AND (%s)',
+            insert_columns,
+            select_expressions,
+            not_null_conditions
+        );
+    END IF;
+END $$;
 
 DO $$
 BEGIN

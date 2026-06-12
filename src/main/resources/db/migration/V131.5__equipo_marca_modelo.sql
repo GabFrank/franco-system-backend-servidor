@@ -43,70 +43,85 @@ ALTER SEQUENCE equipos.modelo_id_seq OWNED BY equipos.modelo.id;
 
 ALTER TABLE equipos.equipo ADD COLUMN IF NOT EXISTS modelo_id bigint;
 
--- Migrar marcas existentes desde texto plano.
-INSERT INTO equipos.marca (descripcion, creado_en)
-SELECT DISTINCT UPPER(TRIM(e.marca)), CURRENT_TIMESTAMP
-FROM equipos.equipo e
-WHERE e.marca IS NOT NULL
-  AND TRIM(e.marca) <> ''
-  AND NOT EXISTS (
-      SELECT 1 FROM equipos.marca m WHERE UPPER(TRIM(m.descripcion)) = UPPER(TRIM(e.marca))
-  );
+-- Migrar marcas/modelos solo si las columnas legadas aún existen (re-ejecución segura).
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'equipos'
+          AND table_name = 'equipo'
+          AND column_name = 'marca'
+    ) AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'equipos'
+          AND table_name = 'equipo'
+          AND column_name = 'modelo'
+    ) THEN
+        INSERT INTO equipos.marca (descripcion, creado_en)
+        SELECT DISTINCT UPPER(TRIM(e.marca)), CURRENT_TIMESTAMP
+        FROM equipos.equipo e
+        WHERE e.marca IS NOT NULL
+          AND TRIM(e.marca) <> ''
+          AND NOT EXISTS (
+              SELECT 1 FROM equipos.marca m WHERE UPPER(TRIM(m.descripcion)) = UPPER(TRIM(e.marca))
+          );
 
--- Migrar modelos existentes vinculados a su marca.
-INSERT INTO equipos.modelo (descripcion, marca_id, creado_en)
-SELECT DISTINCT UPPER(TRIM(e.modelo)), m.id, CURRENT_TIMESTAMP
-FROM equipos.equipo e
-JOIN equipos.marca m ON UPPER(TRIM(m.descripcion)) = UPPER(TRIM(e.marca))
-WHERE e.modelo IS NOT NULL
-  AND TRIM(e.modelo) <> ''
-  AND NOT EXISTS (
-      SELECT 1
-      FROM equipos.modelo mod
-      WHERE mod.marca_id = m.id
-        AND UPPER(TRIM(mod.descripcion)) = UPPER(TRIM(e.modelo))
-  );
+        INSERT INTO equipos.modelo (descripcion, marca_id, creado_en)
+        SELECT DISTINCT UPPER(TRIM(e.modelo)), m.id, CURRENT_TIMESTAMP
+        FROM equipos.equipo e
+        JOIN equipos.marca m ON UPPER(TRIM(m.descripcion)) = UPPER(TRIM(e.marca))
+        WHERE e.modelo IS NOT NULL
+          AND TRIM(e.modelo) <> ''
+          AND NOT EXISTS (
+              SELECT 1
+              FROM equipos.modelo mod
+              WHERE mod.marca_id = m.id
+                AND UPPER(TRIM(mod.descripcion)) = UPPER(TRIM(e.modelo))
+          );
 
--- Modelos sin marca: se asocian a marca SIN MARCA.
-INSERT INTO equipos.marca (descripcion, creado_en)
-SELECT 'SIN MARCA', CURRENT_TIMESTAMP
-WHERE EXISTS (
-    SELECT 1
-    FROM equipos.equipo e
-    WHERE e.modelo IS NOT NULL
-      AND TRIM(e.modelo) <> ''
-      AND (e.marca IS NULL OR TRIM(e.marca) = '')
-)
-AND NOT EXISTS (
-    SELECT 1 FROM equipos.marca m WHERE UPPER(TRIM(m.descripcion)) = 'SIN MARCA'
-);
+        INSERT INTO equipos.marca (descripcion, creado_en)
+        SELECT 'SIN MARCA', CURRENT_TIMESTAMP
+        WHERE EXISTS (
+            SELECT 1
+            FROM equipos.equipo e
+            WHERE e.modelo IS NOT NULL
+              AND TRIM(e.modelo) <> ''
+              AND (e.marca IS NULL OR TRIM(e.marca) = '')
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM equipos.marca m WHERE UPPER(TRIM(m.descripcion)) = 'SIN MARCA'
+        );
 
-INSERT INTO equipos.modelo (descripcion, marca_id, creado_en)
-SELECT DISTINCT UPPER(TRIM(e.modelo)), m.id, CURRENT_TIMESTAMP
-FROM equipos.equipo e
-JOIN equipos.marca m ON UPPER(TRIM(m.descripcion)) = 'SIN MARCA'
-WHERE e.modelo IS NOT NULL
-  AND TRIM(e.modelo) <> ''
-  AND (e.marca IS NULL OR TRIM(e.marca) = '')
-  AND NOT EXISTS (
-      SELECT 1
-      FROM equipos.modelo mod
-      WHERE mod.marca_id = m.id
-        AND UPPER(TRIM(mod.descripcion)) = UPPER(TRIM(e.modelo))
-  );
+        INSERT INTO equipos.modelo (descripcion, marca_id, creado_en)
+        SELECT DISTINCT UPPER(TRIM(e.modelo)), m.id, CURRENT_TIMESTAMP
+        FROM equipos.equipo e
+        JOIN equipos.marca m ON UPPER(TRIM(m.descripcion)) = 'SIN MARCA'
+        WHERE e.modelo IS NOT NULL
+          AND TRIM(e.modelo) <> ''
+          AND (e.marca IS NULL OR TRIM(e.marca) = '')
+          AND NOT EXISTS (
+              SELECT 1
+              FROM equipos.modelo mod
+              WHERE mod.marca_id = m.id
+                AND UPPER(TRIM(mod.descripcion)) = UPPER(TRIM(e.modelo))
+          );
 
-UPDATE equipos.equipo e
-SET modelo_id = mod.id
-FROM equipos.modelo mod
-JOIN equipos.marca m ON mod.marca_id = m.id
-WHERE e.modelo_id IS NULL
-  AND e.modelo IS NOT NULL
-  AND TRIM(e.modelo) <> ''
-  AND UPPER(TRIM(mod.descripcion)) = UPPER(TRIM(e.modelo))
-  AND (
-      (e.marca IS NOT NULL AND TRIM(e.marca) <> '' AND UPPER(TRIM(m.descripcion)) = UPPER(TRIM(e.marca)))
-      OR ((e.marca IS NULL OR TRIM(e.marca) = '') AND UPPER(TRIM(m.descripcion)) = 'SIN MARCA')
-  );
+        UPDATE equipos.equipo e
+        SET modelo_id = mod.id
+        FROM equipos.modelo mod
+        JOIN equipos.marca m ON mod.marca_id = m.id
+        WHERE e.modelo_id IS NULL
+          AND e.modelo IS NOT NULL
+          AND TRIM(e.modelo) <> ''
+          AND UPPER(TRIM(mod.descripcion)) = UPPER(TRIM(e.modelo))
+          AND (
+              (e.marca IS NOT NULL AND TRIM(e.marca) <> '' AND UPPER(TRIM(m.descripcion)) = UPPER(TRIM(e.marca)))
+              OR ((e.marca IS NULL OR TRIM(e.marca) = '') AND UPPER(TRIM(m.descripcion)) = 'SIN MARCA')
+          );
+    END IF;
+END $$;
 
 DO $$
 BEGIN

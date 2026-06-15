@@ -31,8 +31,21 @@ public class DateUtils {
     public static LocalDateTime stringToDate(String s) {
         if (s == null)
             return null;
-        if (s.contains("T"))
-            return LocalDateTime.parse(s, formatter_iso);
+        s = s.trim();
+        if (s.isEmpty())
+            return null;
+        if (s.contains("T")) {
+            // ISO-8601 con zona/offset (ej. "2026-06-13T19:39:04.456Z" o "...-03:00"),
+            // milisegundos opcionales. Se convierte al huso horario del servidor.
+            try {
+                return java.time.OffsetDateTime.parse(s)
+                        .atZoneSameInstant(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime();
+            } catch (java.time.format.DateTimeParseException ignored) {
+                // ISO local sin zona, con fracciones de segundo opcionales
+                return LocalDateTime.parse(s);
+            }
+        }
         if (s.length() == 10) {
             return LocalDateTime.parse(s + " 00:00", formatter);
         }

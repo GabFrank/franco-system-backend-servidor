@@ -75,7 +75,7 @@ extend type Query {
 extend type Mutation {
     savePdvCaja(pdvCaja:PdvCajaInput!):PdvCaja!
     savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!):PdvCaja!
-    abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput]):Boolean
+    abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: ID):Boolean
 }
 
 enum PdvCajaEstado {

@@ -77,6 +77,8 @@ type GastoPorCategoria {
     categoria: String
     total: Float
     cantidad: Int
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 extend type Mutation {

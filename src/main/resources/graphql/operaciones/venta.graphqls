@@ -56,6 +56,8 @@ type VentaPorFuncionario {
     cantidad: Int
     productoMasVendido: String
     sucursales: String
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 extend type Query {
@@ -145,6 +147,9 @@ type VentaPorSucursal {
     sucId: ID,
     nombre: String
     total: Float
+    cantidadVentas: Float
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 type VentaPorHora {

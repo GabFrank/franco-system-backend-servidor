@@ -300,15 +300,16 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
             Double indiceRotacion = calcularIndiceRotacion(cantidadEntrada, cantidadVentaMovimiento);
 
-            estadisticas.add(new ProductoVendidoEstadistica(
-                    productoId,
-                    descripcion,
-                    cantidad,
-                    totalMonto,
-                    porcentaje,
-                    cantidadEntrada,
-                    cantidadVentaMovimiento,
-                    indiceRotacion));
+            ProductoVendidoEstadistica dto = new ProductoVendidoEstadistica();
+            dto.setProductoId(productoId);
+            dto.setDescripcion(descripcion);
+            dto.setCantidad(cantidad);
+            dto.setTotalMonto(totalMonto);
+            dto.setPorcentaje(porcentaje);
+            dto.setCantidadEntrada(cantidadEntrada);
+            dto.setCantidadVentaMovimiento(cantidadVentaMovimiento);
+            dto.setIndiceRotacion(indiceRotacion);
+            estadisticas.add(dto);
         }
 
         return estadisticas;

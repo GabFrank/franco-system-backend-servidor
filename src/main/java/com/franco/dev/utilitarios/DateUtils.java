@@ -9,10 +9,12 @@ public class DateUtils {
     private static final String PATTERN = "yyyy-MM-dd HH:mm";
     private static final String PATTERN_ISO = "yyyy-MM-dd'T'HH:mm:ss";
     private static final String PATTERN_ONLY_DATE = "yyyy-MM-dd";
+    private static final String PATTERN_FULL = "yyyy-MM-dd HH:mm:ss";
 
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(PATTERN);
     private static final DateTimeFormatter formatter_iso = DateTimeFormatter.ofPattern(PATTERN_ISO);
     private static final DateTimeFormatter formatter2 = DateTimeFormatter.ofPattern(PATTERN_ONLY_DATE);
+    private static final DateTimeFormatter formatter_full = DateTimeFormatter.ofPattern(PATTERN_FULL);
 
     public static String toString(LocalDateTime d) {
         return formatter.format(d);
@@ -33,6 +35,9 @@ public class DateUtils {
             return LocalDateTime.parse(s, formatter_iso);
         if (s.length() == 10) {
             return LocalDateTime.parse(s + " 00:00", formatter);
+        }
+        if (s.length() == 19) {
+            return LocalDateTime.parse(s, formatter_full);
         }
         return LocalDateTime.parse(s, formatter);
     }
@@ -57,6 +62,24 @@ public class DateUtils {
             return null;
         LocalDateTime date = stringToDate(s);
         return date.withHour(23).withMinute(59).withSecond(59);
+    }
+
+    /**
+     * Los gráficos envían fin de mes como {@code 23:59} (sin segundos); el parser deja
+     * {@code 23:59:00} y excluye ventas del último minuto. Ajusta a fin de día inclusivo.
+     */
+    public static LocalDateTime ajustarFinRangoGrafico(String raw, LocalDateTime fin) {
+        if (fin == null) {
+            return null;
+        }
+        boolean finSinSegundos = raw != null
+                && (raw.length() == 16 || raw.length() == 19)
+                && raw.contains("23:59")
+                && (raw.length() == 16 || raw.endsWith("23:59:00"));
+        if (finSinSegundos || (fin.getHour() == 23 && fin.getMinute() == 59 && fin.getSecond() == 0)) {
+            return fin.withSecond(59);
+        }
+        return fin;
     }
 
 }

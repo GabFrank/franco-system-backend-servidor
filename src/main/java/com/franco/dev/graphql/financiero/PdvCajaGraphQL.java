@@ -11,6 +11,7 @@ import com.franco.dev.graphql.financiero.input.ConteoInput;
 import com.franco.dev.graphql.financiero.input.ConteoMonedaInput;
 import com.franco.dev.graphql.financiero.input.PdvCajaInput;
 import com.franco.dev.service.financiero.ConteoService;
+import com.franco.dev.service.financiero.FilialCajaProxyService;
 import com.franco.dev.service.financiero.MaletinService;
 import com.franco.dev.service.financiero.PdvCajaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -76,6 +77,9 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private FilialCajaProxyService filialCajaProxyService;
 
     private static final Logger log = LoggerFactory.getLogger(PdvCajaGraphQL.class);
 
@@ -175,8 +179,15 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja cajaAbiertoPorUsuarioIdPorSucursal(Long id, Long sucId) {
-//        return propagacionService.buscarCajaAbiertaPorSucursal(id, sucId);
-        return null;
+        return filialCajaProxyService.cajaAbiertoPorUsuarioIdPorSucursal(id, sucId);
+    }
+
+    public List<PdvCaja> cajasAbiertasPorUsuarioDesdeFiliales(Long id) {
+        return filialCajaProxyService.cajasAbiertasPorUsuarioDesdeFiliales(id);
+    }
+
+    public PdvCaja pdvCajaDesdeFilial(Long id, Long sucursalId) {
+        return filialCajaProxyService.pdvCajaDesdeFilial(id, sucursalId);
     }
 
     /**
@@ -189,6 +200,12 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
+        if (sucId != null) {
+            Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
+            if (sucursal != null && sucursal.getIp() != null && !sucursal.getIp().isBlank()) {
+                return filialCajaProxyService.imprimirBalanceEnFilial(id, sucId, printerName, local);
+            }
+        }
         return service.imprimirBalance(new EmbebedPrimaryKey(id, sucId), printerName, local);
     }
 
@@ -196,14 +213,14 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findByUsuarioId(id, page, size);
     }
 
-    public Boolean abrirCajaDesdeServidor(PdvCajaInput input, ConteoInput conteoInput, List<ConteoMonedaInput> conteoMonedaInputList, Long cajaId) {
+    public CajaFilialOperacionResult abrirCajaDesdeServidor(PdvCajaInput input, ConteoInput conteoInput, List<ConteoMonedaInput> conteoMonedaInputList, Long cajaId) {
         boolean esCierre = cajaId != null;
         String logPrefix = esCierre ? "CERRAR CAJA" : "ABRIR CAJA";
         long inicioMs = System.currentTimeMillis();
         log.info("====== [{}] INICIO abrirCajaDesdeServidor (esCierre={}) ======", logPrefix, esCierre);
         if (input == null) {
             log.error("[{}] El input de la caja es null. Abortando.", logPrefix);
-            return false;
+            return CajaFilialOperacionResult.fail();
         }
         if (esCierre) {
             log.info("[{}] Parametros recibidos -> cajaId={}, sucursalId={}", logPrefix, cajaId, input.getSucursalId());
@@ -216,55 +233,45 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                     logPrefix, conteoInput.getUsuarioId(), conteoInput.getTotalGs(), conteoInput.getTotalRs(), conteoInput.getTotalDs(), conteoInput.getObservacion());
         } else {
             log.warn("[{}] conteoInput es null", logPrefix);
-            return false;
+            return CajaFilialOperacionResult.fail();
         }
         log.info("[{}] Cantidad de denominaciones en conteoMonedaInputList: {}",
                 logPrefix, conteoMonedaInputList != null ? conteoMonedaInputList.size() : "null");
         try {
             if (input.getSucursalId() == null) {
                 log.error("[{}] sucursalId es null. El frontend NO envio la sucursal seleccionada. Abortando.", logPrefix);
-                return false;
+                return CajaFilialOperacionResult.fail();
             }
             Sucursal sucursal = sucursalService.findById(input.getSucursalId()).orElse(null);
             if (sucursal == null) {
                 log.error("[{}] Sucursal no encontrada para id: {}", logPrefix, input.getSucursalId());
-                return false;
+                return CajaFilialOperacionResult.fail();
             }
             log.info("[{}] Sucursal encontrada -> id={}, nombre={}, ip={}",
                     logPrefix, sucursal.getId(), sucursal.getNombre(), sucursal.getIp());
             if (sucursal.getIp() == null) {
                 log.error("[{}] La sucursal id={} ({}) NO tiene IP configurada. Revisar columna ip en empresarial.sucursal.",
                         logPrefix, sucursal.getId(), sucursal.getNombre());
-                return false;
+                return CajaFilialOperacionResult.fail();
             }
-            Integer puerto = 8082;
-            String url = "http://" + sucursal.getIp() + ":" + puerto + "/graphql";
+            String url = filialCajaProxyService.buildFilialUrl(sucursal);
             log.info("[{}] URL filial a conectar: {}", logPrefix, url);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attributes != null) {
-                HttpServletRequest currentRequest = attributes.getRequest();
-                String authHeader = currentRequest.getHeader("Authorization");
-                if (authHeader != null) {
-                    headers.set("Authorization", authHeader);
-                    log.info("[{}] Header Authorization reenviado a la filial", logPrefix);
-                } else {
-                    log.warn("[{}] No se encontro Header Authorization en la peticion original", logPrefix);
-                }
+            HttpHeaders headers = filialCajaProxyService.buildAuthHeaders();
+            if (headers.get("Authorization") != null) {
+                log.info("[{}] Header Authorization reenviado a la filial", logPrefix);
             } else {
-                log.warn("[{}] No hay RequestAttributes; no se pudo reenviar Authorization a la filial", logPrefix);
+                log.warn("[{}] No se encontro Header Authorization en la peticion original", logPrefix);
             }
 
             Long cajaIdFilial = cajaId;
             if (esCierre) {
-                Long cajaAbiertaFilial = consultarCajaAbiertaEnFilial(url, headers, conteoInput.getUsuarioId(), logPrefix);
+                Long cajaAbiertaFilial = filialCajaProxyService.consultarCajaAbiertaIdEnFilial(
+                        url, headers, conteoInput.getUsuarioId(), input.getSucursalId(), logPrefix);
                 if (cajaAbiertaFilial == null) {
                     log.error("[{}] No hay caja abierta en filial para usuarioId={}. cajaId solicitado={}",
                             logPrefix, conteoInput.getUsuarioId(), cajaId);
-                    return false;
+                    return CajaFilialOperacionResult.fail();
                 }
                 if (!cajaAbiertaFilial.equals(cajaId)) {
                     log.warn("[{}] cajaId del mobile ({}) difiere de la caja abierta en filial ({}). Usando filial.",
@@ -307,25 +314,26 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
                 if (responseCaja.getBody() == null || responseCaja.getBody().containsKey("errors")) {
                     log.error("[{}] Error al crear caja en filial (mutation 1). Response body: {}", logPrefix, responseCaja.getBody());
-                    return false;
+                    return CajaFilialOperacionResult.fail();
                 }
 
                 Map<String, Object> dataCaja = (Map<String, Object>) responseCaja.getBody().get("data");
                 if (dataCaja == null || dataCaja.get("savePdvCaja") == null) {
                     log.error("[{}] Respuesta inesperada al crear caja (sin data.savePdvCaja): {}", logPrefix, responseCaja.getBody());
-                    return false;
+                    return CajaFilialOperacionResult.fail();
                 }
                 Map<String, Object> saveCajaResponse = (Map<String, Object>) dataCaja.get("savePdvCaja");
                 cajaIdFilial = Long.valueOf(saveCajaResponse.get("id").toString());
                 log.info("[{}] Caja creada exitosamente en filial con ID: {} (sucursalId={})", logPrefix, cajaIdFilial, input.getSucursalId());
             }
 
-            String saveConteoQuery = "mutation($conteo: ConteoInput!, $conteoMonedaInputList: [ConteoMonedaInput], $cajaId: Int, $apertura: Boolean) { saveConteo(conteo: $conteo, conteoMonedaInputList: $conteoMonedaInputList, cajaId: $cajaId, apertura: $apertura) { id } }";
+            String saveConteoQuery = "mutation($conteo: ConteoInput!, $conteoMonedaInputList: [ConteoMonedaInput], $cajaId: Int, $apertura: Boolean, $imprimirBalance: Boolean) { saveConteo(conteo: $conteo, conteoMonedaInputList: $conteoMonedaInputList, cajaId: $cajaId, apertura: $apertura, imprimirBalance: $imprimirBalance) { id } }";
             Map<String, Object> variablesConteo = new HashMap<>();
             variablesConteo.put("conteo", conteoInput);
             variablesConteo.put("conteoMonedaInputList", conteoMonedaInputList);
             variablesConteo.put("cajaId", cajaIdFilial);
             variablesConteo.put("apertura", !esCierre);
+            variablesConteo.put("imprimirBalance", false);
 
             Map<String, Object> bodyConteo = new HashMap<>();
             bodyConteo.put("query", saveConteoQuery);
@@ -343,24 +351,24 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             if (responseConteo.getBody() == null || responseConteo.getBody().containsKey("errors")) {
                 log.error("[{}] Error al guardar conteo en filial. cajaId={}. Response body: {}",
                         logPrefix, cajaIdFilial, responseConteo.getBody());
-                return false;
+                return CajaFilialOperacionResult.fail();
             }
 
             log.info("[{}] ====== EXITO: {} de caja completada en filial. cajaId={}, sucursalId={}, tiempo={}ms ======",
                     logPrefix, esCierre ? "cierre" : "apertura", cajaIdFilial, input.getSucursalId(), (System.currentTimeMillis() - inicioMs));
-            return true;
+            return CajaFilialOperacionResult.ok(cajaIdFilial);
         } catch (org.springframework.web.client.ResourceAccessException e) {
             log.error("[{}] FALLO DE CONEXION con la filial (sucursalId={}). No se pudo alcanzar la IP/puerto. Detalle: {}. Tiempo transcurrido={}ms",
                     logPrefix, input.getSucursalId(), e.getMessage(), (System.currentTimeMillis() - inicioMs), e);
-            return false;
+            return CajaFilialOperacionResult.fail();
         } catch (org.springframework.web.client.RestClientException e) {
             log.error("[{}] Error de cliente REST al comunicarse con la filial (sucursalId={}). Detalle: {}",
                     logPrefix, input.getSucursalId(), e.getMessage(), e);
-            return false;
+            return CajaFilialOperacionResult.fail();
         } catch (Exception e) {
             log.error("[{}] Excepcion inesperada en proxy abrirCajaDesdeServidor (sucursalId={}). Detalle: {}",
                     logPrefix, input.getSucursalId(), e.getMessage(), e);
-            return false;
+            return CajaFilialOperacionResult.fail();
         }
     }
 
@@ -379,34 +387,6 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public List<PdvCaja> findCajasWithVentaObservaciones () {
         return service.findCajasWithVentaObservaciones();
-    }
-
-    private Long consultarCajaAbiertaEnFilial(String url, HttpHeaders headers, Long usuarioId, String logPrefix) {
-        try {
-            String query = "query($id: ID!) { cajaAbiertoPorUsuarioId(id: $id) { id activo } }";
-            Map<String, Object> variables = new HashMap<>();
-            variables.put("id", usuarioId);
-            Map<String, Object> body = new HashMap<>();
-            body.put("query", query);
-            body.put("variables", variables);
-            HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-            if (response.getBody() == null || response.getBody().containsKey("errors")) {
-                log.error("[{}] Error al consultar caja abierta en filial. usuarioId={}. Response: {}",
-                        logPrefix, usuarioId, response.getBody());
-                return null;
-            }
-            Map<String, Object> data = (Map<String, Object>) response.getBody().get("data");
-            if (data == null || data.get("cajaAbiertoPorUsuarioId") == null) {
-                return null;
-            }
-            Map<String, Object> caja = (Map<String, Object>) data.get("cajaAbiertoPorUsuarioId");
-            return Long.valueOf(caja.get("id").toString());
-        } catch (Exception e) {
-            log.error("[{}] Excepcion al consultar caja abierta en filial. usuarioId={}. Detalle: {}",
-                    logPrefix, usuarioId, e.getMessage(), e);
-            return null;
-        }
     }
 
 }

@@ -12,21 +12,12 @@ import java.util.List;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class VentaPorFuncionario {
-
-    private Long id;
-    private String funcionario;
-    private Double total;
-    private Long cantidad;
-    private String productoMasVendido;
-    private String sucursales;
+public class VentaPorCiudad {
+    Long ciudadId;
+    String nombre;
+    Double total;
+    /** Cantidad de ventas (tickets) concluidos en el período. */
+    Double cantidadVentas;
     private List<DesglosePeriodoGrafico> desglosePeriodos = new ArrayList<>();
     private List<DesgloseAnhoGrafico> desgloseAnhos = new ArrayList<>();
-
-    public VentaPorFuncionario(Long id, String funcionario, Double total, Long cantidad) {
-        this.id = id;
-        this.funcionario = funcionario;
-        this.total = total;
-        this.cantidad = cantidad;
-    }
 }

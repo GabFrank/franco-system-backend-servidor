@@ -61,8 +61,9 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
             Long sucId) {
         java.time.LocalDateTime fechaInicio = stringToDate(inicio);
         java.time.LocalDateTime fechaFin = stringToDate(fin);
-        List<Object[]> results = sucId != null
-                ? repository.gastosPorCategoria(fechaInicio, fechaFin, sucId)
+        Long sucursalIdFiltro = (sucId != null && sucId > 0) ? sucId : null;
+        List<Object[]> results = sucursalIdFiltro != null
+                ? repository.gastosPorCategoria(fechaInicio, fechaFin, sucursalIdFiltro)
                 : repository.gastosPorCategoriaSinSucursal(fechaInicio, fechaFin);
         java.util.List<com.franco.dev.domain.financiero.GastoPorCategoria> list = new java.util.ArrayList<>();
         for (Object[] obj : results) {
@@ -78,8 +79,9 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     public List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(Integer anio, Long sucId) {
         java.time.LocalDateTime inicio = java.time.LocalDateTime.of(anio, 1, 1, 0, 0);
         java.time.LocalDateTime fin = java.time.LocalDateTime.of(anio, 12, 31, 23, 59, 59);
-        List<Object[]> results = sucId != null
-                ? repository.gastosPorMes(inicio, fin, sucId)
+        Long sucursalIdFiltro = (sucId != null && sucId > 0) ? sucId : null;
+        List<Object[]> results = sucursalIdFiltro != null
+                ? repository.gastosPorMes(inicio, fin, sucursalIdFiltro)
                 : repository.gastosPorMesSinSucursal(inicio, fin);
         java.util.List<com.franco.dev.domain.financiero.GastoPorMes> list = new java.util.ArrayList<>();
         for (Object[] obj : results) {

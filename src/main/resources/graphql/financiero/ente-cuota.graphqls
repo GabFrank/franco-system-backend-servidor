@@ -9,6 +9,12 @@ type EnteCuota {
     usuario: Usuario
 }
 
+input CuotaDetalleInput {
+    numeroCuota: Int
+    monto: Float
+    pagado: Boolean
+}
+
 input EnteCuotaInput {
     id:ID
     enteFinancieroId: ID
@@ -36,6 +42,7 @@ extend type Query {
     enteCuotas(page:Int = 0, size:Int = 10):[EnteCuota]!
     countEnteCuota: Int
     enteCuotasByEnteFinanciero(enteFinancieroId:ID!):[EnteCuota]
+    enteCuotasByEnteId(enteId:ID!):[EnteCuota]
     enteCuotaSearchPage(enteFinancieroId: ID, page: Int, size: Int): EnteCuotaPage
 }
 

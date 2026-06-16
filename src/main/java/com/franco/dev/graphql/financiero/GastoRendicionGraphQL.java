@@ -39,15 +39,20 @@ public class GastoRendicionGraphQL implements GraphQLQueryResolver, GraphQLMutat
         if (input.getPreGastoId() != null && input.getSucursalId() != null) {
             PreGasto pg = preGastoService.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
             entity.setPreGasto(pg);
-        }
-        
-        if (input.getTipoGastoId() != null) {
+            if (input.getTipoGastoId() != null) {
+                entity.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
+            } else if (pg != null && pg.getTipoGasto() != null) {
+                entity.setTipoGasto(pg.getTipoGasto());
+            }
+        } else if (input.getTipoGastoId() != null) {
             entity.setTipoGasto(tipoGastoService.findById(input.getTipoGastoId()).orElse(null));
         }
         
         entity.setMontoTotal(input.getMontoTotal());
-        entity.setFotoFacturaUrl(input.getFotoFacturaUrl());
-        entity.setFotoProductoUrl(input.getFotoProductoUrl());
+        entity.setFotoFacturaUrl(service.serializeIncomingImagePayload(
+                input.getFotosFacturaUrls(), input.getFotoFacturaUrl()));
+        entity.setFotoProductoUrl(service.serializeIncomingImagePayload(
+                input.getFotosProductoUrls(), input.getFotoProductoUrl()));
         
         if (input.getEnteId() != null) {
             entity.setEnte(enteService.findById(input.getEnteId()).orElse(null));

@@ -46,4 +46,10 @@ public interface PreGastoRepository extends HelperRepository<PreGasto, EmbebedPr
 
     @Query(value = "SELECT max(pg.id) FROM financiero.pre_gasto pg WHERE pg.sucursal_id = CAST(:sucursalId AS bigint)", nativeQuery = true)
     Long findMaxId(@Param("sucursalId") Long sucursalId);
+
+    @Query(value = "SELECT pg.* FROM financiero.pre_gasto pg " +
+            "WHERE pg.estado = 'AUTORIZADO' " +
+            "AND pg.sucursal_caja_id = CAST(:sucursalCajaId AS bigint) " +
+            "ORDER BY pg.id DESC", nativeQuery = true)
+    List<PreGasto> buscarAutorizadosParaRetiro(@Param("sucursalCajaId") Long sucursalCajaId);
 }

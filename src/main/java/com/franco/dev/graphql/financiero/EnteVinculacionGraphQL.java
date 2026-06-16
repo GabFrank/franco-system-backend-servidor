@@ -13,7 +13,6 @@ import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,9 +40,6 @@ public class EnteVinculacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
 
     @Autowired
     private PersonaService personaService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<EnteVinculacion> enteVinculacion(Long id) {
         return service.findById(id);
@@ -76,7 +72,14 @@ public class EnteVinculacionGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public EnteVinculacion saveEnteVinculacion(EnteVinculacionInput input) {
-        EnteVinculacion e = modelMapper.map(input, EnteVinculacion.class);
+        EnteVinculacion e = new EnteVinculacion();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new EnteVinculacion());
+        }
+        e.setEsPropio(input.getEsPropio());
+        e.setAlquilerMonto(input.getAlquilerMonto());
+        e.setAlquilerDiaVencimiento(input.getAlquilerDiaVencimiento());
+        e.setObservacion(input.getObservacion());
         if (input.getEnteId() != null) {
             e.setEnte(enteService.findById(input.getEnteId()).orElse(null));
         }

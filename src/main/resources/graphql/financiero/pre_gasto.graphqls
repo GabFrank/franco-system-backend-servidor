@@ -26,6 +26,7 @@ type PreGasto {
     montoSolicitado: Float
     sucursalCaja: Sucursal
     cajaId: ID
+    gastoCajaRegistroId: ID
     estado: EstadoPreGasto
     qrToken: String
     autorizadoPor: Persona
@@ -56,6 +57,9 @@ type PreGasto {
     fechaRendicion: Date
     gasto: Gasto
     finanzas: [PreGastoDetalleFinanzas]
+    rendiciones: [GastoRendicion]
+    retiroConfirmadoEn: Date
+    retiroConfirmadoFuncionario: Persona
     creadoEn: Date
 }
 

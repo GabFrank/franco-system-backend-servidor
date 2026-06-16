@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.EnteCuota;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -28,4 +29,8 @@ public interface EnteCuotaRepository extends HelperRepository<EnteCuota, Long> {
     Page<EnteCuota> findAllByEnteFinancieroId(
             @org.springframework.data.repository.query.Param("enteFinancieroId") Long enteFinancieroId,
             Pageable pageable);
+
+    @Modifying
+    @Query("delete from EnteCuota ec where ec.enteFinanciero.id = ?1")
+    void deleteByEnteFinancieroId(Long enteFinancieroId);
 }

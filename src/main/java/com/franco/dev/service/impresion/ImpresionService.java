@@ -108,6 +108,8 @@ public class ImpresionService {
     private com.franco.dev.service.activos.InmuebleService inmuebleService;
     @Autowired
     private com.franco.dev.service.activos.MuebleService muebleService;
+    @Autowired
+    private com.franco.dev.service.equipos.EquipoService equipoService;
 
     public static DateTimeFormatter shortDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     public static DateTimeFormatter shortDateTime = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
@@ -1686,6 +1688,26 @@ public class ImpresionService {
                                     : "";
                             situacion = m.getSituacionPago();
                             mnd = m.getMoneda() != null ? m.getMoneda().getSimbolo() : simbolo;
+                        }
+                        break;
+                    case EQUIPO:
+                        com.franco.dev.domain.equipos.Equipo eq = equipoService.findById(refId).orElse(null);
+                        if (eq != null) {
+                            com.franco.dev.domain.equipos.EquipoFinanciero fin = equipoService.resolverFinanciero(eq);
+                            bienNombre = "EQUIPO " + (eq.getIdentificador() != null ? eq.getIdentificador() : "");
+                            bienReferencia = (eq.getDescripcion() != null ? eq.getDescripcion() : "")
+                                    + " - Ref #" + eq.getId() + " - Ente #" + preGasto.getEnte().getId();
+                            if (fin != null) {
+                                montoTotal = fin.getMontoTotal();
+                                montoPagado = fin.getMontoYaPagado();
+                                cuotasTotales = fin.getCantidadCuotas();
+                                cuotasPagadas = fin.getCantidadCuotasPagadas();
+                                proveedor = (fin.getProveedor() != null && fin.getProveedor().getPersona() != null)
+                                        ? fin.getProveedor().getPersona().getNombre()
+                                        : "";
+                                situacion = fin.getSituacionPago();
+                                mnd = fin.getMoneda() != null ? fin.getMoneda().getSimbolo() : simbolo;
+                            }
                         }
                         break;
                     case INSTITUCION:

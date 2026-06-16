@@ -12,4 +12,6 @@ public class EnteArchivoInput {
     private String descripcion;
     private Boolean vigente;
     private Long usuarioId;
+    private String nombreArchivo;
+    private String contenidoBase64;
 }

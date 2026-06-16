@@ -1,0 +1,36 @@
+type ModeloEquipoOutput {
+    id: ID!
+    descripcion: String
+    marca: MarcaEquipoOutput
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input ModeloEquipoInput {
+    id: ID
+    descripcion: String
+    marcaId: ID
+    usuarioId: ID
+}
+
+type ModeloEquipoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ModeloEquipoOutput]
+    getPageable: Pageable
+}
+
+extend type Query {
+    modeloEquipo(id: ID!): ModeloEquipoOutput
+    modeloEquipoSearchPage(texto: String, page: Int, size: Int): ModeloEquipoPage
+}
+
+extend type Mutation {
+    saveModeloEquipo(modeloEquipo: ModeloEquipoInput!): ModeloEquipoOutput!
+    deleteModeloEquipo(id: ID!): Boolean!
+}

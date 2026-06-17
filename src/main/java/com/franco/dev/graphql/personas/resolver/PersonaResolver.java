@@ -45,4 +45,8 @@ public class PersonaResolver implements GraphQLResolver<Persona> {
         return usuarioService.findByPersonaId(p.getId())!=null;
     }
 
+    public String embeddingFacial(Persona p) {
+        return p.getEmbedding();
+    }
+
 }

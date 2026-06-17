@@ -53,6 +53,6 @@ type UsuarioPage {
 extend type Mutation {
     saveUsuario(usuario:UsuarioInput!):Usuario!
     deleteUsuario(id:ID!):Boolean!
-    saveUsuarioImage(id:ID!, type:String!, image:String!, embedding: [Float]):Boolean
+    saveUsuarioImage(id:ID!, type:String!, image:String!, embedding: [Float], embeddingGaleriaJson: String):Boolean
 }
 

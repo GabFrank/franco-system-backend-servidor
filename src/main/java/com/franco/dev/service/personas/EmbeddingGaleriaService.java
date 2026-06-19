@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto;
 import com.franco.dev.graphql.personas.dto.EmbeddingGaleriaItemDto;
+import com.franco.dev.service.personas.dto.IncorporarCapturaMarcacionResult;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -108,31 +109,34 @@ public class EmbeddingGaleriaService {
 
     /**
      * Incorpora un embedding de marcación verificada a la galería existente.
-     * Solo agrega capturas de calidad que confirmen identidad y aporten diversidad visual.
-     *
-     * @return galería actualizada o null si la captura no cumple criterios de calidad
      */
-    public EmbeddingGaleriaDto incorporarCapturaMarcacion(
+    public IncorporarCapturaMarcacionResult incorporarCapturaMarcacion(
             EmbeddingGaleriaDto galeria,
             List<Double> nuevoEmbedding,
             Double score) {
         if (galeria == null || nuevoEmbedding == null || nuevoEmbedding.isEmpty()) {
-            return null;
+            return IncorporarCapturaMarcacionResult.rechazadoSimilitud(
+                    "No se encontró galería facial válida para actualizar.");
         }
         double scoreCaptura = score != null ? score : 0.0;
         if (scoreCaptura < MIN_SCORE_MARCACION) {
-            return null;
+            return IncorporarCapturaMarcacionResult.rechazadoScore(
+                    "La captura no alcanzó la calidad mínima (70%) para actualizar el perfil facial.");
         }
 
         double[] candidato = toArray(nuevoEmbedding);
         double[] master = toArray(galeria.getMaster());
         if (master.length == 0 || candidato.length != master.length) {
-            return null;
+            return IncorporarCapturaMarcacionResult.rechazadoSimilitud(
+                    "El perfil facial registrado no es compatible con esta captura.");
         }
 
         double similitudMaster = cosineSimilarity(candidato, master);
         if (similitudMaster < MIN_SIMILITUD_MASTER) {
-            return null;
+            int pct = (int) Math.round(similitudMaster * 100);
+            int umbralPct = (int) Math.round(MIN_SIMILITUD_MASTER * 100);
+            return IncorporarCapturaMarcacionResult.rechazadoSimilitud(
+                    "Similitud insuficiente (" + pct + "%). Se requiere al menos " + umbralPct + "%.");
         }
 
         EmbeddingGaleriaDto actualizada = normalizar(galeria);
@@ -141,16 +145,12 @@ public class EmbeddingGaleriaService {
         }
 
         int indiceDuplicado = -1;
-        double maxSimilitudExistente = -1.0;
         for (int i = 0; i < actualizada.getGallery().size(); i++) {
             EmbeddingGaleriaItemDto item = actualizada.getGallery().get(i);
             if (item == null || item.getEmbedding() == null) {
                 continue;
             }
             double similitud = cosineSimilarity(candidato, toArray(item.getEmbedding()));
-            if (similitud > maxSimilitudExistente) {
-                maxSimilitudExistente = similitud;
-            }
             if (similitud >= MAX_SIMILITUD_DUPLICADO) {
                 indiceDuplicado = i;
                 break;
@@ -161,7 +161,8 @@ public class EmbeddingGaleriaService {
             EmbeddingGaleriaItemDto existente = actualizada.getGallery().get(indiceDuplicado);
             double scoreExistente = existente.getScore() != null ? existente.getScore() : 0.0;
             if (scoreCaptura <= scoreExistente) {
-                return null;
+                return IncorporarCapturaMarcacionResult.rechazadoScore(
+                        "Ya existe una captura similar con igual o mejor calidad en el perfil.");
             }
             existente.setEmbedding(new ArrayList<>(nuevoEmbedding));
             existente.setScore(scoreCaptura);
@@ -175,7 +176,7 @@ public class EmbeddingGaleriaService {
         }
 
         actualizada.setMaster(recalcularMaster(actualizada.getGallery()));
-        return actualizada;
+        return IncorporarCapturaMarcacionResult.ok(actualizada);
     }
 
     private void podarGaleria(EmbeddingGaleriaDto galeria) {

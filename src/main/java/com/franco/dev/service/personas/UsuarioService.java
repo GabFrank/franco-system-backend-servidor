@@ -1,9 +1,12 @@
 package com.franco.dev.service.personas;
 
+import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Role;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.UsuarioRole;
-import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.enums.ResultadoIncorporacionEmbedding;
+import com.franco.dev.graphql.personas.IncorporarEmbeddingMarcacionResult;
+import com.franco.dev.service.personas.dto.IncorporarCapturaMarcacionResult;
 import com.franco.dev.repository.personas.PersonaRepository;
 import com.franco.dev.repository.personas.RoleRepository;
 import com.franco.dev.repository.personas.UsuarioRepository;
@@ -218,36 +221,44 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         return embeddingCacheService.findBestMatch(embeddingInfo, excludeIds);
     }
 
-    public Boolean incorporarEmbeddingMarcacion(Long usuarioId, List<Double> embedding, Double score) {
+    public IncorporarEmbeddingMarcacionResult incorporarEmbeddingMarcacion(Long usuarioId, List<Double> embedding, Double score) {
         if (usuarioId == null || embedding == null || embedding.isEmpty()) {
-            return false;
+            return new IncorporarEmbeddingMarcacionResult(
+                    ResultadoIncorporacionEmbedding.RECHAZADO_SCORE,
+                    "Datos de captura incompletos para actualizar el perfil facial.");
         }
         Usuario usuario = repository.findById(usuarioId).orElse(null);
         if (usuario == null || usuario.getPersona() == null) {
-            return false;
+            return new IncorporarEmbeddingMarcacionResult(
+                    ResultadoIncorporacionEmbedding.RECHAZADO_SIMILITUD,
+                    "No se encontró galería facial válida para actualizar.");
         }
         String jsonActual = usuario.getPersona().getEmbedding();
         com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria = embeddingGaleriaService.parsearDesdeJson(jsonActual);
         if (galeria == null || galeria.getGallery() == null || galeria.getGallery().isEmpty()) {
-            return false;
+            return new IncorporarEmbeddingMarcacionResult(
+                    ResultadoIncorporacionEmbedding.RECHAZADO_SIMILITUD,
+                    "No se encontró galería facial válida para actualizar.");
         }
 
-        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto actualizada = embeddingGaleriaService
+        IncorporarCapturaMarcacionResult resultado = embeddingGaleriaService
                 .incorporarCapturaMarcacion(galeria, embedding, score);
-        if (actualizada == null) {
-            return false;
+        if (resultado.getResultado() != ResultadoIncorporacionEmbedding.OK) {
+            return new IncorporarEmbeddingMarcacionResult(resultado.getResultado(), resultado.getMensaje());
         }
 
-        String embeddingJson = embeddingGaleriaService.serializar(actualizada);
+        String embeddingJson = embeddingGaleriaService.serializar(resultado.getGaleria());
         if (embeddingJson == null) {
-            return false;
+            return new IncorporarEmbeddingMarcacionResult(
+                    ResultadoIncorporacionEmbedding.RECHAZADO_SIMILITUD,
+                    "No se pudo guardar la galería facial actualizada.");
         }
 
         Persona persona = usuario.getPersona();
         persona.setEmbedding(embeddingJson);
         personaRepository.saveAndFlush(persona);
         embeddingCacheService.refreshUsuario(usuarioId, embeddingJson);
-        return true;
+        return new IncorporarEmbeddingMarcacionResult(resultado.getResultado(), resultado.getMensaje());
     }
 
     private String resolverEmbeddingJson(String embeddingGaleriaJson) {

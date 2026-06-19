@@ -118,7 +118,7 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findUsuarioByEmbedding(embedding, excludeIds);
     }
 
-    public Boolean incorporarEmbeddingMarcacion(Long usuarioId, List<Double> embedding, Double score) {
+    public IncorporarEmbeddingMarcacionResult incorporarEmbeddingMarcacion(Long usuarioId, List<Double> embedding, Double score) {
         return service.incorporarEmbeddingMarcacion(usuarioId, embedding, score);
     }
 }

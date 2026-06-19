@@ -58,7 +58,7 @@ public class JornadaMarcacionResolver {
                 usuarioId, fechaReferencia);
         if (jornadaCruzaMedianoche.isPresent()) {
             Jornada abierta = jornadaCruzaMedianoche.get();
-            if (abierta.getMarcacionEntrada() != null && abierta.getMarcacionSalida() == null) {
+            if (abierta.getMarcacionSalidaAlmuerzo() != null && abierta.getMarcacionEntradaAlmuerzo() == null) {
                 return abierta;
             }
         }

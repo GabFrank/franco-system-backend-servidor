@@ -101,7 +101,7 @@ public class UsuarioEmbeddingCacheService {
             }
         }
 
-        if (best != null && maxSimilarity > MATCH_THRESHOLD) {
+        if (best != null) {
             return new UsuarioSimilitudResult(best.usuario, maxSimilarity);
         }
         return null;

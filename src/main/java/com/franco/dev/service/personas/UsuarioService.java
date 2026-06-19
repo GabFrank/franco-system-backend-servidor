@@ -218,6 +218,38 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         return embeddingCacheService.findBestMatch(embeddingInfo, excludeIds);
     }
 
+    public Boolean incorporarEmbeddingMarcacion(Long usuarioId, List<Double> embedding, Double score) {
+        if (usuarioId == null || embedding == null || embedding.isEmpty()) {
+            return false;
+        }
+        Usuario usuario = repository.findById(usuarioId).orElse(null);
+        if (usuario == null || usuario.getPersona() == null) {
+            return false;
+        }
+        String jsonActual = usuario.getPersona().getEmbedding();
+        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria = embeddingGaleriaService.parsearDesdeJson(jsonActual);
+        if (galeria == null || galeria.getGallery() == null || galeria.getGallery().isEmpty()) {
+            return false;
+        }
+
+        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto actualizada = embeddingGaleriaService
+                .incorporarCapturaMarcacion(galeria, embedding, score);
+        if (actualizada == null) {
+            return false;
+        }
+
+        String embeddingJson = embeddingGaleriaService.serializar(actualizada);
+        if (embeddingJson == null) {
+            return false;
+        }
+
+        Persona persona = usuario.getPersona();
+        persona.setEmbedding(embeddingJson);
+        personaRepository.saveAndFlush(persona);
+        embeddingCacheService.refreshUsuario(usuarioId, embeddingJson);
+        return true;
+    }
+
     private String resolverEmbeddingJson(String embeddingGaleriaJson) {
         if (embeddingGaleriaJson == null || embeddingGaleriaJson.isBlank()) {
             return null;

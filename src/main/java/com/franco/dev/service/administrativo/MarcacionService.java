@@ -34,6 +34,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     private final TardanzaCalculator tardanzaCalculator;
     private final HorasTrabajadasCalculator horasTrabajadasCalculator;
     private final AlmuerzoProcessor almuerzoProcessor;
+    private final JornadaFactory jornadaFactory;
 
     @Override
     public MarcacionRepository getRepository() {
@@ -83,6 +84,15 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         return marcacionGuardada;
     }
 
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public Marcacion reprocesarJornadaDeMarcacion(Long id, Long sucursalId) {
+        Marcacion marcacion = findById(new EmbebedPrimaryKey(id, sucursalId))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Marcación no encontrada: id=" + id + ", sucursalId=" + sucursalId));
+        procesarJornada(marcacion);
+        return marcacion;
+    }
+
     private void prepararMarcacion(Marcacion marcacion) {
         if (marcacion.getId() == null) {
             asignarNuevoId(marcacion);
@@ -127,6 +137,18 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             }
 
             almuerzoProcessor.procesar(jornada, marcacion);
+
+            if (!marcacionVinculadaAJornada(jornada, marcacion)) {
+                log.warn(
+                        "Marcación {} no vinculada a jornada {} (fecha {}), creando jornada nueva para usuario {}",
+                        marcacion.getId(), jornada.getId(), jornada.getFecha(),
+                        marcacion.getUsuario().getId());
+                jornada = jornadaFactory.crearNuevaJornada(marcacion, fechaReferencia.toLocalDate());
+                if (horario != null) {
+                    aplicarHorarioAJornada(jornada, horario);
+                }
+                almuerzoProcessor.procesar(jornada, marcacion);
+            }
             tardanzaCalculator.calcular(jornada);
             horasTrabajadasCalculator.calcular(jornada);
 
@@ -144,6 +166,22 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         if (marcacion.getFechaSalida() != null)
             return marcacion.getFechaSalida();
         return LocalDateTime.now();
+    }
+
+    private boolean marcacionVinculadaAJornada(Jornada jornada, Marcacion marcacion) {
+        if (marcacion.getTipo() == TipoMarcacion.ENTRADA) {
+            return (jornada.getMarcacionEntrada() != null
+                    && jornada.getMarcacionEntrada().getId().equals(marcacion.getId()))
+                    || (jornada.getMarcacionEntradaAlmuerzo() != null
+                            && jornada.getMarcacionEntradaAlmuerzo().getId().equals(marcacion.getId()));
+        }
+        if (marcacion.getTipo() == TipoMarcacion.SALIDA) {
+            return (jornada.getMarcacionSalida() != null
+                    && jornada.getMarcacionSalida().getId().equals(marcacion.getId()))
+                    || (jornada.getMarcacionSalidaAlmuerzo() != null
+                            && jornada.getMarcacionSalidaAlmuerzo().getId().equals(marcacion.getId()));
+        }
+        return false;
     }
 
     private void aplicarHorarioAJornada(Jornada jornada, Horario horario) {

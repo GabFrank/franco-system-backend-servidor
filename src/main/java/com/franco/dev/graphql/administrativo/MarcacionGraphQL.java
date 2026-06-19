@@ -130,6 +130,10 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.save(e);
     }
 
+    public Marcacion reprocesarJornadaDeMarcacion(Long id, Long sucursalId) {
+        return service.reprocesarJornadaDeMarcacion(id, sucursalId);
+    }
+
     public String imprimirReporteMarcaciones(Long usuarioId, String fechaInicio, String fechaFin,
             Long usuarioResponsableId) {
         com.franco.dev.domain.personas.Usuario usuarioReporte = null;

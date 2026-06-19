@@ -78,6 +78,37 @@ class PdfConverterServiceTest {
         assertTrue(img.getWidth() > 100);
     }
 
+    @Test
+    void todasLasPaginasComoJpeg_pdfDosPaginas_retornaDosJpegs() throws Exception {
+        byte[] pdf = generarPdfDosPaginas("Pagina UNO", "Pagina DOS");
+
+        java.util.List<byte[]> jpegs = service.todasLasPaginasComoJpeg(pdf);
+
+        assertEquals(2, jpegs.size());
+        for (byte[] jpeg : jpegs) {
+            assertTrue(jpeg.length > 0);
+            // JPEG magic bytes FF D8 FF
+            assertEquals((byte) 0xFF, jpeg[0]);
+            assertEquals((byte) 0xD8, jpeg[1]);
+            assertNotNull(ImageIO.read(new ByteArrayInputStream(jpeg)));
+        }
+    }
+
+    @Test
+    void todasLasPaginasComoJpeg_pdfUnaPagina_retornaUnJpeg() throws Exception {
+        byte[] pdf = generarPdfMinimo("Unica pagina");
+
+        java.util.List<byte[]> jpegs = service.todasLasPaginasComoJpeg(pdf);
+
+        assertEquals(1, jpegs.size());
+    }
+
+    @Test
+    void todasLasPaginasComoJpeg_pdfVacioONull_lanzaIOException() {
+        assertThrows(IOException.class, () -> service.todasLasPaginasComoJpeg(new byte[0]));
+        assertThrows(IOException.class, () -> service.todasLasPaginasComoJpeg(null));
+    }
+
     private byte[] generarPdfMinimo(String texto) throws IOException {
         try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             PDPage pagina = new PDPage();

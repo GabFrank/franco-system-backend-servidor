@@ -139,6 +139,33 @@ class OpenAiVisionServiceTest {
     }
 
     @Test
+    void analizarImagenes_variasPaginas_enviaTodasEnUnRequest() throws Exception {
+        mockResponse.set(buildOpenAiResponse("{\"items\":[]}", "gpt-4o", 10, 5));
+
+        java.util.List<OpenAiVisionService.ImagenParaAnalisis> paginas = java.util.Arrays.asList(
+                new OpenAiVisionService.ImagenParaAnalisis(new byte[]{0x41}, "image/jpeg"),
+                new OpenAiVisionService.ImagenParaAnalisis(new byte[]{0x42}, "image/jpeg"),
+                new OpenAiVisionService.ImagenParaAnalisis(new byte[]{0x43}, "image/png"));
+
+        service.analizarImagenes(paginas);
+
+        String body = capturedBody.get();
+        // Las 3 paginas (base64 de 0x41/0x42/0x43 = QQ==/Qg==/Qw==) en un solo body
+        int ocurrencias = body.split("\"type\":\"image_url\"", -1).length - 1;
+        assertEquals(3, ocurrencias, "3 bloques image_url en un solo request");
+        assertTrue(body.contains("data:image/jpeg;base64,QQ=="), "pagina 1 jpeg");
+        assertTrue(body.contains("data:image/png;base64,Qw=="), "pagina 3 png con su mime");
+        assertTrue(body.contains("3 paginas"), "instruccion de consolidar paginas");
+    }
+
+    @Test
+    void analizarImagenes_listaVacia_lanzaIOException() {
+        assertThrows(IOException.class,
+                () -> service.analizarImagenes(java.util.Collections.emptyList()));
+        assertThrows(IOException.class, () -> service.analizarImagenes(null));
+    }
+
+    @Test
     void analizarImagen_promptAdicional_seConcatena() throws Exception {
         when(configService.findByClave("openai.prompt_adicional"))
                 .thenReturn(Optional.of(cs("openai.prompt_adicional", "INSTRUCCION EXTRA XYZ")));

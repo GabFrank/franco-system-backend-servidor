@@ -27,6 +27,11 @@ public class FacturaImportPreviewDto implements Serializable {
     private BigDecimal totalGeneral;
     private Boolean esLegal;
 
+    // Control de cuadre de totales (guardrail anti-perdida-silenciosa de items)
+    private BigDecimal sumaItems;       // suma de totalItem de los items
+    private Boolean totalesCuadran;     // true=cuadra, false=no cuadra, null=no comparable
+    private String totalesAdvertencia;  // mensaje cuando no cuadran
+
     // Sugerencia automatica del matcher
     private Proveedor proveedorSugerido;
     private String proveedorConfianza; // HIGH | MEDIUM | NONE

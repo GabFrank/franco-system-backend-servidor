@@ -19,13 +19,21 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
- * Llama a OpenAI Vision (gpt-4o por defecto) con una imagen JPEG y extrae datos de factura.
+ * Llama a OpenAI Vision (gpt-4o por defecto) con una o varias imagenes JPEG/PNG y extrae
+ * los datos de una factura.
  * Usa endpoint /v1/chat/completions con image_url base64 + JSON mode + temperature 0.
  * API key + modelo + prompt adicional leidos de ConfiguracionSistemaService.
+ *
+ * Una factura puede venir en varias paginas (PDF multipagina convertido, o varias fotos).
+ * Todas las paginas se envian en UN solo request (varios bloques image_url) para que el
+ * modelo consolide cabecera + items continuados en un unico JSON.
  */
 @Service
 public class OpenAiVisionService {
@@ -42,7 +50,10 @@ public class OpenAiVisionService {
             "comun sin timbrado), fechaEmision (YYYY-MM-DD), moneda (PYG/USD), totalGeneral, esLegal " +
             "(boolean: true si tiene timbrado valido y formato de factura legal, false si es nota comun). " +
             "Items: codigoProducto, nombreProducto, cantidad, precioUnitario, descuento (0 si no hay), " +
-            "totalItem. Si un campo no es legible: null. No inventes datos. Si la imagen no es factura ni " +
+            "totalItem. Si un campo no es legible: null. No inventes datos. Si recibes varias imagenes, " +
+            "son paginas del MISMO documento en orden: consolida todos los items de todas las paginas en " +
+            "una sola lista (los items pueden continuar de una pagina a la otra), y devuelve la cabecera y " +
+            "el totalGeneral una sola vez (no los repitas por pagina). Si la imagen no es factura ni " +
             "nota comercial: {\"error\":\"NO_ES_DOCUMENTO_VALIDO\"}.";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -74,15 +85,45 @@ public class OpenAiVisionService {
         }
     }
 
+    /** Una imagen (pagina) a analizar: bytes + su mimeType. */
+    public static class ImagenParaAnalisis {
+        public final byte[] bytes;
+        public final String mimeType;
+
+        public ImagenParaAnalisis(byte[] bytes, String mimeType) {
+            this.bytes = bytes;
+            this.mimeType = mimeType;
+        }
+    }
+
     /**
+     * Overload de una sola imagen. Delega en {@link #analizarImagenes}.
+     *
      * @param jpegBytes imagen JPEG (o PNG, en cuyo caso pasar mimeType image/png)
      * @param mimeType  ej. "image/jpeg" o "image/png"
-     * @return datos extraidos + raw response + uso de tokens
-     * @throws IOException si la API responde error o la respuesta no es parseable
      */
     public Resultado analizarImagen(byte[] jpegBytes, String mimeType) throws IOException {
         if (jpegBytes == null || jpegBytes.length == 0) {
             throw new IOException("Imagen vacia");
+        }
+        return analizarImagenes(Collections.singletonList(new ImagenParaAnalisis(jpegBytes, mimeType)));
+    }
+
+    /**
+     * Analiza una o varias paginas de un mismo documento en UN solo request a Vision.
+     *
+     * @param imagenes paginas en orden (cada una con sus bytes y mimeType)
+     * @return datos extraidos + raw response + uso de tokens
+     * @throws IOException si la API responde error o la respuesta no es parseable
+     */
+    public Resultado analizarImagenes(List<ImagenParaAnalisis> imagenes) throws IOException {
+        if (imagenes == null || imagenes.isEmpty()) {
+            throw new IOException("Sin imagenes para analizar");
+        }
+        for (ImagenParaAnalisis im : imagenes) {
+            if (im == null || im.bytes == null || im.bytes.length == 0) {
+                throw new IOException("Imagen vacia");
+            }
         }
 
         String apiKey = configService.getDecrypted("openai.api_key")
@@ -98,8 +139,12 @@ public class OpenAiVisionService {
             promptFinal = promptFinal + "\n\n" + promptAdicional.trim();
         }
 
-        String dataUrl = "data:" + mimeType + ";base64," + Base64.getEncoder().encodeToString(jpegBytes);
-        String requestBody = buildRequestBody(modelo, promptFinal, dataUrl);
+        List<String> dataUrls = new ArrayList<>(imagenes.size());
+        for (ImagenParaAnalisis im : imagenes) {
+            dataUrls.add("data:" + im.mimeType + ";base64,"
+                    + Base64.getEncoder().encodeToString(im.bytes));
+        }
+        String requestBody = buildRequestBody(modelo, promptFinal, dataUrls);
 
         URL url = new URL(baseUrl + "/v1/chat/completions");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -127,7 +172,7 @@ public class OpenAiVisionService {
         }
     }
 
-    String buildRequestBody(String modelo, String prompt, String imagenDataUrl) {
+    String buildRequestBody(String modelo, String prompt, List<String> imagenDataUrls) {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("model", modelo);
         root.put("temperature", 0);
@@ -144,17 +189,24 @@ public class OpenAiVisionService {
         userMsg.put("role", "user");
         ArrayNode contentArray = MAPPER.createArrayNode();
 
+        int n = imagenDataUrls.size();
+        String texto = n == 1
+                ? "Analiza esta imagen y extrae los datos en JSON segun el esquema indicado."
+                : "Analiza estas " + n + " paginas (en orden) de un mismo documento y consolida los "
+                        + "datos en UN solo JSON segun el esquema indicado.";
         ObjectNode textPart = MAPPER.createObjectNode();
         textPart.put("type", "text");
-        textPart.put("text", "Analiza esta imagen y extrae los datos en JSON segun el esquema indicado.");
+        textPart.put("text", texto);
         contentArray.add(textPart);
 
-        ObjectNode imagePart = MAPPER.createObjectNode();
-        imagePart.put("type", "image_url");
-        ObjectNode imgUrl = MAPPER.createObjectNode();
-        imgUrl.put("url", imagenDataUrl);
-        imagePart.set("image_url", imgUrl);
-        contentArray.add(imagePart);
+        for (String dataUrl : imagenDataUrls) {
+            ObjectNode imagePart = MAPPER.createObjectNode();
+            imagePart.put("type", "image_url");
+            ObjectNode imgUrl = MAPPER.createObjectNode();
+            imgUrl.put("url", dataUrl);
+            imagePart.set("image_url", imgUrl);
+            contentArray.add(imagePart);
+        }
 
         userMsg.set("content", contentArray);
         messages.add(userMsg);

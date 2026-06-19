@@ -17,18 +17,23 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 /**
  * Entry point del flujo de importacion automatica de facturas de proveedor.
  *
- * Recibe un archivo (imagen JPG/PNG o PDF), lo persiste fisicamente via ImagenMasterService,
- * llama a OpenAI Vision para extraer datos, persiste el resultado en FacturaProveedorImport
- * con estado REVISION_PENDIENTE listo para revision/confirmacion manual del usuario.
+ * Recibe uno o varios archivos (imagenes JPG/PNG, un PDF, o un XML SIFEN), los procesa y
+ * persiste el resultado en FacturaProveedorImport con estado REVISION_PENDIENTE listo para
+ * revision/confirmacion manual del usuario.
  *
- * En Hito 3 se extendera para aceptar rama XML (mimeType application/xml) usando
- * FacturaSifenXmlParserService, retornando el mismo objeto FacturaIaResponse.
+ * Multipagina: una factura legal puede ocupar varias hojas. Tanto un PDF de N paginas como
+ * varias fotos se convierten en una lista de imagenes que se envia en una sola llamada a
+ * OpenAI Vision, asi el modelo consolida los items de todas las paginas. El XML SIFEN ya
+ * contiene la factura completa, por eso acepta un solo archivo.
  */
 @Service
 public class FacturaImportOrchestratorService {
@@ -54,39 +59,88 @@ public class FacturaImportOrchestratorService {
     @Autowired
     private UsuarioService usuarioService;
 
+    /** Un archivo entrante: bytes crudos + nombre + mimeType. */
+    public static class ArchivoImport {
+        public final byte[] bytes;
+        public final String nombreArchivo;
+        public final String mimeType;
+
+        public ArchivoImport(byte[] bytes, String nombreArchivo, String mimeType) {
+            this.bytes = bytes;
+            this.nombreArchivo = nombreArchivo;
+            this.mimeType = mimeType;
+        }
+    }
+
     /**
+     * Overload de un solo archivo. Delega en {@link #procesarArchivos}.
+     *
      * @param archivoBytes contenido binario crudo
      * @param nombreArchivo nombre original (para log/debugging)
-     * @param mimeType "image/jpeg", "image/png", "application/pdf" (XML en hito 3)
+     * @param mimeType "image/jpeg", "image/png", "application/pdf", "application/xml"
      * @param usuarioId quien dispara la importacion
      * @return FacturaProveedorImport persistido en estado REVISION_PENDIENTE o ERROR
      */
     public FacturaProveedorImport procesarArchivo(byte[] archivoBytes, String nombreArchivo,
                                                    String mimeType, Long usuarioId) {
-        if (archivoBytes == null || archivoBytes.length == 0) {
-            throw new IllegalArgumentException("Archivo vacio");
+        return procesarArchivos(
+                Collections.singletonList(new ArchivoImport(archivoBytes, nombreArchivo, mimeType)),
+                usuarioId);
+    }
+
+    /**
+     * Procesa una factura compuesta por uno o varios archivos (paginas).
+     *
+     * @param archivos paginas en orden. Todas deben ser del mismo tipo (todas imagenes, o
+     *                 un PDF, o un XML). XML SIFEN acepta un solo archivo.
+     * @param usuarioId quien dispara la importacion
+     * @return FacturaProveedorImport persistido en estado REVISION_PENDIENTE o ERROR
+     */
+    public FacturaProveedorImport procesarArchivos(List<ArchivoImport> archivos, Long usuarioId) {
+        if (archivos == null || archivos.isEmpty()) {
+            throw new IllegalArgumentException("Sin archivos");
         }
-        if (mimeType == null) {
-            throw new IllegalArgumentException("mimeType requerido");
+        for (ArchivoImport a : archivos) {
+            if (a == null || a.bytes == null || a.bytes.length == 0) {
+                throw new IllegalArgumentException("Archivo vacio");
+            }
+            if (a.mimeType == null) {
+                throw new IllegalArgumentException("mimeType requerido");
+            }
         }
 
-        OrigenImport origen = detectarOrigen(mimeType);
+        OrigenImport origen = detectarOrigen(archivos.get(0).mimeType);
+        for (ArchivoImport a : archivos) {
+            if (detectarOrigen(a.mimeType) != origen) {
+                throw new IllegalArgumentException(
+                        "No se pueden mezclar tipos de archivo (XML/PDF/imagen) en una misma importacion");
+            }
+        }
+        if (origen == OrigenImport.XML_SIFEN && archivos.size() > 1) {
+            throw new IllegalArgumentException(
+                    "XML SIFEN: suba un solo archivo (el XML ya contiene la factura completa)");
+        }
+
+        String nombreConjunto = archivos.size() == 1
+                ? archivos.get(0).nombreArchivo
+                : archivos.get(0).nombreArchivo + " (+" + (archivos.size() - 1) + " pag.)";
         Optional<Usuario> usuarioOpt = usuarioId != null ? usuarioService.findById(usuarioId) : Optional.empty();
 
         // 1. Crear registro inicial en estado PROCESANDO
         FacturaProveedorImport imp = new FacturaProveedorImport();
         imp.setOrigen(origen);
         imp.setEstado(EstadoImport.PROCESANDO);
-        imp.setNombreArchivo(nombreArchivo);
+        imp.setNombreArchivo(nombreConjunto);
         imp.setUsuario(usuarioOpt.orElse(null));
         imp = importService.save(imp);
-        log.info("FacturaProveedorImport id={} creado en estado PROCESANDO origen={}", imp.getId(), origen);
+        log.info("FacturaProveedorImport id={} creado en estado PROCESANDO origen={} archivos={}",
+                imp.getId(), origen, archivos.size());
 
         try {
             if (origen == OrigenImport.XML_SIFEN) {
-                return procesarXml(imp, archivoBytes);
+                return procesarXml(imp, archivos.get(0).bytes);
             }
-            return procesarIA(imp, archivoBytes, origen, mimeType, nombreArchivo, usuarioId);
+            return procesarIA(imp, archivos, origen, usuarioId);
         } catch (Exception e) {
             log.error("Fallo procesando import id={}: {}", imp.getId(), e.getMessage(), e);
             imp.setEstado(EstadoImport.ERROR);
@@ -116,34 +170,37 @@ public class FacturaImportOrchestratorService {
         return importService.save(imp);
     }
 
-    private FacturaProveedorImport procesarIA(FacturaProveedorImport imp, byte[] archivoBytes,
-                                              OrigenImport origen, String mimeType,
-                                              String nombreArchivo, Long usuarioId) throws Exception {
-        // Convertir PDF a JPEG si corresponde
-        byte[] jpegBytes;
-        String mimeFinal;
-        if (origen == OrigenImport.IA_PDF) {
-            jpegBytes = pdfConverter.primerPaginaComoJpeg(archivoBytes);
-            mimeFinal = "image/jpeg";
-        } else {
-            jpegBytes = archivoBytes;
-            mimeFinal = mimeType;
+    private FacturaProveedorImport procesarIA(FacturaProveedorImport imp, List<ArchivoImport> archivos,
+                                              OrigenImport origen, Long usuarioId) throws Exception {
+        // Construir la lista de imagenes (paginas) a enviar a Vision.
+        // PDF: cada pagina -> JPEG. Imagen: cada archivo es una pagina.
+        List<OpenAiVisionService.ImagenParaAnalisis> imagenes = new ArrayList<>();
+        for (ArchivoImport a : archivos) {
+            if (origen == OrigenImport.IA_PDF) {
+                for (byte[] pageJpeg : pdfConverter.todasLasPaginasComoJpeg(a.bytes)) {
+                    imagenes.add(new OpenAiVisionService.ImagenParaAnalisis(pageJpeg, "image/jpeg"));
+                }
+            } else {
+                imagenes.add(new OpenAiVisionService.ImagenParaAnalisis(a.bytes, a.mimeType));
+            }
         }
 
-        // Persistir imagen en ImagenMaster (filesystem + DB)
-        String base64 = "data:" + mimeFinal + ";base64," + Base64.getEncoder().encodeToString(jpegBytes);
+        // Persistir la primera pagina en ImagenMaster como representativa (thumbnail/auditoria).
+        OpenAiVisionService.ImagenParaAnalisis primera = imagenes.get(0);
+        String base64 = "data:" + primera.mimeType + ";base64,"
+                + Base64.getEncoder().encodeToString(primera.bytes);
         ImagenMaster imagenMaster = imagenMasterService.saveImage(
                 base64,
                 TipoReferencia.FACTURA_PROVEEDOR_IMPORTADA,
                 imp.getId(),
-                nombreArchivo != null ? nombreArchivo : ("import-" + imp.getId()),
+                imp.getNombreArchivo() != null ? imp.getNombreArchivo() : ("import-" + imp.getId()),
                 true,
                 usuarioId
         );
         imp.setImagenMaster(imagenMaster);
 
-        // Llamar a OpenAI Vision
-        OpenAiVisionService.Resultado resultado = openAi.analizarImagen(jpegBytes, mimeFinal);
+        // Llamar a OpenAI Vision con todas las paginas en un solo request
+        OpenAiVisionService.Resultado resultado = openAi.analizarImagenes(imagenes);
 
         // Persistir json crudo + validado + tokens + modelo
         imp.setJsonCrudo(resultado.rawJson);
@@ -160,8 +217,8 @@ public class FacturaImportOrchestratorService {
             log.warn("Import id={} - IA reporto error: {}", imp.getId(), data.getError());
         } else {
             imp.setEstado(EstadoImport.REVISION_PENDIENTE);
-            log.info("Import id={} - extraccion OK, items={}, tokens={}+{}",
-                    imp.getId(),
+            log.info("Import id={} - extraccion OK, paginas={}, items={}, tokens={}+{}",
+                    imp.getId(), imagenes.size(),
                     data.getItems() != null ? data.getItems().size() : 0,
                     resultado.tokensPrompt, resultado.tokensRespuesta);
         }

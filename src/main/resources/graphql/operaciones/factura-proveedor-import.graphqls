@@ -48,11 +48,24 @@ type FacturaImportPreview {
     fechaEmision: String
     moneda: String
     totalGeneral: Float
+    # Suma de totalItem de los items extraidos (control de cuadre)
+    sumaItems: Float
+    # true si sumaItems coincide con totalGeneral (dentro de tolerancia); false si no cuadran;
+    # null si la factura no declara total o no hay items para comparar
+    totalesCuadran: Boolean
+    # Mensaje de advertencia cuando los totales no cuadran (ej: factura multipagina incompleta)
+    totalesAdvertencia: String
     esLegal: Boolean
     proveedorSugerido: Proveedor
     proveedorConfianza: String
     proveedorRazon: String
     items: [FacturaImportItemPreview]
+}
+
+input ArchivoImportInput {
+    archivoBase64: String!
+    nombreArchivo: String!
+    mimeType: String!
 }
 
 input ConfirmarFacturaImportItemInput {
@@ -73,6 +86,6 @@ extend type Query {
 }
 
 extend type Mutation {
-    importarFacturaProveedor(archivoBase64: String!, nombreArchivo: String!, mimeType: String!, usuarioId: Int!): FacturaProveedorImport!
+    importarFacturaProveedor(archivos: [ArchivoImportInput!]!, usuarioId: Int!): FacturaProveedorImport!
     confirmarFacturaImport(importId: ID!, proveedorId: Int!, items: [ConfirmarFacturaImportItemInput!]!, tipoBoleta: String, crearPedido: Boolean!, usuarioId: Int!): FacturaProveedorImport!
 }

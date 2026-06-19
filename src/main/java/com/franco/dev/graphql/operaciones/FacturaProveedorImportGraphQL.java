@@ -3,6 +3,7 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.operaciones.FacturaProveedorImport;
 import com.franco.dev.domain.operaciones.enums.EstadoImport;
 import com.franco.dev.graphql.operaciones.dto.FacturaImportPreviewDto;
+import com.franco.dev.graphql.operaciones.input.ArchivoImportInput;
 import com.franco.dev.graphql.operaciones.input.ConfirmarFacturaImportItemInput;
 import com.franco.dev.service.operaciones.FacturaImportConfirmService;
 import com.franco.dev.service.operaciones.FacturaImportOrchestratorService;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -64,11 +66,19 @@ public class FacturaProveedorImportGraphQL implements GraphQLQueryResolver, Grap
         return service.findPaged(est, p, s);
     }
 
-    public FacturaProveedorImport importarFacturaProveedor(String archivoBase64, String nombreArchivo,
-                                                            String mimeType, Integer usuarioId) {
-        byte[] bytes = decodificarBase64(archivoBase64);
+    public FacturaProveedorImport importarFacturaProveedor(List<ArchivoImportInput> archivos,
+                                                            Integer usuarioId) {
+        if (archivos == null || archivos.isEmpty()) {
+            throw new IllegalArgumentException("archivos requerido");
+        }
+        List<FacturaImportOrchestratorService.ArchivoImport> lista = new ArrayList<>();
+        for (ArchivoImportInput in : archivos) {
+            byte[] bytes = decodificarBase64(in.getArchivoBase64());
+            lista.add(new FacturaImportOrchestratorService.ArchivoImport(
+                    bytes, in.getNombreArchivo(), in.getMimeType()));
+        }
         Long uid = usuarioId != null ? usuarioId.longValue() : null;
-        return orchestrator.procesarArchivo(bytes, nombreArchivo, mimeType, uid);
+        return orchestrator.procesarArchivos(lista, uid);
     }
 
     private byte[] decodificarBase64(String base64) {

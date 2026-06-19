@@ -25,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -109,7 +110,52 @@ public class FacturaImportConfirmService {
             }
         }
         dto.setItems(itemsPreview);
+        aplicarControlDeTotales(dto, itemsPreview, data.getTotalGeneral());
         return Optional.of(dto);
+    }
+
+    /**
+     * Guardrail anti-perdida-silenciosa: suma los totalItem y los compara contra el totalGeneral
+     * declarado por la factura. Si no cuadran, marca el preview con una advertencia (tipico
+     * sintoma de una factura de varias paginas de la que solo se leyo una parte, o de un error
+     * de lectura). No bloquea la confirmacion — solo alerta al usuario.
+     */
+    void aplicarControlDeTotales(FacturaImportPreviewDto dto,
+                                 List<FacturaImportPreviewDto.ItemPreview> items,
+                                 BigDecimal totalGeneral) {
+        BigDecimal suma = null;
+        for (FacturaImportPreviewDto.ItemPreview ip : items) {
+            if (ip.getTotalItem() != null) {
+                suma = (suma == null ? BigDecimal.ZERO : suma).add(ip.getTotalItem());
+            }
+        }
+        dto.setSumaItems(suma);
+
+        if (totalGeneral == null) {
+            dto.setTotalesCuadran(null);
+            dto.setTotalesAdvertencia("La factura no declara un total general; revise los items manualmente.");
+            return;
+        }
+        if (suma == null) {
+            dto.setTotalesCuadran(null);
+            dto.setTotalesAdvertencia("No se pudo leer el importe de ningun item; revise manualmente.");
+            return;
+        }
+
+        // Tolerancia: 1% del total o 1 unidad, lo que sea mayor (redondeos de lectura).
+        BigDecimal tolerancia = totalGeneral.abs()
+                .multiply(new BigDecimal("0.01"))
+                .max(BigDecimal.ONE);
+        boolean cuadran = totalGeneral.subtract(suma).abs().compareTo(tolerancia) <= 0;
+        dto.setTotalesCuadran(cuadran);
+        if (!cuadran) {
+            dto.setTotalesAdvertencia(
+                    "La suma de los items (" + suma.toPlainString() + ") no coincide con el total de la "
+                    + "factura (" + totalGeneral.toPlainString() + "). Puede que falten items "
+                    + "(¿factura de varias paginas?) o que haya un error de lectura. Revise antes de confirmar.");
+            log.warn("Preview id={} - totales no cuadran: suma={} total={}",
+                    dto.getImportId(), suma.toPlainString(), totalGeneral.toPlainString());
+        }
     }
 
     /**

@@ -18,6 +18,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -45,18 +46,37 @@ public class OpenAiVisionService {
             "farmaceuticas y de distribucion de mercaderias. Analiza la imagen y extrae los datos en JSON " +
             "estricto. Pueden ser: (a) Documentos Electronicos SIFEN escaneados, (b) facturas legales en " +
             "papel con timbrado, o (c) notas comunes del proveedor (remito, nota de pedido, listado simple " +
-            "sin timbrado oficial). Campos: emisorRuc (formato XXXXXXXX-X si esta; null si no), " +
-            "emisorNombre, numeroFactura (o numero de nota si no es legal), timbrado (null si es nota " +
+            "sin timbrado oficial). EMISOR vs CLIENTE: el emisor es quien EMITE/VENDE la factura (el " +
+            "PROVEEDOR, suele figurar en el encabezado/membrete arriba con su logo y timbrado). El CLIENTE/" +
+            "comprador (campos 'Señor(es)', 'Razon Social', 'RUC/CI' del cuerpo) NO es el emisor: en estas " +
+            "compras el cliente casi siempre es 'FRANCO AREVALOS S.A.' u otra razon social de Franco — " +
+            "IGNORALO para emisorRuc/emisorNombre y usa SIEMPRE los datos del proveedor del encabezado. " +
+            "Campos: emisorRuc (RUC del PROVEEDOR, formato XXXXXXXX-X si esta; null si no), " +
+            "emisorNombre (nombre del PROVEEDOR), numeroFactura (o numero de nota si no es legal), timbrado (null si es nota " +
             "comun sin timbrado), fechaEmision (YYYY-MM-DD), moneda (PYG/USD), totalGeneral, esLegal " +
             "(boolean: true si tiene timbrado valido y formato de factura legal, false si es nota comun). " +
             "Items: codigoProducto, nombreProducto, cantidad, precioUnitario, descuento (0 si no hay), " +
-            "totalItem. Si un campo no es legible: null. No inventes datos. Si recibes varias imagenes, " +
+            "totalItem. NUMEROS: en Paraguay el papel usa el PUNTO como separador de miles y la COMA como " +
+            "decimal (ej '264.408' = doscientos sesenta y cuatro mil cuatrocientos ocho; '11.017,50' = once " +
+            "mil diecisiete con 50). En el JSON devuelve los numeros CRUDOS sin separador de miles y usando " +
+            "PUNTO como decimal: 264408, 11017, 11017.5. NUNCA pongas separador de miles en el JSON. " +
+            "CANTIDADES: la columna de cantidad suele estar MANUSCRITA y es poco legible; si no estas seguro " +
+            "de la cantidad, deducela como totalItem/precioUnitario (redondeando a entero) en vez de adivinar " +
+            "el numero escrito a mano. precioUnitario y totalItem casi siempre estan impresos: priorizalos. " +
+            "Si un campo no es legible: null. No inventes datos. Si recibes varias imagenes, " +
             "son paginas del MISMO documento en orden: consolida todos los items de todas las paginas en " +
             "una sola lista (los items pueden continuar de una pagina a la otra), y devuelve la cabecera y " +
             "el totalGeneral una sola vez (no los repitas por pagina). Si la imagen no es factura ni " +
             "nota comercial: {\"error\":\"NO_ES_DOCUMENTO_VALIDO\"}.";
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /**
+     * Tope de tokens de salida. Acota el costo y, sobre todo, evita que una imagen densa o de baja
+     * calidad meta al modelo en un loop de repeticion de items sin fin. Si se alcanza, la respuesta
+     * llega con finish_reason="length" (truncada) y la detectamos para dar un error claro.
+     */
+    private static final int MAX_TOKENS = 8000;
 
     @Autowired
     private ConfiguracionSistemaService configService;
@@ -176,6 +196,7 @@ public class OpenAiVisionService {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("model", modelo);
         root.put("temperature", 0);
+        root.put("max_tokens", MAX_TOKENS);
         root.set("response_format", MAPPER.createObjectNode().put("type", "json_object"));
 
         ArrayNode messages = MAPPER.createArrayNode();
@@ -221,12 +242,24 @@ public class OpenAiVisionService {
         if (!choices.isArray() || choices.size() == 0) {
             throw new IOException("Respuesta OpenAI sin choices: " + truncar(responseBody, 300));
         }
+        String finishReason = choices.get(0).path("finish_reason").asText("");
+        if ("length".equals(finishReason)) {
+            // El modelo agoto el cupo de salida (tipico de imagen densa/baja calidad que lo hace
+            // repetir items). La respuesta esta truncada: cortamos con un error entendible en vez
+            // de fallar con un JsonEOF cripto.
+            throw new IOException("La IA devolvio una respuesta truncada (demasiados items o imagen "
+                    + "de baja calidad/poco legible). Probá con una imagen mas nitida o subí menos "
+                    + "paginas por vez.");
+        }
         String content = choices.get(0).path("message").path("content").asText("");
         if (content.isEmpty()) {
             throw new IOException("Respuesta OpenAI sin content");
         }
 
         FacturaIaResponse data = MAPPER.readValue(content, FacturaIaResponse.class);
+        // El modelo a veces emite montos con el separador de miles paraguayo (264.408 -> 264.408
+        // decimal en JSON). Normalizamos en codigo a partir del texto crudo, sin depender del prompt.
+        normalizarMontos(data, MAPPER.readTree(content));
 
         JsonNode usage = root.path("usage");
         Integer promptTok = usage.has("prompt_tokens") ? usage.get("prompt_tokens").asInt() : null;
@@ -234,6 +267,58 @@ public class OpenAiVisionService {
         String modeloUsado = root.path("model").asText(modeloSolicitado);
 
         return new Resultado(data, content, promptTok, compTok, modeloUsado);
+    }
+
+    /**
+     * Reescribe los montos del FacturaIaResponse a partir del texto crudo de OpenAI, para evitar
+     * que el separador de miles paraguayo se interprete como decimal (264.408 -> 264408).
+     * No toca cantidad ni descuento (pueden ser fracciones o porcentajes legitimos).
+     */
+    static void normalizarMontos(FacturaIaResponse data, JsonNode contentNode) {
+        if (data == null || contentNode == null) return;
+        String moneda = data.getMoneda();
+
+        JsonNode totalNode = contentNode.get("totalGeneral");
+        if (totalNode != null && !totalNode.isNull()) {
+            data.setTotalGeneral(normMonto(totalNode, moneda));
+        }
+
+        JsonNode itemsNode = contentNode.get("items");
+        if (data.getItems() != null && itemsNode != null && itemsNode.isArray()) {
+            int n = Math.min(data.getItems().size(), itemsNode.size());
+            for (int i = 0; i < n; i++) {
+                JsonNode itNode = itemsNode.get(i);
+                FacturaIaResponse.Item it = data.getItems().get(i);
+                if (itNode.get("precioUnitario") != null && !itNode.get("precioUnitario").isNull()) {
+                    it.setPrecioUnitario(normMonto(itNode.get("precioUnitario"), moneda));
+                }
+                if (itNode.get("totalItem") != null && !itNode.get("totalItem").isNull()) {
+                    it.setTotalItem(normMonto(itNode.get("totalItem"), moneda));
+                }
+            }
+        }
+    }
+
+    /**
+     * Convierte un monto del texto crudo a BigDecimal aplicando el formato paraguayo:
+     * PYG (Guaranies, sin decimales) -> se quitan TODOS los . y , (son separadores de miles).
+     * Otra moneda (USD) -> , es separador de miles y . es decimal.
+     */
+    static BigDecimal normMonto(JsonNode node, String moneda) {
+        if (node == null || node.isNull()) return null;
+        String s = node.asText().trim();
+        if (s.isEmpty()) return null;
+        boolean pyg = moneda == null || moneda.isEmpty()
+                || moneda.equalsIgnoreCase("PYG") || moneda.equalsIgnoreCase("GS")
+                || moneda.equalsIgnoreCase("Guarani") || moneda.equalsIgnoreCase("Guaranies");
+        String limpio = pyg ? s.replace(".", "").replace(",", "")
+                            : s.replace(",", "");
+        try {
+            return new BigDecimal(limpio);
+        } catch (NumberFormatException e) {
+            log.warn("Monto no parseable '{}' (moneda={}), se deja como vino", s, moneda);
+            return node.isNumber() ? node.decimalValue() : null;
+        }
     }
 
     private static String leerStream(InputStream is) throws IOException {

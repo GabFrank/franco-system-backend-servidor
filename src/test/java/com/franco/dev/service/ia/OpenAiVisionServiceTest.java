@@ -159,6 +159,47 @@ class OpenAiVisionServiceTest {
     }
 
     @Test
+    void normMonto_pyg_quitaSeparadorDeMiles() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        // OpenAI emite el . paraguayo de miles como "decimal" JSON
+        assertEquals(new java.math.BigDecimal("264408"),
+                OpenAiVisionService.normMonto(m.readTree("264.408"), "PYG"));
+        assertEquals(new java.math.BigDecimal("11017"),
+                OpenAiVisionService.normMonto(m.readTree("11.017"), "PYG"));
+        // entero ya limpio se respeta
+        assertEquals(new java.math.BigDecimal("150000"),
+                OpenAiVisionService.normMonto(m.readTree("150000"), "PYG"));
+        // moneda null se trata como PYG; string con doble separador de miles
+        assertEquals(new java.math.BigDecimal("3263463"),
+                OpenAiVisionService.normMonto(m.readTree("\"3.263.463\""), null));
+    }
+
+    @Test
+    void normMonto_usd_puntoEsDecimal() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        assertEquals(0, new java.math.BigDecimal("1234.50")
+                .compareTo(OpenAiVisionService.normMonto(m.readTree("\"1,234.50\""), "USD")));
+    }
+
+    @Test
+    void normalizarMontos_reescribeTotalEItems() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper m = new com.fasterxml.jackson.databind.ObjectMapper();
+        String content = "{\"moneda\":\"PYG\",\"totalGeneral\":264.408,\"items\":[" +
+                "{\"precioUnitario\":11.017,\"totalItem\":264.408,\"cantidad\":24}]}";
+        FacturaIaResponse data = m.readValue(content, FacturaIaResponse.class);
+        // antes de normalizar: malinterpretado como decimal
+        assertEquals(0, new java.math.BigDecimal("264.408").compareTo(data.getTotalGeneral()));
+
+        OpenAiVisionService.normalizarMontos(data, m.readTree(content));
+
+        assertEquals(new java.math.BigDecimal("264408"), data.getTotalGeneral());
+        assertEquals(new java.math.BigDecimal("11017"), data.getItems().get(0).getPrecioUnitario());
+        assertEquals(new java.math.BigDecimal("264408"), data.getItems().get(0).getTotalItem());
+        // cantidad no se toca
+        assertEquals(0, new java.math.BigDecimal("24").compareTo(data.getItems().get(0).getCantidad()));
+    }
+
+    @Test
     void analizarImagenes_listaVacia_lanzaIOException() {
         assertThrows(IOException.class,
                 () -> service.analizarImagenes(java.util.Collections.emptyList()));
@@ -210,6 +251,25 @@ class OpenAiVisionServiceTest {
                 () -> service.analizarImagen(new byte[]{1}, "image/jpeg"));
         assertTrue(ex.getMessage().contains("401"), "mensaje incluye codigo HTTP: " + ex.getMessage());
         assertTrue(ex.getMessage().contains("Invalid key"), "incluye body de error");
+    }
+
+    @Test
+    void analizarImagen_respuestaTruncada_finishReasonLength_lanzaErrorClaro() {
+        // finish_reason=length => respuesta cortada por limite de tokens (loop de repeticion)
+        mockResponse.set("{\"model\":\"gpt-4o\",\"choices\":[{\"finish_reason\":\"length\","
+                + "\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"items\\\":[\"}}]}");
+
+        IOException ex = assertThrows(IOException.class,
+                () -> service.analizarImagen(new byte[]{1}, "image/jpeg"));
+        assertTrue(ex.getMessage().toLowerCase().contains("truncada"),
+                "mensaje claro de truncacion: " + ex.getMessage());
+    }
+
+    @Test
+    void buildRequestBody_incluyeMaxTokens() throws Exception {
+        mockResponse.set(buildOpenAiResponse("{\"items\":[]}", "gpt-4o", 10, 5));
+        service.analizarImagen(new byte[]{1}, "image/jpeg");
+        assertTrue(capturedBody.get().contains("\"max_tokens\""), "request incluye max_tokens");
     }
 
     @Test

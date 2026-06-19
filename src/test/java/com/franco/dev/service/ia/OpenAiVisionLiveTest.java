@@ -74,10 +74,15 @@ class OpenAiVisionLiveTest {
             }
         }
         System.out.println("\n========== SMOKE TEST OpenAI ==========");
-        System.out.println("Modelo: " + modelo + " | paginas enviadas: " + imagenes.size());
+        System.out.println("Modelo: " + modelo + " | paginas: " + imagenes.size() + " (1 llamada por pagina)");
 
-        // -- llamada real --
-        OpenAiVisionService.Resultado r = vision.analizarImagenes(imagenes);
+        // -- llamada real: una por pagina, luego merge (igual que produccion) --
+        List<OpenAiVisionService.Resultado> partes = new ArrayList<>();
+        for (int i = 0; i < imagenes.size(); i++) {
+            System.out.println("  -> analizando pagina " + (i + 1) + "/" + imagenes.size());
+            partes.add(vision.analizarImagen(imagenes.get(i).bytes, imagenes.get(i).mimeType));
+        }
+        OpenAiVisionService.Resultado r = OpenAiVisionService.mergeResultados(partes);
 
         System.out.println("Tokens: prompt=" + r.tokensPrompt + " respuesta=" + r.tokensRespuesta
                 + " | modelo usado=" + r.modeloUsado);

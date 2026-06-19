@@ -321,6 +321,63 @@ public class OpenAiVisionService {
         }
     }
 
+    /**
+     * Fusiona los resultados de analizar cada pagina por separado en un unico FacturaIaResponse.
+     * Estrategia multipagina (mas robusta que mandar todas las imagenes juntas, que hace al modelo
+     * repetir items en loop): cabecera = primer valor no nulo (suele estar en pag 1); totalGeneral =
+     * ultimo valor no nulo (el total general aparece en la ultima pagina); items = concatenacion.
+     * Las paginas de continuacion que el modelo marca como "no documento valido" se ignoran salvo
+     * que traigan items. Suma tokens de todas las llamadas.
+     */
+    public static Resultado mergeResultados(List<Resultado> partes) {
+        if (partes == null || partes.isEmpty()) {
+            throw new IllegalArgumentException("Sin resultados para fusionar");
+        }
+        if (partes.size() == 1) {
+            return partes.get(0);
+        }
+        FacturaIaResponse merged = new FacturaIaResponse();
+        List<FacturaIaResponse.Item> items = new ArrayList<>();
+        int tokP = 0, tokR = 0;
+        String modelo = null;
+        List<String> raws = new ArrayList<>();
+        boolean algunaValida = false;
+
+        for (Resultado r : partes) {
+            if (r == null) continue;
+            if (r.rawJson != null) raws.add(r.rawJson);
+            if (r.tokensPrompt != null) tokP += r.tokensPrompt;
+            if (r.tokensRespuesta != null) tokR += r.tokensRespuesta;
+            if (modelo == null) modelo = r.modeloUsado;
+
+            FacturaIaResponse d = r.data;
+            if (d == null) continue;
+            boolean esError = d.getError() != null && !d.getError().isEmpty();
+            if (!esError) {
+                algunaValida = true;
+                if (merged.getEmisorRuc() == null) merged.setEmisorRuc(d.getEmisorRuc());
+                if (merged.getEmisorNombre() == null) merged.setEmisorNombre(d.getEmisorNombre());
+                if (merged.getNumeroFactura() == null) merged.setNumeroFactura(d.getNumeroFactura());
+                if (merged.getTimbrado() == null) merged.setTimbrado(d.getTimbrado());
+                if (merged.getFechaEmision() == null) merged.setFechaEmision(d.getFechaEmision());
+                if (merged.getMoneda() == null) merged.setMoneda(d.getMoneda());
+                if (merged.getEsLegal() == null) merged.setEsLegal(d.getEsLegal());
+                // total general: el ultimo no-nulo gana (suele estar en la ultima pagina)
+                if (d.getTotalGeneral() != null) merged.setTotalGeneral(d.getTotalGeneral());
+            }
+            if (d.getItems() != null && !d.getItems().isEmpty()) {
+                items.addAll(d.getItems());
+                algunaValida = true;
+            }
+        }
+        merged.setItems(items);
+        if (!algunaValida) {
+            merged.setError("NO_ES_DOCUMENTO_VALIDO");
+        }
+        String rawMerged = "[" + String.join(",", raws) + "]";
+        return new Resultado(merged, rawMerged, tokP, tokR, modelo);
+    }
+
     private static String leerStream(InputStream is) throws IOException {
         if (is == null) return "";
         try (BufferedReader r = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))) {

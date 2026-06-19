@@ -200,6 +200,60 @@ class OpenAiVisionServiceTest {
     }
 
     @Test
+    void mergeResultados_concatenaItems_headerPrimero_totalUltimo() {
+        FacturaIaResponse p1 = new FacturaIaResponse();
+        p1.setEmisorRuc("80012345-6");
+        p1.setEmisorNombre("PROVEEDOR SA");
+        p1.setMoneda("PYG");
+        FacturaIaResponse.Item i1 = new FacturaIaResponse.Item();
+        i1.setNombreProducto("A");
+        i1.setTotalItem(new java.math.BigDecimal("100"));
+        p1.setItems(new java.util.ArrayList<>(java.util.Collections.singletonList(i1)));
+
+        FacturaIaResponse p2 = new FacturaIaResponse();
+        p2.setTotalGeneral(new java.math.BigDecimal("300")); // total general en la ultima pagina
+        FacturaIaResponse.Item i2 = new FacturaIaResponse.Item();
+        i2.setNombreProducto("B");
+        i2.setTotalItem(new java.math.BigDecimal("200"));
+        p2.setItems(new java.util.ArrayList<>(java.util.Collections.singletonList(i2)));
+
+        OpenAiVisionService.Resultado m = OpenAiVisionService.mergeResultados(java.util.Arrays.asList(
+                new OpenAiVisionService.Resultado(p1, "{\"a\":1}", 10, 5, "gpt-4o"),
+                new OpenAiVisionService.Resultado(p2, "{\"b\":2}", 8, 4, "gpt-4o")));
+
+        assertEquals("80012345-6", m.data.getEmisorRuc(), "header de la pag 1");
+        assertEquals(new java.math.BigDecimal("300"), m.data.getTotalGeneral(), "total de la ultima pag");
+        assertEquals(2, m.data.getItems().size(), "items concatenados");
+        assertEquals(18, m.tokensPrompt, "tokens sumados");
+        assertEquals(9, m.tokensRespuesta);
+    }
+
+    @Test
+    void mergeResultados_paginaContinuacionConError_seIgnoraSiTraeItemsLaOtra() {
+        FacturaIaResponse p1 = new FacturaIaResponse();
+        p1.setEmisorRuc("X");
+        FacturaIaResponse.Item i1 = new FacturaIaResponse.Item();
+        i1.setNombreProducto("A");
+        p1.setItems(new java.util.ArrayList<>(java.util.Collections.singletonList(i1)));
+        FacturaIaResponse p2 = new FacturaIaResponse();
+        p2.setError("NO_ES_DOCUMENTO_VALIDO");
+
+        OpenAiVisionService.Resultado m = OpenAiVisionService.mergeResultados(java.util.Arrays.asList(
+                new OpenAiVisionService.Resultado(p1, "{}", 1, 1, "m"),
+                new OpenAiVisionService.Resultado(p2, "{}", 1, 1, "m")));
+
+        assertNull(m.data.getError(), "no hay error global porque la pag 1 es valida");
+        assertEquals(1, m.data.getItems().size());
+    }
+
+    @Test
+    void mergeResultados_unaSolaParte_devuelveLaMisma() {
+        OpenAiVisionService.Resultado r =
+                new OpenAiVisionService.Resultado(new FacturaIaResponse(), "{}", 1, 1, "m");
+        assertSame(r, OpenAiVisionService.mergeResultados(java.util.Collections.singletonList(r)));
+    }
+
+    @Test
     void analizarImagenes_listaVacia_lanzaIOException() {
         assertThrows(IOException.class,
                 () -> service.analizarImagenes(java.util.Collections.emptyList()));

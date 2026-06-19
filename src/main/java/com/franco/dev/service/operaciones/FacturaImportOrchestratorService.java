@@ -8,6 +8,7 @@ import com.franco.dev.domain.operaciones.enums.EstadoImport;
 import com.franco.dev.domain.operaciones.enums.OrigenImport;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.ia.FacturaIaResponse;
+import com.franco.dev.service.ia.ImagenCalidadValidator;
 import com.franco.dev.service.ia.OpenAiVisionService;
 import com.franco.dev.service.ia.PdfConverterService;
 import com.franco.dev.service.media.ImagenMasterService;
@@ -43,6 +44,9 @@ public class FacturaImportOrchestratorService {
 
     @Autowired
     private PdfConverterService pdfConverter;
+
+    @Autowired
+    private ImagenCalidadValidator calidadValidator;
 
     @Autowired
     private OpenAiVisionService openAi;
@@ -172,21 +176,22 @@ public class FacturaImportOrchestratorService {
 
     private FacturaProveedorImport procesarIA(FacturaProveedorImport imp, List<ArchivoImport> archivos,
                                               OrigenImport origen, Long usuarioId) throws Exception {
-        // Construir la lista de imagenes (paginas) a enviar a Vision.
-        // PDF: cada pagina -> JPEG. Imagen: cada archivo es una pagina.
-        List<OpenAiVisionService.ImagenParaAnalisis> imagenes = new ArrayList<>();
+        // Construir la lista de paginas a analizar.
+        // PDF: cada pagina -> JPEG (DPI controlado). Imagen subida: se valida resolucion primero.
+        List<OpenAiVisionService.ImagenParaAnalisis> paginas = new ArrayList<>();
         for (ArchivoImport a : archivos) {
             if (origen == OrigenImport.IA_PDF) {
                 for (byte[] pageJpeg : pdfConverter.todasLasPaginasComoJpeg(a.bytes)) {
-                    imagenes.add(new OpenAiVisionService.ImagenParaAnalisis(pageJpeg, "image/jpeg"));
+                    paginas.add(new OpenAiVisionService.ImagenParaAnalisis(pageJpeg, "image/jpeg"));
                 }
             } else {
-                imagenes.add(new OpenAiVisionService.ImagenParaAnalisis(a.bytes, a.mimeType));
+                calidadValidator.validar(a.bytes, a.nombreArchivo);
+                paginas.add(new OpenAiVisionService.ImagenParaAnalisis(a.bytes, a.mimeType));
             }
         }
 
         // Persistir la primera pagina en ImagenMaster como representativa (thumbnail/auditoria).
-        OpenAiVisionService.ImagenParaAnalisis primera = imagenes.get(0);
+        OpenAiVisionService.ImagenParaAnalisis primera = paginas.get(0);
         String base64 = "data:" + primera.mimeType + ";base64,"
                 + Base64.getEncoder().encodeToString(primera.bytes);
         ImagenMaster imagenMaster = imagenMasterService.saveImage(
@@ -199,8 +204,19 @@ public class FacturaImportOrchestratorService {
         );
         imp.setImagenMaster(imagenMaster);
 
-        // Llamar a OpenAI Vision con todas las paginas en un solo request
-        OpenAiVisionService.Resultado resultado = openAi.analizarImagenes(imagenes);
+        // Analizar UNA pagina por llamada y fusionar. Mandar todas las imagenes juntas hace que el
+        // modelo repita items en loop y trunque; por pagina cada respuesta queda acotada.
+        List<OpenAiVisionService.Resultado> partes = new ArrayList<>();
+        for (int i = 0; i < paginas.size(); i++) {
+            OpenAiVisionService.ImagenParaAnalisis p = paginas.get(i);
+            try {
+                partes.add(openAi.analizarImagen(p.bytes, p.mimeType));
+            } catch (java.io.IOException e) {
+                throw new java.io.IOException(
+                        "Pagina " + (i + 1) + "/" + paginas.size() + ": " + e.getMessage(), e);
+            }
+        }
+        OpenAiVisionService.Resultado resultado = OpenAiVisionService.mergeResultados(partes);
 
         // Persistir json crudo + validado + tokens + modelo
         imp.setJsonCrudo(resultado.rawJson);
@@ -218,7 +234,7 @@ public class FacturaImportOrchestratorService {
         } else {
             imp.setEstado(EstadoImport.REVISION_PENDIENTE);
             log.info("Import id={} - extraccion OK, paginas={}, items={}, tokens={}+{}",
-                    imp.getId(), imagenes.size(),
+                    imp.getId(), partes.size(),
                     data.getItems() != null ? data.getItems().size() : 0,
                     resultado.tokensPrompt, resultado.tokensRespuesta);
         }

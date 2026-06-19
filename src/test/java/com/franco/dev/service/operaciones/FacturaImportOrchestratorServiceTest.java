@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.FacturaProveedorImport;
 import com.franco.dev.domain.operaciones.enums.EstadoImport;
 import com.franco.dev.domain.operaciones.enums.OrigenImport;
 import com.franco.dev.service.ia.FacturaIaResponse;
+import com.franco.dev.service.ia.ImagenCalidadValidator;
 import com.franco.dev.service.ia.OpenAiVisionService;
 import com.franco.dev.service.ia.PdfConverterService;
 import com.franco.dev.service.media.ImagenMasterService;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.*;
 class FacturaImportOrchestratorServiceTest {
 
     @Mock PdfConverterService pdfConverter;
+    @Mock ImagenCalidadValidator calidadValidator;
     @Mock OpenAiVisionService openAi;
     @Mock FacturaSifenXmlParserService xmlParser;
     @Mock ImagenMasterService imagenMasterService;
@@ -95,9 +97,10 @@ class FacturaImportOrchestratorServiceTest {
         assertNotNull(result.getJsonValidado());
         verify(xmlParser).parsearXml(xml);
         // XML no usa imagen ni IA
-        verify(openAi, never()).analizarImagenes(any());
+        verify(openAi, never()).analizarImagen(any(), anyString());
         verifyNoInteractions(imagenMasterService);
         verifyNoInteractions(pdfConverter);
+        verifyNoInteractions(calidadValidator);
     }
 
     @Test
@@ -115,7 +118,7 @@ class FacturaImportOrchestratorServiceTest {
 
     @Test
     void procesarArchivo_imagen_flujoFeliz_estadoRevisionPendiente() throws Exception {
-        when(openAi.analizarImagenes(any())).thenReturn(mockResultadoIa("80012345-6", false));
+        when(openAi.analizarImagen(any(), anyString())).thenReturn(mockResultadoIa("80012345-6", false));
 
         FacturaProveedorImport result = orchestrator.procesarArchivo(
                 new byte[]{1, 2, 3}, "factura.jpg", "image/jpeg", 1L);
@@ -123,27 +126,39 @@ class FacturaImportOrchestratorServiceTest {
         assertEquals(EstadoImport.REVISION_PENDIENTE, result.getEstado());
         assertEquals(OrigenImport.IA_IMAGEN, result.getOrigen());
         assertEquals("gpt-4o", result.getModeloIa());
-        assertEquals(100, result.getTokensPrompt());
-        assertEquals(50, result.getTokensRespuesta());
         assertNotNull(result.getJsonValidado());
         assertNotNull(result.getJsonCrudo());
         assertNull(result.getErrorMensaje());
+
+        // la imagen subida se valida; el PDF converter NO se toca
+        verify(calidadValidator).validar(any(), eq("factura.jpg"));
+        verify(pdfConverter, never()).todasLasPaginasComoJpeg(any());
 
         ArgumentCaptor<TipoReferencia> tipoCaptor = ArgumentCaptor.forClass(TipoReferencia.class);
         verify(imagenMasterService).saveImage(anyString(), tipoCaptor.capture(), eq(42L),
                 anyString(), eq(true), eq(1L));
         assertEquals(TipoReferencia.FACTURA_PROVEEDOR_IMPORTADA, tipoCaptor.getValue());
-
-        // PdfConverter NO debe ser invocado para imagen
-        verify(pdfConverter, never()).todasLasPaginasComoJpeg(any());
     }
 
     @Test
-    void procesarArchivo_pdf_convierteTodasLasPaginasAntesDeIA() throws Exception {
+    void procesarArchivo_imagenBajaResolucion_marcaError_noLlamaIA() throws Exception {
+        doThrow(new IllegalArgumentException("Imagen de baja resolucion (1080x1480)"))
+                .when(calidadValidator).validar(any(), anyString());
+
+        FacturaProveedorImport result = orchestrator.procesarArchivo(
+                new byte[]{1, 2, 3}, "wa.jpg", "image/jpeg", 1L);
+
+        assertEquals(EstadoImport.ERROR, result.getEstado());
+        assertTrue(result.getErrorMensaje().contains("baja resolucion"));
+        verify(openAi, never()).analizarImagen(any(), anyString());
+    }
+
+    @Test
+    void procesarArchivo_pdf_analizaCadaPaginaPorSeparado() throws Exception {
         byte[] page1 = new byte[]{(byte) 0xFF, (byte) 0xD8, 1};
         byte[] page2 = new byte[]{(byte) 0xFF, (byte) 0xD8, 2};
         when(pdfConverter.todasLasPaginasComoJpeg(any())).thenReturn(Arrays.asList(page1, page2));
-        when(openAi.analizarImagenes(any())).thenReturn(mockResultadoIa("99999-1", true));
+        when(openAi.analizarImagen(any(), anyString())).thenReturn(mockResultadoIa("99999-1", true));
 
         FacturaProveedorImport result = orchestrator.procesarArchivo(
                 new byte[]{0x25, 0x50, 0x44, 0x46}, "factura.pdf", "application/pdf", 1L);
@@ -151,17 +166,15 @@ class FacturaImportOrchestratorServiceTest {
         assertEquals(EstadoImport.REVISION_PENDIENTE, result.getEstado());
         assertEquals(OrigenImport.IA_PDF, result.getOrigen());
         verify(pdfConverter).todasLasPaginasComoJpeg(any());
-
-        // Ambas paginas del PDF se envian en UNA sola llamada a Vision
-        ArgumentCaptor<List<OpenAiVisionService.ImagenParaAnalisis>> cap = imagenesCaptor();
-        verify(openAi).analizarImagenes(cap.capture());
-        assertEquals(2, cap.getValue().size());
-        assertEquals("image/jpeg", cap.getValue().get(0).mimeType);
+        // UNA llamada Vision por pagina (2 paginas -> 2 llamadas), no una sola con ambas
+        verify(openAi, times(2)).analizarImagen(any(), eq("image/jpeg"));
+        // las paginas de PDF no pasan por el validador de imagen subida
+        verifyNoInteractions(calidadValidator);
     }
 
     @Test
-    void procesarArchivos_variasImagenes_seEnvianTodasEnUnaLlamada() throws Exception {
-        when(openAi.analizarImagenes(any())).thenReturn(mockResultadoIa("80012345-6", true));
+    void procesarArchivos_variasImagenes_unaLlamadaPorPagina() throws Exception {
+        when(openAi.analizarImagen(any(), anyString())).thenReturn(mockResultadoIa("80012345-6", true));
 
         List<FacturaImportOrchestratorService.ArchivoImport> archivos = Arrays.asList(
                 new FacturaImportOrchestratorService.ArchivoImport(new byte[]{1}, "p1.jpg", "image/jpeg"),
@@ -171,12 +184,8 @@ class FacturaImportOrchestratorServiceTest {
         FacturaProveedorImport result = orchestrator.procesarArchivos(archivos, 1L);
 
         assertEquals(EstadoImport.REVISION_PENDIENTE, result.getEstado());
-        ArgumentCaptor<List<OpenAiVisionService.ImagenParaAnalisis>> cap = imagenesCaptor();
-        verify(openAi).analizarImagenes(cap.capture());
-        assertEquals(3, cap.getValue().size());
-        // Una sola llamada a Vision aunque sean 3 paginas
-        verify(openAi, times(1)).analizarImagenes(any());
-        // nombreArchivo refleja que hay varias paginas
+        verify(openAi, times(3)).analizarImagen(any(), anyString());
+        verify(calidadValidator, times(3)).validar(any(), anyString());
         assertTrue(result.getNombreArchivo().contains("+2"));
     }
 
@@ -206,7 +215,7 @@ class FacturaImportOrchestratorServiceTest {
         errorResp.setError("NO_ES_DOCUMENTO_VALIDO");
         OpenAiVisionService.Resultado res = new OpenAiVisionService.Resultado(
                 errorResp, "{\"error\":\"NO_ES_DOCUMENTO_VALIDO\"}", 30, 10, "gpt-4o");
-        when(openAi.analizarImagenes(any())).thenReturn(res);
+        when(openAi.analizarImagen(any(), anyString())).thenReturn(res);
 
         FacturaProveedorImport result = orchestrator.procesarArchivo(
                 new byte[]{1}, "no-factura.jpg", "image/jpeg", 1L);
@@ -217,7 +226,7 @@ class FacturaImportOrchestratorServiceTest {
 
     @Test
     void procesarArchivo_iaLanzaIOException_marcaError_noPropaga() throws Exception {
-        when(openAi.analizarImagenes(any())).thenThrow(new IOException("HTTP 500"));
+        when(openAi.analizarImagen(any(), anyString())).thenThrow(new IOException("HTTP 500"));
 
         FacturaProveedorImport result = orchestrator.procesarArchivo(
                 new byte[]{1}, "x.jpg", "image/jpeg", 1L);
@@ -235,7 +244,7 @@ class FacturaImportOrchestratorServiceTest {
 
         assertEquals(EstadoImport.ERROR, result.getEstado());
         assertTrue(result.getErrorMensaje().contains("PDF corrupto"));
-        verify(openAi, never()).analizarImagenes(any());
+        verify(openAi, never()).analizarImagen(any(), anyString());
     }
 
     @Test
@@ -261,11 +270,6 @@ class FacturaImportOrchestratorServiceTest {
     }
 
     // -- helpers --
-
-    @SuppressWarnings("unchecked")
-    private static ArgumentCaptor<List<OpenAiVisionService.ImagenParaAnalisis>> imagenesCaptor() {
-        return ArgumentCaptor.forClass(List.class);
-    }
 
     private static OpenAiVisionService.Resultado mockResultadoIa(String ruc, boolean esLegal) {
         FacturaIaResponse r = new FacturaIaResponse();

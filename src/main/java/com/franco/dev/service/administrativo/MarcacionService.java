@@ -35,6 +35,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     private final HorasTrabajadasCalculator horasTrabajadasCalculator;
     private final AlmuerzoProcessor almuerzoProcessor;
     private final JornadaFactory jornadaFactory;
+    private final JornadaMarcacionRules jornadaMarcacionRules;
 
     @Override
     public MarcacionRepository getRepository() {
@@ -70,6 +71,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Marcacion save(Marcacion marcacion) {
         prepararMarcacion(marcacion);
+        validarMarcacion(marcacion);
 
         // Guardamos el estado transiente antes de la persistencia
         Boolean esSalidaAlmuerzo = marcacion.getEsSalidaAlmuerzo();
@@ -154,9 +156,24 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
 
             jornadaService.save(jornada);
 
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error crítico procesando jornada para marcación ID: {} en sucursal: {}",
                     marcacion.getId(), marcacion.getSucursalId(), e);
+            throw new RuntimeException("Error procesando jornada de marcación", e);
+        }
+    }
+
+    private void validarMarcacion(Marcacion marcacion) {
+        if (marcacion.getUsuario() == null || marcacion.getUsuario().getId() == null) {
+            return;
+        }
+        java.time.LocalDate fechaMarcacion = obtenerFechaReferencia(marcacion).toLocalDate();
+        if (marcacion.getTipo() == TipoMarcacion.ENTRADA) {
+            jornadaMarcacionRules.validarEntrada(marcacion.getUsuario().getId(), fechaMarcacion);
+        } else if (marcacion.getTipo() == TipoMarcacion.SALIDA) {
+            jornadaMarcacionRules.validarSalida(marcacion.getUsuario().getId(), fechaMarcacion);
         }
     }
 

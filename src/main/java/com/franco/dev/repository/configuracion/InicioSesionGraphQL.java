@@ -76,6 +76,18 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
 
+        if (e.getId() == null && e.getUsuario() != null && e.getIdDispositivo() != null
+                && !e.getIdDispositivo().trim().isEmpty() && e.getHoraFin() == null) {
+            InicioSesion sesionExistente = service.findActiveSessionByUsuarioAndDispositivo(
+                    e.getUsuario().getId(), e.getIdDispositivo());
+            if (sesionExistente != null) {
+                e.setId(sesionExistente.getId());
+                if (e.getHoraInicio() == null && sesionExistente.getHoraInicio() != null) {
+                    e.setHoraInicio(sesionExistente.getHoraInicio());
+                }
+            }
+        }
+
         InicioSesion saved = service.save(e);
 
         return saved;
@@ -89,7 +101,7 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return service.count();
     }
 
-    public Boolean actualizarTokenFcm(String tokenFcm) {
+    public Boolean actualizarTokenFcm(String tokenFcm, String idDispositivo) {
         try {
             org.springframework.security.core.Authentication authentication = org.springframework.security.core.context.SecurityContextHolder
                     .getContext().getAuthentication();
@@ -106,32 +118,21 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 return false;
             }
 
-            List<InicioSesion> sesionesConToken = service.getRepository().findByToken(tokenFcm);
+            service.reclamarTokenParaUsuario(tokenFcm, usuario.getId());
 
-            if (!sesionesConToken.isEmpty()) {
-                InicioSesion sesionExistente = sesionesConToken.get(0);
-                if (sesionExistente.getUsuario() != null &&
-                        sesionExistente.getUsuario().getId().equals(usuario.getId()) &&
-                        sesionExistente.getHoraFin() == null) {
-                    return true;
-                }
-            }
-            Pageable pageable = PageRequest.of(0, 100);
-            Page<InicioSesion> sesionesActivas = service.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), null,
-                    pageable);
-
-            if (sesionesActivas.isEmpty()) {
-                return false;
-            }
             InicioSesion sesionParaActualizar = null;
-
-            for (InicioSesion sesion : sesionesActivas.getContent()) {
-                if (sesion.getToken() == null || sesion.getToken().trim().isEmpty()) {
-                    sesionParaActualizar = sesion;
-                    break;
-                }
+            if (idDispositivo != null && !idDispositivo.trim().isEmpty()) {
+                sesionParaActualizar = service.findActiveSessionByUsuarioAndDispositivo(usuario.getId(),
+                        idDispositivo);
             }
+
             if (sesionParaActualizar == null) {
+                Pageable pageable = PageRequest.of(0, 1);
+                Page<InicioSesion> sesionesActivas = service.findByUsuarioIdAndHoraFinIsNul(usuario.getId(), null,
+                        pageable);
+                if (sesionesActivas.isEmpty()) {
+                    return false;
+                }
                 sesionParaActualizar = sesionesActivas.getContent().get(0);
             }
 

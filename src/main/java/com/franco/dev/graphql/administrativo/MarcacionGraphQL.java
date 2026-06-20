@@ -31,12 +31,6 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     private SucursalService sucursalService;
 
     @Autowired
-    private com.franco.dev.service.personas.PersonaService personaService;
-
-    @Autowired(required = false)
-    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
-
-    @Autowired
     private ImpresionService impresionService;
 
     @Autowired
@@ -70,26 +64,6 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Marcacion saveMarcacion(MarcacionInput marcacion) {
-        if (marcacion.getUsuarioId() != null && marcacion.getEmbedding() != null
-                && !marcacion.getEmbedding().isEmpty()) {
-            com.franco.dev.domain.personas.Usuario usuario = usuarioService.findById(marcacion.getUsuarioId())
-                    .orElse(null);
-            if (usuario != null && usuario.getPersona() != null) {
-                String storedEmbeddingJson = usuario.getPersona().getEmbedding();
-                if (storedEmbeddingJson == null || storedEmbeddingJson.isEmpty()) {
-                    try {
-                        if (objectMapper == null)
-                            objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-                        String newEmbeddingJson = objectMapper.writeValueAsString(marcacion.getEmbedding());
-                        usuario.getPersona().setEmbedding(newEmbeddingJson);
-                        personaService.save(usuario.getPersona());
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-
         Marcacion e = new Marcacion();
         if (marcacion.getId() != null && marcacion.getSucursalId() != null) {
             Optional<Marcacion> existing = service
@@ -154,6 +128,10 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
             e.setDistanciaSucursalMetros(marcacion.getDistanciaSucursalMetros());
 
         return service.save(e);
+    }
+
+    public Marcacion reprocesarJornadaDeMarcacion(Long id, Long sucursalId) {
+        return service.reprocesarJornadaDeMarcacion(id, sucursalId);
     }
 
     public String imprimirReporteMarcaciones(Long usuarioId, String fechaInicio, String fechaFin,

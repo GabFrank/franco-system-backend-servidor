@@ -88,8 +88,9 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return res;
     }
 
-    public Boolean saveUsuarioImage(Long id, String type, String image, List<Double> embedding) throws IOException {
-        return service.saveUserImage(id, type, image, embedding);
+    public Boolean saveUsuarioImage(Long id, String type, String image, List<Double> embedding, String embeddingGaleriaJson)
+            throws IOException {
+        return service.saveUserImage(id, type, image, embedding, embeddingGaleriaJson);
     }
 
     public List<String> getUsuarioImages(Long id, String type) {
@@ -115,5 +116,9 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     public UsuarioSimilitudResult usuarioPorEmbedding(List<Double> embedding, List<Integer> excludeIds) {
         return service.findUsuarioByEmbedding(embedding, excludeIds);
+    }
+
+    public IncorporarEmbeddingMarcacionResult incorporarEmbeddingMarcacion(Long usuarioId, List<Double> embedding, Double score) {
+        return service.incorporarEmbeddingMarcacion(usuarioId, embedding, score);
     }
 }

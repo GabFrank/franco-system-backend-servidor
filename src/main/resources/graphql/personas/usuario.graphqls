@@ -15,6 +15,17 @@ type UsuarioSimilitud {
     similitud: Float
 }
 
+enum ResultadoIncorporacionEmbedding {
+    OK
+    RECHAZADO_SCORE
+    RECHAZADO_SIMILITUD
+}
+
+type IncorporarEmbeddingMarcacionResult {
+    resultado: ResultadoIncorporacionEmbedding!
+    mensaje: String!
+}
+
 input UsuarioInput {
     id:ID
     personaId: Int
@@ -53,6 +64,7 @@ type UsuarioPage {
 extend type Mutation {
     saveUsuario(usuario:UsuarioInput!):Usuario!
     deleteUsuario(id:ID!):Boolean!
-    saveUsuarioImage(id:ID!, type:String!, image:String!, embedding: [Float]):Boolean
+    saveUsuarioImage(id:ID!, type:String!, image:String!, embedding: [Float], embeddingGaleriaJson: String):Boolean
+    incorporarEmbeddingMarcacion(usuarioId:ID!, embedding:[Float]!, score:Float):IncorporarEmbeddingMarcacionResult
 }
 

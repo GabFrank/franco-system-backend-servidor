@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.personas;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.UsuarioRole;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.UsuarioRoleInput;
@@ -36,13 +37,12 @@ public class UsuarioRoleGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public UsuarioRole saveUsuarioRole(UsuarioRoleInput input) {
         UsuarioRole e = new UsuarioRole();
-        if (input.getId() != null) e.setId(input.getId());
-        e.setUser(usuarioService.findById(input.getUserId()).orElse(null));
-        if (input.getUsuarioId() != null) {
-            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        } else {
-            e.setUsuario(usuarioService.findById(input.getUserId()).orElse(null));
+        if (input.getId() != null) {
+            e.setId(input.getId());
         }
+        Usuario usuario = usuarioService.findById(input.getUserId()).orElse(null);
+        e.setUser(usuario);
+        e.setUsuario(usuario);
         e.setRole(roleService.findById(input.getRoleId()).orElse(null));
         e = service.save(e);
         return e;

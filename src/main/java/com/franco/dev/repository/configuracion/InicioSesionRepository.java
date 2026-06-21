@@ -27,9 +27,23 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
     List<InicioSesion> findByUsuarioIdAndIdDispositivoAndHoraFinIsNull(Long usuarioId, String idDispositivo);
     Optional<InicioSesion> findFirstByIdDispositivoAndUsuarioIsNotNullOrderByIdAsc(String idDispositivo);
 
-    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
     @org.springframework.data.jpa.repository.Query("UPDATE InicioSesion s SET s.token = null WHERE s.token = :token")
     void clearTokenByToken(@org.springframework.data.repository.query.Param("token") String token);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("UPDATE InicioSesion s SET s.token = null WHERE s.token = :token "
+            + "AND (s.usuario.id IS NULL OR s.usuario.id <> :usuarioId)")
+    int liberarTokenDeOtrosUsuarios(
+            @org.springframework.data.repository.query.Param("token") String token,
+            @org.springframework.data.repository.query.Param("usuarioId") Long usuarioId);
+
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @org.springframework.data.jpa.repository.Query("UPDATE InicioSesion s SET s.token = null WHERE s.token = :token "
+            + "AND s.id <> :sesionActivaId")
+    int liberarTokenDeOtrasSesiones(
+            @org.springframework.data.repository.query.Param("token") String token,
+            @org.springframework.data.repository.query.Param("sesionActivaId") Long sesionActivaId);
 
     @org.springframework.data.jpa.repository.Query("SELECT s FROM InicioSesion s WHERE s.usuario.id IN :usuarioIds " +
             "AND s.token IS NOT NULL AND s.token != '' AND s.horaFin IS NULL " +
@@ -41,4 +55,9 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, L
             "s.token IS NOT NULL AND s.token != '' AND s.usuario IS NOT NULL AND s.horaFin IS NULL " +
             "ORDER BY s.id DESC")
     List<InicioSesion> findAllWithValidTokens();
+
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM InicioSesion s WHERE s.token IN :tokens " +
+            "AND s.horaFin IS NULL AND s.usuario IS NOT NULL")
+    List<InicioSesion> findActiveSessionsByTokens(
+            @org.springframework.data.repository.query.Param("tokens") Collection<String> tokens);
 }

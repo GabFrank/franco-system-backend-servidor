@@ -9,6 +9,7 @@ import com.franco.dev.fmc.model.VentaStockCriticoNotificationRequest;
 import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -47,6 +48,9 @@ public class PushNotificationController {
 
         @Autowired
         private VentaCreditoService ventaCreditoService;
+
+        @Autowired
+        private NotificacionPreferenciaService notificacionPreferenciaService;
 
         public PushNotificationController(PushNotificationService pushNotificationService) {
                 this.pushNotificationService = pushNotificationService;
@@ -280,8 +284,12 @@ public class PushNotificationController {
                                                 HttpStatus.BAD_REQUEST);
                         }
 
-                        List<String> rolesRelevantes = notificationRoleService.getRolesForVentaStockCritico();
-                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
+                        List<Usuario> usuariosDestino = notificacionPreferenciaService
+                                        .obtenerUsuariosPorTipoNotificacion("VENTA_STOCK_CRITICO");
+                        List<Long> usuariosRelevantes = usuariosDestino.stream()
+                                        .map(Usuario::getId)
+                                        .distinct()
+                                        .collect(Collectors.toList());
 
                         if (!usuariosRelevantes.isEmpty()) {
                                 PushNotificationRequest request = notificationTemplateService.ventaStockCritico(

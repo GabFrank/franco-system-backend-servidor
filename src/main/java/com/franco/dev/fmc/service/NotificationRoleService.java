@@ -154,14 +154,4 @@ public class NotificationRoleService {
                 "ANALISIS DE CAJA",
                 "ANALISIS DE VENTA");
     }
-
-    public List<String> getRolesForVentaStockCritico() {
-        return Arrays.asList(
-                "ADMIN",
-                "SOPORTE",
-                "ANALISIS DE VENTA",
-                "ANALISIS DE CAJA",
-                "VER MOVIMIENTO DE STOCK",
-                "VER PRODUCTOS");
-    }
 }

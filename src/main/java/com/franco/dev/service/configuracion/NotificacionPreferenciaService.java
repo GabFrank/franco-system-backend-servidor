@@ -131,8 +131,8 @@ public class NotificacionPreferenciaService {
         for (NotificacionTipoRole config : configs) {
             List<UsuarioRole> usuarioRoles = usuarioRoleService.findByRoleId(config.getRole().getId());
             for (UsuarioRole ur : usuarioRoles) {
-                if (ur.getUsuario() != null) {
-                    usuariosSet.add(ur.getUsuario());
+                if (ur.getUser() != null) {
+                    usuariosSet.add(ur.getUser());
                 }
             }
         }

@@ -216,10 +216,46 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
     }
 
     /**
+     * Cancela todas las etapas de un pedido marcándolas como CANCELADA.
+     */
+    @Transactional
+    public void cancelarEtapasByPedidoId(Long pedidoId) {
+        List<ProcesoEtapa> etapas = getEtapasByPedidoId(pedidoId);
+        if (etapas.isEmpty()) {
+            throw new IllegalStateException("No se encontraron etapas para el pedido: " + pedidoId);
+        }
+
+        boolean yaCancelado = etapas.stream()
+                .allMatch(e -> e.getEstadoEtapa() == ProcesoEtapaEstado.CANCELADA);
+        if (yaCancelado) {
+            throw new IllegalStateException("El pedido ya está cancelado");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (ProcesoEtapa etapa : etapas) {
+            if (etapa.getEstadoEtapa() != ProcesoEtapaEstado.CANCELADA) {
+                etapa.setEstadoEtapa(ProcesoEtapaEstado.CANCELADA);
+                etapa.setFechaFin(now);
+                save(etapa);
+            }
+        }
+    }
+
+    public boolean isPedidoCancelado(Long pedidoId) {
+        List<ProcesoEtapa> etapas = getEtapasByPedidoId(pedidoId);
+        return !etapas.isEmpty() && etapas.stream()
+                .allMatch(e -> e.getEstadoEtapa() == ProcesoEtapaEstado.CANCELADA);
+    }
+
+    /**
      * Obtiene el estado actual del proceso para un pedido
      */
     public ProcesoEtapaTipo getEtapaTipoActual(Long pedidoId) {
         List<ProcesoEtapa> etapas = getEtapasByPedidoId(pedidoId);
+
+        if (isPedidoCancelado(pedidoId)) {
+            return null;
+        }
         
         // Buscar la última etapa en proceso o la primera pendiente
         for (ProcesoEtapa etapa : etapas) {
@@ -242,7 +278,14 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
     // retorna la etapa actual del pedido, similar a getEtapaTipoActual pero retorna la etapa completa
     public ProcesoEtapa getEtapaActual(Long pedidoId) {
         List<ProcesoEtapa> etapas = getEtapasByPedidoId(pedidoId);
-        // 
+
+        if (isPedidoCancelado(pedidoId)) {
+            return etapas.stream()
+                    .filter(e -> e.getEstadoEtapa() == ProcesoEtapaEstado.CANCELADA)
+                    .findFirst()
+                    .orElse(null);
+        }
+
         for (ProcesoEtapa etapa : etapas) {
             if (etapa.getEstadoEtapa() == ProcesoEtapaEstado.EN_PROCESO) {
                 return etapa;

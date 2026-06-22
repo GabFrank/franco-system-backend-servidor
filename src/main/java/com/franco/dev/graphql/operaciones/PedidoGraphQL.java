@@ -110,7 +110,11 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deletePedido(Long id) {
-        return service.deleteById(id);
+        try {
+            return service.cancelarPedido(id);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
     }
 
     // ===== SAVE OPERATIONS =====

@@ -7,6 +7,7 @@ import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.repository.productos.CodigoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.productos.search.ProductoSearchIndexSyncService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.modelmapper.ModelMapper;
@@ -33,6 +34,9 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
     private TipoPrecioService tipoPrecioService;
     @Autowired
     private com.franco.dev.service.configuraciones.ModificacionService modificacionService;
+
+    @Autowired
+    private ProductoSearchIndexSyncService productoSearchIndexSyncService;
 
     @Override
     public CodigoRepository getRepository() {
@@ -86,6 +90,7 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
             // No interrumpir el flujo si falla el registro de modificación
         }
 
+        productoSearchIndexSyncService.sincronizarCodigo(p.getId());
         return p;
     }
 
@@ -96,6 +101,7 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
             // Obtener entidad antes de eliminar para registrar la modificación
             Codigo entidad = repository.findById(id).orElse(null);
             if (entidad != null) {
+                productoSearchIndexSyncService.eliminarCodigo(id);
                 Boolean resultado = super.deleteById(id);
                 // Registrar eliminación sin afectar la lógica existente
                 try {

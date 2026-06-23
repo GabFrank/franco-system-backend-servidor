@@ -7,6 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+
 public interface ProductoProveedorRepository extends HelperRepository<ProductoProveedor, Long> {
 
     default Class<ProductoProveedor> getEntityClass() {
@@ -32,6 +34,14 @@ public interface ProductoProveedorRepository extends HelperRepository<ProductoPr
             "(:text is null or UPPER(prod.descripcion) like UPPER(:text)) " +
             "order by prod.descripcion asc")
     Page<ProductoProveedor> findByProveedorIdAndProductoDescripcionLikeIgnoreCase(Long id, String text, Pageable pageable);
+
+    @Query("SELECT pp.producto.id FROM ProductoProveedor pp " +
+            "WHERE pp.proveedor.id = :proveedorId " +
+            "AND pp.producto.id IN :productoIds " +
+            "AND (pp.activo = true OR pp.activo IS NULL)")
+    List<Long> findProductoIdsByProveedorIdAndProductoIdIn(
+            @Param("proveedorId") Long proveedorId,
+            @Param("productoIds") List<Long> productoIds);
 
     @Query("SELECT pp FROM ProductoProveedor pp " +
             "LEFT JOIN pp.proveedor prov " +

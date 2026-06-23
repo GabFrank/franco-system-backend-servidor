@@ -408,4 +408,20 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
         // Crear objeto Page
         return new PageImpl<>(content, pageable, totalElements);
     }
+
+    /**
+     * Cancela un pedido marcando sus etapas como CANCELADA (no elimina el registro).
+     */
+    @Transactional
+    public Boolean cancelarPedido(Long pedidoId) {
+        if (pedidoId == null) {
+            throw new IllegalArgumentException("ID del pedido es requerido");
+        }
+
+        findById(pedidoId).orElseThrow(
+                () -> new IllegalArgumentException("Pedido no encontrado: " + pedidoId));
+
+        procesoEtapaService.cancelarEtapasByPedidoId(pedidoId);
+        return true;
+    }
 }

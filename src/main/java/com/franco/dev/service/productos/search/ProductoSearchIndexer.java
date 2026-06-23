@@ -1,8 +1,8 @@
 package com.franco.dev.service.productos.search;
 
+import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Producto;
 import org.hibernate.search.mapper.orm.Search;
-import org.hibernate.search.mapper.orm.massindexing.MassIndexer;
 import org.hibernate.search.mapper.orm.session.SearchSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,17 +34,28 @@ public class ProductoSearchIndexer {
     }
 
     public void reindexarTodos() {
+        reindexar(Producto.class, Codigo.class);
+    }
+
+    public void reindexarCodigos() {
+        reindexar(Codigo.class);
+    }
+
+    @SafeVarargs
+    private final void reindexar(Class<?>... entidades) {
         if (!indexing.compareAndSet(false, true)) {
             throw new IllegalStateException("Ya hay una reindexación en curso");
         }
         EntityManager entityManager = entityManagerFactory.createEntityManager();
         try {
-            log.info("Iniciando reindexación masiva de productos en Lucene...");
+            log.info("Iniciando reindexación masiva en Lucene para: {}", java.util.Arrays.toString(entidades));
             SearchSession searchSession = Search.session(entityManager);
-            MassIndexer massIndexer = searchSession.massIndexer(Producto.class)
-                    .threadsToLoadObjects(MASS_INDEXER_THREADS);
-            massIndexer.startAndWait();
-            log.info("Reindexación de productos finalizada.");
+            for (Class<?> entidad : entidades) {
+                searchSession.massIndexer(entidad)
+                        .threadsToLoadObjects(MASS_INDEXER_THREADS)
+                        .startAndWait();
+            }
+            log.info("Reindexación masiva finalizada para: {}", java.util.Arrays.toString(entidades));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Reindexación interrumpida", e);

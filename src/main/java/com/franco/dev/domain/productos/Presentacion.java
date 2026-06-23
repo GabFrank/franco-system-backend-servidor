@@ -6,12 +6,14 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.AssociationInverseSide;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.ObjectPath;
+import org.hibernate.search.mapper.pojo.mapping.definition.annotation.PropertyValue;
 
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -42,7 +44,7 @@ public class Presentacion implements Identifiable<Long> {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "producto_id", nullable = true)
-//    @OnDelete(action = OnDeleteAction.CASCADE)
+    @AssociationInverseSide(inversePath = @ObjectPath(@PropertyValue(propertyName = "presentaciones")))
     private Producto producto;
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -52,5 +54,8 @@ public class Presentacion implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    @OneToMany(mappedBy = "presentacion", fetch = FetchType.LAZY)
+    private List<Codigo> codigos;
 
 }

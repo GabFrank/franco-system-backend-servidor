@@ -21,6 +21,7 @@ import org.hibernate.search.mapper.pojo.automaticindexing.ReindexOnUpdate;
 import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -98,6 +99,9 @@ public class Producto implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    @OneToMany(mappedBy = "producto", fetch = FetchType.LAZY)
+    private List<Presentacion> presentaciones;
 
     public String toString(){
         String texto = "Id: " + this.id + "/n" + "Descripcion: " + this.descripcion;

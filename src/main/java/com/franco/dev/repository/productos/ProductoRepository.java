@@ -24,6 +24,13 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                "OR UPPER(TRIM(p.descripcionFactura)) = UPPER(TRIM(?1))")
         public List<Producto> findByDescripcionNormalized(String descripcion);
 
+        @Query(value = "SELECT p.id FROM productos.producto p " +
+                        "WHERE UPPER(p.descripcion) LIKE CONCAT('%', UPPER(?1), '%') " +
+                        "OR UPPER(p.descripcion_factura) LIKE CONCAT('%', UPPER(?1), '%') " +
+                        "ORDER BY p.descripcion ASC " +
+                        "LIMIT ?2", nativeQuery = true)
+        List<Long> findIdsByDescripcionLike(String texto, int limite);
+
         @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
                         "from productos.producto p " +
                         "left outer join productos.presentacion p2 on p2.producto_id = p.id " +

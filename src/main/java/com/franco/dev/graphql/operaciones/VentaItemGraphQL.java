@@ -109,7 +109,8 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public List<ProductoVendidoEstadistica> productosMasVendidos(String inicio, String fin, Integer limit,
-            Long sucursalId, Long familiaId, Boolean ascendente, Long productoId, List<Long> productoIds) {
+            Long sucursalId, Long familiaId, Long subfamiliaId, Boolean ascendente, Long productoId,
+            List<Long> productoIds) {
         if (limit == null)
             limit = 10;
         LocalDateTime fechaInicio = null;
@@ -126,8 +127,8 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                 ? productoIds.stream().filter(id -> id != null && id > 0).collect(Collectors.toList())
                 : null;
 
-        return service.obtenerProductosMasVendidos(fechaInicio, fechaFin, limit, sucursalId, familiaId, ascendente,
-                productoId, idsFiltro != null && !idsFiltro.isEmpty() ? idsFiltro : null);
+        return service.obtenerProductosMasVendidos(fechaInicio, fechaFin, limit, sucursalId, familiaId, subfamiliaId,
+                ascendente, productoId, idsFiltro != null && !idsFiltro.isEmpty() ? idsFiltro : null);
     }
 
     public List<ProductoVentaPorPeriodo> ventasProductoPorDia(String inicio, String fin, Long productoId,

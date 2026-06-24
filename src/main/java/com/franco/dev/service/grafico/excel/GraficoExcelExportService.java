@@ -183,6 +183,7 @@ public class GraficoExcelExportService {
                         input.getSucIds(),
                         limit,
                         input.getFamiliaId(),
+                        input.getSubfamiliaId(),
                         ascendente,
                         input.getProductoIds())
                 .stream()

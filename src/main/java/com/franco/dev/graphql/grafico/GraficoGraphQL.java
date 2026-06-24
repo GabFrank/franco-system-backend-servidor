@@ -59,10 +59,11 @@ public class GraficoGraphQL implements GraphQLQueryResolver {
             List<Long> sucIds,
             Integer limit,
             Long familiaId,
+            Long subfamiliaId,
             Boolean ascendente,
             List<Long> productoIds) {
         return graficoAggregationService.productosMasVendidosMulti(
-                periodos, sucIds, limit, familiaId, ascendente, productoIds);
+                periodos, sucIds, limit, familiaId, subfamiliaId, ascendente, productoIds);
     }
 
     public List<IngresoGastoSerieGrafico> ingresosGastosPorMesMulti(

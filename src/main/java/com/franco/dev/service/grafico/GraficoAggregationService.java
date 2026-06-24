@@ -160,6 +160,7 @@ public class GraficoAggregationService {
             List<Long> sucIds,
             Integer limit,
             Long familiaId,
+            Long subfamiliaId,
             Boolean ascendente,
             List<Long> productoIds) {
         validarPeriodos(periodos);
@@ -180,6 +181,7 @@ public class GraficoAggregationService {
                         limiteConsulta,
                         sucId,
                         familiaId,
+                        subfamiliaId,
                         ascendente,
                         null,
                         productoIds);

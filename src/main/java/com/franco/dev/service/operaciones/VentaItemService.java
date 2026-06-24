@@ -20,7 +20,9 @@ import javax.persistence.EntityManager;
 import javax.persistence.criteria.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @AllArgsConstructor
@@ -86,68 +88,236 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
      * CriteriaBuilder
      */
     public List<ProductoVendidoEstadistica> obtenerProductosMasVendidos(LocalDateTime inicio, LocalDateTime fin,
-            Integer limit, Long sucursalId, Long familiaId, Boolean ascendente, Long productoId,
+            Integer limit, Long sucursalId, Long familiaId, Long subfamiliaId, Boolean ascendente, Long productoId,
             List<Long> productoIds) {
-        String filtroFechaMs = "";
-        if (inicio != null) filtroFechaMs += "AND ms.creado_en >= :inicio ";
-        if (fin != null) filtroFechaMs += "AND ms.creado_en < :fin ";
-        String filtroSucursalMs = (sucursalId != null && sucursalId > 0) ? "AND ms.sucursal_id = :sucursalId " : "";
+        int limite = limit != null && limit > 0 ? limit : 10;
+        boolean ordenAsc = Boolean.TRUE.equals(ascendente);
 
-        String sql = "SELECT p.id, p.descripcion, SUM(vi.cantidad) as cantidad, " +
-                "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto, " +
-                "COALESCE(ent.cantidad_entrada, 0) as cantidad_entrada, " +
-                "COALESCE(ven.cantidad_venta_mov, 0) as cantidad_venta_mov " +
-                "FROM operaciones.venta_item vi " +
-                "JOIN productos.producto p ON vi.producto_id = p.id " +
-                "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
-                "LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id " +
-                "LEFT JOIN ( " +
-                "  SELECT ms.producto_id, SUM(ms.cantidad) AS cantidad_entrada " +
-                "  FROM operaciones.movimiento_stock ms " +
-                "  WHERE " + sqlCondicionEntradasStock() + " " +
-                filtroFechaMs + filtroSucursalMs +
-                "  GROUP BY ms.producto_id " +
-                ") ent ON ent.producto_id = p.id " +
-                "LEFT JOIN ( " +
-                "  SELECT ms.producto_id, SUM(ABS(ms.cantidad)) AS cantidad_venta_mov " +
-                "  FROM operaciones.movimiento_stock ms " +
-                "  WHERE ms.estado = true AND ms.tipo_movimiento = 'VENTA' AND ms.cantidad < 0 " +
-                filtroFechaMs + filtroSucursalMs +
-                "  GROUP BY ms.producto_id " +
-                ") ven ON ven.producto_id = p.id " +
-                "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true ";
-
-        if (inicio != null) sql += "AND vi.creado_en >= :inicio ";
-        if (fin != null) sql += "AND vi.creado_en < :fin ";
-        if (sucursalId != null && sucursalId > 0) sql += "AND vi.sucursal_id = :sucursalId ";
-        if (familiaId != null && familiaId > 0) sql += "AND sf.familia_id = :familiaId ";
-        if (productoIds != null && !productoIds.isEmpty()) {
-            sql += "AND vi.producto_id IN :productoIds ";
-        } else if (productoId != null && productoId > 0) {
-            sql += "AND vi.producto_id = :productoId ";
+        List<Object[]> topProductos = consultarTopProductosVendidos(
+                inicio, fin, limite, sucursalId, familiaId, subfamiliaId, ordenAsc, productoId, productoIds);
+        if (topProductos.isEmpty()) {
+            return new ArrayList<>();
         }
 
-        boolean ordenAsc = Boolean.TRUE.equals(ascendente);
-        sql += "GROUP BY p.id, p.descripcion, ent.cantidad_entrada, ven.cantidad_venta_mov " +
-                "ORDER BY cantidad " + (ordenAsc ? "ASC" : "DESC");
+        List<Long> topProductoIds = new ArrayList<>(topProductos.size());
+        for (Object[] fila : topProductos) {
+            if (fila[0] != null) {
+                topProductoIds.add(((Number) fila[0]).longValue());
+            }
+        }
+        if (topProductoIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        Map<Long, Double> entradas = consultarCantidadEntradaStock(
+                topProductoIds, inicio, fin, sucursalId);
+        Map<Long, Double> ventasMovimiento = consultarCantidadVentaMovimientoStock(
+                topProductoIds, inicio, fin, sucursalId);
+
+        List<Object[]> resultados = new ArrayList<>(topProductos.size());
+        for (Object[] fila : topProductos) {
+            Long id = fila[0] != null ? ((Number) fila[0]).longValue() : null;
+            resultados.add(new Object[] {
+                    fila[0],
+                    fila[1],
+                    fila[2],
+                    fila[3],
+                    id != null ? entradas.getOrDefault(id, 0.0) : 0.0,
+                    id != null ? ventasMovimiento.getOrDefault(id, 0.0) : 0.0
+            });
+        }
+
+        return transformarResultadosAEstadisticas(resultados);
+    }
+
+    private List<Object[]> consultarTopProductosVendidos(
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            int limite,
+            Long sucursalId,
+            Long familiaId,
+            Long subfamiliaId,
+            boolean ordenAsc,
+            Long productoId,
+            List<Long> productoIds) {
+        String orden = ordenAsc ? "ASC" : "DESC";
+        String filtrosVi = construirFiltrosVentaItem(
+                inicio, fin, sucursalId, familiaId, subfamiliaId, productoId, productoIds);
+
+        String sql = "SELECT p.id, p.descripcion, SUM(vi.cantidad) AS cantidad, "
+                + "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) AS total_monto "
+                + "FROM operaciones.venta_item vi "
+                + "JOIN productos.producto p ON vi.producto_id = p.id "
+                + "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id "
+                + "LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id "
+                + "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true "
+                + filtrosVi
+                + "GROUP BY p.id, p.descripcion "
+                + "ORDER BY cantidad " + orden;
 
         javax.persistence.Query query = em.createNativeQuery(sql);
-        if (inicio != null) query.setParameter("inicio", inicio);
-        if (fin != null) query.setParameter("fin", fin);
-        if (sucursalId != null && sucursalId > 0) query.setParameter("sucursalId", sucursalId);
-        if (familiaId != null && familiaId > 0) query.setParameter("familiaId", familiaId);
+        vincularFiltrosVentaItem(
+                query, inicio, fin, sucursalId, familiaId, subfamiliaId, productoId, productoIds);
+        query.setMaxResults(limite);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> resultados = query.getResultList();
+        return resultados;
+    }
+
+    private Map<Long, Double> consultarCantidadEntradaStock(
+            List<Long> topProductoIds,
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Long sucursalId) {
+        String filtroFechaMs = construirFiltroFechaMovimientoStock(inicio, fin);
+        String filtroSucursalMs = construirFiltroSucursalMovimientoStock(sucursalId);
+
+        String sql = "SELECT ms.producto_id, SUM(ms.cantidad) AS cantidad_entrada "
+                + "FROM operaciones.movimiento_stock ms "
+                + "WHERE " + sqlCondicionEntradasStock() + " "
+                + filtroFechaMs
+                + filtroSucursalMs
+                + "AND ms.producto_id IN :topProductoIds "
+                + "GROUP BY ms.producto_id";
+
+        javax.persistence.Query query = em.createNativeQuery(sql);
+        query.setParameter("topProductoIds", topProductoIds);
+        vincularFiltrosMovimientoStock(query, inicio, fin, sucursalId);
+
+        return mapearTotalesPorProducto(query.getResultList());
+    }
+
+    private Map<Long, Double> consultarCantidadVentaMovimientoStock(
+            List<Long> topProductoIds,
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Long sucursalId) {
+        String filtroFechaMs = construirFiltroFechaMovimientoStock(inicio, fin);
+        String filtroSucursalMs = construirFiltroSucursalMovimientoStock(sucursalId);
+
+        String sql = "SELECT ms.producto_id, SUM(ABS(ms.cantidad)) AS cantidad_venta_mov "
+                + "FROM operaciones.movimiento_stock ms "
+                + "WHERE ms.estado = true AND ms.tipo_movimiento = 'VENTA' AND ms.cantidad < 0 "
+                + filtroFechaMs
+                + filtroSucursalMs
+                + "AND ms.producto_id IN :topProductoIds "
+                + "GROUP BY ms.producto_id";
+
+        javax.persistence.Query query = em.createNativeQuery(sql);
+        query.setParameter("topProductoIds", topProductoIds);
+        vincularFiltrosMovimientoStock(query, inicio, fin, sucursalId);
+
+        return mapearTotalesPorProducto(query.getResultList());
+    }
+
+    private String construirFiltrosVentaItem(
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Long sucursalId,
+            Long familiaId,
+            Long subfamiliaId,
+            Long productoId,
+            List<Long> productoIds) {
+        StringBuilder filtrosVi = new StringBuilder();
+        if (inicio != null) {
+            filtrosVi.append("AND vi.creado_en >= :inicio ");
+        }
+        if (fin != null) {
+            filtrosVi.append("AND vi.creado_en <= :fin ");
+        }
+        if (sucursalId != null && sucursalId > 0) {
+            filtrosVi.append("AND vi.sucursal_id = :sucursalId ");
+        }
+        if (subfamiliaId != null && subfamiliaId > 0) {
+            filtrosVi.append("AND p.sub_familia_id = :subfamiliaId ");
+        } else if (familiaId != null && familiaId > 0) {
+            filtrosVi.append("AND sf.familia_id = :familiaId ");
+        }
+        if (productoIds != null && !productoIds.isEmpty()) {
+            filtrosVi.append("AND vi.producto_id IN :productoIds ");
+        } else if (productoId != null && productoId > 0) {
+            filtrosVi.append("AND vi.producto_id = :productoId ");
+        }
+        return filtrosVi.toString();
+    }
+
+    private String construirFiltroFechaMovimientoStock(LocalDateTime inicio, LocalDateTime fin) {
+        String filtroFechaMs = "";
+        if (inicio != null) {
+            filtroFechaMs += "AND ms.creado_en >= :inicio ";
+        }
+        if (fin != null) {
+            filtroFechaMs += "AND ms.creado_en <= :fin ";
+        }
+        return filtroFechaMs;
+    }
+
+    private String construirFiltroSucursalMovimientoStock(Long sucursalId) {
+        return (sucursalId != null && sucursalId > 0) ? "AND ms.sucursal_id = :sucursalId " : "";
+    }
+
+    private void vincularFiltrosVentaItem(
+            javax.persistence.Query query,
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Long sucursalId,
+            Long familiaId,
+            Long subfamiliaId,
+            Long productoId,
+            List<Long> productoIds) {
+        if (inicio != null) {
+            query.setParameter("inicio", inicio);
+        }
+        if (fin != null) {
+            query.setParameter("fin", fin);
+        }
+        if (sucursalId != null && sucursalId > 0) {
+            query.setParameter("sucursalId", sucursalId);
+        }
+        if (subfamiliaId != null && subfamiliaId > 0) {
+            query.setParameter("subfamiliaId", subfamiliaId);
+        } else if (familiaId != null && familiaId > 0) {
+            query.setParameter("familiaId", familiaId);
+        }
         if (productoIds != null && !productoIds.isEmpty()) {
             query.setParameter("productoIds", productoIds);
         } else if (productoId != null && productoId > 0) {
             query.setParameter("productoId", productoId);
         }
+    }
 
-        query.setMaxResults(limit != null ? limit : 10);
+    private void vincularFiltrosMovimientoStock(
+            javax.persistence.Query query,
+            LocalDateTime inicio,
+            LocalDateTime fin,
+            Long sucursalId) {
+        if (inicio != null) {
+            query.setParameter("inicio", inicio);
+        }
+        if (fin != null) {
+            query.setParameter("fin", fin);
+        }
+        if (sucursalId != null && sucursalId > 0) {
+            query.setParameter("sucursalId", sucursalId);
+        }
+    }
 
-        @SuppressWarnings("unchecked")
-        List<Object[]> resultados = query.getResultList();
-
-        return transformarResultadosAEstadisticas(resultados);
+    @SuppressWarnings("unchecked")
+    private Map<Long, Double> mapearTotalesPorProducto(List<Object[]> filas) {
+        Map<Long, Double> totales = new HashMap<>();
+        if (filas == null) {
+            return totales;
+        }
+        for (Object[] fila : filas) {
+            if (fila[0] == null) {
+                continue;
+            }
+            Long productoId = ((Number) fila[0]).longValue();
+            Double total = fila[1] != null ? ((Number) fila[1]).doubleValue() : 0.0;
+            totales.put(productoId, total);
+        }
+        return totales;
     }
 
     public List<ProductoVentaPorPeriodo> obtenerVentasProductoPorDia(LocalDateTime inicio, LocalDateTime fin,

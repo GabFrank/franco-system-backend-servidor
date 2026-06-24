@@ -17,6 +17,7 @@ public class GraficoExcelExportInput {
     private String filtroExtra;
     private Integer limit;
     private Long familiaId;
+    private Long subfamiliaId;
     private Boolean ascendente;
     private List<Long> productoIds;
 }

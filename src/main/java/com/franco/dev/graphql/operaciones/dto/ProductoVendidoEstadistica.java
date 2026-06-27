@@ -17,6 +17,8 @@ public class ProductoVendidoEstadistica {
     private String descripcion;
     private Double cantidad;
     private Double totalMonto;
+    /** Dinero vendido / unidades vendidas (unidad base) */
+    private Double precioPromedio;
     private Double porcentaje;
     /** Entradas por COMPRA + TRANSFERENCIA (movimiento_stock, cantidad > 0) */
     private Double cantidadEntrada;

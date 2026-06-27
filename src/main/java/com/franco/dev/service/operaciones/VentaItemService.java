@@ -144,10 +144,11 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
         String filtrosVi = construirFiltrosVentaItem(
                 inicio, fin, sucursalId, familiaId, subfamiliaId, productoId, productoIds);
 
-        String sql = "SELECT p.id, p.descripcion, SUM(vi.cantidad) AS cantidad, "
+        String sql = "SELECT p.id, p.descripcion, SUM(vi.cantidad * pre.cantidad) AS cantidad, "
                 + "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) AS total_monto "
                 + "FROM operaciones.venta_item vi "
                 + "JOIN productos.producto p ON vi.producto_id = p.id "
+                + "JOIN productos.presentacion pre ON pre.id = vi.presentacion_id "
                 + "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id "
                 + "LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id "
                 + "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true "
@@ -322,9 +323,10 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
     public List<ProductoVentaPorPeriodo> obtenerVentasProductoPorDia(LocalDateTime inicio, LocalDateTime fin,
             Long productoId, Long sucursalId) {
-        String sql = "SELECT CAST(vi.creado_en AS DATE) as periodo, SUM(vi.cantidad) as cantidad, " +
+        String sql = "SELECT CAST(vi.creado_en AS DATE) as periodo, SUM(vi.cantidad * pre.cantidad) as cantidad, " +
                 "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto " +
                 "FROM operaciones.venta_item vi " +
+                "JOIN productos.presentacion pre ON pre.id = vi.presentacion_id " +
                 "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
                 "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true AND vi.producto_id = :productoId ";
 
@@ -347,9 +349,10 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
 
     public List<ProductoVentaPorPeriodo> obtenerVentasProductoPorMes(LocalDateTime inicio, LocalDateTime fin,
             Long productoId, Long sucursalId) {
-        String sql = "SELECT TO_CHAR(vi.creado_en, 'YYYY-MM') as periodo, SUM(vi.cantidad) as cantidad, " +
+        String sql = "SELECT TO_CHAR(vi.creado_en, 'YYYY-MM') as periodo, SUM(vi.cantidad * pre.cantidad) as cantidad, " +
                 "SUM((vi.precio * vi.cantidad) - COALESCE(vi.descuento_unitario * vi.cantidad, 0)) as total_monto " +
                 "FROM operaciones.venta_item vi " +
+                "JOIN productos.presentacion pre ON pre.id = vi.presentacion_id " +
                 "JOIN operaciones.venta v ON vi.venta_id = v.id AND vi.sucursal_id = v.sucursal_id " +
                 "WHERE v.estado = 'CONCLUIDA' AND vi.activo = true AND vi.producto_id = :productoId ";
 
@@ -437,7 +440,12 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
             String periodo = fila[0] != null ? fila[0].toString() : "";
             Double cantidad = fila[1] != null ? ((Number) fila[1]).doubleValue() : 0.0;
             Double totalMonto = fila[2] != null ? ((Number) fila[2]).doubleValue() : 0.0;
-            periodos.add(new ProductoVentaPorPeriodo(periodo, cantidad, totalMonto));
+            ProductoVentaPorPeriodo dto = new ProductoVentaPorPeriodo();
+            dto.setPeriodo(periodo);
+            dto.setCantidad(cantidad);
+            dto.setTotalMonto(totalMonto);
+            dto.setPrecioPromedio(calcularPrecioPromedio(totalMonto, cantidad));
+            periodos.add(dto);
         }
         return periodos;
     }
@@ -475,6 +483,7 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
             dto.setDescripcion(descripcion);
             dto.setCantidad(cantidad);
             dto.setTotalMonto(totalMonto);
+            dto.setPrecioPromedio(calcularPrecioPromedio(totalMonto, cantidad));
             dto.setPorcentaje(porcentaje);
             dto.setCantidadEntrada(cantidadEntrada);
             dto.setCantidadVentaMovimiento(cantidadVentaMovimiento);
@@ -483,6 +492,16 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
         }
 
         return estadisticas;
+    }
+
+    /**
+     * Precio promedio por unidad base: dinero vendido / unidades vendidas.
+     */
+    private Double calcularPrecioPromedio(Double totalMonto, Double cantidad) {
+        if (cantidad != null && cantidad > 0 && totalMonto != null) {
+            return Math.round((totalMonto / cantidad) * 100.0) / 100.0;
+        }
+        return 0.0;
     }
 
     /**

@@ -1,5 +1,6 @@
 package com.franco.dev.domain.configuracion;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.enums.TipoDispositivo;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
@@ -21,20 +22,24 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "inicio_sesion", schema = "configuraciones")
 @TypeDef(name = "tipo_dispositivo", typeClass = PostgreSQLEnumType.class)
+@IdClass(EmbebedPrimaryKey.class)
 public class InicioSesion implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Id
+    @Column(name = "sucursal_id", nullable = false)
+    private Long sucursalId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sucursal_id", nullable = true)
+    @JoinColumn(name = "sucursal_id", insertable = false, updatable = false)
     private Sucursal sucursal;
 
     @Enumerated(EnumType.STRING)

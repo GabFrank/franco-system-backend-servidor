@@ -1,5 +1,6 @@
 package com.franco.dev.repository.configuracion;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
@@ -36,8 +37,11 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired
     private SucursalService sucursalService;
 
-    public Optional<InicioSesion> inicioSesion(Long id) {
-        return service.findById(id);
+    public Optional<InicioSesion> inicioSesion(Long id, Long sucursalId) {
+        if (sucursalId == null) {
+            sucursalId = 0L;
+        }
+        return service.findById(new EmbebedPrimaryKey(id, sucursalId));
     }
 
     public List<InicioSesion> inicioSesiones() {
@@ -63,6 +67,10 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
         if (e.getSucursal() == null) {
             e.setSucursal(sucursalService.findById(0L).orElse(null));
+        }
+
+        if (e.getSucursal() != null) {
+            e.setSucursalId(e.getSucursal().getId());
         }
 
         e.setIdDispositivo(input.getIdDispositivo());
@@ -93,8 +101,11 @@ public class InicioSesionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return saved;
     }
 
-    public Boolean deleteInicioSesion(Long id) {
-        return service.deleteById(id);
+    public Boolean deleteInicioSesion(Long id, Long sucursalId) {
+        if (sucursalId == null) {
+            sucursalId = 0L;
+        }
+        return service.deleteById(new EmbebedPrimaryKey(id, sucursalId));
     }
 
     public Long countInicioSesion() {

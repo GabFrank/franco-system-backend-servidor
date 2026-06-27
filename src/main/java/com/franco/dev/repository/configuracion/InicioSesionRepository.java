@@ -1,5 +1,6 @@
 package com.franco.dev.repository.configuracion;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.repository.HelperRepository;
 import java.util.Collection;
@@ -7,12 +8,17 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-public interface InicioSesionRepository extends HelperRepository<InicioSesion, Long> {
+public interface InicioSesionRepository extends HelperRepository<InicioSesion, EmbebedPrimaryKey> {
 
     default Class<InicioSesion> getEntityClass() {
         return InicioSesion.class;
     }
+
+    @Query("SELECT MAX(s.id) FROM InicioSesion s WHERE s.sucursalId = :sucursalId")
+    Long findMaxId(@Param("sucursalId") Long sucursalId);
 
     Page<InicioSesion> findByUsuarioIdAndHoraFinIsNullOrderByIdDesc(Long id, Pageable page);
 

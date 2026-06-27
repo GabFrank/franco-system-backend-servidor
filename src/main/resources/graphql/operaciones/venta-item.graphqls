@@ -36,6 +36,7 @@ type ProductoVendidoEstadistica {
     descripcion: String
     cantidad: Float
     totalMonto: Float
+    precioPromedio: Float
     porcentaje: Float
     cantidadEntrada: Float
     cantidadVentaMovimiento: Float
@@ -48,6 +49,7 @@ type ProductoVentaPorPeriodo {
     periodo: String
     cantidad: Float
     totalMonto: Float
+    precioPromedio: Float
 }
 
 type ProductoCompraPorPeriodo {

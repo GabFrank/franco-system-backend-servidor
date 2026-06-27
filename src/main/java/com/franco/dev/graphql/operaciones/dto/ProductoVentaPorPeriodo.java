@@ -11,4 +11,6 @@ public class ProductoVentaPorPeriodo {
     private String periodo;
     private Double cantidad;
     private Double totalMonto;
+    /** Dinero vendido / unidades vendidas (unidad base) */
+    private Double precioPromedio;
 }

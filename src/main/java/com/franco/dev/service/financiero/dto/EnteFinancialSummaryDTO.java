@@ -23,9 +23,13 @@ public class EnteFinancialSummaryDTO {
     private String monedaSimbolo;
     private Long monedaId;
     private String proveedorNombre;
+    private Long proveedorId;
     private String tipoGastoSugeridoId;
     private String situacionPago;
     private Double porcentajePagado;
     private BigDecimal montoSugerido;
     private String descripcionSugerida;
+    private Boolean autocompletarMonto;
+    private Integer numeroCuotaActual;
+    private java.time.LocalDate fechaVencimientoSugerida;
 }

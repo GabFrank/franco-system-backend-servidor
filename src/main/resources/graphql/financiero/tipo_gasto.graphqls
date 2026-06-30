@@ -10,6 +10,13 @@ enum TipoPadreGastoModulo {
     PERSONAS
     VEHICULO
     EQUIPOS
+    ANDE
+    JUNTA_SANEAMIENTO
+    IMPUESTO
+    INTERNET
+    SEGURIDAD
+    BASURA
+    SEGURO
     OTRO
 }
 
@@ -66,7 +73,7 @@ extend type Query {
     tipoGastos(page:Int = 0, size:Int = 10):[TipoGasto]!
     rootTipoGasto:[TipoGasto]!
     countTipoGasto: Int
-    filterTipoGastos(naturaleza: String, texto: String, page: Int, size: Int): TipoGastoPage
+    filterTipoGastos(naturaleza: String, texto: String, moduloPadre: TipoPadreGastoModulo, page: Int, size: Int): TipoGastoPage
 }
 
 extend type Mutation {

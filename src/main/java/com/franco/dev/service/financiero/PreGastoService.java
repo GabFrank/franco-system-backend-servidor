@@ -5,6 +5,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EnteCuota;
 import com.franco.dev.domain.financiero.EnteFinanciero;
 import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.PreGasto;
 import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
 import com.franco.dev.domain.financiero.PdvCaja;
@@ -22,7 +23,9 @@ import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.activos.VehiculoService;
 import com.franco.dev.service.activos.util.ActivoPagoNormalizer;
-import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
+import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
 import com.franco.dev.service.financiero.dto.LineaRetiroSugeridaDTO;
 import com.franco.dev.service.financiero.dto.MontosRetiroPayloadDTO;
@@ -54,6 +57,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -90,6 +94,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
     private final PdvCajaService pdvCajaService;
     private final MonedaService monedaService;
+    private final TipoGastoService tipoGastoService;
+    private final TipoGastoModuloReglasService moduloReglasService;
 
     @Value("${sucursalId:0}")
     private Long currentSucursalId;
@@ -118,16 +124,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                                         + financiero.getMoneda().getDenominacion() + ")");
                     }
 
-                    BigDecimal montoTotal = financiero.getMontoTotal() != null ? financiero.getMontoTotal()
-                            : BigDecimal.ZERO;
-                    BigDecimal montoYaPagado = financiero.getMontoYaPagado() != null ? financiero.getMontoYaPagado()
-                            : BigDecimal.ZERO;
-                    BigDecimal pendiente = montoTotal.subtract(montoYaPagado);
-
-                    if (entity.getMontoSolicitado() != null && entity.getMontoSolicitado().compareTo(pendiente) > 0) {
-                        throw new RuntimeException(
-                                "El monto solicitado supera el saldo pendiente del activo (" + pendiente + ").");
-                    }
+                    validarMontoSolicitadoActivo(entity.getMontoSolicitado(), financiero);
                 }
             }
         }
@@ -745,6 +742,30 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         }
     }
 
+    private void validarMontoSolicitadoActivo(BigDecimal montoSolicitado, EnteFinanciero financiero) {
+        if (montoSolicitado == null) {
+            return;
+        }
+
+        List<EnteCuota> cuotasPendientes = enteCuotaService.findPendientesByEnteFinancieroId(financiero.getId());
+        if (!cuotasPendientes.isEmpty()) {
+            EnteCuota siguiente = cuotasPendientes.get(0);
+            BigDecimal montoCuota = siguiente.getMonto() != null ? siguiente.getMonto() : BigDecimal.ZERO;
+            if (montoSolicitado.compareTo(montoCuota) > 0) {
+                throw new RuntimeException(
+                        "El monto solicitado supera el monto de la cuota pendiente (" + montoCuota + ").");
+            }
+            return;
+        }
+
+        BigDecimal pendiente = ActivoPagoNormalizer.calcularMontoPendiente(
+                financiero.getMontoTotal(), financiero.getMontoYaPagado());
+        if (montoSolicitado.compareTo(pendiente) > 0) {
+            throw new RuntimeException(
+                    "El monto solicitado supera el saldo pendiente del activo (" + pendiente + ").");
+        }
+    }
+
     private void descontarCuota(PreGasto preGasto) {
         Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(preGasto.getEnte().getId());
         if (!optFinanciero.isPresent())
@@ -768,6 +789,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     }
 
     public EnteFinancialSummaryDTO getFinancialSummary(Long enteId) {
+        return getFinancialSummary(enteId, null);
+    }
+
+    public EnteFinancialSummaryDTO getFinancialSummary(Long enteId, Long tipoGastoId) {
         Ente ente = enteService.findById(enteId).orElse(null);
         if (ente == null)
             return null;
@@ -789,8 +814,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 Mueble m = muebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (m != null) {
                     dto.setDescripcion(m.getDescripcion() != null ? m.getDescripcion() : m.getIdentificador());
-                    if (m.getProveedor() != null && m.getProveedor().getPersona() != null)
-                        dto.setProveedorNombre(m.getProveedor().getPersona().getNombre());
+                    if (m.getProveedor() != null) {
+                        asignarProveedorDesdeEntidad(dto, m.getProveedor());
+                    }
                     dto.setSituacionPago(m.getSituacionPago());
 
                     if (dto.getMontoTotal() == null)
@@ -809,8 +835,11 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 Inmueble i = inmuebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (i != null) {
                     dto.setDescripcion(i.getNombreAsignado() != null ? i.getNombreAsignado() : i.getDireccion());
-                    if (i.getProveedor() != null && i.getProveedor().getPersona() != null)
-                        dto.setProveedorNombre(i.getProveedor().getPersona().getNombre());
+                    if (i.getProveedor() != null) {
+                        asignarProveedorDesdeEntidad(dto, i.getProveedor());
+                    } else if (i.getAlquilerProveedor() != null) {
+                        asignarProveedorDesdePersona(dto, i.getAlquilerProveedor());
+                    }
                     dto.setSituacionPago(i.getSituacionPago());
 
                     if (dto.getMontoTotal() == null)
@@ -830,8 +859,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 if (v != null) {
                     dto.setDescripcion(v.getChapa() != null ? "Chapa: " + v.getChapa()
                             : (v.getModelo() != null ? v.getModelo().getDescripcion() : "Vehículo #" + v.getId()));
-                    if (v.getProveedor() != null && v.getProveedor().getPersona() != null)
-                        dto.setProveedorNombre(v.getProveedor().getPersona().getNombre());
+                    if (v.getProveedor() != null) {
+                        asignarProveedorDesdeEntidad(dto, v.getProveedor());
+                    }
                     dto.setSituacionPago(v.getSituacionPago());
 
                     // Fallback para montos
@@ -853,8 +883,8 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                     EquipoFinanciero fin = equipoService.resolverFinanciero(eq);
                     dto.setDescripcion(eq.getDescripcion() != null ? eq.getDescripcion() : eq.getIdentificador());
                     if (fin != null) {
-                        if (fin.getProveedor() != null && fin.getProveedor().getPersona() != null) {
-                            dto.setProveedorNombre(fin.getProveedor().getPersona().getNombre());
+                        if (fin.getProveedor() != null) {
+                            asignarProveedorDesdeEntidad(dto, fin.getProveedor());
                         }
                         dto.setSituacionPago(fin.getSituacionPago());
 
@@ -895,7 +925,114 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             dto.setDescripcionSugerida("Pago - " + dto.getDescripcion());
         }
 
+        enriquecerConCuotaPendiente(dto, optFinanciero);
+
+        if (dto.getProveedorId() == null && optFinanciero.isPresent()) {
+            asignarProveedorDesdePersona(dto, optFinanciero.get().getProveedor());
+        }
+
+        if (tipoGastoId != null) {
+            tipoGastoService.findById(tipoGastoId).ifPresent(tipo -> aplicarContextoTipoGasto(dto, tipo));
+        }
+
+        if (dto.getFechaVencimientoSugerida() == null && dto.getDiaVencimiento() != null) {
+            dto.setFechaVencimientoSugerida(calcularProximaFechaVencimiento(dto.getDiaVencimiento()));
+        }
+
         return dto;
+    }
+
+    private void enriquecerConCuotaPendiente(EnteFinancialSummaryDTO dto, Optional<EnteFinanciero> optFinanciero) {
+        if (!optFinanciero.isPresent()) {
+            return;
+        }
+        List<EnteCuota> cuotasPendientes = enteCuotaService
+                .findPendientesByEnteFinancieroId(optFinanciero.get().getId());
+        if (cuotasPendientes.isEmpty()) {
+            return;
+        }
+        EnteCuota siguiente = cuotasPendientes.get(0);
+        if (siguiente.getMonto() != null) {
+            dto.setMontoSugerido(siguiente.getMonto());
+        }
+        if (siguiente.getNumeroCuota() != null) {
+            dto.setNumeroCuotaActual(siguiente.getNumeroCuota());
+        }
+        if (siguiente.getFechaVencimiento() != null) {
+            dto.setFechaVencimientoSugerida(siguiente.getFechaVencimiento());
+        }
+        BigDecimal sumaPendiente = cuotasPendientes.stream()
+                .map(c -> c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (sumaPendiente.compareTo(BigDecimal.ZERO) > 0) {
+            dto.setMontoPendiente(sumaPendiente);
+            dto.setCuotasFaltantes(cuotasPendientes.size());
+        }
+    }
+
+    private void aplicarContextoTipoGasto(EnteFinancialSummaryDTO dto, TipoGasto tipo) {
+        TipoPadreGastoModulo modulo = tipo.getModuloPadre();
+        TipoNaturalezaGasto naturaleza = tipo.getTipoNaturaleza();
+        boolean esCuota = Boolean.TRUE.equals(tipo.getEsPagoCuotaActivo());
+
+        if (moduloReglasService.montoVariableEnContinuo(modulo, naturaleza)) {
+            dto.setAutocompletarMonto(false);
+            dto.setMontoSugerido(null);
+            String etiqueta = moduloReglasService.etiquetaModulo(modulo);
+            dto.setDescripcionSugerida("Pago " + etiqueta + " - "
+                    + (dto.getDescripcion() != null ? dto.getDescripcion() : ""));
+            return;
+        }
+
+        if (esCuota) {
+            dto.setAutocompletarMonto(true);
+            if (dto.getNumeroCuotaActual() == null && dto.getCuotasPagadas() != null
+                    && dto.getCuotasTotales() != null && dto.getCuotasTotales() > 0) {
+                dto.setNumeroCuotaActual(dto.getCuotasPagadas() + 1);
+            }
+            if (dto.getNumeroCuotaActual() != null && dto.getCuotasTotales() != null
+                    && dto.getDescripcion() != null) {
+                dto.setDescripcionSugerida(String.format("Cuota %d/%d - %s",
+                        dto.getNumeroCuotaActual(), dto.getCuotasTotales(), dto.getDescripcion()));
+            }
+            return;
+        }
+
+        dto.setAutocompletarMonto(false);
+    }
+
+    private LocalDate calcularProximaFechaVencimiento(int diaVencimiento) {
+        LocalDate hoy = LocalDate.now();
+        int dia = Math.min(Math.max(diaVencimiento, 1), 31);
+        LocalDate candidato = hoy.withDayOfMonth(Math.min(dia, hoy.lengthOfMonth()));
+        if (!candidato.isAfter(hoy)) {
+            LocalDate siguienteMes = hoy.plusMonths(1);
+            candidato = siguienteMes.withDayOfMonth(Math.min(dia, siguienteMes.lengthOfMonth()));
+        }
+        return candidato;
+    }
+
+    private void asignarProveedorDesdeEntidad(EnteFinancialSummaryDTO dto, Proveedor proveedor) {
+        if (proveedor == null) {
+            return;
+        }
+        dto.setProveedorId(proveedor.getId());
+        if (proveedor.getPersona() != null && proveedor.getPersona().getNombre() != null) {
+            dto.setProveedorNombre(proveedor.getPersona().getNombre());
+        }
+    }
+
+    private void asignarProveedorDesdePersona(EnteFinancialSummaryDTO dto, Persona persona) {
+        if (persona == null) {
+            return;
+        }
+        if (persona.getNombre() != null) {
+            dto.setProveedorNombre(persona.getNombre());
+        }
+        Proveedor proveedor = proveedorService.findByPersonaId(persona.getId());
+        if (proveedor != null) {
+            dto.setProveedorId(proveedor.getId());
+        }
     }
 
     private void llenarDatosCuotas(EnteFinancialSummaryDTO dto, Integer total, Integer pagadas, Integer diaVenc) {

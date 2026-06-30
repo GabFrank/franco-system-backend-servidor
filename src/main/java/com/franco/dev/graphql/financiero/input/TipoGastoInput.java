@@ -29,4 +29,8 @@ public class TipoGastoInput {
     private TipoNaturalezaGasto tipoNaturaleza;
 
     private TipoPadreGastoModulo moduloPadre;
+
+    private Boolean afectaFinanzasActivo;
+
+    private Boolean esPagoCuotaActivo;
 }

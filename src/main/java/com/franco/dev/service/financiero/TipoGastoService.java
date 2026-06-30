@@ -52,7 +52,7 @@ public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository
         return e;
     }
 
-    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, Pageable pageable) {
-        return repository.filterTipoGastos(naturaleza, texto, pageable);
+    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, String moduloPadre, Pageable pageable) {
+        return repository.filterTipoGastos(naturaleza, texto, moduloPadre, pageable);
     }
 }

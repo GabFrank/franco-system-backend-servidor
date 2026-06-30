@@ -124,8 +124,8 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return "";
     }
 
-    public EnteFinancialSummaryDTO getEnteFinancialSummary(Long enteId) {
-        return service.getFinancialSummary(enteId);
+    public EnteFinancialSummaryDTO getEnteFinancialSummary(Long enteId, Long tipoGastoId) {
+        return service.getFinancialSummary(enteId, tipoGastoId);
     }
 
     public PreGasto savePreGasto(PreGastoInput input) {

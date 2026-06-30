@@ -108,12 +108,18 @@ public class ActivoFinancieroSyncService {
             enteCuotaRepository.save(cuota);
         }
 
-        BigDecimal totalCuotas = cuotas.stream()
+        BigDecimal totalCuotasPendientes = cuotas.stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getPagado()))
                 .map(c -> c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (totalCuotas.compareTo(BigDecimal.ZERO) > 0) {
-            financiero.setMontoTotal(totalCuotas);
-            enteFinancieroService.save(financiero);
+        if (totalCuotasPendientes.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal yaPagado = montoYaPagado != null ? montoYaPagado : BigDecimal.ZERO;
+            BigDecimal totalDesdeCuotas = yaPagado.add(totalCuotasPendientes);
+            BigDecimal totalActual = financiero.getMontoTotal() != null ? financiero.getMontoTotal() : BigDecimal.ZERO;
+            if (totalDesdeCuotas.compareTo(totalActual) > 0) {
+                financiero.setMontoTotal(totalDesdeCuotas);
+                enteFinancieroService.save(financiero);
+            }
         }
     }
 

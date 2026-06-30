@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
 import com.franco.dev.graphql.financiero.input.TipoGastoInput;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.financiero.TipoGastoService;
@@ -74,8 +75,9 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.count();
     }
 
-    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, Integer page, Integer size) {
+    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, TipoPadreGastoModulo moduloPadre, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : 15);
-        return service.filterTipoGastos(naturaleza, texto, pageable);
+        String moduloPadreStr = moduloPadre != null ? moduloPadre.name() : null;
+        return service.filterTipoGastos(naturaleza, texto, moduloPadreStr, pageable);
     }
 }

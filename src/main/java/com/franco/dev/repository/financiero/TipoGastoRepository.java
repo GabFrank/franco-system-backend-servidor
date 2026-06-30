@@ -29,16 +29,19 @@ public interface TipoGastoRepository extends HelperRepository<TipoGasto, Long> {
 
     @Query(value = "SELECT tg.* FROM financiero.tipo_gasto tg " +
             "WHERE (CAST(:naturaleza AS text) IS NULL OR cast(tg.tipo_naturaleza as text) = CAST(:naturaleza AS text)) " +
+            "AND (CAST(:moduloPadre AS text) IS NULL OR cast(tg.modulo_padre as text) = CAST(:moduloPadre AS text)) " +
             "AND (CAST(:texto AS text) IS NULL OR UPPER(tg.descripcion) LIKE CONCAT('%', UPPER(CAST(:texto AS text)), '%') " +
             "OR CAST(tg.id AS text) LIKE CONCAT('%', CAST(:texto AS text), '%')) " +
             "ORDER BY tg.id ASC",
             countQuery = "SELECT count(*) FROM financiero.tipo_gasto tg " +
             "WHERE (CAST(:naturaleza AS text) IS NULL OR cast(tg.tipo_naturaleza as text) = CAST(:naturaleza AS text)) " +
+            "AND (CAST(:moduloPadre AS text) IS NULL OR cast(tg.modulo_padre as text) = CAST(:moduloPadre AS text)) " +
             "AND (CAST(:texto AS text) IS NULL OR UPPER(tg.descripcion) LIKE CONCAT('%', UPPER(CAST(:texto AS text)), '%') " +
             "OR CAST(tg.id AS text) LIKE CONCAT('%', CAST(:texto AS text), '%'))",
             nativeQuery = true)
     Page<TipoGasto> filterTipoGastos(@Param("naturaleza") String naturaleza,
                                     @Param("texto") String texto,
+                                    @Param("moduloPadre") String moduloPadre,
                                     Pageable pageable);
 
 }

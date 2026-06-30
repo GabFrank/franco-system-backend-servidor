@@ -9,6 +9,17 @@ type EnteCuota {
     usuario: Usuario
 }
 
+type CuotaDetalle {
+    numeroCuota: Int
+    monto: Float
+    pagado: Boolean
+}
+
+type CuotasDetalleCalculado {
+    cuotas: [CuotaDetalle]
+    montoTotal: Float
+}
+
 input CuotaDetalleInput {
     numeroCuota: Int
     monto: Float
@@ -44,6 +55,13 @@ extend type Query {
     enteCuotasByEnteFinanciero(enteFinancieroId:ID!):[EnteCuota]
     enteCuotasByEnteId(enteId:ID!):[EnteCuota]
     enteCuotaSearchPage(enteFinancieroId: ID, page: Int, size: Int): EnteCuotaPage
+    calcularCuotasDetalle(
+        cantidadCuotas: Int
+        cantidadCuotasPagadas: Int
+        montoTotal: Float
+        montoYaPagado: Float
+        cuotasDetalle: [CuotaDetalleInput]
+    ): CuotasDetalleCalculado
 }
 
 extend type Mutation {

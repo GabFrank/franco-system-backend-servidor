@@ -17,5 +17,8 @@ public class ProductoAnalysisConfigurer implements LuceneAnalysisConfigurer {
                 .tokenizer("standard")
                 .tokenFilter("lowercase")
                 .tokenFilter("asciifolding");
+
+        context.normalizer("lowercase").custom()
+                .tokenFilter("lowercase");
     }
 }

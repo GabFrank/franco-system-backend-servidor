@@ -160,6 +160,7 @@ public class GraficoAggregationService {
             List<Long> sucIds,
             Integer limit,
             Long familiaId,
+            Long subfamiliaId,
             Boolean ascendente,
             List<Long> productoIds) {
         validarPeriodos(periodos);
@@ -180,6 +181,7 @@ public class GraficoAggregationService {
                         limiteConsulta,
                         sucId,
                         familiaId,
+                        subfamiliaId,
                         ascendente,
                         null,
                         productoIds);
@@ -540,8 +542,16 @@ public class GraficoAggregationService {
         }
         for (ProductoVendidoEstadistica item : items) {
             item.setPorcentaje(total > 0 ? (item.getTotalMonto() / total) * 100.0 : 0.0);
+            item.setPrecioPromedio(calcularPrecioPromedio(item.getTotalMonto(), item.getCantidad()));
             item.setIndiceRotacion(calcularIndiceRotacion(item));
         }
+    }
+
+    private Double calcularPrecioPromedio(Double totalMonto, Double cantidad) {
+        if (cantidad != null && cantidad > 0 && totalMonto != null) {
+            return Math.round((totalMonto / cantidad) * 100.0) / 100.0;
+        }
+        return 0.0;
     }
 
     private Double calcularIndiceRotacion(ProductoVendidoEstadistica item) {

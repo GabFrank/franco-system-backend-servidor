@@ -1,5 +1,6 @@
 package com.franco.dev.service.configuracion;
 
+import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.repository.configuracion.InicioSesionRepository;
 import com.franco.dev.service.CrudService;
@@ -18,7 +19,7 @@ import java.util.Set;
 
 @Service
 @AllArgsConstructor
-public class InicioSesionService extends CrudService<InicioSesion, InicioSesionRepository, Long> {
+public class InicioSesionService extends CrudService<InicioSesion, InicioSesionRepository, EmbebedPrimaryKey> {
 
     private final InicioSesionRepository repository;
 
@@ -42,6 +43,23 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
 
         if (isNew) {
             entity.setCreadoEn(now);
+        }
+
+        if (entity.getSucursalId() == null) {
+            if (entity.getSucursal() != null) {
+                entity.setSucursalId(entity.getSucursal().getId());
+            } else {
+                entity.setSucursalId(0L);
+            }
+        }
+
+        if (entity.getId() == null) {
+            Long lastId = repository.findMaxId(entity.getSucursalId());
+            long newId = (lastId == null ? 0L : lastId) + 1L;
+            if (newId % 2 == 0) {
+                newId++;
+            }
+            entity.setId(newId);
         }
 
         cerrarOtrasSesionesActivasDelDispositivo(entity, now);

@@ -230,4 +230,60 @@ class FacturaImportMatcherServiceTest {
         // Verifica que NO se llamo a findProductoByTextoYProveedor con proveedorId null
         // (covered by lenient strict-stubs behavior).
     }
+
+    // === Bug fixes A: RUC con digito verificador + GTIN ===
+
+    @Test
+    void matchProveedor_rucConDv_matcheaPersonaGuardadaSinDv_high() {
+        // El XML SIFEN trae "80060071-1" pero en persona.documento el RUC esta sin el DV.
+        Persona p = new Persona();
+        p.setId(50L);
+        Proveedor prov = new Proveedor();
+        prov.setId(9L);
+        when(personaRepository.findByDocumento("80060071-1")).thenReturn(null);
+        when(personaRepository.findByDocumento("80060071")).thenReturn(p);
+        when(proveedorRepository.findByPersonaId(50L)).thenReturn(prov);
+
+        MatchProveedor r = matcher.matchProveedor("80060071-1", "GRUPO A.F. BERTI S.R.L");
+
+        assertEquals(Confianza.HIGH, r.confianza);
+        assertEquals(9L, r.proveedor.getId());
+        assertEquals("RUC exacto en catalogo", r.razon);
+    }
+
+    @Test
+    void matchProducto_gtinMatcheaBarcode_high() {
+        // dGtin (EAN) matchea nuestro catalogo aunque el dCodInt del proveedor no.
+        Producto prod = new Producto();
+        prod.setId(40L);
+        Presentacion pres = new Presentacion();
+        pres.setProducto(prod);
+        Codigo cod = new Codigo();
+        cod.setPresentacion(pres);
+        when(codigoService.findByCodigo("7891117043164")).thenReturn(List.of(cod));
+
+        // (codigoBarras=GTIN, codigoOcr=dCodInt del proveedor, nombre, proveedorId)
+        MatchProducto r = matcher.matchProducto("7891117043164", "019902", "TRAMONTINA 78502", 1L);
+
+        assertEquals(Confianza.HIGH, r.confianza);
+        assertEquals(40L, r.producto.getId());
+        assertEquals("Codigo de barras exacto", r.razon);
+    }
+
+    @Test
+    void matchProducto_gtinNoMatchea_caeAlCodigoInterno_high() {
+        Producto prod = new Producto();
+        prod.setId(41L);
+        Presentacion pres = new Presentacion();
+        pres.setProducto(prod);
+        Codigo cod = new Codigo();
+        cod.setPresentacion(pres);
+        when(codigoService.findByCodigo("7891117043164")).thenReturn(List.of()); // GTIN no esta en catalogo
+        when(codigoService.findByCodigo("019902")).thenReturn(List.of(cod));      // pero el codigo interno si
+
+        MatchProducto r = matcher.matchProducto("7891117043164", "019902", "TRAMONTINA 78502", 1L);
+
+        assertEquals(Confianza.HIGH, r.confianza);
+        assertEquals(41L, r.producto.getId());
+    }
 }

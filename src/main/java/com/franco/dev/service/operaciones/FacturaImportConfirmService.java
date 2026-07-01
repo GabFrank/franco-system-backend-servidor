@@ -93,7 +93,8 @@ public class FacturaImportConfirmService {
         if (data.getItems() != null) {
             for (FacturaIaResponse.Item item : data.getItems()) {
                 FacturaImportMatcherService.MatchProducto mp = matcher.matchProducto(
-                        item.getCodigoProducto(), item.getNombreProducto(), provIdParaMatching);
+                        item.getCodigoBarras(), item.getCodigoProducto(), item.getNombreProducto(),
+                        provIdParaMatching);
 
                 FacturaImportPreviewDto.ItemPreview ip = new FacturaImportPreviewDto.ItemPreview();
                 ip.setTextoOcr(item.getNombreProducto());

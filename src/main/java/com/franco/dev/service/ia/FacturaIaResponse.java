@@ -44,6 +44,8 @@ public class FacturaIaResponse implements Serializable {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Item implements Serializable {
         private String codigoProducto;
+        /** Codigo de barras / GTIN (EAN). En SIFEN viene en dGtin; es el que matchea nuestro catalogo. */
+        private String codigoBarras;
         private String nombreProducto;
         private BigDecimal cantidad;
         private BigDecimal precioUnitario;

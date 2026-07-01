@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -92,21 +93,26 @@ public class FacturaImportMatcherService {
     public MatchProveedor matchProveedor(String ruc, String nombreOcr) {
         // 1. RUC exacto en personas.persona
         if (ruc != null && !ruc.isEmpty()) {
-            String rucNormalizado = ruc.trim();
-            Persona persona = personaRepository.findByDocumento(rucNormalizado);
-            if (persona != null) {
-                Proveedor p = proveedorRepository.findByPersonaId(persona.getId());
-                if (p != null) {
-                    log.debug("matchProveedor HIGH via RUC exacto {}", rucNormalizado);
-                    return new MatchProveedor(p, Confianza.HIGH, "RUC exacto en catalogo");
+            // El RUC en SIFEN viene "NNNNNNNN-D" (con digito verificador) pero en persona.documento
+            // se guarda sin el DV. Probamos ambas formas (con y sin DV).
+            for (String cand : rucCandidatos(ruc.trim())) {
+                Persona persona = personaRepository.findByDocumento(cand);
+                if (persona != null) {
+                    Proveedor p = proveedorRepository.findByPersonaId(persona.getId());
+                    if (p != null) {
+                        log.debug("matchProveedor HIGH via RUC exacto {}", cand);
+                        return new MatchProveedor(p, Confianza.HIGH, "RUC exacto en catalogo");
+                    }
                 }
             }
 
             // 2. Alias por RUC
-            List<AliasProveedorImport> aliasesRuc = aliasImportService.findProveedorByRuc(rucNormalizado);
-            if (!aliasesRuc.isEmpty()) {
-                log.debug("matchProveedor HIGH via alias RUC {}", rucNormalizado);
-                return new MatchProveedor(aliasesRuc.get(0).getProveedor(), Confianza.HIGH, "Alias previo por RUC");
+            for (String cand : rucCandidatos(ruc.trim())) {
+                List<AliasProveedorImport> aliasesRuc = aliasImportService.findProveedorByRuc(cand);
+                if (aliasesRuc != null && !aliasesRuc.isEmpty()) {
+                    log.debug("matchProveedor HIGH via alias RUC {}", cand);
+                    return new MatchProveedor(aliasesRuc.get(0).getProveedor(), Confianza.HIGH, "Alias previo por RUC");
+                }
             }
         }
 
@@ -122,6 +128,15 @@ public class FacturaImportMatcherService {
         return new MatchProveedor(null, Confianza.NONE, "Sin sugerencia automatica");
     }
 
+    /** Formas del RUC a probar: exacto (con DV) y sin el DV (parte antes del guion). Sin duplicados. */
+    private List<String> rucCandidatos(String rucNormalizado) {
+        String rucSinDv = rucNormalizado.contains("-")
+                ? rucNormalizado.substring(0, rucNormalizado.lastIndexOf('-')) : rucNormalizado;
+        return rucNormalizado.equals(rucSinDv)
+                ? Collections.singletonList(rucNormalizado)
+                : Arrays.asList(rucNormalizado, rucSinDv);
+    }
+
     /**
      * Prioridad producto:
      *  1. codigoOcr matchea Codigo (barcode/EAN) -> HIGH
@@ -131,19 +146,23 @@ public class FacturaImportMatcherService {
      *  5. NONE
      */
     public MatchProducto matchProducto(String codigoOcr, String nombreOcr, Long proveedorId) {
-        // 1. Barcode exacto
-        if (codigoOcr != null && !codigoOcr.trim().isEmpty()) {
-            List<Codigo> codigos = codigoService.findByCodigo(codigoOcr.trim());
-            if (codigos != null && !codigos.isEmpty()) {
-                Codigo c = codigos.get(0);
-                if (c.getPresentacion() != null && c.getPresentacion().getProducto() != null) {
-                    log.debug("matchProducto HIGH via barcode {}", codigoOcr);
-                    return new MatchProducto(c.getPresentacion().getProducto(),
-                            Confianza.HIGH, "Codigo de barras exacto", null);
-                }
-            }
+        return matchProducto(null, codigoOcr, nombreOcr, proveedorId);
+    }
 
-            // 2. Alias por codigo_ocr
+    /**
+     * @param codigoBarras codigo de barras / GTIN (EAN) extraido de la factura (dGtin en SIFEN)
+     * @param codigoOcr    codigo interno del proveedor (dCodInt en SIFEN) / codigo leido por OCR
+     */
+    public MatchProducto matchProducto(String codigoBarras, String codigoOcr, String nombreOcr, Long proveedorId) {
+        // 1. Barcode exacto: primero el GTIN/EAN (matchea nuestro catalogo), luego el codigo interno del proveedor
+        Producto porBarcode = buscarProductoPorBarcode(codigoBarras);
+        if (porBarcode == null) porBarcode = buscarProductoPorBarcode(codigoOcr);
+        if (porBarcode != null) {
+            return new MatchProducto(porBarcode, Confianza.HIGH, "Codigo de barras exacto", null);
+        }
+
+        // 2. Alias por codigo_ocr (codigo interno del proveedor)
+        if (codigoOcr != null && !codigoOcr.trim().isEmpty()) {
             List<AliasProductoImport> aliasCod = aliasImportService.findProductoByCodigoOcr(codigoOcr.trim());
             if (!aliasCod.isEmpty()) {
                 log.debug("matchProducto HIGH via alias codigo {}", codigoOcr);
@@ -185,5 +204,19 @@ public class FacturaImportMatcherService {
         }
 
         return new MatchProducto(null, Confianza.NONE, "Sin sugerencia automatica", null);
+    }
+
+    /** Busca un producto por codigo de barras exacto. Devuelve null si el codigo es vacio o no matchea. */
+    private Producto buscarProductoPorBarcode(String codigo) {
+        if (codigo == null || codigo.trim().isEmpty()) return null;
+        List<Codigo> codigos = codigoService.findByCodigo(codigo.trim());
+        if (codigos != null && !codigos.isEmpty()) {
+            Codigo c = codigos.get(0);
+            if (c.getPresentacion() != null && c.getPresentacion().getProducto() != null) {
+                log.debug("matchProducto HIGH via barcode {}", codigo);
+                return c.getPresentacion().getProducto();
+            }
+        }
+        return null;
     }
 }

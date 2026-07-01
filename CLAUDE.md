@@ -17,7 +17,7 @@ Stack: **Spring Boot 2.7.18 / Java 11 / PostgreSQL** + **GraphQL** (`graphql-jav
 ./mvnw clean verify -B -DskipFlyway=true  # CI build (sin Flyway)
 ```
 
-Maven Wrapper: 3.6.3. CI usa JDK 11 (Temurin). El pom.xml declara Java 1.8 como source/target.
+Maven Wrapper: 3.6.3. CI usa JDK 11 (Temurin). El pom.xml declara `<java.version>11</java.version>` (source/target 11).
 
 ## Project Structure
 

@@ -92,7 +92,6 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "LEFT JOIN z.sector sec " +
                         "JOIN i.usuario u " +
                         "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
-                        "AND (SELECT COALESCE(SUM(ms.cantidad), 0) FROM MovimientoStock ms WHERE ms.estado = true AND ms.producto = pro AND ms.sucursalId = s.id) > 0 " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
                         "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
                         "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
@@ -130,7 +129,6 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "LEFT JOIN z.sector sec " +
                         "JOIN i.usuario u " +
                         "WHERE i.vencimiento BETWEEN :startDate AND :endDate " +
-                        "AND (SELECT COALESCE(SUM(ms.cantidad), 0) FROM MovimientoStock ms WHERE ms.estado = true AND ms.producto = pro AND ms.sucursalId = s.id) > 0 " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
                         "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
                         "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +

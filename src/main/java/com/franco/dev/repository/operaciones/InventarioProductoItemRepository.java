@@ -1,6 +1,7 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.graphql.operaciones.dto.InventarioAlertaProjectionDTO;
 import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -297,4 +298,17 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                 return findItemsDeInventariosAnterioresSoloSucursal(presentacionId, sucursalId,
                                 fechaInicioInventarioActual, pageable.getPageSize(), (int) pageable.getOffset());
         }
+
+        @Query("SELECT new com.franco.dev.graphql.operaciones.dto.InventarioAlertaProjectionDTO(" +
+                        "pre.producto.id, ipi.presentacion.id, ipi.vencimiento, ipi.estado) " +
+                        "FROM InventarioProductoItem ipi " +
+                        "JOIN ipi.presentacion pre " +
+                        "JOIN ipi.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "WHERE inv.sucursal.id = :sucursalId " +
+                        "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 WHERE inv2.sucursal.id = :sucursalId) " +
+                        "AND pre.producto.id IN :productoIds")
+        List<InventarioAlertaProjectionDTO> findAlertasBySucursalAndProductoIds(
+                        @Param("sucursalId") Long sucursalId,
+                        @Param("productoIds") List<Long> productoIds);
 }

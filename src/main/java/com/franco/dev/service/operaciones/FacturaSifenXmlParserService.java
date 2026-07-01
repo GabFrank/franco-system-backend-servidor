@@ -63,6 +63,15 @@ public class FacturaSifenXmlParserService {
             resp.setEmisorRuc(dv != null ? ruc + "-" + dv : ruc);
         }
         resp.setEmisorNombre(SifenXmlParser.extractTagValue(xmlContent, "dNomEmi"));
+        // Datos adicionales del emisor (opcionales -> warnIfMissing=false). Sirven para precargar
+        // o sugerir actualizacion del proveedor en el frontend. Se usan las variantes dDes* (texto legible).
+        resp.setEmisorNombreFantasia(SifenXmlParser.extractTagValue(xmlContent, "dNomFanEmi", false));
+        resp.setEmisorDireccion(SifenXmlParser.extractTagValue(xmlContent, "dDirEmi", false));
+        resp.setEmisorTelefono(SifenXmlParser.extractTagValue(xmlContent, "dTelEmi", false));
+        resp.setEmisorEmail(SifenXmlParser.extractTagValue(xmlContent, "dEmailE", false));
+        resp.setEmisorDepartamento(SifenXmlParser.extractTagValue(xmlContent, "dDesDepEmi", false));
+        resp.setEmisorDistrito(SifenXmlParser.extractTagValue(xmlContent, "dDesDisEmi", false));
+        resp.setEmisorCiudad(SifenXmlParser.extractTagValue(xmlContent, "dDesCiuEmi", false));
 
         String est = SifenXmlParser.extractTagValue(xmlContent, "dEst");
         String pun = SifenXmlParser.extractTagValue(xmlContent, "dPunExp");

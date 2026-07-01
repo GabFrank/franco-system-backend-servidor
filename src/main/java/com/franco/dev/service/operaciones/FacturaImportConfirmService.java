@@ -75,6 +75,13 @@ public class FacturaImportConfirmService {
         dto.setEstado(imp.getEstado() != null ? imp.getEstado().name() : null);
         dto.setEmisorRuc(data.getEmisorRuc());
         dto.setEmisorNombre(data.getEmisorNombre());
+        dto.setEmisorNombreFantasia(data.getEmisorNombreFantasia());
+        dto.setEmisorDireccion(data.getEmisorDireccion());
+        dto.setEmisorTelefono(data.getEmisorTelefono());
+        dto.setEmisorEmail(data.getEmisorEmail());
+        dto.setEmisorDepartamento(data.getEmisorDepartamento());
+        dto.setEmisorDistrito(data.getEmisorDistrito());
+        dto.setEmisorCiudad(data.getEmisorCiudad());
         dto.setNumeroFactura(data.getNumeroFactura());
         dto.setTimbrado(data.getTimbrado());
         dto.setFechaEmision(data.getFechaEmision());

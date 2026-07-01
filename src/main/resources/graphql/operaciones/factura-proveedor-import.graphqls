@@ -43,6 +43,14 @@ type FacturaImportPreview {
     estado: String
     emisorRuc: String
     emisorNombre: String
+    # Datos adicionales del emisor (para precargar/sugerir actualizacion del proveedor). Opcionales.
+    emisorNombreFantasia: String
+    emisorDireccion: String
+    emisorTelefono: String
+    emisorEmail: String
+    emisorDepartamento: String
+    emisorDistrito: String
+    emisorCiudad: String
     numeroFactura: String
     timbrado: String
     fechaEmision: String

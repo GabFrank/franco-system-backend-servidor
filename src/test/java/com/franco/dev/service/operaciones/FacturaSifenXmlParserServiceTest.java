@@ -42,6 +42,17 @@ class FacturaSifenXmlParserServiceTest {
     }
 
     @Test
+    void parsearXml_fixtureReal_extraeDatosAdicionalesDelEmisor() {
+        FacturaIaResponse r = service.parsearXml(xmlFixture);
+
+        // Datos del emisor para precargar/actualizar el proveedor (fase B)
+        assertEquals("Av Paraguay casi 30 de Julio", r.getEmisorDireccion());
+        assertEquals("SALTO DEL GUAIRA", r.getEmisorCiudad());
+        assertEquals("0986128000", r.getEmisorTelefono());
+        assertEquals("francoarevalos05@gmail.com", r.getEmisorEmail());
+    }
+
+    @Test
     void parsearXml_fixtureReal_extraeItems() {
         FacturaIaResponse r = service.parsearXml(xmlFixture);
 

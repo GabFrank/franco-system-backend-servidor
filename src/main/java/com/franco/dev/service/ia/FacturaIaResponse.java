@@ -24,6 +24,14 @@ public class FacturaIaResponse implements Serializable {
 
     private String emisorRuc;
     private String emisorNombre;
+    /** Datos adicionales del emisor (para precargar/actualizar el proveedor). Opcionales. */
+    private String emisorNombreFantasia;
+    private String emisorDireccion;
+    private String emisorTelefono;
+    private String emisorEmail;
+    private String emisorDepartamento;
+    private String emisorDistrito;
+    private String emisorCiudad;
     private String numeroFactura;
     private String timbrado;
     /** Formato YYYY-MM-DD. Si no es legible, null. */

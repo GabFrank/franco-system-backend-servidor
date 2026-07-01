@@ -20,6 +20,14 @@ public class FacturaImportPreviewDto implements Serializable {
     // Cabecera extraida del archivo
     private String emisorRuc;
     private String emisorNombre;
+    // Datos adicionales del emisor (para precargar/sugerir actualizacion del proveedor)
+    private String emisorNombreFantasia;
+    private String emisorDireccion;
+    private String emisorTelefono;
+    private String emisorEmail;
+    private String emisorDepartamento;
+    private String emisorDistrito;
+    private String emisorCiudad;
     private String numeroFactura;
     private String timbrado;
     private String fechaEmision;

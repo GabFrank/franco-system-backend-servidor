@@ -22,6 +22,16 @@ public class SifenXmlParser {
      * extractTagValue(xml, "dCarQR") -> "https://ekuatia.set.gov.py/consultas/qr?..."
      */
     public static String extractTagValue(String xml, String tagName) {
+        return extractTagValue(xml, tagName, true);
+    }
+
+    /**
+     * Igual que {@link #extractTagValue(String, String)} pero permite silenciar el warning
+     * cuando el tag es opcional (ej: dGtin, campos del emisor que no todos los DE traen).
+     *
+     * @param warnIfMissing si false, un tag ausente se loguea a debug (no warn)
+     */
+    public static String extractTagValue(String xml, String tagName, boolean warnIfMissing) {
         if (xml == null || xml.isEmpty() || tagName == null || tagName.isEmpty()) {
             return null;
         }
@@ -29,20 +39,24 @@ public class SifenXmlParser {
         try {
             String openTag = "<" + tagName + ">";
             String closeTag = "</" + tagName + ">";
-            
+
             int startIndex = xml.indexOf(openTag);
             int endIndex = xml.indexOf(closeTag);
-            
+
             if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
                 String value = xml.substring(startIndex + openTag.length(), endIndex);
-                
+
                 // Decodificar entidades HTML comunes
                 value = decodeHtmlEntities(value);
-                
+
                 logger.debug("✅ Tag '{}' extraído: {} caracteres", tagName, value.length());
                 return value;
             } else {
-                logger.warn("⚠️  Tag '{}' no encontrado en el XML", tagName);
+                if (warnIfMissing) {
+                    logger.warn("⚠️  Tag '{}' no encontrado en el XML", tagName);
+                } else {
+                    logger.debug("Tag opcional '{}' no presente en el XML", tagName);
+                }
                 return null;
             }
         } catch (Exception e) {

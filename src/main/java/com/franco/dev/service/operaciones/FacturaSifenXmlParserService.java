@@ -105,8 +105,9 @@ public class FacturaSifenXmlParserService {
         for (String bloque : bloques) {
             FacturaIaResponse.Item item = new FacturaIaResponse.Item();
             item.setCodigoProducto(SifenXmlParser.extractTagValue(bloque, "dCodInt"));
-            // dGtin = codigo de barras EAN (el que matchea nuestro catalogo; dCodInt es el codigo interno del proveedor)
-            item.setCodigoBarras(SifenXmlParser.extractTagValue(bloque, "dGtin"));
+            // dGtin = codigo de barras EAN (el que matchea nuestro catalogo; dCodInt es el codigo interno del
+            // proveedor). Es opcional: no todos los items lo traen -> silenciar el warning.
+            item.setCodigoBarras(SifenXmlParser.extractTagValue(bloque, "dGtin", false));
             item.setNombreProducto(SifenXmlParser.extractTagValue(bloque, "dDesProSer"));
             item.setCantidad(parseBigDecimalSafe(SifenXmlParser.extractTagValue(bloque, "dCantProSer")));
             item.setPrecioUnitario(parseBigDecimalSafe(SifenXmlParser.extractTagValue(bloque, "dPUniProSer")));

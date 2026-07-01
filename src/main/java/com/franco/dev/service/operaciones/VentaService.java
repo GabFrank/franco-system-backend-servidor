@@ -8,11 +8,14 @@ import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.financiero.enums.PdvCajaTipoMovimiento;
 import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.DeliveryEstado;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
+import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
+import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
@@ -34,10 +37,12 @@ import javax.persistence.EntityManager;
 import javax.persistence.criteria.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.franco.dev.utilitarios.DateUtils.ajustarFinRangoGrafico;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -79,6 +84,12 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private ProductoRepository productoRepository;
+
+    @Autowired
+    private VentaItemRepository ventaItemRepository;
 
     @Override
     public VentaRepository getRepository() {
@@ -342,14 +353,32 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {
         LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
-        List<Object[]> results = repository.getVentasPorSucursal(inicio, fin);
+        LocalDateTime fin = ajustarFinRangoGrafico(fechaFin, stringToDate(fechaFin));
+        List<Object[]> results = productoRepository.findTotalVentaPorSucursal(inicio, fin);
         List<VentaPorSucursal> list = new ArrayList<>();
         for (Object[] obj : results) {
             VentaPorSucursal dto = new VentaPorSucursal();
             dto.setSucId(obj[0] != null ? ((Number) obj[0]).longValue() : null);
             dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "");
             dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            dto.setCantidadVentas(obj[3] != null ? ((Number) obj[3]).doubleValue() : 0.0);
+            list.add(dto);
+        }
+        return list;
+    }
+
+    public List<VentaPorCiudad> ventaPorCiudad(String fechaInicio, String fechaFin) {
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = ajustarFinRangoGrafico(fechaFin, stringToDate(fechaFin));
+        List<Object[]> results = productoRepository.findTotalVentaPorCiudad(inicio, fin);
+        List<VentaPorCiudad> list = new ArrayList<>();
+        for (Object[] obj : results) {
+            VentaPorCiudad dto = new VentaPorCiudad();
+            Long rawId = obj[0] != null ? ((Number) obj[0]).longValue() : null;
+            dto.setCiudadId(rawId != null && rawId == -1L ? null : rawId);
+            dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "Sin Ciudad");
+            dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            dto.setCantidadVentas(obj[3] != null ? ((Number) obj[3]).doubleValue() : 0.0);
             list.add(dto);
         }
         return list;
@@ -647,6 +676,87 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             // Combine predicates with AND
             return cb.and(predicates.toArray(new Predicate[0]));
         }, newPageable);
+    }
+
+    public List<LucroPorFuncionarioDto> findLucroPorFuncionarios(String inicio, String fin, List<Long> sucIdList,
+            List<Long> usuarioIdList, List<Long> productoIdList, Long subfamiliaId, Long familiaId) {
+        if (sucIdList == null || sucIdList.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        boolean filtrarUsuario = usuarioIdList != null && !usuarioIdList.isEmpty();
+        boolean filtrarProducto = productoIdList != null && !productoIdList.isEmpty();
+
+        List<Long> finalUsuarioIdList = filtrarUsuario ? usuarioIdList : Arrays.asList(-1L);
+        List<Long> finalProductoIdList = filtrarProducto ? productoIdList : Arrays.asList(-1L);
+
+        List<Object[]> rows = ventaItemRepository.findLucroPorFuncionarioNative(
+                sucIdList,
+                stringToDate(inicio),
+                stringToDate(fin),
+                finalUsuarioIdList,
+                finalProductoIdList,
+                subfamiliaId,
+                familiaId,
+                filtrarUsuario,
+                filtrarProducto);
+
+        List<LucroPorFuncionarioDto> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            LucroPorFuncionarioDto dto = new LucroPorFuncionarioDto();
+            dto.setUsuarioId(row[0] != null ? ((Number) row[0]).longValue() : null);
+            dto.setNombreFuncionario(row[1] != null ? row[1].toString() : "");
+            dto.setCostoTotal(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0);
+            dto.setCantidad(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0);
+            dto.setTotalVenta(row[4] != null ? ((Number) row[4]).doubleValue() : 0.0);
+            dto.setTotalDescuento(row[5] != null ? ((Number) row[5]).doubleValue() : 0.0);
+            dto.setTotalAumento(row[6] != null ? ((Number) row[6]).doubleValue() : 0.0);
+            result.add(dto);
+        }
+
+        for (LucroPorFuncionarioDto dto : result) {
+            if (dto.getCantidad() != null && dto.getCantidad() > 0) {
+                dto.setCostoUnitario(dto.getCostoTotal() / dto.getCantidad());
+
+                if (dto.getTotalVenta() > 0 && dto.getCantidad() > 0) {
+                    dto.setVentaMedia(dto.getTotalVenta() / dto.getCantidad());
+                } else {
+                    dto.setVentaMedia(0.0);
+                }
+
+                if (dto.getTotalDescuento() != null) {
+                    dto.setTotalDescuento((double) Math.round(dto.getTotalDescuento()));
+                }
+                if (dto.getTotalAumento() != null) {
+                    dto.setTotalAumento((double) Math.round(dto.getTotalAumento()));
+                }
+
+                dto.setLucro((double) Math.round(dto.getTotalVenta() - dto.getCostoTotal()
+                        - (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0)
+                        + (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0)));
+
+                if (dto.getCostoTotal() > 0) {
+                    dto.setMargen((dto.getLucro() / dto.getCostoTotal()) * 100);
+                } else {
+                    dto.setMargen(0.0);
+                }
+
+                if (dto.getTotalVenta() > 0) {
+                    dto.setPercent((dto.getLucro() / dto.getTotalVenta()) * 100);
+                } else {
+                    dto.setPercent(0.0);
+                }
+            } else {
+                dto.setCostoUnitario(0.0);
+                dto.setVentaMedia(0.0);
+                dto.setLucro(0.0);
+                dto.setMargen(0.0);
+                dto.setPercent(0.0);
+            }
+        }
+
+        result.sort((dto1, dto2) -> dto2.getTotalVenta().compareTo(dto1.getTotalVenta()));
+        return result;
     }
 }
 

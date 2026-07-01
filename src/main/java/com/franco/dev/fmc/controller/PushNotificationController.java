@@ -1,14 +1,15 @@
 package com.franco.dev.fmc.controller;
 
 import com.franco.dev.domain.empresarial.Sucursal;
-import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.fmc.model.PushNotificationResponse;
+import com.franco.dev.fmc.model.VentaStockCriticoNotificationRequest;
 import com.franco.dev.fmc.service.NotificationRoleService;
 import com.franco.dev.fmc.service.NotificationTemplateService;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -23,6 +24,7 @@ import javax.validation.Valid;
 import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 public class PushNotificationController {
@@ -42,10 +44,13 @@ public class PushNotificationController {
         private SucursalService sucursalService;
 
         @Autowired
+        private NotificationRoleService notificationRoleService;
+
+        @Autowired
         private VentaCreditoService ventaCreditoService;
 
         @Autowired
-        private NotificationRoleService notificationRoleService;
+        private NotificacionPreferenciaService notificacionPreferenciaService;
 
         public PushNotificationController(PushNotificationService pushNotificationService) {
                 this.pushNotificationService = pushNotificationService;
@@ -59,13 +64,12 @@ public class PushNotificationController {
                                 "Notificación encolada para envío asíncrono."), HttpStatus.ACCEPTED);
         }
 
-        @PostMapping("/notification/venta-credito/{ventaCreditoId}/{sucursalId}/{personaId}/{valorTotal}")
-        public ResponseEntity<PushNotificationResponse> sendVentaCreditoNotification(
-                        @PathVariable Long ventaCreditoId,
+        @PostMapping("/notification/compra-credito/{ventaId}/{sucursalId}/{personaId}/{valorTotal}")
+        public ResponseEntity<PushNotificationResponse> sendCompraCreditoNotification(
+                        @PathVariable Long ventaId,
                         @PathVariable Long sucursalId,
                         @PathVariable Long personaId,
                         @PathVariable Double valorTotal,
-                        @RequestParam(required = false) String usuarioNombre,
                         @RequestParam(required = false) String sucursalNombre) {
                 try {
                         if (sucursalNombre == null || sucursalNombre.isEmpty()) {
@@ -73,28 +77,28 @@ public class PushNotificationController {
                                 sucursalNombre = sucursal != null ? sucursal.getNombre() : "";
                         }
 
-
-                        List<String> rolesRelevantes = notificationRoleService.getRolesForVentaCredito();
-                        List<Long> usuariosRelevantes = notificationRoleService.getUserIdsByRoles(rolesRelevantes);
-
-                        if (!usuariosRelevantes.isEmpty()) {
-                                PushNotificationRequest requestAdmin = notificationTemplateService
-                                                .ventaCreditoRealizada(ventaCreditoId, sucursalId, valorTotal, sucursalNombre, df);
-                                requestAdmin.setType("VENTA_CREDITO_ADMIN");
-                                requestAdmin.setUsuarioIds(usuariosRelevantes);
-                                pushNotificationService.sendPushNotificationToToken(requestAdmin);
-                        }
-
                         Usuario usuarioCliente = usuarioService.findByPersonaId(personaId);
-                        if (usuarioCliente != null) {
-                                PushNotificationRequest requestCliente = notificationTemplateService
-                                                .ventaCreditoRealizadaCliente(ventaCreditoId, sucursalId, valorTotal, sucursalNombre, df);
-                                requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
-                                pushNotificationService.sendPushNotificationToToken(requestCliente);
+                        if (usuarioCliente == null) {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontró usuario para la persona indicada"),
+                                                HttpStatus.NOT_FOUND);
                         }
+
+                        Long ventaCreditoId = ventaId;
+                        com.franco.dev.domain.financiero.VentaCredito ventaCredito = ventaCreditoService
+                                        .findByVentaIdAndSucId(ventaId, sucursalId);
+                        if (ventaCredito != null) {
+                                ventaCreditoId = ventaCredito.getId();
+                        }
+
+                        PushNotificationRequest requestCliente = notificationTemplateService
+                                        .compraCreditoRegistrada(ventaCreditoId, sucursalId, valorTotal, sucursalNombre,
+                                                        df);
+                        requestCliente.setUsuarioIds(Collections.singletonList(usuarioCliente.getId()));
+                        pushNotificationService.sendPushNotificationToToken(requestCliente);
 
                         return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
-                                        "Notificaciones enviadas exitosamente"), HttpStatus.ACCEPTED);
+                                        "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
 
                 } catch (Exception e) {
                         return new ResponseEntity<>(
@@ -261,6 +265,50 @@ public class PushNotificationController {
                                                 HttpStatus.NOT_FOUND);
                         }
 
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
+        @PostMapping("/notification/venta-stock-critico")
+        public ResponseEntity<PushNotificationResponse> sendVentaStockCriticoNotification(
+                        @RequestBody VentaStockCriticoNotificationRequest body) {
+                try {
+                        if (body == null || body.getVentaId() == null || body.getSucursalId() == null
+                                        || body.getItems() == null || body.getItems().isEmpty()) {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.BAD_REQUEST.value(),
+                                                "Parámetros insuficientes para notificación de stock crítico"),
+                                                HttpStatus.BAD_REQUEST);
+                        }
+
+                        List<Usuario> usuariosDestino = notificacionPreferenciaService
+                                        .obtenerUsuariosPorTipoNotificacion("VENTA_STOCK_CRITICO");
+                        List<Long> usuariosRelevantes = usuariosDestino.stream()
+                                        .map(Usuario::getId)
+                                        .distinct()
+                                        .collect(Collectors.toList());
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.ventaStockCritico(
+                                                body.getVentaId(),
+                                                body.getSucursalId(),
+                                                body.getSucursalNombre(),
+                                                body.getUsuarioNombre(),
+                                                body.getItems(),
+                                                df);
+                                request.setUsuarioIds(usuariosRelevantes.stream().distinct().collect(Collectors.toList()));
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación de stock crítico enviada exitosamente"),
+                                                HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
                 } catch (Exception e) {
                         return new ResponseEntity<>(
                                         new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),

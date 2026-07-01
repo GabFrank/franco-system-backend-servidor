@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 import javax.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -84,6 +85,22 @@ public class Inmueble implements Identifiable<Long> {
 
     @Column(name = "dia_vencimiento")
     private Integer diaVencimiento;
+
+    @Column(name = "es_propio")
+    private Boolean esPropio;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alquiler_proveedor_id")
+    private Persona alquilerProveedor;
+
+    @Column(name = "alquiler_monto")
+    private BigDecimal alquilerMonto;
+
+    @Column(name = "alquiler_dia_vencimiento")
+    private Integer alquilerDiaVencimiento;
+
+    @Column(name = "alquiler_vigencia")
+    private LocalDate alquilerVigencia;
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)

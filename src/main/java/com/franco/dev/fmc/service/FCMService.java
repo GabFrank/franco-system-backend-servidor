@@ -26,9 +26,12 @@ public class FCMService {
     private static final String DEFAULT_DATA_PATH = "/";
     private final Logger logger = LoggerFactory.getLogger(FCMService.class);
     private final Gson gson;
+    @SuppressWarnings("unused")
+    private final FCMInitializer fcmInitializer;
 
-    public FCMService(Gson gson) {
+    public FCMService(Gson gson, FCMInitializer fcmInitializer) {
         this.gson = gson;
+        this.fcmInitializer = fcmInitializer;
     }
 
     public DeliveryResult sendToToken(String token, PushNotificationRequest request) {

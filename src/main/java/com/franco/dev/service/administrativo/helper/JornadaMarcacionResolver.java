@@ -22,6 +22,7 @@ public class JornadaMarcacionResolver {
 
     private final JornadaService jornadaService;
     private final JornadaFactory jornadaFactory;
+    private final JornadaMarcacionRules jornadaMarcacionRules;
 
     public Jornada resolver(Marcacion marcacion, LocalDate fechaReferencia) {
         if (marcacion.getTipo() == TipoMarcacion.SALIDA) {
@@ -33,6 +34,8 @@ public class JornadaMarcacionResolver {
 
     private Jornada resolverSalida(Marcacion marcacion, LocalDate fechaReferencia) {
         Long usuarioId = marcacion.getUsuario().getId();
+
+        jornadaMarcacionRules.validarSalida(usuarioId, fechaReferencia);
 
         Optional<Jornada> jornadaNocturnaAbierta = jornadaService.findIncompletaSinSalidaNocturnaParaSalida(
                 usuarioId, fechaReferencia);
@@ -54,19 +57,18 @@ public class JornadaMarcacionResolver {
     private Jornada resolverEntrada(Marcacion marcacion, LocalDate fechaReferencia) {
         Long usuarioId = marcacion.getUsuario().getId();
 
-        Optional<Jornada> jornadaCruzaMedianoche = jornadaService.findIncompletaSinSalidaNocturnaParaSalida(
+        jornadaMarcacionRules.validarEntrada(usuarioId, fechaReferencia);
+
+        Optional<Jornada> jornadaNocturna = jornadaService.findIncompletaSinSalidaNocturnaParaSalida(
                 usuarioId, fechaReferencia);
-        if (jornadaCruzaMedianoche.isPresent()) {
-            Jornada abierta = jornadaCruzaMedianoche.get();
-            if (abierta.getMarcacionEntrada() != null && abierta.getMarcacionSalida() == null) {
-                return abierta;
-            }
+        if (jornadaNocturna.isPresent() && jornadaMarcacionRules.esRetornoAlmuerzoPendiente(jornadaNocturna.get())) {
+            return jornadaNocturna.get();
         }
 
-        Optional<Jornada> jornadaAbiertaConEntrada = jornadaService.findJornadaAbiertaConEntradaSinSalida(
+        Optional<Jornada> jornadaHoy = jornadaService.findJornadaAbiertaConEntradaSinSalida(
                 usuarioId, fechaReferencia);
-        if (jornadaAbiertaConEntrada.isPresent()) {
-            return jornadaAbiertaConEntrada.get();
+        if (jornadaHoy.isPresent() && jornadaMarcacionRules.esRetornoAlmuerzoPendiente(jornadaHoy.get())) {
+            return jornadaHoy.get();
         }
 
         Optional<Jornada> jornadaAbiertaSinEntrada = jornadaService.findJornadaAbiertaSinEntrada(

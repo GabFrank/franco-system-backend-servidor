@@ -42,16 +42,6 @@ public class NotificationRoleService {
         return new ArrayList<>(userIds);
     }
 
-    public List<String> getRolesForVentaCredito() {
-        return Arrays.asList(
-                "ADMIN",
-                "SOPORTE",
-                "ANALISIS FINANCIERO",
-                "ANALISIS CONTABLE",
-                "ANALISIS DE CAJA",
-                "ANALISIS DE VENTA");
-    }
-
     public List<String> getRolesForFacturaAltoValor() {
         return Arrays.asList(
                 "ADMIN",

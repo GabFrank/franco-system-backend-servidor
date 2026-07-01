@@ -12,7 +12,6 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
-import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -39,9 +38,6 @@ public class EnteFinancieroGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     @Autowired
     private MonedaService monedaService;
-
-    @Autowired
-    private ModelMapper modelMapper;
 
     public Optional<EnteFinanciero> enteFinanciero(Long id) {
         return service.findById(id);
@@ -70,7 +66,14 @@ public class EnteFinancieroGraphQL implements GraphQLQueryResolver, GraphQLMutat
     }
 
     public EnteFinanciero saveEnteFinanciero(EnteFinancieroInput input) {
-        EnteFinanciero e = modelMapper.map(input, EnteFinanciero.class);
+        EnteFinanciero e = new EnteFinanciero();
+        if (input.getId() != null) {
+            e = service.findById(input.getId()).orElse(new EnteFinanciero());
+        }
+        e.setMontoTotal(input.getMontoTotal());
+        e.setMontoYaPagado(input.getMontoYaPagado());
+        e.setCantidadCuotas(input.getCantidadCuotas());
+        e.setDiaVencimiento(input.getDiaVencimiento());
         if (input.getEnteId() != null) {
             e.setEnte(enteService.findById(input.getEnteId()).orElse(null));
         }

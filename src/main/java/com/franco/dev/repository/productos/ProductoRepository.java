@@ -20,6 +20,17 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
 
         public Producto findByDescripcion(String texto);
 
+        @Query("SELECT p FROM Producto p WHERE UPPER(TRIM(p.descripcion)) = UPPER(TRIM(?1)) " +
+               "OR UPPER(TRIM(p.descripcionFactura)) = UPPER(TRIM(?1))")
+        public List<Producto> findByDescripcionNormalized(String descripcion);
+
+        @Query(value = "SELECT p.id FROM productos.producto p " +
+                        "WHERE UPPER(p.descripcion) LIKE CONCAT('%', UPPER(?1), '%') " +
+                        "OR UPPER(p.descripcion_factura) LIKE CONCAT('%', UPPER(?1), '%') " +
+                        "ORDER BY p.descripcion ASC " +
+                        "LIMIT ?2", nativeQuery = true)
+        List<Long> findIdsByDescripcionLike(String texto, int limite);
+
         @Query(value = "select distinct on (p.id, p.descripcion) p.* " +
                         "from productos.producto p " +
                         "left outer join productos.presentacion p2 on p2.producto_id = p.id " +
@@ -171,6 +182,39 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("familiaId") Long familiaId,
                         @Param("filtrarUsuario") Boolean filtrarUsuario,
                         @Param("filtrarProducto") Boolean filtrarProducto);
+
+        /** Misma base que {@link #findTotalVentaPacksPorProducto}, agrupado por sucursal (gráfico ventas). */
+        @Query("SELECT v.sucursalId, s.nombre, SUM(vi.precio * vi.cantidad), COUNT(DISTINCT v.id) " +
+                        "FROM VentaItem vi " +
+                        "JOIN vi.venta v " +
+                        "JOIN v.usuario u " +
+                        "JOIN vi.presentacion pre " +
+                        "JOIN vi.producto pro " +
+                        "JOIN v.sucursal s " +
+                        "WHERE v.estado = 'CONCLUIDA' AND " +
+                        "v.creadoEn BETWEEN :startDate AND :endDate " +
+                        "GROUP BY v.sucursalId, s.nombre " +
+                        "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
+        List<Object[]> findTotalVentaPorSucursal(
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate);
+
+        /** Misma base que {@link #findTotalVentaPorSucursal}, agrupado por ciudad de la sucursal. */
+        @Query("SELECT COALESCE(c.id, -1L), COALESCE(c.descripcion, 'Sin Ciudad'), SUM(vi.precio * vi.cantidad), COUNT(DISTINCT v.id) " +
+                        "FROM VentaItem vi " +
+                        "JOIN vi.venta v " +
+                        "JOIN v.usuario u " +
+                        "JOIN vi.presentacion pre " +
+                        "JOIN vi.producto pro " +
+                        "JOIN v.sucursal s " +
+                        "LEFT JOIN s.ciudad c " +
+                        "WHERE v.estado = 'CONCLUIDA' AND " +
+                        "v.creadoEn BETWEEN :startDate AND :endDate " +
+                        "GROUP BY COALESCE(c.id, -1L), COALESCE(c.descripcion, 'Sin Ciudad') " +
+                        "ORDER BY SUM(vi.precio * vi.cantidad) DESC")
+        List<Object[]> findTotalVentaPorCiudad(
+                        @Param("startDate") LocalDateTime startDate,
+                        @Param("endDate") LocalDateTime endDate);
 
         @Query("select distinct p from Producto p " +
                         "left join Presentacion pres on pres.producto.id = p.id " +

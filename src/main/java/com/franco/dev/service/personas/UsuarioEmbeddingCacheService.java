@@ -1,7 +1,5 @@
 package com.franco.dev.service.personas;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.personas.UsuarioSimilitudResult;
 import com.franco.dev.repository.personas.UsuarioRepository;
@@ -15,22 +13,23 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Caché en memoria de embeddings faciales de usuarios activos.
- * Evita cargar y parsear JSON en cada búsqueda por similitud.
+ * Caché en memoria de galerías faciales de usuarios activos.
  */
 @Service
 @Slf4j
 public class UsuarioEmbeddingCacheService {
 
-    private static final double MATCH_THRESHOLD = 0.75;
+    private static final double MATCH_THRESHOLD = 0.55;
 
     private final UsuarioRepository usuarioRepository;
-    private final ObjectMapper objectMapper;
+    private final EmbeddingGaleriaService embeddingGaleriaService;
     private final CopyOnWriteArrayList<CachedEntry> entries = new CopyOnWriteArrayList<>();
 
-    public UsuarioEmbeddingCacheService(UsuarioRepository usuarioRepository) {
+    public UsuarioEmbeddingCacheService(
+            UsuarioRepository usuarioRepository,
+            EmbeddingGaleriaService embeddingGaleriaService) {
         this.usuarioRepository = usuarioRepository;
-        this.objectMapper = new ObjectMapper();
+        this.embeddingGaleriaService = embeddingGaleriaService;
     }
 
     @PostConstruct
@@ -46,18 +45,38 @@ public class UsuarioEmbeddingCacheService {
         }
         entries.clear();
         entries.addAll(loaded);
-        log.info("Caché de embeddings faciales: {} usuarios activos con embedding", entries.size());
+        log.info("Caché de embeddings faciales: {} usuarios activos con galería", entries.size());
     }
 
-    public void refreshUsuario(Long usuarioId) {
+    public void refreshUsuario(Long usuarioId, String embeddingJson) {
         if (usuarioId == null) {
             return;
         }
         entries.removeIf(e -> e.usuarioId.equals(usuarioId));
-        usuarioRepository.findById(usuarioId).ifPresent(usuario -> {
-            if (Boolean.TRUE.equals(usuario.getActivo())) {
-                parseEntry(usuario).ifPresent(entries::add);
+
+        if (embeddingJson != null && !embeddingJson.isBlank()) {
+            com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria = embeddingGaleriaService
+                    .parsearDesdeJson(embeddingJson);
+            if (galeria == null || galeria.getGallery() == null || galeria.getGallery().isEmpty()) {
+                return;
             }
+            List<double[]> vectores = embeddingGaleriaService.extraerVectores(galeria);
+            if (!vectores.isEmpty()) {
+                usuarioRepository.findById(usuarioId).ifPresent(usuario -> {
+                    if (Boolean.TRUE.equals(usuario.getActivo())) {
+                        entries.add(new CachedEntry(usuarioId, vectores, usuario));
+                        log.debug("Caché de galería facial actualizada para usuario {}", usuarioId);
+                    }
+                });
+            }
+            return;
+        }
+
+        usuarioRepository.findById(usuarioId).ifPresent(usuario -> {
+            if (!Boolean.TRUE.equals(usuario.getActivo())) {
+                return;
+            }
+            parseEntry(usuario).ifPresent(entries::add);
         });
     }
 
@@ -66,7 +85,6 @@ public class UsuarioEmbeddingCacheService {
             return null;
         }
 
-        double[] query = toArray(queryEmbedding);
         List<Integer> excluded = excludeIds != null ? excludeIds : Collections.emptyList();
 
         CachedEntry best = null;
@@ -76,14 +94,14 @@ public class UsuarioEmbeddingCacheService {
             if (excluded.contains(entry.usuarioId.intValue())) {
                 continue;
             }
-            double similarity = cosineSimilarity(query, entry.embedding);
+            double similarity = embeddingGaleriaService.calcularMaximaSimilitud(queryEmbedding, entry.vectores);
             if (similarity > maxSimilarity) {
                 maxSimilarity = similarity;
                 best = entry;
             }
         }
 
-        if (best != null && maxSimilarity > MATCH_THRESHOLD) {
+        if (best != null) {
             return new UsuarioSimilitudResult(best.usuario, maxSimilarity);
         }
         return null;
@@ -98,57 +116,25 @@ public class UsuarioEmbeddingCacheService {
             return java.util.Optional.empty();
         }
         String json = usuario.getPersona().getEmbedding();
-        if (json == null || json.isEmpty()) {
+        com.franco.dev.graphql.personas.dto.EmbeddingGaleriaDto galeria = embeddingGaleriaService.parsearDesdeJson(json);
+        if (galeria == null || galeria.getGallery() == null || galeria.getGallery().isEmpty()) {
             return java.util.Optional.empty();
         }
-        try {
-            List<Double> list = objectMapper.readValue(json, new TypeReference<List<Double>>() {
-            });
-            double[] arr = toArray(list);
-            if (arr.length == 0) {
-                return java.util.Optional.empty();
-            }
-            return java.util.Optional.of(new CachedEntry(usuario.getId(), arr, usuario));
-        } catch (Exception e) {
-            log.warn("Embedding inválido para usuario {}: {}", usuario.getId(), e.getMessage());
+        List<double[]> vectores = embeddingGaleriaService.extraerVectores(galeria);
+        if (vectores.isEmpty()) {
             return java.util.Optional.empty();
         }
-    }
-
-    private static double[] toArray(List<Double> list) {
-        double[] arr = new double[list.size()];
-        for (int i = 0; i < list.size(); i++) {
-            arr[i] = list.get(i) != null ? list.get(i) : 0.0;
-        }
-        return arr;
-    }
-
-    private static double cosineSimilarity(double[] v1, double[] v2) {
-        if (v1.length != v2.length || v1.length == 0) {
-            return 0.0;
-        }
-        double dot = 0.0;
-        double normA = 0.0;
-        double normB = 0.0;
-        for (int i = 0; i < v1.length; i++) {
-            dot += v1[i] * v2[i];
-            normA += v1[i] * v1[i];
-            normB += v2[i] * v2[i];
-        }
-        if (normA == 0 || normB == 0) {
-            return 0.0;
-        }
-        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+        return java.util.Optional.of(new CachedEntry(usuario.getId(), vectores, usuario));
     }
 
     private static final class CachedEntry {
         private final Long usuarioId;
-        private final double[] embedding;
+        private final List<double[]> vectores;
         private final Usuario usuario;
 
-        private CachedEntry(Long usuarioId, double[] embedding, Usuario usuario) {
+        private CachedEntry(Long usuarioId, List<double[]> vectores, Usuario usuario) {
             this.usuarioId = usuarioId;
-            this.embedding = embedding;
+            this.vectores = vectores;
             this.usuario = usuario;
         }
     }

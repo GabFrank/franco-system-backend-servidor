@@ -1,3 +1,8 @@
+type CajaFilialOperacionResult {
+    exito: Boolean
+    cajaId: ID
+}
+
 type PdvCaja {
     id:ID!
     descripcion: String,
@@ -59,7 +64,9 @@ extend type Query {
     countPdvCaja: Int
     cajasPorFecha(inicio:String, fin:String, sucId:ID):[PdvCaja]
     cajaAbiertoPorUsuarioId(id:ID!):[PdvCaja]
+    cajasAbiertasPorUsuarioDesdeFiliales(id:ID!):[PdvCaja]
     cajaAbiertoPorUsuarioIdPorSucursal(id:ID!, sucId: ID):PdvCaja
+    pdvCajaDesdeFilial(id:ID!, sucursalId: ID!):PdvCaja
     cajaAbiertoPorSucursal(sucursalId: ID!):[PdvCaja]
     imprimirBalance(id:ID!, printerName: String, local: String, sucId: ID):PdvCaja
     balancePorFecha(inicio: String, fin: String, sucId: ID): CajaBalance
@@ -75,7 +82,7 @@ extend type Query {
 extend type Mutation {
     savePdvCaja(pdvCaja:PdvCajaInput!):PdvCaja!
     savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!):PdvCaja!
-    abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput]):Boolean
+    abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: ID):CajaFilialOperacionResult
 }
 
 enum PdvCajaEstado {

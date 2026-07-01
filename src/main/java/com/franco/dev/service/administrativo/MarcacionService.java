@@ -34,6 +34,8 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     private final TardanzaCalculator tardanzaCalculator;
     private final HorasTrabajadasCalculator horasTrabajadasCalculator;
     private final AlmuerzoProcessor almuerzoProcessor;
+    private final JornadaFactory jornadaFactory;
+    private final JornadaMarcacionRules jornadaMarcacionRules;
 
     @Override
     public MarcacionRepository getRepository() {
@@ -69,6 +71,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public Marcacion save(Marcacion marcacion) {
         prepararMarcacion(marcacion);
+        validarMarcacion(marcacion);
 
         // Guardamos el estado transiente antes de la persistencia
         Boolean esSalidaAlmuerzo = marcacion.getEsSalidaAlmuerzo();
@@ -81,6 +84,15 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         procesarJornada(marcacionGuardada);
 
         return marcacionGuardada;
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public Marcacion reprocesarJornadaDeMarcacion(Long id, Long sucursalId) {
+        Marcacion marcacion = findById(new EmbebedPrimaryKey(id, sucursalId))
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Marcación no encontrada: id=" + id + ", sucursalId=" + sucursalId));
+        procesarJornada(marcacion);
+        return marcacion;
     }
 
     private void prepararMarcacion(Marcacion marcacion) {
@@ -127,14 +139,41 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             }
 
             almuerzoProcessor.procesar(jornada, marcacion);
+
+            if (!marcacionVinculadaAJornada(jornada, marcacion)) {
+                log.warn(
+                        "Marcación {} no vinculada a jornada {} (fecha {}), creando jornada nueva para usuario {}",
+                        marcacion.getId(), jornada.getId(), jornada.getFecha(),
+                        marcacion.getUsuario().getId());
+                jornada = jornadaFactory.crearNuevaJornada(marcacion, fechaReferencia.toLocalDate());
+                if (horario != null) {
+                    aplicarHorarioAJornada(jornada, horario);
+                }
+                almuerzoProcessor.procesar(jornada, marcacion);
+            }
             tardanzaCalculator.calcular(jornada);
             horasTrabajadasCalculator.calcular(jornada);
 
             jornadaService.save(jornada);
 
+        } catch (IllegalStateException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error crítico procesando jornada para marcación ID: {} en sucursal: {}",
                     marcacion.getId(), marcacion.getSucursalId(), e);
+            throw new RuntimeException("Error procesando jornada de marcación", e);
+        }
+    }
+
+    private void validarMarcacion(Marcacion marcacion) {
+        if (marcacion.getUsuario() == null || marcacion.getUsuario().getId() == null) {
+            return;
+        }
+        java.time.LocalDate fechaMarcacion = obtenerFechaReferencia(marcacion).toLocalDate();
+        if (marcacion.getTipo() == TipoMarcacion.ENTRADA) {
+            jornadaMarcacionRules.validarEntrada(marcacion.getUsuario().getId(), fechaMarcacion);
+        } else if (marcacion.getTipo() == TipoMarcacion.SALIDA) {
+            jornadaMarcacionRules.validarSalida(marcacion.getUsuario().getId(), fechaMarcacion);
         }
     }
 
@@ -144,6 +183,22 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         if (marcacion.getFechaSalida() != null)
             return marcacion.getFechaSalida();
         return LocalDateTime.now();
+    }
+
+    private boolean marcacionVinculadaAJornada(Jornada jornada, Marcacion marcacion) {
+        if (marcacion.getTipo() == TipoMarcacion.ENTRADA) {
+            return (jornada.getMarcacionEntrada() != null
+                    && jornada.getMarcacionEntrada().getId().equals(marcacion.getId()))
+                    || (jornada.getMarcacionEntradaAlmuerzo() != null
+                            && jornada.getMarcacionEntradaAlmuerzo().getId().equals(marcacion.getId()));
+        }
+        if (marcacion.getTipo() == TipoMarcacion.SALIDA) {
+            return (jornada.getMarcacionSalida() != null
+                    && jornada.getMarcacionSalida().getId().equals(marcacion.getId()))
+                    || (jornada.getMarcacionSalidaAlmuerzo() != null
+                            && jornada.getMarcacionSalidaAlmuerzo().getId().equals(marcacion.getId()));
+        }
+        return false;
     }
 
     private void aplicarHorarioAJornada(Jornada jornada, Horario horario) {

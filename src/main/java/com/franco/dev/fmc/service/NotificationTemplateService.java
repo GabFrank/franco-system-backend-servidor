@@ -12,7 +12,9 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.productos.TipoPrecio;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.fmc.model.PushNotificationRequest;
+import com.franco.dev.fmc.model.VentaStockCriticoNotificationRequest;
 import java.text.DecimalFormat;
+import java.util.List;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -51,44 +53,6 @@ public class NotificationTemplateService {
         PushNotificationRequest request = base("GASTO REALIZADO", builder.toString());
         request.setType("GASTO");
         request.setData("/financiero/gastos/" + (gastoId != null ? gastoId : ""));
-        return request;
-    }
-
-    public PushNotificationRequest ventaCreditoRealizada(VentaCredito ventaCredito, Sucursal sucursal,
-            DecimalFormat decimalFormat) {
-        return ventaCreditoRealizada(
-            ventaCredito.getId(),
-            ventaCredito.getSucursalId(),
-            ventaCredito.getValorTotal(),
-            sucursal != null ? sucursal.getNombre() : "",
-            decimalFormat
-        );
-    }
-
-    public PushNotificationRequest ventaCreditoRealizada(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("SE HA DETECTADO UNA VENTA A CRÉDITO EN LA SUCURSAL ")
-                .append(sucursalNombre != null ? sucursalNombre : "")
-                .append(" POR EL VALOR DE ")
-                .append(decimalFormat.format(valorTotal))
-                .append(" GS.");
-        PushNotificationRequest request = base("VENTA A CRÉDITO REALIZADA", builder.toString());
-        request.setType("VENTA_CREDITO_CLIENTE");
-        request.setData("/mis-finanzas/list-convenio/" + ventaCreditoId + "/" + sucursalId);
-        return request;
-    }
-
-    public PushNotificationRequest ventaConvenioRealizada(Venta venta, Sucursal sucursal, Double valor,
-            DecimalFormat decimalFormat) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("SE HA DETECTADO UNA VENTA CON CONVENIO EN LA SUCURSAL ")
-                .append(sucursal != null ? sucursal.getNombre() : "")
-                .append(" POR EL VALOR DE ")
-                .append(decimalFormat.format(valor))
-                .append(" GS.");
-        PushNotificationRequest request = base("VENTA CON CONVENIO REALIZADA", builder.toString());
-        request.setType("VENTA_CONVENIO");
-        request.setData("/operaciones/ventas/" + venta.getId() + "/" + venta.getSucursalId());
         return request;
     }
 
@@ -285,9 +249,9 @@ public class NotificationTemplateService {
         return ""; // Obsolete, logic moved to gastoRealizado(Long...) directly
     }
 
-    public PushNotificationRequest ventaCreditoRealizadaCliente(VentaCredito ventaCredito, Sucursal sucursal,
+    public PushNotificationRequest compraCreditoRegistrada(VentaCredito ventaCredito, Sucursal sucursal,
             DecimalFormat decimalFormat) {
-        return ventaCreditoRealizadaCliente(
+        return compraCreditoRegistrada(
             ventaCredito.getId(),
             ventaCredito.getSucursalId(),
             ventaCredito.getValorTotal(),
@@ -296,7 +260,7 @@ public class NotificationTemplateService {
         );
     }
 
-    public PushNotificationRequest ventaCreditoRealizadaCliente(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
+    public PushNotificationRequest compraCreditoRegistrada(Long ventaCreditoId, Long sucursalId, Double valorTotal, String sucursalNombre, DecimalFormat decimalFormat) {
         StringBuilder builder = new StringBuilder();
         builder.append("REALIZASTE UNA COMPRA CON TU CONVENIO EN LA SUCURSAL ")
                 .append(sucursalNombre != null ? sucursalNombre : "")
@@ -304,7 +268,7 @@ public class NotificationTemplateService {
                 .append(decimalFormat.format(valorTotal))
                 .append(" GS HA SIDO REGISTRADA EXITOSAMENTE.");
         PushNotificationRequest request = base("COMPRA A CRÉDITO REGISTRADA", builder.toString());
-        request.setType("VENTA_CREDITO");
+        request.setType("VENTA_CREDITO_CLIENTE");
         request.setData("/mis-compras/credito/" + ventaCreditoId + "/" + sucursalId);
         return request;
     }
@@ -457,6 +421,41 @@ public class NotificationTemplateService {
 
         PushNotificationRequest request = base("PAGO CON TRANSFERENCIA REGISTRADO", builder.toString());
         request.setType("VENTA_TRANSFERENCIA");
+        request.setData("/operaciones/ventas/" + ventaId + "/" + sucursalId);
+        return request;
+    }
+
+    public PushNotificationRequest ventaStockCritico(
+            Long ventaId,
+            Long sucursalId,
+            String sucursalNombre,
+            String usuarioNombre,
+            List<VentaStockCriticoNotificationRequest.VentaStockCriticoItem> items,
+            DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE DETECTÓ UNA VENTA CON UN PRODUCTO CON STOCK CERO O NEGATIVO");
+        if (sucursalNombre != null && !sucursalNombre.isEmpty()) {
+            builder.append(" EN LA SUCURSAL ").append(sucursalNombre);
+        }
+        builder.append(". VENTA ID: ").append(ventaId);
+        if (usuarioNombre != null && !usuarioNombre.isEmpty()) {
+            builder.append(". REALIZADO POR: ").append(usuarioNombre.toUpperCase());
+        }
+
+        int maxItems = Math.min(items != null ? items.size() : 0, 3);
+        for (int i = 0; i < maxItems; i++) {
+            VentaStockCriticoNotificationRequest.VentaStockCriticoItem item = items.get(i);
+            builder.append(" | ")
+                    .append(item.getProductoDescripcion() != null ? item.getProductoDescripcion() : "PRODUCTO")
+                    .append(": ")
+                    .append(decimalFormat.format(item.getStockResultante() != null ? item.getStockResultante() : 0));
+        }
+        if (items != null && items.size() > maxItems) {
+            builder.append(" | +").append(items.size() - maxItems).append(" productos más");
+        }
+
+        PushNotificationRequest request = base("ALERTA DE STOCK CRÍTICO", builder.toString());
+        request.setType("VENTA_STOCK_CRITICO");
         request.setData("/operaciones/ventas/" + ventaId + "/" + sucursalId);
         return request;
     }

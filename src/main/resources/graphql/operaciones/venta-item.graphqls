@@ -36,13 +36,20 @@ type ProductoVendidoEstadistica {
     descripcion: String
     cantidad: Float
     totalMonto: Float
+    precioPromedio: Float
     porcentaje: Float
+    cantidadEntrada: Float
+    cantidadVentaMovimiento: Float
+    indiceRotacion: Float
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 type ProductoVentaPorPeriodo {
     periodo: String
     cantidad: Float
     totalMonto: Float
+    precioPromedio: Float
 }
 
 type ProductoCompraPorPeriodo {
@@ -56,7 +63,7 @@ extend type Query {
     ventaItems(page:Int = 0, size:Int = 10, sucId: ID):[VentaItem]!
     countVentaItem: Int
     ventaItemListPorVentaId(id:ID!, sucId: ID):[VentaItem]
-    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID, familiaId: ID, ascendente: Boolean, productoId: ID, productoIds: [ID]): [ProductoVendidoEstadistica]
+    productosMasVendidos(inicio: String, fin: String, limit: Int, sucursalId: ID, familiaId: ID, subfamiliaId: ID, ascendente: Boolean, productoId: ID, productoIds: [ID]): [ProductoVendidoEstadistica]
     ventasProductoPorDia(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoVentaPorPeriodo]
     ventasProductoPorMes(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoVentaPorPeriodo]
     comprasProductoPorDia(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoCompraPorPeriodo]

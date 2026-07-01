@@ -1,0 +1,42 @@
+enum TipoCoincidenciaBuscador {
+    CODIGO_EXACTO
+    CODIGO_PREFIJO
+    TEXTO
+    ID
+}
+
+type BuscadorProductoResultado {
+    producto: Producto
+    codigoCoincidente: String
+    tipoCoincidencia: TipoCoincidenciaBuscador
+}
+
+type BuscadorProductoResultadoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [BuscadorProductoResultado]
+    getPageable: Pageable
+}
+
+extend type Query {
+    buscarProductoInteligente(
+        texto: String!
+        proveedorId: ID
+        activo: Boolean
+        page: Int
+        size: Int
+    ): BuscadorProductoResultadoPage
+
+    productoProveedorBusquedaInteligente(
+        id: ID!
+        texto: String!
+        page: Int
+        size: Int
+        pedidoId: ID
+    ): ProductoProveedorPage
+}

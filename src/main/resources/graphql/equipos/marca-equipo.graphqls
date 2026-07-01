@@ -1,0 +1,22 @@
+type MarcaEquipoOutput {
+    id: ID!
+    descripcion: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input MarcaEquipoInput {
+    id: ID
+    descripcion: String
+    usuarioId: ID
+}
+
+extend type Query {
+    marcaEquipo(id: ID!): MarcaEquipoOutput
+    marcaEquipoSearch(texto: String): [MarcaEquipoOutput]
+}
+
+extend type Mutation {
+    saveMarcaEquipo(marcaEquipo: MarcaEquipoInput!): MarcaEquipoOutput!
+    deleteMarcaEquipo(id: ID!): Boolean!
+}

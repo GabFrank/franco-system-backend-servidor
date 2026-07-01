@@ -41,7 +41,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         http.cors().and().csrf().disable()
                 .authorizeRequests()
                 .antMatchers("/public/**", "/login").permitAll()  // Public endpoints
-                .antMatchers("**/graphql/**", "**/subscriptions/**", "graphiql").authenticated()  // Protected endpoints
+                .antMatchers("**/graphql/**", "**/subscriptions/**", "graphiql").authenticated()
+                .antMatchers("/api/**").authenticated()
                 .and()
                 .exceptionHandling().authenticationEntryPoint(entryPoint)
                 .and()

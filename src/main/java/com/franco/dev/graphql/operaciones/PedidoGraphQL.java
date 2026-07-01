@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.HashSet;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -111,7 +110,11 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Boolean deletePedido(Long id) {
-        return service.deleteById(id);
+        try {
+            return service.cancelarPedido(id);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
     }
 
     // ===== SAVE OPERATIONS =====
@@ -134,8 +137,8 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public Pedido savePedidoFull(PedidoInput input, List<String> fechaEntregaList,
-            List<Long> sucursalEntregaList, List<Long> sucursalInfluenciaList,
-            Long usuarioId) {
+            List<Integer> sucursalEntregaList, List<Integer> sucursalInfluenciaList,
+            Integer usuarioId) {
         ModelMapper m = new ModelMapper();
         Boolean isNew = input.getId() == null;
         Pedido e = m.map(input, Pedido.class);
@@ -153,29 +156,34 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         Pedido pedido = service.save(e);
 
         if (fechaEntregaList != null) {
-            updatePedidoFechaEntrega(pedido, fechaEntregaList, usuarioId);
+            updatePedidoFechaEntrega(pedido, fechaEntregaList, usuarioId != null ? usuarioId.longValue() : null);
         }
         if (sucursalEntregaList != null) {
             // Si la lista contiene -1, significa "Todos" - obtener todas las sucursales de entrega (deposito=true y activo=true)
-            List<Long> sucursalesEntregaFinal = sucursalEntregaList;
-            if (sucursalEntregaList.contains(-1L)) {
+            List<Long> sucursalesEntregaFinal = sucursalEntregaList.stream()
+                    .map(Integer::longValue)
+                    .collect(Collectors.toList());
+            if (sucursalEntregaList.contains(-1)) {
                 sucursalesEntregaFinal = sucursalService.findAllSucursalesEntrega()
                         .stream()
                         .map(Sucursal::getId)
                         .collect(Collectors.toList());
             }
-            updatePedidoSucursalEntrega(pedido, sucursalesEntregaFinal, usuarioId);
+            updatePedidoSucursalEntrega(pedido, sucursalesEntregaFinal, usuarioId != null ? usuarioId.longValue() : null);
         }
         if (sucursalInfluenciaList != null) {
             // Si la lista contiene -1, significa "Todos" - obtener todas las sucursales de influencia (activo=true y excluir servidor)
-            List<Long> sucursalesInfluenciaFinal = sucursalInfluenciaList;
-            if (sucursalInfluenciaList.contains(-1L)) {
+            List<Long> sucursalesInfluenciaFinal = sucursalInfluenciaList.stream()
+                    .map(Integer::longValue)
+                    .collect(Collectors.toList());
+            if (sucursalInfluenciaList.contains(-1)) {
                 sucursalesInfluenciaFinal = sucursalService.findAllSucursalesInfluencia()
                         .stream()
                         .map(Sucursal::getId)
                         .collect(Collectors.toList());
             }
-            updatePedidoSucursalInfluencia(pedido, sucursalesInfluenciaFinal, usuarioId);
+            updatePedidoSucursalInfluencia(pedido, sucursalesInfluenciaFinal,
+                    usuarioId != null ? usuarioId.longValue() : null);
         }
 
         if (isNew) {
@@ -189,7 +197,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public void updatePedidoFechaEntrega(Pedido pedido, List<String> newDates, Long usuarioId) {
-        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         Set<LocalDateTime> newDatesSet = newDates.stream()
                 .map(dateStr -> stringToDate(dateStr))
                 .collect(Collectors.toSet());
@@ -220,7 +228,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public void updatePedidoSucursalEntrega(Pedido pedido, List<Long> newSucursalesList, Long usuarioId) {
-        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         // Filtrar: solo procesar sucursales con deposito=true y activo=true, excluir servidor (id 0)
         List<Long> newDatesSet = newSucursalesList.stream()
                 .filter(id -> !id.equals(0L))
@@ -266,7 +274,7 @@ public class PedidoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Transactional
     public void updatePedidoSucursalInfluencia(Pedido pedido, List<Long> newSucursalesList, Long usuarioId) {
-        Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         // Filtrar: solo procesar sucursales con activo=true, excluir servidor (id 0)
         List<Long> newDatesSet = newSucursalesList.stream()
                 .filter(id -> !id.equals(0L))

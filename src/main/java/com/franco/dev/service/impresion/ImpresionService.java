@@ -12,6 +12,7 @@ import com.franco.dev.domain.operaciones.PedidoItem;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.SolicitudPago;
+import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
 import com.franco.dev.domain.personas.Cliente;
@@ -107,6 +108,8 @@ public class ImpresionService {
     private com.franco.dev.service.activos.InmuebleService inmuebleService;
     @Autowired
     private com.franco.dev.service.activos.MuebleService muebleService;
+    @Autowired
+    private com.franco.dev.service.equipos.EquipoService equipoService;
 
     public static DateTimeFormatter shortDate = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     public static DateTimeFormatter shortDateTime = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
@@ -1055,6 +1058,62 @@ public class ImpresionService {
         }
     }
 
+    public String imprimirReporteLucroPorFuncionario(List<LucroPorFuncionarioDto> lucroPorFuncionarioDtoList,
+            String fechaInicio, String fechaFin, String sucursales, String filtro, Usuario usuario) {
+        Long cantFuncionarios = Long.valueOf(0);
+        Double lucroTotalPorcentaje = 0.0;
+        Double lucroTotalGs = 0.0;
+        Double costoTotal = 0.0;
+        Double ventaTotal = 0.0;
+        Double descuentoTotal = 0.0;
+        Double aumentoTotal = 0.0;
+        List<LucroPorFuncionarioDto> auxList = new ArrayList<>();
+        try {
+            for (LucroPorFuncionarioDto dto : lucroPorFuncionarioDtoList) {
+                lucroTotalGs += dto.getLucro();
+                costoTotal += dto.getCostoTotal();
+                ventaTotal += dto.getTotalVenta();
+                descuentoTotal += (dto.getTotalDescuento() != null ? dto.getTotalDescuento() : 0.0);
+                aumentoTotal += (dto.getTotalAumento() != null ? dto.getTotalAumento() : 0.0);
+                auxList.add(dto);
+            }
+            cantFuncionarios = Long.valueOf(lucroPorFuncionarioDtoList.size());
+            lucroTotalPorcentaje = ventaTotal > 0 ? ((lucroTotalGs) / ventaTotal) * 100 : 0.0;
+            ClassPathResource resource = new ClassPathResource("reports/lucro-por-funcionario.jrxml");
+            InputStream inputStream = resource.getInputStream();
+            JasperReport jasperReport = JasperCompileManager.compileReport(inputStream);
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(auxList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("filtroFechaInicio", fechaInicio);
+            parameters.put("filtroFechaFin", fechaFin);
+            parameters.put("filtroTexto", filtro);
+            parameters.put("filtroSucursales", sucursales);
+            parameters.put("cantFuncionarios", cantFuncionarios);
+            parameters.put("lucroTotalPorcentaje", lucroTotalPorcentaje);
+            parameters.put("lucroTotalGs", lucroTotalGs);
+            parameters.put("costoTotal", costoTotal);
+            parameters.put("ventaTotal", ventaTotal);
+            parameters.put("descuentoTotal", descuentoTotal);
+            parameters.put("aumentoTotal", aumentoTotal);
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario.getNickname());
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint1 = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint1);
+            String base64String = Base64.getEncoder().encodeToString(pdfBytes);
+            return base64String;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public String imprimirReporteCobroVentaCreditoMultiplesClientes(List<Cliente> clientesList,
             Map<Long, List<VentaCredito>> ventaCreditoMap, Usuario usuario) {
         try {
@@ -1629,6 +1688,26 @@ public class ImpresionService {
                                     : "";
                             situacion = m.getSituacionPago();
                             mnd = m.getMoneda() != null ? m.getMoneda().getSimbolo() : simbolo;
+                        }
+                        break;
+                    case EQUIPO:
+                        com.franco.dev.domain.equipos.Equipo eq = equipoService.findById(refId).orElse(null);
+                        if (eq != null) {
+                            com.franco.dev.domain.equipos.EquipoFinanciero fin = equipoService.resolverFinanciero(eq);
+                            bienNombre = "EQUIPO " + (eq.getIdentificador() != null ? eq.getIdentificador() : "");
+                            bienReferencia = (eq.getDescripcion() != null ? eq.getDescripcion() : "")
+                                    + " - Ref #" + eq.getId() + " - Ente #" + preGasto.getEnte().getId();
+                            if (fin != null) {
+                                montoTotal = fin.getMontoTotal();
+                                montoPagado = fin.getMontoYaPagado();
+                                cuotasTotales = fin.getCantidadCuotas();
+                                cuotasPagadas = fin.getCantidadCuotasPagadas();
+                                proveedor = (fin.getProveedor() != null && fin.getProveedor().getPersona() != null)
+                                        ? fin.getProveedor().getPersona().getNombre()
+                                        : "";
+                                situacion = fin.getSituacionPago();
+                                mnd = fin.getMoneda() != null ? fin.getMoneda().getSimbolo() : simbolo;
+                            }
                         }
                         break;
                     case INSTITUCION:

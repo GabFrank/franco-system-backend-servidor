@@ -56,6 +56,8 @@ type VentaPorFuncionario {
     cantidad: Int
     productoMasVendido: String
     sucursales: String
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 extend type Query {
@@ -80,6 +82,8 @@ extend type Query {
     ventasPorSucursalAndUsuario(usuarioId: ID!, inicio: String!, fin: String!): [VentaPorSucursal]
     ventasPorSucursal(inicio: String!, fin: String!): [VentaPorSucursal]
     ventasPorFuncionario(inicio: String!, fin: String!, sucId: ID, usuarioId: ID): [VentaPorFuncionario]
+    lucroPorFuncionario(fechaInicio: String, fechaFin: String, sucursalIdList: [ID], usuarioId: ID!, usuarioIdList: [ID], productoIdList: [ID], subfamiliaId: ID, familiaId: ID): String
+    lucroPorFuncionarioList(fechaInicio: String, fechaFin: String, sucursalIdList: [ID], usuarioIdList: [ID], productoIdList: [ID], subfamiliaId: ID, page: Int, size: Int, familiaId: ID): LucroPorFuncionarioResponse
     ventasGenericFilter(
         idVenta:ID, 
         idCaja:ID, 
@@ -143,6 +147,9 @@ type VentaPorSucursal {
     sucId: ID,
     nombre: String
     total: Float
+    cantidadVentas: Float
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
 }
 
 type VentaPorHora {
@@ -165,4 +172,36 @@ type VentaPorMes {
     otros: Float
 }
 
+type LucroPorFuncionario {
+    usuarioId: ID!
+    nombreFuncionario: String
+    costoUnitario: Float
+    cantidad: Float
+    totalVenta: Float
+    lucro: Float
+    percent: Float
+    costoTotal: Float
+    ventaMedia: Float
+    margen: Float
+    totalDescuento: Float
+    totalAumento: Float
+}
+
+type LucroPorFuncionarioSummary {
+    cantidad: Float
+    costoTotal: Float
+    totalVenta: Float
+    lucro: Float
+    margen: Float
+    totalDescuento: Float
+    totalAumento: Float
+    ventaMedia: Float
+    costoUnitario: Float
+}
+
+type LucroPorFuncionarioResponse {
+    content: [LucroPorFuncionario]
+    totalElements: Int
+    summary: LucroPorFuncionarioSummary
+}
 

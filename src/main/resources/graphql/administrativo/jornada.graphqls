@@ -26,10 +26,28 @@ enum EstadoJornada {
     AUSENTE
 }
 
+enum AccionMarcacionPendiente {
+    ENTRADA
+    SALIDA
+    RETORNO_ALMUERZO
+    SALIDA_DEFINITIVA
+}
+
+type EstadoMarcacionUsuario {
+    jornadaRelevante: Jornada
+    accionPendiente: AccionMarcacionPendiente
+    puedeMarcarEntrada: Boolean
+    puedeMarcarSalida: Boolean
+    puedeMarcarSalidaAlmuerzo: Boolean
+    puedeMarcarEntradaAlmuerzo: Boolean
+    estaEnJornada: Boolean
+}
+
 extend type Query {
     jornada(id: ID!, sucursalId: ID!): Jornada
     jornadasPorUsuario(usuarioId: ID!, fechaInicio: String, fechaFin: String): [Jornada]
     jornadas(fechaInicio: String, fechaFin: String, page: Int, size: Int): [Jornada]
+    estadoMarcacionUsuario(usuarioId: ID!): EstadoMarcacionUsuario
 }
 
 extend type Mutation {

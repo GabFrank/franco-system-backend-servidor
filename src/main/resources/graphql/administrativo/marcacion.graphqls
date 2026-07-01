@@ -74,4 +74,5 @@ extend type Query {
 
 extend type Mutation {
     saveMarcacion(marcacion: MarcacionInput!): Marcacion
+    reprocesarJornadaDeMarcacion(id: ID!, sucursalId: ID!): Marcacion
 }

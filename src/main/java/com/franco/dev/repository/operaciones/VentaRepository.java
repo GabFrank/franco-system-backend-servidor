@@ -185,19 +185,6 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         // public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId,
         // VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
 
-        @Query(value = "SELECT s.id, s.nombre, " +
-                        "SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) " +
-                        "FROM operaciones.venta v " +
-                        "JOIN empresarial.sucursal s ON v.sucursal_id = s.id " +
-                        "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
-                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
-                        "AND v.estado = 'CONCLUIDA' " +
-                        "AND cd.valor < 2000000000 " +
-                        "GROUP BY s.id, s.nombre " +
-                        "ORDER BY SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) DESC", nativeQuery = true)
-        List<Object[]> getVentasPorSucursal(@Param("inicio") LocalDateTime inicio,
-                        @Param("fin") LocalDateTime fin);
-
         public List<Venta> findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(Long id, Long sucId,
                         List<DeliveryEstado> estadoList);
 
@@ -233,7 +220,11 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "AND v.sucursal_id = :sucId " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "AND cd.pago = true " +
-                        "AND cd.valor < 2000000000 " +
+                        "AND NOT EXISTS ( " +
+                        "  SELECT 1 FROM operaciones.cobro_detalle cd_bad " +
+                        "  WHERE cd_bad.cobro_id = v.cobro_id AND cd_bad.sucursal_id = v.sucursal_id " +
+                        "  AND ABS(cd_bad.valor * COALESCE(cd_bad.cambio, 1)) >= 2000000000 " +
+                        ") " +
                         "GROUP BY extract(month from v.creado_en) " +
                         "ORDER BY extract(month from v.creado_en)", nativeQuery = true)
         List<Object[]> ventasPorMes(@Param("inicio") LocalDateTime inicio,
@@ -251,7 +242,11 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
                         "AND v.estado = 'CONCLUIDA' " +
                         "AND cd.pago = true " +
-                        "AND cd.valor < 2000000000 " +
+                        "AND NOT EXISTS ( " +
+                        "  SELECT 1 FROM operaciones.cobro_detalle cd_bad " +
+                        "  WHERE cd_bad.cobro_id = v.cobro_id AND cd_bad.sucursal_id = v.sucursal_id " +
+                        "  AND ABS(cd_bad.valor * COALESCE(cd_bad.cambio, 1)) >= 2000000000 " +
+                        ") " +
                         "GROUP BY extract(month from v.creado_en) " +
                         "ORDER BY extract(month from v.creado_en)", nativeQuery = true)
         List<Object[]> ventasPorMesSinSucursal(@Param("inicio") LocalDateTime inicio,

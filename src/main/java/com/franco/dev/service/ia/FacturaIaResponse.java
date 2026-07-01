@@ -59,5 +59,9 @@ public class FacturaIaResponse implements Serializable {
         private BigDecimal precioUnitario;
         private BigDecimal descuento;
         private BigDecimal totalItem;
+        /** Tasa de IVA del item (10/5/0). En SIFEN viene en dTasaIVA. */
+        private Integer iva;
+        /** Unidad de medida (dDesUniMed en SIFEN: UNI, m, kg...). Hint para la presentacion. */
+        private String unidadMedida;
     }
 }

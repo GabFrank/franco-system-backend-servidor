@@ -106,6 +106,9 @@ public class FacturaImportConfirmService {
                 FacturaImportPreviewDto.ItemPreview ip = new FacturaImportPreviewDto.ItemPreview();
                 ip.setTextoOcr(item.getNombreProducto());
                 ip.setCodigoOcr(item.getCodigoProducto());
+                ip.setCodigoBarras(item.getCodigoBarras());
+                ip.setIva(item.getIva());
+                ip.setUnidadMedida(item.getUnidadMedida());
                 ip.setCantidad(item.getCantidad());
                 ip.setPrecioUnitario(item.getPrecioUnitario());
                 ip.setDescuento(item.getDescuento());

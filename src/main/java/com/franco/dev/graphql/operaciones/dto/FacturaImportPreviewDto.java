@@ -54,6 +54,9 @@ public class FacturaImportPreviewDto implements Serializable {
     public static class ItemPreview implements Serializable {
         private String textoOcr;
         private String codigoOcr;
+        private String codigoBarras; // dGtin (EAN) si el item lo trae
+        private Integer iva;         // dTasaIVA (10/5/0)
+        private String unidadMedida; // dDesUniMed (UNI/m/kg...)
         private BigDecimal cantidad;
         private BigDecimal precioUnitario;
         private BigDecimal descuento;

@@ -66,6 +66,10 @@ class FacturaSifenXmlParserServiceTest {
         assertEquals(0, new BigDecimal("8000.00").compareTo(item.getPrecioUnitario()));
         assertEquals(0, new BigDecimal("0").compareTo(item.getDescuento()));
         assertEquals(0, new BigDecimal("96000").compareTo(item.getTotalItem()));
+        // datos para precargar alta de producto (fase C)
+        assertEquals(10, item.getIva(), "dTasaIVA");
+        assertEquals("UNI", item.getUnidadMedida(), "dDesUniMed");
+        assertNull(item.getCodigoBarras(), "fixture no trae dGtin");
     }
 
     @Test

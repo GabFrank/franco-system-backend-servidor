@@ -28,6 +28,9 @@ type FacturaProveedorImportPage {
 type FacturaImportItemPreview {
     textoOcr: String
     codigoOcr: String
+    codigoBarras: String
+    iva: Int
+    unidadMedida: String
     cantidad: Float
     precioUnitario: Float
     descuento: Float

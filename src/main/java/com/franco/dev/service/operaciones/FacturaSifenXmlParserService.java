@@ -122,6 +122,10 @@ public class FacturaSifenXmlParserService {
             item.setPrecioUnitario(parseBigDecimalSafe(SifenXmlParser.extractTagValue(bloque, "dPUniProSer")));
             item.setDescuento(parseBigDecimalSafe(SifenXmlParser.extractTagValue(bloque, "dDescItem")));
             item.setTotalItem(parseBigDecimalSafe(SifenXmlParser.extractTagValue(bloque, "dTotOpeItem")));
+            // dTasaIVA (10/5/0) y unidad de medida (dDesUniMed: UNI/m/kg...) para precargar el alta de producto.
+            item.setUnidadMedida(SifenXmlParser.extractTagValue(bloque, "dDesUniMed", false));
+            Integer iva = parseIntSafe(SifenXmlParser.extractTagValue(bloque, "dTasaIVA", false));
+            item.setIva(iva);
             items.add(item);
         }
         return items;
@@ -175,6 +179,17 @@ public class FacturaSifenXmlParserService {
             return new BigDecimal(s.trim());
         } catch (NumberFormatException e) {
             log.debug("BigDecimal no parseable: {}", s);
+            return null;
+        }
+    }
+
+    private Integer parseIntSafe(String s) {
+        if (s == null || s.trim().isEmpty()) return null;
+        try {
+            // dTasaIVA puede venir como "10" o "10.00"
+            return new BigDecimal(s.trim()).intValue();
+        } catch (NumberFormatException e) {
+            log.debug("Integer no parseable: {}", s);
             return null;
         }
     }

@@ -1,0 +1,47 @@
+enum FuenteVerdadVencimiento {
+    INVENTARIO
+    COMPRA
+    TRANSFERENCIA
+}
+
+type ProductoVencidoView {
+    id: ID!
+    presentacionId: ID
+    presentacionCantidad: Float
+    productoId: ID
+    productoDescripcion: String
+    codigoBarras: String
+    cantidad: Float
+    vencimiento: Date
+    inventarioProductoId: ID
+    sucursalId: ID
+    sucursalNombre: String
+    sectorDescripcion: String
+    zonaDescripcion: String
+    usuarioId: ID
+    usuarioNickname: String
+    fuenteVerdad: FuenteVerdadVencimiento
+    origenId: ID
+    fechaFuente: Date
+    inventarioId: ID
+    cantidadInventario: Float
+    vencimientoInventario: Date
+    referenciaInventario: String
+    detalleFuente: String
+    diasVencimiento: Int
+    diasVencimientoTexto: String
+    vencimientoColor: String
+    diasVencimientoClase: String
+}
+
+type ProductoVencidoViewPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ProductoVencidoView]
+    getPageable: Pageable
+}

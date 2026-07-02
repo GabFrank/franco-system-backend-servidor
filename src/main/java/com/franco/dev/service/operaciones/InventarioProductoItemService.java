@@ -15,6 +15,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -75,7 +76,15 @@ public class InventarioProductoItemService
             @Nullable String estado,
             Pageable pageable) {
         return repository.findAllWithFilters(
-                sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, estado, pageable);
+                toLongList(sucursalIdList),
+                toLongList(sectorIdList),
+                toLongList(zonaIdList),
+                startDate,
+                endDate,
+                toLongList(usuarioIdList),
+                toLongList(productoIdList),
+                estado,
+                pageable);
     }
 
     public Page<InventarioProductoItem> findProductosVencidos(
@@ -86,7 +95,12 @@ public class InventarioProductoItemService
             @Nullable List<Long> productoIdList,
             Pageable pageable) {
         return repository.findProductosVencidos(
-                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, pageable);
+                toLongList(sucursalIdList),
+                toLongList(sectorIdList),
+                toLongList(zonaIdList),
+                toLongList(usuarioIdList),
+                toLongList(productoIdList),
+                pageable);
     }
 
     public Page<InventarioProductoItem> findProductosVencidosConFecha(
@@ -99,7 +113,14 @@ public class InventarioProductoItemService
             @Nullable List<Long> productoIdList,
             Pageable pageable) {
         return repository.findProductosVencidosConFecha(
-                sucursalIdList, sectorIdList, zonaIdList, startDate, endDate, usuarioIdList, productoIdList, pageable);
+                toLongList(sucursalIdList),
+                toLongList(sectorIdList),
+                toLongList(zonaIdList),
+                startDate,
+                endDate,
+                toLongList(usuarioIdList),
+                toLongList(productoIdList),
+                pageable);
     }
 
     public Page<InventarioProductoItem> findProductosProximosAVencer(
@@ -111,7 +132,12 @@ public class InventarioProductoItemService
             LocalDateTime fechaProximoVencimiento,
             Pageable pageable) {
         return repository.findProductosProximosAVencer(
-                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, fechaProximoVencimiento,
+                toLongList(sucursalIdList),
+                toLongList(sectorIdList),
+                toLongList(zonaIdList),
+                toLongList(usuarioIdList),
+                toLongList(productoIdList),
+                fechaProximoVencimiento,
                 pageable);
     }
 
@@ -181,7 +207,11 @@ public class InventarioProductoItemService
             @Nullable List<Long> usuarioIdList,
             @Nullable List<Long> productoIdList) {
         return repository.countProductosVencidos(
-                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList);
+                toLongList(sucursalIdList),
+                toLongList(sectorIdList),
+                toLongList(zonaIdList),
+                toLongList(usuarioIdList),
+                toLongList(productoIdList));
     }
 
     @Override
@@ -249,5 +279,21 @@ public class InventarioProductoItemService
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * GraphQL puede enviar [Int] como Integer; Hibernate requiere Long en listas IN.
+     */
+    @SuppressWarnings("unchecked")
+    @Nullable
+    private List<Long> toLongList(@Nullable List<Long> idList) {
+        if (idList == null || idList.isEmpty()) {
+            return null;
+        }
+        List<Long> converted = ((List<?>) (List<?>) idList).stream()
+                .filter(Objects::nonNull)
+                .map(id -> id instanceof Number ? ((Number) id).longValue() : Long.parseLong(id.toString()))
+                .collect(Collectors.toList());
+        return converted.isEmpty() ? null : converted;
     }
 }

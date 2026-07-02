@@ -10,9 +10,11 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.graphql.operaciones.dto.TransferenciaItemAlertaDTO;
 import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
+import com.franco.dev.service.operaciones.TransferenciaItemAlertaService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -61,6 +63,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private TransferenciaItemAlertaService transferenciaItemAlertaService;
+
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
     }
@@ -79,6 +84,10 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             Integer size) {
         Page<TransferenciaItem> res = service.findByTransferenciaItemIdWithFilter(id, name, page, size);
         return res;
+    }
+
+    public List<TransferenciaItemAlertaDTO> alertasTransferenciaItems(Long transferenciaId, List<Long> itemIds) {
+        return transferenciaItemAlertaService.calcularAlertas(transferenciaId, itemIds);
     }
 
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input, Double precioCosto) {

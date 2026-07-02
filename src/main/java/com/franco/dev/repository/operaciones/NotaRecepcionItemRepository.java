@@ -1,6 +1,7 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.NotaRecepcionItem;
+import com.franco.dev.graphql.operaciones.dto.ProductoVencimientoCompraProjectionDTO;
 import com.franco.dev.graphql.operaciones.dto.ResumenItemsNotaDTO;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -212,4 +213,17 @@ public interface NotaRecepcionItemRepository extends HelperRepository<NotaRecepc
            countQuery = "SELECT COUNT(nri) FROM NotaRecepcionItem nri " +
            "WHERE nri.producto.id = :productoId")
     Page<NotaRecepcionItem> findUltimasComprasByProductoId(@Param("productoId") Long productoId, Pageable pageable);
+
+    @Query("SELECT new com.franco.dev.graphql.operaciones.dto.ProductoVencimientoCompraProjectionDTO(" +
+           "nri.producto.id, nri.vencimientoEnNota) " +
+           "FROM NotaRecepcionItem nri " +
+           "WHERE nri.producto.id IN :productoIds " +
+           "AND nri.vencimientoEnNota IS NOT NULL " +
+           "AND nri.creadoEn = (" +
+           "  SELECT MAX(nri2.creadoEn) FROM NotaRecepcionItem nri2 " +
+           "  WHERE nri2.producto.id = nri.producto.id " +
+           "  AND nri2.vencimientoEnNota IS NOT NULL" +
+           ")")
+    List<ProductoVencimientoCompraProjectionDTO> findUltimoVencimientoEnNotaByProductoIds(
+            @Param("productoIds") List<Long> productoIds);
 }

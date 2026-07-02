@@ -93,11 +93,11 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "JOIN i.usuario u " +
                         "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
-                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
-                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
-                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
-                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "AND (:#{#sucursalIdList == null || #sucursalIdList.isEmpty()} = true OR s.id IN :sucursalIdList) " +
+                        "AND (:#{#sectorIdList == null || #sectorIdList.isEmpty()} = true OR sec.id IN :sectorIdList) " +
+                        "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
+                        "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
+                        "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList) " +
                         "ORDER BY i.vencimiento DESC")
         Page<InventarioProductoItem> findProductosVencidos(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
@@ -130,11 +130,11 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "JOIN i.usuario u " +
                         "WHERE i.vencimiento BETWEEN :startDate AND :endDate " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
-                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
-                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
-                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
-                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "AND (:#{#sucursalIdList == null || #sucursalIdList.isEmpty()} = true OR s.id IN :sucursalIdList) " +
+                        "AND (:#{#sectorIdList == null || #sectorIdList.isEmpty()} = true OR sec.id IN :sectorIdList) " +
+                        "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
+                        "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
+                        "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList) " +
                         "ORDER BY i.vencimiento DESC")
         Page<InventarioProductoItem> findProductosVencidosConFecha(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
@@ -197,11 +197,11 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "JOIN i.usuario u " +
                         "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
-                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
-                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
-                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
-                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList)")
+                        "AND (:#{#sucursalIdList == null || #sucursalIdList.isEmpty()} = true OR s.id IN :sucursalIdList) " +
+                        "AND (:#{#sectorIdList == null || #sectorIdList.isEmpty()} = true OR sec.id IN :sectorIdList) " +
+                        "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
+                        "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
+                        "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList)")
         Long countProductosVencidos(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,

@@ -82,9 +82,29 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
 
     public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size) {
         if (texto == null) texto = "";
+        texto = texto.trim();
         if (page == null) page = 0;
         if (size == null) size = 15;
-        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(
+                page,
+                size,
+                org.springframework.data.domain.Sort.by("id").ascending()
+        );
+
+        if (!texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
+            try {
+                Long personaId = Long.valueOf(texto);
+                Usuario usuario = repository.findByPersonaId(personaId);
+                if (usuario != null) {
+                    List<Usuario> resultado = new ArrayList<>();
+                    resultado.add(usuario);
+                    return new org.springframework.data.domain.PageImpl<>(resultado, pageable, 1);
+                }
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        texto = texto.replace(' ', '%');
         return repository.findbyIdOrPersonaPaginated(texto.toUpperCase(), pageable);
     }
 

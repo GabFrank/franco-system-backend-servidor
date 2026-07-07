@@ -9,7 +9,7 @@
 >
 > **Objetivo:** documentar TODO el conocimiento del módulo RRHH de FRC Gourmet, relevar lo que ya existe en FRC Comercial, y definir el plan de implementación completo (backend + desktop + mobile) para llevar las mismas funcionalidades (o mejores) a FRC Comercial.
 >
-> **Rev. 2 (2026-07-07):** incorpora el relevamiento de la branch `fd-93` (Caja Mayor / `CajaVirtual`, backend + desktop), el ecosistema Solicitud de pago (`TipoSolicitudPago.RRHH` ya previsto) y la convención interna de numeración de migraciones `V{max+1}.{dev}` (`.1` Gabriel, `.2` Mauro, `.3` Diego).
+> **Rev. 2 (2026-07-07):** incorpora el relevamiento de la branch `fd-93` (Caja Mayor / `CajaVirtual`, backend + desktop), el ecosistema Solicitud de pago (`TipoSolicitudPago.RRHH` ya previsto) y la convención interna de numeración de migraciones `V{max+1}.{dev}` (`.0` Gabriel, `.1` Mauro, `.2` Diego). Resuelve la decisión abierta #1 (vendedor en ventas: `venta.usuario_id` / `venta_item.usuario_id` + puente `funcionario.usuario_id`).
 
 ---
 
@@ -503,7 +503,7 @@ Stack: Spring Boot 2.1 / Java 8 / PostgreSQL / GraphQL (graphql-java-kickstart) 
 | Schedulers | `@Scheduled` distribuidos por service package (`NotificationDispatchService`, `CotizacionMercadoScheduler`, etc.). Convención: crear `XxxScheduler` en el package del dominio. |
 | GraphQL | Por dominio: `*GraphQL.java` (query+mutation resolver) + `input/*Input.java` + `resolver/*Resolver.java` (field resolvers) + `.graphqls` en `resources/graphql/<modulo>/`. |
 | Reportes | JasperReports disponible (`service/reports/`, `service/print/`) — el desktop recibe PDF base64. |
-| Migraciones | Flyway, **continuar desde `V131.1`** (la más alta actual en `develop` es `V130.3`). **Convención interna de numeración**: `V{max+1}.{dev}__descripcion.sql`, donde el sufijo identifica al desarrollador autor — `.1` = Gabriel, `.2` = Mauro, `.3` = Diego. Si dos devs toman el mismo número en paralelo, el sufijo evita la colisión de versión (`out-of-order=true`). **Todas las migraciones de esta implementación RRHH llevan sufijo `.1`.** Solo aditivas (no DROP/RENAME — estrategia 2 versiones). |
+| Migraciones | Flyway, **continuar desde `V131.0`** (la más alta actual en `develop` es `V130.3`). **Convención interna de numeración**: `V{max+1}.{dev}__descripcion.sql`, donde el sufijo identifica al desarrollador autor — `.0` = Gabriel, `.1` = Mauro, `.2` = Diego. Si dos devs toman el mismo número en paralelo, el sufijo evita la colisión de versión (`out-of-order=true`). **Todas las migraciones de esta implementación RRHH llevan sufijo `.0`.** Solo aditivas (no DROP/RENAME — estrategia 2 versiones). |
 
 ### 11.3 Lo que NO existe en el backend
 
@@ -547,7 +547,7 @@ RRHH    ─▶ Solicitud de pago ─▶ Caja Mayor (egreso)   ← lo aporta este
 
 Ese ciclo **todavía no está cerrado** para ningún origen (la pata Solicitud de pago → Caja Mayor es justamente lo que `fd-93` habilita). La integración financiera de RRHH (§18.3) debe montarse sobre este riel y no inventar uno propio.
 
-⚠️ **Observación sobre `fd-93`**: sus migraciones son `V112.1` y `V114.1` — números **menores** al máximo actual de `develop` (`V130.3`) y con sufijo `.1` (según la convención le correspondería `.2`). Con `out-of-order=true` Flyway las aplica igual, pero si aún no corrieron en ningún ambiente conviene renumerarlas (`V131.2`, `V132.2`) antes del merge para respetar la convención.
+⚠️ **Observación sobre `fd-93`**: sus migraciones son `V112.1` y `V114.1` — el sufijo `.1` es correcto (Mauro), pero los números base son **menores** al máximo actual de `develop` (`V130.3`). Con `out-of-order=true` Flyway las aplica igual, pero si aún no corrieron en ningún ambiente conviene renumerarlas (`V131.1`, `V132.1`) antes del merge para respetar la convención `V{max+1}.{dev}`.
 
 ## 12. Desktop (frc-sistemas-integrados-angular)
 
@@ -638,7 +638,7 @@ Recibos/liquidaciones de sueldo, vales/anticipos (solo tarjeta comentada), vacac
 5. **Montos en `BigDecimal`** en las entidades nuevas (no `Float`/`Double` como el legado). El `Funcionario.sueldo:Float` existente NO se migra de tipo (prohibido por reglas Flyway); las liquidaciones guardan su propio snapshot `salarioBase` en decimal.
 6. **Enums como string** (`@Enumerated(EnumType.STRING)`) — igual que Gourmet, portable y legible.
 7. **Estados y contra-movimientos**: se copia el patrón de Gourmet — nada se borra, las anulaciones generan reversas; los pagos son transaccionales.
-8. **Migraciones Flyway solo aditivas** desde **`V131.1`**, retrocompatibles, un módulo por migración. Convención `V{max+1}.{dev}`: sufijo `.1` = Gabriel, `.2` = Mauro, `.3` = Diego — esta implementación usa `.1` en todas sus migraciones.
+8. **Migraciones Flyway solo aditivas** desde **`V131.0`**, retrocompatibles, un módulo por migración. Convención `V{max+1}.{dev}`: sufijo `.0` = Gabriel, `.1` = Mauro, `.2` = Diego — esta implementación usa `.0` en todas sus migraciones.
 9. **PRs chicos** (<400 líneas netas), target `develop`, conventional commits `feat(rrhh): ...`.
 
 ### 15.2 Mapeo de conceptos Gourmet → Comercial
@@ -681,7 +681,7 @@ Recibos/liquidaciones de sueldo, vales/anticipos (solo tarjeta comentada), vacac
 
 Schema PostgreSQL **`rrhh`** (nuevo). Todas las tablas con `id bigserial`, `usuario_id` (creador), `creado_en timestamp`. Montos `numeric(18,2)`. Enums `varchar` + check implícito por código.
 
-### 16.1 Extensión de `personas.funcionario` (aditiva, V131.1)
+### 16.1 Extensión de `personas.funcionario` (aditiva, V131.0)
 
 ```sql
 ALTER TABLE personas.funcionario ADD COLUMN fecha_egreso date;
@@ -746,7 +746,7 @@ Los **valores exactos de enums, seeds de conceptos y claves de configuración** 
 Cada fase = 1–3 PRs a `develop` (backend primero, luego desktop, luego mobile si aplica). Convención de branch: `feature/rrhh-fase-N-descripcion`. Cada fase deja el sistema deployable y útil por sí misma.
 
 ### Fase 0 — Fundaciones (backend + desktop)
-**Backend**: migración V131.1 (schema `rrhh` + extensión `personas.funcionario` + `configuracion_rrhh` + `liquidacion_concepto` + seeds); paquete `domain/rrhh/` + `service/rrhh/` base; roles nuevos (INSERT en `personas.role`): `RRHH_VER`, `RRHH_GESTIONAR`, `RRHH_LIQUIDAR`, `RRHH_APROBAR`, `RRHH_PAGAR`, `RRHH_CONFIG` (granularidad simplificada vs Gourmet, mapeable a los ~28 si después se quiere afinar); GraphQL `configuracionRrhh` CRUD.
+**Backend**: migración V131.0 (schema `rrhh` + extensión `personas.funcionario` + `configuracion_rrhh` + `liquidacion_concepto` + seeds); paquete `domain/rrhh/` + `service/rrhh/` base; roles nuevos (INSERT en `personas.role`): `RRHH_VER`, `RRHH_GESTIONAR`, `RRHH_LIQUIDAR`, `RRHH_APROBAR`, `RRHH_PAGAR`, `RRHH_CONFIG` (granularidad simplificada vs Gourmet, mapeable a los ~28 si después se quiere afinar); GraphQL `configuracionRrhh` CRUD.
 **Desktop**: sub-menú "R.R.H.H." reorganizado (sección propia con visibilityRoles nuevos); pantalla Configuración RRHH (CRUD key/value tipado).
 **Criterio de aceptación**: config RRHH editable desde desktop; roles asignables.
 
@@ -851,7 +851,7 @@ Gourmet usa una Caja Mayor central. Comercial tiene `PdvCaja` por sucursal + wor
 
 ### 18.5 CI/CD y proceso
 
-- Backend: `./mvnw clean verify -B -DskipFlyway=true` antes de cada PR; migraciones desde **`V131.1`** con la convención `V{max+1}.{dev}` (`.1` Gabriel / `.2` Mauro / `.3` Diego — esta implementación siempre `.1`), numeración única, nunca modificar aplicadas; checklist DB del CLAUDE.md en cada PR con migración. Antes de numerar, verificar el máximo real en `develop` **y en branches en vuelo** (ej. `fd-93`) para no colisionar.
+- Backend: `./mvnw clean verify -B -DskipFlyway=true` antes de cada PR; migraciones desde **`V131.0`** con la convención `V{max+1}.{dev}` (`.0` Gabriel / `.1` Mauro / `.2` Diego — esta implementación siempre `.0`), numeración única, nunca modificar aplicadas; checklist DB del CLAUDE.md en cada PR con migración. Antes de numerar, verificar el máximo real en `develop` **y en branches en vuelo** (ej. `fd-93`) para no colisionar.
 - Desktop: `npm run check` (AOT) obligatorio antes de push.
 - Mobile: features RRHH son solo código Angular → se propagan por OTA (CapacitorUpdater), sin release a Play Store (no tocan plugins nativos).
 - PRs < 400 líneas netas, draft, target `develop`, merge commit (no squash), sin push a branches protegidas, sin deploy los viernes.
@@ -886,7 +886,7 @@ Secuencia de aceptación integral en ambiente alpha:
 
 | # | Tema | Detalle | Recomendación |
 |---|---|---|---|
-| 1 | **Vendedor en ventas de Comercial** | El motor de comisiones de Gourmet cruza por `vendedor_id` en venta/item. Hay que verificar cómo Comercial registra quién vendió (¿usuario cajero? ¿campo vendedor?) antes de la Fase 7. | Relevar `operaciones.venta` al iniciar Fase 7; si no existe vendedor por item, comisionar por venta completa. |
+| 1 | **Vendedor en ventas de Comercial** — ✅ RESUELTO (rev. 2) | Verificado: `operaciones.venta.usuario_id` y `operaciones.venta_item.usuario_id` (ambos FK a `personas.usuario`, nullable) registran quién vendió; `personas.funcionario.usuario_id` ya existe como puente — **idéntico patrón que Gourmet**. `VentaEstado.CONCLUIDA` disponible para filtrar. | El motor de Fase 7 cruza `COALESCE(venta_item.usuario_id, venta.usuario_id) = funcionario.usuario_id` con `venta.estado = CONCLUIDA`, espejo exacto de §4.9. |
 | 2 | **Origen del dinero** | Opción A (SolicitudPago tipo RRHH → CajaVirtual CAJA_MAYOR de `fd-93`) vs B (workflow Gasto) — §18.3. | Opción A: cierra el ciclo Solicitud de pago → Caja Mayor que el negocio ya definió para Compras/Gastos. Depende del merge de `fd-93`. |
 | 3 | **`Funcionario.sueldo` es Float** | Precisión monetaria pobre; no se puede cambiar el tipo (regla Flyway). | Las liquidaciones snapshottean en `numeric(18,2)`; opcionalmente estrategia 2 versiones futura para `sueldo_decimal`. |
 | 4 | **Permisos granulares** | Gourmet tiene 28 permisos; Comercial roles por nombre. ¿Se replica la granularidad? | Empezar con 8–10 roles RRHH; si se necesita granularidad real, extender `SecurityGraphQLAspect` con anotación `@RoleSecured("RRHH_PAGAR")` (proyecto aparte). |
@@ -896,7 +896,7 @@ Secuencia de aceptación integral en ambiente alpha:
 | 8 | **Volumen de notificaciones push** | Push masivos a topic `funcionarios` llegan a todos; las RRHH personales deben ir por token individual. | Usar envío por usuario destino (el módulo `NotificacionDestinatario` ya lo soporta). |
 | 9 | **Doble fuente de asistencia** | Marcación biométrica (real) vs carga manual (Gourmet-style). ¿Se permite asistencia manual cuando no hay dispositivo? | Sí: `jornada_novedad` + permitir crear Jornada manual con flag (ya existe `presencial`/`autorizacion` en Marcacion como precedente). |
 | 10 | **Prescripción de vacaciones** | Ley PY: prescriben; el job debe correr y notificar antes (ej. 60 días antes). | Agregar notificación `VACACION_POR_PRESCRIBIR` (mejora vs Gourmet). |
-| 11 | **Dependencia de `fd-93` (Caja Mayor)** | La integración financiera (§18.3 Opción A) requiere `CajaVirtual` mergeada. Además sus migraciones (`V112.1`, `V114.1`) están numeradas por debajo del máximo actual (`V130.3`) y con sufijo de otro dev. | Coordinar merge de `fd-93` antes de Fase 3; renumerar sus migraciones a `V131.2`/`V132.2` si aún no corrieron en ningún ambiente. Mientras tanto, las fases 0–2 no dependen de caja. |
+| 11 | **Dependencia de `fd-93` (Caja Mayor)** | La integración financiera (§18.3 Opción A) requiere `CajaVirtual` mergeada. Además sus migraciones (`V112.1`, `V114.1`, sufijo `.1` de Mauro correcto) están numeradas por debajo del máximo actual (`V130.3`). | Coordinar merge de `fd-93` antes de Fase 3; renumerar sus migraciones a `V131.1`/`V132.1` si aún no corrieron en ningún ambiente. Mientras tanto, las fases 0–2 no dependen de caja. |
 
 ---
 

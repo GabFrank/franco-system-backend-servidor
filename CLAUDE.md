@@ -84,7 +84,7 @@ Una migracion mal hecha puede dejar el sistema inoperativo. **El rollback automa
 
 **Eliminar o renombrar columnas:** estrategia de 2 versiones. Version N: crear columna nueva, codigo deja de usar la vieja. Version N+1 (solo cuando N esta estable en produccion): eliminar la vieja.
 
-**Naming:** `V{numero}.{dev}__{descripcion_con_underscores}.sql`. El sufijo `.{dev}` es el identificador interno del desarrollador autor: `.1` = Gabriel, `.2` = Mauro, `.3` = Diego (ej: `V131.1__crear_tabla_x.sql`). Toda migracion nueva toma **el numero mas alto existente + 1** con el sufijo del autor; si dos desarrolladores toman el mismo numero en paralelo, el sufijo evita la colision de version (`out-of-order=true` permite aplicarlas igual). Numeracion unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo VXX (no crear una nueva para arreglar la anterior).
+**Naming:** `V{numero}.{dev}__{descripcion_con_underscores}.sql`. El sufijo `.{dev}` es el identificador interno del desarrollador autor: `.0` = Gabriel, `.1` = Mauro, `.2` = Diego (ej: `V131.0__crear_tabla_x.sql`). Toda migracion nueva toma **el numero mas alto existente + 1** con el sufijo del autor; si dos desarrolladores toman el mismo numero en paralelo, el sufijo evita la colision de version (`out-of-order=true` permite aplicarlas igual). Numeracion unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo VXX (no crear una nueva para arreglar la anterior).
 
 ## Overrides locales: NO tocar `application-dev.properties`
 
@@ -154,7 +154,7 @@ La clase `com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor` (regi
 
 ### Checklist para PR con cambio de DB
 
-- [ ] Migracion versionada (`V{n}.{dev}__...sql`) con numero unico (max actual + 1) y sufijo de autor (`.1` Gabriel, `.2` Mauro, `.3` Diego)
+- [ ] Migracion versionada (`V{n}.{dev}__...sql`) con numero unico (max actual + 1) y sufijo de autor (`.0` Gabriel, `.1` Mauro, `.2` Diego)
 - [ ] Probada localmente con `./mvnw clean verify`
 - [ ] Es **retrocompatible** con la version anterior del backend
 - [ ] No hace `DROP`/`RENAME`/cambio de tipo sin la estrategia de 2 versiones

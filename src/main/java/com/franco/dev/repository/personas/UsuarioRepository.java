@@ -21,10 +21,16 @@ public interface UsuarioRepository extends HelperRepository<Usuario, Long> {
             "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(u.nickname) like %?1% or p.documento like %?1% or CAST(p.id as text) like %?1%")
     public List<Usuario> findbyIdOrPersona(String texto);
 
-    @Query("select u from Usuario u " +
-            "join u.persona p " +
-            "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(u.nickname) like %?1% or p.documento like %?1% or CAST(p.id as text) like %?1%")
-    public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, org.springframework.data.domain.Pageable pageable);
+    @Query(
+            value = "select u from Usuario u " +
+                    "join u.persona p " +
+                    "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(u.nickname) like %?1% or p.documento like %?1% or CAST(p.id as text) like %?1% " +
+                    "order by u.id asc",
+            countQuery = "select count(u) from Usuario u " +
+                    "join u.persona p " +
+                    "where CAST(u.id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(u.nickname) like %?1% or p.documento like %?1% or CAST(p.id as text) like %?1%"
+    )
+    org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, org.springframework.data.domain.Pageable pageable);
 
     public boolean existsByEmail(String email);
 

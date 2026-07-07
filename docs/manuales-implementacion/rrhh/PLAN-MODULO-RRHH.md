@@ -10,6 +10,12 @@
 > **Objetivo:** documentar TODO el conocimiento del módulo RRHH de FRC Gourmet, relevar lo que ya existe en FRC Comercial, y definir el plan de implementación completo (backend + desktop + mobile) para llevar las mismas funcionalidades (o mejores) a FRC Comercial.
 >
 > **Rev. 2 (2026-07-07):** incorpora el relevamiento de la branch `fd-93` (Caja Mayor / `CajaVirtual`, backend + desktop), el ecosistema Solicitud de pago (`TipoSolicitudPago.RRHH` ya previsto) y la convención interna de numeración de migraciones `V{max+1}.{dev}` (`.0` Gabriel, `.1` Mauro, `.2` Diego). Resuelve la decisión abierta #1 (vendedor en ventas: `venta.usuario_id` / `venta_item.usuario_id` + puente `funcionario.usuario_id`).
+>
+> **Rev. 3 (2026-07-07) — decisiones confirmadas por Gabriel:**
+> 1. **Origen del dinero**: SolicitudPago tipo `RRHH` → `MovimientoCajaVirtual` EGRESO contra Caja Mayor (§18.3 Opción A). ✅
+> 2. **Permisos**: 8–10 roles RRHH por nombre, sin granularidad de aspecto (§18.4). ✅
+> 3. **Nómina**: liquidación global en el central con filtro/agrupación por sucursal (riesgo #5). ✅
+> 4. **Arranque**: Fases 0–2 comienzan ya (no dependen de caja); Fases 3 y 5 esperan el merge de `fd-93`. ✅
 
 ---
 
@@ -815,7 +821,7 @@ Historial de marcaciones propio (pantalla sobre `getJornadasPorUsuario` ya exist
 | 8 Notif/Dash/Reportes | L | M | S | bajo |
 | 9 Mobile self-service | S | — | M | bajo |
 
-Orden recomendado: 0 → 1 → 2 → 3 → 5 → 4 → 6 → 8 → 7 → 9 si se quiere liquidar sueldos cuanto antes (la 4 puede ir en paralelo con la 5 porque el motor de liquidación degrada bien si no hay vacaciones/aguinaldo aún). Las fases 3 y 5 son las que más valor entregan al negocio.
+**Orden confirmado (rev. 3):** arrancan **ya** las Fases **0 → 1 → 2** (no dependen de caja: fundaciones, funcionario ampliado, penalizaciones/HE sobre Jornada). Las Fases **3 (vales) y 5 (liquidación)** entran **tras el merge de `fd-93`** (Caja Mayor), porque su pago real usa `SolicitudPago RRHH → MovimientoCajaVirtual` (§18.3). Secuencia completa: 0 → 1 → 2 → **[merge fd-93]** → 3 → 5 → 4 → 6 → 8 → 7 → 9. La 4 (vacaciones/aguinaldo/bonos) puede solaparse con la 5 porque el motor de liquidación degrada bien si aún no hay vacaciones/aguinaldo. Las fases 3 y 5 son las que más valor entregan al negocio.
 
 ## 18. Consideraciones transversales
 
@@ -837,7 +843,7 @@ Orden recomendado: 0 → 1 → 2 → 3 → 5 → 4 → 6 → 8 → 7 → 9 si se
 
 Gourmet usa una Caja Mayor central. Comercial tiene `PdvCaja` por sucursal + workflow `PreGasto→Gasto→Retiro` + ecosistema **Solicitud de pago** (`operaciones.solicitud_pago`, tipos `COMPRA`/`GASTO`/`RRHH`) + **Caja Mayor en desarrollo** (`CajaVirtual` tipo `CAJA_MAYOR`, branch `fd-93`, ver §11.4). El ciclo objetivo del negocio — `Compras/Gastos/RRHH → Solicitud de pago → Caja Mayor` — aún no está cerrado para ningún origen; RRHH debe **cerrarlo por el mismo riel**, no crear uno paralelo:
 
-- **Opción A (recomendada)**: cada pago RRHH (liquidación, vale confirmado, desembolso de préstamo, liquidación final) genera una **`SolicitudPago` tipo `RRHH`** que se salda con un **`MovimientoCajaVirtual` EGRESO** contra la `CajaVirtual` `CAJA_MAYOR`, usando `referencia_id` para vincular al vale/liquidación (FK plana, mismo patrón `movimiento_id` de Gourmet). Reusa aprobación (estados PENDIENTE→CONCLUIDO) y deja a Compras/Gastos el mismo camino ya pavimentado.
+- **Opción A (✅ DECIDIDA — rev. 3)**: cada pago RRHH (liquidación, vale confirmado, desembolso de préstamo, liquidación final) genera una **`SolicitudPago` tipo `RRHH`** que se salda con un **`MovimientoCajaVirtual` EGRESO** contra la `CajaVirtual` `CAJA_MAYOR`, usando `referencia_id` para vincular al vale/liquidación (FK plana, mismo patrón `movimiento_id` de Gourmet). Reusa aprobación (estados PENDIENTE→CONCLUIDO) y deja a Compras/Gastos el mismo camino ya pavimentado.
 - **Opción B**: `Gasto` con `TipoGasto` seed ("PAGO SALARIO", "VALE FUNCIONARIO", "DESEMBOLSO PRESTAMO") reusando el workflow pre-gasto → autorización → rendición. Válida si el negocio prefiere que RRHH pase por rendición de gastos; más pasos por pago.
 - En ambas: **siempre** se crea además el `MovimientoPersonas` correspondiente (ANTICIPO/PAGO_SALARIO/PRESTAMO/AGUINALDO/VACACIONES/MULTA/BONO) — así la cuenta corriente del empleado queda completa y el enum existente por fin se usa.
 - Anulaciones: contra-asiento (nunca borrar) — con `CajaVirtual` el contra-asiento es un `MovimientoCajaVirtual` de signo inverso (tipo `AJUSTE`) referenciando el original, espejo del patrón `AJUSTE_POSITIVO` de Gourmet.
@@ -845,7 +851,7 @@ Gourmet usa una Caja Mayor central. Comercial tiene `PdvCaja` por sucursal + wor
 
 ### 18.4 Seguridad
 
-- Corto plazo: roles por nombre (patrón actual) — `RRHH_VER`, `RRHH_GESTIONAR`, `RRHH_LIQUIDAR`, `RRHH_APROBAR`, `RRHH_PAGAR`, `RRHH_CONFIG`, `COMISION_GESTIONAR`, `COMISION_APROBAR` + los 4 de funcionarios ya existentes. Chequeo en front (desktop `visibilityRoles`/`openTabIfAuthorized`, mobile `role.service`) y en resolvers críticos (aprobar/pagar/anular) validando el rol server-side (no confiar solo en el front).
+- **✅ DECIDIDO (rev. 3)**: 8–10 roles por nombre (patrón actual), **sin** granularidad de aspecto por ahora — `RRHH_VER`, `RRHH_GESTIONAR`, `RRHH_LIQUIDAR`, `RRHH_APROBAR`, `RRHH_PAGAR`, `RRHH_CONFIG`, `COMISION_GESTIONAR`, `COMISION_APROBAR` + los 4 de funcionarios ya existentes. Chequeo en front (desktop `visibilityRoles`/`openTabIfAuthorized`, mobile `role.service`) y en resolvers críticos (aprobar/pagar/anular) validando el rol server-side (no confiar solo en el front).
 - Mantener la **segregación de funciones** de Gourmet: quien genera ≠ quien aprueba ≠ quien paga.
 - No tocar `security/TokenController.java` ni `JwtGenerator.java` (vulnerabilidades conocidas, fuera de alcance).
 
@@ -890,7 +896,7 @@ Secuencia de aceptación integral en ambiente alpha:
 | 2 | **Origen del dinero** | Opción A (SolicitudPago tipo RRHH → CajaVirtual CAJA_MAYOR de `fd-93`) vs B (workflow Gasto) — §18.3. | Opción A: cierra el ciclo Solicitud de pago → Caja Mayor que el negocio ya definió para Compras/Gastos. Depende del merge de `fd-93`. |
 | 3 | **`Funcionario.sueldo` es Float** | Precisión monetaria pobre; no se puede cambiar el tipo (regla Flyway). | Las liquidaciones snapshottean en `numeric(18,2)`; opcionalmente estrategia 2 versiones futura para `sueldo_decimal`. |
 | 4 | **Permisos granulares** | Gourmet tiene 28 permisos; Comercial roles por nombre. ¿Se replica la granularidad? | Empezar con 8–10 roles RRHH; si se necesita granularidad real, extender `SecurityGraphQLAspect` con anotación `@RoleSecured("RRHH_PAGAR")` (proyecto aparte). |
-| 5 | **Multi-sucursal en liquidación** | ¿La nómina se liquida global o por sucursal? Funcionario tiene sucursal. | Liquidar global en el central con filtro/agrupación por sucursal en pantallas y reportes. |
+| 5 | **Multi-sucursal en liquidación** — ✅ RESUELTO (rev. 3) | ¿La nómina se liquida global o por sucursal? Funcionario tiene sucursal. | **Global en el central** con filtro/agrupación por sucursal en pantallas y reportes; una sola Caja Mayor paga la nómina. |
 | 6 | **Jornalero/diarista** | Gourmet tiene `valor_jornal`; Comercial `diarista` sin valor. En liquidación, el jornalero cobra `valor_jornal × días trabajados` (de Jornadas) en vez de salario fijo. | Incluir la rama jornalero en el motor de Fase 5 desde el día 1 (mejora sobre Gourmet, que lo tiene a medias). |
 | 7 | **IPS multi-empleador / reportes legales** | Gourmet solo calcula %; PY exige planillas específicas (REI). | Fase 8: resumen IPS como Gourmet; planilla legal como mejora posterior. |
 | 8 | **Volumen de notificaciones push** | Push masivos a topic `funcionarios` llegan a todos; las RRHH personales deben ir por token individual. | Usar envío por usuario destino (el módulo `NotificacionDestinatario` ya lo soporta). |

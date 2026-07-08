@@ -1,0 +1,92 @@
+enum FuncionarioDocumentoTipo {
+    CEDULA
+    CONTRATO
+    CERTIFICADO
+    CV
+    ANTECEDENTES
+    CARNET_SALUD
+    TITULO_ACADEMICO
+    OTRO
+}
+
+type FuncionarioCargoHistorico {
+    id: ID!
+    funcionario: Funcionario
+    cargo: Cargo
+    fechaDesde: String
+    fechaHasta: String
+    motivo: String
+    autorizadoPor: Usuario
+    creadoEn: Date
+}
+
+type FuncionarioSalarioHistorico {
+    id: ID!
+    funcionario: Funcionario
+    salarioAnterior: Float
+    salarioNuevo: Float
+    moneda: Moneda
+    fechaVigencia: String
+    motivo: String
+    autorizadoPor: Usuario
+    creadoEn: Date
+}
+
+type FuncionarioDocumento {
+    id: ID!
+    funcionario: Funcionario
+    tipo: FuncionarioDocumentoTipo
+    nombreArchivo: String
+    rutaRelativa: String
+    mimeType: String
+    tamanoBytes: Int
+    fechaSubida: Date
+    vencimiento: String
+    observacion: String
+    anulado: Boolean
+    creadoEn: Date
+}
+
+input CambioCargoInput {
+    funcionarioId: ID!
+    cargoId: Int
+    fecha: String
+    motivo: String
+    autorizadoPorId: Int
+}
+
+input CambioSalarioInput {
+    funcionarioId: ID!
+    nuevoSalario: Float!
+    monedaId: Int
+    fecha: String
+    motivo: String
+    autorizadoPorId: Int
+}
+
+input FuncionarioDocumentoInput {
+    id: ID
+    funcionarioId: Int
+    tipo: FuncionarioDocumentoTipo
+    nombreArchivo: String
+    contenidoBase64: String
+    mimeType: String
+    tamanoBytes: Int
+    vencimiento: String
+    observacion: String
+}
+
+extend type Query {
+    funcionarioCargoHistoricos(funcionarioId: ID!): [FuncionarioCargoHistorico]
+    funcionarioSalarioHistoricos(funcionarioId: ID!): [FuncionarioSalarioHistorico]
+    funcionarioDocumentos(funcionarioId: ID!): [FuncionarioDocumento]
+    funcionarioDocumentoContenido(id: ID!): String
+}
+
+extend type Mutation {
+    cambiarCargoFuncionario(input: CambioCargoInput!): Funcionario
+    cambiarSalarioFuncionario(input: CambioSalarioInput!): Funcionario
+    egresarFuncionario(funcionarioId: ID!, fecha: String, motivo: String): Funcionario
+    saveFuncionarioDocumento(input: FuncionarioDocumentoInput!): FuncionarioDocumento!
+    anularFuncionarioDocumento(id: ID!): FuncionarioDocumento
+}

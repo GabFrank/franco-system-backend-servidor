@@ -19,8 +19,16 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private LiquidacionSueldoService service;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.ReciboLiquidacionService reciboLiquidacionService;
+
     public Optional<LiquidacionSueldo> liquidacionSueldo(Long id) {
         return service.findById(id);
+    }
+
+    /** Recibo de sueldo en PDF (base64) de la liquidación. */
+    public String imprimirReciboLiquidacion(Long id) {
+        return reciboLiquidacionService.generarBase64(id);
     }
 
     public List<LiquidacionSueldo> liquidacionesPorFuncionario(Long funcionarioId) {

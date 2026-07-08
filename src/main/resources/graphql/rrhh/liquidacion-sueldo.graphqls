@@ -1,0 +1,61 @@
+enum LiquidacionSueldoEstado {
+    BORRADOR
+    APROBADA
+    PAGADA
+    ANULADA
+}
+
+enum LiquidacionItemTipo {
+    HABER
+    DESCUENTO
+}
+
+type LiquidacionItem {
+    id: ID!
+    codigo: String
+    descripcion: String
+    monto: Float
+    tipo: LiquidacionItemTipo
+    referenciaId: Int
+    referenciaTipo: String
+    manual: Boolean
+}
+
+type LiquidacionSueldo {
+    id: ID!
+    funcionario: Funcionario
+    periodo: String
+    fechaInicio: String
+    fechaFin: String
+    salarioBase: Float
+    totalHaberes: Float
+    totalDescuentos: Float
+    totalNeto: Float
+    moneda: Moneda
+    estado: LiquidacionSueldoEstado
+    aprobadoPor: Usuario
+    fechaAprobacion: Date
+    fechaPago: Date
+    cajaVirtualId: Int
+    observacion: String
+    items: [LiquidacionItem]
+    creadoEn: Date
+}
+
+extend type Query {
+    liquidacionSueldo(id: ID!): LiquidacionSueldo
+    liquidacionesPorFuncionario(funcionarioId: ID!): [LiquidacionSueldo]
+    liquidacionesPorPeriodo(periodo: String!): [LiquidacionSueldo]
+    liquidacionItems(liquidacionId: ID!): [LiquidacionItem]
+}
+
+extend type Mutation {
+    generarLiquidacionBorrador(funcionarioId: ID!, periodo: String!, monedaId: ID): LiquidacionSueldo
+    agregarItemLiquidacion(liquidacionId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo): LiquidacionItem
+    eliminarItemLiquidacion(itemId: ID!): Boolean
+    aprobarLiquidacion(id: ID!, aprobadoPorId: ID): LiquidacionSueldo
+    volverBorradorLiquidacion(id: ID!): LiquidacionSueldo
+    pagarLiquidacion(id: ID!, cajaVirtualId: ID!): LiquidacionSueldo
+    anularLiquidacion(id: ID!): LiquidacionSueldo
+    generarLiquidacionesMes(periodo: String!, monedaId: ID): Int
+}

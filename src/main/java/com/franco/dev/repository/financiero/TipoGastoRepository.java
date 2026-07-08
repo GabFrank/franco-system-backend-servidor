@@ -16,16 +16,8 @@ public interface TipoGastoRepository extends HelperRepository<TipoGasto, Long> {
     }
 
     @Query(value = "select * from financiero.tipo_gasto tg " +
-            "where tg.clasificacion_gasto_id is null order by tg.id asc", nativeQuery = true)
-    public List<TipoGasto> findRoot();
-
-    @Query(value = "select * from financiero.tipo_gasto tg " +
             "where CAST(tg.id as text) like concat('%', ?1, '%') or upper(tg.descripcion) like concat('%', ?1, '%')", nativeQuery = true)
     public List<TipoGasto> findByAll(String texto);
-
-//    Moneda findByPaisId(Long id);
-
-    List<TipoGasto> findByClasificacionGastoId(Long id);
 
     @Query(value = "SELECT tg.* FROM financiero.tipo_gasto tg " +
             "WHERE (CAST(:naturaleza AS text) IS NULL OR cast(tg.tipo_naturaleza as text) = CAST(:naturaleza AS text)) " +

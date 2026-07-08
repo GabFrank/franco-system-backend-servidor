@@ -32,13 +32,6 @@ public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository
         texto = texto.replace(' ', '%').toUpperCase();
         return repository.findByAll(texto);
     }
-    public List<TipoGasto> findByClasificacionGastoId(Long id){
-        return repository.findByClasificacionGastoId(id);
-    }
-
-    public List<TipoGasto> findRoot(){
-       return repository.findRoot();
-    }
 
     @Override
     public TipoGasto save(TipoGasto entity) {

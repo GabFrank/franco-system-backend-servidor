@@ -9,7 +9,6 @@ import java.util.Date;
 public class TipoGastoInput {
     private Long id;
 
-    private Boolean isClasificacion;
     private Boolean activo;
     private Boolean activoEnSucursales;
     private Boolean autorizacion;
@@ -17,8 +16,6 @@ public class TipoGastoInput {
     private String descripcion;
 
     private String simbolo;
-
-    private Long clasificacionGastoId;
 
     private Long cargoId;
 

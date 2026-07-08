@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
+import com.franco.dev.graphql.financiero.dto.ModuloGastoInfo;
 import com.franco.dev.graphql.financiero.input.TipoGastoInput;
 import com.franco.dev.service.empresarial.CargoService;
+import com.franco.dev.service.financiero.TipoGastoModuloReglasService;
 import com.franco.dev.service.financiero.TipoGastoService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -30,6 +32,9 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private CargoService cargoService;
 
+    @Autowired
+    private TipoGastoModuloReglasService moduloReglasService;
+
     public Optional<TipoGasto> tipoGasto(Long id) {
         return service.findById(id);
     }
@@ -39,8 +44,8 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return service.findAll(pageable);
     }
 
-    public List<TipoGasto> rootTipoGasto() {
-        return service.findRoot();
+    public List<ModuloGastoInfo> modulosGasto() {
+        return moduloReglasService.listarModulos();
     }
 
 
@@ -55,8 +60,6 @@ public class TipoGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
                 usuarioService.findByNickname(authentication.getName()).ifPresent(e::setUsuario);
             }
         }
-        if (input.getClasificacionGastoId() != null)
-            e.setClasificacionGasto(service.findById(input.getClasificacionGastoId()).orElse(null));
         if (input.getCargoId() != null) e.setCargo(cargoService.findById(input.getCargoId()).orElse(null));
         e = service.save(e);
         return e;

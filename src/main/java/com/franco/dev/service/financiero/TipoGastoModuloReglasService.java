@@ -3,7 +3,12 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.activos.enums.TipoEnte;
 import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
 import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
+import com.franco.dev.graphql.financiero.dto.ModuloGastoInfo;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Reglas de comportamiento según módulo padre y naturaleza del tipo de gasto.
@@ -43,15 +48,23 @@ public class TipoGastoModuloReglasService {
     }
 
     /**
-     * Cuotas de compra del activo (inmueble, vehículo, mueble pagando).
+     * Módulos de activo que se pueden pagar en cuotas (inmueble, vehículo, mueble, equipo).
      */
-    public boolean esPagoCuotaPorDefecto(TipoPadreGastoModulo modulo, TipoNaturalezaGasto naturaleza) {
-        if (naturaleza != TipoNaturalezaGasto.CONTINUO && naturaleza != TipoNaturalezaGasto.RECURRENTE) {
-            return false;
-        }
+    public boolean tieneCuotasActivo(TipoPadreGastoModulo modulo) {
         return modulo == TipoPadreGastoModulo.INMUEBLE
                 || modulo == TipoPadreGastoModulo.MUEBLE
-                || modulo == TipoPadreGastoModulo.VEHICULO;
+                || modulo == TipoPadreGastoModulo.VEHICULO
+                || modulo == TipoPadreGastoModulo.EQUIPOS;
+    }
+
+    /**
+     * Cuotas de compra del activo (inmueble, vehículo, mueble, equipo pagando).
+     */
+    public boolean esPagoCuotaPorDefecto(TipoPadreGastoModulo modulo, TipoNaturalezaGasto naturaleza) {
+        if (!esGastoContinuoRecurrente(naturaleza)) {
+            return false;
+        }
+        return tieneCuotasActivo(modulo);
     }
 
     /**
@@ -64,10 +77,8 @@ public class TipoGastoModuloReglasService {
         if (esModuloServicioContinuo(modulo)) {
             return true;
         }
-        if (naturaleza == TipoNaturalezaGasto.CONTINUO || naturaleza == TipoNaturalezaGasto.RECURRENTE) {
-            return modulo == TipoPadreGastoModulo.INMUEBLE
-                    || modulo == TipoPadreGastoModulo.MUEBLE
-                    || modulo == TipoPadreGastoModulo.VEHICULO;
+        if (esGastoContinuoRecurrente(naturaleza)) {
+            return tieneCuotasActivo(modulo);
         }
         return false;
     }
@@ -146,5 +157,70 @@ public class TipoGastoModuloReglasService {
     private boolean esGastoContinuoRecurrente(TipoNaturalezaGasto naturaleza) {
         return naturaleza == TipoNaturalezaGasto.CONTINUO
                 || naturaleza == TipoNaturalezaGasto.RECURRENTE;
+    }
+
+    /**
+     * Grupo de presentación del módulo: ACTIVO, SERVICIO u OTRO.
+     */
+    public String grupoModulo(TipoPadreGastoModulo modulo) {
+        if (modulo == null) {
+            return "OTRO";
+        }
+        if (esModuloServicioContinuo(modulo)) {
+            return "SERVICIO";
+        }
+        switch (modulo) {
+            case INMUEBLE:
+            case VEHICULO:
+            case MUEBLE:
+            case EQUIPOS:
+            case PERSONAS:
+                return "ACTIVO";
+            default:
+                return "OTRO";
+        }
+    }
+
+    /**
+     * Orden de presentación de los módulos en la UI.
+     */
+    private static final List<TipoPadreGastoModulo> ORDEN_MODULOS = Arrays.asList(
+            TipoPadreGastoModulo.INMUEBLE,
+            TipoPadreGastoModulo.VEHICULO,
+            TipoPadreGastoModulo.MUEBLE,
+            TipoPadreGastoModulo.EQUIPOS,
+            TipoPadreGastoModulo.PERSONAS,
+            TipoPadreGastoModulo.ANDE,
+            TipoPadreGastoModulo.JUNTA_SANEAMIENTO,
+            TipoPadreGastoModulo.INTERNET,
+            TipoPadreGastoModulo.SEGURIDAD,
+            TipoPadreGastoModulo.BASURA,
+            TipoPadreGastoModulo.SEGURO,
+            TipoPadreGastoModulo.IMPUESTO,
+            TipoPadreGastoModulo.OTRO
+    );
+
+    /**
+     * Catálogo de módulos padre con sus banderas de comportamiento.
+     * Única fuente de verdad consumida por el frontend.
+     */
+    public List<ModuloGastoInfo> listarModulos() {
+        List<ModuloGastoInfo> modulos = new ArrayList<>();
+        for (TipoPadreGastoModulo modulo : ORDEN_MODULOS) {
+            TipoEnte tipoEnte = tipoEnteEsperado(modulo);
+            modulos.add(new ModuloGastoInfo(
+                    modulo,
+                    etiquetaModulo(modulo),
+                    grupoModulo(modulo),
+                    esModuloServicioContinuo(modulo),
+                    tieneCuotasActivo(modulo),
+                    requiereEnteActivo(modulo),
+                    tipoEnte != null ? tipoEnte.name() : null,
+                    esModuloServicioContinuo(modulo) || modulo == TipoPadreGastoModulo.INMUEBLE,
+                    modulo == TipoPadreGastoModulo.ANDE || modulo == TipoPadreGastoModulo.JUNTA_SANEAMIENTO,
+                    modulo == TipoPadreGastoModulo.ANDE
+            ));
+        }
+        return modulos;
     }
 }

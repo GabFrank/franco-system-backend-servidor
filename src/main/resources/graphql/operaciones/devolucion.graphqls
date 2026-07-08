@@ -1,21 +1,39 @@
 type Devolucion {
     id: ID
+    tipo: TipoDevolucion
     proveedor: Proveedor
     sucursalOrigen: Sucursal
     fecha: Date
     motivo: String
     estado: DevolucionEstado
+    identificador: String
+    resolucion: TipoResolucionDevolucion
+    nroNotaCredito: String
+    montoAcreditado: Float
+    gastoId: Int
+    gastoSucursalId: Int
+    cajaVirtualId: Int
+    observacion: String
+    creadoEn: Date
+    finalizado: Boolean
     usuario: Usuario
     items: [DevolucionItem]
 }
 
 input DevolucionInput {
     id: ID
+    tipo: TipoDevolucion
     proveedorId: Int
     sucursalOrigenId: Int
     fecha: String
     motivo: String
     estado: DevolucionEstado
+    identificador: String
+    resolucion: TipoResolucionDevolucion
+    nroNotaCredito: String
+    montoAcreditado: Float
+    cajaVirtualId: Int
+    observacion: String
     usuarioId: Int
     creadoEn: String
     items: [DevolucionItemInput]
@@ -46,6 +64,7 @@ extend type Query {
     ): DevolucionPage
     devolucionesPorProveedor(proveedorId: ID!): [Devolucion]
     devolucionesPorEstado(estado: DevolucionEstado!): [Devolucion]
+    devolucionesPendientesPorProveedor(proveedorId: ID!): [Devolucion]
 }
 
 extend type Mutation {
@@ -58,6 +77,8 @@ extend type Mutation {
     ): Devolucion!
     confirmarDevolucion(devolucionId: ID!): Devolucion!
     cancelarDevolucion(devolucionId: ID!, motivoCancelacion: String): Devolucion!
+    avanzarEstadoDevolucion(devolucionId: ID!, estado: DevolucionEstado!, usuarioId: ID): Devolucion!
+    acreditarDevolucion(devolucionId: ID!, nroNotaCredito: String, montoAcreditado: Float, usuarioId: ID): Devolucion!
 }
 
 enum DevolucionEstado {
@@ -68,4 +89,14 @@ enum DevolucionEstado {
     ACREDITADO,
     DESCARTADO,
     CANCELADA
-} 
+}
+
+enum TipoDevolucion {
+    SIN_PROVEEDOR,
+    CON_PROVEEDOR
+}
+
+enum TipoResolucionDevolucion {
+    NOTA_CREDITO,
+    CANJE
+}

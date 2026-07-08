@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Component
 public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -31,6 +33,12 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     @Autowired
     private ProductoService productoService;
+
+    @Autowired
+    private com.franco.dev.service.productos.PresentacionService presentacionService;
+
+    @Autowired
+    private com.franco.dev.service.operaciones.MotivoAveriaService motivoAveriaService;
 
     // Usar @Lazy para evitar problemas de dependencia circular
     @Autowired
@@ -84,29 +92,45 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
         
         try {
             DevolucionItem entity = new DevolucionItem();
-            
+
             // Map basic fields
             entity.setId(input.getId());
             entity.setCantidad(input.getCantidad());
             entity.setLote(input.getLote());
-            // Note: motivo field doesn't exist in entity but exists in input/schema
-            
+            entity.setMotivo(input.getMotivo());
+            entity.setCostoUnitario(input.getCostoUnitario());
+            entity.setCantidadReingresada(input.getCantidadReingresada());
+            if (input.getVencimiento() != null) {
+                entity.setVencimiento(stringToDate(input.getVencimiento()).toLocalDate());
+            }
+            if (input.getVencimientoReingreso() != null) {
+                entity.setVencimientoReingreso(stringToDate(input.getVencimientoReingreso()).toLocalDate());
+            }
+
             // Map navigation properties
             if (input.getDevolucionId() != null) {
                 entity.setDevolucion(devolucionService.findById(input.getDevolucionId())
                     .orElseThrow(() -> new GraphQLException("Devolucion no encontrada con ID: " + input.getDevolucionId())));
             }
-            
+
             if (input.getProductoId() != null) {
                 entity.setProducto(productoService.findById(input.getProductoId())
                     .orElseThrow(() -> new GraphQLException("Producto no encontrado con ID: " + input.getProductoId())));
             }
-            
+
+            if (input.getPresentacionId() != null) {
+                entity.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
+            }
+
+            if (input.getMotivoAveriaId() != null) {
+                entity.setMotivoAveria(motivoAveriaService.findById(input.getMotivoAveriaId()).orElse(null));
+            }
+
             if (input.getRecepcionMercaderiaItemId() != null) {
                 entity.setRecepcionMercaderiaItem(recepcionMercaderiaItemService.findById(input.getRecepcionMercaderiaItemId())
                     .orElseThrow(() -> new GraphQLException("RecepcionMercaderiaItem no encontrado con ID: " + input.getRecepcionMercaderiaItemId())));
             }
-            
+
             logger.info("=== DevolucionItem mapping completed successfully ===");
             
             DevolucionItem savedEntity = service.save(entity);

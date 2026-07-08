@@ -38,6 +38,9 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private DevolucionItemGraphQL devolucionItemGraphQL;
+
     /**
      * Obtiene una devolución por ID
      */
@@ -115,10 +118,24 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             entity.setFecha(stringToDate(input.getFecha()));
         }
 
-        // TODO: Handle items if included in input
-        // TODO: Handle creadoEn when field is added to entity
+        // Inferir tipo si no vino: con proveedor => CON_PROVEEDOR, sin proveedor => SIN_PROVEEDOR
+        if (entity.getTipo() == null) {
+            entity.setTipo(input.getProveedorId() != null
+                    ? com.franco.dev.domain.operaciones.enums.TipoDevolucion.CON_PROVEEDOR
+                    : com.franco.dev.domain.operaciones.enums.TipoDevolucion.SIN_PROVEEDOR);
+        }
 
-        return service.save(entity);
+        Devolucion saved = service.save(entity);
+
+        // Persistir items incluidos en el input (si los hay)
+        if (input.getItems() != null) {
+            for (com.franco.dev.graphql.operaciones.input.DevolucionItemInput itemInput : input.getItems()) {
+                itemInput.setDevolucionId(saved.getId());
+                devolucionItemGraphQL.saveDevolucionItem(itemInput);
+            }
+        }
+
+        return saved;
     }
 
     /**
@@ -194,5 +211,52 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         } catch (Exception e) {
             throw new GraphQLException("Error al cancelar devolución: " + e.getMessage());
         }
+    }
+
+    /**
+     * Avanza la devolución a un nuevo estado (máquina de estados).
+     * Ejecuta los efectos: baja/reingreso de stock, generación de gasto de merma.
+     */
+    @Transactional
+    public Devolucion avanzarEstadoDevolucion(Long devolucionId, DevolucionEstado estado, Long usuarioId) {
+        if (devolucionId == null || estado == null) {
+            throw new GraphQLException("devolucionId y estado son requeridos");
+        }
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return service.avanzarEstado(devolucionId, estado, usuario);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Registra la nota de crédito del proveedor y finaliza la devolución (ACREDITADO).
+     */
+    @Transactional
+    public Devolucion acreditarDevolucion(Long devolucionId, String nroNotaCredito,
+                                          Double montoAcreditado, Long usuarioId) {
+        if (devolucionId == null) {
+            throw new GraphQLException("devolucionId es requerido");
+        }
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return service.acreditar(devolucionId, nroNotaCredito, montoAcreditado, usuario);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Devoluciones pendientes (no finalizadas) de un proveedor.
+     * Usado por Compras para alertar al comprar a ese proveedor.
+     */
+    public List<Devolucion> devolucionesPendientesPorProveedor(Long proveedorId) {
+        if (proveedorId == null) {
+            throw new GraphQLException("ID del proveedor es requerido");
+        }
+        return service.devolucionesPendientesPorProveedor(proveedorId);
     }
 } 

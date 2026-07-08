@@ -18,6 +18,9 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                 return Gasto.class;
         }
 
+        @Query(value = "SELECT max(g.id) FROM financiero.gasto g WHERE g.sucursal_id = CAST(:sucursalId AS bigint)", nativeQuery = true)
+        Long findMaxId(@Param("sucursalId") Long sucursalId);
+
         public List<Gasto> findBySucursalIdAndCreadoEnBetween(Long id, LocalDateTime inicio, LocalDateTime fin);
 
         public List<Gasto> findByCajaIdAndSucursalId(Long id, Long sucId);

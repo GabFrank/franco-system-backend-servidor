@@ -38,4 +38,9 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
 
     @Query("SELECT d FROM Devolucion d WHERE d.estado = :estado")
     List<Devolucion> findByEstado(@Param("estado") DevolucionEstado estado);
+
+    @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId " +
+           "AND d.estado IN :estados ORDER BY d.fecha DESC")
+    List<Devolucion> findByProveedorIdAndEstados(@Param("proveedorId") Long proveedorId,
+                                                 @Param("estados") List<DevolucionEstado> estados);
 } 

@@ -20,6 +20,10 @@ public interface TipoGastoRepository extends HelperRepository<TipoGasto, Long> {
     public List<TipoGasto> findRoot();
 
     @Query(value = "select * from financiero.tipo_gasto tg " +
+            "where upper(tg.descripcion) = upper(?1) order by tg.id asc limit 1", nativeQuery = true)
+    TipoGasto findFirstByDescripcion(String descripcion);
+
+    @Query(value = "select * from financiero.tipo_gasto tg " +
             "where CAST(tg.id as text) like concat('%', ?1, '%') or upper(tg.descripcion) like concat('%', ?1, '%')", nativeQuery = true)
     public List<TipoGasto> findByAll(String texto);
 

@@ -1,0 +1,91 @@
+package com.franco.dev.graphql.rrhh;
+
+import com.franco.dev.domain.rrhh.Vale;
+import com.franco.dev.domain.rrhh.enums.ValeEstado;
+import com.franco.dev.graphql.rrhh.input.ValeInput;
+import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.personas.FuncionarioService;
+import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.rrhh.MotivoValeService;
+import com.franco.dev.service.rrhh.ValeService;
+import graphql.kickstart.tools.GraphQLMutationResolver;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
+@Component
+public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ValeService service;
+
+    @Autowired
+    private MotivoValeService motivoValeService;
+
+    @Autowired
+    private FuncionarioService funcionarioService;
+
+    @Autowired
+    private MonedaService monedaService;
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    public Optional<Vale> vale(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Vale> valesPorFuncionario(Long funcionarioId) {
+        return service.findByFuncionarioId(funcionarioId);
+    }
+
+    public List<Vale> valesPorEstado(ValeEstado estado) {
+        return service.findByEstado(estado);
+    }
+
+    public Vale saveVale(ValeInput input) {
+        Vale e = mapInput(input, input.getId() != null
+                ? service.findById(input.getId()).orElse(new Vale())
+                : new Vale());
+        return service.save(e);
+    }
+
+    public Vale confirmarVale(Long id, Long cajaVirtualId, Long autorizadoPorId) {
+        return service.confirmar(id, cajaVirtualId, autorizadoPorId);
+    }
+
+    public Vale crearValeConfirmado(ValeInput input, Long cajaVirtualId, Long autorizadoPorId) {
+        Vale e = mapInput(input, new Vale());
+        return service.crearConfirmado(e, cajaVirtualId, autorizadoPorId);
+    }
+
+    public Vale anularVale(Long id) {
+        return service.anular(id);
+    }
+
+    private Vale mapInput(ValeInput input, Vale e) {
+        if (input.getFuncionarioId() != null)
+            e.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
+        if (input.getMotivoId() != null)
+            e.setMotivo(motivoValeService.findById(input.getMotivoId()).orElse(null));
+        e.setMonto(input.getMonto());
+        if (input.getMonedaId() != null)
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
+        if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
+            e.setFecha(stringToDate(input.getFecha()).toLocalDate());
+        if (input.getEstado() != null) e.setEstado(input.getEstado());
+        if (input.getEsAdelanto() != null) e.setEsAdelanto(input.getEsAdelanto());
+        e.setObservacion(input.getObservacion());
+        e.setComprobanteUrl(input.getComprobanteUrl());
+        if (input.getAutorizadoPorId() != null)
+            e.setAutorizadoPor(usuarioService.findById(input.getAutorizadoPorId()).orElse(null));
+        if (input.getUsuarioId() != null)
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        return e;
+    }
+}

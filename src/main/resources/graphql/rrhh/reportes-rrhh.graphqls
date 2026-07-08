@@ -1,0 +1,4 @@
+extend type Query {
+    reporteNominaMes(periodo: String!): String
+    reporteResumenIps(periodo: String!): String
+}

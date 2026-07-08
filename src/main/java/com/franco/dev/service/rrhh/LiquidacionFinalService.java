@@ -86,9 +86,12 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         BigDecimal aguinaldoProporcional = calcularAguinaldoProporcional(f, egreso);
         BigDecimal diasPorAnio = configuracionRrhhService.getNumber("INDEMNIZACION_DIAS_POR_ANIO", new BigDecimal("15"));
         int minDiasIndemnizacion = configuracionRrhhService.getNumber("INDEMNIZACION_ANTIGUEDAD_MIN_DIAS", new BigDecimal("90")).intValue();
+        int diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30")).intValue();
+        int diasAnio = configuracionRrhhService.getNumber("DIAS_ANIO_ANTIGUEDAD", new BigDecimal("365")).intValue();
 
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
-                ingreso, egreso, motivo, salarioPromedio, diasNoGozados, aguinaldoProporcional, diasPorAnio, minDiasIndemnizacion);
+                ingreso, egreso, motivo, salarioPromedio, diasNoGozados, aguinaldoProporcional, diasPorAnio,
+                minDiasIndemnizacion, diasMes, diasAnio);
 
         LiquidacionFinal lf = repository
                 .findFirstByFuncionarioIdAndEstadoOrderByCreadoEnDesc(funcionarioId, LiquidacionFinalEstado.BORRADOR)
@@ -146,14 +149,16 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return it;
     }
 
-    /** Promedio de total_haberes de las últimas 6 liquidaciones APROBADA/PAGADA; fallback al sueldo. */
+    /** Promedio de total_haberes de las últimas N liquidaciones APROBADA/PAGADA; fallback al sueldo. */
     private BigDecimal calcularSalarioPromedio(Funcionario f) {
+        int mesesPromedio = configuracionRrhhService.getNumber("MESES_PROMEDIO_LIQUIDACION_FINAL", new BigDecimal("6")).intValue();
+        if (mesesPromedio < 1) mesesPromedio = 6;
         List<LiquidacionSueldo> liqs = liquidacionSueldoRepository.findByFuncionarioIdOrderByPeriodoDesc(f.getId());
         List<BigDecimal> haberes = new ArrayList<>();
         for (LiquidacionSueldo l : liqs) {
             if (l.getEstado() == LiquidacionSueldoEstado.APROBADA || l.getEstado() == LiquidacionSueldoEstado.PAGADA) {
                 if (l.getTotalHaberes() != null) haberes.add(l.getTotalHaberes());
-                if (haberes.size() >= 6) break;
+                if (haberes.size() >= mesesPromedio) break;
             }
         }
         if (haberes.isEmpty()) {

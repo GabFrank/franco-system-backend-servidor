@@ -90,6 +90,7 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
 
         BigDecimal montoFijo = configuracionRrhhService.getNumber("PENALIZACION_MONTO_TARDANZA", BigDecimal.ZERO);
         BigDecimal montoPorMin = configuracionRrhhService.getNumber("PENALIZACION_MONTO_POR_MINUTO_TARDANZA", BigDecimal.ZERO);
+        long toleranciaMin = configuracionRrhhService.getNumber("TOLERANCIA_TARDANZA_MIN", BigDecimal.ZERO).longValue();
 
         String f = fecha.toString();
         List<Jornada> jornadas = jornadaService.findByFechaRange(f, f);
@@ -97,7 +98,8 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
 
         for (Jornada j : jornadas) {
             Long tardia = j.getMinutosLlegadaTardia();
-            if (tardia == null || tardia <= 0) continue;
+            // dentro de la tolerancia configurada no se penaliza (grace period)
+            if (tardia == null || tardia <= toleranciaMin) continue;
             if (j.getUsuario() == null) continue;
 
             Funcionario func = funcionarioService.findByUsuarioId(j.getUsuario().getId());

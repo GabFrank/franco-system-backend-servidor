@@ -72,39 +72,47 @@ public final class LiquidacionFinalCalculator {
     }
 
     /** Antigüedad entre ingreso y egreso. Si egreso &lt; ingreso, todo cero. */
+    /** Antigüedad con divisores por defecto (30 días/mes, 365 días/año). */
     public static Antiguedad antiguedad(LocalDate ingreso, LocalDate egreso) {
+        return antiguedad(ingreso, egreso, 30, 365);
+    }
+
+    public static Antiguedad antiguedad(LocalDate ingreso, LocalDate egreso, int diasMes, int diasAnio) {
         if (ingreso == null || egreso == null || egreso.isBefore(ingreso)) {
             return new Antiguedad(0, 0, 0);
         }
+        int dm = diasMes > 0 ? diasMes : 30;
+        int da = diasAnio > 0 ? diasAnio : 365;
         long dias = ChronoUnit.DAYS.between(ingreso, egreso);
-        int meses = (int) (dias / 30);
-        int anios = (int) (dias / 365);
+        int meses = (int) (dias / dm);
+        int anios = (int) (dias / da);
         return new Antiguedad(dias, meses, anios);
     }
 
     public static Resultado calcular(LocalDate ingreso, LocalDate egreso, MotivoEgreso motivo,
                                      BigDecimal salarioPromedio, int diasNoGozados,
                                      BigDecimal aguinaldoProporcional, BigDecimal indemnizacionDiasPorAnio,
-                                     int minDiasIndemnizacion) {
+                                     int minDiasIndemnizacion, int diasMes, int diasAnio) {
         BigDecimal promedio = salarioPromedio != null ? salarioPromedio : BigDecimal.ZERO;
         BigDecimal diasPorAnio = indemnizacionDiasPorAnio != null ? indemnizacionDiasPorAnio : BigDecimal.ZERO;
         BigDecimal aguinaldo = aguinaldoProporcional != null ? aguinaldoProporcional : BigDecimal.ZERO;
         int diasVac = Math.max(0, diasNoGozados);
+        BigDecimal divisorDiasMes = new BigDecimal(diasMes > 0 ? diasMes : 30);
 
-        Antiguedad ant = antiguedad(ingreso, egreso);
+        Antiguedad ant = antiguedad(ingreso, egreso, diasMes, diasAnio);
 
         boolean indemnizaAplica = motivo == MotivoEgreso.DESPIDO_INJUSTIFICADO
                 && ant.getDias() >= minDiasIndemnizacion;
         BigDecimal indemnizacion = BigDecimal.ZERO;
         if (indemnizaAplica) {
             int anios = Math.max(1, ant.getAnios());
-            // salarioPromedio/30 × díasPorAño × años  (divide al final para minimizar drift)
+            // salarioPromedio/diasMes × díasPorAño × años  (divide al final para minimizar drift)
             indemnizacion = promedio.multiply(diasPorAnio).multiply(new BigDecimal(anios))
-                    .divide(TREINTA, 2, RoundingMode.HALF_UP);
+                    .divide(divisorDiasMes, 2, RoundingMode.HALF_UP);
         }
 
         BigDecimal montoVac = promedio.multiply(new BigDecimal(diasVac))
-                .divide(TREINTA, 2, RoundingMode.HALF_UP);
+                .divide(divisorDiasMes, 2, RoundingMode.HALF_UP);
 
         BigDecimal total = indemnizacion.add(montoVac).add(aguinaldo);
 

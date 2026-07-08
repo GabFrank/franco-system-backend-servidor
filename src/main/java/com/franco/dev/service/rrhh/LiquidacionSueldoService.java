@@ -89,8 +89,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         }
         int anio = Integer.parseInt(periodo.substring(0, 4));
         int mes = Integer.parseInt(periodo.substring(5, 7));
-        LocalDate inicio = LocalDate.of(anio, mes, 1);
-        LocalDate fin = inicio.withDayOfMonth(inicio.lengthOfMonth());
+        int diaCierre = configuracionRrhhService.getNumber("DIA_CIERRE_MES", new BigDecimal("31")).intValue();
+        LocalDate[] rango = calcularRangoPeriodo(anio, mes, diaCierre);
+        LocalDate inicio = rango[0];
+        LocalDate fin = rango[1];
 
         LiquidacionSueldo liq = repository.findByFuncionarioIdAndPeriodo(funcionarioId, periodo).orElse(null);
         if (liq != null && (liq.getEstado() == LiquidacionSueldoEstado.APROBADA
@@ -130,6 +132,23 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         }
         aplicarTotales(liq, items);
         return repository.save(liq);
+    }
+
+    /**
+     * Rango de fechas del período según el día de cierre de nómina configurado
+     * (DIA_CIERRE_MES). Si el día de cierre es fin de mes (>=28) el período es el
+     * mes calendario. Con un día menor (ej. 25) el período va del día siguiente
+     * al cierre del mes anterior (26) al día de cierre del mes actual (25).
+     */
+    private LocalDate[] calcularRangoPeriodo(int anio, int mes, int diaCierre) {
+        java.time.YearMonth ym = java.time.YearMonth.of(anio, mes);
+        if (diaCierre >= 28) {
+            return new LocalDate[]{ ym.atDay(1), ym.atEndOfMonth() };
+        }
+        LocalDate fin = ym.atDay(Math.min(diaCierre, ym.lengthOfMonth()));
+        java.time.YearMonth prev = ym.minusMonths(1);
+        LocalDate inicio = prev.atDay(Math.min(diaCierre + 1, prev.lengthOfMonth()));
+        return new LocalDate[]{ inicio, fin };
     }
 
     /**

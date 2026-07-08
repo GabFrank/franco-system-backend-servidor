@@ -61,10 +61,11 @@ public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository
                 && entity.getMinutos().signum() > 0) {
             BigDecimal sueldo = new BigDecimal(entity.getFuncionario().getSueldo().toString());
             BigDecimal horasJornada = configuracionRrhhService.getNumber("HORAS_JORNADA_LABORAL", new BigDecimal("8"));
+            BigDecimal diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30"));
             BigDecimal recargo = entity.getRecargoPorcentaje() != null
                     ? entity.getRecargoPorcentaje() : recargoPorTipo(entity.getTipo());
             entity.setRecargoPorcentaje(recargo);
-            entity.setMontoCalculado(HoraExtraCalculator.calcularMonto(sueldo, horasJornada, entity.getMinutos(), recargo));
+            entity.setMontoCalculado(HoraExtraCalculator.calcularMonto(sueldo, horasJornada, entity.getMinutos(), recargo, diasMes));
         }
         if (entity.getMontoCalculado() == null) entity.setMontoCalculado(BigDecimal.ZERO);
         if (entity.getObservacion() != null) entity.setObservacion(entity.getObservacion().toUpperCase());

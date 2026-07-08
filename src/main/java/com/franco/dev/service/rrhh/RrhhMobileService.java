@@ -10,11 +10,16 @@ import com.franco.dev.domain.rrhh.Vale;
 import com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado;
 import com.franco.dev.domain.rrhh.enums.VacacionPeriodoEstado;
 import com.franco.dev.domain.rrhh.enums.ValeEstado;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.service.administrativo.JornadaService;
+import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.rrhh.dto.ResumenRrhhMobileDto;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +27,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Self-service RRHH para mobile. Todos los endpoints scopean por usuarioId
@@ -33,12 +39,17 @@ import java.util.List;
 @AllArgsConstructor
 public class RrhhMobileService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(RrhhMobileService.class);
+    private static final String TIPO_NOTIF_SOLICITUD = "RRHH_SOLICITUD";
+
     private final FuncionarioService funcionarioService;
     private final LiquidacionSueldoService liquidacionSueldoService;
     private final ValeService valeService;
     private final VacacionService vacacionService;
     private final MotivoValeService motivoValeService;
     private final JornadaService jornadaService;
+    private final PushNotificationService pushNotificationService;
+    private final NotificacionPreferenciaService notificacionPreferenciaService;
 
     private Funcionario funcionarioDe(Long usuarioId) {
         Funcionario f = funcionarioService.findByUsuarioId(usuarioId);
@@ -127,7 +138,11 @@ public class RrhhMobileService {
         v.setFecha(LocalDate.now());
         v.setEsAdelanto(esAdelanto != null ? esAdelanto : false);
         v.setEstado(ValeEstado.SOLICITADO);
-        return valeService.save(v);
+        Vale guardado = valeService.save(v);
+        String nombre = f.getPersona() != null ? f.getPersona().getNombre() : ("Funcionario #" + f.getId());
+        notificarAprobadores("Nueva solicitud de vale",
+                nombre + " solicito un vale de " + monto.toPlainString());
+        return guardado;
     }
 
     @Transactional
@@ -137,8 +152,32 @@ public class RrhhMobileService {
         }
         Funcionario f = funcionarioDe(usuarioId);
         Vacacion vac = vacacionService.devengar(f.getId());
-        return vacacionService.programarPeriodo(vac.getId(), desde, hasta,
+        VacacionPeriodo periodo = vacacionService.programarPeriodo(vac.getId(), desde, hasta,
                 VacacionPeriodoEstado.SOLICITADA, "SOLICITUD MOBILE");
+        String nombre = f.getPersona() != null ? f.getPersona().getNombre() : ("Funcionario #" + f.getId());
+        notificarAprobadores("Nueva solicitud de vacaciones",
+                nombre + " solicito vacaciones del " + desde + " al " + hasta);
+        return periodo;
+    }
+
+    /**
+     * Notifica (push) a los aprobadores configurados para el tipo RRHH_SOLICITUD.
+     * Resiliente: un fallo del push nunca rompe la solicitud.
+     */
+    private void notificarAprobadores(String titulo, String mensaje) {
+        try {
+            List<Usuario> aprobadores = notificacionPreferenciaService
+                    .obtenerUsuariosPorTipoNotificacion(TIPO_NOTIF_SOLICITUD);
+            List<Long> ids = aprobadores.stream()
+                    .filter(u -> u != null && u.getId() != null)
+                    .map(Usuario::getId)
+                    .distinct()
+                    .collect(Collectors.toList());
+            if (ids.isEmpty()) return;
+            pushNotificationService.enviarNotificacionPersonalizada(titulo, mensaje, "ESPECIFICOS", ids);
+        } catch (Exception e) {
+            LOGGER.warn("No se pudo enviar el push a los aprobadores RRHH: {}", e.getMessage());
+        }
     }
 
     // ---------- Aprobaciones (directivo) ----------

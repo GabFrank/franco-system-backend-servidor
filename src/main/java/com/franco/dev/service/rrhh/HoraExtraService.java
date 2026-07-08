@@ -1,8 +1,10 @@
 package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.rrhh.HoraExtra;
+import com.franco.dev.domain.rrhh.enums.HoraExtraTipo;
 import com.franco.dev.repository.rrhh.HoraExtraRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.rrhh.builder.HoraExtraCalculator;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ import java.util.Optional;
 public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository, Long> {
 
     private final HoraExtraRepository repository;
+    private final ConfiguracionRrhhService configuracionRrhhService;
 
     @Override
     public HoraExtraRepository getRepository() {
@@ -51,8 +54,29 @@ public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository
             entity.setCreadoEn(LocalDateTime.now());
         if (entity.getAnulada() == null) entity.setAnulada(false);
         if (entity.getMinutos() == null) entity.setMinutos(BigDecimal.ZERO);
+
+        // valorizar automáticamente si no vino un monto manual y hay datos suficientes
+        boolean sinMonto = entity.getMontoCalculado() == null || entity.getMontoCalculado().signum() == 0;
+        if (sinMonto && entity.getFuncionario() != null && entity.getFuncionario().getSueldo() != null
+                && entity.getMinutos().signum() > 0) {
+            BigDecimal sueldo = new BigDecimal(entity.getFuncionario().getSueldo().toString());
+            BigDecimal horasJornada = configuracionRrhhService.getNumber("HORAS_JORNADA", new BigDecimal("8"));
+            BigDecimal recargo = entity.getRecargoPorcentaje() != null
+                    ? entity.getRecargoPorcentaje() : recargoPorTipo(entity.getTipo());
+            entity.setRecargoPorcentaje(recargo);
+            entity.setMontoCalculado(HoraExtraCalculator.calcularMonto(sueldo, horasJornada, entity.getMinutos(), recargo));
+        }
         if (entity.getMontoCalculado() == null) entity.setMontoCalculado(BigDecimal.ZERO);
         if (entity.getObservacion() != null) entity.setObservacion(entity.getObservacion().toUpperCase());
         return super.save(entity);
+    }
+
+    /** Recargo por defecto según el tipo de hora extra (parametrizable en config RRHH). */
+    private BigDecimal recargoPorTipo(HoraExtraTipo tipo) {
+        if (tipo == HoraExtraTipo.NOCTURNA)
+            return configuracionRrhhService.getNumber("HE_RECARGO_NOCTURNA", new BigDecimal("100"));
+        if (tipo == HoraExtraTipo.FERIADO)
+            return configuracionRrhhService.getNumber("HE_RECARGO_FERIADO", new BigDecimal("100"));
+        return configuracionRrhhService.getNumber("HE_RECARGO_DIURNA", new BigDecimal("50"));
     }
 }

@@ -52,6 +52,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
     private final MovimientoPersonasService movimientoPersonasService;
     private final UsuarioService usuarioService;
+    private final com.franco.dev.service.administrativo.JornadaService jornadaService;
 
     @Override
     public LiquidacionSueldoRepository getRepository() {
@@ -113,7 +114,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         liq.setFechaFin(fin);
         liq.setEstado(LiquidacionSueldoEstado.BORRADOR);
         if (monedaId != null) liq.setMoneda(monedaService.findById(monedaId).orElse(null));
-        BigDecimal salarioBase = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        BigDecimal salarioBase = calcularSalarioBase(f, inicio, fin);
         liq.setSalarioBase(salarioBase);
         liq = repository.save(liq);
 
@@ -129,6 +130,21 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         }
         aplicarTotales(liq, items);
         return repository.save(liq);
+    }
+
+    /**
+     * Salario base del período. Para jornaleros/diaristas: valor_jornal × días
+     * trabajados (de las jornadas del período). Para mensuales: el sueldo fijo.
+     */
+    private BigDecimal calcularSalarioBase(Funcionario f, LocalDate inicio, LocalDate fin) {
+        if (Boolean.TRUE.equals(f.getDiarista()) && f.getUsuario() != null) {
+            int diasTrabajados = jornadaService
+                    .findByUsuarioIdAndFechaRange(f.getUsuario().getId(), inicio.toString(), fin.toString())
+                    .size();
+            BigDecimal valorJornal = f.getValorJornal() != null ? new BigDecimal(f.getValorJornal().toString()) : BigDecimal.ZERO;
+            return com.franco.dev.service.rrhh.builder.JornaleroCalculator.calcularSalarioBase(valorJornal, diasTrabajados);
+        }
+        return f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
     }
 
     private List<LiquidacionItem> construirItemsAutomaticos(LiquidacionSueldo liq, Funcionario f,

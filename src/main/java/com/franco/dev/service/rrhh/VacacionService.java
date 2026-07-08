@@ -60,9 +60,11 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
 
     /** Dias de vacaciones segun antiguedad (ley PY, parametrizable). */
     private int diasPorAntiguedad(int anios) {
-        if (anios < 5) return configuracionRrhhService.getNumber("DIAS_VACACIONES_HASTA_5A", new BigDecimal("12")).intValue();
-        if (anios <= 10) return configuracionRrhhService.getNumber("DIAS_VACACIONES_5_10A", new BigDecimal("18")).intValue();
-        return configuracionRrhhService.getNumber("DIAS_VACACIONES_MAS_10A", new BigDecimal("30")).intValue();
+        int dias5 = configuracionRrhhService.getNumber("DIAS_VACACIONES_HASTA_5A", new BigDecimal("12")).intValue();
+        int dias10 = configuracionRrhhService.getNumber("DIAS_VACACIONES_5_10A", new BigDecimal("18")).intValue();
+        int diasMas = configuracionRrhhService.getNumber("DIAS_VACACIONES_MAS_10A", new BigDecimal("30")).intValue();
+        return com.franco.dev.service.rrhh.builder.VacacionDevengamientoCalculator
+                .diasPorAntiguedad(anios, dias5, dias10, diasMas);
     }
 
     /**

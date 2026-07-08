@@ -202,6 +202,47 @@ Doc de estrategia de tests en `docs/.../rrhh/TESTING-RRHH.md` (desktop).
 
 ---
 
+## 8.1 Configuración y flexibilidad
+
+**Valores parametrizables (dejaron de estar hardcodeados)** — Se exponen en la
+configuración RRHH: `TOLERANCIA_TARDANZA_MIN` (corrige un bug: antes la
+penalización automática ignoraba la tolerancia), `DIA_CIERRE_MES` (día de cierre
+de nómina; 28–31 = mes calendario), `MESES_PROMEDIO_LIQUIDACION_FINAL` (antes
+"6" fijo), `DIAS_MES_PROMEDIO` (30) y `DIAS_ANIO_ANTIGUEDAD` (365). Migración
+`V148.0`. Calculadoras parametrizadas + tests (40 casos). Estado: Compila + Tests.
+
+**Diálogo de info en Configuración RRHH** — Botón de info por fila que abre un
+diálogo con explicación curada de cada parámetro (título, descripción, ejemplo,
+impacto) para las ~22 configs. Además, en cambio de salario: hint del mínimo
+legal + confirmación si el salario queda por debajo. Estado: Compila (AOT).
+
+## 8.2 Dashboard y reportes (Fase 8)
+
+**Dashboard RRHH** — `dashboardRrhhKpis(periodo)` agrega sobre los repos
+existentes: funcionarios activos, nómina del mes, liquidaciones pendientes,
+vales/préstamos abiertos (cant+monto/saldo), penalizaciones y HE del mes,
+cuotas vencidas y aguinaldo estimado. Pantalla desktop con tarjetas de KPIs.
+Estado: Compila (backend + AOT desktop).
+
+**Reportes RRHH** — Dos reportes Jasper: **nómina del mes** (liquidaciones
+aprobadas/pagadas del período) y **resumen IPS** (base salarial + aporte
+funcionario 9% y patronal 16.5% desde config). Fuente SansSerif; validados
+(compilan y hacen fill OK con datos dummy). Pantalla desktop que genera y abre
+el PDF. Estado: Compila; **verificación visual del PDF pendiente en dev**.
+
+## 8.3 Self-service mobile — backend
+
+**Endpoints `*Mobile`** — Base backend para el mobile (regla del sufijo, sin
+modificar lo del desktop). Consulta: `misRecibosMobile` (liquidaciones pagadas),
+`misValesMobile`, `misVacacionesMobile`, `misMarcacionesMobile`,
+`miResumenRrhhMobile` (saldo vacaciones + vales pendientes + último recibo).
+Solicitudes: `solicitarValeMobile` (→ SOLICITADO), `solicitarVacacionMobile`
+(→ período SOLICITADA). Aprobaciones (directivo): listas de pendientes +
+`aprobarVacacionMobile` (sin movimiento de dinero). Todo scopea por `usuarioId`.
+Estado: Compila. **Pantallas Ionic pendientes.**
+
+---
+
 ## 9. Ramas de trabajo
 
 Cada fase quedó en su feature branch (backend y desktop, mismo nombre):
@@ -230,17 +271,16 @@ previas. **Ninguna está mergeada a `develop` todavía.**
 - **Fase 7 — Comisiones** — Motor de reglas sobre ventas, equipos con reparto,
   liquidación de comisiones e integración como HABER en la liquidación de sueldo
   (el hook ya existe en Fase 5). No implementado. Alto riesgo: depende del modelo
-  de ventas real (`operaciones.venta`, campo vendedor).
-- **Fase 8 — Notificaciones, dashboard y reportes** — Job de notificaciones RRHH
-  (cumpleaños, cuota vencida, vacación próxima, etc.), dashboard con KPIs, y
-  reportes Jasper (nómina, IPS, vales, préstamos, aguinaldo). No implementado.
-- **Fase 9 — Self-service mobile** — Historial de marcaciones, "mi resumen RRHH",
-  aprobaciones desde el celular. No implementado.
+  de ventas real (`operaciones.venta`, campo vendedor). **Se deja para el final.**
+- **Fase 8 — Notificaciones** — El dashboard con KPIs y los reportes (nómina,
+  IPS) **ya están hechos** (§8.2). Falta el **job de notificaciones RRHH**
+  (cumpleaños, cuota vencida, vacación próxima, etc.) + FCM.
 
-### Partes mobile de fases ya hechas
-- **"Mis vales" / "Mis vacaciones" / "Mis recibos" (endpoints `*Mobile`)** — Las
-  fases 3, 4 y 5 contemplan self-service mobile (solicitar vale/vacación, ver
-  recibos) que **no se implementó** (solo backend + desktop). Requiere el repo
+### Mobile — pantallas Ionic
+- El **backend `*Mobile` está listo** (§8.3). Faltan las **pantallas Ionic** en
+  `frc-mobile`: Mis Recibos (con PDF), Mis Vales, Mis Vacaciones, Mi resumen
+  RRHH, Mi historial de marcaciones, Solicitar vale/vacación (con push), y la
+  bandeja de aprobaciones del directivo. Requiere el repo
   mobile.
 
 ### Mejoras / deuda menor

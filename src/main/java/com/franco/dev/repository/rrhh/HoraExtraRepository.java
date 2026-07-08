@@ -17,4 +17,5 @@ public interface HoraExtraRepository extends HelperRepository<HoraExtra, Long> {
     List<HoraExtra> findByFuncionarioIdAndFechaBetweenAndAnuladaFalse(Long funcionarioId, LocalDate desde, LocalDate hasta);
 
     List<HoraExtra> findByJornadaIdAndSucursalId(Long jornadaId, Long sucursalId);
+    java.util.List<com.franco.dev.domain.rrhh.HoraExtra> findByFechaBetweenAndAnuladaFalse(java.time.LocalDate desde, java.time.LocalDate hasta);
 }

@@ -16,4 +16,5 @@ public interface PrestamoCuotaRepository extends HelperRepository<PrestamoCuota,
     List<PrestamoCuota> findByPrestamoIdOrderByNumeroAsc(Long prestamoId);
 
     List<PrestamoCuota> findByEstadoAndFechaVencimientoBefore(PrestamoCuotaEstado estado, LocalDate fecha);
+    java.util.List<com.franco.dev.domain.rrhh.PrestamoCuota> findByEstado(com.franco.dev.domain.rrhh.enums.PrestamoCuotaEstado estado);
 }

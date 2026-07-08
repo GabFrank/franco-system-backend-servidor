@@ -19,4 +19,5 @@ public interface PenalizacionRepository extends HelperRepository<Penalizacion, L
     List<Penalizacion> findByJornadaIdAndSucursalId(Long jornadaId, Long sucursalId);
 
     List<Penalizacion> findByJornadaIdAndSucursalIdAndAutoGeneradaTrueAndAnuladaFalse(Long jornadaId, Long sucursalId);
+    java.util.List<com.franco.dev.domain.rrhh.Penalizacion> findByFechaBetweenAndAnuladaFalse(java.time.LocalDate desde, java.time.LocalDate hasta);
 }

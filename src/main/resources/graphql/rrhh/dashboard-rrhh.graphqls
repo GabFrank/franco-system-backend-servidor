@@ -1,0 +1,20 @@
+type DashboardRrhhKpis {
+    periodo: String
+    funcionariosActivos: Int
+    nominaDelMes: Float
+    liquidacionesPendientes: Int
+    valesPendientesCantidad: Int
+    valesPendientesMonto: Float
+    prestamosActivosCantidad: Int
+    prestamosActivosSaldo: Float
+    penalizacionesMesCantidad: Int
+    penalizacionesMesMonto: Float
+    horasExtraMesCantidad: Int
+    horasExtraMesMonto: Float
+    cuotasVencidasCantidad: Int
+    aguinaldoEstimadoAnio: Float
+}
+
+extend type Query {
+    dashboardRrhhKpis(periodo: String!): DashboardRrhhKpis
+}

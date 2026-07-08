@@ -55,9 +55,6 @@ CREATE TABLE IF NOT EXISTS rrhh.liquidacion_final_item (
 CREATE INDEX IF NOT EXISTS idx_liq_final_item_liq
     ON rrhh.liquidacion_final_item(liquidacion_final_id);
 
--- ---------------------------------------------------------------------
--- 3. Config: días de indemnización por año (default legal PY = 15)
--- ---------------------------------------------------------------------
-INSERT INTO rrhh.configuracion_rrhh (clave, valor, tipo, descripcion, creado_en)
-SELECT 'INDEMNIZACION_DIAS_POR_ANIO', '15', 'NUMBER', 'Dias de salario por anio de antiguedad para la indemnizacion por despido injustificado', now()
-WHERE NOT EXISTS (SELECT 1 FROM rrhh.configuracion_rrhh WHERE clave = 'INDEMNIZACION_DIAS_POR_ANIO');
+-- Nota: las config keys INDEMNIZACION_DIAS_POR_ANIO (15) e
+-- INDEMNIZACION_ANTIGUEDAD_MIN_DIAS (90) ya se siembran en V141.0
+-- (fundaciones); no se re-insertan aca.

@@ -85,9 +85,10 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         int diasNoGozados = calcularDiasVacacionesNoGozadas(funcionarioId);
         BigDecimal aguinaldoProporcional = calcularAguinaldoProporcional(f, egreso);
         BigDecimal diasPorAnio = configuracionRrhhService.getNumber("INDEMNIZACION_DIAS_POR_ANIO", new BigDecimal("15"));
+        int minDiasIndemnizacion = configuracionRrhhService.getNumber("INDEMNIZACION_ANTIGUEDAD_MIN_DIAS", new BigDecimal("90")).intValue();
 
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
-                ingreso, egreso, motivo, salarioPromedio, diasNoGozados, aguinaldoProporcional, diasPorAnio);
+                ingreso, egreso, motivo, salarioPromedio, diasNoGozados, aguinaldoProporcional, diasPorAnio, minDiasIndemnizacion);
 
         LiquidacionFinal lf = repository
                 .findFirstByFuncionarioIdAndEstadoOrderByCreadoEnDesc(funcionarioId, LiquidacionFinalEstado.BORRADOR)

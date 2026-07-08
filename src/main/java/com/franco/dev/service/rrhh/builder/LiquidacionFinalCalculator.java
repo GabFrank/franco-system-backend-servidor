@@ -21,7 +21,6 @@ import java.time.temporal.ChronoUnit;
 public final class LiquidacionFinalCalculator {
 
     private static final BigDecimal TREINTA = new BigDecimal("30");
-    private static final int MIN_DIAS_INDEMNIZACION = 90;
 
     private LiquidacionFinalCalculator() {
     }
@@ -85,7 +84,8 @@ public final class LiquidacionFinalCalculator {
 
     public static Resultado calcular(LocalDate ingreso, LocalDate egreso, MotivoEgreso motivo,
                                      BigDecimal salarioPromedio, int diasNoGozados,
-                                     BigDecimal aguinaldoProporcional, BigDecimal indemnizacionDiasPorAnio) {
+                                     BigDecimal aguinaldoProporcional, BigDecimal indemnizacionDiasPorAnio,
+                                     int minDiasIndemnizacion) {
         BigDecimal promedio = salarioPromedio != null ? salarioPromedio : BigDecimal.ZERO;
         BigDecimal diasPorAnio = indemnizacionDiasPorAnio != null ? indemnizacionDiasPorAnio : BigDecimal.ZERO;
         BigDecimal aguinaldo = aguinaldoProporcional != null ? aguinaldoProporcional : BigDecimal.ZERO;
@@ -94,7 +94,7 @@ public final class LiquidacionFinalCalculator {
         Antiguedad ant = antiguedad(ingreso, egreso);
 
         boolean indemnizaAplica = motivo == MotivoEgreso.DESPIDO_INJUSTIFICADO
-                && ant.getDias() >= MIN_DIAS_INDEMNIZACION;
+                && ant.getDias() >= minDiasIndemnizacion;
         BigDecimal indemnizacion = BigDecimal.ZERO;
         if (indemnizaAplica) {
             int anios = Math.max(1, ant.getAnios());

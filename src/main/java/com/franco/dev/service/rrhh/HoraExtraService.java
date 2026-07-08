@@ -60,7 +60,7 @@ public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository
         if (sinMonto && entity.getFuncionario() != null && entity.getFuncionario().getSueldo() != null
                 && entity.getMinutos().signum() > 0) {
             BigDecimal sueldo = new BigDecimal(entity.getFuncionario().getSueldo().toString());
-            BigDecimal horasJornada = configuracionRrhhService.getNumber("HORAS_JORNADA", new BigDecimal("8"));
+            BigDecimal horasJornada = configuracionRrhhService.getNumber("HORAS_JORNADA_LABORAL", new BigDecimal("8"));
             BigDecimal recargo = entity.getRecargoPorcentaje() != null
                     ? entity.getRecargoPorcentaje() : recargoPorTipo(entity.getTipo());
             entity.setRecargoPorcentaje(recargo);
@@ -74,9 +74,9 @@ public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository
     /** Recargo por defecto según el tipo de hora extra (parametrizable en config RRHH). */
     private BigDecimal recargoPorTipo(HoraExtraTipo tipo) {
         if (tipo == HoraExtraTipo.NOCTURNA)
-            return configuracionRrhhService.getNumber("HE_RECARGO_NOCTURNA", new BigDecimal("100"));
+            return configuracionRrhhService.getNumber("RECARGO_HE_NOCTURNA", new BigDecimal("100"));
         if (tipo == HoraExtraTipo.FERIADO)
-            return configuracionRrhhService.getNumber("HE_RECARGO_FERIADO", new BigDecimal("100"));
-        return configuracionRrhhService.getNumber("HE_RECARGO_DIURNA", new BigDecimal("50"));
+            return configuracionRrhhService.getNumber("RECARGO_HE_FERIADO", new BigDecimal("100"));
+        return configuracionRrhhService.getNumber("RECARGO_HE_DIURNA", new BigDecimal("50"));
     }
 }

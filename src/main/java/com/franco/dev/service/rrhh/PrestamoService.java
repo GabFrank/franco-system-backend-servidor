@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.Prestamo;
 import com.franco.dev.domain.rrhh.PrestamoCuota;
+import com.franco.dev.service.rrhh.builder.CuotaCalculator;
 import com.franco.dev.domain.rrhh.enums.PrestamoCuotaEstado;
 import com.franco.dev.domain.rrhh.enums.PrestamoEstado;
 import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
@@ -82,18 +83,13 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
 
     private void generarCuotas(Prestamo prestamo) {
         int n = prestamo.getCantidadCuotas();
-        BigDecimal total = prestamo.getMontoTotal();
-        BigDecimal cuotaBase = total.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP);
-        BigDecimal acumulado = BigDecimal.ZERO;
+        List<BigDecimal> montos = CuotaCalculator.calcularCuotas(prestamo.getMontoTotal(), n);
         for (int i = 1; i <= n; i++) {
             PrestamoCuota c = new PrestamoCuota();
             c.setPrestamo(prestamo);
             c.setNumero(i);
             c.setFechaVencimiento(prestamo.getFechaInicio().plusMonths(i));
-            // la ultima cuota absorbe el redondeo
-            BigDecimal monto = (i == n) ? total.subtract(acumulado) : cuotaBase;
-            acumulado = acumulado.add(monto);
-            c.setMonto(monto);
+            c.setMonto(montos.get(i - 1));
             c.setMontoPagado(BigDecimal.ZERO);
             c.setEstado(PrestamoCuotaEstado.PENDIENTE);
             c.setCreadoEn(LocalDateTime.now());

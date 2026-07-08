@@ -1,5 +1,7 @@
 package com.franco.dev.service.rrhh;
 
+import com.franco.dev.service.rrhh.builder.AguinaldoCalculator;
+
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.Aguinaldo;
 import com.franco.dev.domain.rrhh.enums.AguinaldoEstado;
@@ -50,16 +52,13 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
             if (!Boolean.TRUE.equals(f.getActivo())) continue;
             if (f.getSueldo() == null || f.getFechaIngreso() == null) continue;
 
-            int mesesTrabajados = 12;
-            if (f.getFechaIngreso().getYear() == anio) {
-                mesesTrabajados = 12 - f.getFechaIngreso().getMonthValue() + 1;
-            } else if (f.getFechaIngreso().getYear() > anio) {
+            if (f.getFechaIngreso().getYear() > anio) {
                 continue;
             }
+            int mesesTrabajados = AguinaldoCalculator.mesesTrabajados(anio, f.getFechaIngreso());
 
             BigDecimal sueldo = new BigDecimal(f.getSueldo().toString());
-            BigDecimal monto = sueldo.multiply(new BigDecimal(mesesTrabajados))
-                    .divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
+            BigDecimal monto = AguinaldoCalculator.calcularMonto(sueldo, mesesTrabajados);
 
             Optional<Aguinaldo> existente = repository.findByFuncionarioIdAndAnio(f.getId(), anio);
             Aguinaldo a = existente.orElseGet(Aguinaldo::new);

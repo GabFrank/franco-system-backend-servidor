@@ -1,5 +1,7 @@
 package com.franco.dev.service.rrhh;
 
+import com.franco.dev.service.rrhh.builder.PenalizacionCalculator;
+
 import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.JornadaNovedad;
@@ -111,7 +113,7 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
                     .findByJornadaIdAndSucursalIdAndAutoGeneradaTrueAndAnuladaFalse(j.getId(), j.getSucursalId());
             if (!existentes.isEmpty()) continue;
 
-            BigDecimal monto = montoFijo.add(montoPorMin.multiply(new BigDecimal(tardia)));
+            BigDecimal monto = PenalizacionCalculator.calcularMontoTardanza(montoFijo, montoPorMin, tardia);
 
             Penalizacion p = new Penalizacion();
             p.setFuncionario(func);

@@ -1,0 +1,140 @@
+enum VacacionPeriodoEstado {
+    SOLICITADA
+    PROGRAMADA
+    EN_CURSO
+    GOZADA
+    CANCELADA
+}
+
+enum VacacionVentaEstado {
+    PENDIENTE
+    PAGADO
+    ANULADO
+}
+
+enum AguinaldoEstado {
+    CALCULADO
+    APROBADO
+    PAGADO
+}
+
+enum BonoTipo {
+    CUMPLEANIOS
+    NAVIDAD
+    DESEMPENIO
+    PRODUCTIVIDAD
+    OTRO
+}
+
+enum BonoFrecuencia {
+    SEMANAL
+    MENSUAL
+    TRIMESTRAL
+    SEMESTRAL
+    ANUAL
+}
+
+type Vacacion {
+    id: ID!
+    funcionario: Funcionario
+    anioServicio: Int
+    diasGenerados: Int
+    diasGozados: Int
+    fechaCorte: String
+    prescrita: Boolean
+    observacion: String
+    usuario: Usuario
+    creadoEn: Date
+}
+
+type VacacionPeriodo {
+    id: ID!
+    fechaDesde: String
+    fechaHasta: String
+    diasUsados: Int
+    estado: VacacionPeriodoEstado
+    autorizadoPor: Usuario
+    novedadesGeneradas: Boolean
+    observacion: String
+    creadoEn: Date
+}
+
+type VacacionVenta {
+    id: ID!
+    dias: Int
+    monto: Float
+    fecha: String
+    estado: VacacionVentaEstado
+    liquidacionId: Int
+    observacion: String
+    creadoEn: Date
+}
+
+type Aguinaldo {
+    id: ID!
+    funcionario: Funcionario
+    anio: Int
+    montoCalculado: Float
+    mesesTrabajados: Int
+    estado: AguinaldoEstado
+    fechaPago: String
+    liquidacionId: Int
+    creadoEn: Date
+}
+
+type Bono {
+    id: ID!
+    funcionario: Funcionario
+    tipo: BonoTipo
+    monto: Float
+    fecha: String
+    motivo: String
+    esRecurrente: Boolean
+    frecuencia: BonoFrecuencia
+    anulado: Boolean
+    liquidacionId: Int
+    autorizadoPor: Usuario
+    creadoEn: Date
+}
+
+input BonoInput {
+    id: ID
+    funcionarioId: Int
+    tipo: BonoTipo
+    monto: Float
+    fecha: String
+    motivo: String
+    esRecurrente: Boolean
+    frecuencia: BonoFrecuencia
+    autorizadoPorId: Int
+    usuarioId: Int
+}
+
+extend type Query {
+    vacacion(id: ID!): Vacacion
+    vacacionesPorFuncionario(funcionarioId: ID!): [Vacacion]
+    vacacionPeriodos(vacacionId: ID!): [VacacionPeriodo]
+    vacacionPeriodosPorEstado(estado: VacacionPeriodoEstado): [VacacionPeriodo]
+    vacacionVentas(vacacionId: ID!): [VacacionVenta]
+
+    aguinaldo(id: ID!): Aguinaldo
+    aguinaldosPorAnio(anio: Int!): [Aguinaldo]
+    aguinaldosPorFuncionario(funcionarioId: ID!): [Aguinaldo]
+
+    bono(id: ID!): Bono
+    bonosPorFuncionario(funcionarioId: ID!): [Bono]
+}
+
+extend type Mutation {
+    devengarVacacion(funcionarioId: ID!): Vacacion
+    programarPeriodoVacacion(vacacionId: ID!, desde: String, hasta: String, estado: VacacionPeriodoEstado, observacion: String): VacacionPeriodo
+    aprobarPeriodoVacacion(periodoId: ID!, autorizadoPorId: ID): VacacionPeriodo
+    marcarGozadaVacacion(periodoId: ID!): VacacionPeriodo
+    venderDiasVacacion(vacacionId: ID!, dias: Int!, observacion: String): VacacionVenta
+
+    calcularAguinaldosAnio(anio: Int!): Int
+    aprobarAguinaldo(id: ID!): Aguinaldo
+
+    saveBono(bono: BonoInput!): Bono!
+    anularBono(id: ID!): Bono
+}

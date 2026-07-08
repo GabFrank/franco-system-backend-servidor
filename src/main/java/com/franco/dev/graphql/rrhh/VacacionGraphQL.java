@@ -1,0 +1,68 @@
+package com.franco.dev.graphql.rrhh;
+
+import com.franco.dev.domain.rrhh.Vacacion;
+import com.franco.dev.domain.rrhh.VacacionPeriodo;
+import com.franco.dev.domain.rrhh.VacacionVenta;
+import com.franco.dev.domain.rrhh.enums.VacacionPeriodoEstado;
+import com.franco.dev.service.rrhh.VacacionService;
+import graphql.kickstart.tools.GraphQLMutationResolver;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
+@Component
+public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private VacacionService service;
+
+    public Optional<Vacacion> vacacion(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Vacacion> vacacionesPorFuncionario(Long funcionarioId) {
+        return service.findByFuncionarioId(funcionarioId);
+    }
+
+    public List<VacacionPeriodo> vacacionPeriodos(Long vacacionId) {
+        return service.findPeriodos(vacacionId);
+    }
+
+    public List<VacacionPeriodo> vacacionPeriodosPorEstado(VacacionPeriodoEstado estado) {
+        return service.findPeriodosPorEstado(estado);
+    }
+
+    public List<VacacionVenta> vacacionVentas(Long vacacionId) {
+        return service.findVentas(vacacionId);
+    }
+
+    public Vacacion devengarVacacion(Long funcionarioId) {
+        return service.devengar(funcionarioId);
+    }
+
+    public VacacionPeriodo programarPeriodoVacacion(Long vacacionId, String desde, String hasta,
+                                                    VacacionPeriodoEstado estado, String observacion) {
+        return service.programarPeriodo(
+                vacacionId,
+                stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null,
+                stringToDate(hasta) != null ? stringToDate(hasta).toLocalDate() : null,
+                estado, observacion);
+    }
+
+    public VacacionPeriodo aprobarPeriodoVacacion(Long periodoId, Long autorizadoPorId) {
+        return service.aprobarPeriodo(periodoId, autorizadoPorId);
+    }
+
+    public VacacionPeriodo marcarGozadaVacacion(Long periodoId) {
+        return service.marcarGozada(periodoId);
+    }
+
+    public VacacionVenta venderDiasVacacion(Long vacacionId, Integer dias, String observacion) {
+        return service.venderDias(vacacionId, dias, observacion);
+    }
+}

@@ -46,6 +46,8 @@ public class DashboardRrhhService {
     private final PenalizacionRepository penalizacionRepository;
     private final HoraExtraRepository horaExtraRepository;
     private final AguinaldoRepository aguinaldoRepository;
+    private final com.franco.dev.repository.rrhh.VacacionRepository vacacionRepository;
+    private final ConfiguracionRrhhService configuracionRrhhService;
 
     @Transactional(readOnly = true)
     public DashboardRrhhKpisDto getKpis(String periodo) {
@@ -60,12 +62,35 @@ public class DashboardRrhhService {
         DashboardRrhhKpisDto k = new DashboardRrhhKpisDto();
         k.setPeriodo(periodo);
 
-        // funcionarios activos
+        // funcionarios activos + cumpleaños del mes del período
         long activos = 0;
+        long cumpleanos = 0;
+        int mesPeriodo = ym.getMonthValue();
         for (Funcionario f : funcionarioService.findAll2()) {
-            if (Boolean.TRUE.equals(f.getActivo())) activos++;
+            if (Boolean.TRUE.equals(f.getActivo())) {
+                activos++;
+                if (f.getPersona() != null && f.getPersona().getNacimiento() != null
+                        && f.getPersona().getNacimiento().getMonthValue() == mesPeriodo) {
+                    cumpleanos++;
+                }
+            }
         }
         k.setFuncionariosActivos(activos);
+        k.setCumpleanosDelMes(cumpleanos);
+
+        // vacaciones por vencer (no prescritas, con saldo, cercanas a prescribir)
+        int prescripcionMeses = configuracionRrhhService.getNumber("PRESCRIPCION_VACACIONES_MESES", new BigDecimal("24")).intValue();
+        int avisoDias = configuracionRrhhService.getNumber("VACACION_AVISO_PRESCRIPCION_DIAS", new BigDecimal("60")).intValue();
+        LocalDate limite = LocalDate.now().plusDays(avisoDias);
+        long vacacionesPorVencer = 0;
+        for (com.franco.dev.domain.rrhh.Vacacion v : vacacionRepository.findByPrescritaFalse()) {
+            int gen = v.getDiasGenerados() != null ? v.getDiasGenerados() : 0;
+            int goz = v.getDiasGozados() != null ? v.getDiasGozados() : 0;
+            if (gen - goz <= 0 || v.getFechaCorte() == null) continue;
+            LocalDate fechaPrescripcion = v.getFechaCorte().plusMonths(prescripcionMeses);
+            if (!fechaPrescripcion.isAfter(limite)) vacacionesPorVencer++;
+        }
+        k.setVacacionesPorVencer(vacacionesPorVencer);
 
         // nómina del mes + liquidaciones pendientes
         BigDecimal nomina = BigDecimal.ZERO;

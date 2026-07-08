@@ -1,19 +1,27 @@
 package com.franco.dev.service.rrhh;
 
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.rrhh.FuncionarioDocumento;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
+import com.franco.dev.domain.rrhh.Vacacion;
 import com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado;
 import com.franco.dev.domain.rrhh.enums.PrestamoCuotaEstado;
 import com.franco.dev.fmc.service.PushNotificationService;
+import com.franco.dev.repository.rrhh.FuncionarioDocumentoRepository;
 import com.franco.dev.repository.rrhh.LiquidacionSueldoRepository;
 import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
+import com.franco.dev.repository.rrhh.VacacionRepository;
 import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
+import com.franco.dev.service.personas.FuncionarioService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +40,10 @@ public class RrhhNotificacionScheduler {
 
     private final PrestamoCuotaRepository prestamoCuotaRepository;
     private final LiquidacionSueldoRepository liquidacionSueldoRepository;
+    private final FuncionarioService funcionarioService;
+    private final FuncionarioDocumentoRepository funcionarioDocumentoRepository;
+    private final VacacionRepository vacacionRepository;
+    private final ConfiguracionRrhhService configuracionRrhhService;
     private final PushNotificationService pushNotificationService;
     private final NotificacionPreferenciaService notificacionPreferenciaService;
 
@@ -56,6 +68,39 @@ public class RrhhNotificacionScheduler {
             if (liquidacionesPendientes > 0) {
                 lineas.add(liquidacionesPendientes + " liquidacion(es) pendiente(s) de pago");
             }
+
+            // cumpleaños de hoy
+            LocalDate hoy = LocalDate.now();
+            long cumpleHoy = 0;
+            for (Funcionario f : funcionarioService.findAll2()) {
+                if (Boolean.TRUE.equals(f.getActivo()) && f.getPersona() != null
+                        && f.getPersona().getNacimiento() != null) {
+                    java.time.LocalDateTime n = f.getPersona().getNacimiento();
+                    if (n.getMonthValue() == hoy.getMonthValue() && n.getDayOfMonth() == hoy.getDayOfMonth()) {
+                        cumpleHoy++;
+                    }
+                }
+            }
+            if (cumpleHoy > 0) lineas.add(cumpleHoy + " cumpleaños hoy");
+
+            // documentos por vencer (proximos N dias)
+            int docAvisoDias = configuracionRrhhService.getNumber("DOCUMENTO_AVISO_VENCIMIENTO_DIAS", new BigDecimal("30")).intValue();
+            long docsPorVencer = funcionarioDocumentoRepository
+                    .findByAnuladoFalseAndVencimientoBetween(hoy, hoy.plusDays(docAvisoDias)).size();
+            if (docsPorVencer > 0) lineas.add(docsPorVencer + " documento(s) por vencer");
+
+            // vacaciones por prescribir (proximas)
+            int prescripcionMeses = configuracionRrhhService.getNumber("PRESCRIPCION_VACACIONES_MESES", new BigDecimal("24")).intValue();
+            int vacAvisoDias = configuracionRrhhService.getNumber("VACACION_AVISO_PRESCRIPCION_DIAS", new BigDecimal("60")).intValue();
+            LocalDate limiteVac = hoy.plusDays(vacAvisoDias);
+            long vacPorVencer = 0;
+            for (Vacacion v : vacacionRepository.findByPrescritaFalse()) {
+                int gen = v.getDiasGenerados() != null ? v.getDiasGenerados() : 0;
+                int goz = v.getDiasGozados() != null ? v.getDiasGozados() : 0;
+                if (gen - goz <= 0 || v.getFechaCorte() == null) continue;
+                if (!v.getFechaCorte().plusMonths(prescripcionMeses).isAfter(limiteVac)) vacPorVencer++;
+            }
+            if (vacPorVencer > 0) lineas.add(vacPorVencer + " vacacion(es) por prescribir");
 
             if (lineas.isEmpty()) {
                 LOGGER.info("RrhhNotificacionScheduler: sin alertas para hoy");

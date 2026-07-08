@@ -12,4 +12,6 @@ public interface FuncionarioDocumentoRepository extends HelperRepository<Funcion
     }
 
     List<FuncionarioDocumento> findByFuncionarioIdAndAnuladoFalseOrderByFechaSubidaDesc(Long funcionarioId);
+
+    List<FuncionarioDocumento> findByAnuladoFalseAndVencimientoBetween(java.time.LocalDate desde, java.time.LocalDate hasta);
 }

@@ -20,4 +20,24 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
     public String reporteResumenIps(String periodo) {
         return service.resumenIpsBase64(periodo);
     }
+
+    /** Recibo de finiquito (liquidación final) en PDF (base64). */
+    public String imprimirReciboFinal(Long id) {
+        return service.finiquitoBase64(id);
+    }
+
+    /** Vales pendientes en PDF (base64). */
+    public String reporteValesPendientes() {
+        return service.reporteValesPendientesBase64();
+    }
+
+    /** Préstamos activos en PDF (base64). */
+    public String reportePrestamosActivos() {
+        return service.reportePrestamosActivosBase64();
+    }
+
+    /** Aguinaldo del año en PDF (base64). */
+    public String reporteAguinaldoAnual(Integer anio) {
+        return service.reporteAguinaldoAnualBase64(anio);
+    }
 }

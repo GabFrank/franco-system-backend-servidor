@@ -1,4 +1,8 @@
 extend type Query {
     reporteNominaMes(periodo: String!): String
     reporteResumenIps(periodo: String!): String
+    imprimirReciboFinal(id: ID!): String
+    reporteValesPendientes: String
+    reportePrestamosActivos: String
+    reporteAguinaldoAnual(anio: Int!): String
 }

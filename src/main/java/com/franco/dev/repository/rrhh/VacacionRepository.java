@@ -17,4 +17,6 @@ public interface VacacionRepository extends HelperRepository<Vacacion, Long> {
     Optional<Vacacion> findByFuncionarioIdAndAnioServicio(Long funcionarioId, Integer anioServicio);
 
     List<Vacacion> findByFuncionarioIdAndPrescritaFalse(Long funcionarioId);
+
+    List<Vacacion> findByPrescritaFalse();
 }

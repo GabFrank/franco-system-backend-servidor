@@ -24,4 +24,6 @@ public class DashboardRrhhKpisDto {
     private BigDecimal horasExtraMesMonto;
     private Long cuotasVencidasCantidad;
     private BigDecimal aguinaldoEstimadoAnio;
+    private Long cumpleanosDelMes;
+    private Long vacacionesPorVencer;
 }

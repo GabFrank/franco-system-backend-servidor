@@ -96,10 +96,11 @@ extend type Query {
         zonaIdList: [Int],
         usuarioIdList: [ID],
         productoIdList: [ID],
+        fuenteVerdadList: [FuenteVerdadVencimiento],
         soloRealmenteVencidos: Boolean,
         page: Int,
         size: Int
-    ): InventarioProductoItemPage
+    ): ProductoVencidoViewPage
 
     productosVencidosPorSucursal(
         sucursalId: ID!,

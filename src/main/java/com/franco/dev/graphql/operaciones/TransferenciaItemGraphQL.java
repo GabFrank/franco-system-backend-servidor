@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
@@ -9,9 +10,11 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.graphql.operaciones.dto.TransferenciaItemAlertaDTO;
 import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
+import com.franco.dev.service.operaciones.TransferenciaItemAlertaService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -60,6 +63,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private TransferenciaItemAlertaService transferenciaItemAlertaService;
+
     public Optional<TransferenciaItem> transferenciaItem(Long id) {
         return service.findById(id);
     }
@@ -78,6 +84,10 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             Integer size) {
         Page<TransferenciaItem> res = service.findByTransferenciaItemIdWithFilter(id, name, page, size);
         return res;
+    }
+
+    public List<TransferenciaItemAlertaDTO> alertasTransferenciaItems(Long transferenciaId, List<Long> itemIds) {
+        return transferenciaItemAlertaService.calcularAlertas(transferenciaId, itemIds);
     }
 
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input, Double precioCosto) {
@@ -110,51 +120,23 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         e = service.save(e);
         movimientoStockService.createMovimientoFromTransferenciaItem(e);
 
-        if (e != null && precioCosto != null) {
+        // El costo SOLO se actualiza cuando la transferencia proviene de la sucursal COMPRAS:
+        // es una vía alternativa (temporal) para cargar una compra cuando el módulo de compras falla.
+        // Cualquier otra transferencia es un simple movimiento de stock y NO altera el costo del producto.
+        if (e != null && precioCosto != null && esTransferenciaDesdeCompras(e)) {
             try {
                 if (e.getPresentacionPreTransferencia() != null
                         && e.getPresentacionPreTransferencia().getProducto() != null) {
                     Producto producto = e.getPresentacionPreTransferencia().getProducto();
-                    CostoPorProducto costoPorProducto = new CostoPorProducto();
-                    CostoPorProducto lastCostoPorProducto = costosPorProductoService
-                            .findLastByProductoId(producto.getId());
-                    if (lastCostoPorProducto == null) {
-                        costoPorProducto.setCostoMedio(precioCosto);
-                        costoPorProducto.setProducto(producto);
-                        costoPorProducto.setCotizacion(1.0);
-                        costoPorProducto.setUltimoPrecioCompra(precioCosto);
-                        costoPorProducto.setUsuario(e.getUsuario());
-
-                        try {
-                            costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
-                        } catch (Exception ex) {
-                            System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
-                        }
-
-                        costoPorProducto.setCreadoEn(e.getCreadoEn());
-                        costosPorProductoService.save(costoPorProducto);
-                    } else if (lastCostoPorProducto.getUltimoPrecioCompra() != null
-                            && !lastCostoPorProducto.getUltimoPrecioCompra().equals(precioCosto)) {
-                        if (lastCostoPorProducto.getCostoMedio() == null) {
-                            costoPorProducto
-                                    .setCostoMedio((lastCostoPorProducto.getUltimoPrecioCompra() + precioCosto) / 2);
-                        } else {
-                            costoPorProducto.setCostoMedio(precioCosto);
-                        }
-                        costoPorProducto.setProducto(producto);
-                        costoPorProducto.setCotizacion(1.0);
-                        costoPorProducto.setUltimoPrecioCompra(precioCosto);
-                        costoPorProducto.setUsuario(e.getUsuario());
-
-                        try {
-                            costoPorProducto.setMoneda(monedaService.findByDescripcion("GUARANI"));
-                        } catch (Exception ex) {
-                            System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
-                        }
-
-                        costoPorProducto.setCreadoEn(e.getCreadoEn());
-                        costosPorProductoService.save(costoPorProducto);
+                    Moneda guarani = null;
+                    try {
+                        guarani = monedaService.findByDescripcion("GUARANI");
+                    } catch (Exception ex) {
+                        System.err.println("Moneda GUARANI no encontrada: " + ex.getMessage());
                     }
+                    costosPorProductoService.registrarCostoCompraManual(
+                            producto, precioCosto, guarani,
+                            e.getTransferencia().getSucursalOrigen(), e.getUsuario(), e.getCreadoEn());
                 }
             } catch (Exception ex) {
                 System.err.println("Error al actualizar CostoPorProducto en saveTransferenciaItem: " + ex.getMessage());
@@ -162,6 +144,13 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             }
         }
         return e;
+    }
+
+    /** True si la transferencia sale de la pseudo-sucursal COMPRAS (carga manual de compra). */
+    private boolean esTransferenciaDesdeCompras(TransferenciaItem e) {
+        if (e.getTransferencia() == null || e.getTransferencia().getSucursalOrigen() == null) return false;
+        return CostosPorProductoService.SUCURSAL_COMPRAS
+                .equalsIgnoreCase(e.getTransferencia().getSucursalOrigen().getNombre());
     }
 
     public Boolean deleteTransferenciaItem(Long id) {

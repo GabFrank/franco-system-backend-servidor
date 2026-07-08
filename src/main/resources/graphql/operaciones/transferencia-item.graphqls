@@ -32,6 +32,13 @@ type TransferenciaItem {
     vencimientoVerificado: Boolean
 }
 
+type TransferenciaItemAlerta {
+    transferenciaItemId: ID!
+    alertaVencido: Boolean
+    alertaAveriado: Boolean
+    fechaVencimientoReferencia: Date
+}
+
 input TransferenciaItemInput {
     id:ID
     transferenciaId: Int
@@ -83,6 +90,7 @@ extend type Query {
     transferenciaItems(page:Int = 0, size:Int = 10):[TransferenciaItem]!
     transferenciaItensPorTransferenciaId(id: ID!, page:Int = 0, size:Int = 10):TransferenciaItemPage!
     transferenciaItensPorTransferenciaIdWithFilter(id: ID, name: String, page:Int = 0, size:Int = 10):TransferenciaItemPage!
+    alertasTransferenciaItems(transferenciaId: ID!, itemIds: [ID!]!): [TransferenciaItemAlerta]!
 }
 
 extend type Mutation {

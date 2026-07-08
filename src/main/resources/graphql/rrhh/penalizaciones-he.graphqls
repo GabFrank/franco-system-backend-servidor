@@ -1,0 +1,181 @@
+enum JornadaNovedadTipo {
+    VACACION
+    JUSTIFICADO
+    FERIADO
+    AUSENCIA_JUSTIFICADA
+    MEDIA_FALTA
+}
+
+enum PenalizacionTipo {
+    TARDANZA
+    AUSENCIA
+    QUEJA_CLIENTE
+    AMBIENTE_LABORAL
+    DANIO_MATERIAL
+    COMISION_DESCUENTO
+    OTRO
+}
+
+enum HoraExtraTipo {
+    DIURNA
+    NOCTURNA
+    FERIADO
+}
+
+enum HoraExtraOrigen {
+    JORNADA
+    MANUAL
+}
+
+type Feriado {
+    id: ID!
+    fecha: String
+    descripcion: String
+    esNacional: Boolean
+    recargoPorcentaje: Float
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input FeriadoInput {
+    id: ID
+    fecha: String
+    descripcion: String
+    esNacional: Boolean
+    recargoPorcentaje: Float
+    activo: Boolean
+    usuarioId: Int
+}
+
+type JornadaNovedad {
+    id: ID!
+    funcionario: Funcionario
+    fecha: String
+    tipo: JornadaNovedadTipo
+    jornadaId: Int
+    sucursalId: Int
+    observacion: String
+    registradoPor: Usuario
+    creadoEn: Date
+}
+
+input JornadaNovedadInput {
+    id: ID
+    funcionarioId: Int
+    fecha: String
+    tipo: JornadaNovedadTipo
+    jornadaId: Int
+    sucursalId: Int
+    observacion: String
+    registradoPorId: Int
+}
+
+type Penalizacion {
+    id: ID!
+    funcionario: Funcionario
+    jornadaId: Int
+    sucursalId: Int
+    tipo: PenalizacionTipo
+    descripcion: String
+    monto: Float
+    fecha: String
+    autoGenerada: Boolean
+    anulada: Boolean
+    registradoPor: Usuario
+    creadoEn: Date
+}
+
+input PenalizacionInput {
+    id: ID
+    funcionarioId: Int
+    jornadaId: Int
+    sucursalId: Int
+    tipo: PenalizacionTipo
+    descripcion: String
+    monto: Float
+    fecha: String
+    autoGenerada: Boolean
+    anulada: Boolean
+    registradoPorId: Int
+}
+
+type HoraExtra {
+    id: ID!
+    funcionario: Funcionario
+    fecha: String
+    jornadaId: Int
+    sucursalId: Int
+    minutos: Float
+    tipo: HoraExtraTipo
+    recargoPorcentaje: Float
+    montoCalculado: Float
+    origen: HoraExtraOrigen
+    anulada: Boolean
+    autorizadoPor: Usuario
+    observacion: String
+    creadoEn: Date
+}
+
+input HoraExtraInput {
+    id: ID
+    funcionarioId: Int
+    fecha: String
+    jornadaId: Int
+    sucursalId: Int
+    minutos: Float
+    tipo: HoraExtraTipo
+    recargoPorcentaje: Float
+    montoCalculado: Float
+    origen: HoraExtraOrigen
+    anulada: Boolean
+    autorizadoPorId: Int
+    observacion: String
+}
+
+input JustificarJornadaInput {
+    jornadaId: Int
+    sucursalId: Int
+    funcionarioId: Int
+    fecha: String
+    observacion: String
+    registradoPorId: Int
+}
+
+extend type Query {
+    feriado(id: ID!): Feriado
+    feriados(page: Int = 0, size: Int = 100): [Feriado]!
+    feriadosPorRango(desde: String, hasta: String): [Feriado]
+    feriadosActivos: [Feriado]
+    countFeriado: Int
+
+    jornadaNovedad(id: ID!): JornadaNovedad
+    jornadaNovedadesPorFuncionario(funcionarioId: ID!): [JornadaNovedad]
+    jornadaNovedadesPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [JornadaNovedad]
+
+    penalizacion(id: ID!): Penalizacion
+    penalizacionesPorFuncionario(funcionarioId: ID!): [Penalizacion]
+    penalizacionesPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [Penalizacion]
+    penalizacionesPorJornada(jornadaId: ID!, sucursalId: ID!): [Penalizacion]
+
+    horaExtra(id: ID!): HoraExtra
+    horasExtraPorFuncionario(funcionarioId: ID!): [HoraExtra]
+    horasExtraPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [HoraExtra]
+}
+
+extend type Mutation {
+    saveFeriado(feriado: FeriadoInput!): Feriado!
+    deleteFeriado(id: ID!): Boolean!
+
+    saveJornadaNovedad(jornadaNovedad: JornadaNovedadInput!): JornadaNovedad!
+    deleteJornadaNovedad(id: ID!): Boolean!
+
+    savePenalizacion(penalizacion: PenalizacionInput!): Penalizacion!
+    anularPenalizacion(id: ID!): Penalizacion
+    generarPenalizacionesAuto(fecha: String): Int
+    justificarJornada(input: JustificarJornadaInput!): Boolean
+
+    saveHoraExtra(horaExtra: HoraExtraInput!): HoraExtra!
+    anularHoraExtra(id: ID!): HoraExtra
+    deleteHoraExtra(id: ID!): Boolean!
+}

@@ -33,6 +33,28 @@ public class ConfiguracionRrhhService extends CrudService<ConfiguracionRrhh, Con
         return repository.findByAll(texto);
     }
 
+    /** Devuelve el valor numerico de una clave, o el default si no existe / no parsea. */
+    public java.math.BigDecimal getNumber(String clave, java.math.BigDecimal porDefecto) {
+        Optional<ConfiguracionRrhh> c = findByClave(clave);
+        if (c.isPresent() && c.get().getValor() != null) {
+            try {
+                return new java.math.BigDecimal(c.get().getValor().trim());
+            } catch (NumberFormatException e) {
+                return porDefecto;
+            }
+        }
+        return porDefecto;
+    }
+
+    /** Devuelve el valor booleano de una clave, o el default si no existe. */
+    public boolean getBoolean(String clave, boolean porDefecto) {
+        Optional<ConfiguracionRrhh> c = findByClave(clave);
+        if (c.isPresent() && c.get().getValor() != null) {
+            return "true".equalsIgnoreCase(c.get().getValor().trim());
+        }
+        return porDefecto;
+    }
+
     @Override
     public ConfiguracionRrhh save(ConfiguracionRrhh entity) {
         if (entity.getId() == null && entity.getCreadoEn() == null)

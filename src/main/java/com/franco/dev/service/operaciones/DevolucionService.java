@@ -46,7 +46,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         devolucion.setSucursalOrigen(sucursalOrigen);
         devolucion.setFecha(LocalDateTime.now());
         devolucion.setMotivo(motivo);
-        devolucion.setEstado(DevolucionEstado.EN_PROCESO);
+        devolucion.setEstado(DevolucionEstado.PENDIENTE);
         devolucion.setUsuario(usuario);
         
         return save(devolucion);
@@ -62,7 +62,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             () -> new IllegalArgumentException("Devolución no encontrada: " + devolucionId)
         );
         
-        if (devolucion.getEstado() == DevolucionEstado.FINALIZADA) {
+        if (devolucion.getEstado() == DevolucionEstado.RETIRADO) {
             throw new IllegalStateException("La devolución ya está finalizada");
         }
         
@@ -79,7 +79,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         }
         
         // Cambiar estado de la devolución
-        devolucion.setEstado(DevolucionEstado.FINALIZADA);
+        devolucion.setEstado(DevolucionEstado.RETIRADO);
         
         return save(devolucion);
     }
@@ -131,7 +131,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             () -> new IllegalArgumentException("Devolución no encontrada: " + devolucionId)
         );
         
-        if (devolucion.getEstado() == DevolucionEstado.FINALIZADA) {
+        if (devolucion.getEstado() == DevolucionEstado.RETIRADO) {
             throw new IllegalStateException("No se puede cancelar una devolución finalizada");
         }
         

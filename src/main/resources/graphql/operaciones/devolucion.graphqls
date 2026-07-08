@@ -61,7 +61,11 @@ extend type Mutation {
 }
 
 enum DevolucionEstado {
-    EN_PROCESO,
-    FINALIZADA,
+    PENDIENTE,
+    SEPARADO,
+    RETIRADO,
+    CANJEADO,
+    ACREDITADO,
+    DESCARTADO,
     CANCELADA
 } 

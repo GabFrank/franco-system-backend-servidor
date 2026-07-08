@@ -3,6 +3,8 @@ package com.franco.dev.domain.operaciones;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
+import com.franco.dev.domain.operaciones.enums.TipoDevolucion;
+import com.franco.dev.domain.operaciones.enums.TipoResolucionDevolucion;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
@@ -12,6 +14,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.TypeDefs;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -20,10 +23,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@TypeDef(
-        name = "devolucion_estado",
-        typeClass = PostgreSQLEnumType.class
-)
+@TypeDefs({
+        @TypeDef(name = "devolucion_estado", typeClass = PostgreSQLEnumType.class),
+        @TypeDef(name = "tipo_devolucion", typeClass = PostgreSQLEnumType.class),
+        @TypeDef(name = "tipo_resolucion_devolucion", typeClass = PostgreSQLEnumType.class)
+})
 @Table(name = "devolucion", schema = "operaciones")
 public class Devolucion implements Identifiable<Long> {
 
@@ -40,8 +44,15 @@ public class Devolucion implements Identifiable<Long> {
     )
     private Long id;
 
+    /** Tipo de documento: con o sin devolucion a proveedor. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo")
+    @Type(type = "tipo_devolucion")
+    private TipoDevolucion tipo;
+
+    /** Nullable: solo aplica a CON_PROVEEDOR. */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "proveedor_id", nullable = false)
+    @JoinColumn(name = "proveedor_id", nullable = true)
     private Proveedor proveedor;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -58,6 +69,47 @@ public class Devolucion implements Identifiable<Long> {
     @Column(name = "estado", nullable = false)
     @Type(type = "devolucion_estado")
     private DevolucionEstado estado;
+
+    /** Identificador fisico de la caja/lote de devolucion (autogenerado, imprimible). */
+    @Column(name = "identificador")
+    private String identificador;
+
+    /** Forma de resolucion (solo CON_PROVEEDOR): nota de credito o canje. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resolucion")
+    @Type(type = "tipo_resolucion_devolucion")
+    private TipoResolucionDevolucion resolucion;
+
+    /** Numero de nota de credito del proveedor (cuando resolucion = NOTA_CREDITO). */
+    @Column(name = "nro_nota_credito")
+    private String nroNotaCredito;
+
+    /** Monto acreditado por el proveedor (cuando resolucion = NOTA_CREDITO). */
+    @Column(name = "monto_acreditado")
+    private Double montoAcreditado;
+
+    /** Gasto generado (tipo SIN_PROVEEDOR). FK compuesta de financiero.gasto (id + sucursal_id). */
+    @Column(name = "gasto_id")
+    private Long gastoId;
+
+    @Column(name = "gasto_sucursal_id")
+    private Long gastoSucursalId;
+
+    /**
+     * Caja virtual opcional a la que se imputa el egreso del gasto (modulo caja mayor, fd-93).
+     * Sin FK: la tabla financiero.caja_virtual puede no existir en develop hasta que fd-93 se mergee.
+     */
+    @Column(name = "caja_virtual_id")
+    private Long cajaVirtualId;
+
+    @Column(name = "observacion")
+    private String observacion;
+
+    @Column(name = "creado_en")
+    private LocalDateTime creadoEn;
+
+    @Column(name = "finalizado")
+    private Boolean finalizado;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = false)

@@ -14,6 +14,14 @@ type Funcionario {
     activo: Boolean
     nickname: String
     horario: Horario
+    fechaEgreso: Date
+    motivoEgreso: String
+    codigoInterno: String
+    ipsActivo: Boolean
+    numeroIps: String
+    valorJornal: Float
+    moneda: Moneda
+    cuentaBancaria: String
 }
 
 input FuncionarioInput {

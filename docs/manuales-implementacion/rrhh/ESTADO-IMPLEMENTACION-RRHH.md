@@ -221,14 +221,38 @@ legal + confirmación si el salario queda por debajo. Estado: Compila (AOT).
 **Dashboard RRHH** — `dashboardRrhhKpis(periodo)` agrega sobre los repos
 existentes: funcionarios activos, nómina del mes, liquidaciones pendientes,
 vales/préstamos abiertos (cant+monto/saldo), penalizaciones y HE del mes,
-cuotas vencidas y aguinaldo estimado. Pantalla desktop con tarjetas de KPIs.
-Estado: Compila (backend + AOT desktop).
+cuotas vencidas, aguinaldo estimado, **cumpleaños del mes** y **vacaciones por
+vencer** (usando `PRESCRIPCION_VACACIONES_MESES` + `VACACION_AVISO_PRESCRIPCION_DIAS`).
+Pantalla desktop con tarjetas de KPIs. Estado: Compila (backend + AOT desktop).
 
-**Reportes RRHH** — Dos reportes Jasper: **nómina del mes** (liquidaciones
-aprobadas/pagadas del período) y **resumen IPS** (base salarial + aporte
-funcionario 9% y patronal 16.5% desde config). Fuente SansSerif; validados
-(compilan y hacen fill OK con datos dummy). Pantalla desktop que genera y abre
-el PDF. Estado: Compila; **verificación visual del PDF pendiente en dev**.
+**Reportes RRHH** — Reportes Jasper: **nómina del mes** (liquidaciones
+aprobadas/pagadas del período), **resumen IPS** (base salarial + aporte
+funcionario 9% y patronal 16.5% desde config), **vales pendientes**
+(solicitados/confirmados), **préstamos activos** (con saldo pendiente) y
+**aguinaldo anual**. Los tres últimos reusan una plantilla genérica de 4
+columnas (`reporte-rrhh-generico.jrxml`) parametrizada por títulos/encabezados,
+evitando triplicar templates. Fuente SansSerif; validados (compilan y hacen fill
+OK con datos dummy). Pantalla desktop que genera y abre el PDF. Estado: Compila;
+**verificación visual del PDF pendiente en dev**.
+
+**Recibo de finiquito (PDF)** — `recibo-finiquito.jrxml` + `finiquitoBase64(id)`
+en `ReporteRrhhService` (concepto/monto por ítem, con antigüedad, salario
+promedio, motivo y total). Botón **Imprimir recibo** en el diálogo de
+liquidación final (estados APROBADA/PAGADA). SansSerif; validado por compile+fill.
+Estado: Compila; **verificación visual del PDF pendiente en dev**.
+
+**Notificaciones RRHH (job)** — `RrhhNotificacionScheduler` genera alertas
+diarias resolviendo destinatarios por rol vía
+`NotificacionPreferenciaService`/`PushNotificationService`. Cubre: cuotas de
+préstamo vencidas, **cumpleaños del día**, **documentos del legajo por vencer**
+(`DOCUMENTO_AVISO_VENCIMIENTO_DIAS`, default 30) y **vacaciones por prescribir**
+(`VACACION_AVISO_PRESCRIPCION_DIAS`, default 60). Config sembrada en `V150.0`.
+Estado: Compila.
+
+**Historial de marcaciones (desktop)** — Acceso **Historial de marcaciones** en
+el menú RRHH que reutiliza `ListMarcacionComponent` (ya existente en
+`administrativo`, con filtros por usuario/fechas e impresión), sin duplicar
+pantalla. Estado: AOT desktop verde.
 
 ## 8.3 Self-service mobile — backend
 
@@ -286,9 +310,11 @@ previas. **Ninguna está mergeada a `develop` todavía.**
   liquidación de comisiones e integración como HABER en la liquidación de sueldo
   (el hook ya existe en Fase 5). No implementado. Alto riesgo: depende del modelo
   de ventas real (`operaciones.venta`, campo vendedor). **Se deja para el final.**
-- **Fase 8 — Notificaciones** — El dashboard con KPIs y los reportes (nómina,
-  IPS) **ya están hechos** (§8.2). Falta el **job de notificaciones RRHH**
-  (cumpleaños, cuota vencida, vacación próxima, etc.) + FCM.
+- **Fase 8 — Notificaciones** — **Hecha** (§8.2). Dashboard con KPIs (incluidos
+  cumpleaños del mes y vacaciones por vencer), reportes (nómina, IPS, vales,
+  préstamos, aguinaldo), recibo de finiquito PDF y el **job de notificaciones
+  RRHH** (cuota vencida, cumpleaños, documento por vencer, vacación por
+  prescribir) vía FCM/rol. Falta solo verificación runtime en dev.
 
 ### Mobile — pendientes puntuales
 - **Push FCM al aprobador** — Las solicitudes (vale/vacación) desde el mobile
@@ -303,10 +329,10 @@ previas. **Ninguna está mergeada a `develop` todavía.**
   mobile.
 
 ### Mejoras / deuda menor
-- **Recibo de finiquito (PDF)** — La Fase 6 no tiene aún un PDF de finiquito
-  (análogo al recibo de sueldo); se puede reutilizar el patrón Jasper.
-- **Historial propio de marcaciones (empleado)** — El servicio backend existe;
-  falta la pantalla.
+- ~~**Recibo de finiquito (PDF)**~~ — **Hecho** (§8.2): plantilla Jasper +
+  botón Imprimir recibo en el diálogo de liquidación final.
+- ~~**Historial propio de marcaciones**~~ — **Hecho** (§8.2): acceso en el menú
+  RRHH reutilizando `ListMarcacionComponent`.
 - **Planilla legal de IPS (REI)** — El plan (§20 #7) la deja como mejora
   posterior; solo se calcula el % de IPS.
 - **`funcionario.sueldo` es `Float`** — Precisión monetaria pobre; las

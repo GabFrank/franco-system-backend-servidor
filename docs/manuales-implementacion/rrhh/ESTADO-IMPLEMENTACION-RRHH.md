@@ -239,7 +239,21 @@ modificar lo del desktop). Consulta: `misRecibosMobile` (liquidaciones pagadas),
 Solicitudes: `solicitarValeMobile` (→ SOLICITADO), `solicitarVacacionMobile`
 (→ período SOLICITADA). Aprobaciones (directivo): listas de pendientes +
 `aprobarVacacionMobile` (sin movimiento de dinero). Todo scopea por `usuarioId`.
-Estado: Compila. **Pantallas Ionic pendientes.**
+Estado: Compila.
+
+## 8.4 Self-service mobile — pantallas Ionic (`frc-mobile`)
+
+**Pantalla "Mis RRHH"** — Resumen (saldo de vacaciones, vales pendientes,
+último recibo) + segmentos Recibos / Vales / Vacaciones / Marcaciones.
+Ver recibo en PDF (`pdf-viewer.service` desde el base64 del backend).
+Solicitar vale y solicitar vacaciones (alerts) → quedan SOLICITADO/SOLICITADA.
+Estado: **Build verde** (`npm run build`).
+
+**Pantalla "Aprobaciones RRHH"** (rol DIRECTIVO/ADMIN) — Vacaciones pendientes
+con aprobar; vales pendientes en solo lectura (la confirmación/pago se hace en
+desktop, requiere Caja Mayor). Acceso desde el home gateado por rol.
+Estado: **Build verde**. Solo código Angular → se propaga por OTA
+(CapacitorUpdater), sin release nativo a Play Store.
 
 ---
 
@@ -276,11 +290,16 @@ previas. **Ninguna está mergeada a `develop` todavía.**
   IPS) **ya están hechos** (§8.2). Falta el **job de notificaciones RRHH**
   (cumpleaños, cuota vencida, vacación próxima, etc.) + FCM.
 
-### Mobile — pantallas Ionic
-- El **backend `*Mobile` está listo** (§8.3). Faltan las **pantallas Ionic** en
-  `frc-mobile`: Mis Recibos (con PDF), Mis Vales, Mis Vacaciones, Mi resumen
-  RRHH, Mi historial de marcaciones, Solicitar vale/vacación (con push), y la
-  bandeja de aprobaciones del directivo. Requiere el repo
+### Mobile — pendientes puntuales
+- **Push FCM al aprobador** — Las solicitudes (vale/vacación) desde el mobile
+  se crean en estado SOLICITADO/SOLICITADA, pero el backend **todavía no emite
+  el push** al aprobador. Falta wirear la emisión FCM (el módulo de
+  notificaciones existe). Va junto con el job de notificaciones de la Fase 8.
+- **Verificación en device/emulador** — Las pantallas Ionic compilan
+  (`npm run build`), pero falta probarlas en un device/emulador contra el
+  backend real (login, datos, apertura de PDF con FileOpener).
+- Nota histórica: las pantallas Ionic (Mis RRHH + Aprobaciones) **ya están
+  hechas** (§8.4). Lo que sigue abajo aplica solo al repo
   mobile.
 
 ### Mejoras / deuda menor

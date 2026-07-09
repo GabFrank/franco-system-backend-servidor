@@ -103,7 +103,7 @@ class CostosPorProductoServiceTest {
 
         // (5*100 + 10*120) / 15 = 113.333
         assertEquals(1700.0 / 15.0, r.getCostoMedio(), DELTA);
-        assertEquals(120.0, r.getUltimoPrecioCompra(), DELTA); // moneda original, sin convertir
+        assertEquals(120.0, r.getUltimoPrecioCompra(), DELTA); // en Gs (cotizacion 1 => sin cambio)
         verify(repository, times(1)).save(any(CostoPorProducto.class));
     }
 
@@ -119,7 +119,9 @@ class CostosPorProductoServiceTest {
 
         // (5*100000 + 10*72000) / 15 = 1_220_000 / 15
         assertEquals(1_220_000.0 / 15.0, r.getCostoMedio(), DELTA);
-        assertEquals(10.0, r.getUltimoPrecioCompra(), DELTA); // en moneda original
+        assertEquals(72000.0, r.getUltimoPrecioCompra(), DELTA); // normalizado a Gs (USD 10 * 7200)
+        assertEquals(2L, r.getMoneda().getId()); // moneda original queda como referencia
+        assertEquals(7200.0, r.getCotizacion(), DELTA);
         verify(repository, times(1)).save(any(CostoPorProducto.class));
     }
 

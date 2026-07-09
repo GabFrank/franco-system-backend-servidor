@@ -1,0 +1,54 @@
+# Retiro consolidado de devoluciones por proveedor + remito PDF (FASE A).
+# Todo aditivo: no modifica types/queries/mutations existentes de devolucion.
+
+type RetiroLineaConsolidada {
+    productoId: ID
+    codigo: String
+    descripcion: String
+    presentacion: String
+    cantidadTotal: Float
+}
+
+type RetiroCaja {
+    identificador: String
+    devolucionId: ID
+    productoId: ID
+    descripcion: String
+    cantidad: Float
+    lote: String
+    vencimiento: Date
+}
+
+type RetiroSucursalGrupo {
+    sucursalId: ID
+    sucursalNombre: String
+    lineas: [RetiroLineaConsolidada]
+    cajas: [RetiroCaja]
+    devolucionIds: [ID]
+}
+
+type RetiroProveedorConsolidado {
+    proveedorId: ID
+    proveedorNombre: String
+    fecha: Date
+    grupos: [RetiroSucursalGrupo]
+}
+
+type RetiroDevolucionResultado {
+    id: ID
+    ok: Boolean
+    mensaje: String
+}
+
+type RetiroBloqueResultado {
+    resultados: [RetiroDevolucionResultado]
+}
+
+extend type Query {
+    retiroProveedorConsolidado(proveedorId: ID!, sucursalId: ID): RetiroProveedorConsolidado
+    remitoRetiroProveedor(devolucionIds: [ID!]!): String
+}
+
+extend type Mutation {
+    retirarDevolucionesEnBloque(devolucionIds: [ID!]!, usuarioId: ID): RetiroBloqueResultado
+}

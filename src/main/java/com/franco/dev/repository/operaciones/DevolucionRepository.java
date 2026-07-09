@@ -43,4 +43,26 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "AND d.estado IN :estados ORDER BY d.fecha DESC")
     List<Devolucion> findByProveedorIdAndEstados(@Param("proveedorId") Long proveedorId,
                                                  @Param("estados") List<DevolucionEstado> estados);
+
+    /**
+     * Devoluciones de un proveedor en un estado dado. Ambos parametros no-null.
+     */
+    @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId " +
+           "AND d.estado = :estado ORDER BY d.sucursalOrigen.id ASC, d.fecha ASC")
+    List<Devolucion> findByProveedorIdAndEstado(@Param("proveedorId") Long proveedorId,
+                                                @Param("estado") DevolucionEstado estado);
+
+    /**
+     * Devoluciones de un proveedor en un estado dado, con sucursal opcional (nullable).
+     * Usa el idiom cast(:param as tipo) en el IS NULL para que PostgreSQL pueda
+     * determinar el tipo del parametro cuando llega null.
+     */
+    @Query("SELECT d FROM Devolucion d " +
+           "WHERE d.proveedor.id = :proveedorId " +
+           "AND d.estado = :estado " +
+           "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
+           "ORDER BY d.sucursalOrigen.id ASC, d.fecha ASC")
+    List<Devolucion> findByProveedorIdEstadoAndSucursal(@Param("proveedorId") Long proveedorId,
+                                                        @Param("estado") DevolucionEstado estado,
+                                                        @Param("sucursalId") Long sucursalId);
 } 

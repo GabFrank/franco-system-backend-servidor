@@ -1,9 +1,12 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.Devolucion;
+import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
+import com.franco.dev.domain.operaciones.dto.RetiroProveedorConsolidadoDto;
 import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
 import com.franco.dev.graphql.operaciones.input.DevolucionInput;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.impresion.RemitoRetiroService;
 import com.franco.dev.service.operaciones.DevolucionService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -40,6 +43,9 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private DevolucionItemGraphQL devolucionItemGraphQL;
+
+    @Autowired
+    private RemitoRetiroService remitoRetiroService;
 
     /**
      * Obtiene una devolución por ID
@@ -258,5 +264,55 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             throw new GraphQLException("ID del proveedor es requerido");
         }
         return service.devolucionesPendientesPorProveedor(proveedorId);
+    }
+
+    // ------------------------------------------------------------------
+    // Retiro consolidado por proveedor + remito PDF (FASE A)
+    // ------------------------------------------------------------------
+
+    /**
+     * Vista consolidada de las devoluciones SEPARADAS de un proveedor, agrupada por
+     * sucursal, lista para el retiro fisico. sucursalId es opcional.
+     */
+    public RetiroProveedorConsolidadoDto retiroProveedorConsolidado(Long proveedorId, Long sucursalId) {
+        if (proveedorId == null) {
+            throw new GraphQLException("proveedorId es requerido");
+        }
+        try {
+            return service.getRetiroConsolidado(proveedorId, sucursalId);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Genera el remito PDF (Base64) para el conjunto de devoluciones indicado.
+     */
+    public String remitoRetiroProveedor(List<Long> devolucionIds) {
+        if (devolucionIds == null || devolucionIds.isEmpty()) {
+            throw new GraphQLException("devolucionIds es requerido");
+        }
+        try {
+            return remitoRetiroService.generarRemitoRetiroProveedor(devolucionIds);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Retira en bloque varias devoluciones (avanza cada una a RETIRADO, reusando
+     * avanzarEstado). El fallo de una no aborta el resto; se reporta por id.
+     *
+     * NOTA: intencionalmente SIN @Transactional para que cada avanzarEstado abra su
+     * propia transaccion. Si el metodo fuera transaccional, el rollback-only de una
+     * devolucion fallida arrastraria a las exitosas (UnexpectedRollbackException).
+     */
+    public RetiroBloqueResultadoDto retirarDevolucionesEnBloque(List<Long> devolucionIds, Long usuarioId) {
+        if (devolucionIds == null || devolucionIds.isEmpty()) {
+            throw new GraphQLException("devolucionIds es requerido");
+        }
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        return service.retirarEnBloque(devolucionIds, usuario);
     }
 } 

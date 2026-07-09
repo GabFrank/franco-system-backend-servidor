@@ -128,7 +128,9 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
      *   stock anterior > 0, costo medio anterior > 0 y costo de la compra > 0. En cualquier otro caso
      *   (stock negativo o cero, sin costo previo válido) NO hay forma de ponderar y el costo medio se
      *   resetea al costo de esta compra — que es lo contable-correcto.
-     * - ultimoPrecioCompra: precio de la compra en moneda original (sin convertir).
+     * - ultimoPrecioCompra: precio de la compra normalizado a Gs (igual que costoMedio). moneda/cotizacion
+     *   quedan como referencia de la moneda original de la compra. Todos los consumidores leen este campo
+     *   como Gs, así que se persiste ya convertido para no depender de que cada lector aplique la cotización.
      * - Dedup: si el costo resultante es idéntico al último registro (mismo costoMedio, ultimoPrecioCompra
      *   y moneda), NO se inserta una fila nueva. Evita inflar la tabla con compras al mismo precio.
      *
@@ -159,7 +161,7 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
         double nuevoCostoMedio = CostoMedioCalculator.calcular(stockReal, cantidadEntrada, costoMedioAnterior,
                 costoEnGs);
 
-        return guardarSiCambia(producto, nuevoCostoMedio, costoUnitario, moneda, cotiz, sucursal, usuario, fecha,
+        return guardarSiCambia(producto, nuevoCostoMedio, costoEnGs, moneda, cotiz, sucursal, usuario, fecha,
                 costoAnterior);
     }
 

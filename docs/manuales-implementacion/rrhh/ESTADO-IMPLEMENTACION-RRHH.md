@@ -5,6 +5,11 @@
 > `frc-sistemas-integrados-angular` (desktop). Basado en el
 > [PLAN-MODULO-RRHH.md](PLAN-MODULO-RRHH.md).
 
+## Manuales del módulo
+
+- **[manual-usuario-rrhh.html](manual-usuario-rrhh.html)** — Manual para el **usuario final**, en lenguaje simple (para qué sirve + pasos de cada función). Imprimible/repartible. El mismo contenido está dentro de la app en **R.R.H.H. → Manual de uso** (`manual-rrhh.component` en el desktop).
+- **[manual-rrhh-referencia-tecnica.html](manual-rrhh-referencia-tecnica.html)** — Referencia **técnica** para el equipo de desarrollo: 22 funciones con links directos al código fuente (backend/desktop/mobile), buscador y navegación.
+
 ## Leyenda de estado de verificación
 
 - **Compila** — backend: 0 errores en el paquete `rrhh` (el build completo solo

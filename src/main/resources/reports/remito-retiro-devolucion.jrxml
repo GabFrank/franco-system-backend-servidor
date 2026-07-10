@@ -19,7 +19,7 @@
                 <textElement textAlignment="Center">
                     <font size="13" isBold="true"/>
                 </textElement>
-                <text><![CDATA[Remito de retiro de devoluciones]]></text>
+                <text><![CDATA[Comprobante de retiro de devoluciones]]></text>
             </staticText>
             <staticText>
                 <reportElement x="0" y="24" width="60" height="12" uuid="a0000001-0000-0000-0000-000000000002"/>

@@ -12,7 +12,6 @@
     <field name="cantidad" class="java.lang.Double"/>
     <field name="lote" class="java.lang.String"/>
     <field name="vencimiento" class="java.lang.String"/>
-    <field name="identificador" class="java.lang.String"/>
     <title>
         <band height="70" splitType="Stretch">
             <staticText>
@@ -98,7 +97,7 @@
             <staticText>
                 <reportElement x="505" y="0" width="50" height="14" uuid="a0000002-0000-0000-0000-000000000009"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
-                <text><![CDATA[Caja]]></text>
+                <text><![CDATA[Rev.]]></text>
             </staticText>
         </band>
     </columnHeader>
@@ -124,7 +123,7 @@
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{presentacion}]]></textFieldExpression>
             </textField>
-            <textField>
+            <textField pattern="#,##0.###">
                 <reportElement x="365" y="0" width="40" height="12" uuid="a0000003-0000-0000-0000-000000000005"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
@@ -134,16 +133,16 @@
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{lote}]]></textFieldExpression>
             </textField>
-            <textField>
+            <textField isBlankWhenNull="true">
                 <reportElement x="460" y="0" width="45" height="12" uuid="a0000003-0000-0000-0000-000000000007"/>
                 <textElement textAlignment="Center" verticalAlignment="Middle"><font size="7"/></textElement>
                 <textFieldExpression><![CDATA[$F{vencimiento}]]></textFieldExpression>
             </textField>
-            <textField>
-                <reportElement x="505" y="0" width="50" height="12" uuid="a0000003-0000-0000-0000-000000000008"/>
-                <textElement textAlignment="Center" verticalAlignment="Middle"><font size="6"/></textElement>
-                <textFieldExpression><![CDATA[$F{identificador}]]></textFieldExpression>
-            </textField>
+            <!-- Casilla vacia: el operario tilda a mano cada fila al revisarla contra el bulto. -->
+            <rectangle>
+                <reportElement x="524" y="2" width="8" height="8" uuid="a0000003-0000-0000-0000-000000000008"/>
+                <graphicElement><pen lineWidth="0.5" lineColor="#666666"/></graphicElement>
+            </rectangle>
         </band>
     </detail>
     <summary>

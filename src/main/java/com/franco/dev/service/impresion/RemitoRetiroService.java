@@ -8,6 +8,7 @@ import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.service.operaciones.DevolucionItemService;
 import com.franco.dev.service.operaciones.DevolucionService;
 import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.utilitarios.PresentacionUtils;
 import graphql.GraphQLException;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
@@ -90,11 +91,11 @@ public class RemitoRetiroService {
                 fila.setSucursal(sucNombre);
                 fila.setCodigo(codigo);
                 fila.setDescripcion(item.getProducto() != null ? item.getProducto().getDescripcion() : null);
-                fila.setPresentacion(pres != null ? pres.getDescripcion() : null);
+                fila.setPresentacion(PresentacionUtils.formatearFactor(pres));
                 fila.setCantidad(item.getCantidad());
                 fila.setLote(item.getLote());
-                fila.setVencimiento(item.getVencimiento() != null ? item.getVencimiento().format(vtoFmt) : null);
-                fila.setIdentificador(d.getIdentificador());
+                // Vacio (no "null") cuando el item no tiene vencimiento cargado.
+                fila.setVencimiento(item.getVencimiento() != null ? item.getVencimiento().format(vtoFmt) : "");
                 filas.add(fila);
             }
         }

@@ -20,6 +20,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.utilitarios.PresentacionUtils;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.repository.financiero.TipoGastoRepository;
 import com.franco.dev.repository.operaciones.DevolucionRepository;
@@ -432,7 +433,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                     String descripcion = item.getProducto() != null ? item.getProducto().getDescripcion() : null;
                     Presentacion pres = item.getPresentacion();
                     Long presId = pres != null ? pres.getId() : null;
-                    String presDesc = pres != null ? pres.getDescripcion() : null;
+                    // Factor ("x1", "x12"): al retirar importa cuantas unidades base
+                    // entran en el bulto, no el nombre de la presentacion.
+                    String presDesc = PresentacionUtils.formatearFactor(pres);
                     Double cantidad = item.getCantidad() != null ? item.getCantidad() : 0.0;
 
                     String key = productoId + "|" + presId;

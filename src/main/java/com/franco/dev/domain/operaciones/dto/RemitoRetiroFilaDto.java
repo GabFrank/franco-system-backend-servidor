@@ -15,10 +15,9 @@ public class RemitoRetiroFilaDto {
     private String sucursal;
     private String codigo;
     private String descripcion;
+    /** Factor de la presentacion, ya formateado ("x1", "x12"). */
     private String presentacion;
     private Double cantidad;
     private String lote;
     private String vencimiento;
-    /** Identificador de la caja/devolucion (DEV-{sucursalId}-{id}). */
-    private String identificador;
 }

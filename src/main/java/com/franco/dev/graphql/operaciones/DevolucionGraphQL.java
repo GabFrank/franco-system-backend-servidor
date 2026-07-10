@@ -7,6 +7,7 @@ import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
 import com.franco.dev.graphql.operaciones.input.DevolucionInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.RemitoRetiroService;
+import com.franco.dev.service.impresion.TicketRetiroService;
 import com.franco.dev.service.operaciones.DevolucionService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -46,6 +47,9 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private RemitoRetiroService remitoRetiroService;
+
+    @Autowired
+    private TicketRetiroService ticketRetiroService;
 
     /**
      * Obtiene una devolución por ID
@@ -294,6 +298,22 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
         try {
             return remitoRetiroService.generarRemitoRetiroProveedor(devolucionIds);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Imprime el comprobante de retiro en impresora termica (58mm / 80mm).
+     * El ancho llega por parametro: cuando exista el modulo de impresoras, el
+     * desktop dejara de mandar el default y usara el valor registrado.
+     */
+    public Boolean imprimirTicketRetiroProveedor(List<Long> devolucionIds, String printerName, Integer anchoMm) {
+        if (devolucionIds == null || devolucionIds.isEmpty()) {
+            throw new GraphQLException("devolucionIds es requerido");
+        }
+        try {
+            return ticketRetiroService.imprimirTicketRetiro(devolucionIds, printerName, anchoMm);
         } catch (Exception e) {
             throw new GraphQLException(e.getMessage());
         }

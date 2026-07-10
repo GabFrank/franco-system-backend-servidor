@@ -51,4 +51,6 @@ extend type Query {
 
 extend type Mutation {
     retirarDevolucionesEnBloque(devolucionIds: [ID!]!, usuarioId: ID): RetiroBloqueResultado
+    # anchoMm: ancho del papel termico (58 u 80). Null asume 58.
+    imprimirTicketRetiroProveedor(devolucionIds: [ID!]!, printerName: String, anchoMm: Int): Boolean
 }

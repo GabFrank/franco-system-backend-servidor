@@ -1,0 +1,71 @@
+# ============================================================================
+# USER-SPECIFIC DEVELOPMENT CONFIGURATION
+# ============================================================================
+# Este archivo contiene propiedades que pueden variar entre desarrolladores
+# NO debe ser commiteado al repositorio (está en .gitignore)
+# Copia este archivo y personaliza según tu entorno local
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# DataSource Configuration (Personalizable)
+# ----------------------------------------------------------------------------
+# URL de conexión a la base de datos
+# Formato: jdbc:postgresql://HOST:PORT/DATABASE_NAME
+spring.datasource.url=jdbc:postgresql://localhost:5551/bodega_fact_test_2
+#spring.datasource.url=jdbc:postgresql://localhost:5552/central
+
+# Credenciales de base de datos
+spring.datasource.username=franco
+spring.datasource.password=franco
+
+# ----------------------------------------------------------------------------
+# Server Configuration (Personalizable)
+# ----------------------------------------------------------------------------
+# Puerto del servidor
+server.port=8081
+#server.address=localhost
+
+# ----------------------------------------------------------------------------
+# Application Paths (Personalizable)
+# ----------------------------------------------------------------------------
+# Ruta del directorio home (si es necesario)
+#home.path=
+
+# Ruta del archivo de configuración de actualizaciones
+#updateConfigFilePath=/Users/gabfranck/FRC/config.xml
+
+# Ruta del directorio home del usuario (específico para desarrollo local)
+homepath=/Users/gabfranck
+
+# Ruta raíz para almacenar imágenes
+#image.root.path=/custom/path/to/images/
+
+# ----------------------------------------------------------------------------
+# SIFEN - Certificado (Personalizable)
+# ----------------------------------------------------------------------------
+# Ruta al archivo de certificado PFX para SIFEN
+# IMPORTANTE: Esta ruta es específica de cada desarrollador
+sifen.certificado.archivo=/Users/gabfranck/workspace/frc-sistemas-informaticos/backend/filial/frc-filial-server/src/main/resources/certificados/certificado.pfx
+#sifen.certificado.archivo=/Users/gabfranck/workspace/frc-sistemas-informaticos/backend/filial/frc-filial-server/src/main/resources/certificados/anatole_certificado.pfx
+
+# Contraseña del certificado PFX
+sifen.certificado.contrasena=fasa1701
+#sifen.certificado.contrasena=chelytiny
+
+# ----------------------------------------------------------------------------
+# Logging (Personalizable - para debugging)
+# ----------------------------------------------------------------------------
+# Descomentar para habilitar logging detallado durante desarrollo
+#logging.level.net.sf.jasperreports=DEBUG
+#logging.level.org.springframework.beans.factory=DEBUG
+#logging.level.com.franco.dev=DEBUG
+
+# ----------------------------------------------------------------------------
+# Busqueda Lucene de productos (Personalizable)
+# ----------------------------------------------------------------------------
+# Reconstruccion completa del indice ya realizada (2026-07-07). Dejar en false para que
+# devtools no reindexe en cada restart; el indice completo persiste en ./data/lucene/productos.
+# Poner en true puntualmente si el indice vuelve a quedar stale.
+app.search.producto.reindex-on-startup=false
+
+

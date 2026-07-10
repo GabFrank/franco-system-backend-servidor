@@ -17,12 +17,16 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
         return Devolucion.class;
     }
 
+    // Nota: cada parametro nullable se envuelve con cast(:param as <tipo>) en el IS NULL.
+    // Sin el cast, PostgreSQL no puede inferir el tipo del bind cuando llega null
+    // ("no se pudo determinar el tipo de dato del parametro") y la query revienta.
+    // Mismo idiom usado en FuncionarioRepository / EventoInutilizacionDERepository.
     @Query("SELECT d FROM Devolucion d " +
-           "WHERE (:proveedorId IS NULL OR d.proveedor.id = :proveedorId) " +
-           "AND (:sucursalId IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
-           "AND (:estado IS NULL OR d.estado = :estado) " +
-           "AND (:fechaInicio IS NULL OR d.fecha >= :fechaInicio) " +
-           "AND (:fechaFin IS NULL OR d.fecha <= :fechaFin) " +
+           "WHERE (cast(:proveedorId as long) IS NULL OR d.proveedor.id = :proveedorId) " +
+           "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
+           "AND (cast(:estado as com.franco.dev.domain.operaciones.enums.DevolucionEstado) IS NULL OR d.estado = :estado) " +
+           "AND (cast(:fechaInicio as timestamp) IS NULL OR d.fecha >= :fechaInicio) " +
+           "AND (cast(:fechaFin as timestamp) IS NULL OR d.fecha <= :fechaFin) " +
            "ORDER BY d.fecha DESC")
     Page<Devolucion> findByFilters(
             @Param("proveedorId") Long proveedorId,

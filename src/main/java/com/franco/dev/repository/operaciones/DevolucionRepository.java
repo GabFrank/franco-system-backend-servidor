@@ -118,4 +118,36 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
     List<Object[]> seriePorDiaRaw(@Param("fechaInicio") LocalDateTime fechaInicio,
                                   @Param("fechaFin") LocalDateTime fechaFin,
                                   @Param("sucursalId") Long sucursalId);
+
+    // Serie por mes ('YYYY-MM'). Native SQL, mismo motivo que la serie por dia.
+    @Query(value = "SELECT to_char(d.fecha, 'YYYY-MM') AS fecha, " +
+           "COUNT(DISTINCT d.id) AS cantidad, " +
+           "COALESCE(SUM(di.costo_unitario * di.cantidad), 0) AS valor " +
+           "FROM operaciones.devolucion d " +
+           "LEFT JOIN operaciones.devolucion_item di ON di.devolucion_id = d.id " +
+           "WHERE d.fecha BETWEEN :fechaInicio AND :fechaFin " +
+           "AND (CAST(:sucursalId AS bigint) IS NULL OR d.sucursal_origen_id = :sucursalId) " +
+           "GROUP BY to_char(d.fecha, 'YYYY-MM') ORDER BY to_char(d.fecha, 'YYYY-MM')",
+           nativeQuery = true)
+    List<Object[]> seriePorMesRaw(@Param("fechaInicio") LocalDateTime fechaInicio,
+                                  @Param("fechaFin") LocalDateTime fechaFin,
+                                  @Param("sucursalId") Long sucursalId);
+
+    // Devoluciones estancadas: en PENDIENTE/SEPARADO con fecha anterior a :limiteFecha.
+    // Una fila por item; dias = hoy - fecha. Mas viejas primero.
+    @Query(value = "SELECT d.id AS devolucion_id, d.identificador AS identificador, " +
+           "p.descripcion AS producto, s.nombre AS sucursal, " +
+           "CAST(d.estado AS text) AS estado, to_char(d.fecha, 'YYYY-MM-DD') AS fecha, " +
+           "(CURRENT_DATE - CAST(d.fecha AS date)) AS dias " +
+           "FROM operaciones.devolucion d " +
+           "JOIN operaciones.devolucion_item di ON di.devolucion_id = d.id " +
+           "JOIN productos.producto p ON p.id = di.producto_id " +
+           "JOIN empresarial.sucursal s ON s.id = d.sucursal_origen_id " +
+           "WHERE d.estado IN ('PENDIENTE', 'SEPARADO') AND d.fecha <= :limiteFecha " +
+           "AND (CAST(:sucursalId AS bigint) IS NULL OR d.sucursal_origen_id = :sucursalId) " +
+           "ORDER BY d.fecha ASC LIMIT :limite",
+           nativeQuery = true)
+    List<Object[]> estancadasRaw(@Param("limiteFecha") LocalDateTime limiteFecha,
+                                 @Param("sucursalId") Long sucursalId,
+                                 @Param("limite") int limite);
 } 

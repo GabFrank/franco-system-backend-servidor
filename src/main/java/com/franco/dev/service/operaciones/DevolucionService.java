@@ -4,6 +4,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.dto.DevolucionEstancadaDto;
 import com.franco.dev.domain.operaciones.dto.DevolucionPorEstadoDto;
 import com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto;
 import com.franco.dev.domain.operaciones.dto.ResumenDevolucionesDto;
@@ -548,7 +549,16 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     @Transactional(readOnly = true)
     public List<DevolucionSeriePuntoDto> getSeriePorDia(LocalDateTime fechaInicio, LocalDateTime fechaFin,
                                                         Long sucursalId) {
-        List<Object[]> raw = repository.seriePorDiaRaw(fechaInicio, fechaFin, sucursalId);
+        return mapSerie(repository.seriePorDiaRaw(fechaInicio, fechaFin, sucursalId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DevolucionSeriePuntoDto> getSeriePorMes(LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                                        Long sucursalId) {
+        return mapSerie(repository.seriePorMesRaw(fechaInicio, fechaFin, sucursalId));
+    }
+
+    private List<DevolucionSeriePuntoDto> mapSerie(List<Object[]> raw) {
         List<DevolucionSeriePuntoDto> serie = new ArrayList<>();
         if (raw != null) {
             for (Object[] fila : raw) {
@@ -559,6 +569,31 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             }
         }
         return serie;
+    }
+
+    /**
+     * Devoluciones estancadas (PENDIENTE/SEPARADO con mas de diasMinimos de
+     * antiguedad). diasMinimos por defecto 30 si viene null.
+     */
+    @Transactional(readOnly = true)
+    public List<DevolucionEstancadaDto> getEstancadas(Integer diasMinimos, Long sucursalId, int limite) {
+        int dias = diasMinimos != null ? diasMinimos : 30;
+        LocalDateTime limiteFecha = LocalDateTime.now().minusDays(dias);
+        List<Object[]> raw = repository.estancadasRaw(limiteFecha, sucursalId, limite);
+        List<DevolucionEstancadaDto> lista = new ArrayList<>();
+        if (raw != null) {
+            for (Object[] f : raw) {
+                lista.add(new DevolucionEstancadaDto(
+                        aLong(f[0]),
+                        f[1] != null ? f[1].toString() : null,
+                        f[2] != null ? f[2].toString() : null,
+                        f[3] != null ? f[3].toString() : null,
+                        f[4] != null ? f[4].toString() : null,
+                        f[5] != null ? f[5].toString() : null,
+                        aLong(f[6])));
+            }
+        }
+        return lista;
     }
 
     private Double aDouble(Object o) {

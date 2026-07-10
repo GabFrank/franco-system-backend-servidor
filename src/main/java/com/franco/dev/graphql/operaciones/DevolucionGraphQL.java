@@ -332,6 +332,16 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.getSeriePorDia(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId);
     }
 
+    public List<com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto> devolucionesSeriePorMes(
+            String fechaInicio, String fechaFin, Long sucursalId) {
+        return service.getSeriePorMes(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId);
+    }
+
+    public List<com.franco.dev.domain.operaciones.dto.DevolucionEstancadaDto> devolucionesEstancadas(
+            Integer diasMinimos, Long sucursalId, Integer limite) {
+        return service.getEstancadas(diasMinimos, sucursalId, limite != null ? limite : 10);
+    }
+
     /**
      * Imprime el comprobante de retiro en impresora termica (58mm / 80mm).
      * El ancho llega por parametro: cuando exista el modulo de impresoras, el

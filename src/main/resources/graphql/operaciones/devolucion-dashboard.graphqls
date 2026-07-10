@@ -37,10 +37,23 @@ type DevolucionSeriePunto {
     valor: Float
 }
 
+type DevolucionEstancada {
+    devolucionId: ID
+    identificador: String
+    producto: String
+    sucursal: String
+    estado: String
+    fecha: String
+    dias: Int
+}
+
 extend type Query {
     resumenDevoluciones(fechaInicio: String!, fechaFin: String!, sucursalId: ID): ResumenDevoluciones
     devolucionesPorEstadoResumen(fechaInicio: String!, fechaFin: String!, sucursalId: ID): [DevolucionPorEstado]
     topProductosDevueltos(fechaInicio: String!, fechaFin: String!, sucursalId: ID, limite: Int): [TopProductoDevuelto]
     topMotivosDevolucion(fechaInicio: String!, fechaFin: String!, sucursalId: ID, limite: Int): [TopMotivoDevolucion]
     devolucionesSeriePorDia(fechaInicio: String!, fechaFin: String!, sucursalId: ID): [DevolucionSeriePunto]
+    devolucionesSeriePorMes(fechaInicio: String!, fechaFin: String!, sucursalId: ID): [DevolucionSeriePunto]
+    # diasMinimos: antiguedad minima en PENDIENTE/SEPARADO (default 30). limite: tope de filas.
+    devolucionesEstancadas(diasMinimos: Int, sucursalId: ID, limite: Int): [DevolucionEstancada]
 }

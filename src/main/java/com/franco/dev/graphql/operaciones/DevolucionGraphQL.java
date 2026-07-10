@@ -327,6 +327,12 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 limite != null ? limite : 10);
     }
 
+    public List<com.franco.dev.domain.operaciones.dto.TopProveedorDevolucionDto> topProveedoresDevolucion(
+            String fechaInicio, String fechaFin, Long sucursalId, Integer limite) {
+        return service.getTopProveedores(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId,
+                limite != null ? limite : 10);
+    }
+
     public List<com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto> devolucionesSeriePorDia(
             String fechaInicio, String fechaFin, Long sucursalId) {
         return service.getSeriePorDia(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId);

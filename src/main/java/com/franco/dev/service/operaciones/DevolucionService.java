@@ -10,6 +10,7 @@ import com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto;
 import com.franco.dev.domain.operaciones.dto.ResumenDevolucionesDto;
 import com.franco.dev.domain.operaciones.dto.TopMotivoDevolucionDto;
 import com.franco.dev.domain.operaciones.dto.TopProductoDevueltoDto;
+import com.franco.dev.domain.operaciones.dto.TopProveedorDevolucionDto;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroCajaDto;
 import com.franco.dev.domain.operaciones.dto.RetiroDevolucionResultadoDto;
@@ -543,6 +544,13 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     public List<TopMotivoDevolucionDto> getTopMotivos(LocalDateTime fechaInicio, LocalDateTime fechaFin,
                                                       Long sucursalId, int limite) {
         return devolucionItemRepository.topMotivos(fechaInicio, fechaFin, sucursalId,
+                org.springframework.data.domain.PageRequest.of(0, limite));
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopProveedorDevolucionDto> getTopProveedores(LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                                             Long sucursalId, int limite) {
+        return devolucionItemRepository.topProveedores(fechaInicio, fechaFin, sucursalId,
                 org.springframework.data.domain.PageRequest.of(0, limite));
     }
 

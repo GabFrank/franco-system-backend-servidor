@@ -3,6 +3,7 @@ package com.franco.dev.repository.operaciones;
 import com.franco.dev.domain.operaciones.DevolucionItem;
 import com.franco.dev.domain.operaciones.dto.TopMotivoDevolucionDto;
 import com.franco.dev.domain.operaciones.dto.TopProductoDevueltoDto;
+import com.franco.dev.domain.operaciones.dto.TopProveedorDevolucionDto;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
@@ -67,4 +68,16 @@ public interface DevolucionItemRepository extends HelperRepository<DevolucionIte
                                             @Param("fechaFin") LocalDateTime fechaFin,
                                             @Param("sucursalId") Long sucursalId,
                                             Pageable pageable);
+
+    // Solo devoluciones CON proveedor (el JOIN a d.proveedor descarta las SIN).
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.TopProveedorDevolucionDto(" +
+           "prov.id, per.nombre, COUNT(DISTINCT d.id), COALESCE(SUM(di.costoUnitario * di.cantidad), 0)) " +
+           "FROM DevolucionItem di JOIN di.devolucion d JOIN d.proveedor prov JOIN prov.persona per " +
+           "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
+           "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
+           "GROUP BY prov.id, per.nombre ORDER BY COUNT(DISTINCT d.id) DESC")
+    List<TopProveedorDevolucionDto> topProveedores(@Param("fechaInicio") LocalDateTime fechaInicio,
+                                                   @Param("fechaFin") LocalDateTime fechaFin,
+                                                   @Param("sucursalId") Long sucursalId,
+                                                   Pageable pageable);
 } 

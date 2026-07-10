@@ -3,7 +3,10 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.financiero.EnteCuota;
+import com.franco.dev.graphql.financiero.dto.CuotasDetalleCalculado;
+import com.franco.dev.graphql.financiero.input.CuotaDetalleInput;
 import com.franco.dev.graphql.financiero.input.EnteCuotaInput;
+import com.franco.dev.service.financiero.ActivoFinancieroSyncService;
 import com.franco.dev.service.financiero.EnteCuotaService;
 import com.franco.dev.service.financiero.EnteFinancieroService;
 import com.franco.dev.domain.financiero.EnteFinanciero;
@@ -18,6 +21,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
@@ -34,6 +38,9 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     @Autowired
     private EnteFinancieroService enteFinancieroService;
+
+    @Autowired
+    private ActivoFinancieroSyncService activoFinancieroSyncService;
 
     public Optional<EnteCuota> enteCuota(Long id) {
         return service.findById(id);
@@ -67,6 +74,22 @@ public class EnteCuotaGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         Pageable pageable = PageRequest.of(p, s);
         Page<EnteCuota> pageResult = service.findAllByEnteFinancieroId(enteFinancieroId, p, s);
         return new CustomPageImpl<>(pageResult.getContent(), pageable, pageResult.getTotalElements(), null);
+    }
+
+    public CuotasDetalleCalculado calcularCuotasDetalle(
+            Integer cantidadCuotas,
+            Integer cantidadCuotasPagadas,
+            Double montoTotal,
+            Double montoYaPagado,
+            List<CuotaDetalleInput> cuotasDetalle
+    ) {
+        return activoFinancieroSyncService.calcularCuotasDetalleCompleto(
+                cantidadCuotas,
+                cantidadCuotasPagadas,
+                montoTotal != null ? BigDecimal.valueOf(montoTotal) : BigDecimal.ZERO,
+                montoYaPagado != null ? BigDecimal.valueOf(montoYaPagado) : BigDecimal.ZERO,
+                cuotasDetalle
+        );
     }
 
     public EnteCuota saveEnteCuota(EnteCuotaInput input) {

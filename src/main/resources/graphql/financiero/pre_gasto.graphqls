@@ -78,11 +78,15 @@ type EnteFinancialSummary {
     monedaSimbolo: String
     monedaId: ID
     proveedorNombre: String
+    proveedorId: ID
     tipoGastoSugeridoId: String
     situacionPago: String
     porcentajePagado: Float
     montoSugerido: Float
     descripcionSugerida: String
+    autocompletarMonto: Boolean
+    numeroCuotaActual: Int
+    fechaVencimientoSugerida: Date
 }
 
 input PreGastoDetalleFinanzasInput {
@@ -140,7 +144,7 @@ extend type Query {
     preGastosSearch(texto: String!, sucId: ID): [PreGasto]!
     filterPreGastos(id: ID, cajaId: ID, estado: String, estados: [String], inicio: String, fin: String, page: Int, size: Int): PreGastoPage
     imprimirPreGasto(id: ID!, sucId: ID): String
-    getEnteFinancialSummary(enteId: ID!): EnteFinancialSummary
+    getEnteFinancialSummary(enteId: ID!, tipoGastoId: ID): EnteFinancialSummary
 }
 
 extend type Mutation {

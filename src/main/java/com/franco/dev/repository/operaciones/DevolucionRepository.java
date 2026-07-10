@@ -1,6 +1,9 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.Devolucion;
+import com.franco.dev.domain.operaciones.dto.DevolucionPorEstadoDto;
+import com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto;
+import com.franco.dev.domain.operaciones.dto.ResumenDevolucionesDto;
 import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -69,4 +72,50 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
     List<Devolucion> findByProveedorIdEstadoAndSucursal(@Param("proveedorId") Long proveedorId,
                                                         @Param("estado") DevolucionEstado estado,
                                                         @Param("sucursalId") Long sucursalId);
+
+    // ===================== Agregaciones para el dashboard =====================
+    // Todas filtran por rango de fecha (obligatorio) y sucursal (nullable con el
+    // idiom cast(:param as long)). Los conteos son a nivel Devolucion; el valor
+    // (costoUnitario x cantidad) agrega a nivel item y se completa en el service.
+
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.ResumenDevolucionesDto(" +
+           "COUNT(d), " +
+           "SUM(CASE WHEN d.tipo = com.franco.dev.domain.operaciones.enums.TipoDevolucion.CON_PROVEEDOR THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN d.tipo = com.franco.dev.domain.operaciones.enums.TipoDevolucion.SIN_PROVEEDOR THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN d.tipo = com.franco.dev.domain.operaciones.enums.TipoDevolucion.CON_PROVEEDOR " +
+           "     AND d.estado IN (com.franco.dev.domain.operaciones.enums.DevolucionEstado.PENDIENTE, " +
+           "                      com.franco.dev.domain.operaciones.enums.DevolucionEstado.SEPARADO) THEN 1 ELSE 0 END)) " +
+           "FROM Devolucion d " +
+           "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
+           "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId)")
+    ResumenDevolucionesDto resumenConteos(@Param("fechaInicio") LocalDateTime fechaInicio,
+                                          @Param("fechaFin") LocalDateTime fechaFin,
+                                          @Param("sucursalId") Long sucursalId);
+
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.DevolucionPorEstadoDto(" +
+           "cast(d.estado as string), COUNT(d)) " +
+           "FROM Devolucion d " +
+           "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
+           "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId) " +
+           "GROUP BY d.estado")
+    List<DevolucionPorEstadoDto> conteoPorEstado(@Param("fechaInicio") LocalDateTime fechaInicio,
+                                                 @Param("fechaFin") LocalDateTime fechaFin,
+                                                 @Param("sucursalId") Long sucursalId);
+
+    // Serie por dia. Native SQL: JPQL no tiene truncado de fecha portable. El
+    // LEFT JOIN a items suma el valor sin perder devoluciones sin items.
+    // Se usa CAST(... AS date), no ::date: el "::" de PostgreSQL choca con la
+    // sintaxis :param de Hibernate y rompe la query.
+    @Query(value = "SELECT to_char(CAST(d.fecha AS date), 'YYYY-MM-DD') AS fecha, " +
+           "COUNT(DISTINCT d.id) AS cantidad, " +
+           "COALESCE(SUM(di.costo_unitario * di.cantidad), 0) AS valor " +
+           "FROM operaciones.devolucion d " +
+           "LEFT JOIN operaciones.devolucion_item di ON di.devolucion_id = d.id " +
+           "WHERE d.fecha BETWEEN :fechaInicio AND :fechaFin " +
+           "AND (CAST(:sucursalId AS bigint) IS NULL OR d.sucursal_origen_id = :sucursalId) " +
+           "GROUP BY CAST(d.fecha AS date) ORDER BY CAST(d.fecha AS date)",
+           nativeQuery = true)
+    List<Object[]> seriePorDiaRaw(@Param("fechaInicio") LocalDateTime fechaInicio,
+                                  @Param("fechaFin") LocalDateTime fechaFin,
+                                  @Param("sucursalId") Long sucursalId);
 } 

@@ -303,6 +303,35 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         }
     }
 
+    // ===================== Dashboard =====================
+
+    public com.franco.dev.domain.operaciones.dto.ResumenDevolucionesDto resumenDevoluciones(
+            String fechaInicio, String fechaFin, Long sucursalId) {
+        return service.getResumen(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId);
+    }
+
+    public List<com.franco.dev.domain.operaciones.dto.DevolucionPorEstadoDto> devolucionesPorEstadoResumen(
+            String fechaInicio, String fechaFin, Long sucursalId) {
+        return service.getConteoPorEstado(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId);
+    }
+
+    public List<com.franco.dev.domain.operaciones.dto.TopProductoDevueltoDto> topProductosDevueltos(
+            String fechaInicio, String fechaFin, Long sucursalId, Integer limite) {
+        return service.getTopProductos(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId,
+                limite != null ? limite : 10);
+    }
+
+    public List<com.franco.dev.domain.operaciones.dto.TopMotivoDevolucionDto> topMotivosDevolucion(
+            String fechaInicio, String fechaFin, Long sucursalId, Integer limite) {
+        return service.getTopMotivos(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId,
+                limite != null ? limite : 10);
+    }
+
+    public List<com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto> devolucionesSeriePorDia(
+            String fechaInicio, String fechaFin, Long sucursalId) {
+        return service.getSeriePorDia(stringToDate(fechaInicio), stringToDate(fechaFin), sucursalId);
+    }
+
     /**
      * Imprime el comprobante de retiro en impresora termica (58mm / 80mm).
      * El ancho llega por parametro: cuando exista el modulo de impresoras, el

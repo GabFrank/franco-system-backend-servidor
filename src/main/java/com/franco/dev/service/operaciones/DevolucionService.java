@@ -4,6 +4,11 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.dto.DevolucionPorEstadoDto;
+import com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto;
+import com.franco.dev.domain.operaciones.dto.ResumenDevolucionesDto;
+import com.franco.dev.domain.operaciones.dto.TopMotivoDevolucionDto;
+import com.franco.dev.domain.operaciones.dto.TopProductoDevueltoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroCajaDto;
 import com.franco.dev.domain.operaciones.dto.RetiroDevolucionResultadoDto;
@@ -66,6 +71,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
 
     @Autowired
     private DevolucionItemService devolucionItemService;
+
+    @Autowired
+    private com.franco.dev.repository.operaciones.DevolucionItemRepository devolucionItemRepository;
 
     @Autowired
     private MovimientoStockService movimientoStockService;
@@ -496,5 +504,68 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             }
         }
         return new RetiroBloqueResultadoDto(resultados);
+    }
+
+    // ===================== Dashboard =====================
+
+    /**
+     * Resumen agregado para el dashboard. Compone los conteos (nivel Devolucion)
+     * con los valores costoUnitario x cantidad (nivel item, query aparte).
+     */
+    @Transactional(readOnly = true)
+    public ResumenDevolucionesDto getResumen(LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucursalId) {
+        ResumenDevolucionesDto resumen = repository.resumenConteos(fechaInicio, fechaFin, sucursalId);
+        if (resumen == null) {
+            resumen = new ResumenDevolucionesDto(0L, 0L, 0L, 0L);
+        }
+        Double valorTotal = devolucionItemRepository.valorTotal(fechaInicio, fechaFin, sucursalId);
+        Double valorMerma = devolucionItemRepository.valorMerma(fechaInicio, fechaFin, sucursalId);
+        resumen.setValorTotal(valorTotal != null ? valorTotal : 0.0);
+        resumen.setValorMerma(valorMerma != null ? valorMerma : 0.0);
+        return resumen;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DevolucionPorEstadoDto> getConteoPorEstado(LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                                           Long sucursalId) {
+        return repository.conteoPorEstado(fechaInicio, fechaFin, sucursalId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopProductoDevueltoDto> getTopProductos(LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                                        Long sucursalId, int limite) {
+        return devolucionItemRepository.topProductos(fechaInicio, fechaFin, sucursalId,
+                org.springframework.data.domain.PageRequest.of(0, limite));
+    }
+
+    @Transactional(readOnly = true)
+    public List<TopMotivoDevolucionDto> getTopMotivos(LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                                      Long sucursalId, int limite) {
+        return devolucionItemRepository.topMotivos(fechaInicio, fechaFin, sucursalId,
+                org.springframework.data.domain.PageRequest.of(0, limite));
+    }
+
+    @Transactional(readOnly = true)
+    public List<DevolucionSeriePuntoDto> getSeriePorDia(LocalDateTime fechaInicio, LocalDateTime fechaFin,
+                                                        Long sucursalId) {
+        List<Object[]> raw = repository.seriePorDiaRaw(fechaInicio, fechaFin, sucursalId);
+        List<DevolucionSeriePuntoDto> serie = new ArrayList<>();
+        if (raw != null) {
+            for (Object[] fila : raw) {
+                serie.add(new DevolucionSeriePuntoDto(
+                        fila[0] != null ? fila[0].toString() : null,
+                        aLong(fila[1]),
+                        aDouble(fila[2])));
+            }
+        }
+        return serie;
+    }
+
+    private Double aDouble(Object o) {
+        return o instanceof Number ? ((Number) o).doubleValue() : 0.0;
+    }
+
+    private Long aLong(Object o) {
+        return o instanceof Number ? ((Number) o).longValue() : 0L;
     }
 }

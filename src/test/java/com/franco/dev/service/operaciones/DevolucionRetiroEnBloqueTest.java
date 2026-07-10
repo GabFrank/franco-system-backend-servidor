@@ -30,15 +30,17 @@ import static org.mockito.Mockito.when;
  *
  * Nota: la construccion usa el constructor generado por Lombok @AllArgsConstructor
  * (orden de declaracion de campos: repository, devolucionItemService,
- * movimientoStockService, productoVencimientoService, gastoService, gastoRepository,
- * tipoGastoRepository, codigoService, applicationContext).
+ * devolucionItemRepository, movimientoStockService, productoVencimientoService,
+ * gastoService, gastoRepository, tipoGastoRepository, codigoService,
+ * applicationContext). Solo importa que applicationContext sea el ultimo; el
+ * resto van null porque el test solo ejercita retirarEnBloque.
  */
 class DevolucionRetiroEnBloqueTest {
 
     private DevolucionService buildService(DevolucionService self) {
         ApplicationContext ctx = mock(ApplicationContext.class);
         when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-        return new DevolucionService(null, null, null, null, null, null, null, null, ctx);
+        return new DevolucionService(null, null, null, null, null, null, null, null, null, ctx);
     }
 
     @Test

@@ -256,7 +256,7 @@ public class LogicalReplicationService {
      * @param branchDbName The branch database name
      * @return true if successful
      */
-    public boolean createCentralToBranchSubscription(Long sucursalId, String branchIp, 
+    public boolean createCentralToBranchSubscription(Long sucursalId, String branchIp,
                                                   int branchPort, String branchDbName) {
         try {
             logger.info("Replicación: creando suscripción central->filial sucursalId={} conectando a base de datos branchDbName={} host={} port={}", sucursalId, branchDbName, branchIp, branchPort);
@@ -264,11 +264,28 @@ public class LogicalReplicationService {
                 "dbname=%s host=%s user=%s password=%s port=%d",
                 branchDbName, branchIp, dbUsername, dbPassword, branchPort
             );
-            
-            String sql = "CREATE SUBSCRIPTION " + generateBranchSubscriptionName(sucursalId) + " " +
+            String subscriptionName = generateBranchSubscriptionName(sucursalId);
+
+            // Pre-create the replication slot on the publisher (general/filial) to avoid
+            // same-server deadlock: CREATE SUBSCRIPTION internally runs CREATE_REPLICATION_SLOT
+            // on the publisher, which waits for the subscriber's transaction to finish — circular wait.
+            JdbcTemplate publisherJdbc = createRemoteJdbcTemplate(branchIp, branchPort, branchDbName, dbUsername, dbPassword);
+            try {
+                publisherJdbc.execute("SELECT pg_create_logical_replication_slot('" + subscriptionName + "', 'pgoutput')");
+                logger.info("Replicación: slot {} creado en publisher (filial {})", subscriptionName, sucursalId);
+            } catch (Exception e) {
+                if (e.getMessage() != null && e.getMessage().contains("already exists")) {
+                    logger.info("Replicación: slot {} ya existe en filial {} (OK)", subscriptionName, sucursalId);
+                } else {
+                    throw e;
+                }
+            }
+
+            String sql = "CREATE SUBSCRIPTION " + subscriptionName + " " +
                     "CONNECTION '" + connectionString + "' " +
-                    "PUBLICATION " + generateBranchPublicationName(sucursalId) + " WITH (copy_data = false, origin = 'none')";
-            
+                    "PUBLICATION " + generateBranchPublicationName(sucursalId) +
+                    " WITH (copy_data = false, origin = 'none', create_slot = false)";
+
             jdbcTemplate.execute(sql);
             return true;
         } catch (Exception e) {
@@ -1409,11 +1426,24 @@ public class LogicalReplicationService {
                 logger.error("[Replicación] Error verificando suscripción existente en filial {}: {}", branchId, e.getMessage());
             }
 
+            // Pre-create the replication slot on the publisher (bodega/central) to avoid
+            // same-server deadlock when publisher and subscriber are on the same PG instance.
+            try {
+                jdbcTemplate.execute("SELECT pg_create_logical_replication_slot('" + subscriptionName + "', 'pgoutput')");
+                logger.info("[Replicación] Slot {} creado en publisher (central)", subscriptionName);
+            } catch (Exception e) {
+                if (e.getMessage() != null && e.getMessage().contains("already exists")) {
+                    logger.info("[Replicación] Slot {} ya existe en central (OK)", subscriptionName);
+                } else {
+                    throw e;
+                }
+            }
+
             // Build the CREATE SUBSCRIPTION command
             String sql = "CREATE SUBSCRIPTION " + subscriptionName +
                     " CONNECTION '" + connectionString + "' " +
                     " PUBLICATION " + publicationName +
-                    " WITH (copy_data = false, origin = 'none')";
+                    " WITH (copy_data = false, origin = 'none', create_slot = false)";
 
             logger.info("[Replicación] Creando suscripción {} en filial {} -> publicación {}", subscriptionName, branchId, publicationName);
             // Execute the command

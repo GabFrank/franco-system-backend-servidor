@@ -3,6 +3,7 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.financiero.TerminalPos;
 import com.franco.dev.graphql.financiero.input.TerminalPosInput;
 import com.franco.dev.service.financiero.CuentaBancariaService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.TerminalPosService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -26,6 +27,9 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     @Autowired
     private CuentaBancariaService cuentaBancariaService;
+
+    @Autowired
+    private MonedaService monedaService;
 
     public Optional<TerminalPos> terminalPos(Long id) {
         return service.findById(id);
@@ -55,6 +59,9 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
         }
         if (input.getCuentaBancariaId() != null) {
             e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
+        }
+        if (input.getMonedaId() != null) {
+            e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }
         return service.save(e);
     }

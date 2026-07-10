@@ -1362,6 +1362,79 @@ public class ImpresionService {
         private String turno;
     }
 
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class VentaTarjetaItemDto {
+        private Long id;
+        private Long ventaId;
+        private String terminal;
+        private String codigo;
+        private String sucursal;
+        private java.math.BigDecimal monto;
+        private String montoFormateado;
+        private String montoEscaneado;
+        private String estado;
+        private String creadoEn;
+        private String simboloMoneda;
+    }
+
+    public String imprimirReporteVentaTarjeta(List<com.franco.dev.domain.financiero.VentaTarjeta> ventaTarjetaList,
+            String sucursalFiltro, String terminalFiltro, String estadoFiltro,
+            String fechaDesde, String fechaHasta, Usuario usuario) {
+        try {
+            List<VentaTarjetaItemDto> itemList = new ArrayList<>();
+            for (com.franco.dev.domain.financiero.VentaTarjeta vt : ventaTarjetaList) {
+                VentaTarjetaItemDto dto = new VentaTarjetaItemDto();
+                dto.setId(vt.getId());
+                dto.setVentaId(vt.getVenta() != null ? vt.getVenta().getId() : null);
+                dto.setTerminal(vt.getTerminalPos() != null ? vt.getTerminalPos().getDescripcion() : "");
+                dto.setCodigo(vt.getTerminalPos() != null ? vt.getTerminalPos().getCodigo() : "");
+                dto.setSucursal(vt.getSucursal() != null ? vt.getSucursal().getNombre() : "");
+                dto.setMonto(vt.getMonto());
+                dto.setMontoEscaneado(vt.getMontoEscaneado() != null
+                        ? new java.text.DecimalFormat("#,##0").format(vt.getMontoEscaneado())
+                        : "-");
+                dto.setEstado(vt.getEstado());
+                dto.setCreadoEn(vt.getCreadoEn() != null ? DateUtils.toString(vt.getCreadoEn()) : "");
+                String simbolo = (vt.getTerminalPos() != null && vt.getTerminalPos().getMoneda() != null)
+                        ? vt.getTerminalPos().getMoneda().getSimbolo() : "Gs.";
+                dto.setSimboloMoneda(simbolo);
+                dto.setMontoFormateado(formatMontoPorMoneda(vt.getMonto(), simbolo));
+                itemList.add(dto);
+            }
+            itemList.sort(java.util.Comparator.comparing(VentaTarjetaItemDto::getSimboloMoneda));
+
+            java.util.Map<String, java.math.BigDecimal> totalesPorMoneda = new java.util.LinkedHashMap<>();
+            for (VentaTarjetaItemDto dto : itemList) {
+                totalesPorMoneda.merge(dto.getSimboloMoneda(), dto.getMonto() != null ? dto.getMonto() : java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+            }
+            String totalPorMoneda = "Cantidad de ventas: " + itemList.size() + "\n"
+                    + totalesPorMoneda.entrySet().stream()
+                            .map(e -> "Total " + e.getKey() + ": " + formatMontoPorMoneda(e.getValue(), e.getKey()))
+                            .collect(java.util.stream.Collectors.joining("\n"));
+            JasperReport jasperReport = compileReportFromClasspath("reports/venta-tarjeta.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(itemList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("sucursalFiltro", sucursalFiltro != null ? sucursalFiltro : "Todas");
+            parameters.put("terminalFiltro", terminalFiltro != null ? terminalFiltro : "Todas");
+            parameters.put("estadoFiltro", estadoFiltro != null ? estadoFiltro : "Todos");
+            parameters.put("fechaDesde", fechaDesde != null ? fechaDesde : "");
+            parameters.put("fechaHasta", fechaHasta != null ? fechaHasta : "");
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario",
+                    usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "");
+            parameters.put("totalPorMoneda", totalPorMoneda);
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public String imprimirSolicitudPagoPDF(
             SolicitudPago solicitudPago,
             String proveedorNombre,
@@ -1794,6 +1867,19 @@ public class ImpresionService {
             log.error("Error al generar PDF de pre-gasto: {}", e.getMessage(), e);
             throw new RuntimeException("Error al generar el PDF: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Formatea un monto segun su moneda: guaranies sin decimales (10.000),
+     * el resto (reales, dolares, etc.) con dos decimales y coma decimal (10,00).
+     */
+    private String formatMontoPorMoneda(java.math.BigDecimal monto, String simbolo) {
+        java.math.BigDecimal valor = monto != null ? monto : java.math.BigDecimal.ZERO;
+        boolean esGuarani = simbolo != null
+                && (simbolo.trim().equalsIgnoreCase("Gs") || simbolo.trim().equalsIgnoreCase("Gs."));
+        java.text.DecimalFormatSymbols simbolos = new java.text.DecimalFormatSymbols(java.util.Locale.GERMANY);
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat(esGuarani ? "#,##0" : "#,##0.00", simbolos);
+        return fmt.format(valor);
     }
 
     private String formatMonto(java.math.BigDecimal monto, String simbolo) {

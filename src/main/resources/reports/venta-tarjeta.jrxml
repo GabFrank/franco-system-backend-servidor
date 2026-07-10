@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.21.5.final using JasperReports Library version 6.21.5-74d586df47b25dbd05bd0957999819196e59934a  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="venta-tarjeta" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="d3a1a2ee-7b8a-4a3d-9d3b-1a2b3c4d5e6f">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+	<parameter name="logo" class="java.lang.String"/>
+	<parameter name="fechaReporte" class="java.lang.String"/>
+	<parameter name="usuario" class="java.lang.String"/>
+	<parameter name="sucursalFiltro" class="java.lang.String"/>
+	<parameter name="terminalFiltro" class="java.lang.String"/>
+	<parameter name="estadoFiltro" class="java.lang.String"/>
+	<parameter name="fechaDesde" class="java.lang.String"/>
+	<parameter name="fechaHasta" class="java.lang.String"/>
+	<parameter name="totalPorMoneda" class="java.lang.String"/>
+	<field name="id" class="java.lang.Long"/>
+	<field name="ventaId" class="java.lang.Long"/>
+	<field name="terminal" class="java.lang.String"/>
+	<field name="codigo" class="java.lang.String"/>
+	<field name="sucursal" class="java.lang.String"/>
+	<field name="monto" class="java.math.BigDecimal"/>
+	<field name="montoFormateado" class="java.lang.String"/>
+	<field name="montoEscaneado" class="java.lang.String"/>
+	<field name="estado" class="java.lang.String"/>
+	<field name="creadoEn" class="java.lang.String"/>
+	<field name="simboloMoneda" class="java.lang.String"/>
+	<title>
+		<band height="140" splitType="Stretch">
+			<image hAlign="Center">
+				<reportElement x="0" y="50" width="95" height="61" uuid="8a1b2c3d-4e5f-6789-0123-456789abcdef"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="80" y="0" width="400" height="27" forecolor="#000000" uuid="c0c9f5b8-f0b7-4503-9428-2d7be98aa4e7"/>
+				<textElement textAlignment="Center" verticalAlignment="Top">
+					<font fontName="Verdana" size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Reporte de Ventas con Tarjeta]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement x="100" y="33" width="225" height="100" uuid="e703c566-7819-4778-bdfd-f96af1fc6e09"/>
+				<graphicElement>
+					<pen lineColor="#030303"/>
+				</graphicElement>
+			</rectangle>
+			<rectangle>
+				<reportElement x="179" y="27" width="66" height="12" forecolor="#030303" backcolor="#FFFFFF" uuid="135b7210-797e-41f2-a5fd-031e40506d08"/>
+				<graphicElement>
+					<pen lineColor="#030303"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="187" y="27" width="50" height="12" forecolor="#000000" uuid="b61efa33-0ea0-4fed-9d78-a768de817cb3"/>
+				<textElement textAlignment="Center">
+					<font fontName="Verdana" size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Filtros]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="110" y="40" width="65" height="11" uuid="1a2b3c4d-0001-4001-8001-000000000001"/>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<text><![CDATA[Sucursal:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="175" y="40" width="143" height="11" uuid="1a2b3c4d-0002-4001-8001-000000000002"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{sucursalFiltro}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="51" width="65" height="11" uuid="1a2b3c4d-0003-4001-8001-000000000003"/>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<text><![CDATA[Terminal:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="175" y="51" width="143" height="11" uuid="1a2b3c4d-0004-4001-8001-000000000004"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{terminalFiltro}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="62" width="65" height="11" uuid="1a2b3c4d-0005-4001-8001-000000000005"/>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<text><![CDATA[Estado:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="175" y="62" width="143" height="11" uuid="1a2b3c4d-0006-4001-8001-000000000006"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{estadoFiltro}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="73" width="65" height="11" uuid="1a2b3c4d-0007-4001-8001-000000000007"/>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<text><![CDATA[Fecha Desde:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="175" y="73" width="143" height="11" uuid="1a2b3c4d-0008-4001-8001-000000000008"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{fechaDesde}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="84" width="65" height="11" uuid="1a2b3c4d-0009-4001-8001-000000000009"/>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<text><![CDATA[Fecha Hasta:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="175" y="84" width="143" height="11" uuid="1a2b3c4d-0010-4001-8001-000000000010"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{fechaHasta}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="95" width="65" height="11" uuid="1a2b3c4d-0011-4001-8001-000000000011"/>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<text><![CDATA[Generado en:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="175" y="95" width="143" height="11" uuid="1a2b3c4d-0012-4001-8001-000000000012"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{fechaReporte}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="106" width="65" height="11" uuid="1a2b3c4d-0013-4001-8001-000000000013">
+					<property name="com.jaspersoft.studio.unit.height" value="pixel"/>
+				</reportElement>
+				<box rightPadding="4"/>
+				<textElement>
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Responsable:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="175" y="106" width="143" height="24" uuid="1a2b3c4d-0014-4001-8001-000000000014"/>
+				<textElement>
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{usuario}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="340" y="33" width="215" height="100" uuid="6aefecf3-cd9e-4738-a9d7-09a9578bc220"/>
+				<graphicElement>
+					<pen lineColor="#030303"/>
+				</graphicElement>
+			</rectangle>
+			<rectangle>
+				<reportElement x="415" y="27" width="75" height="12" forecolor="#030303" backcolor="#FFFFFF" uuid="bdc73c4f-d178-4c96-9c05-7fa69c270afb"/>
+				<graphicElement>
+					<pen lineColor="#030303"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="415" y="27" width="75" height="12" forecolor="#000000" uuid="d93279d0-76e3-46ae-bd32-61f00d4dce8d"/>
+				<textElement textAlignment="Center">
+					<font fontName="Verdana" size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Totales]]></text>
+			</staticText>
+			<textField textAdjust="StretchHeight" isBlankWhenNull="true">
+				<reportElement x="352" y="40" width="195" height="77" uuid="1a2b3c4d-0016-4001-8001-000000000016"/>
+				<box leftPadding="4"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font fontName="Verdana" size="9" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{totalPorMoneda}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="20">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="18" forecolor="#9E9E9E" backcolor="#EDEDED" uuid="3006dae7-3228-4979-bda4-adc9f14e4ac8"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="2" width="20" height="15" uuid="2a2b3c4d-0001-4002-8002-000000000001"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[ID]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="20" y="2" width="40" height="15" uuid="2a2b3c4d-0002-4002-8002-000000000002"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Venta ID]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="60" y="2" width="80" height="15" uuid="2a2b3c4d-0003-4002-8002-000000000003"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Terminal]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="140" y="2" width="55" height="15" uuid="2a2b3c4d-0004-4002-8002-000000000004"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Código]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="195" y="2" width="110" height="15" uuid="2a2b3c4d-0005-4002-8002-000000000005"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Sucursal]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="305" y="2" width="60" height="15" uuid="2a2b3c4d-0006-4002-8002-000000000006"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Monto]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="365" y="2" width="60" height="15" uuid="2a2b3c4d-0007-4002-8002-000000000007"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Escaneado]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="425" y="2" width="55" height="15" uuid="2a2b3c4d-0008-4002-8002-000000000008"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Estado]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="480" y="2" width="75" height="15" uuid="2a2b3c4d-0009-4002-8002-000000000009"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="18">
+			<textField>
+				<reportElement x="0" y="1" width="20" height="15" uuid="3a2b3c4d-0001-4003-8003-000000000001"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{id}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="20" y="1" width="40" height="15" uuid="3a2b3c4d-0002-4003-8003-000000000002"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{ventaId}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="60" y="1" width="80" height="15" uuid="3a2b3c4d-0003-4003-8003-000000000003"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{terminal}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="140" y="1" width="55" height="15" uuid="3a2b3c4d-0004-4003-8003-000000000004"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{codigo}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="195" y="1" width="110" height="15" uuid="3a2b3c4d-0005-4003-8003-000000000005"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{sucursal}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="305" y="1" width="60" height="15" uuid="3a2b3c4d-0006-4003-8003-000000000006"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{montoFormateado}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="365" y="1" width="60" height="15" uuid="3a2b3c4d-0007-4003-8003-000000000007"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{montoEscaneado}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="425" y="1" width="55" height="15" uuid="3a2b3c4d-0008-4003-8003-000000000008"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{estado}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="480" y="1" width="75" height="15" uuid="3a2b3c4d-0009-4003-8003-000000000009"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{creadoEn}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="16" width="555" height="1" forecolor="#E0E0E0" uuid="4a2b3c4d-0001-4004-8004-000000000001"/>
+			</line>
+		</band>
+	</detail>
+</jasperReport>

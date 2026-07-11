@@ -5,7 +5,7 @@
 -- filiales via central_pub, de modo que cada host ve el registro completo (necesario
 -- para el routing: la impresora "sabe" en que sucursal/host esta conectada).
 
-CREATE TABLE empresarial.impresora (
+CREATE TABLE IF NOT EXISTS empresarial.impresora (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(120) NOT NULL,
     activo BOOLEAN DEFAULT TRUE,
@@ -40,7 +40,7 @@ CREATE TABLE empresarial.impresora (
     CONSTRAINT fk_impresora_usuario FOREIGN KEY (usuario_id) REFERENCES personas.usuario(id)
 );
 
-CREATE INDEX idx_impresora_sucursal_id ON empresarial.impresora(sucursal_id);
+CREATE INDEX IF NOT EXISTS idx_impresora_sucursal_id ON empresarial.impresora(sucursal_id);
 
 -- Sumar la tabla a la publicacion central_pub (direccion MAIN_TO_ALL, sin filtro por
 -- sucursal_id) para que TODOS los hosts reciban el registro completo de impresoras.

@@ -141,10 +141,21 @@ public class ImpresionService {
 
     public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent)
             throws GraphQLException {
+        printReport(jasperPrint, filename, printerName, silent, MediaSizeName.ISO_A4);
+    }
+
+    /**
+     * Overload que permite elegir el tamanho de hoja (A4, Carta, etc.) segun el perfil
+     * de papel de la impresora, en vez de fijar siempre A4.
+     * @see com.franco.dev.utilitarios.print.PerfilPapelHelper#mediaSize
+     */
+    public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent,
+                            MediaSizeName mediaSize)
+            throws GraphQLException {
         if (silent == null)
             silent = false;
         PrintRequestAttributeSet printRequestAttributeSet = new HashPrintRequestAttributeSet();
-        printRequestAttributeSet.add(MediaSizeName.ISO_A4);
+        printRequestAttributeSet.add(mediaSize != null ? mediaSize : MediaSizeName.ISO_A4);
         if (jasperPrint.getOrientationValue() == net.sf.jasperreports.engine.type.OrientationEnum.LANDSCAPE) {
             printRequestAttributeSet.add(OrientationRequested.LANDSCAPE);
         } else {

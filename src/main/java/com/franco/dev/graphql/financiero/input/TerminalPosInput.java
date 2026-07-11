@@ -14,6 +14,8 @@ public class TerminalPosInput {
 
     private Long cuentaBancariaId;
 
+    private Long monedaId;
+
     private Boolean activo;
 
     private LocalDateTime creadoEn;

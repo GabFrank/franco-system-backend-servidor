@@ -324,8 +324,18 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
-        Gasto gastoAsociado = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(id,
-                sucId);
+        // El retiro vincula la solicitud con el gasto de caja via
+        // preGasto.gastoCajaRegistroId (ver ejecutarRetiro). El gasto no guarda
+        // pre_gasto_id, asi que buscamos primero por ese registro y dejamos el
+        // query por preGastoId como fallback por compatibilidad.
+        Gasto gastoAsociado = null;
+        if (preGasto.getGastoCajaRegistroId() != null) {
+            gastoAsociado = gastoRepository.findByIdAndSucursalId(preGasto.getGastoCajaRegistroId(), sucId);
+        }
+        if (gastoAsociado == null) {
+            gastoAsociado = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(id,
+                    sucId);
+        }
         if (gastoAsociado == null) {
             throw new RuntimeException(
                     "No se puede completar la solicitud de gasto #" + id +
@@ -509,6 +519,14 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         preGasto.setCajaId(input.getCajaId());
         preGasto.setGastoCajaRegistroId(input.getGastoRegistroId());
         super.save(preGasto);
+        // Vincular el gasto (retiro de caja) con esta solicitud en sentido
+        // inverso (gasto.preGasto -> pre_gasto_id / pre_gasto_sucursal_id) para
+        // que completar() y la navegacion gasto -> solicitud puedan resolverla.
+        Gasto gastoRetiro = gastoRepository.findByIdAndSucursalId(input.getGastoRegistroId(), input.getSucursalId());
+        if (gastoRetiro != null && gastoRetiro.getPreGasto() == null) {
+            gastoRetiro.setPreGasto(preGasto);
+            gastoRepository.save(gastoRetiro);
+        }
         return repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
     }
 

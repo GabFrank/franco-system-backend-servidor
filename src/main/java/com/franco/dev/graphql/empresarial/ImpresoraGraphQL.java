@@ -1,0 +1,83 @@
+package com.franco.dev.graphql.empresarial;
+
+import com.franco.dev.domain.empresarial.Impresora;
+import com.franco.dev.graphql.empresarial.input.ImpresoraInput;
+import com.franco.dev.service.empresarial.ImpresoraService;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.personas.UsuarioService;
+import graphql.kickstart.tools.GraphQLMutationResolver;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Component;
+
+import javax.print.PrintService;
+import javax.print.PrintServiceLookup;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+@Component
+public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private ImpresoraService service;
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
+    public Optional<Impresora> impresora(Long id) {
+        return service.findById(id);
+    }
+
+    public List<Impresora> impresoras(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        return service.findAll(pageable);
+    }
+
+    public List<Impresora> impresorasPorSucursalId(Long id) {
+        return service.findBySucursalId(id);
+    }
+
+    public List<Impresora> impresorasActivas() {
+        return service.findActivas();
+    }
+
+    /**
+     * Colas de impresion visibles localmente en el host que atiende esta consulta
+     * (en Linux, las colas CUPS). Sirve para descubrir impresoras del servidor/filial
+     * al dar de alta, no solo las del desktop.
+     */
+    public List<String> impresorasDelSistema() {
+        List<String> nombres = new ArrayList<>();
+        for (PrintService p : PrintServiceLookup.lookupPrintServices(null, null)) {
+            nombres.add(p.getName());
+        }
+        return nombres;
+    }
+
+    public Impresora saveImpresora(ImpresoraInput input) {
+        ModelMapper m = new ModelMapper();
+        Impresora e = m.map(input, Impresora.class);
+        if (input.getSucursalId() != null) {
+            e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
+        }
+        if (input.getUsuarioId() != null) {
+            e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        }
+        return service.save(e);
+    }
+
+    public Boolean deleteImpresora(Long id) {
+        return service.deleteById(id);
+    }
+
+    public Long countImpresora() {
+        return service.count();
+    }
+}

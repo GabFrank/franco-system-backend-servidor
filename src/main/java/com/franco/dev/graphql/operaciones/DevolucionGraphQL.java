@@ -8,6 +8,7 @@ import com.franco.dev.graphql.operaciones.input.DevolucionInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.RemitoRetiroService;
 import com.franco.dev.service.impresion.TicketRetiroService;
+import com.franco.dev.service.impresion.EtiquetaDevolucionService;
 import com.franco.dev.service.operaciones.DevolucionService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -50,6 +51,9 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private TicketRetiroService ticketRetiroService;
+
+    @Autowired
+    private EtiquetaDevolucionService etiquetaDevolucionService;
 
     /**
      * Obtiene una devolución por ID
@@ -346,6 +350,28 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     public List<com.franco.dev.domain.operaciones.dto.DevolucionEstancadaDto> devolucionesEstancadas(
             Integer diasMinimos, Long sucursalId, Integer limite) {
         return service.getEstancadas(diasMinimos, sucursalId, limite != null ? limite : 10);
+    }
+
+    // ===================== Etiquetas de separado =====================
+
+    /** PDF A4 (Base64) con las etiquetas de la devolucion (2 columnas cortables). */
+    public String etiquetasSeparadoPdf(Long devolucionId) {
+        if (devolucionId == null) throw new GraphQLException("devolucionId es requerido");
+        try {
+            return etiquetaDevolucionService.generarPdf(devolucionId);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /** Imprime las etiquetas de separado en impresora termica. */
+    public Boolean imprimirEtiquetasSeparado(Long devolucionId, String printerName, Integer anchoMm) {
+        if (devolucionId == null) throw new GraphQLException("devolucionId es requerido");
+        try {
+            return etiquetaDevolucionService.imprimirTicket(devolucionId, printerName, anchoMm);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
     }
 
     /**

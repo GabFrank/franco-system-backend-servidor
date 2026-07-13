@@ -47,10 +47,14 @@ type RetiroBloqueResultado {
 extend type Query {
     retiroProveedorConsolidado(proveedorId: ID!, sucursalId: ID): RetiroProveedorConsolidado
     remitoRetiroProveedor(devolucionIds: [ID!]!): String
+    # PDF A4 (Base64) con las etiquetas de separado de una devolucion.
+    etiquetasSeparadoPdf(devolucionId: ID!): String
 }
 
 extend type Mutation {
     retirarDevolucionesEnBloque(devolucionIds: [ID!]!, usuarioId: ID): RetiroBloqueResultado
     # anchoMm: ancho del papel termico (58 u 80). Null asume 58.
     imprimirTicketRetiroProveedor(devolucionIds: [ID!]!, printerName: String, anchoMm: Int): Boolean
+    # Etiquetas de separado (una por item, con QR del identificador).
+    imprimirEtiquetasSeparado(devolucionId: ID!, printerName: String, anchoMm: Int): Boolean
 }

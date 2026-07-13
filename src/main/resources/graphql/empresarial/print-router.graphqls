@@ -1,9 +1,0 @@
-# Impresion con routing entre hosts (Fase 3).
-extend type Mutation {
-    # Hoja: ejecuta la impresion local en el host que recibe (usado por el proxy).
-    imprimirEnDestino(impresoraId: ID!, payloadBase64: String!): Boolean
-    # Entrada con routing: imprime local o reenvia al host dueño de la impresora.
-    imprimirEnImpresora(impresoraId: ID!, payloadBase64: String!): Boolean
-    # Ticket de prueba generado server-side y ruteado.
-    imprimirPruebaEnImpresora(impresoraId: ID!): Boolean
-}

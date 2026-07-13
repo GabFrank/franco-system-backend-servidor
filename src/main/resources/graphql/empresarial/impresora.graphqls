@@ -51,6 +51,14 @@ type Impresora {
     usuario: Usuario
 }
 
+type ImpresoraPage {
+    content: [Impresora]
+    totalElements: Int
+    totalPages: Int
+    size: Int
+    number: Int
+}
+
 input ImpresoraInput {
     id: ID
     nombre: String
@@ -75,6 +83,7 @@ input ImpresoraInput {
 extend type Query {
     impresora(id: ID!): Impresora
     impresoras(page: Int, size: Int = 20): [Impresora]!
+    impresoraSearchPage(texto: String, page: Int, size: Int): ImpresoraPage
     impresorasPorSucursalId(id: Int): [Impresora]
     impresorasActivas: [Impresora]
     impresorasDelSistema: [String]

@@ -4,6 +4,8 @@ import com.franco.dev.domain.empresarial.Impresora;
 import com.franco.dev.repository.empresarial.ImpresoraRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -21,6 +23,12 @@ public class ImpresoraService extends CrudService<Impresora, ImpresoraRepository
 
     public List<Impresora> findBySucursalId(Long id) {
         return repository.findBySucursalId(id);
+    }
+
+    public Page<Impresora> buscarConPagina(String texto, Integer page, Integer size) {
+        texto = texto == null ? "" : texto;
+        Pageable pageable = org.springframework.data.domain.PageRequest.of(page, size);
+        return repository.findByAllWithPage(texto, pageable);
     }
 
     public List<Impresora> findActivas() {

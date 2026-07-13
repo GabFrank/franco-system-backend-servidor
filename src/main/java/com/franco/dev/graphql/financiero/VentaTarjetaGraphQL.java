@@ -16,6 +16,7 @@ import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.utilitarios.DateUtils;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -67,13 +68,31 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return count != null ? count : 0L;
     }
 
+    private static final int VENTA_LOOKUP_MAX_INTENTOS = 5;
+    private static final long VENTA_LOOKUP_ESPERA_MS = 300;
+
     public VentaTarjeta saveVentaTarjeta(VentaTarjetaInput input) {
         ModelMapper m = new ModelMapper();
         m.getConfiguration().setAmbiguityIgnored(true);
         VentaTarjeta entity = m.map(input, VentaTarjeta.class);
 
         if (input.getVentaId() != null && input.getSucursalId() != null) {
-            Venta venta = ventaService.findByIdAndSucursalId(input.getVentaId(), input.getSucursalId());
+            Venta venta = null;
+            for (int intento = 1; intento <= VENTA_LOOKUP_MAX_INTENTOS && venta == null; intento++) {
+                venta = ventaService.findByIdAndSucursalId(input.getVentaId(), input.getSucursalId());
+                if (venta == null && intento < VENTA_LOOKUP_MAX_INTENTOS) {
+                    try {
+                        Thread.sleep(VENTA_LOOKUP_ESPERA_MS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+            if (venta == null) {
+                throw new GraphQLException(
+                        "La venta aún no se sincronizó con el central, intente nuevamente en unos segundos.");
+            }
             entity.setVenta(venta);
         }
 

@@ -74,6 +74,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             DevolucionEstado estado,
             String fechaInicio,
             String fechaFin,
+            Long usuarioId,
             Integer page,
             Integer size) {
 
@@ -84,7 +85,7 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         LocalDateTime fechaInicioDate = fechaInicio != null ? stringToDate(fechaInicio) : null;
         LocalDateTime fechaFinDate = fechaFin != null ? stringToDate(fechaFin) : null;
 
-        return service.findByFilters(proveedorId, sucursalId, estado, fechaInicioDate, fechaFinDate, pageable);
+        return service.findByFilters(proveedorId, sucursalId, estado, fechaInicioDate, fechaFinDate, usuarioId, pageable);
     }
 
     /**

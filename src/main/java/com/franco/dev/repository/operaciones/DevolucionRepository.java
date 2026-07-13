@@ -30,6 +30,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "AND (cast(:estado as com.franco.dev.domain.operaciones.enums.DevolucionEstado) IS NULL OR d.estado = :estado) " +
            "AND (cast(:fechaInicio as timestamp) IS NULL OR d.fecha >= :fechaInicio) " +
            "AND (cast(:fechaFin as timestamp) IS NULL OR d.fecha <= :fechaFin) " +
+           "AND (cast(:usuarioId as long) IS NULL OR d.usuario.id = :usuarioId) " +
            "ORDER BY d.fecha DESC")
     Page<Devolucion> findByFilters(
             @Param("proveedorId") Long proveedorId,
@@ -37,6 +38,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
             @Param("estado") DevolucionEstado estado,
             @Param("fechaInicio") LocalDateTime fechaInicio,
             @Param("fechaFin") LocalDateTime fechaFin,
+            @Param("usuarioId") Long usuarioId,
             Pageable pageable
     );
 

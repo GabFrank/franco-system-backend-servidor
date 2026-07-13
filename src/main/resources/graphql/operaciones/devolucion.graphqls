@@ -61,6 +61,7 @@ extend type Query {
         estado: DevolucionEstado,
         fechaInicio: String,
         fechaFin: String,
+        usuarioId: ID,
         page: Int = 0,
         size: Int = 20
     ): DevolucionPage

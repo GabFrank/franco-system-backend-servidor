@@ -442,8 +442,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     public Page<Devolucion> findByFilters(Long proveedorId, Long sucursalId,
                                           DevolucionEstado estado,
                                           LocalDateTime fechaInicio, LocalDateTime fechaFin,
-                                          Pageable pageable) {
-        return repository.findByFilters(proveedorId, sucursalId, estado, fechaInicio, fechaFin, pageable);
+                                          Long usuarioId, Pageable pageable) {
+        return repository.findByFilters(proveedorId, sucursalId, estado, fechaInicio, fechaFin, usuarioId, pageable);
     }
 
     public List<Devolucion> findByProveedorId(Long proveedorId) {

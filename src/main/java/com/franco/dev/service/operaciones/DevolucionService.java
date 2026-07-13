@@ -115,6 +115,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         if (entity.getEstado() == null) entity.setEstado(DevolucionEstado.PENDIENTE);
         if (entity.getFinalizado() == null) entity.setFinalizado(false);
+        // Ubicacion por defecto = origen (para cualquier via de creacion).
+        if (entity.getSucursalUbicacion() == null) entity.setSucursalUbicacion(entity.getSucursalOrigen());
         Devolucion saved = super.save(entity);
         // Genera identificador fisico imprimible una vez que existe el id.
         if (saved.getIdentificador() == null) {
@@ -135,6 +137,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         devolucion.setTipo(proveedor != null ? TipoDevolucion.CON_PROVEEDOR : TipoDevolucion.SIN_PROVEEDOR);
         devolucion.setProveedor(proveedor);
         devolucion.setSucursalOrigen(sucursalOrigen);
+        // Ubicacion inicial = origen; la colecta interna la cambia luego.
+        devolucion.setSucursalUbicacion(sucursalOrigen);
         devolucion.setFecha(LocalDateTime.now());
         devolucion.setMotivo(motivo);
         devolucion.setEstado(DevolucionEstado.PENDIENTE);
@@ -160,15 +164,18 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
 
         switch (nuevoEstado) {
             case SEPARADO:
-                // La mercaderia se aparta fisicamente; sin movimiento de stock aun.
+                // La mercaderia se aparta y sale del stock disponible en este momento
+                // (antes se bajaba al RETIRAR). Asi el stock refleja lo realmente
+                // vendible/reponible apenas se separa. Tipo segun el destino: devolucion
+                // al proveedor o descarte (merma).
+                bajarStock(d, tipoBajaSeparado(d), ejecutor);
                 break;
             case RETIRADO:
-                // Solo CON_PROVEEDOR: el proveedor retira la mercaderia -> sale del stock.
-                bajarStock(d, TipoMovimiento.DEVOLUCION, ejecutor);
+                // El proveedor retira: la mercaderia ya salio del stock al separarse.
+                // Solo cambia el estado, sin movimiento de stock.
                 break;
             case DESCARTADO:
-                // Solo SIN_PROVEEDOR: baja de stock + gasto de merma.
-                bajarStock(d, TipoMovimiento.DESCARTE, ejecutor);
+                // El stock ya bajo al separar; aca solo se confirma la perdida (gasto).
                 generarGastoMerma(d, ejecutor);
                 d.setFinalizado(true);
                 break;
@@ -183,12 +190,42 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 d.setFinalizado(true);
                 break;
             case CANCELADA:
+                // Si estaba SEPARADO, el stock se habia bajado -> reingresarlo.
+                if (d.getEstado() == DevolucionEstado.SEPARADO) {
+                    reingresarSeparado(d, ejecutor);
+                }
                 break;
             default:
                 throw new GraphQLException("Estado no soportado: " + nuevoEstado);
         }
 
         d.setEstado(nuevoEstado);
+        return save(d);
+    }
+
+    private TipoMovimiento tipoBajaSeparado(Devolucion d) {
+        return d.getTipo() == TipoDevolucion.CON_PROVEEDOR
+                ? TipoMovimiento.DEVOLUCION : TipoMovimiento.DESCARTE;
+    }
+
+    /**
+     * Colecta interna: la mercaderia SEPARADA se envia a un deposito. Solo cambia
+     * la sucursal de ubicacion fisica; el stock ya bajo al separar, no se mueve.
+     */
+    @Transactional
+    public Devolucion colectar(Long devolucionId, Long sucursalDestinoId, Usuario usuario) {
+        Devolucion d = findById(devolucionId).orElseThrow(
+                () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
+        validarTransicion(d, DevolucionEstado.COLECTADO);
+        if (sucursalDestinoId == null) {
+            throw new GraphQLException("La sucursal destino es requerida para colectar");
+        }
+        Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
+                .findById(sucursalDestinoId)
+                .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
+        d.setSucursalUbicacion(destino);
+        d.setColectadoEn(LocalDateTime.now());
+        d.setEstado(DevolucionEstado.COLECTADO);
         return save(d);
     }
 
@@ -244,10 +281,38 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         }
     }
 
+    /**
+     * Reingreso del stock bajado al SEPARAR, cuando se cancela desde SEPARADO.
+     * Reingresa en la ubicacion actual (== origen: cancelar solo se permite antes
+     * de colectar).
+     */
+    private void reingresarSeparado(Devolucion d, Usuario usuario) {
+        List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
+        Long sucId = sucursalUbicacion(d).getId();
+        for (DevolucionItem item : items) {
+            double cantidadBase = cantidadEnUnidadBase(item);
+            MovimientoStock m = new MovimientoStock();
+            m.setProducto(item.getProducto());
+            m.setSucursalId(sucId);
+            m.setCantidad(cantidadBase);
+            m.setTipoMovimiento(TipoMovimiento.ENTRADA);
+            m.setReferencia(item.getId());
+            m.setEstado(true);
+            m.setUsuario(usuario);
+            movimientoStockService.save(m);
+        }
+    }
+
+    /** Ubicacion fisica actual: la de ubicacion si esta seteada, si no la de origen. */
+    private Sucursal sucursalUbicacion(Devolucion d) {
+        return d.getSucursalUbicacion() != null ? d.getSucursalUbicacion() : d.getSucursalOrigen();
+    }
+
     /** Reingreso del producto canjeado por el proveedor, con nuevo vencimiento. */
     private void reingresarCanje(Devolucion d, Usuario usuario) {
         List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
-        Long sucId = d.getSucursalOrigen().getId();
+        Sucursal sucUbicacion = sucursalUbicacion(d);
+        Long sucId = sucUbicacion.getId();
         for (DevolucionItem item : items) {
             Double reingresada = item.getCantidadReingresada();
             if (reingresada == null || reingresada <= 0) continue;
@@ -267,7 +332,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             ProductoVencimiento pv = new ProductoVencimiento();
             pv.setProducto(item.getProducto());
             pv.setPresentacion(item.getPresentacion());
-            pv.setSucursal(d.getSucursalOrigen());
+            pv.setSucursal(sucUbicacion);
             pv.setFechaVencimiento(item.getVencimientoReingreso());
             pv.setCantidad(cantidadBase);
             pv.setTipoOrigen(TipoOrigenVencimiento.DEVOLUCION_CANJE);
@@ -395,7 +460,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      */
     public List<Devolucion> devolucionesPendientesPorProveedor(Long proveedorId) {
         return repository.findByProveedorIdAndEstados(proveedorId,
-                Arrays.asList(DevolucionEstado.PENDIENTE, DevolucionEstado.SEPARADO, DevolucionEstado.RETIRADO));
+                Arrays.asList(DevolucionEstado.PENDIENTE, DevolucionEstado.SEPARADO,
+                        DevolucionEstado.COLECTADO, DevolucionEstado.RETIRADO));
     }
 
     // ------------------------------------------------------------------
@@ -421,9 +487,14 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         if (proveedorId == null) {
             throw new GraphQLException("proveedorId es requerido");
         }
-        List<Devolucion> devoluciones = sucursalId != null
-                ? repository.findByProveedorIdEstadoAndSucursal(proveedorId, DevolucionEstado.SEPARADO, sucursalId)
-                : repository.findByProveedorIdAndEstado(proveedorId, DevolucionEstado.SEPARADO);
+        // Listo para retiro = SEPARADO o COLECTADO (ya en el deposito).
+        List<Devolucion> devoluciones = repository.findByProveedorIdAndEstados(proveedorId,
+                Arrays.asList(DevolucionEstado.SEPARADO, DevolucionEstado.COLECTADO));
+        // El filtro y la agrupacion son por UBICACION fisica actual, no por origen:
+        // lo colectado a un deposito se retira desde ese deposito.
+        if (sucursalId != null) {
+            devoluciones.removeIf(d -> !sucursalId.equals(sucursalUbicacion(d).getId()));
+        }
 
         // Nombre del proveedor (via persona, puede faltar)
         String proveedorNombre = null;
@@ -434,17 +505,16 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             }
         }
 
-        // Agrupar por sucursal de origen preservando el orden
+        // Agrupar por sucursal de ubicacion preservando el orden
         Map<Long, List<Devolucion>> porSucursal = new LinkedHashMap<>();
         for (Devolucion d : devoluciones) {
-            Long sucId = d.getSucursalOrigen() != null ? d.getSucursalOrigen().getId() : null;
-            porSucursal.computeIfAbsent(sucId, k -> new ArrayList<>()).add(d);
+            porSucursal.computeIfAbsent(sucursalUbicacion(d).getId(), k -> new ArrayList<>()).add(d);
         }
 
         List<RetiroSucursalGrupoDto> grupos = new ArrayList<>();
         for (Map.Entry<Long, List<Devolucion>> entry : porSucursal.entrySet()) {
             List<Devolucion> devsSucursal = entry.getValue();
-            Sucursal sucursal = devsSucursal.get(0).getSucursalOrigen();
+            Sucursal sucursal = sucursalUbicacion(devsSucursal.get(0));
             Long sucId = sucursal != null ? sucursal.getId() : null;
             String sucNombre = sucursal != null ? sucursal.getNombre() : null;
 
@@ -518,6 +588,28 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 try {
                     self.avanzarEstado(id, DevolucionEstado.RETIRADO, usuario);
                     resultados.add(new RetiroDevolucionResultadoDto(id, true, "RETIRADO"));
+                } catch (Exception e) {
+                    resultados.add(new RetiroDevolucionResultadoDto(id, false, e.getMessage()));
+                }
+            }
+        }
+        return new RetiroBloqueResultadoDto(resultados);
+    }
+
+    /**
+     * Colecta interna en bloque: envia varias devoluciones SEPARADAS a un deposito
+     * (cada una pasa a COLECTADO con la nueva ubicacion). El fallo de una no aborta
+     * el resto; se reporta por id. Cada colecta corre en su propia transaccion.
+     */
+    public RetiroBloqueResultadoDto colectarEnBloque(List<Long> devolucionIds, Long sucursalDestinoId,
+                                                     Usuario usuario) {
+        List<RetiroDevolucionResultadoDto> resultados = new ArrayList<>();
+        if (devolucionIds != null) {
+            DevolucionService self = applicationContext.getBean(DevolucionService.class);
+            for (Long id : devolucionIds) {
+                try {
+                    self.colectar(id, sucursalDestinoId, usuario);
+                    resultados.add(new RetiroDevolucionResultadoDto(id, true, "COLECTADO"));
                 } catch (Exception e) {
                     resultados.add(new RetiroDevolucionResultadoDto(id, false, e.getMessage()));
                 }

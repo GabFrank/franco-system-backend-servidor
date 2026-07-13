@@ -3,6 +3,8 @@ type Devolucion {
     tipo: TipoDevolucion
     proveedor: Proveedor
     sucursalOrigen: Sucursal
+    sucursalUbicacion: Sucursal
+    colectadoEn: Date
     fecha: Date
     motivo: String
     estado: DevolucionEstado
@@ -84,6 +86,7 @@ extend type Mutation {
 enum DevolucionEstado {
     PENDIENTE,
     SEPARADO,
+    COLECTADO,
     RETIRADO,
     CANJEADO,
     ACREDITADO,

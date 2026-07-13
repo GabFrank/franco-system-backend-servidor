@@ -23,6 +23,19 @@ class DevolucionTransicionValidatorTest {
     }
 
     @Test
+    void conProveedor_flujoConColecta_esValido() {
+        // PENDIENTE -> SEPARADO -> COLECTADO -> RETIRADO
+        assertNull(DevolucionTransicionValidator.validar(DevolucionEstado.SEPARADO, DevolucionEstado.COLECTADO, CON_PROVEEDOR));
+        assertNull(DevolucionTransicionValidator.validar(DevolucionEstado.COLECTADO, DevolucionEstado.RETIRADO, CON_PROVEEDOR));
+    }
+
+    @Test
+    void colectar_soloConProveedorYDesdeSeparado() {
+        assertNotNull(DevolucionTransicionValidator.validar(DevolucionEstado.SEPARADO, DevolucionEstado.COLECTADO, SIN_PROVEEDOR));
+        assertNotNull(DevolucionTransicionValidator.validar(DevolucionEstado.PENDIENTE, DevolucionEstado.COLECTADO, CON_PROVEEDOR));
+    }
+
+    @Test
     void conProveedor_acreditarDesdeRetirado_esValido() {
         assertNull(DevolucionTransicionValidator.validar(DevolucionEstado.RETIRADO, DevolucionEstado.ACREDITADO, CON_PROVEEDOR));
     }

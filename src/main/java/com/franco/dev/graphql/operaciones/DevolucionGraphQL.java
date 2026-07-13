@@ -406,4 +406,23 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 ? usuarioService.findById(usuarioId).orElse(null) : null;
         return service.retirarEnBloque(devolucionIds, usuario);
     }
+
+    /** Colecta interna: envia una devolucion SEPARADA a un deposito (pasa a COLECTADO). */
+    public Devolucion colectarDevolucion(Long devolucionId, Long sucursalDestinoId, Long usuarioId) {
+        if (devolucionId == null) throw new GraphQLException("devolucionId es requerido");
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        return service.colectar(devolucionId, sucursalDestinoId, usuario);
+    }
+
+    /** Colecta en bloque a un deposito. El fallo de una no aborta el resto. */
+    public RetiroBloqueResultadoDto colectarDevolucionesEnBloque(List<Long> devolucionIds,
+                                                                 Long sucursalDestinoId, Long usuarioId) {
+        if (devolucionIds == null || devolucionIds.isEmpty()) {
+            throw new GraphQLException("devolucionIds es requerido");
+        }
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        return service.colectarEnBloque(devolucionIds, sucursalDestinoId, usuario);
+    }
 } 

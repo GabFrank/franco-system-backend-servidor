@@ -53,6 +53,9 @@ extend type Query {
 
 extend type Mutation {
     retirarDevolucionesEnBloque(devolucionIds: [ID!]!, usuarioId: ID): RetiroBloqueResultado
+    # Colecta interna: envia devoluciones SEPARADAS a un deposito (pasan a COLECTADO).
+    colectarDevolucion(devolucionId: ID!, sucursalDestinoId: ID!, usuarioId: ID): Devolucion
+    colectarDevolucionesEnBloque(devolucionIds: [ID!]!, sucursalDestinoId: ID!, usuarioId: ID): RetiroBloqueResultado
     # anchoMm: ancho del papel termico (58 u 80). Null asume 58.
     imprimirTicketRetiroProveedor(devolucionIds: [ID!]!, printerName: String, anchoMm: Int): Boolean
     # Etiquetas de separado (una por item, con QR del identificador).

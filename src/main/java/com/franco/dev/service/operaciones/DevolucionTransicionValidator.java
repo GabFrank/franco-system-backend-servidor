@@ -6,9 +6,10 @@ import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
  * Validador puro (sin dependencias de Spring) de la maquina de estados de devoluciones.
  * Devuelve null si la transicion es valida, o un mensaje de error si no lo es.
  *
- * Flujo CON_PROVEEDOR:  PENDIENTE -> SEPARADO -> RETIRADO -> (CANJEADO | ACREDITADO)
+ * Flujo CON_PROVEEDOR:  PENDIENTE -> SEPARADO -> [COLECTADO] -> RETIRADO -> (CANJEADO | ACREDITADO)
  * Flujo SIN_PROVEEDOR:  PENDIENTE -> SEPARADO -> DESCARTADO
- * CANCELADA: permitida desde PENDIENTE o SEPARADO.
+ * COLECTADO (colecta interna a un deposito) es opcional; RETIRADO admite venir de
+ * SEPARADO o COLECTADO. CANCELADA: permitida desde PENDIENTE o SEPARADO.
  */
 public final class DevolucionTransicionValidator {
 
@@ -42,9 +43,13 @@ public final class DevolucionTransicionValidator {
         switch (nuevo) {
             case SEPARADO:
                 return actual == DevolucionEstado.PENDIENTE ? null : "SEPARADO solo desde PENDIENTE";
+            case COLECTADO:
+                if (!conProveedor) return "COLECTADO solo aplica a devoluciones con proveedor";
+                return actual == DevolucionEstado.SEPARADO ? null : "COLECTADO solo desde SEPARADO";
             case RETIRADO:
                 if (!conProveedor) return "RETIRADO solo aplica a devoluciones con proveedor";
-                return actual == DevolucionEstado.SEPARADO ? null : "RETIRADO solo desde SEPARADO";
+                return (actual == DevolucionEstado.SEPARADO || actual == DevolucionEstado.COLECTADO)
+                        ? null : "RETIRADO solo desde SEPARADO o COLECTADO";
             case DESCARTADO:
                 if (conProveedor) return "DESCARTADO solo aplica a salidas sin proveedor";
                 return actual == DevolucionEstado.SEPARADO ? null : "DESCARTADO solo desde SEPARADO";

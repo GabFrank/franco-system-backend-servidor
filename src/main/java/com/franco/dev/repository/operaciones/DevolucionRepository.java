@@ -143,7 +143,7 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "JOIN operaciones.devolucion_item di ON di.devolucion_id = d.id " +
            "JOIN productos.producto p ON p.id = di.producto_id " +
            "JOIN empresarial.sucursal s ON s.id = d.sucursal_origen_id " +
-           "WHERE d.estado IN ('PENDIENTE', 'SEPARADO') AND d.fecha <= :limiteFecha " +
+           "WHERE d.estado IN ('PENDIENTE', 'SEPARADO', 'COLECTADO') AND d.fecha <= :limiteFecha " +
            "AND (CAST(:sucursalId AS bigint) IS NULL OR d.sucursal_origen_id = :sucursalId) " +
            "ORDER BY d.fecha ASC LIMIT :limite",
            nativeQuery = true)

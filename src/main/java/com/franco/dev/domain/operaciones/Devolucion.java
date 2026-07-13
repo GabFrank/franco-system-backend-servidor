@@ -59,6 +59,19 @@ public class Devolucion implements Identifiable<Long> {
     @JoinColumn(name = "sucursal_origen_id", nullable = false)
     private Sucursal sucursalOrigen;
 
+    /**
+     * Sucursal donde esta fisicamente la mercaderia ahora. Por defecto = origen;
+     * la colecta interna la cambia al deposito. El retiro consolidado agrupa por
+     * esta sucursal (no por la de origen).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sucursal_ubicacion_id")
+    private Sucursal sucursalUbicacion;
+
+    /** Momento de la colecta interna (paso a COLECTADO). */
+    @Column(name = "colectado_en")
+    private LocalDateTime colectadoEn;
+
     @Column(name = "fecha", nullable = false)
     private LocalDateTime fecha;
 

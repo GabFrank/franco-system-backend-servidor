@@ -3,9 +3,9 @@ package com.franco.dev.domain.operaciones.enums;
 /**
  * Estados del documento de devolucion/salida de mercaderia.
  *
- * Flujo CON_PROVEEDOR:  PENDIENTE -> SEPARADO -> RETIRADO -> (CANJEADO | ACREDITADO)
+ * Flujo CON_PROVEEDOR:  PENDIENTE -> SEPARADO -> [COLECTADO] -> RETIRADO -> (CANJEADO | ACREDITADO)
  * Flujo SIN_PROVEEDOR:  PENDIENTE -> SEPARADO -> DESCARTADO
- * Cancelacion posible desde PENDIENTE o SEPARADO.
+ * COLECTADO es opcional (colecta interna a un deposito). Cancelacion desde PENDIENTE o SEPARADO.
  *
  * Nota: el tipo Postgres operaciones.devolucion_estado incluye ademas el valor
  * legacy 'CONFIRMADA' (creado en V73.5, sin uso) que se conserva por la regla
@@ -14,6 +14,7 @@ package com.franco.dev.domain.operaciones.enums;
 public enum DevolucionEstado {
     PENDIENTE,
     SEPARADO,
+    COLECTADO,
     RETIRADO,
     CANJEADO,
     ACREDITADO,

@@ -1,0 +1,40 @@
+# Configuracion del modulo de devoluciones (fila unica). Aditivo.
+
+type DevolucionConfiguracion {
+    id: ID
+    diasEstancada: Int
+    diasEstancadaUrgente: Int
+    rankingTopN: Int
+    dashboardRangoDefault: String
+    ticketAnchoMm: Int
+    impresoraTicket: String
+    comprobanteTitulo: String
+    comprobanteTextoFirma: String
+    mermaRespetaMotivo: Boolean
+    tipoGastoMerma: String
+    alertaIncluyeRetirado: Boolean
+    alertaBloqueante: Boolean
+}
+
+input DevolucionConfiguracionInput {
+    diasEstancada: Int
+    diasEstancadaUrgente: Int
+    rankingTopN: Int
+    dashboardRangoDefault: String
+    ticketAnchoMm: Int
+    impresoraTicket: String
+    comprobanteTitulo: String
+    comprobanteTextoFirma: String
+    mermaRespetaMotivo: Boolean
+    tipoGastoMerma: String
+    alertaIncluyeRetirado: Boolean
+    alertaBloqueante: Boolean
+}
+
+extend type Query {
+    devolucionConfiguracion: DevolucionConfiguracion
+}
+
+extend type Mutation {
+    guardarDevolucionConfiguracion(input: DevolucionConfiguracionInput!): DevolucionConfiguracion
+}

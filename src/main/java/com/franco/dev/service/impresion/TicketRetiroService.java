@@ -67,20 +67,30 @@ public class TicketRetiroService {
     @Autowired
     private PrintingService printingService;
 
+    @Autowired
+    private com.franco.dev.service.operaciones.DevolucionConfiguracionService configuracionService;
+
     /**
-     * @param anchoMm ancho del papel en milimetros (58 u 80). Null asume 58.
+     * @param anchoMm ancho del papel en milimetros (58 u 80). Null usa la config.
      */
     @Transactional(readOnly = true)
     public Boolean imprimirTicketRetiro(List<Long> devolucionIds, String printerName, Integer anchoMm) {
-        List<String> lineas = construirTicket(devolucionIds, columnasPara(anchoMm));
+        com.franco.dev.domain.operaciones.DevolucionConfiguracion config = configuracionService.getConfiguracion();
+        int ancho = anchoMm != null ? anchoMm
+                : (config.getTicketAnchoMm() != null ? config.getTicketAnchoMm() : 58);
+        String titulo = config.getComprobanteTitulo() != null ? config.getComprobanteTitulo() : "COMPROBANTE DE RETIRO";
+        String firma = config.getComprobanteTextoFirma() != null ? config.getComprobanteTextoFirma() : "Firma del proveedor";
+        String impresoraDefault = config.getImpresoraTicket() != null ? config.getImpresoraTicket() : IMPRESORA_DEFAULT;
+
+        List<String> lineas = construirTicket(devolucionIds, columnasPara(ancho), titulo, firma);
 
         PrintService printService = printerName != null ? printingService.getPrintService(printerName) : null;
         if (printService == null) {
-            printService = PrinterOutputStream.getPrintServiceByName(IMPRESORA_DEFAULT);
+            printService = PrinterOutputStream.getPrintServiceByName(impresoraDefault);
         }
         if (printService == null) {
             throw new GraphQLException("No se encontro la impresora "
-                    + (printerName != null ? printerName : IMPRESORA_DEFAULT));
+                    + (printerName != null ? printerName : impresoraDefault));
         }
 
         try (PrinterOutputStream printerOutputStream = new PrinterOutputStream(printService)) {
@@ -100,7 +110,7 @@ public class TicketRetiroService {
      * Arma el ticket completo como lineas de texto ya alineadas al ancho dado.
      * Separado de la impresion para poder testear el layout sin impresora.
      */
-    List<String> construirTicket(List<Long> devolucionIds, int columnas) {
+    List<String> construirTicket(List<Long> devolucionIds, int columnas, String titulo, String firma) {
         if (devolucionIds == null || devolucionIds.isEmpty()) {
             throw new GraphQLException("Se requiere al menos una devolucion para el ticket");
         }
@@ -123,7 +133,7 @@ public class TicketRetiroService {
 
         String separador = repetir("-", columnas);
         List<String> lineas = new ArrayList<>();
-        lineas.add(centrar("COMPROBANTE DE RETIRO", columnas));
+        lineas.add(centrar(titulo != null ? titulo : "COMPROBANTE DE RETIRO", columnas));
         if (proveedorNombre != null) lineas.add(centrar(proveedorNombre, columnas));
         lineas.add(centrar(LocalDateTime.now().format(FECHA_HORA), columnas));
         lineas.add(separador);
@@ -148,7 +158,7 @@ public class TicketRetiroService {
         lineas.add(columnaDoble("Items:", String.valueOf(totalItems), columnas));
         lineas.add("");
         lineas.add(centrar(repetir("_", Math.min(columnas - 4, 28)), columnas));
-        lineas.add(centrar("Firma del proveedor", columnas));
+        lineas.add(centrar(firma != null ? firma : "Firma del proveedor", columnas));
         return lineas;
     }
 

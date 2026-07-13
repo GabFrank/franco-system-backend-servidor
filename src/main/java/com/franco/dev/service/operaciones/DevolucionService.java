@@ -4,6 +4,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Gasto;
 import com.franco.dev.domain.financiero.TipoGasto;
 import com.franco.dev.domain.operaciones.*;
+import com.franco.dev.domain.operaciones.DevolucionConfiguracion;
 import com.franco.dev.domain.operaciones.dto.DevolucionEstancadaDto;
 import com.franco.dev.domain.operaciones.dto.DevolucionPorEstadoDto;
 import com.franco.dev.domain.operaciones.dto.DevolucionSeriePuntoDto;
@@ -283,12 +284,29 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      * fd-93 (modulo caja mayor) este mergeada en develop.
      */
     private void generarGastoMerma(Devolucion d, Usuario usuario) {
+        DevolucionConfiguracion config = applicationContext
+                .getBean(DevolucionConfiguracionService.class).getConfiguracion();
+        boolean respetaMotivo = Boolean.TRUE.equals(config.getMermaRespetaMotivo());
+
         List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
         double total = 0.0;
         for (DevolucionItem item : items) {
+            // Con respetaMotivo, solo suman los items cuyo motivo genera gasto.
+            if (respetaMotivo && !(item.getMotivoAveria() != null
+                    && Boolean.TRUE.equals(item.getMotivoAveria().getGeneraGasto()))) {
+                continue;
+            }
             double costo = item.getCostoUnitario() != null ? item.getCostoUnitario() : 0.0;
             total += costo * (item.getCantidad() != null ? item.getCantidad() : 0.0);
         }
+
+        // Si ningun item genera gasto (respetaMotivo y todos exentos), no se crea gasto.
+        if (respetaMotivo && total == 0.0) {
+            return;
+        }
+
+        String tipoGastoDesc = config.getTipoGastoMerma() != null
+                ? config.getTipoGastoMerma() : TIPO_GASTO_MERMA;
 
         Long sucId = d.getSucursalOrigen().getId();
         Long maxId = gastoRepository.findMaxId(sucId);
@@ -297,7 +315,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         Gasto gasto = new Gasto();
         gasto.setId(nuevoId);
         gasto.setSucursalId(sucId);
-        gasto.setTipoGasto(tipoGastoRepository.findFirstByDescripcion(TIPO_GASTO_MERMA));
+        gasto.setTipoGasto(tipoGastoRepository.findFirstByDescripcion(tipoGastoDesc));
         gasto.setObservacion("Merma por devolucion " + (d.getIdentificador() != null ? d.getIdentificador() : d.getId()));
         gasto.setUsuario(usuario);
         gasto.setActivo(true);
@@ -585,7 +603,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      */
     @Transactional(readOnly = true)
     public List<DevolucionEstancadaDto> getEstancadas(Integer diasMinimos, Long sucursalId, int limite) {
-        int dias = diasMinimos != null ? diasMinimos : 30;
+        Integer defaultDias = applicationContext.getBean(DevolucionConfiguracionService.class)
+                .getConfiguracion().getDiasEstancada();
+        int dias = diasMinimos != null ? diasMinimos : (defaultDias != null ? defaultDias : 30);
         LocalDateTime limiteFecha = LocalDateTime.now().minusDays(dias);
         List<Object[]> raw = repository.estancadasRaw(limiteFecha, sucursalId, limite);
         List<DevolucionEstancadaDto> lista = new ArrayList<>();

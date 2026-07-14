@@ -79,4 +79,9 @@ public class DevolucionConfiguracion implements Identifiable<Long> {
     /** Si true, permite separar/devolver aunque el stock quede negativo. */
     @Column(name = "permitir_stock_negativo")
     private Boolean permitirStockNegativo;
+
+    // ---- Retiro ----
+    /** Si true, permite verificar cajas en el retiro manualmente (sin escanear). */
+    @Column(name = "retiro_permitir_seleccion_manual")
+    private Boolean retiroPermitirSeleccionManual;
 }

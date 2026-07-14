@@ -40,6 +40,7 @@ public class DevolucionConfiguracionService {
         if (input.getAlertaIncluyeRetirado() != null) actual.setAlertaIncluyeRetirado(input.getAlertaIncluyeRetirado());
         if (input.getAlertaBloqueante() != null) actual.setAlertaBloqueante(input.getAlertaBloqueante());
         if (input.getPermitirStockNegativo() != null) actual.setPermitirStockNegativo(input.getPermitirStockNegativo());
+        if (input.getRetiroPermitirSeleccionManual() != null) actual.setRetiroPermitirSeleccionManual(input.getRetiroPermitirSeleccionManual());
         return repository.save(actual);
     }
 
@@ -59,6 +60,7 @@ public class DevolucionConfiguracionService {
         c.setAlertaIncluyeRetirado(false);
         c.setAlertaBloqueante(true);
         c.setPermitirStockNegativo(true);
+        c.setRetiroPermitirSeleccionManual(true);
         return c;
     }
 }

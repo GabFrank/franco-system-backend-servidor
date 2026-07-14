@@ -15,6 +15,7 @@ type DevolucionConfiguracion {
     alertaIncluyeRetirado: Boolean
     alertaBloqueante: Boolean
     permitirStockNegativo: Boolean
+    retiroPermitirSeleccionManual: Boolean
 }
 
 input DevolucionConfiguracionInput {
@@ -31,6 +32,7 @@ input DevolucionConfiguracionInput {
     alertaIncluyeRetirado: Boolean
     alertaBloqueante: Boolean
     permitirStockNegativo: Boolean
+    retiroPermitirSeleccionManual: Boolean
 }
 
 extend type Query {

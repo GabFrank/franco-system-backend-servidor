@@ -18,4 +18,5 @@ public class DevolucionConfiguracionInput {
     private Boolean alertaIncluyeRetirado;
     private Boolean alertaBloqueante;
     private Boolean permitirStockNegativo;
+    private Boolean retiroPermitirSeleccionManual;
 }

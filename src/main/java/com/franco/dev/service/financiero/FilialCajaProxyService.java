@@ -26,7 +26,7 @@ import java.util.Map;
 public class FilialCajaProxyService {
 
     private static final Logger log = LoggerFactory.getLogger(FilialCajaProxyService.class);
-    private static final int FILIAL_PORT = 8082;
+    private static final int DEFAULT_FILIAL_PORT = 8082;
 
     private static final String CAJA_FIELDS =
             "id descripcion activo estado tuvoProblema fechaApertura fechaCierre observacion sucursalId creadoEn "
@@ -146,7 +146,8 @@ public class FilialCajaProxyService {
     }
 
     public String buildFilialUrl(Sucursal sucursal) {
-        return "http://" + sucursal.getIp() + ":" + FILIAL_PORT + "/graphql";
+        Integer puerto = sucursal.getPuertoServidor() != null ? sucursal.getPuertoServidor() : DEFAULT_FILIAL_PORT;
+        return "http://" + sucursal.getIp() + ":" + puerto + "/graphql";
     }
 
     public HttpHeaders buildAuthHeaders() {

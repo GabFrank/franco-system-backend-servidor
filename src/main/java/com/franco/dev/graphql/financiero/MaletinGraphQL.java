@@ -95,8 +95,7 @@ public class MaletinGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                 log.error("Sucursal no encontrada o sin IP configurado.");
                 return null;
             }
-            // El servidor GraphQL de las filiales siempre usa el puerto 8082
-            Integer puerto = 8082;
+            Integer puerto = sucursal.getPuertoServidor() != null ? sucursal.getPuertoServidor() : 8082;
             String url = "http://" + sucursal.getIp() + ":" + puerto + "/graphql";
 
             HttpHeaders headers = new HttpHeaders();

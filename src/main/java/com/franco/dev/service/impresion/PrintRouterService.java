@@ -41,7 +41,7 @@ import java.util.Map;
 public class PrintRouterService {
 
     private static final Logger log = LoggerFactory.getLogger(PrintRouterService.class);
-    private static final int FILIAL_PORT = 8082;
+    private static final int DEFAULT_FILIAL_PORT = 8082;
 
     @Value("${sucursalId:0}")
     private Long miSucursalId;
@@ -133,7 +133,8 @@ public class PrintRouterService {
             log.warn("[PRINT] Sucursal dueña sin IP para impresora id={}", impresoraId);
             return false;
         }
-        String url = "http://" + owner.getIp() + ":" + FILIAL_PORT + "/graphql";
+        Integer puerto = owner.getPuertoServidor() != null ? owner.getPuertoServidor() : DEFAULT_FILIAL_PORT;
+        String url = "http://" + owner.getIp() + ":" + puerto + "/graphql";
         String payloadBase64 = Base64.getEncoder().encodeToString(payload);
         String query = "mutation($id: ID!, $payload: String!) { "
                 + "imprimirEnDestino(impresoraId: $id, payloadBase64: $payload) }";

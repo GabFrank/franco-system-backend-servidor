@@ -1,0 +1,21 @@
+type ConfiguracionVentaTarjeta {
+    id: ID!
+    habilitado: Boolean!
+    usuario: Usuario
+    creadoEn: Date
+    modificadoEn: Date
+}
+
+input ConfiguracionVentaTarjetaInput {
+    id: ID
+    habilitado: Boolean
+    usuarioId: ID
+}
+
+extend type Query {
+    configuracionVentaTarjeta: ConfiguracionVentaTarjeta!
+}
+
+extend type Mutation {
+    saveConfiguracionVentaTarjeta(input: ConfiguracionVentaTarjetaInput!): ConfiguracionVentaTarjeta!
+}

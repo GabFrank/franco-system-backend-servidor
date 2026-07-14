@@ -39,6 +39,7 @@ public class DevolucionConfiguracionService {
         if (input.getTipoGastoMerma() != null) actual.setTipoGastoMerma(input.getTipoGastoMerma());
         if (input.getAlertaIncluyeRetirado() != null) actual.setAlertaIncluyeRetirado(input.getAlertaIncluyeRetirado());
         if (input.getAlertaBloqueante() != null) actual.setAlertaBloqueante(input.getAlertaBloqueante());
+        if (input.getPermitirStockNegativo() != null) actual.setPermitirStockNegativo(input.getPermitirStockNegativo());
         return repository.save(actual);
     }
 
@@ -57,6 +58,7 @@ public class DevolucionConfiguracionService {
         c.setTipoGastoMerma("MERMA/AVERIA DE PRODUCTO");
         c.setAlertaIncluyeRetirado(false);
         c.setAlertaBloqueante(true);
+        c.setPermitirStockNegativo(true);
         return c;
     }
 }

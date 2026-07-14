@@ -254,18 +254,24 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     // Efectos: stock, gasto, vencimiento
     // ------------------------------------------------------------------
 
-    /** Baja de stock por cada item (movimiento negativo). Valida saldo suficiente. */
+    /**
+     * Baja de stock por cada item (movimiento negativo).
+     * Valida saldo suficiente salvo que la configuracion permita stock negativo
+     * (permitirStockNegativo, default true).
+     */
     private void bajarStock(Devolucion d, TipoMovimiento tipoMovimiento, Usuario usuario) {
         List<DevolucionItem> items = devolucionItemService.findByDevolucionId(d.getId());
         if (items.isEmpty()) {
             throw new GraphQLException("No se puede procesar una devolucion sin items");
         }
+        boolean permiteNegativo = Boolean.TRUE.equals(applicationContext
+                .getBean(DevolucionConfiguracionService.class).getConfiguracion().getPermitirStockNegativo());
         Long sucId = d.getSucursalOrigen().getId();
         for (DevolucionItem item : items) {
             double cantidadBase = cantidadEnUnidadBase(item);
             Double stockActual = movimientoStockService.stockByProductoIdAndSucursalId(item.getProducto().getId(), sucId);
             if (stockActual == null) stockActual = 0.0;
-            if (stockActual < cantidadBase) {
+            if (!permiteNegativo && stockActual < cantidadBase) {
                 throw new GraphQLException("Stock insuficiente para " + item.getProducto().getDescripcion()
                         + ". Actual: " + stockActual + ", requerido: " + cantidadBase);
             }

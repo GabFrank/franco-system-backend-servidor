@@ -74,4 +74,9 @@ public class DevolucionConfiguracion implements Identifiable<Long> {
 
     @Column(name = "alerta_bloqueante")
     private Boolean alertaBloqueante;
+
+    // ---- Stock ----
+    /** Si true, permite separar/devolver aunque el stock quede negativo. */
+    @Column(name = "permitir_stock_negativo")
+    private Boolean permitirStockNegativo;
 }

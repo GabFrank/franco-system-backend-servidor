@@ -17,4 +17,5 @@ public class DevolucionConfiguracionInput {
     private String tipoGastoMerma;
     private Boolean alertaIncluyeRetirado;
     private Boolean alertaBloqueante;
+    private Boolean permitirStockNegativo;
 }

@@ -111,6 +111,15 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     @Override
     @Transactional
     public Devolucion save(Devolucion entity) {
+        // Una devolucion nunca puede vincularse al servidor (sucursal id 0) ni
+        // quedar sin sucursal. Se valida solo al crear (id null) para no afectar
+        // los save internos de las transiciones de estado.
+        if (entity.getId() == null) {
+            Sucursal origen = entity.getSucursalOrigen();
+            if (origen == null || origen.getId() == null || origen.getId() == 0L) {
+                throw new GraphQLException("La devolucion debe tener una sucursal de origen valida (no el servidor)");
+            }
+        }
         if (entity.getFecha() == null) entity.setFecha(LocalDateTime.now());
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         if (entity.getEstado() == null) entity.setEstado(DevolucionEstado.PENDIENTE);

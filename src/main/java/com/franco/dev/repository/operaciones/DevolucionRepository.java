@@ -98,7 +98,8 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
            "SUM(CASE WHEN d.tipo = com.franco.dev.domain.operaciones.enums.TipoDevolucion.SIN_PROVEEDOR THEN 1 ELSE 0 END), " +
            "SUM(CASE WHEN d.tipo = com.franco.dev.domain.operaciones.enums.TipoDevolucion.CON_PROVEEDOR " +
            "     AND d.estado IN (com.franco.dev.domain.operaciones.enums.DevolucionEstado.PENDIENTE, " +
-           "                      com.franco.dev.domain.operaciones.enums.DevolucionEstado.SEPARADO) THEN 1 ELSE 0 END)) " +
+           "                      com.franco.dev.domain.operaciones.enums.DevolucionEstado.SEPARADO, " +
+           "                      com.franco.dev.domain.operaciones.enums.DevolucionEstado.COLECTADO) THEN 1 ELSE 0 END)) " +
            "FROM Devolucion d " +
            "WHERE d.fecha >= :fechaInicio AND d.fecha <= :fechaFin " +
            "AND (cast(:sucursalId as long) IS NULL OR d.sucursalOrigen.id = :sucursalId)")

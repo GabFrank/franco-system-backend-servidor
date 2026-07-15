@@ -572,6 +572,12 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
     // Compatibilidad con la API previa
     // ------------------------------------------------------------------
 
+    /**
+     * @deprecated Flujo legacy (SEPARADO+RETIRADO en un paso). Ningun cliente lo
+     * usa hoy; crea una cabecera de retiro de 1 linea fuera del flujo coordinado.
+     * Usar el flujo por estados / retiro en bloque.
+     */
+    @Deprecated
     @Transactional
     public Devolucion confirmarDevolucion(Long devolucionId) {
         Devolucion d = findById(devolucionId).orElseThrow(

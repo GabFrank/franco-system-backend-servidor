@@ -182,7 +182,16 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 break;
             case RETIRADO:
                 // El proveedor retira: la mercaderia ya salio del stock al separarse.
-                // Solo cambia el estado, sin movimiento de stock.
+                // Solo cambia el estado, sin movimiento de stock. Se crea una cabecera
+                // de retiro (1 linea) para que el retiro individual tambien quede en el
+                // historial de operaciones, igual que el retiro en bloque.
+                if (d.getRetiro() == null) {
+                    if (d.getProveedor() == null) {
+                        throw new GraphQLException("La devolucion no tiene proveedor; no se puede retirar");
+                    }
+                    d.setRetiro(applicationContext.getBean(RetiroDevolucionService.class)
+                            .crear(d.getProveedor(), ejecutor));
+                }
                 break;
             case DESCARTADO:
                 // El stock ya bajo al separar; aca solo se confirma la perdida (gasto).
@@ -231,12 +240,18 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         ColectaDevolucion colectaPrevio = d.getColecta();
         switch (actual) {
             case RETIRADO: {
-                // El retiro no movio stock: solo vuelve al estado fisico previo.
-                boolean fueColectada = d.getColectadoEn() != null
-                        && d.getSucursalUbicacion() != null
-                        && d.getSucursalOrigen() != null
-                        && !d.getSucursalUbicacion().getId().equals(d.getSucursalOrigen().getId());
-                d.setEstado(fueColectada ? DevolucionEstado.COLECTADO : DevolucionEstado.SEPARADO);
+                // El retiro no movio stock: solo vuelve al estado fisico previo. Se usa
+                // la existencia de la cabecera de colecta (no comparar ubicaciones, que
+                // falla si destino == origen) para saber si habia sido colectada.
+                boolean fueColectada = d.getColecta() != null;
+                if (fueColectada) {
+                    d.setEstado(DevolucionEstado.COLECTADO);
+                } else {
+                    d.setEstado(DevolucionEstado.SEPARADO);
+                    // No fue colectada: asegurar que la ubicacion vuelva al origen.
+                    d.setSucursalUbicacion(d.getSucursalOrigen());
+                    d.setColectadoEn(null);
+                }
                 d.setFinalizado(false);
                 d.setRetiro(null); // sale de la operacion de retiro
                 break;
@@ -351,6 +366,15 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
                 .findById(sucursalDestinoId)
                 .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
+        if (d.getSucursalOrigen() != null && destino.getId().equals(d.getSucursalOrigen().getId())) {
+            throw new GraphQLException("El deposito destino debe ser distinto a la sucursal de origen");
+        }
+        // Cabecera de colecta (1 linea) para que la colecta individual tambien quede
+        // en el historial de operaciones, igual que la colecta en bloque.
+        if (d.getColecta() == null) {
+            d.setColecta(applicationContext.getBean(ColectaDevolucionService.class)
+                    .crear(d.getSucursalOrigen(), destino, usuario));
+        }
         d.setSucursalUbicacion(destino);
         d.setColectadoEn(LocalDateTime.now());
         d.setEstado(DevolucionEstado.COLECTADO);
@@ -499,8 +523,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
             total += costo * (item.getCantidad() != null ? item.getCantidad() : 0.0);
         }
 
-        // Si ningun item genera gasto (respetaMotivo y todos exentos), no se crea gasto.
-        if (respetaMotivo && total == 0.0) {
+        // No crear un gasto en $0 (items sin costo cargado, o todos exentos por motivo):
+        // ensucia los reportes financieros sin aportar informacion.
+        if (total == 0.0) {
             return;
         }
 
@@ -835,6 +860,9 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
                 .findById(sucursalDestinoId)
                 .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
+        if (d.getSucursalOrigen() != null && destino.getId().equals(d.getSucursalOrigen().getId())) {
+            throw new GraphQLException("El deposito destino debe ser distinto a la sucursal de origen");
+        }
         d.setSucursalUbicacion(destino);
         d.setColectadoEn(LocalDateTime.now());
         d.setEstado(DevolucionEstado.COLECTADO);

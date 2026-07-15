@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -216,7 +217,10 @@ class DevolucionOperacionesTest {
         Sucursal origen = sucursal(10), deposito = sucursal(99);
         Devolucion d = dev(1L, DevolucionEstado.RETIRADO, origen);
         d.setColectadoEn(java.time.LocalDateTime.now());
-        d.setSucursalUbicacion(deposito); // ubicacion != origen -> fue colectada
+        d.setSucursalUbicacion(deposito);
+        ColectaDevolucion colecta = new ColectaDevolucion();
+        colecta.setId(3L);
+        d.setColecta(colecta); // tiene cabecera de colecta -> fue colectada
         RetiroDevolucion retiro = new RetiroDevolucion();
         retiro.setId(5L);
         d.setRetiro(retiro);
@@ -228,6 +232,7 @@ class DevolucionOperacionesTest {
 
         assertEquals(DevolucionEstado.COLECTADO, res.getEstado());
         assertNull(res.getRetiro());
+        assertNotNull(res.getColecta()); // sigue perteneciendo a la colecta
     }
 
     @Test

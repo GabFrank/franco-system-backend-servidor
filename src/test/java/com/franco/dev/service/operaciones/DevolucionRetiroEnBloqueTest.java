@@ -1,18 +1,24 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.domain.operaciones.Devolucion;
+import com.franco.dev.domain.operaciones.RetiroDevolucion;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroDevolucionResultadoDto;
+import com.franco.dev.domain.personas.Proveedor;
+import com.franco.dev.repository.operaciones.DevolucionRepository;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationContext;
 
 import java.util.Arrays;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -21,36 +27,58 @@ import static org.mockito.Mockito.when;
  * Unit test de la logica de retiro en bloque (retirarEnBloque).
  *
  * Contrato clave: el fallo de una devolucion (ej. stock insuficiente) NO aborta
- * el resto; cada una se reporta por id (ok / mensaje).
+ * el resto; cada una se reporta por id (ok / mensaje). Ademas, retirarEnBloque
+ * valida que todas sean del mismo proveedor y crea una cabecera RetiroDevolucion.
  *
- * retirarEnBloque delega en avanzarEstado a traves del proxy Spring
- * (applicationContext.getBean(DevolucionService.class)) para que aplique su
- * @Transactional por devolucion. Aca se mockea ese "self" para aislar la logica
- * de agregacion de resultados.
+ * Se mockea el repository (findById devuelve devoluciones con el mismo proveedor),
+ * el RetiroDevolucionService (crea la cabecera) y el "self" proxy (retirarLinea).
  *
- * Nota: la construccion usa el constructor generado por Lombok @AllArgsConstructor
- * (orden de declaracion de campos: repository, devolucionItemService,
+ * Constructor Lombok @AllArgsConstructor (orden): repository, devolucionItemService,
  * devolucionItemRepository, movimientoStockService, productoVencimientoService,
- * gastoService, gastoRepository, tipoGastoRepository, codigoService,
- * applicationContext). Solo importa que applicationContext sea el ultimo; el
- * resto van null porque el test solo ejercita retirarEnBloque.
+ * gastoService, gastoRepository, tipoGastoRepository, codigoService, applicationContext.
  */
 class DevolucionRetiroEnBloqueTest {
 
-    private DevolucionService buildService(DevolucionService self) {
+    private Proveedor proveedor(long id) {
+        Proveedor p = new Proveedor();
+        p.setId(id);
+        return p;
+    }
+
+    private Devolucion devConProveedor(long id, Proveedor p) {
+        Devolucion d = new Devolucion();
+        d.setId(id);
+        d.setProveedor(p);
+        return d;
+    }
+
+    private DevolucionService buildService(DevolucionService self, DevolucionRepository repository,
+                                           RetiroDevolucionService retiroService) {
         ApplicationContext ctx = mock(ApplicationContext.class);
         when(ctx.getBean(DevolucionService.class)).thenReturn(self);
-        return new DevolucionService(null, null, null, null, null, null, null, null, null, ctx);
+        when(ctx.getBean(RetiroDevolucionService.class)).thenReturn(retiroService);
+        return new DevolucionService(repository, null, null, null, null, null, null, null, null, ctx);
     }
 
     @Test
     void unaFallaNoAbortaLasDemas() {
+        Proveedor p = proveedor(1L);
+        DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.findById(1L)).thenReturn(Optional.of(devConProveedor(1L, p)));
+        when(repo.findById(2L)).thenReturn(Optional.of(devConProveedor(2L, p)));
+        when(repo.findById(3L)).thenReturn(Optional.of(devConProveedor(3L, p)));
+
+        RetiroDevolucionService retiroService = mock(RetiroDevolucionService.class);
+        RetiroDevolucion header = new RetiroDevolucion();
+        header.setId(99L);
+        when(retiroService.crear(any(), any())).thenReturn(header);
+
         DevolucionService self = mock(DevolucionService.class);
-        // La devolucion 2 no tiene stock suficiente -> lanza; 1 y 3 avanzan ok.
-        when(self.avanzarEstado(eq(2L), any(), any()))
+        // La devolucion 2 no tiene stock -> lanza; 1 y 3 se retiran ok.
+        when(self.retirarLinea(eq(2L), any(), any()))
                 .thenThrow(new GraphQLException("Stock insuficiente"));
 
-        DevolucionService service = buildService(self);
+        DevolucionService service = buildService(self, repo, retiroService);
 
         RetiroBloqueResultadoDto res =
                 service.retirarEnBloque(Arrays.asList(1L, 2L, 3L), null);
@@ -73,8 +101,17 @@ class DevolucionRetiroEnBloqueTest {
 
     @Test
     void todasOk() {
+        Proveedor p = proveedor(5L);
+        DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.findById(anyLong())).thenAnswer(inv -> Optional.of(devConProveedor(inv.getArgument(0), p)));
+
+        RetiroDevolucionService retiroService = mock(RetiroDevolucionService.class);
+        RetiroDevolucion header = new RetiroDevolucion();
+        header.setId(1L);
+        when(retiroService.crear(any(), any())).thenReturn(header);
+
         DevolucionService self = mock(DevolucionService.class);
-        DevolucionService service = buildService(self);
+        DevolucionService service = buildService(self, repo, retiroService);
 
         RetiroBloqueResultadoDto res =
                 service.retirarEnBloque(Arrays.asList(10L, 11L), null);
@@ -85,8 +122,25 @@ class DevolucionRetiroEnBloqueTest {
     }
 
     @Test
+    void proveedoresDistintosFalla() {
+        DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.findById(1L)).thenReturn(Optional.of(devConProveedor(1L, proveedor(1L))));
+        when(repo.findById(2L)).thenReturn(Optional.of(devConProveedor(2L, proveedor(2L))));
+
+        DevolucionService service = buildService(mock(DevolucionService.class), repo,
+                mock(RetiroDevolucionService.class));
+
+        try {
+            service.retirarEnBloque(Arrays.asList(1L, 2L), null);
+            org.junit.jupiter.api.Assertions.fail("Debia rechazar proveedores distintos");
+        } catch (GraphQLException e) {
+            assertTrue(e.getMessage().contains("unico proveedor"));
+        }
+    }
+
+    @Test
     void listaNulaDaResultadoVacio() {
-        DevolucionService service = buildService(mock(DevolucionService.class));
+        DevolucionService service = buildService(mock(DevolucionService.class), null, null);
 
         RetiroBloqueResultadoDto res = service.retirarEnBloque(null, null);
 

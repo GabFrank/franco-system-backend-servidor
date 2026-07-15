@@ -42,6 +42,18 @@ public interface DevolucionRepository extends HelperRepository<Devolucion, Long>
             Pageable pageable
     );
 
+    @Query("SELECT d FROM Devolucion d WHERE d.retiro.id = :retiroId")
+    List<Devolucion> findByRetiroId(@Param("retiroId") Long retiroId);
+
+    @Query("SELECT d FROM Devolucion d WHERE d.colecta.id = :colectaId")
+    List<Devolucion> findByColectaId(@Param("colectaId") Long colectaId);
+
+    @Query("SELECT COUNT(d) FROM Devolucion d WHERE d.retiro.id = :retiroId")
+    long countByRetiroId(@Param("retiroId") Long retiroId);
+
+    @Query("SELECT COUNT(d) FROM Devolucion d WHERE d.colecta.id = :colectaId")
+    long countByColectaId(@Param("colectaId") Long colectaId);
+
     @Query("SELECT d FROM Devolucion d WHERE d.proveedor.id = :proveedorId ORDER BY d.fecha DESC")
     List<Devolucion> findByProveedorId(@Param("proveedorId") Long proveedorId);
 

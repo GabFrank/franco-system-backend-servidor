@@ -45,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -226,6 +227,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
         Usuario ejecutor = usuario != null ? usuario : d.getUsuario();
         DevolucionEstado actual = d.getEstado();
+        RetiroDevolucion retiroPrevio = d.getRetiro();
+        ColectaDevolucion colectaPrevio = d.getColecta();
         switch (actual) {
             case RETIRADO: {
                 // El retiro no movio stock: solo vuelve al estado fisico previo.
@@ -235,6 +238,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                         && !d.getSucursalUbicacion().getId().equals(d.getSucursalOrigen().getId());
                 d.setEstado(fueColectada ? DevolucionEstado.COLECTADO : DevolucionEstado.SEPARADO);
                 d.setFinalizado(false);
+                d.setRetiro(null); // sale de la operacion de retiro
                 break;
             }
             case COLECTADO:
@@ -242,6 +246,7 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 d.setEstado(DevolucionEstado.SEPARADO);
                 d.setSucursalUbicacion(d.getSucursalOrigen());
                 d.setColectadoEn(null);
+                d.setColecta(null); // sale de la operacion de colecta
                 break;
             case SEPARADO:
                 // Deshace la baja de stock hecha al separar.
@@ -252,7 +257,59 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 throw new GraphQLException("No se puede revertir una devolucion en estado " + actual
                         + ". Solo se permite revertir RETIRADO, COLECTADO o SEPARADO.");
         }
-        return save(d);
+        Devolucion saved = save(d);
+        // Si la cabecera de la operacion quedo sin lineas, marcarla REVERTIDA.
+        if (actual == DevolucionEstado.RETIRADO && retiroPrevio != null
+                && repository.countByRetiroId(retiroPrevio.getId()) == 0) {
+            RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
+            rs.findById(retiroPrevio.getId()).ifPresent(h -> {
+                h.setEstado(RetiroDevolucion.ESTADO_REVERTIDO);
+                rs.save(h);
+            });
+        }
+        if (actual == DevolucionEstado.COLECTADO && colectaPrevio != null
+                && repository.countByColectaId(colectaPrevio.getId()) == 0) {
+            ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
+            cs.findById(colectaPrevio.getId()).ifPresent(h -> {
+                h.setEstado(ColectaDevolucion.ESTADO_REVERTIDO);
+                cs.save(h);
+            });
+        }
+        return saved;
+    }
+
+    /**
+     * Revierte una operacion de retiro completa: cada linea vuelve a su estado
+     * previo (RETIRADO -> COLECTADO/SEPARADO) y la cabecera queda REVERTIDA.
+     */
+    @Transactional
+    public RetiroDevolucion revertirRetiro(Long retiroId, Usuario usuario) {
+        RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
+        RetiroDevolucion header = rs.findById(retiroId).orElseThrow(
+                () -> new GraphQLException("Operacion de retiro no encontrada: " + retiroId));
+        DevolucionService self = applicationContext.getBean(DevolucionService.class);
+        for (Devolucion d : repository.findByRetiroId(retiroId)) {
+            self.revertirEstado(d.getId(), usuario);
+        }
+        header.setEstado(RetiroDevolucion.ESTADO_REVERTIDO);
+        return rs.save(header);
+    }
+
+    /**
+     * Revierte una operacion de colecta completa: cada linea vuelve a SEPARADO
+     * en su origen y la cabecera queda REVERTIDA.
+     */
+    @Transactional
+    public ColectaDevolucion revertirColecta(Long colectaId, Usuario usuario) {
+        ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
+        ColectaDevolucion header = cs.findById(colectaId).orElseThrow(
+                () -> new GraphQLException("Operacion de colecta no encontrada: " + colectaId));
+        DevolucionService self = applicationContext.getBean(DevolucionService.class);
+        for (Devolucion d : repository.findByColectaId(colectaId)) {
+            self.revertirEstado(d.getId(), usuario);
+        }
+        header.setEstado(ColectaDevolucion.ESTADO_REVERTIDO);
+        return cs.save(header);
     }
 
     private TipoMovimiento tipoBajaSeparado(Devolucion d) {
@@ -636,44 +693,136 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
      */
     public RetiroBloqueResultadoDto retirarEnBloque(List<Long> devolucionIds, Usuario usuario) {
         List<RetiroDevolucionResultadoDto> resultados = new ArrayList<>();
-        if (devolucionIds != null) {
-            // Se invoca a traves del proxy (getBean) y NO por this.avanzarEstado(...) para
-            // que el @Transactional de avanzarEstado aplique: cada devolucion se procesa en
-            // su propia transaccion (atomica y con rollback ante fallo) sin que el error de
-            // una arrastre a las demas.
-            DevolucionService self = applicationContext.getBean(DevolucionService.class);
-            for (Long id : devolucionIds) {
-                try {
-                    self.avanzarEstado(id, DevolucionEstado.RETIRADO, usuario);
-                    resultados.add(new RetiroDevolucionResultadoDto(id, true, "RETIRADO"));
-                } catch (Exception e) {
-                    resultados.add(new RetiroDevolucionResultadoDto(id, false, e.getMessage()));
+        if (devolucionIds == null || devolucionIds.isEmpty()) {
+            return new RetiroBloqueResultadoDto(resultados);
+        }
+        // Una operacion de retiro = un unico proveedor. Se crea la cabecera y cada
+        // linea se procesa en su propia transaccion (via proxy) sin arrastrar fallos.
+        Proveedor proveedor = validarMismoProveedor(devolucionIds);
+        RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
+        RetiroDevolucion header = rs.crear(proveedor, usuario);
+        DevolucionService self = applicationContext.getBean(DevolucionService.class);
+        int ok = 0;
+        for (Long id : devolucionIds) {
+            try {
+                self.retirarLinea(id, header.getId(), usuario);
+                resultados.add(new RetiroDevolucionResultadoDto(id, true, "RETIRADO"));
+                ok++;
+            } catch (Exception e) {
+                resultados.add(new RetiroDevolucionResultadoDto(id, false, e.getMessage()));
+            }
+        }
+        if (ok == 0) {
+            rs.delete(header.getId());
+        }
+        return new RetiroBloqueResultadoDto(resultados);
+    }
+
+    /** Todas las devoluciones deben ser del mismo proveedor; devuelve ese proveedor. */
+    private Proveedor validarMismoProveedor(List<Long> devolucionIds) {
+        Proveedor proveedor = null;
+        for (Long id : devolucionIds) {
+            Devolucion d = findById(id).orElseThrow(
+                    () -> new GraphQLException("Devolucion no encontrada: " + id));
+            if (d.getProveedor() == null) {
+                throw new GraphQLException("La devolucion " + id + " no tiene proveedor; no se puede retirar");
+            }
+            if (proveedor == null) {
+                proveedor = d.getProveedor();
+            } else if (!proveedor.getId().equals(d.getProveedor().getId())) {
+                throw new GraphQLException("El retiro debe ser de un unico proveedor");
+            }
+        }
+        return proveedor;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Devolucion> findByRetiroId(Long retiroId) {
+        return repository.findByRetiroId(retiroId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Devolucion> findByColectaId(Long colectaId) {
+        return repository.findByColectaId(colectaId);
+    }
+
+    /** Una linea del retiro: pasa a RETIRADO (sin stock) y la vincula a la cabecera. */
+    @Transactional
+    public Devolucion retirarLinea(Long devolucionId, Long retiroId, Usuario usuario) {
+        Devolucion d = findById(devolucionId).orElseThrow(
+                () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
+        validarTransicion(d, DevolucionEstado.RETIRADO);
+        d.setEstado(DevolucionEstado.RETIRADO); // el retiro no mueve stock
+        RetiroDevolucion retiro = applicationContext.getBean(RetiroDevolucionService.class)
+                .findById(retiroId).orElse(null);
+        d.setRetiro(retiro);
+        return save(d);
+    }
+
+    /**
+     * Colecta interna en bloque: agrupa por sucursal de origen y crea una cabecera
+     * de colecta por cada origen (una colecta = un viaje origen -> destino). El
+     * fallo de una linea no aborta el resto; cada linea corre en su propia tx.
+     */
+    public RetiroBloqueResultadoDto colectarEnBloque(List<Long> devolucionIds, Long sucursalDestinoId,
+                                                     Usuario usuario) {
+        List<RetiroDevolucionResultadoDto> resultados = new ArrayList<>();
+        if (devolucionIds == null || devolucionIds.isEmpty()) {
+            return new RetiroBloqueResultadoDto(resultados);
+        }
+        if (sucursalDestinoId == null) {
+            throw new GraphQLException("La sucursal destino es requerida para colectar");
+        }
+        Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
+                .findById(sucursalDestinoId)
+                .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
+        ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
+        DevolucionService self = applicationContext.getBean(DevolucionService.class);
+        Map<Long, Long> colectaIdPorOrigen = new HashMap<>();
+        Map<Long, Integer> okPorColecta = new HashMap<>();
+        for (Long id : devolucionIds) {
+            try {
+                Devolucion d = findById(id).orElseThrow(
+                        () -> new GraphQLException("Devolucion no encontrada: " + id));
+                Long origenId = d.getSucursalOrigen().getId();
+                Long colectaId = colectaIdPorOrigen.get(origenId);
+                if (colectaId == null) {
+                    colectaId = cs.crear(d.getSucursalOrigen(), destino, usuario).getId();
+                    colectaIdPorOrigen.put(origenId, colectaId);
+                    okPorColecta.put(colectaId, 0);
                 }
+                self.colectarLinea(id, sucursalDestinoId, colectaId, usuario);
+                okPorColecta.merge(colectaId, 1, Integer::sum);
+                resultados.add(new RetiroDevolucionResultadoDto(id, true, "COLECTADO"));
+            } catch (Exception e) {
+                resultados.add(new RetiroDevolucionResultadoDto(id, false, e.getMessage()));
+            }
+        }
+        // Limpiar cabeceras que no recibieron ninguna linea.
+        for (Long colectaId : colectaIdPorOrigen.values()) {
+            if (okPorColecta.getOrDefault(colectaId, 0) == 0) {
+                cs.delete(colectaId);
             }
         }
         return new RetiroBloqueResultadoDto(resultados);
     }
 
-    /**
-     * Colecta interna en bloque: envia varias devoluciones SEPARADAS a un deposito
-     * (cada una pasa a COLECTADO con la nueva ubicacion). El fallo de una no aborta
-     * el resto; se reporta por id. Cada colecta corre en su propia transaccion.
-     */
-    public RetiroBloqueResultadoDto colectarEnBloque(List<Long> devolucionIds, Long sucursalDestinoId,
-                                                     Usuario usuario) {
-        List<RetiroDevolucionResultadoDto> resultados = new ArrayList<>();
-        if (devolucionIds != null) {
-            DevolucionService self = applicationContext.getBean(DevolucionService.class);
-            for (Long id : devolucionIds) {
-                try {
-                    self.colectar(id, sucursalDestinoId, usuario);
-                    resultados.add(new RetiroDevolucionResultadoDto(id, true, "COLECTADO"));
-                } catch (Exception e) {
-                    resultados.add(new RetiroDevolucionResultadoDto(id, false, e.getMessage()));
-                }
-            }
-        }
-        return new RetiroBloqueResultadoDto(resultados);
+    /** Una linea de la colecta: pasa a COLECTADO en el destino y la vincula a la cabecera. */
+    @Transactional
+    public Devolucion colectarLinea(Long devolucionId, Long sucursalDestinoId, Long colectaId, Usuario usuario) {
+        Devolucion d = findById(devolucionId).orElseThrow(
+                () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
+        validarTransicion(d, DevolucionEstado.COLECTADO);
+        Sucursal destino = applicationContext.getBean(com.franco.dev.service.empresarial.SucursalService.class)
+                .findById(sucursalDestinoId)
+                .orElseThrow(() -> new GraphQLException("Sucursal destino no encontrada: " + sucursalDestinoId));
+        d.setSucursalUbicacion(destino);
+        d.setColectadoEn(LocalDateTime.now());
+        d.setEstado(DevolucionEstado.COLECTADO);
+        ColectaDevolucion colecta = applicationContext.getBean(ColectaDevolucionService.class)
+                .findById(colectaId).orElse(null);
+        d.setColecta(colecta);
+        return save(d);
     }
 
     // ===================== Dashboard =====================

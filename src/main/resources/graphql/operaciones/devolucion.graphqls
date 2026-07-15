@@ -20,6 +20,8 @@ type Devolucion {
     finalizado: Boolean
     usuario: Usuario
     items: [DevolucionItem]
+    retiro: RetiroDevolucion
+    colecta: ColectaDevolucion
 }
 
 input DevolucionInput {

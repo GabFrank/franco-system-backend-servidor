@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.Devolucion;
+import com.franco.dev.domain.operaciones.RetiroDevolucion;
+import com.franco.dev.domain.operaciones.ColectaDevolucion;
 import com.franco.dev.domain.operaciones.dto.RetiroBloqueResultadoDto;
 import com.franco.dev.domain.operaciones.dto.RetiroProveedorConsolidadoDto;
 import com.franco.dev.domain.operaciones.enums.DevolucionEstado;
@@ -10,6 +12,9 @@ import com.franco.dev.service.impresion.RemitoRetiroService;
 import com.franco.dev.service.impresion.TicketRetiroService;
 import com.franco.dev.service.impresion.EtiquetaDevolucionService;
 import com.franco.dev.service.operaciones.DevolucionService;
+import com.franco.dev.service.operaciones.RetiroDevolucionService;
+import com.franco.dev.service.operaciones.ColectaDevolucionService;
+import java.util.stream.Collectors;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
@@ -54,6 +59,12 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private EtiquetaDevolucionService etiquetaDevolucionService;
+
+    @Autowired
+    private RetiroDevolucionService retiroDevolucionService;
+
+    @Autowired
+    private ColectaDevolucionService colectaDevolucionService;
 
     /**
      * Obtiene una devolución por ID
@@ -259,6 +270,71 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                 ? usuarioService.findById(usuarioId).orElse(null) : null;
         try {
             return service.revertirEstado(devolucionId, usuario);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    // ===================== Operaciones: retiro / colecta (cabeceras) =====================
+
+    public Page<RetiroDevolucion> retirosDevolucion(Long proveedorId, String fechaInicio, String fechaFin,
+                                                    Integer page, Integer size) {
+        if (page == null) page = 0;
+        if (size == null) size = 20;
+        LocalDateTime desde = fechaInicio != null ? stringToDate(fechaInicio) : null;
+        LocalDateTime hasta = fechaFin != null ? stringToDate(fechaFin) : null;
+        return retiroDevolucionService.findByFilters(proveedorId, desde, hasta, PageRequest.of(page, size));
+    }
+
+    public Page<ColectaDevolucion> colectasDevolucion(Long sucursalOrigenId, Long sucursalDestinoId,
+                                                      String fechaInicio, String fechaFin,
+                                                      Integer page, Integer size) {
+        if (page == null) page = 0;
+        if (size == null) size = 20;
+        LocalDateTime desde = fechaInicio != null ? stringToDate(fechaInicio) : null;
+        LocalDateTime hasta = fechaFin != null ? stringToDate(fechaFin) : null;
+        return colectaDevolucionService.findByFilters(sucursalOrigenId, sucursalDestinoId, desde, hasta,
+                PageRequest.of(page, size));
+    }
+
+    public RetiroDevolucion retiroDevolucion(Long id) {
+        if (id == null) throw new GraphQLException("id es requerido");
+        return retiroDevolucionService.findById(id).orElse(null);
+    }
+
+    public ColectaDevolucion colectaDevolucion(Long id) {
+        if (id == null) throw new GraphQLException("id es requerido");
+        return colectaDevolucionService.findById(id).orElse(null);
+    }
+
+    /** Remito PDF (base64) de una operacion de retiro completa. */
+    public String remitoRetiro(Long retiroId) {
+        if (retiroId == null) throw new GraphQLException("retiroId es requerido");
+        List<Long> ids = service.findByRetiroId(retiroId).stream()
+                .map(Devolucion::getId).collect(Collectors.toList());
+        if (ids.isEmpty()) throw new GraphQLException("La operacion de retiro no tiene devoluciones");
+        return remitoRetiroService.generarRemitoRetiroProveedor(ids);
+    }
+
+    @Transactional
+    public RetiroDevolucion revertirRetiroDevolucion(Long retiroId, Long usuarioId) {
+        if (retiroId == null) throw new GraphQLException("retiroId es requerido");
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return service.revertirRetiro(retiroId, usuario);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    @Transactional
+    public ColectaDevolucion revertirColectaDevolucion(Long colectaId, Long usuarioId) {
+        if (colectaId == null) throw new GraphQLException("colectaId es requerido");
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return service.revertirColecta(colectaId, usuario);
         } catch (Exception e) {
             throw new GraphQLException(e.getMessage());
         }

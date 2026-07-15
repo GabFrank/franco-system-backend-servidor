@@ -72,6 +72,16 @@ public class Devolucion implements Identifiable<Long> {
     @Column(name = "colectado_en")
     private LocalDateTime colectadoEn;
 
+    /** Operacion de colecta interna a la que pertenece (nullable). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "colecta_id")
+    private ColectaDevolucion colecta;
+
+    /** Operacion de retiro a proveedor a la que pertenece (nullable). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "retiro_id")
+    private RetiroDevolucion retiro;
+
     @Column(name = "fecha", nullable = false)
     private LocalDateTime fecha;
 

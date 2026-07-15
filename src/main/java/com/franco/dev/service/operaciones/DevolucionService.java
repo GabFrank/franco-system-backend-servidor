@@ -287,8 +287,17 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         RetiroDevolucionService rs = applicationContext.getBean(RetiroDevolucionService.class);
         RetiroDevolucion header = rs.findById(retiroId).orElseThrow(
                 () -> new GraphQLException("Operacion de retiro no encontrada: " + retiroId));
+        List<Devolucion> lineas = repository.findByRetiroId(retiroId);
+        // Solo se revierte un retiro si sus lineas siguen en RETIRADO. Si alguna
+        // ya fue canjeada/acreditada, no es reversible (efectos financieros).
+        long finalizadas = lineas.stream()
+                .filter(d -> d.getEstado() != DevolucionEstado.RETIRADO).count();
+        if (finalizadas > 0) {
+            throw new GraphQLException("No se puede revertir el retiro: " + finalizadas
+                    + " devolucion(es) ya fueron canjeadas o acreditadas.");
+        }
         DevolucionService self = applicationContext.getBean(DevolucionService.class);
-        for (Devolucion d : repository.findByRetiroId(retiroId)) {
+        for (Devolucion d : lineas) {
             self.revertirEstado(d.getId(), usuario);
         }
         header.setEstado(RetiroDevolucion.ESTADO_REVERTIDO);
@@ -304,8 +313,18 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         ColectaDevolucionService cs = applicationContext.getBean(ColectaDevolucionService.class);
         ColectaDevolucion header = cs.findById(colectaId).orElseThrow(
                 () -> new GraphQLException("Operacion de colecta no encontrada: " + colectaId));
+        List<Devolucion> lineas = repository.findByColectaId(colectaId);
+        // No se puede revertir una colecta si alguna de sus devoluciones ya fue
+        // retirada por el proveedor: hay que revertir el retiro primero. Sin este
+        // bloqueo, revertir la colecta cascadearia y desharia el retiro.
+        long retiradas = lineas.stream()
+                .filter(d -> d.getEstado() != DevolucionEstado.COLECTADO).count();
+        if (retiradas > 0) {
+            throw new GraphQLException("No se puede revertir la colecta: " + retiradas
+                    + " devolucion(es) ya fueron retiradas por el proveedor. Reverti el retiro primero.");
+        }
         DevolucionService self = applicationContext.getBean(DevolucionService.class);
-        for (Devolucion d : repository.findByColectaId(colectaId)) {
+        for (Devolucion d : lineas) {
             self.revertirEstado(d.getId(), usuario);
         }
         header.setEstado(ColectaDevolucion.ESTADO_REVERTIDO);

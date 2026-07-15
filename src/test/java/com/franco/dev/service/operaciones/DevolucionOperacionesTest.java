@@ -343,6 +343,54 @@ class DevolucionOperacionesTest {
         assertEquals(ColectaDevolucion.ESTADO_REVERTIDO, res.getEstado());
     }
 
+    @Test
+    void revertirColecta_conLineaRetirada_bloquea() {
+        ColectaDevolucion header = new ColectaDevolucion();
+        header.setId(8L);
+        ColectaDevolucionService cs = mock(ColectaDevolucionService.class);
+        when(cs.findById(8L)).thenReturn(Optional.of(header));
+
+        DevolucionRepository repo = mock(DevolucionRepository.class);
+        // Una linea sigue COLECTADO, otra ya fue RETIRADA -> debe bloquear.
+        when(repo.findByColectaId(8L)).thenReturn(Arrays.asList(
+                dev(1L, DevolucionEstado.COLECTADO, sucursal(10)),
+                dev(2L, DevolucionEstado.RETIRADO, sucursal(10))));
+
+        DevolucionService self = mock(DevolucionService.class);
+        ApplicationContext ctx = mock(ApplicationContext.class);
+        when(ctx.getBean(ColectaDevolucionService.class)).thenReturn(cs);
+        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
+
+        DevolucionService service = build(repo, null, ctx);
+        assertThrows(GraphQLException.class, () -> service.revertirColecta(8L, null));
+        // No debe revertir ninguna linea ni marcar la cabecera.
+        verify(self, never()).revertirEstado(anyLong(), any());
+        verify(cs, never()).save(any());
+    }
+
+    @Test
+    void revertirRetiro_conLineaCanjeada_bloquea() {
+        RetiroDevolucion header = new RetiroDevolucion();
+        header.setId(5L);
+        RetiroDevolucionService rs = mock(RetiroDevolucionService.class);
+        when(rs.findById(5L)).thenReturn(Optional.of(header));
+
+        DevolucionRepository repo = mock(DevolucionRepository.class);
+        when(repo.findByRetiroId(5L)).thenReturn(Arrays.asList(
+                dev(1L, DevolucionEstado.RETIRADO, sucursal(10)),
+                dev(2L, DevolucionEstado.CANJEADO, sucursal(10))));
+
+        DevolucionService self = mock(DevolucionService.class);
+        ApplicationContext ctx = mock(ApplicationContext.class);
+        when(ctx.getBean(RetiroDevolucionService.class)).thenReturn(rs);
+        when(ctx.getBean(DevolucionService.class)).thenReturn(self);
+
+        DevolucionService service = build(repo, null, ctx);
+        assertThrows(GraphQLException.class, () -> service.revertirRetiro(5L, null));
+        verify(self, never()).revertirEstado(anyLong(), any());
+        verify(rs, never()).save(any());
+    }
+
     // ===================== guard sucursal servidor =====================
 
     @Test

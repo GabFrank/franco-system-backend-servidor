@@ -247,6 +247,24 @@ public class DevolucionGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     /**
+     * Revierte la devolución un estado hacia atrás (solo transiciones seguras:
+     * RETIRADO/COLECTADO/SEPARADO). Ver DevolucionService.revertirEstado.
+     */
+    @Transactional
+    public Devolucion revertirEstadoDevolucion(Long devolucionId, Long usuarioId) {
+        if (devolucionId == null) {
+            throw new GraphQLException("devolucionId es requerido");
+        }
+        com.franco.dev.domain.personas.Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return service.revertirEstado(devolucionId, usuario);
+        } catch (Exception e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
      * Registra la nota de crédito del proveedor y finaliza la devolución (ACREDITADO).
      */
     @Transactional

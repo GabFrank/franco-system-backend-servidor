@@ -212,6 +212,49 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         return save(d);
     }
 
+    /**
+     * Revierte la devolucion un estado hacia atras, solo para transiciones
+     * seguras (sin efectos financieros): RETIRADO -> (COLECTADO|SEPARADO segun
+     * si fue colectada), COLECTADO -> SEPARADO (resetea ubicacion), SEPARADO ->
+     * PENDIENTE (reingresa el stock bajado al separar). No revierte
+     * CANJEADO/ACREDITADO/DESCARTADO (nota de credito / merma / reingreso de
+     * canje) ni PENDIENTE/CANCELADA.
+     */
+    @Transactional
+    public Devolucion revertirEstado(Long devolucionId, Usuario usuario) {
+        Devolucion d = findById(devolucionId).orElseThrow(
+                () -> new GraphQLException("Devolucion no encontrada: " + devolucionId));
+        Usuario ejecutor = usuario != null ? usuario : d.getUsuario();
+        DevolucionEstado actual = d.getEstado();
+        switch (actual) {
+            case RETIRADO: {
+                // El retiro no movio stock: solo vuelve al estado fisico previo.
+                boolean fueColectada = d.getColectadoEn() != null
+                        && d.getSucursalUbicacion() != null
+                        && d.getSucursalOrigen() != null
+                        && !d.getSucursalUbicacion().getId().equals(d.getSucursalOrigen().getId());
+                d.setEstado(fueColectada ? DevolucionEstado.COLECTADO : DevolucionEstado.SEPARADO);
+                d.setFinalizado(false);
+                break;
+            }
+            case COLECTADO:
+                // Vuelve a SEPARADO en la sucursal de origen; no movio stock.
+                d.setEstado(DevolucionEstado.SEPARADO);
+                d.setSucursalUbicacion(d.getSucursalOrigen());
+                d.setColectadoEn(null);
+                break;
+            case SEPARADO:
+                // Deshace la baja de stock hecha al separar.
+                reingresarSeparado(d, ejecutor);
+                d.setEstado(DevolucionEstado.PENDIENTE);
+                break;
+            default:
+                throw new GraphQLException("No se puede revertir una devolucion en estado " + actual
+                        + ". Solo se permite revertir RETIRADO, COLECTADO o SEPARADO.");
+        }
+        return save(d);
+    }
+
     private TipoMovimiento tipoBajaSeparado(Devolucion d) {
         return d.getTipo() == TipoDevolucion.CON_PROVEEDOR
                 ? TipoMovimiento.DEVOLUCION : TipoMovimiento.DESCARTE;

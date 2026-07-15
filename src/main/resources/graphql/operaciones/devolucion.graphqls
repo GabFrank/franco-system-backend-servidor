@@ -81,6 +81,7 @@ extend type Mutation {
     confirmarDevolucion(devolucionId: ID!): Devolucion!
     cancelarDevolucion(devolucionId: ID!, motivoCancelacion: String): Devolucion!
     avanzarEstadoDevolucion(devolucionId: ID!, estado: DevolucionEstado!, usuarioId: ID): Devolucion!
+    revertirEstadoDevolucion(devolucionId: ID!, usuarioId: ID): Devolucion!
     acreditarDevolucion(devolucionId: ID!, nroNotaCredito: String, montoAcreditado: Float, usuarioId: ID): Devolucion!
 }
 

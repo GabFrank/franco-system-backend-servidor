@@ -71,6 +71,7 @@ input VehiculoInput {
     cantidadCuotasPagadas: Int
     diaVencimiento: Int
     usuarioId: ID
+    cuotasDetalle: [CuotaDetalleInput]
 }
 
 type VehiculoPage {

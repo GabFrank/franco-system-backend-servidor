@@ -185,24 +185,6 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
         // public Page<Venta> findWithFilters(Long id, Long sucId, Long formaPagoId,
         // VentaEstado estado, Pageable pageable, Boolean isDelivery, Long monedaId);
 
-        // Excluye ventas con cobro_detalle corrupto (pagos/vueltos >= 2.000.000.000 Gs).
-        // Filtrar solo cd.valor < 2e9 por fila no alcanza: vueltos negativos enormes pasan el filtro
-        // y al restarlos en la suma inflan el total del reporte.
-        @Query(value = "SELECT s.id, s.nombre, SUM(v.total_gs) " +
-                        "FROM operaciones.venta v " +
-                        "JOIN empresarial.sucursal s ON v.sucursal_id = s.id " +
-                        "WHERE v.creado_en BETWEEN :inicio AND :fin " +
-                        "AND v.estado = 'CONCLUIDA' " +
-                        "AND NOT EXISTS ( " +
-                        "  SELECT 1 FROM operaciones.cobro_detalle cd_bad " +
-                        "  WHERE cd_bad.cobro_id = v.cobro_id AND cd_bad.sucursal_id = v.sucursal_id " +
-                        "  AND ABS(cd_bad.valor * COALESCE(cd_bad.cambio, 1)) >= 2000000000 " +
-                        ") " +
-                        "GROUP BY s.id, s.nombre " +
-                        "ORDER BY SUM(v.total_gs) DESC", nativeQuery = true)
-        List<Object[]> getVentasPorSucursal(@Param("inicio") LocalDateTime inicio,
-                        @Param("fin") LocalDateTime fin);
-
         public List<Venta> findAllByCajaIdAndSucursalIdAndDeliveryEstadoIn(Long id, Long sucId,
                         List<DeliveryEstado> estadoList);
 

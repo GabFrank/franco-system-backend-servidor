@@ -5,7 +5,10 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.EnteCuota;
 import com.franco.dev.domain.financiero.EnteFinanciero;
 import com.franco.dev.domain.financiero.Gasto;
+import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.PreGasto;
+import com.franco.dev.domain.financiero.PreGastoDetalleFinanzas;
+import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.enums.EstadoPreGasto;
 import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
@@ -19,14 +22,28 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.activos.EnteService;
 import com.franco.dev.service.activos.InmuebleService;
 import com.franco.dev.service.activos.VehiculoService;
+import com.franco.dev.service.activos.util.ActivoPagoNormalizer;
+import com.franco.dev.domain.financiero.TipoGasto;
+import com.franco.dev.domain.financiero.enums.TipoNaturalezaGasto;
+import com.franco.dev.domain.financiero.enums.TipoPadreGastoModulo;
 import com.franco.dev.service.financiero.dto.EnteFinancialSummaryDTO;
+import com.franco.dev.service.financiero.dto.LineaRetiroSugeridaDTO;
+import com.franco.dev.service.financiero.dto.MontosRetiroPayloadDTO;
 import com.franco.dev.service.financiero.dto.PreGastoStatusMetadataDTO;
+import com.franco.dev.service.financiero.dto.QrRetiroPreGastoPayloadDTO;
+import com.franco.dev.graphql.financiero.input.ConfirmarRetiroFuncionarioInput;
+import com.franco.dev.graphql.financiero.input.DevolucionSaldoPreGastoInput;
+import com.franco.dev.graphql.financiero.input.EjecutarRetiroPreGastoInput;
+import com.franco.dev.graphql.financiero.input.RetiroPreGastoLineaInput;
 import com.franco.dev.domain.activos.Ente;
 import com.franco.dev.domain.activos.Inmueble;
 import com.franco.dev.domain.activos.Mueble;
 import com.franco.dev.domain.activos.Vehiculo;
 import com.franco.dev.domain.activos.enums.TipoEnte;
+import com.franco.dev.domain.equipos.Equipo;
+import com.franco.dev.domain.equipos.EquipoFinanciero;
 import com.franco.dev.service.activos.MuebleService;
+import com.franco.dev.service.equipos.EquipoService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -40,6 +57,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -71,7 +89,13 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     private final EnteService enteService;
     private final InmuebleService inmuebleService;
     private final VehiculoService vehiculoService;
+    private final EquipoService equipoService;
     private final GastoRepository gastoRepository;
+    private final PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
+    private final PdvCajaService pdvCajaService;
+    private final MonedaService monedaService;
+    private final TipoGastoService tipoGastoService;
+    private final TipoGastoModuloReglasService moduloReglasService;
 
     @Value("${sucursalId:0}")
     private Long currentSucursalId;
@@ -100,16 +124,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                                         + financiero.getMoneda().getDenominacion() + ")");
                     }
 
-                    BigDecimal montoTotal = financiero.getMontoTotal() != null ? financiero.getMontoTotal()
-                            : BigDecimal.ZERO;
-                    BigDecimal montoYaPagado = financiero.getMontoYaPagado() != null ? financiero.getMontoYaPagado()
-                            : BigDecimal.ZERO;
-                    BigDecimal pendiente = montoTotal.subtract(montoYaPagado);
-
-                    if (entity.getMontoSolicitado() != null && entity.getMontoSolicitado().compareTo(pendiente) > 0) {
-                        throw new RuntimeException(
-                                "El monto solicitado supera el saldo pendiente del activo (" + pendiente + ").");
-                    }
+                    validarMontoSolicitadoActivo(entity.getMontoSolicitado(), financiero);
                 }
             }
         }
@@ -309,8 +324,18 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
-        Gasto gastoAsociado = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(id,
-                sucId);
+        // El retiro vincula la solicitud con el gasto de caja via
+        // preGasto.gastoCajaRegistroId (ver ejecutarRetiro). El gasto no guarda
+        // pre_gasto_id, asi que buscamos primero por ese registro y dejamos el
+        // query por preGastoId como fallback por compatibilidad.
+        Gasto gastoAsociado = null;
+        if (preGasto.getGastoCajaRegistroId() != null) {
+            gastoAsociado = gastoRepository.findByIdAndSucursalId(preGasto.getGastoCajaRegistroId(), sucId);
+        }
+        if (gastoAsociado == null) {
+            gastoAsociado = gastoRepository.findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(id,
+                    sucId);
+        }
         if (gastoAsociado == null) {
             throw new RuntimeException(
                     "No se puede completar la solicitud de gasto #" + id +
@@ -398,36 +423,257 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return completar(id, sucId, rindioGasto, montoGastadoInformado, null, null, null);
     }
 
-    public void actualizarRendicionDesdeGasto(Gasto gasto) {
+    @Transactional
+    public void actualizarRetiroDesdeGasto(Gasto gasto) {
         if (gasto == null || gasto.getPreGasto() == null) {
             return;
         }
-        PreGasto preGasto = repository.findByIdAndSucursalId(gasto.getPreGasto().getId(),
-                gasto.getPreGasto().getSucursalId());
+        PreGasto preGasto = repository.findByIdAndSucursalId(
+                gasto.getPreGasto().getId(), gasto.getPreGasto().getSucursalId());
         if (preGasto == null) {
             return;
         }
 
         BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, gasto.getRetiroGs(), gasto.getRetiroRs(),
                 gasto.getRetiroDs());
-        BigDecimal montoVuelto = obtenerMontoMoneda(preGasto, gasto.getVueltoGs(), gasto.getVueltoRs(),
-                gasto.getVueltoDs());
-        if (montoVuelto.compareTo(BigDecimal.ZERO) < 0) {
-            montoVuelto = BigDecimal.ZERO;
-        }
-        BigDecimal montoRendido = montoRetirado.subtract(montoVuelto);
-        if (montoRendido.compareTo(BigDecimal.ZERO) < 0) {
-            montoRendido = BigDecimal.ZERO;
-        }
+        BigDecimal montoGastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
 
         preGasto.setMontoRetirado(montoRetirado);
-        preGasto.setMontoGastado(montoRendido);
-        preGasto.setSaldoDevolver(montoVuelto);
-        preGasto.setFechaRendicion(gasto.getFinalizado() != null && gasto.getFinalizado()
-                ? LocalDateTime.now()
-                : preGasto.getFechaRendicion());
-        recalcularEstadoRendicion(preGasto);
+        preGasto.setSaldoDevolver(montoRetirado.subtract(montoGastado).max(BigDecimal.ZERO));
+        preGasto.setEstado(EstadoPreGasto.TRAMITE);
+        preGasto.setEstadoRendicion("NO_RENDIDO");
+        preGasto.setRindioGasto(false);
         super.save(preGasto);
+    }
+
+    public List<PreGasto> buscarAutorizadosParaRetiro(Long sucursalCajaId) {
+        if (sucursalCajaId == null || sucursalCajaId <= 0) {
+            return new ArrayList<>();
+        }
+        return repository.buscarAutorizadosParaRetiro(sucursalCajaId);
+    }
+
+    public QrRetiroPreGastoPayloadDTO construirQrRetiro(Long preGastoId, Long sucursalId) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+        if (preGasto.getQrToken() == null || preGasto.getQrToken().trim().isEmpty()) {
+            preGasto.setQrToken(UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+            super.save(preGasto);
+        }
+        Long sucursalCajaId = preGasto.getSucursalCaja() != null ? preGasto.getSucursalCaja().getId() : sucursalId;
+        String timestamp = String.valueOf(System.currentTimeMillis());
+        String codigoQr = "frc-" + sucursalCajaId + "-PRE_GASTO_RETIRO-" + preGastoId + "-" + sucursalId + "-"
+                + preGasto.getQrToken() + "-" + timestamp;
+        return new QrRetiroPreGastoPayloadDTO(codigoQr, preGastoId, sucursalId, preGasto.getQrToken());
+    }
+
+    @Transactional
+    public PreGasto confirmarRetiroFuncionario(ConfirmarRetiroFuncionarioInput input) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+        if (preGasto.getQrToken() == null || !preGasto.getQrToken().equalsIgnoreCase(input.getQrToken())) {
+            throw new RuntimeException("Código QR inválido o expirado.");
+        }
+        if (preGasto.getFuncionario() == null || preGasto.getFuncionario().getId() == null
+                || !preGasto.getFuncionario().getId().equals(input.getFuncionarioPersonaId())) {
+            throw new RuntimeException("Solo el funcionario autorizado puede confirmar el retiro.");
+        }
+        preGasto.setRetiroConfirmadoEn(LocalDateTime.now());
+        preGasto.setRetiroConfirmadoFuncionario(personaService.findById(input.getFuncionarioPersonaId()).orElse(null));
+        return super.save(preGasto);
+    }
+
+    @Transactional
+    public PreGasto ejecutarRetiro(EjecutarRetiroPreGastoInput input) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
+            throw new RuntimeException("La solicitud no está autorizada para retiro.");
+        }
+        if (preGasto.getRetiroConfirmadoEn() == null) {
+            throw new RuntimeException("El funcionario aún no confirmó el retiro desde su dispositivo móvil.");
+        }
+        if (preGasto.getGastoCajaRegistroId() != null) {
+            throw new RuntimeException("Esta solicitud ya tiene un retiro registrado en caja.");
+        }
+        if (input.getGastoRegistroId() == null || input.getGastoRegistroId() <= 0) {
+            throw new RuntimeException("Debe registrar el gasto en la caja local antes de finalizar el retiro.");
+        }
+
+        double[] montos = input.getLineas() != null && !input.getLineas().isEmpty()
+                ? resolverMontosRetiroArrayDesdeLineas(input.getLineas())
+                : calcularMontosRetiro(preGasto);
+        aplicarRetiroEnPreGasto(preGasto, montos[0], montos[1], montos[2]);
+        preGasto.setCajaId(input.getCajaId());
+        preGasto.setGastoCajaRegistroId(input.getGastoRegistroId());
+        super.save(preGasto);
+        // Vincular el gasto (retiro de caja) con esta solicitud en sentido
+        // inverso (gasto.preGasto -> pre_gasto_id / pre_gasto_sucursal_id) para
+        // que completar() y la navegacion gasto -> solicitud puedan resolverla.
+        Gasto gastoRetiro = gastoRepository.findByIdAndSucursalId(input.getGastoRegistroId(), input.getSucursalId());
+        if (gastoRetiro != null && gastoRetiro.getPreGasto() == null) {
+            gastoRetiro.setPreGasto(preGasto);
+            gastoRepository.save(gastoRetiro);
+        }
+        return repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+    }
+
+    public boolean preGastoRetiroConfirmado(Long preGastoId, Long sucursalId) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
+        return preGasto != null && preGasto.getRetiroConfirmadoEn() != null;
+    }
+
+    public List<LineaRetiroSugeridaDTO> obtenerLineasRetiroSugeridas(Long preGastoId, Long sucursalId) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(preGastoId, sucursalId);
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        List<LineaRetiroSugeridaDTO> lineas = new ArrayList<>();
+        List<PreGastoDetalleFinanzas> finanzas = preGastoDetalleFinanzasService
+                .findByPreGastoIdAndSucursalId(preGastoId, sucursalId);
+        if (finanzas != null && !finanzas.isEmpty()) {
+            for (PreGastoDetalleFinanzas fin : finanzas) {
+                if (fin == null || fin.getMonto() == null || fin.getMoneda() == null || fin.getMoneda().getId() == null) {
+                    continue;
+                }
+                double monto = fin.getMonto().doubleValue();
+                if (monto > 0) {
+                    lineas.add(new LineaRetiroSugeridaDTO(fin.getMoneda().getId(), monto));
+                }
+            }
+            return lineas;
+        }
+        if (preGasto.getMoneda() != null && preGasto.getMoneda().getId() != null
+                && preGasto.getMontoSolicitado() != null && preGasto.getMontoSolicitado().doubleValue() > 0) {
+            lineas.add(new LineaRetiroSugeridaDTO(
+                    preGasto.getMoneda().getId(),
+                    preGasto.getMontoSolicitado().doubleValue()));
+        }
+        return lineas;
+    }
+
+    public MontosRetiroPayloadDTO calcularMontosRetiroDesdeLineas(List<RetiroPreGastoLineaInput> lineas) {
+        double[] montos = resolverMontosRetiroArrayDesdeLineas(lineas);
+        return new MontosRetiroPayloadDTO(montos[0], montos[1], montos[2]);
+    }
+
+    private double[] resolverMontosRetiroArrayDesdeLineas(List<RetiroPreGastoLineaInput> lineas) {
+        double retiroGs = 0d;
+        double retiroRs = 0d;
+        double retiroDs = 0d;
+        if (lineas == null || lineas.isEmpty()) {
+            return new double[] { retiroGs, retiroRs, retiroDs };
+        }
+        for (RetiroPreGastoLineaInput linea : lineas) {
+            if (linea == null || linea.getMonedaId() == null || linea.getMonto() == null || linea.getMonto() <= 0) {
+                continue;
+            }
+            Moneda moneda = monedaService.findById(linea.getMonedaId()).orElse(null);
+            if (moneda == null) {
+                continue;
+            }
+            String simbolo = moneda.getSimbolo() != null ? moneda.getSimbolo().trim().toUpperCase() : "";
+            String denominacion = moneda.getDenominacion() != null ? moneda.getDenominacion().trim().toUpperCase() : "";
+            double monto = linea.getMonto();
+            if ("GUARANI".equals(denominacion) || simbolo.contains("GS")) {
+                retiroGs += monto;
+            } else if (denominacion.contains("REAL") || simbolo.contains("R$") || simbolo.contains("RS")) {
+                retiroRs += monto;
+            } else {
+                retiroDs += monto;
+            }
+        }
+        return new double[] { retiroGs, retiroRs, retiroDs };
+    }
+
+    private double[] calcularMontosRetiro(PreGasto preGasto) {
+        double retiroGs = 0d;
+        double retiroRs = 0d;
+        double retiroDs = 0d;
+        List<PreGastoDetalleFinanzas> finanzas = preGastoDetalleFinanzasService
+                .findByPreGastoIdAndSucursalId(preGasto.getId(), preGasto.getSucursalId());
+        if (finanzas != null && !finanzas.isEmpty()) {
+            for (PreGastoDetalleFinanzas fin : finanzas) {
+                if (fin == null || fin.getMonto() == null || fin.getMoneda() == null) {
+                    continue;
+                }
+                String simbolo = fin.getMoneda().getSimbolo() != null
+                        ? fin.getMoneda().getSimbolo().trim().toUpperCase() : "";
+                String denominacion = fin.getMoneda().getDenominacion() != null
+                        ? fin.getMoneda().getDenominacion().trim().toUpperCase() : "";
+                double monto = fin.getMonto().doubleValue();
+                if (simbolo.contains("GS") || denominacion.contains("GUARANI")) {
+                    retiroGs += monto;
+                } else if (simbolo.contains("R$") || simbolo.contains("RS") || denominacion.contains("REAL")) {
+                    retiroRs += monto;
+                } else {
+                    retiroDs += monto;
+                }
+            }
+        } else if (preGasto.getMontoSolicitado() != null) {
+            BigDecimal monto = preGasto.getMontoSolicitado();
+            String simbolo = preGasto.getMoneda() != null && preGasto.getMoneda().getSimbolo() != null
+                    ? preGasto.getMoneda().getSimbolo().trim().toUpperCase() : "";
+            String denominacion = preGasto.getMoneda() != null && preGasto.getMoneda().getDenominacion() != null
+                    ? preGasto.getMoneda().getDenominacion().trim().toUpperCase() : "";
+            if (simbolo.contains("GS") || denominacion.contains("GUARANI")) {
+                retiroGs = monto.doubleValue();
+            } else if (simbolo.contains("R$") || simbolo.contains("RS") || denominacion.contains("REAL")) {
+                retiroRs = monto.doubleValue();
+            } else {
+                retiroDs = monto.doubleValue();
+            }
+        }
+        return new double[] { retiroGs, retiroRs, retiroDs };
+    }
+
+    private void aplicarRetiroEnPreGasto(PreGasto preGasto, double retiroGs, double retiroRs, double retiroDs) {
+        BigDecimal montoRetirado = obtenerMontoMoneda(preGasto, retiroGs, retiroRs, retiroDs);
+        BigDecimal montoGastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
+        preGasto.setMontoRetirado(montoRetirado);
+        preGasto.setSaldoDevolver(montoRetirado.subtract(montoGastado).max(BigDecimal.ZERO));
+        preGasto.setEstado(EstadoPreGasto.TRAMITE);
+        preGasto.setEstadoRendicion("NO_RENDIDO");
+        preGasto.setRindioGasto(false);
+    }
+
+    @Transactional
+    public PreGasto registrarDevolucionSaldo(DevolucionSaldoPreGastoInput input) {
+        PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
+        if (preGasto == null) {
+            throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        if (preGasto.getEstado() != EstadoPreGasto.TRAMITE) {
+            throw new RuntimeException("Solo se puede devolver saldo en solicitudes en trámite.");
+        }
+        BigDecimal saldo = preGasto.getSaldoDevolver() != null ? preGasto.getSaldoDevolver() : BigDecimal.ZERO;
+        if (saldo.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("No hay saldo pendiente de devolución.");
+        }
+
+        double vueltoGs = input.getVueltoGs() != null ? input.getVueltoGs() : 0d;
+        double vueltoRs = input.getVueltoRs() != null ? input.getVueltoRs() : 0d;
+        double vueltoDs = input.getVueltoDs() != null ? input.getVueltoDs() : 0d;
+        if (vueltoGs + vueltoRs + vueltoDs <= 0d) {
+            throw new RuntimeException("Debe indicar el monto devuelto.");
+        }
+
+        BigDecimal devuelto = obtenerMontoMoneda(preGasto, vueltoGs, vueltoRs, vueltoDs);
+        BigDecimal nuevoSaldo = saldo.subtract(devuelto);
+        preGasto.setSaldoDevolver(nuevoSaldo.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : nuevoSaldo);
+        return super.save(preGasto);
     }
 
     private BigDecimal obtenerMontoMoneda(PreGasto preGasto, Double gs, Double rs, Double ds) {
@@ -475,6 +721,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         return valor;
     }
 
+    public void recalcularEstadoRendicionPublico(PreGasto preGasto) {
+        recalcularEstadoRendicion(preGasto);
+    }
+
     private void recalcularEstadoRendicion(PreGasto preGasto) {
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
@@ -510,6 +760,30 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         }
     }
 
+    private void validarMontoSolicitadoActivo(BigDecimal montoSolicitado, EnteFinanciero financiero) {
+        if (montoSolicitado == null) {
+            return;
+        }
+
+        List<EnteCuota> cuotasPendientes = enteCuotaService.findPendientesByEnteFinancieroId(financiero.getId());
+        if (!cuotasPendientes.isEmpty()) {
+            EnteCuota siguiente = cuotasPendientes.get(0);
+            BigDecimal montoCuota = siguiente.getMonto() != null ? siguiente.getMonto() : BigDecimal.ZERO;
+            if (montoSolicitado.compareTo(montoCuota) > 0) {
+                throw new RuntimeException(
+                        "El monto solicitado supera el monto de la cuota pendiente (" + montoCuota + ").");
+            }
+            return;
+        }
+
+        BigDecimal pendiente = ActivoPagoNormalizer.calcularMontoPendiente(
+                financiero.getMontoTotal(), financiero.getMontoYaPagado());
+        if (montoSolicitado.compareTo(pendiente) > 0) {
+            throw new RuntimeException(
+                    "El monto solicitado supera el saldo pendiente del activo (" + pendiente + ").");
+        }
+    }
+
     private void descontarCuota(PreGasto preGasto) {
         Optional<EnteFinanciero> optFinanciero = enteFinancieroService.findByEnteId(preGasto.getEnte().getId());
         if (!optFinanciero.isPresent())
@@ -533,6 +807,10 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
     }
 
     public EnteFinancialSummaryDTO getFinancialSummary(Long enteId) {
+        return getFinancialSummary(enteId, null);
+    }
+
+    public EnteFinancialSummaryDTO getFinancialSummary(Long enteId, Long tipoGastoId) {
         Ente ente = enteService.findById(enteId).orElse(null);
         if (ente == null)
             return null;
@@ -554,8 +832,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 Mueble m = muebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (m != null) {
                     dto.setDescripcion(m.getDescripcion() != null ? m.getDescripcion() : m.getIdentificador());
-                    if (m.getProveedor() != null && m.getProveedor().getPersona() != null)
-                        dto.setProveedorNombre(m.getProveedor().getPersona().getNombre());
+                    if (m.getProveedor() != null) {
+                        asignarProveedorDesdeEntidad(dto, m.getProveedor());
+                    }
                     dto.setSituacionPago(m.getSituacionPago());
 
                     if (dto.getMontoTotal() == null)
@@ -574,8 +853,11 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 Inmueble i = inmuebleService.findById(ente.getReferenciaId()).orElse(null);
                 if (i != null) {
                     dto.setDescripcion(i.getNombreAsignado() != null ? i.getNombreAsignado() : i.getDireccion());
-                    if (i.getProveedor() != null && i.getProveedor().getPersona() != null)
-                        dto.setProveedorNombre(i.getProveedor().getPersona().getNombre());
+                    if (i.getProveedor() != null) {
+                        asignarProveedorDesdeEntidad(dto, i.getProveedor());
+                    } else if (i.getAlquilerProveedor() != null) {
+                        asignarProveedorDesdePersona(dto, i.getAlquilerProveedor());
+                    }
                     dto.setSituacionPago(i.getSituacionPago());
 
                     if (dto.getMontoTotal() == null)
@@ -595,8 +877,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 if (v != null) {
                     dto.setDescripcion(v.getChapa() != null ? "Chapa: " + v.getChapa()
                             : (v.getModelo() != null ? v.getModelo().getDescripcion() : "Vehículo #" + v.getId()));
-                    if (v.getProveedor() != null && v.getProveedor().getPersona() != null)
-                        dto.setProveedorNombre(v.getProveedor().getPersona().getNombre());
+                    if (v.getProveedor() != null) {
+                        asignarProveedorDesdeEntidad(dto, v.getProveedor());
+                    }
                     dto.setSituacionPago(v.getSituacionPago());
 
                     // Fallback para montos
@@ -612,12 +895,39 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                     llenarDatosCuotas(dto, v.getCantidadCuotas(), v.getCantidadCuotasPagadas(), v.getDiaVencimiento());
                 }
                 dto.setTipoGastoSugeridoId("VARIABLE");
+            } else if (ente.getTipoEnte() == TipoEnte.EQUIPO) {
+                Equipo eq = equipoService.findById(ente.getReferenciaId()).orElse(null);
+                if (eq != null) {
+                    EquipoFinanciero fin = equipoService.resolverFinanciero(eq);
+                    dto.setDescripcion(eq.getDescripcion() != null ? eq.getDescripcion() : eq.getIdentificador());
+                    if (fin != null) {
+                        if (fin.getProveedor() != null) {
+                            asignarProveedorDesdeEntidad(dto, fin.getProveedor());
+                        }
+                        dto.setSituacionPago(fin.getSituacionPago());
+
+                        if (dto.getMontoTotal() == null) {
+                            dto.setMontoTotal(fin.getMontoTotal());
+                        }
+                        if (dto.getMontoYaPagado() == null) {
+                            dto.setMontoYaPagado(fin.getMontoYaPagado());
+                        }
+                        if (dto.getMonedaId() == null && fin.getMoneda() != null) {
+                            dto.setMonedaId(fin.getMoneda().getId());
+                            dto.setMonedaSimbolo(fin.getMoneda().getSimbolo());
+                        }
+
+                        llenarDatosCuotas(dto, fin.getCantidadCuotas(), fin.getCantidadCuotasPagadas(), fin.getDiaVencimiento());
+                    }
+                }
+                dto.setTipoGastoSugeridoId("VARIABLE");
             }
         }
         BigDecimal total = dto.getMontoTotal() != null ? dto.getMontoTotal() : BigDecimal.ZERO;
         BigDecimal pagado = dto.getMontoYaPagado() != null ? dto.getMontoYaPagado() : BigDecimal.ZERO;
         BigDecimal pendiente = total.subtract(pagado);
         dto.setMontoPendiente(pendiente.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pendiente);
+        ActivoPagoNormalizer.normalizarResumenSiPagadoCompleto(dto);
 
         if (total.compareTo(BigDecimal.ZERO) > 0) {
             dto.setPorcentajePagado(pagado.multiply(new BigDecimal(100))
@@ -633,7 +943,114 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             dto.setDescripcionSugerida("Pago - " + dto.getDescripcion());
         }
 
+        enriquecerConCuotaPendiente(dto, optFinanciero);
+
+        if (dto.getProveedorId() == null && optFinanciero.isPresent()) {
+            asignarProveedorDesdePersona(dto, optFinanciero.get().getProveedor());
+        }
+
+        if (tipoGastoId != null) {
+            tipoGastoService.findById(tipoGastoId).ifPresent(tipo -> aplicarContextoTipoGasto(dto, tipo));
+        }
+
+        if (dto.getFechaVencimientoSugerida() == null && dto.getDiaVencimiento() != null) {
+            dto.setFechaVencimientoSugerida(calcularProximaFechaVencimiento(dto.getDiaVencimiento()));
+        }
+
         return dto;
+    }
+
+    private void enriquecerConCuotaPendiente(EnteFinancialSummaryDTO dto, Optional<EnteFinanciero> optFinanciero) {
+        if (!optFinanciero.isPresent()) {
+            return;
+        }
+        List<EnteCuota> cuotasPendientes = enteCuotaService
+                .findPendientesByEnteFinancieroId(optFinanciero.get().getId());
+        if (cuotasPendientes.isEmpty()) {
+            return;
+        }
+        EnteCuota siguiente = cuotasPendientes.get(0);
+        if (siguiente.getMonto() != null) {
+            dto.setMontoSugerido(siguiente.getMonto());
+        }
+        if (siguiente.getNumeroCuota() != null) {
+            dto.setNumeroCuotaActual(siguiente.getNumeroCuota());
+        }
+        if (siguiente.getFechaVencimiento() != null) {
+            dto.setFechaVencimientoSugerida(siguiente.getFechaVencimiento());
+        }
+        BigDecimal sumaPendiente = cuotasPendientes.stream()
+                .map(c -> c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (sumaPendiente.compareTo(BigDecimal.ZERO) > 0) {
+            dto.setMontoPendiente(sumaPendiente);
+            dto.setCuotasFaltantes(cuotasPendientes.size());
+        }
+    }
+
+    private void aplicarContextoTipoGasto(EnteFinancialSummaryDTO dto, TipoGasto tipo) {
+        TipoPadreGastoModulo modulo = tipo.getModuloPadre();
+        TipoNaturalezaGasto naturaleza = tipo.getTipoNaturaleza();
+        boolean esCuota = Boolean.TRUE.equals(tipo.getEsPagoCuotaActivo());
+
+        if (moduloReglasService.montoVariableEnContinuo(modulo, naturaleza)) {
+            dto.setAutocompletarMonto(false);
+            dto.setMontoSugerido(null);
+            String etiqueta = moduloReglasService.etiquetaModulo(modulo);
+            dto.setDescripcionSugerida("Pago " + etiqueta + " - "
+                    + (dto.getDescripcion() != null ? dto.getDescripcion() : ""));
+            return;
+        }
+
+        if (esCuota) {
+            dto.setAutocompletarMonto(true);
+            if (dto.getNumeroCuotaActual() == null && dto.getCuotasPagadas() != null
+                    && dto.getCuotasTotales() != null && dto.getCuotasTotales() > 0) {
+                dto.setNumeroCuotaActual(dto.getCuotasPagadas() + 1);
+            }
+            if (dto.getNumeroCuotaActual() != null && dto.getCuotasTotales() != null
+                    && dto.getDescripcion() != null) {
+                dto.setDescripcionSugerida(String.format("Cuota %d/%d - %s",
+                        dto.getNumeroCuotaActual(), dto.getCuotasTotales(), dto.getDescripcion()));
+            }
+            return;
+        }
+
+        dto.setAutocompletarMonto(false);
+    }
+
+    private LocalDate calcularProximaFechaVencimiento(int diaVencimiento) {
+        LocalDate hoy = LocalDate.now();
+        int dia = Math.min(Math.max(diaVencimiento, 1), 31);
+        LocalDate candidato = hoy.withDayOfMonth(Math.min(dia, hoy.lengthOfMonth()));
+        if (!candidato.isAfter(hoy)) {
+            LocalDate siguienteMes = hoy.plusMonths(1);
+            candidato = siguienteMes.withDayOfMonth(Math.min(dia, siguienteMes.lengthOfMonth()));
+        }
+        return candidato;
+    }
+
+    private void asignarProveedorDesdeEntidad(EnteFinancialSummaryDTO dto, Proveedor proveedor) {
+        if (proveedor == null) {
+            return;
+        }
+        dto.setProveedorId(proveedor.getId());
+        if (proveedor.getPersona() != null && proveedor.getPersona().getNombre() != null) {
+            dto.setProveedorNombre(proveedor.getPersona().getNombre());
+        }
+    }
+
+    private void asignarProveedorDesdePersona(EnteFinancialSummaryDTO dto, Persona persona) {
+        if (persona == null) {
+            return;
+        }
+        if (persona.getNombre() != null) {
+            dto.setProveedorNombre(persona.getNombre());
+        }
+        Proveedor proveedor = proveedorService.findByPersonaId(persona.getId());
+        if (proveedor != null) {
+            dto.setProveedorId(proveedor.getId());
+        }
     }
 
     private void llenarDatosCuotas(EnteFinancialSummaryDTO dto, Integer total, Integer pagadas, Integer diaVenc) {

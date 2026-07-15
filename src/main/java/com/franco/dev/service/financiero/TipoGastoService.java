@@ -32,13 +32,6 @@ public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository
         texto = texto.replace(' ', '%').toUpperCase();
         return repository.findByAll(texto);
     }
-    public List<TipoGasto> findByClasificacionGastoId(Long id){
-        return repository.findByClasificacionGastoId(id);
-    }
-
-    public List<TipoGasto> findRoot(){
-       return repository.findRoot();
-    }
 
     @Override
     public TipoGasto save(TipoGasto entity) {
@@ -52,7 +45,7 @@ public class TipoGastoService extends CrudService<TipoGasto, TipoGastoRepository
         return e;
     }
 
-    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, Pageable pageable) {
-        return repository.filterTipoGastos(naturaleza, texto, pageable);
+    public Page<TipoGasto> filterTipoGastos(String naturaleza, String texto, String moduloPadre, Pageable pageable) {
+        return repository.filterTipoGastos(naturaleza, texto, moduloPadre, pageable);
     }
 }

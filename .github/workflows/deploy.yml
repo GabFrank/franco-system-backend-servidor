@@ -33,7 +33,7 @@ jobs:
     environment: ${{ inputs.instance == 'bodega' && 'production' || (inputs.instance == 'farmacia' || inputs.instance == 'beta') && 'beta' || 'alpha' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           sparse-checkout: .github/scripts/deploy.sh
           sparse-checkout-cone-mode: false

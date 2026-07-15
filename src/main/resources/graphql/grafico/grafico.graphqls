@@ -1,0 +1,121 @@
+input PeriodoGraficoInput {
+    etiqueta: String!
+    inicio: String!
+    fin: String!
+}
+
+enum GraficoExcelTipo {
+    VENTA_CIUDAD
+    VENTA_SUCURSAL
+    VENTA_FUNCIONARIO
+    FORMA_PAGO
+    GASTO_CATEGORIA
+    PRODUCTOS_VENDIDOS
+    INGRESO_GASTO
+    VENTAS_HORA
+}
+
+input GraficoExcelExportInput {
+    periodos: [PeriodoGraficoInput!]
+    sucIds: [ID]
+    usuarioIds: [ID]
+    anios: [Int!]
+    filtroAnhos: String
+    filtroMeses: String
+    filtroRangoDias: String
+    filtroSucursales: String
+    filtroExtra: String
+    limit: Int
+    familiaId: ID
+    subfamiliaId: ID
+    ascendente: Boolean
+    productoIds: [ID]
+}
+
+type DesglosePeriodoGrafico {
+    etiqueta: String!
+    total: Float!
+    cantidad: Float
+}
+
+type DesgloseAnhoGrafico {
+    anio: Int!
+    total: Float!
+    cantidad: Float
+}
+
+type IngresoGastoSerieGrafico {
+    anio: Int!
+    sucId: ID
+    sucursalNombre: String
+    ingresos: [VentaPorMes!]!
+    gastos: [GastoPorMes!]!
+}
+
+type VentasPorHoraSerieGrafico {
+    sucId: ID
+    sucursalNombre: String
+    etiqueta: String!
+    fecha: String!
+    datos: [VentaPorHora!]!
+}
+
+type VentaPorCiudad {
+    ciudadId: ID
+    nombre: String
+    total: Float
+    cantidadVentas: Float
+    desglosePeriodos: [DesglosePeriodoGrafico!]
+    desgloseAnhos: [DesgloseAnhoGrafico!]
+}
+
+extend type Query {
+    ventasPorFuncionarioMulti(
+        periodos: [PeriodoGraficoInput!]!
+        sucIds: [ID]
+        usuarioIds: [ID]
+    ): [VentaPorFuncionario!]!
+
+    formaPagoEstadisticasMulti(
+        periodos: [PeriodoGraficoInput!]!
+        sucIds: [ID]
+    ): [FormaPagoEstadistica!]!
+
+    gastosPorCategoriaMulti(
+        periodos: [PeriodoGraficoInput!]!
+        sucIds: [ID]
+    ): [GastoPorCategoria!]!
+
+    ventasPorSucursalMulti(
+        periodos: [PeriodoGraficoInput!]!
+    ): [VentaPorSucursal!]!
+
+    ventasPorCiudadMulti(
+        periodos: [PeriodoGraficoInput!]!
+    ): [VentaPorCiudad!]!
+
+    exportarGraficoExcel(
+        tipo: GraficoExcelTipo!
+        input: GraficoExcelExportInput!
+    ): String
+
+    productosMasVendidosMulti(
+        periodos: [PeriodoGraficoInput!]!
+        sucIds: [ID]
+        limit: Int
+        familiaId: ID
+        subfamiliaId: ID
+        ascendente: Boolean
+        productoIds: [ID]
+    ): [ProductoVendidoEstadistica!]!
+
+    ingresosGastosPorMesMulti(
+        anios: [Int!]!
+        sucIds: [ID]
+    ): [IngresoGastoSerieGrafico!]!
+
+    ventasPorHoraMulti(
+        periodos: [PeriodoGraficoInput!]!
+        sucIds: [ID]
+    ): [VentasPorHoraSerieGrafico!]!
+}

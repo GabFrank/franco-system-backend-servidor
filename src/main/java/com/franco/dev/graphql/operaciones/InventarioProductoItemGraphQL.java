@@ -6,9 +6,12 @@ import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.dto.ReporteInventarioDto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoItemInput;
+import com.franco.dev.domain.operaciones.enums.FuenteVerdadVencimiento;
+import com.franco.dev.graphql.operaciones.dto.ProductoVencidoViewDTO;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
+import com.franco.dev.service.operaciones.ProductosVencidosService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.utils.ImageService;
@@ -33,6 +36,7 @@ import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -60,6 +64,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
     @Autowired
     private MovimientoStockService movimientoStockService;
+
+    @Autowired
+    private ProductosVencidosService productosVencidosService;
 
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final String DEFAULT_SORT_FIELD = "vencimiento";
@@ -269,7 +276,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         return movimientoStockService.findProductosFaltantes(sucursalId, productoId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
     }
 
-    public Page<InventarioProductoItem> productosVencidos(
+    public Page<ProductoVencidoViewDTO> productosVencidos(
             @Nullable String startDate,
             @Nullable String endDate,
             @Nullable List<Long> sucursalIdList,
@@ -277,25 +284,27 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             @Nullable List<Long> zonaIdList,
             @Nullable List<Long> usuarioIdList,
             @Nullable List<Long> productoIdList,
+            @Nullable List<FuenteVerdadVencimiento> fuenteVerdadList,
             @Nullable Boolean soloRealmenteVencidos,
             Integer page,
             Integer size) {
 
         Pageable pageable = createPageable(page, size, DEFAULT_SORT_FIELD, "ASC");
 
-        if (startDate != null && endDate != null) {
-            return service.findProductosVencidosConFecha(
-                    sucursalIdList, sectorIdList, zonaIdList, stringToDate(startDate), stringToDate(endDate),
-                    usuarioIdList, productoIdList, pageable);
-        }
+        List<String> fuenteVerdadNombres = fuenteVerdadList == null ? null
+                : fuenteVerdadList.stream().map(FuenteVerdadVencimiento::name).collect(Collectors.toList());
 
-        if (Boolean.TRUE.equals(soloRealmenteVencidos)) {
-            return service.findProductosVencidos(
-                    sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, pageable);
-        }
-
-        return service.findProductosVencidos(
-                sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList, pageable);
+        return productosVencidosService.buscarProductosVencidos(
+                stringToDate(startDate),
+                stringToDate(endDate),
+                sucursalIdList,
+                sectorIdList,
+                zonaIdList,
+                usuarioIdList,
+                productoIdList,
+                fuenteVerdadNombres,
+                soloRealmenteVencidos,
+                pageable);
     }
 
     public Page<InventarioProductoItem> productosVencidosPorSucursal(

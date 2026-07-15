@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `franco-dev-systems` (artifactId), server principal del producto **Franco Systems**. Corre en HQ y es el origen de la replicacion logica de PostgreSQL hacia las filiales (`frc-comercial/filial`). Repo git independiente: `GabFrank/franco-system-backend-servidor`.
 
-Stack: **Spring Boot 2.1.15 / Java 8 / PostgreSQL** + **GraphQL** (`graphql-java-kickstart`). Package root `com.franco.dev`. JAR final: `frc-central-server.jar` (configurado via `<jar.finalName>`) -- **no cambiar** este nombre, los servicios systemd y los scripts de deploy lo esperan literal.
+Stack: **Spring Boot 2.7.18 / Java 11 / PostgreSQL** + **GraphQL** (`graphql-java-kickstart`). Package root `com.franco.dev`. JAR final: `frc-central-server.jar` (configurado via `<jar.finalName>`) -- **no cambiar** este nombre, los servicios systemd y los scripts de deploy lo esperan literal.
 
 ## Build & Run
 
@@ -17,7 +17,7 @@ Stack: **Spring Boot 2.1.15 / Java 8 / PostgreSQL** + **GraphQL** (`graphql-java
 ./mvnw clean verify -B -DskipFlyway=true  # CI build (sin Flyway)
 ```
 
-Maven Wrapper: 3.6.3. CI usa JDK 11 (Temurin). El pom.xml declara Java 1.8 como source/target.
+Maven Wrapper: 3.6.3. CI usa JDK 11 (Temurin). El pom.xml declara `<java.version>11</java.version>` (source/target 11).
 
 ## Project Structure
 

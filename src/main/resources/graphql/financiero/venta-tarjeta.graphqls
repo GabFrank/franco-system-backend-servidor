@@ -1,0 +1,52 @@
+type VentaTarjetaPage {
+    getContent: [VentaTarjeta]
+    getTotalElements: Int
+}
+
+type VentaTarjeta {
+    id: ID!
+    sucursalId: Int
+    sucursal: Sucursal
+    venta: Venta
+    terminalPos: TerminalPos
+    caja: PdvCaja
+    codigoAutorizacion: String
+    numeroBoleta: String
+    monto: Float
+    montoEscaneado: Float
+    imagenUrl: String
+    estado: String
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input VentaTarjetaInput {
+    id: ID
+    sucursalId: Int
+    ventaId: Int
+    terminalPosId: Int
+    cajaId: Int
+    codigoAutorizacion: String
+    numeroBoleta: String
+    monto: Float
+    montoEscaneado: Float
+    imagenUrl: String
+    estado: String
+    usuarioId: Int
+}
+
+extend type Query {
+    ventaTarjetaPorId(id: ID!, sucId: ID!): VentaTarjeta
+    ventaTarjetaPorVentaId(ventaId: ID!, sucId: ID!): VentaTarjeta
+    ventasTarjetaPorCaja(cajaId: ID!, sucId: ID!): [VentaTarjeta]
+    countVentasTarjetaSinRegistrar(cajaId: ID!, sucId: ID!): Int
+    filtrarVentasTarjeta(id: ID, ventaId: ID, sucursalId: ID, terminalDescripcion: String, terminalCodigo: String, estado: String, fechaDesde: String, fechaHasta: String, page: Int, size: Int): VentaTarjetaPage
+    imprimirReporteVentaTarjeta(id: ID, ventaId: ID, sucursalId: ID, terminalDescripcion: String, terminalCodigo: String, estado: String, fechaDesde: String, fechaHasta: String, usuarioResponsableId: ID): String
+}
+
+extend type Mutation {
+    saveVentaTarjeta(ventaTarjeta: VentaTarjetaInput!): VentaTarjeta!
+    updateVentaTarjeta(ventaTarjeta: VentaTarjetaInput!): VentaTarjeta!
+    deleteVentaTarjeta(id: ID!, sucId: ID!): Boolean!
+    cancelarVentaTarjetaPorVentaId(ventaId: ID!, sucId: ID!): Boolean
+}

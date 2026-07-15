@@ -91,16 +91,9 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
         return repository.findByVentaIdAndSucursalId(id, sucId);
     }
 
-    @Autowired
-    private org.springframework.context.ApplicationEventPublisher publisher;
-
     @Override
     public VentaCredito save(VentaCredito entity) {
-
-        VentaCredito saved = super.save(entity);
-        publisher.publishEvent(new com.franco.dev.fmc.event.VentaCreditoRealizadaEvent(this, saved));
-
-        return saved;
+        return super.save(entity);
     }
 
     public Boolean cancelarVentaCredito(Long id, Long sucId, Venta venta) {

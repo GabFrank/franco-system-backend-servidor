@@ -40,7 +40,7 @@ extend type Query {
 
 extend type Mutation {
     saveInicioSesion(entity:InicioSesionInput!):InicioSesion
-    actualizarTokenFcm(tokenFcm: String!): Boolean
+    actualizarTokenFcm(tokenFcm: String!, idDispositivo: String): Boolean
     notificarInicioSesion(usuarioId: Int!): Boolean
 }
 

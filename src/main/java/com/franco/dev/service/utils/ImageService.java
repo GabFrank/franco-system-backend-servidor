@@ -216,7 +216,13 @@ public class ImageService {
         File input = new File(originalFilePath + fileNameToSave);
         try {
             BufferedImage image = ImageIO.read(input);
+            if (image == null) {
+                return false;
+            }
             BufferedImage resized = resize(image, 250, 250);
+            if (resized == null) {
+                return false;
+            }
             File output = new File(path, fileNameToSave);
             deleteFile(output.toString());
             ImageIO.write(resized, "jpeg", output);
@@ -228,6 +234,9 @@ public class ImageService {
     }
 
     private BufferedImage resize(BufferedImage img, int width, int height) {
+        if (img == null) {
+            return null;
+        }
         if (img.getColorModel().hasAlpha()) {
             img = dropAlphaChannel(img);
         }

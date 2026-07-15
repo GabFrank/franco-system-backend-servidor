@@ -1,6 +1,7 @@
 package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.graphql.operaciones.dto.InventarioAlertaProjectionDTO;
 import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -91,13 +92,12 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "LEFT JOIN z.sector sec " +
                         "JOIN i.usuario u " +
                         "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
-                        "AND (SELECT COALESCE(SUM(ms.cantidad), 0) FROM MovimientoStock ms WHERE ms.estado = true AND ms.producto = pro AND ms.sucursalId = s.id) > 0 " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
-                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
-                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
-                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
-                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "AND (:#{#sucursalIdList == null || #sucursalIdList.isEmpty()} = true OR s.id IN :sucursalIdList) " +
+                        "AND (:#{#sectorIdList == null || #sectorIdList.isEmpty()} = true OR sec.id IN :sectorIdList) " +
+                        "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
+                        "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
+                        "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList) " +
                         "ORDER BY i.vencimiento DESC")
         Page<InventarioProductoItem> findProductosVencidos(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
@@ -129,13 +129,12 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "LEFT JOIN z.sector sec " +
                         "JOIN i.usuario u " +
                         "WHERE i.vencimiento BETWEEN :startDate AND :endDate " +
-                        "AND (SELECT COALESCE(SUM(ms.cantidad), 0) FROM MovimientoStock ms WHERE ms.estado = true AND ms.producto = pro AND ms.sucursalId = s.id) > 0 " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
-                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
-                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
-                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
-                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList) " +
+                        "AND (:#{#sucursalIdList == null || #sucursalIdList.isEmpty()} = true OR s.id IN :sucursalIdList) " +
+                        "AND (:#{#sectorIdList == null || #sectorIdList.isEmpty()} = true OR sec.id IN :sectorIdList) " +
+                        "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
+                        "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
+                        "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList) " +
                         "ORDER BY i.vencimiento DESC")
         Page<InventarioProductoItem> findProductosVencidosConFecha(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
@@ -198,11 +197,11 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "JOIN i.usuario u " +
                         "WHERE (i.vencimiento < CURRENT_TIMESTAMP OR i.estado = :estadoVencido) " +
                         "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 JOIN inv2.sucursal s2 WHERE s2.id = s.id) " +
-                        "AND (COALESCE(:sucursalIdList, NULL) IS NULL OR s.id IN :sucursalIdList) " +
-                        "AND (COALESCE(:sectorIdList, NULL) IS NULL OR sec.id IN :sectorIdList) " +
-                        "AND (COALESCE(:zonaIdList, NULL) IS NULL OR z.id IN :zonaIdList) " +
-                        "AND (COALESCE(:usuarioIdList, NULL) IS NULL OR u.id IN :usuarioIdList) " +
-                        "AND (COALESCE(:productoIdList, NULL) IS NULL OR pro.id IN :productoIdList)")
+                        "AND (:#{#sucursalIdList == null || #sucursalIdList.isEmpty()} = true OR s.id IN :sucursalIdList) " +
+                        "AND (:#{#sectorIdList == null || #sectorIdList.isEmpty()} = true OR sec.id IN :sectorIdList) " +
+                        "AND (:#{#zonaIdList == null || #zonaIdList.isEmpty()} = true OR z.id IN :zonaIdList) " +
+                        "AND (:#{#usuarioIdList == null || #usuarioIdList.isEmpty()} = true OR u.id IN :usuarioIdList) " +
+                        "AND (:#{#productoIdList == null || #productoIdList.isEmpty()} = true OR pro.id IN :productoIdList)")
         Long countProductosVencidos(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,
@@ -297,4 +296,17 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                 return findItemsDeInventariosAnterioresSoloSucursal(presentacionId, sucursalId,
                                 fechaInicioInventarioActual, pageable.getPageSize(), (int) pageable.getOffset());
         }
+
+        @Query("SELECT new com.franco.dev.graphql.operaciones.dto.InventarioAlertaProjectionDTO(" +
+                        "pre.producto.id, ipi.presentacion.id, ipi.vencimiento, ipi.estado) " +
+                        "FROM InventarioProductoItem ipi " +
+                        "JOIN ipi.presentacion pre " +
+                        "JOIN ipi.inventarioProducto ip " +
+                        "JOIN ip.inventario inv " +
+                        "WHERE inv.sucursal.id = :sucursalId " +
+                        "AND inv.id = (SELECT MAX(inv2.id) FROM Inventario inv2 WHERE inv2.sucursal.id = :sucursalId) " +
+                        "AND pre.producto.id IN :productoIds")
+        List<InventarioAlertaProjectionDTO> findAlertasBySucursalAndProductoIds(
+                        @Param("sucursalId") Long sucursalId,
+                        @Param("productoIds") List<Long> productoIds);
 }

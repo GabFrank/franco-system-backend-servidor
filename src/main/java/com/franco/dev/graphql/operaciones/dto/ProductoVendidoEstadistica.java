@@ -1,10 +1,13 @@
 package com.franco.dev.graphql.operaciones.dto;
 
+import com.franco.dev.domain.grafico.DesgloseAnhoGrafico;
+import com.franco.dev.domain.grafico.DesglosePeriodoGrafico;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -14,6 +17,8 @@ public class ProductoVendidoEstadistica {
     private String descripcion;
     private Double cantidad;
     private Double totalMonto;
+    /** Dinero vendido / unidades vendidas (unidad base) */
+    private Double precioPromedio;
     private Double porcentaje;
     /** Entradas por COMPRA + TRANSFERENCIA (movimiento_stock, cantidad > 0) */
     private Double cantidadEntrada;
@@ -21,4 +26,6 @@ public class ProductoVendidoEstadistica {
     private Double cantidadVentaMovimiento;
     /** ventaMovimiento / cantidadEntrada cuando hay entradas en el período */
     private Double indiceRotacion;
+    private List<DesglosePeriodoGrafico> desglosePeriodos = new ArrayList<>();
+    private List<DesgloseAnhoGrafico> desgloseAnhos = new ArrayList<>();
 }

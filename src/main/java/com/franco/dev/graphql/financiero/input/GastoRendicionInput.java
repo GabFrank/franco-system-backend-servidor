@@ -13,6 +13,8 @@ public class GastoRendicionInput {
     private BigDecimal montoTotal;
     private String fotoFacturaUrl;
     private String fotoProductoUrl;
+    private List<String> fotosFacturaUrls;
+    private List<String> fotosProductoUrls;
     private Long enteId;
     private Long gasolineraId;
     private BigDecimal kmActual;

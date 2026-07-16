@@ -273,6 +273,17 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal,
             List<FacturaLegalItem> facturaLegalItemList, String printerName) throws Exception {
+        printTicket58mmFactura(venta, facturaLegal, facturaLegalItemList, printerName, null);
+    }
+
+    /**
+     * Igual a {@link #printTicket58mmFactura(Venta, FacturaLegal, List, String)}, pero si se pasa
+     * un {@code destino} no nulo escribe el ESC/POS ahí en vez de abrir la impresora local (usado
+     * para rutear la impresión a otra sucursal vía PrintRouterService). Con destino=null el
+     * comportamiento es idéntico al método original.
+     */
+    public void printTicket58mmFactura(Venta venta, FacturaLegal facturaLegal,
+            List<FacturaLegalItem> facturaLegalItemList, String printerName, OutputStream destino) throws Exception {
         // Verificar si es moneda extranjera y redirigir al método correspondiente
         boolean esMonedaExtranjera = facturaLegal.getMonedaExtranjera() != null
                 && !facturaLegal.getMonedaExtranjera().trim().isEmpty()
@@ -284,7 +295,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
             printTicket58mmFacturaMonedaExtranjera(venta, facturaLegal,
                     facturaLegalItemList, printerName,
-                    facturaLegal.getMonedaExtranjera(), facturaLegal.getTipoCambio());
+                    facturaLegal.getMonedaExtranjera(), facturaLegal.getTipoCambio(), destino);
             return;
         }
 
@@ -292,7 +303,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
         }
 
-        printService = PrinterOutputStream.getPrintServiceByName(printerName);
+        if (destino == null) {
+            printService = PrinterOutputStream.getPrintServiceByName(printerName);
+        }
         Sucursal sucursal = sucursalService.findById(facturaLegal.getSucursalId()).orElse(null);
         Delivery delivery = null;
         if (venta != null)
@@ -323,9 +336,13 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             precioDeliveryDs = precioDeliveryGs / cambioDs;
         }
 
-        if (printService != null) {
-            printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
-                    : new PrinterOutputStream(printService);
+        if (destino != null || printService != null) {
+            OutputStream salida = destino;
+            if (salida == null) {
+                printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
+                        : new PrinterOutputStream(printService);
+                salida = printerOutputStream;
+            }
             // creating the EscPosImage, need buffered image and algorithm.
             // Styles
             Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -336,7 +353,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
             imageBufferedImage = resize(imageBufferedImage, 200, 100);
             BitImageWrapper imageWrapper = new BitImageWrapper();
-            EscPos escpos = new EscPos(printerOutputStream);
+            EscPos escpos = new EscPos(salida);
             Bitonal algorithm = new BitonalThreshold();
             EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
             imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -615,8 +632,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             try {
                 if (true) {
                     escpos.close();
-                    printerOutputStream.close();
-                    this.printerOutputStream = null;
+                    if (destino == null) {
+                        printerOutputStream.close();
+                        this.printerOutputStream = null;
+                    }
                 } else {
                     this.printerOutputStream = printerOutputStream;
                 }
@@ -660,12 +679,28 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     public void printTicket58mmFacturaMonedaExtranjera(Venta venta, FacturaLegal facturaLegal,
             List<FacturaLegalItem> facturaLegalItemList, String printerName, String monedaExtranjera, Double tipoCambio)
             throws Exception {
+        printTicket58mmFacturaMonedaExtranjera(venta, facturaLegal, facturaLegalItemList, printerName,
+                monedaExtranjera, tipoCambio, null);
+    }
+
+    /**
+     * Igual a {@link #printTicket58mmFacturaMonedaExtranjera(Venta, FacturaLegal, List, String, String, Double)},
+     * pero si se pasa un {@code destino} no nulo escribe el ESC/POS ahí en vez de abrir la impresora
+     * local (usado para rutear la impresión a otra sucursal vía PrintRouterService). Con destino=null
+     * el comportamiento es idéntico al método original.
+     */
+    public void printTicket58mmFacturaMonedaExtranjera(Venta venta, FacturaLegal facturaLegal,
+            List<FacturaLegalItem> facturaLegalItemList, String printerName, String monedaExtranjera,
+            Double tipoCambio, OutputStream destino)
+            throws Exception {
 
         if (facturaLegalItemList == null) {
             facturaLegalItemList = facturaLegalItemService.findByFacturaLegalId(facturaLegal.getId());
         }
 
-        printService = PrinterOutputStream.getPrintServiceByName(printerName);
+        if (destino == null) {
+            printService = PrinterOutputStream.getPrintServiceByName(printerName);
+        }
         Sucursal sucursal = sucursalService.findById(facturaLegal.getSucursalId()).orElse(null);
         Delivery delivery = null;
         if (venta != null)
@@ -690,15 +725,19 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         Double totalParcial0Extranjera = (facturaLegal.getTotalParcial0() != null ? facturaLegal.getTotalParcial0()
                 : 0.0) / tipoCambio;
 
-        if (printService != null) {
-            printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
-                    : new PrinterOutputStream(printService);
+        if (destino != null || printService != null) {
+            OutputStream salida = destino;
+            if (salida == null) {
+                printerOutputStream = this.printerOutputStream != null ? this.printerOutputStream
+                        : new PrinterOutputStream(printService);
+                salida = printerOutputStream;
+            }
             // Styles
             Style center = new Style().setJustification(EscPosConst.Justification.Center);
             Style factura = new Style().setJustification(EscPosConst.Justification.Center)
                     .setFontSize(Style.FontSize._1, Style.FontSize._1);
 
-            EscPos escpos = new EscPos(printerOutputStream);
+            EscPos escpos = new EscPos(salida);
             BitImageWrapper imageWrapper = new BitImageWrapper();
             Bitonal algorithm = new BitonalThreshold();
 
@@ -1113,8 +1152,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             try {
                 if (true) {
                     escpos.close();
-                    printerOutputStream.close();
-                    this.printerOutputStream = null;
+                    if (destino == null) {
+                        printerOutputStream.close();
+                        this.printerOutputStream = null;
+                    }
                 } else {
                     this.printerOutputStream = printerOutputStream;
                 }

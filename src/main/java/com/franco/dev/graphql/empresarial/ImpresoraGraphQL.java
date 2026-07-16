@@ -4,6 +4,7 @@ import com.franco.dev.domain.empresarial.Impresora;
 import com.franco.dev.graphql.empresarial.input.ImpresoraInput;
 import com.franco.dev.service.empresarial.ImpresoraService;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.impresion.CupsAdminService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -17,9 +18,6 @@ import org.springframework.stereotype.Component;
 import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 
-import javax.print.PrintService;
-import javax.print.PrintServiceLookup;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -34,6 +32,9 @@ public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private CupsAdminService cupsAdminService;
 
     public Optional<Impresora> impresora(Long id) {
         return service.findById(id);
@@ -62,15 +63,12 @@ public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     /**
      * Colas de impresion visibles localmente en el host que atiende esta consulta
-     * (en Linux, las colas CUPS). Sirve para descubrir impresoras del servidor/filial
-     * al dar de alta, no solo las del desktop.
+     * (en Linux, las colas CUPS, incluyendo las que apuntan a un device-uri remoto
+     * via IPP). Sirve para descubrir impresoras del servidor/filial al dar de alta,
+     * no solo las del desktop.
      */
     public List<String> impresorasDelSistema() {
-        List<String> nombres = new ArrayList<>();
-        for (PrintService p : PrintServiceLookup.lookupPrintServices(null, null)) {
-            nombres.add(p.getName());
-        }
-        return nombres;
+        return cupsAdminService.listarColasInstaladas();
     }
 
     public Impresora saveImpresora(ImpresoraInput input) {

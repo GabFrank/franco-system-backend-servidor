@@ -49,17 +49,20 @@ public class LiquidacionSueldo implements Identifiable<Long> {
     @Column(name = "fecha_fin")
     private LocalDate fechaFin;
 
+    // Las columnas son NOT NULL DEFAULT 0, pero el borrador se persiste antes de
+    // calcular los totales (necesita id para colgar los items) y un NULL explicito
+    // pisa el DEFAULT de la columna. aplicarTotales() los sobreescribe despues.
     @Column(name = "salario_base")
-    private BigDecimal salarioBase;
+    private BigDecimal salarioBase = BigDecimal.ZERO;
 
     @Column(name = "total_haberes")
-    private BigDecimal totalHaberes;
+    private BigDecimal totalHaberes = BigDecimal.ZERO;
 
     @Column(name = "total_descuentos")
-    private BigDecimal totalDescuentos;
+    private BigDecimal totalDescuentos = BigDecimal.ZERO;
 
     @Column(name = "total_neto")
-    private BigDecimal totalNeto;
+    private BigDecimal totalNeto = BigDecimal.ZERO;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id", nullable = true)

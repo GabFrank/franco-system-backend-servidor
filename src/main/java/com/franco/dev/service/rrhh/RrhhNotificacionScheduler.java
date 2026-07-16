@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,7 +49,10 @@ public class RrhhNotificacionScheduler {
     private final NotificacionPreferenciaService notificacionPreferenciaService;
 
     // Todos los dias a las 07:00 (hora del servidor).
+    // @Transactional: el job recorre Funcionario.persona (LAZY) para los cumpleaños;
+    // sin sesion abierta el proxy revienta con LazyInitializationException.
     @Scheduled(cron = "${rrhh.notificacion.cron:0 0 7 * * ?}")
+    @Transactional
     public void generarAlertasDiarias() {
         try {
             List<String> lineas = new ArrayList<>();

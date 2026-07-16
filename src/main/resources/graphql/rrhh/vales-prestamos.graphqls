@@ -56,7 +56,7 @@ type Vale {
     creadoEn: Date
 }
 
-input ValeInput {
+input ValeRrhhInput {
     id: ID
     funcionarioId: Int
     motivoId: Int
@@ -129,9 +129,9 @@ extend type Mutation {
     saveMotivoVale(motivoVale: MotivoValeInput!): MotivoVale!
     deleteMotivoVale(id: ID!): Boolean!
 
-    saveVale(vale: ValeInput!): Vale!
+    saveVale(vale: ValeRrhhInput!): Vale!
     confirmarVale(id: ID!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
-    crearValeConfirmado(vale: ValeInput!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
+    crearValeConfirmado(vale: ValeRrhhInput!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
     anularVale(id: ID!): Vale
 
     crearPrestamo(prestamo: PrestamoInput!, cajaVirtualId: ID!): Prestamo

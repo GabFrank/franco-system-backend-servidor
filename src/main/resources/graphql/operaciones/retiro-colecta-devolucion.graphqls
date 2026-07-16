@@ -10,6 +10,7 @@ type RetiroDevolucion {
     estado: String
     creadoEn: Date
     devoluciones: [Devolucion]
+    notaCredito: NotaCreditoDevolucion
 }
 
 type ColectaDevolucion {
@@ -27,12 +28,14 @@ type ColectaDevolucion {
 type RetiroDevolucionPage {
     getContent: [RetiroDevolucion]
     getTotalElements: Int
+    getTotalPages: Int
     hasNext: Boolean
 }
 
 type ColectaDevolucionPage {
     getContent: [ColectaDevolucion]
     getTotalElements: Int
+    getTotalPages: Int
     hasNext: Boolean
 }
 

@@ -35,6 +35,9 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
     private ProductoService productoService;
 
     @Autowired
+    private com.franco.dev.service.productos.CostosPorProductoService costosPorProductoService;
+
+    @Autowired
     private com.franco.dev.service.productos.PresentacionService presentacionService;
 
     @Autowired
@@ -87,6 +90,21 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     // ===== MUTATION OPERATIONS =====
 
+    /** Costo medio actual del producto (0.0 si no hay costo registrado). */
+    private Double resolverCostoMedio(Long productoId) {
+        if (productoId == null) return 0.0;
+        try {
+            com.franco.dev.domain.productos.CostoPorProducto c =
+                    costosPorProductoService.findLastByProductoId(productoId);
+            if (c != null && c.getCostoMedio() != null && c.getCostoMedio() > 0.0) {
+                return c.getCostoMedio();
+            }
+        } catch (Exception ex) {
+            logger.warn("No se pudo resolver costo medio para producto {}: {}", productoId, ex.getMessage());
+        }
+        return 0.0;
+    }
+
     public DevolucionItem saveDevolucionItem(DevolucionItemInput input) {
         logger.info("=== Starting DevolucionItem save operation ===");
         
@@ -120,6 +138,18 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
             if (input.getPresentacionId() != null) {
                 entity.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
+            }
+
+            // El costo unitario siempre debe quedar cargado (con o sin proveedor): alimenta
+            // el valor de la devolucion y la merma. Si el front no lo envia, se toma el costo
+            // medio actual del producto. El costo medio es POR UNIDAD BASE; costoUnitario es
+            // por unidad de la presentacion del item (se multiplica por costo x cantidad, y
+            // cantidad esta en unidades de presentacion), por eso se escala por el factor.
+            if (entity.getCostoUnitario() == null || entity.getCostoUnitario() <= 0.0) {
+                Long prodId = entity.getProducto() != null ? entity.getProducto().getId() : input.getProductoId();
+                double factor = entity.getPresentacion() != null && entity.getPresentacion().getCantidad() != null
+                        ? entity.getPresentacion().getCantidad() : 1.0;
+                entity.setCostoUnitario(resolverCostoMedio(prodId) * factor);
             }
 
             if (input.getMotivoAveriaId() != null) {

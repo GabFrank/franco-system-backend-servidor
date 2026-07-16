@@ -55,7 +55,7 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
             if (f.getFechaIngreso().getYear() > anio) {
                 continue;
             }
-            int mesesTrabajados = AguinaldoCalculator.mesesTrabajados(anio, f.getFechaIngreso());
+            int mesesTrabajados = AguinaldoCalculator.mesesTrabajados(anio, f.getFechaIngreso().toLocalDate());
 
             BigDecimal sueldo = new BigDecimal(f.getSueldo().toString());
             BigDecimal monto = AguinaldoCalculator.calcularMonto(sueldo, mesesTrabajados);

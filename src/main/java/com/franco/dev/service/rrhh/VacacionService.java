@@ -196,7 +196,7 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
         int meses = configuracionRrhhService.getNumber("PRESCRIPCION_VACACIONES_MESES", new BigDecimal("24")).intValue();
         LocalDate limite = LocalDate.now().minusMonths(meses);
         int n = 0;
-        for (Vacacion v : repository.findAll2()) {
+        for (Vacacion v : findAll2()) {
             if (!Boolean.TRUE.equals(v.getPrescrita()) && v.getFechaCorte() != null && v.getFechaCorte().isBefore(limite)) {
                 int disponibles = (v.getDiasGenerados() != null ? v.getDiasGenerados() : 0)
                         - (v.getDiasGozados() != null ? v.getDiasGozados() : 0);

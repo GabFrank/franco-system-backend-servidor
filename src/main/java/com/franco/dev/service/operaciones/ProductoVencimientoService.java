@@ -28,5 +28,9 @@ public class ProductoVencimientoService extends CrudService<ProductoVencimiento,
         }
         return super.save(entity);
     }
+
+    public java.util.List<ProductoVencimiento> findByProductoIdAndSucursalId(Long productoId, Long sucursalId) {
+        return repository.findByProductoIdAndSucursalId(productoId, sucursalId);
+    }
 }
 

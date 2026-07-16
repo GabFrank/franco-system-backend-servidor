@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Optional;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Component
 public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -31,6 +33,15 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     @Autowired
     private ProductoService productoService;
+
+    @Autowired
+    private com.franco.dev.service.productos.CostosPorProductoService costosPorProductoService;
+
+    @Autowired
+    private com.franco.dev.service.productos.PresentacionService presentacionService;
+
+    @Autowired
+    private com.franco.dev.service.operaciones.MotivoAveriaService motivoAveriaService;
 
     // Usar @Lazy para evitar problemas de dependencia circular
     @Autowired
@@ -79,34 +90,77 @@ public class DevolucionItemGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     // ===== MUTATION OPERATIONS =====
 
+    /** Costo medio actual del producto (0.0 si no hay costo registrado). */
+    private Double resolverCostoMedio(Long productoId) {
+        if (productoId == null) return 0.0;
+        try {
+            com.franco.dev.domain.productos.CostoPorProducto c =
+                    costosPorProductoService.findLastByProductoId(productoId);
+            if (c != null && c.getCostoMedio() != null && c.getCostoMedio() > 0.0) {
+                return c.getCostoMedio();
+            }
+        } catch (Exception ex) {
+            logger.warn("No se pudo resolver costo medio para producto {}: {}", productoId, ex.getMessage());
+        }
+        return 0.0;
+    }
+
     public DevolucionItem saveDevolucionItem(DevolucionItemInput input) {
         logger.info("=== Starting DevolucionItem save operation ===");
         
         try {
             DevolucionItem entity = new DevolucionItem();
-            
+
             // Map basic fields
             entity.setId(input.getId());
             entity.setCantidad(input.getCantidad());
             entity.setLote(input.getLote());
-            // Note: motivo field doesn't exist in entity but exists in input/schema
-            
+            entity.setMotivo(input.getMotivo());
+            entity.setCostoUnitario(input.getCostoUnitario());
+            entity.setCantidadReingresada(input.getCantidadReingresada());
+            if (input.getVencimiento() != null) {
+                entity.setVencimiento(stringToDate(input.getVencimiento()).toLocalDate());
+            }
+            if (input.getVencimientoReingreso() != null) {
+                entity.setVencimientoReingreso(stringToDate(input.getVencimientoReingreso()).toLocalDate());
+            }
+
             // Map navigation properties
             if (input.getDevolucionId() != null) {
                 entity.setDevolucion(devolucionService.findById(input.getDevolucionId())
                     .orElseThrow(() -> new GraphQLException("Devolucion no encontrada con ID: " + input.getDevolucionId())));
             }
-            
+
             if (input.getProductoId() != null) {
                 entity.setProducto(productoService.findById(input.getProductoId())
                     .orElseThrow(() -> new GraphQLException("Producto no encontrado con ID: " + input.getProductoId())));
             }
-            
+
+            if (input.getPresentacionId() != null) {
+                entity.setPresentacion(presentacionService.findById(input.getPresentacionId()).orElse(null));
+            }
+
+            // El costo unitario siempre debe quedar cargado (con o sin proveedor): alimenta
+            // el valor de la devolucion y la merma. Si el front no lo envia, se toma el costo
+            // medio actual del producto. El costo medio es POR UNIDAD BASE; costoUnitario es
+            // por unidad de la presentacion del item (se multiplica por costo x cantidad, y
+            // cantidad esta en unidades de presentacion), por eso se escala por el factor.
+            if (entity.getCostoUnitario() == null || entity.getCostoUnitario() <= 0.0) {
+                Long prodId = entity.getProducto() != null ? entity.getProducto().getId() : input.getProductoId();
+                double factor = entity.getPresentacion() != null && entity.getPresentacion().getCantidad() != null
+                        ? entity.getPresentacion().getCantidad() : 1.0;
+                entity.setCostoUnitario(resolverCostoMedio(prodId) * factor);
+            }
+
+            if (input.getMotivoAveriaId() != null) {
+                entity.setMotivoAveria(motivoAveriaService.findById(input.getMotivoAveriaId()).orElse(null));
+            }
+
             if (input.getRecepcionMercaderiaItemId() != null) {
                 entity.setRecepcionMercaderiaItem(recepcionMercaderiaItemService.findById(input.getRecepcionMercaderiaItemId())
                     .orElseThrow(() -> new GraphQLException("RecepcionMercaderiaItem no encontrado con ID: " + input.getRecepcionMercaderiaItemId())));
             }
-            
+
             logger.info("=== DevolucionItem mapping completed successfully ===");
             
             DevolucionItem savedEntity = service.save(entity);

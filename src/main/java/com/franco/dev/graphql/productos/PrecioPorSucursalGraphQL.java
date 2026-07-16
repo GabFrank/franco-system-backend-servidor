@@ -101,9 +101,8 @@ public class PrecioPorSucursalGraphQL implements GraphQLQueryResolver, GraphQLMu
             PrecioPorSucursal existente = service.findBySucursalIdAndPresentacionIdAndTipoPrecioId(
                     input.getSucursalId(), input.getPresentacionId(), input.getTipoPrecioId());
             if (existente != null) {
-                e.setId(existente.getId());
-                e.setCreadoEn(existente.getCreadoEn());
-                precioAnterior = existente.getPrecio();
+                throw new IllegalArgumentException(
+                        "Ya existe un precio con ese tipo de precio para esta presentación y sucursal");
             }
         }
 

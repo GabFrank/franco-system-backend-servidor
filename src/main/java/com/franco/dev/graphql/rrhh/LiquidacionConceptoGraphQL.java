@@ -45,6 +45,9 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
 
     public LiquidacionConcepto saveLiquidacionConcepto(LiquidacionConceptoInput input) {
         ModelMapper m = new ModelMapper();
+        // Ver ConfiguracionRrhhGraphQL: en update, los campos null del input no deben
+        // pisar valores existentes (ej. creadoEn) y disparar NOT NULL al guardar.
+        m.getConfiguration().setSkipNullEnabled(true);
         LiquidacionConcepto e;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new LiquidacionConcepto());

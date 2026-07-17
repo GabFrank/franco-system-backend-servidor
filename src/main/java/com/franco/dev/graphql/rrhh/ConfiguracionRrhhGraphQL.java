@@ -49,6 +49,10 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     public ConfiguracionRrhh saveConfiguracionRrhh(ConfiguracionRrhhInput input) {
         ModelMapper m = new ModelMapper();
+        // En update, m.map(input, e) sobre la entidad cargada: los campos null del
+        // input (ej. creadoEn, que el form no envia) NO deben pisar los valores
+        // existentes; si no, creado_en queda null y viola el NOT NULL al guardar.
+        m.getConfiguration().setSkipNullEnabled(true);
         ConfiguracionRrhh e;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new ConfiguracionRrhh());

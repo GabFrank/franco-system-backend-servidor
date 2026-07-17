@@ -154,4 +154,5 @@ public class NotificationRoleService {
                 "ANALISIS DE CAJA",
                 "ANALISIS DE VENTA");
     }
+
 }

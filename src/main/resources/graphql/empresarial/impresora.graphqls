@@ -47,6 +47,7 @@ type Impresora {
     altoMm: Int
     marca: String
     codepage: String
+    compartidaEnCentral: Boolean
     creadoEn: Date
     usuario: Usuario
 }
@@ -77,6 +78,7 @@ input ImpresoraInput {
     altoMm: Int
     marca: String
     codepage: String
+    compartidaEnCentral: Boolean
     usuarioId: Int
 }
 

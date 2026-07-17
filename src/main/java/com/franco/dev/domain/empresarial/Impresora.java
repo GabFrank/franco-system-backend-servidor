@@ -85,6 +85,13 @@ public class Impresora implements Identifiable<Long> {
     /** Code-page ESC/POS. */
     private String codepage;
 
+    /**
+     * true = ademas de vivir en {@link #sucursal}, tiene una cola CUPS proxy (IPP) instalada
+     * en el central via "compartir al central". Informativo: {@link #sucursal} sigue siendo el
+     * host real para el routing de {@code PrintRouterService}.
+     */
+    private Boolean compartidaEnCentral;
+
     @CreationTimestamp
     private LocalDateTime creadoEn;
 

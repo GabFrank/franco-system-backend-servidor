@@ -25,5 +25,6 @@ public class ImpresoraInput {
     private Integer altoMm;
     private String marca;
     private String codepage;
+    private Boolean compartidaEnCentral;
     private Long usuarioId;
 }

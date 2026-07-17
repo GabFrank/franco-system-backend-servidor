@@ -106,7 +106,7 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
         mov.setCantidad(prestamo.getMontoTotal().doubleValue());
         mov.setMoneda(prestamo.getMoneda());
         mov.setReferenciaId(prestamo.getId());
-        mov.setDescripcion("DESEMBOLSO PRESTAMO FUNCIONARIO #" + prestamo.getId());
+        mov.setDescripcion("DESEMBOLSO PRESTAMO #" + prestamo.getId() + nombreFuncionario(prestamo.getFuncionario()));
         mov.setUsuario(prestamo.getUsuario());
         mov.setActivo(true);
         mov = movimientoCajaVirtualService.registrarMovimiento(mov);
@@ -121,7 +121,7 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
             mp.setReferenciaId(prestamo.getId());
             mp.setValorTotal(prestamo.getMontoTotal().doubleValue());
             mp.setActivo(true);
-            mp.setObservacion("PRESTAMO FUNCIONARIO #" + prestamo.getId());
+            mp.setObservacion("PRESTAMO #" + prestamo.getId() + nombreFuncionario(f));
             mp.setUsuario(prestamo.getUsuario());
             mp = movimientoPersonasService.save(mp);
             prestamo.setMovimientoPersonaId(mp.getId());
@@ -194,5 +194,11 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
 
     public Optional<PrestamoCuota> findCuotaById(Long id) {
         return cuotaRepository.findById(id);
+    }
+
+    /** Sufijo " - NOMBRE" para las descripciones de los movimientos (vacio si no hay). */
+    private static String nombreFuncionario(Funcionario f) {
+        return (f != null && f.getPersona() != null && f.getPersona().getNombre() != null)
+                ? " - " + f.getPersona().getNombre() : "";
     }
 }

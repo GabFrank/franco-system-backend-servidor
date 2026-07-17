@@ -127,7 +127,7 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         mov.setCantidad(vale.getMonto() != null ? vale.getMonto().doubleValue() : 0.0);
         mov.setMoneda(moneda);
         mov.setReferenciaId(vale.getId());
-        mov.setDescripcion("VALE FUNCIONARIO #" + vale.getId());
+        mov.setDescripcion("VALE #" + vale.getId() + nombreFuncionario(vale.getFuncionario()));
         mov.setUsuario(vale.getUsuario());
         mov.setActivo(true);
         mov = movimientoCajaVirtualService.registrarMovimiento(mov);
@@ -155,12 +155,13 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         if (f == null || f.getPersona() == null) return;
         MovimientoPersonas mp = new MovimientoPersonas();
         mp.setPersona(f.getPersona());
-        mp.setTipo(vale.getEsAdelanto() != null && vale.getEsAdelanto()
-                ? TipoMovimientoPersonas.ANTICIPO : TipoMovimientoPersonas.ANTICIPO);
+        // Un vale (sea adelanto de sueldo o no) es siempre un ANTICIPO en la cuenta
+        // corriente del empleado; el enum no distingue subtipos.
+        mp.setTipo(TipoMovimientoPersonas.ANTICIPO);
         mp.setReferenciaId(vale.getId());
         mp.setValorTotal(vale.getMonto() != null ? vale.getMonto().doubleValue() : 0.0);
         mp.setActivo(true);
-        mp.setObservacion("VALE FUNCIONARIO #" + vale.getId());
+        mp.setObservacion("VALE #" + vale.getId() + nombreFuncionario(f));
         mp.setUsuario(vale.getUsuario());
         mp = movimientoPersonasService.save(mp);
         vale.setMovimientoPersonaId(mp.getId());
@@ -174,5 +175,11 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
             mp.setActivo(false);
             movimientoPersonasService.save(mp);
         }
+    }
+
+    /** Sufijo " - NOMBRE" para las descripciones de los movimientos (vacio si no hay). */
+    private static String nombreFuncionario(Funcionario f) {
+        return (f != null && f.getPersona() != null && f.getPersona().getNombre() != null)
+                ? " - " + f.getPersona().getNombre() : "";
     }
 }

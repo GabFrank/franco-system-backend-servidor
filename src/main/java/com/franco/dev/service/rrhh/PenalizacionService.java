@@ -102,7 +102,14 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
             if (tardia == null || tardia <= toleranciaMin) continue;
             if (j.getUsuario() == null) continue;
 
-            Funcionario func = funcionarioService.findByUsuarioId(j.getUsuario().getId());
+            // j.getUsuario() es la cuenta que marco la jornada (el empleado). El
+            // funcionario se resuelve por la persona compartida, NO por
+            // funcionario.usuario_id, que es "creado_por" (auditoria): esa columna
+            // reventaba el job con NonUniqueResultException cuando un usuario habia
+            // creado mas de un funcionario.
+            Funcionario func = j.getUsuario().getPersona() != null
+                    ? funcionarioService.findByPersonaId(j.getUsuario().getPersona().getId())
+                    : null;
             if (func == null) continue;
 
             // saltear si la jornada esta justificada (novedad JUSTIFICADO)

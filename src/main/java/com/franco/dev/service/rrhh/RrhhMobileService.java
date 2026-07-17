@@ -15,6 +15,7 @@ import com.franco.dev.fmc.service.PushNotificationService;
 import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.configuracion.NotificacionPreferenciaService;
 import com.franco.dev.service.personas.FuncionarioService;
+import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.dto.ResumenRrhhMobileDto;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -43,6 +44,7 @@ public class RrhhMobileService {
     private static final String TIPO_NOTIF_SOLICITUD = "RRHH_SOLICITUD";
 
     private final FuncionarioService funcionarioService;
+    private final UsuarioService usuarioService;
     private final LiquidacionSueldoService liquidacionSueldoService;
     private final ValeService valeService;
     private final VacacionService vacacionService;
@@ -52,7 +54,15 @@ public class RrhhMobileService {
     private final NotificacionPreferenciaService notificacionPreferenciaService;
 
     private Funcionario funcionarioDe(Long usuarioId) {
-        Funcionario f = funcionarioService.findByUsuarioId(usuarioId);
+        // OJO: funcionario.usuario_id es "creado_por" (auditoria), NO la cuenta del
+        // empleado. El vinculo empleado<->login es la persona compartida:
+        // usuario.persona_id == funcionario.persona_id (ambos UNIQUE). Usar
+        // findByUsuarioId aca devolveria a otro empleado, o reventaria con
+        // NonUniqueResultException si ese usuario creo varios funcionarios.
+        Usuario u = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        Funcionario f = (u != null && u.getPersona() != null)
+                ? funcionarioService.findByPersonaId(u.getPersona().getId())
+                : null;
         if (f == null) throw new GraphQLException("No se encontro un funcionario para el usuario");
         return f;
     }

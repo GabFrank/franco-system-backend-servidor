@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.MovimientoPersonas;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
 import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.personas.Funcionario;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.*;
 import com.franco.dev.domain.rrhh.enums.*;
 import com.franco.dev.repository.rrhh.*;
@@ -156,10 +157,16 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
      * trabajados (de las jornadas del período). Para mensuales: el sueldo fijo.
      */
     private BigDecimal calcularSalarioBase(Funcionario f, LocalDate inicio, LocalDate fin) {
-        if (Boolean.TRUE.equals(f.getDiarista()) && f.getUsuario() != null) {
-            int diasTrabajados = jornadaService
-                    .findByUsuarioIdAndFechaRange(f.getUsuario().getId(), inicio.toString(), fin.toString())
-                    .size();
+        if (Boolean.TRUE.equals(f.getDiarista())) {
+            // Las jornadas se registran contra la cuenta de LOGIN del empleado. Ese
+            // login se resuelve por la persona compartida, NO por f.getUsuario()
+            // (funcionario.usuario_id = "creado_por"), que apuntaria a las jornadas
+            // de quien creo el registro y daria un salario base equivocado.
+            Usuario login = f.getPersona() != null
+                    ? usuarioService.findByPersonaId(f.getPersona().getId()) : null;
+            int diasTrabajados = login != null
+                    ? jornadaService.findByUsuarioIdAndFechaRange(login.getId(), inicio.toString(), fin.toString()).size()
+                    : 0;
             BigDecimal valorJornal = f.getValorJornal() != null ? new BigDecimal(f.getValorJornal().toString()) : BigDecimal.ZERO;
             return com.franco.dev.service.rrhh.builder.JornaleroCalculator.calcularSalarioBase(valorJornal, diasTrabajados);
         }

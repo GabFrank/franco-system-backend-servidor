@@ -31,14 +31,23 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
         @Query("select u from Funcionario u " +
                         "join u.persona p " +
-                        "left join u.sucursal s where " +
+                        "left join u.sucursal s " +
+                        "left join u.cargo c where " +
                         "(cast(:id as long) is null or u.id = :id) and " +
                         "(cast(:nombre as string) is null or upper(p.nombre) like concat('%', upper(cast(:nombre as string)), '%')) and " +
-                        "(:sucursalList is null or s.id in :sucursalList) " +
-                        "order by u.id")
+                        "(:sucursalList is null or s.id in :sucursalList) and " +
+                        "(cast(:activo as boolean) is null or u.activo = :activo) and " +
+                        "(cast(:cargoId as long) is null or c.id = :cargoId) and " +
+                        "(cast(:diarista as boolean) is null or u.diarista = :diarista) and " +
+                        "(cast(:fasePrueba as boolean) is null or u.fasePrueba = :fasePrueba) " +
+                        "order by p.nombre")
         public Page<Funcionario> findAllWithFilterAndPage(
                         @Param("id") Long id,
                         @Param("nombre") String nombre,
                         @Param("sucursalList") List<Long> sucursalList,
+                        @Param("activo") Boolean activo,
+                        @Param("cargoId") Long cargoId,
+                        @Param("diarista") Boolean diarista,
+                        @Param("fasePrueba") Boolean fasePrueba,
                         Pageable pageable);
 }

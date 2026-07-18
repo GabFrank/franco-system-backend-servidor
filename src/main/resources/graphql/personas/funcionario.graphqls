@@ -58,7 +58,7 @@ extend type Query {
     funcionarioPorPersona(id:ID!):Funcionario
     funcionariosSearch(texto:String):[Funcionario]
     funcionarios(page:Int = 0, size:Int = 10):[Funcionario]!
-    funcionariosWithPage(page: Int, size: Int, id: Int, nombre: String, sucursalIdList: [Int]): FuncionarioPage
+    funcionariosWithPage(page: Int, size: Int, id: Int, nombre: String, sucursalIdList: [Int], activo: Boolean, cargoId: Int, diarista: Boolean, fasePrueba: Boolean): FuncionarioPage
     countFuncionario:Int
 }
 

@@ -59,13 +59,13 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.findAll(pageable);
     }
 
-    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre, List<Long> sucursalList) {
+    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre, List<Long> sucursalList,
+            Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba) {
         Pageable pageable = PageRequest.of(page, size);
         if (nombre != null) {
             nombre = nombre.replace(" ", "%");
         }
-        Page<Funcionario> result = service.findAllWithPage(id, nombre, sucursalList, pageable);
-        return result;
+        return service.findAllWithPage(id, nombre, sucursalList, activo, cargoId, diarista, fasePrueba, pageable);
     }
 
     public List<Funcionario> funcionariosSearch(String texto) {

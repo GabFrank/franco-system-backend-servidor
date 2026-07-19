@@ -48,6 +48,10 @@ public class CodigoGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.findByCodigo(texto);
     }
 
+    public String generarCodigoInterno() {
+        return service.generarCodigoInterno();
+    }
+
     public Boolean deleteCodigo(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;

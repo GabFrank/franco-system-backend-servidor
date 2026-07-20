@@ -8,21 +8,26 @@ import com.franco.dev.repository.productos.CodigoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.search.ProductoSearchIndexSyncService;
+import com.franco.dev.utilitarios.Ean13Utils;
 import graphql.GraphQLException;
-import lombok.AllArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import java.sql.PreparedStatement;
 import java.util.List;
 
+import org.hibernate.Session;
+
 @Service
-@AllArgsConstructor
 public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
 
     @Autowired
-    private final CodigoRepository repository;
+    private CodigoRepository repository;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -46,10 +51,43 @@ public class CodigoService extends CrudService<Codigo, CodigoRepository, Long> {
     @Autowired
     private Environment env;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    private static final int GENERAR_MAX_INTENTOS = 50;
+
     // funcion para buscar un Codigo por su codigo de barra
     public List<Codigo> findByCodigo(String texto) {
         texto = texto.replace(' ', '%');
         return repository.findByCodigo(texto.toUpperCase());
+    }
+
+    /**
+     * Próximo EAN-13 interno libre (prefijo {@link Ean13Utils#INTERNAL_PREFIX}).
+     * No persiste el registro; evita colisiones con UNIQUE(codigo).
+     */
+    @Transactional
+    public String generarCodigoInterno() {
+        // Lock de transacción via JDBC: pg_advisory_xact_lock retorna void (JDBC 1111)
+        // y Hibernate no puede mapearlo con createNativeQuery(...).getSingleResult().
+        entityManager.unwrap(Session.class).doWork(connection -> {
+            try (PreparedStatement ps = connection.prepareStatement(
+                    "SELECT pg_advisory_xact_lock(?)")) {
+                ps.setLong(1, 87219901L);
+                ps.execute();
+            }
+        });
+
+        Long maxSeq = repository.findMaxInternalEan21Sequence();
+        long next = (maxSeq == null ? 0L : maxSeq) + 1;
+
+        for (int i = 0; i < GENERAR_MAX_INTENTOS; i++) {
+            String candidato = Ean13Utils.fromInternalSequence(next + i);
+            if (!repository.existsByCodigo(candidato)) {
+                return candidato;
+            }
+        }
+        throw new GraphQLException("No se pudo generar un código interno único. Intente de nuevo.");
     }
 
     public Codigo save(CodigoInput input) throws GraphQLException {

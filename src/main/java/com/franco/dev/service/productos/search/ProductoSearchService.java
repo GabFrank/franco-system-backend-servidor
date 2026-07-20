@@ -80,9 +80,12 @@ public class ProductoSearchService {
 
     private PredicateFinalStep crearPredicadoToken(SearchPredicateFactory f, String token) {
         return f.bool(tokenBool -> {
+            // wildcard() no pasa el patron por el analyzer del campo (a diferencia de match()),
+            // por lo que hay que normalizarlo a mano para que coincida con el indice (lowercase + sin tildes).
+            String tokenWildcard = ProductoTextoRelevanceScorer.normalizar(token);
             tokenBool.should(f.wildcard()
                     .fields("descripcion", "descripcionFactura")
-                    .matching(token + "*")
+                    .matching(tokenWildcard + "*")
                     .boost(BOOST_PREFIJO));
 
             int fuzzyDistance = ProductoTextoRelevanceScorer.distanciaFuzzyMaxima(token.length());

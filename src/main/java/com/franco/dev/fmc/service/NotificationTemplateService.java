@@ -392,6 +392,32 @@ public class NotificationTemplateService {
         return request;
     }
 
+    public PushNotificationRequest diferenciaMaletinDetectada(Long cajaId, Long sucursalId, String sucursalNombre,
+            String maletinDescripcion, Double diferenciaGs, Double diferenciaRs, Double diferenciaDs,
+            Double diferenciaTotalGs, DecimalFormat decimalFormat) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("SE HA DETECTADO UNA DIFERENCIA EN EL MALETÍN");
+        if (maletinDescripcion != null && !maletinDescripcion.isEmpty()) {
+            builder.append(" ").append(maletinDescripcion.toUpperCase());
+        }
+        builder.append(" EN LA SUCURSAL ").append(sucursalNombre != null ? sucursalNombre : "")
+                .append(" POR EL VALOR DE ");
+        if (diferenciaGs != null && diferenciaGs != 0) {
+            builder.append(decimalFormat.format(Math.abs(diferenciaGs))).append(" Gs. ");
+        }
+        if (diferenciaRs != null && diferenciaRs != 0) {
+            builder.append(decimalFormat.format(Math.abs(diferenciaRs))).append(" Rs. ");
+        }
+        if (diferenciaDs != null && diferenciaDs != 0) {
+            builder.append(decimalFormat.format(Math.abs(diferenciaDs))).append(" Ds. ");
+        }
+        PushNotificationRequest request = base("DIFERENCIA EN MALETÍN", builder.toString());
+        request.setType("DIFERENCIA_MALETIN");
+        request.setData("/financiero/analisis-diferencia/" + (cajaId != null ? cajaId : "") + "/"
+                + (sucursalId != null ? sucursalId : ""));
+        return request;
+    }
+
     public PushNotificationRequest ventaTransferenciaRealizada(Venta venta, Sucursal sucursal, Double valorTotal,
             DecimalFormat decimalFormat) {
         return ventaTransferenciaRealizada(

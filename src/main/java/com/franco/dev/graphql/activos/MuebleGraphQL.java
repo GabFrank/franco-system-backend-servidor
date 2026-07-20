@@ -11,6 +11,7 @@ import com.franco.dev.service.activos.MuebleService;
 import com.franco.dev.service.activos.TipoMuebleService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.financiero.ActivoFinancieroSyncFacade;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.ProveedorService;
 import graphql.GraphQLException;
@@ -51,6 +52,9 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private EnteService enteService;
+
+    @Autowired
+    private ActivoFinancieroSyncFacade activoFinancieroSyncFacade;
 
     public Optional<Mueble> mueble(Long id) {
         return service.findById(id);
@@ -149,6 +153,20 @@ public class MuebleGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         try {
             e = service.save(e);
             enteService.ensureEnteForReferencia(TipoEnte.MUEBLE, e.getId(), e.getDescripcion(), e.getUsuario());
+            activoFinancieroSyncFacade.sync(
+                    TipoEnte.MUEBLE,
+                    e.getId(),
+                    e.getSituacionPago(),
+                    input.getProveedorId(),
+                    input.getMonedaId(),
+                    input.getMontoTotal(),
+                    input.getMontoYaPagado(),
+                    input.getCantidadCuotas(),
+                    input.getCantidadCuotasPagadas(),
+                    input.getDiaVencimiento(),
+                    input.getCuotasDetalle(),
+                    input.getUsuarioId()
+            );
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el mueble: " + err.getMessage());

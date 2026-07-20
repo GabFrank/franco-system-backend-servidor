@@ -306,11 +306,10 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     }
 
     /**
-     * Actualiza o crea el costo por producto.
-     * - ultimoPrecioCompra: se guarda en moneda original (la de la nota) para preservar el precio real del proveedor
-     * - costoMedio: se calcula siempre en Gs (moneda base) para que el promedio ponderado sea correcto
-     *   cuando se mezclan compras en distintas monedas
-     * - moneda y cotizacion: se toman de la nota de recepción (no de la recepción de mercadería)
+     * Actualiza el costo por producto de una recepción de mercadería.
+     * Delega en {@link CostosPorProductoService#aplicarCostoCompra} la lógica de promedio ponderado
+     * global (en Gs), guards de stock/costo y dedup. Aquí solo se resuelven la moneda y cotización
+     * de la NOTA (no de la recepción) y se validan los campos requeridos.
      */
     private void actualizarCostoPorProducto(RecepcionMercaderiaItem item, Double costoUnitario,
                                           RecepcionMercaderia recepcion) {
@@ -335,54 +334,15 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         Double cotizacionNota = nota != null && nota.getCotizacion() != null
             ? nota.getCotizacion() : (recepcion.getCotizacion() != null ? recepcion.getCotizacion() : 1.0);
 
-        // Convertir costoUnitario a Gs para el cálculo del costoMedio
-        Double costoUnitarioEnGs = costoUnitario;
-        if (cotizacionNota > 1.0) {
-            costoUnitarioEnGs = costoUnitario * cotizacionNota;
-        }
-
-        CostoPorProducto costoExistente = costoPorProductoService.findLastByProductoId(item.getProducto().getId());
-
-        CostoPorProducto costo;
-        if (costoExistente != null &&
-            costoExistente.getSucursal() != null &&
-            costoExistente.getSucursal().getId() != null &&
-            costoExistente.getSucursal().getId().equals(item.getSucursalEntrega().getId())) {
-            // Update existing cost
-            costo = costoExistente;
-            // Calcular nuevo costo medio ponderado (siempre en Gs)
-            Double stockActual = movimientoStockService.stockByProductoIdAndSucursalId(
-                item.getProducto().getId(), item.getSucursalEntrega().getId());
-            Double stockAnterior = stockActual - item.getCantidadRecibida();
-
-            if (stockAnterior > 0) {
-                Double costoMedioAnterior = costo.getCostoMedio() != null ? costo.getCostoMedio() : 0.0;
-                Double valorStockAnterior = stockAnterior * costoMedioAnterior;
-                Double valorStockNuevo = item.getCantidadRecibida() * costoUnitarioEnGs;
-                Double nuevoCostoMedio = (valorStockAnterior + valorStockNuevo) / stockActual;
-                costo.setCostoMedio(nuevoCostoMedio);
-            } else {
-                costo.setCostoMedio(costoUnitarioEnGs);
-            }
-        } else {
-            // Crear nuevo registro de costo
-            costo = new CostoPorProducto();
-            costo.setProducto(item.getProducto());
-            costo.setSucursal(item.getSucursalEntrega());
-            costo.setCostoMedio(costoUnitarioEnGs);
-            costo.setCreadoEn(LocalDateTime.now());
-        }
-
-        // ultimoPrecioCompra en moneda original (precio del proveedor sin convertir)
-        costo.setUltimoPrecioCompra(costoUnitario);
-        // moneda y cotización de la nota para poder reconstruir el valor en Gs
-        costo.setMoneda(monedaNota);
-        costo.setCotizacion(cotizacionNota);
-        if (recepcion.getUsuario() != null) {
-            costo.setUsuario(recepcion.getUsuario());
-        }
-
-        costoPorProductoService.save(costo);
+        costoPorProductoService.aplicarCostoCompra(
+            item.getProducto(),
+            item.getCantidadRecibida(),
+            costoUnitario,
+            monedaNota,
+            cotizacionNota,
+            item.getSucursalEntrega(),
+            recepcion.getUsuario(),
+            LocalDateTime.now());
     }
 
     /**

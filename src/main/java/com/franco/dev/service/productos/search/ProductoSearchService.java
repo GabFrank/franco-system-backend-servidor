@@ -1,6 +1,8 @@
 package com.franco.dev.service.productos.search;
 
 import com.franco.dev.domain.productos.Producto;
+import org.hibernate.search.engine.search.predicate.dsl.PredicateFinalStep;
+import org.hibernate.search.engine.search.predicate.dsl.SearchPredicateFactory;
 import org.hibernate.search.engine.search.query.SearchResult;
 import org.hibernate.search.mapper.orm.Search;
 import org.hibernate.search.mapper.orm.session.SearchSession;
@@ -9,6 +11,7 @@ import org.springframework.stereotype.Service;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,7 +22,8 @@ import java.util.stream.Collectors;
 @Service
 public class ProductoSearchService {
 
-    private static final int FUZZY_MAX_EDIT_DISTANCE = 2;
+    private static final float BOOST_PREFIJO = 8.0f;
+    private static final float BOOST_FUZZY = 0.4f;
     private static final int DEFAULT_MAX_RESULTS = 50;
 
     @PersistenceContext
@@ -40,33 +44,7 @@ public class ProductoSearchService {
             Boolean isEnvase,
             Long familiaId,
             Long subfamiliaId) {
-        if (!textoBusquedaValido(texto)) {
-            return Collections.emptyList();
-        }
-        int limit = maxResults > 0 ? maxResults : DEFAULT_MAX_RESULTS;
-        String[] tokens = texto.trim().split("\\s+");
-        SearchSession session = Search.session(entityManager);
-
-        SearchResult<Producto> result = session.search(Producto.class)
-                .where(f -> {
-                    var bool = f.bool();
-                    aplicarFiltrosIndexados(bool, f, activo, isEnvase, familiaId, subfamiliaId);
-                    for (String token : tokens) {
-                        bool.must(f.bool(tokenBool -> tokenBool
-                                .should(f.match()
-                                        .fields("descripcion", "descripcionFactura")
-                                        .matching(token)
-                                        .fuzzy(FUZZY_MAX_EDIT_DISTANCE))
-                                .should(f.wildcard()
-                                        .fields("descripcion", "descripcionFactura")
-                                        .matching(token + "*"))
-                                .minimumShouldMatchNumber(1)));
-                    }
-                    return bool;
-                })
-                .fetch(limit);
-
-        return result.hits().stream()
+        return buscarProductosPorTexto(texto, maxResults, activo, isEnvase, familiaId, subfamiliaId).stream()
                 .map(Producto::getId)
                 .collect(Collectors.toList());
     }
@@ -82,28 +60,50 @@ public class ProductoSearchService {
             return Collections.emptyList();
         }
         int limit = maxResults > 0 ? maxResults : DEFAULT_MAX_RESULTS;
-        String[] tokens = texto.trim().split("\\s+");
+        String consulta = texto.trim();
+        String[] tokens = consulta.split("\\s+");
         SearchSession session = Search.session(entityManager);
 
-        return session.search(Producto.class)
+        SearchResult<Producto> result = session.search(Producto.class)
                 .where(f -> {
                     var bool = f.bool();
                     aplicarFiltrosIndexados(bool, f, activo, isEnvase, familiaId, subfamiliaId);
                     for (String token : tokens) {
-                        bool.must(f.bool(tokenBool -> tokenBool
-                                .should(f.match()
-                                        .fields("descripcion", "descripcionFactura")
-                                        .matching(token)
-                                        .fuzzy(FUZZY_MAX_EDIT_DISTANCE))
-                                .should(f.wildcard()
-                                        .fields("descripcion", "descripcionFactura")
-                                        .matching(token + "*"))
-                                .minimumShouldMatchNumber(1)));
+                        bool.must(crearPredicadoToken(f, token));
                     }
                     return bool;
                 })
-                .fetch(limit)
-                .hits();
+                .fetch(limit);
+
+        return ordenarPorRelevancia(result.hits(), consulta);
+    }
+
+    private PredicateFinalStep crearPredicadoToken(SearchPredicateFactory f, String token) {
+        return f.bool(tokenBool -> {
+            tokenBool.should(f.wildcard()
+                    .fields("descripcion", "descripcionFactura")
+                    .matching(token + "*")
+                    .boost(BOOST_PREFIJO));
+
+            int fuzzyDistance = ProductoTextoRelevanceScorer.distanciaFuzzyMaxima(token.length());
+            if (fuzzyDistance > 0) {
+                tokenBool.should(f.match()
+                        .fields("descripcion", "descripcionFactura")
+                        .matching(token)
+                        .fuzzy(fuzzyDistance)
+                        .boost(BOOST_FUZZY));
+            }
+
+            tokenBool.minimumShouldMatchNumber(1);
+        });
+    }
+
+    private List<Producto> ordenarPorRelevancia(List<Producto> productos, String consulta) {
+        return productos.stream()
+                .sorted(Comparator
+                        .comparingInt((Producto producto) -> -ProductoTextoRelevanceScorer.puntuar(producto, consulta))
+                        .thenComparing(Producto::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
     }
 
     private void aplicarFiltrosIndexados(

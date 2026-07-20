@@ -1,7 +1,9 @@
 package com.franco.dev.graphql.administrativo;
 
+import com.franco.dev.domain.administrativo.EstadoMarcacionUsuario;
 import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.EmbebedPrimaryKey;
+import com.franco.dev.service.administrativo.EstadoMarcacionService;
 import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -19,6 +21,9 @@ public class JornadaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private JornadaService service;
+
+    @Autowired
+    private EstadoMarcacionService estadoMarcacionService;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -44,6 +49,10 @@ public class JornadaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             return service.findByUsuarioIdAndFechaRange(usuarioId, fechaInicio, fechaFin);
         }
         return service.findByUsuarioId(usuarioId);
+    }
+
+    public EstadoMarcacionUsuario estadoMarcacionUsuario(Long usuarioId) {
+        return estadoMarcacionService.obtenerEstado(usuarioId);
     }
 
     public Jornada ajustarJornadaA8Horas(Long id, Long sucursalId, String observacion) {

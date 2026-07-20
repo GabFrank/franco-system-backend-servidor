@@ -4,5 +4,6 @@ public enum ProcesoEtapaEstado {
     PENDIENTE,
     EN_PROCESO,
     COMPLETADA,
-    OMITIDA
+    OMITIDA,
+    CANCELADA
 } 

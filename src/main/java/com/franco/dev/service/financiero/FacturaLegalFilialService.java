@@ -52,11 +52,12 @@ public class FacturaLegalFilialService {
         Sucursal sucursal = sucursalService.findById(sucursalId)
                 .orElseThrow(() -> new RuntimeException("Sucursal no encontrada: " + sucursalId));
 
-        if (sucursal.getIp() == null || sucursal.getPuerto() == null) {
-            throw new RuntimeException("La sucursal no tiene IP o puerto configurado");
+        if (sucursal.getIp() == null) {
+            throw new RuntimeException("La sucursal no tiene IP configurada");
         }
 
-        String url = String.format("http://%s:%d/api/facturas-legales", sucursal.getIp(), sucursal.getPuerto());
+        Integer puertoServidor = sucursal.getPuertoServidor() != null ? sucursal.getPuertoServidor() : 8082;
+        String url = String.format("http://%s:%d/api/facturas-legales", sucursal.getIp(), puertoServidor);
 
         FacturaLegalFilialRequest request = mapearRequest(facturaInput, items, timbradoDetalleId);
 

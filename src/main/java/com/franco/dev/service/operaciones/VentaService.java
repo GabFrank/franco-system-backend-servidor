@@ -15,6 +15,7 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.repository.operaciones.VentaRepository;
+import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.MovimientoCajaService;
@@ -41,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.franco.dev.utilitarios.DateUtils.ajustarFinRangoGrafico;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -82,6 +84,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private ProductoRepository productoRepository;
 
     @Autowired
     private VentaItemRepository ventaItemRepository;
@@ -348,14 +353,32 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {
         LocalDateTime inicio = stringToDate(fechaInicio);
-        LocalDateTime fin = stringToDate(fechaFin);
-        List<Object[]> results = repository.getVentasPorSucursal(inicio, fin);
+        LocalDateTime fin = ajustarFinRangoGrafico(fechaFin, stringToDate(fechaFin));
+        List<Object[]> results = productoRepository.findTotalVentaPorSucursal(inicio, fin);
         List<VentaPorSucursal> list = new ArrayList<>();
         for (Object[] obj : results) {
             VentaPorSucursal dto = new VentaPorSucursal();
             dto.setSucId(obj[0] != null ? ((Number) obj[0]).longValue() : null);
             dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "");
             dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            dto.setCantidadVentas(obj[3] != null ? ((Number) obj[3]).doubleValue() : 0.0);
+            list.add(dto);
+        }
+        return list;
+    }
+
+    public List<VentaPorCiudad> ventaPorCiudad(String fechaInicio, String fechaFin) {
+        LocalDateTime inicio = stringToDate(fechaInicio);
+        LocalDateTime fin = ajustarFinRangoGrafico(fechaFin, stringToDate(fechaFin));
+        List<Object[]> results = productoRepository.findTotalVentaPorCiudad(inicio, fin);
+        List<VentaPorCiudad> list = new ArrayList<>();
+        for (Object[] obj : results) {
+            VentaPorCiudad dto = new VentaPorCiudad();
+            Long rawId = obj[0] != null ? ((Number) obj[0]).longValue() : null;
+            dto.setCiudadId(rawId != null && rawId == -1L ? null : rawId);
+            dto.setNombre(obj[1] != null ? String.valueOf(obj[1]) : "Sin Ciudad");
+            dto.setTotal(obj[2] != null ? ((Number) obj[2]).doubleValue() : 0.0);
+            dto.setCantidadVentas(obj[3] != null ? ((Number) obj[3]).doubleValue() : 0.0);
             list.add(dto);
         }
         return list;

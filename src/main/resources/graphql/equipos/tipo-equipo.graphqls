@@ -1,0 +1,39 @@
+type TipoEquipoOutput {
+    id: ID!
+    descripcion: String
+    sucursal: Sucursal
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input TipoEquipoInput {
+    id: ID
+    descripcion: String
+    sucursalId: ID
+    usuarioId: ID
+}
+
+type TipoEquipoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TipoEquipoOutput]
+    getPageable: Pageable
+}
+
+extend type Query {
+    tipoEquipo(id: ID!): TipoEquipoOutput
+    tiposEquipo(page: Int = 0, size: Int = 10): [TipoEquipoOutput]!
+    countTipoEquipo: Int
+    tipoEquipoSearch(texto: String): [TipoEquipoOutput]
+    tipoEquipoSearchPage(texto: String, page: Int, size: Int): TipoEquipoPage
+}
+
+extend type Mutation {
+    saveTipoEquipo(tipoEquipo: TipoEquipoInput!): TipoEquipoOutput!
+    deleteTipoEquipo(id: ID!): Boolean!
+}

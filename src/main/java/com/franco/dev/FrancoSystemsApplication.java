@@ -58,7 +58,14 @@ public class FrancoSystemsApplication {
 
     @Bean
     public RestTemplate getResTemplate() {
-        return new RestTemplate();
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        // Tiempo maximo para establecer la conexion TCP con la filial (ej. ZeroTier).
+        // Si la IP no responde, falla rapido en vez de quedar colgado.
+        factory.setConnectTimeout(10_000);
+        // Tiempo maximo de espera por la respuesta una vez conectado.
+        factory.setReadTimeout(30_000);
+        return new RestTemplate(factory);
     }
 
     /**

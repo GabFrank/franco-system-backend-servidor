@@ -47,6 +47,8 @@ public interface TransferenciaItemRepository extends HelperRepository<Transferen
 
     public List<TransferenciaItem> findByTransferenciaIdOrderByIdDesc(Long id);//
     public List<TransferenciaItem> findByTransferenciaIdOrderByIdAsc(Long id);//
+
+    List<TransferenciaItem> findByIdInAndTransferenciaId(List<Long> ids, Long transferenciaId);
     // public List<Transferencia> findBySucursalDestinoId(Long id);
 //
 //    @Query("select e from Transferencia e " +

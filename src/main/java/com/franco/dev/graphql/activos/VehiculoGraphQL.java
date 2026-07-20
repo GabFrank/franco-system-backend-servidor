@@ -11,6 +11,7 @@ import com.franco.dev.service.activos.ModeloService;
 import com.franco.dev.service.activos.TipoCombustibleService;
 import com.franco.dev.service.activos.TipoVehiculoService;
 import com.franco.dev.service.activos.VehiculoService;
+import com.franco.dev.service.financiero.ActivoFinancieroSyncFacade;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.ProveedorService;
@@ -56,6 +57,9 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     @Autowired
     private ProveedorService proveedorService;
+
+    @Autowired
+    private ActivoFinancieroSyncFacade activoFinancieroSyncFacade;
 
     public Optional<Vehiculo> vehiculo(Long id) {
         return service.findById(id);
@@ -105,8 +109,9 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Vehiculo saveVehiculo(VehiculoInput input) {
-        Vehiculo e = new Vehiculo();
-        e.setId(input.getId());
+        Vehiculo e = input.getId() != null
+                ? service.findById(input.getId()).orElse(new Vehiculo())
+                : new Vehiculo();
         e.setChapa(toUpperCase(input.getChapa()));
         e.setColor(toUpperCase(input.getColor()));
         e.setAnho(input.getAnho());
@@ -181,6 +186,20 @@ public class VehiculoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             e = service.save(e);
             String descripcion = e.getChapa() != null ? "Vehículo - " + e.getChapa() : "Vehículo #" + e.getId();
             enteService.ensureEnteForReferencia(TipoEnte.VEHICULO, e.getId(), descripcion, e.getUsuario());
+            activoFinancieroSyncFacade.sync(
+                    TipoEnte.VEHICULO,
+                    e.getId(),
+                    e.getSituacionPago(),
+                    input.getProveedorId(),
+                    input.getMonedaId(),
+                    input.getMontoTotal(),
+                    input.getMontoYaPagado(),
+                    input.getCantidadCuotas(),
+                    input.getCantidadCuotasPagadas(),
+                    input.getDiaVencimiento(),
+                    input.getCuotasDetalle(),
+                    input.getUsuarioId()
+            );
         } catch (Exception err) {
             err.printStackTrace();
             throw new GraphQLException("No se pudo guardar el vehículo: " + err.getMessage());

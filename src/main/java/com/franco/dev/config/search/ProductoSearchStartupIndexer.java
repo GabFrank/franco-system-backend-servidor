@@ -11,8 +11,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 /**
- * Reindexa productos automáticamente al arrancar si el índice Lucene está vacío.
- * No requiere ejecutar curl manual en el primer uso.
+ * Reindexa productos y códigos automáticamente al arrancar cuando falta algún índice Lucene.
+ * No requiere ejecutar curl ni endpoints manuales.
  */
 @Component
 @ConditionalOnProperty(name = "app.search.producto.enabled", havingValue = "true", matchIfMissing = true)
@@ -39,23 +39,32 @@ public class ProductoSearchStartupIndexer {
     @EventListener(ApplicationReadyEvent.class)
     public void onReady() {
         boolean forzarReindex = reindexOnStartup;
-        boolean indiceVacio = productoSearchIndexEstadoService.indiceVacioONoExiste();
+        boolean requiereReindex = productoSearchIndexEstadoService.requiereReindexacionAutomatica();
+        boolean soloCodigos = productoSearchIndexEstadoService.requiereReindexacionSoloCodigos();
 
-        if (!forzarReindex && !(autoReindexIfEmpty && indiceVacio)) {
+        if (!forzarReindex && !(autoReindexIfEmpty && requiereReindex)) {
             return;
         }
 
         if (productoSearchIndexer.estaIndexando()) {
-            log.info("Reindexación de productos ya en curso, se omite el arranque automático.");
+            log.info("Reindexación Lucene ya en curso, se omite el arranque automático.");
             return;
         }
 
-        log.info("Índice Lucene de productos vacío o inexistente. Iniciando reindexación automática...");
         try {
-            productoSearchIndexer.reindexarTodos();
-            log.info("Reindexación automática de productos finalizada.");
+            if (forzarReindex) {
+                log.info("Reindexación completa forzada al arrancar (productos + códigos)...");
+                productoSearchIndexer.reindexarTodos();
+            } else if (soloCodigos) {
+                log.info("Índice Lucene de códigos ausente. Reindexando códigos automáticamente...");
+                productoSearchIndexer.reindexarCodigos();
+            } else {
+                log.info("Índice Lucene incompleto. Reindexando productos y códigos automáticamente...");
+                productoSearchIndexer.reindexarTodos();
+            }
+            log.info("Reindexación automática Lucene finalizada.");
         } catch (Exception e) {
-            log.error("Error en reindexación automática de productos al arrancar", e);
+            log.error("Error en reindexación automática Lucene al arrancar", e);
         }
     }
 }

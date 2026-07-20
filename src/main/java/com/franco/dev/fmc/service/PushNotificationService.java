@@ -153,7 +153,8 @@ public class PushNotificationService {
 
                 if (usuarioId != null) {
                     if (!blockedUsers.contains(usuarioId)) {
-                        if (token != null && dedup.add(token)) {
+                        String dedupKey = "u:" + usuarioId;
+                        if (token != null && dedup.add(dedupKey)) {
                             targets.add(new Target(usuarioId, token));
                         }
                     }
@@ -177,7 +178,49 @@ public class PushNotificationService {
                     .filter(dedup::add)
                     .forEach(token -> targets.add(new Target(null, token)));
         }
-        return targets;
+        return excluirTokensConUsuariosBloqueados(targets, tipoNotificacion);
+    }
+
+    private List<Target> excluirTokensConUsuariosBloqueados(List<Target> targets, String tipoNotificacion) {
+        if (targets.isEmpty()) {
+            return targets;
+        }
+
+        Set<String> tokens = targets.stream()
+                .map(Target::getToken)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (tokens.isEmpty()) {
+            return targets;
+        }
+
+        List<com.franco.dev.domain.configuracion.InicioSesion> sesionesPorToken = inicioSesionService
+                .findActiveSessionsByTokens(tokens);
+        if (sesionesPorToken.isEmpty()) {
+            return targets;
+        }
+
+        List<Long> usuariosEnTokens = sesionesPorToken.stream()
+                .map(s -> s.getUsuario() != null ? s.getUsuario().getId() : null)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Set<Long> usuariosBloqueados = preferenciaService.getUsuariosConNotificacionDeshabilitada(
+                tipoNotificacion, usuariosEnTokens);
+        if (usuariosBloqueados.isEmpty()) {
+            return targets;
+        }
+
+        Set<String> tokensBloqueados = sesionesPorToken.stream()
+                .filter(s -> s.getUsuario() != null && usuariosBloqueados.contains(s.getUsuario().getId()))
+                .map(com.franco.dev.domain.configuracion.InicioSesion::getToken)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return targets.stream()
+                .filter(target -> !tokensBloqueados.contains(target.getToken()))
+                .collect(Collectors.toList());
     }
 
     /**

@@ -14,6 +14,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.productos.search.ProductoSearchIndexSyncService;
 import com.franco.dev.service.productos.search.ProductoSearchService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -77,6 +78,8 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final com.franco.dev.service.configuraciones.ModificacionService modificacionService;
     @Autowired
     private final ProductoSearchService productoSearchService;
+    @Autowired
+    private final ProductoSearchIndexSyncService productoSearchIndexSyncService;
 
     @Value("${app.search.producto.enabled:true}")
     private boolean productoSearchEnabled;
@@ -281,6 +284,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
         } catch (Exception ex) {
         }
 
+        productoSearchIndexSyncService.sincronizarProducto(p.getId());
         return p;
     }
 
@@ -291,6 +295,7 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             // Obtener entidad antes de eliminar para registrar la modificación
             Producto entidad = repository.findById(id).orElse(null);
             if (entidad != null) {
+                productoSearchIndexSyncService.eliminarProducto(id);
                 Boolean resultado = super.deleteById(id);
                 // Registrar eliminación sin afectar la lógica existente
                 try {

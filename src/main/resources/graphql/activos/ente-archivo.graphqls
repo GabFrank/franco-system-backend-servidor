@@ -17,6 +17,8 @@ input EnteArchivoInput {
     descripcion: String
     vigente: Boolean
     usuarioId: ID
+    nombreArchivo: String
+    contenidoBase64: String
 }
 
 type EnteArchivoPage {
@@ -38,6 +40,7 @@ extend type Query {
     enteArchivosByEnte(enteId:ID!):[EnteArchivo]
     enteArchivosVigentesByEnte(enteId:ID!):[EnteArchivo]
     enteArchivoSearchPage(enteId: ID, page: Int, size: Int): EnteArchivoPage
+    getEnteArchivoContenido(id: ID!): [String]
 }
 
 extend type Mutation {

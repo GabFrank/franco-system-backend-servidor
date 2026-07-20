@@ -23,6 +23,11 @@ extend type Query {
     countCodigo: Int
     codigoPorCodigo(texto:String):[Codigo]
     codigosPorPresentacionId(id:Int):[Codigo]
+    """
+    Genera el próximo EAN-13 interno (prefijo 2199 + secuencia + check digit).
+    No lo persiste: el cliente lo guarda con saveCodigo. Se imprime como CODE128 en la app.
+    """
+    generarCodigoInterno: String!
 }
 
 extend type Mutation {

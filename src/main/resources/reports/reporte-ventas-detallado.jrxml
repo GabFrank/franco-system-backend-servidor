@@ -398,8 +398,8 @@
 				</graphicElement>
 			</rectangle>
 			<textField>
-				<reportElement x="0" y="0" width="45" height="14" uuid="33333333-1111-1111-1111-333333333302"/>
-				<textElement textAlignment="Center" verticalAlignment="Middle">
+				<reportElement x="0" y="0" width="110" height="14" uuid="33333333-1111-1111-1111-333333333302"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
 					<font fontName="Verdana" size="8" isBold="true"/>
 				</textElement>
 				<textFieldExpression><![CDATA["Venta #" + $F{ventaId}]]></textFieldExpression>

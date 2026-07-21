@@ -1,10 +1,11 @@
 package com.franco.dev.graphql.rrhh;
 
-import com.franco.dev.domain.rrhh.JornadaNovedad;
-import com.franco.dev.graphql.rrhh.input.JornadaNovedadInput;
+import com.franco.dev.domain.rrhh.Justificativo;
+import com.franco.dev.graphql.rrhh.input.JustificativoInput;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rrhh.JornadaNovedadService;
+import com.franco.dev.service.rrhh.JustificativoService;
+import com.franco.dev.service.rrhh.TipoJustificativoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,10 +17,13 @@ import java.util.Optional;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
-public class JornadaNovedadGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     @Autowired
-    private JornadaNovedadService service;
+    private JustificativoService service;
+
+    @Autowired
+    private TipoJustificativoService tipoService;
 
     @Autowired
     private FuncionarioService funcionarioService;
@@ -27,30 +31,31 @@ public class JornadaNovedadGraphQL implements GraphQLQueryResolver, GraphQLMutat
     @Autowired
     private UsuarioService usuarioService;
 
-    public Optional<JornadaNovedad> jornadaNovedad(Long id) {
+    public Optional<Justificativo> justificativo(Long id) {
         return service.findById(id);
     }
 
-    public List<JornadaNovedad> jornadaNovedadesPorFuncionario(Long funcionarioId) {
+    public List<Justificativo> justificativosPorFuncionario(Long funcionarioId) {
         return service.findByFuncionarioId(funcionarioId);
     }
 
-    public List<JornadaNovedad> jornadaNovedadesPorFuncionarioYRango(Long funcionarioId, String desde, String hasta) {
+    public List<Justificativo> justificativosPorFuncionarioYRango(Long funcionarioId, String desde, String hasta) {
         return service.findByFuncionarioIdAndFechaBetween(
                 funcionarioId,
                 stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null,
                 stringToDate(hasta) != null ? stringToDate(hasta).toLocalDate() : null);
     }
 
-    public JornadaNovedad saveJornadaNovedad(JornadaNovedadInput input) {
-        JornadaNovedad e = input.getId() != null
-                ? service.findById(input.getId()).orElse(new JornadaNovedad())
-                : new JornadaNovedad();
+    public Justificativo saveJustificativo(JustificativoInput input) {
+        Justificativo e = input.getId() != null
+                ? service.findById(input.getId()).orElse(new Justificativo())
+                : new Justificativo();
         if (input.getFuncionarioId() != null)
             e.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
         if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
             e.setFecha(stringToDate(input.getFecha()).toLocalDate());
-        e.setTipo(input.getTipo());
+        if (input.getTipoId() != null)
+            e.setTipo(tipoService.findById(input.getTipoId()).orElse(null));
         e.setJornadaId(input.getJornadaId());
         e.setSucursalId(input.getSucursalId());
         e.setObservacion(input.getObservacion());
@@ -59,7 +64,7 @@ public class JornadaNovedadGraphQL implements GraphQLQueryResolver, GraphQLMutat
         return service.save(e);
     }
 
-    public Boolean deleteJornadaNovedad(Long id) {
+    public Boolean deleteJustificativo(Long id) {
         return service.deleteById(id);
     }
 }

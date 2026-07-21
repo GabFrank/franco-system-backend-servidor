@@ -1,11 +1,11 @@
 package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.personas.Funcionario;
-import com.franco.dev.domain.rrhh.JornadaNovedad;
+import com.franco.dev.domain.rrhh.Justificativo;
+import com.franco.dev.domain.rrhh.TipoJustificativo;
 import com.franco.dev.domain.rrhh.Vacacion;
 import com.franco.dev.domain.rrhh.VacacionPeriodo;
 import com.franco.dev.domain.rrhh.VacacionVenta;
-import com.franco.dev.domain.rrhh.enums.JornadaNovedadTipo;
 import com.franco.dev.domain.rrhh.enums.VacacionPeriodoEstado;
 import com.franco.dev.domain.rrhh.enums.VacacionVentaEstado;
 import com.franco.dev.repository.rrhh.VacacionPeriodoRepository;
@@ -35,7 +35,8 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
     private final VacacionVentaRepository ventaRepository;
     private final FuncionarioService funcionarioService;
     private final ConfiguracionRrhhService configuracionRrhhService;
-    private final JornadaNovedadService jornadaNovedadService;
+    private final JustificativoService justificativoService;
+    private final TipoJustificativoService tipoJustificativoService;
 
     @Override
     public VacacionRepository getRepository() {
@@ -141,15 +142,17 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
         Vacacion v = p.getVacacion();
 
         if (!Boolean.TRUE.equals(p.getNovedadesGeneradas())) {
+            // El tipo sale del catalogo (marcado como generado_por_sistema), no de un enum.
+            TipoJustificativo tipoVacacion = tipoJustificativoService.findByNombre("VACACION");
             Long funcionarioId = v.getFuncionario() != null ? v.getFuncionario().getId() : null;
             LocalDate d = p.getFechaDesde();
             while (funcionarioId != null && d != null && !d.isAfter(p.getFechaHasta())) {
-                JornadaNovedad n = new JornadaNovedad();
-                n.setFuncionario(v.getFuncionario());
-                n.setFecha(d);
-                n.setTipo(JornadaNovedadTipo.VACACION);
-                n.setObservacion("VACACION (PERIODO #" + p.getId() + ")");
-                jornadaNovedadService.save(n);
+                Justificativo j = new Justificativo();
+                j.setFuncionario(v.getFuncionario());
+                j.setFecha(d);
+                j.setTipo(tipoVacacion);
+                j.setObservacion("VACACION (PERIODO #" + p.getId() + ")");
+                justificativoService.save(j);
                 d = d.plusDays(1);
             }
             p.setNovedadesGeneradas(true);

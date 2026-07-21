@@ -4,9 +4,8 @@ import com.franco.dev.service.rrhh.builder.PenalizacionCalculator;
 
 import com.franco.dev.domain.administrativo.Jornada;
 import com.franco.dev.domain.personas.Funcionario;
-import com.franco.dev.domain.rrhh.JornadaNovedad;
+import com.franco.dev.domain.rrhh.Justificativo;
 import com.franco.dev.domain.rrhh.Penalizacion;
-import com.franco.dev.domain.rrhh.enums.JornadaNovedadTipo;
 import com.franco.dev.domain.rrhh.enums.PenalizacionTipo;
 import com.franco.dev.repository.rrhh.PenalizacionRepository;
 import com.franco.dev.service.CrudService;
@@ -33,7 +32,7 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
     private final PenalizacionRepository repository;
     private final JornadaService jornadaService;
     private final FuncionarioService funcionarioService;
-    private final JornadaNovedadService jornadaNovedadService;
+    private final JustificativoService justificativoService;
     private final ConfiguracionRrhhService configuracionRrhhService;
 
     @Override
@@ -112,9 +111,12 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
                     : null;
             if (func == null) continue;
 
-            // saltear si la jornada esta justificada (novedad JUSTIFICADO)
-            List<JornadaNovedad> novedades = jornadaNovedadService.findByJornada(j.getId(), j.getSucursalId());
-            boolean justificada = novedades.stream().anyMatch(n -> n.getTipo() == JornadaNovedadTipo.JUSTIFICADO);
+            // saltear si la jornada tiene un justificativo cuyo tipo evita la penalizacion.
+            // El comportamiento lo define el catalogo (TipoJustificativo.evitaPenalizacion),
+            // no un enum fijo: asi se pueden agregar tipos sin desplegar codigo.
+            List<Justificativo> justificativos = justificativoService.findByJornada(j.getId(), j.getSucursalId());
+            boolean justificada = justificativos.stream()
+                    .anyMatch(x -> x.getTipo() != null && Boolean.TRUE.equals(x.getTipo().getEvitaPenalizacion()));
             if (justificada) continue;
 
             // idempotencia: saltear si ya hay penalizacion auto no anulada para esta jornada

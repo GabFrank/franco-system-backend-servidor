@@ -42,6 +42,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final HoraExtraRepository horaExtraRepository;
     private final PenalizacionRepository penalizacionRepository;
+    private final JustificativoRepository justificativoRepository;
     private final ValeRepository valeRepository;
     private final BonoRepository bonoRepository;
     private final AguinaldoRepository aguinaldoRepository;
@@ -200,6 +201,28 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             if (p.getMonto() != null) pen = pen.add(p.getMonto());
         }
         if (pen.signum() > 0) items.add(item(liq, "PENALIZACION", "PENALIZACIONES", pen, LiquidacionItemTipo.DESCUENTO, null, null));
+
+        // JUSTIFICATIVO_DESCUENTO (DESC) — dias justificados cuyo TIPO descuenta salario.
+        // Cuanto descuenta cada tipo lo define el catalogo (MEDIO_DIA / DIA_COMPLETO),
+        // asi que agregar un tipo nuevo no requiere tocar este calculo.
+        BigDecimal diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30"));
+        double diasDescontados = 0.0;
+        for (Justificativo x : justificativoRepository
+                .findByFuncionarioIdAndFechaBetweenOrderByFechaAsc(fid, inicio, fin)) {
+            if (x.getTipo() == null || x.getTipo().getDescuentaSalario() == null) continue;
+            diasDescontados += x.getTipo().getDescuentaSalario().factor();
+        }
+        if (diasDescontados > 0 && diasMes.signum() > 0) {
+            BigDecimal salarioDiario = salarioBase.divide(diasMes, 2, RoundingMode.HALF_UP);
+            BigDecimal descJust = salarioDiario
+                    .multiply(BigDecimal.valueOf(diasDescontados))
+                    .setScale(2, RoundingMode.HALF_UP);
+            if (descJust.signum() > 0) {
+                String detalle = "JUSTIFICATIVOS (" + (diasDescontados == Math.floor(diasDescontados)
+                        ? String.valueOf((long) diasDescontados) : String.valueOf(diasDescontados)) + " DIA/S)";
+                items.add(item(liq, "JUSTIFICATIVO_DESCUENTO", detalle, descJust, LiquidacionItemTipo.DESCUENTO, null, null));
+            }
+        }
 
         // BONO_MANUAL (HABER) — bonos no anulados, sin liquidar, en el periodo
         for (Bono b : bonoRepository.findByFuncionarioIdOrderByFechaDesc(fid)) {

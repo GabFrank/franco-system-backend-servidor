@@ -1,13 +1,13 @@
 package com.franco.dev.graphql.rrhh;
 
-import com.franco.dev.domain.rrhh.JornadaNovedad;
+import com.franco.dev.domain.rrhh.Justificativo;
 import com.franco.dev.domain.rrhh.Penalizacion;
-import com.franco.dev.domain.rrhh.enums.JornadaNovedadTipo;
 import com.franco.dev.graphql.rrhh.input.JustificarJornadaInput;
 import com.franco.dev.graphql.rrhh.input.PenalizacionInput;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
-import com.franco.dev.service.rrhh.JornadaNovedadService;
+import com.franco.dev.service.rrhh.JustificativoService;
+import com.franco.dev.service.rrhh.TipoJustificativoService;
 import com.franco.dev.service.rrhh.PenalizacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -27,7 +27,10 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private PenalizacionService service;
 
     @Autowired
-    private JornadaNovedadService jornadaNovedadService;
+    private JustificativoService justificativoService;
+
+    @Autowired
+    private TipoJustificativoService tipoJustificativoService;
 
     @Autowired
     private FuncionarioService funcionarioService;
@@ -89,18 +92,19 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * penalizaciones auto-generadas de esa jornada.
      */
     public Boolean justificarJornada(JustificarJornadaInput input) {
-        JornadaNovedad n = new JornadaNovedad();
+        Justificativo n = new Justificativo();
         if (input.getFuncionarioId() != null)
             n.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
         if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
             n.setFecha(stringToDate(input.getFecha()).toLocalDate());
-        n.setTipo(JornadaNovedadTipo.JUSTIFICADO);
+        // el tipo sale del catalogo, ya no de un enum
+        n.setTipo(tipoJustificativoService.findByNombre("JUSTIFICADO"));
         n.setJornadaId(input.getJornadaId());
         n.setSucursalId(input.getSucursalId());
         n.setObservacion(input.getObservacion());
         if (input.getRegistradoPorId() != null)
             n.setRegistradoPor(usuarioService.findById(input.getRegistradoPorId()).orElse(null));
-        jornadaNovedadService.save(n);
+        justificativoService.save(n);
         service.anularAutoDeJornada(input.getJornadaId(), input.getSucursalId());
         return true;
     }

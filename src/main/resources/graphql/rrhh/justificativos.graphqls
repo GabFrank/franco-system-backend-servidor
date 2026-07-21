@@ -1,0 +1,77 @@
+# =====================================================================
+# RRHH — Justificativos (ex "novedades de jornada") y su catalogo de tipos.
+# El comportamiento (evitar penalizacion, descontar salario) lo define el
+# TIPO, no el justificativo: por eso se pueden agregar tipos sin desplegar.
+# =====================================================================
+
+enum DescuentoJustificativo {
+    NO
+    MEDIO_DIA
+    DIA_COMPLETO
+}
+
+type TipoJustificativo {
+    id: ID!
+    nombre: String
+    descripcion: String
+    evitaPenalizacion: Boolean
+    descuentaSalario: DescuentoJustificativo
+    requiereDocumento: Boolean
+    generadoPorSistema: Boolean
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input TipoJustificativoInput {
+    id: ID
+    nombre: String
+    descripcion: String
+    evitaPenalizacion: Boolean
+    descuentaSalario: DescuentoJustificativo
+    requiereDocumento: Boolean
+    generadoPorSistema: Boolean
+    activo: Boolean
+    usuarioId: Int
+}
+
+type Justificativo {
+    id: ID!
+    funcionario: Funcionario
+    fecha: String
+    tipo: TipoJustificativo
+    jornadaId: Int
+    sucursalId: Int
+    observacion: String
+    registradoPor: Usuario
+    creadoEn: Date
+}
+
+input JustificativoInput {
+    id: ID
+    funcionarioId: Int
+    fecha: String
+    tipoId: Int
+    jornadaId: Int
+    sucursalId: Int
+    observacion: String
+    registradoPorId: Int
+}
+
+extend type Query {
+    justificativo(id: ID!): Justificativo
+    justificativosPorFuncionario(funcionarioId: ID!): [Justificativo]
+    justificativosPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [Justificativo]
+
+    tipoJustificativo(id: ID!): TipoJustificativo
+    tiposJustificativo: [TipoJustificativo]
+    tiposJustificativoActivos: [TipoJustificativo]
+}
+
+extend type Mutation {
+    saveJustificativo(justificativo: JustificativoInput!): Justificativo!
+    deleteJustificativo(id: ID!): Boolean!
+
+    saveTipoJustificativo(tipoJustificativo: TipoJustificativoInput!): TipoJustificativo!
+    deleteTipoJustificativo(id: ID!): Boolean!
+}

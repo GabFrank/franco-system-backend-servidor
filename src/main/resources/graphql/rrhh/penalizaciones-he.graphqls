@@ -1,11 +1,3 @@
-enum JornadaNovedadTipo {
-    VACACION
-    JUSTIFICADO
-    FERIADO
-    AUSENCIA_JUSTIFICADA
-    MEDIA_FALTA
-}
-
 enum PenalizacionTipo {
     TARDANZA
     AUSENCIA
@@ -46,29 +38,6 @@ input FeriadoInput {
     recargoPorcentaje: Float
     activo: Boolean
     usuarioId: Int
-}
-
-type JornadaNovedad {
-    id: ID!
-    funcionario: Funcionario
-    fecha: String
-    tipo: JornadaNovedadTipo
-    jornadaId: Int
-    sucursalId: Int
-    observacion: String
-    registradoPor: Usuario
-    creadoEn: Date
-}
-
-input JornadaNovedadInput {
-    id: ID
-    funcionarioId: Int
-    fecha: String
-    tipo: JornadaNovedadTipo
-    jornadaId: Int
-    sucursalId: Int
-    observacion: String
-    registradoPorId: Int
 }
 
 type Penalizacion {
@@ -149,9 +118,6 @@ extend type Query {
     feriadosActivos: [Feriado]
     countFeriado: Int
 
-    jornadaNovedad(id: ID!): JornadaNovedad
-    jornadaNovedadesPorFuncionario(funcionarioId: ID!): [JornadaNovedad]
-    jornadaNovedadesPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [JornadaNovedad]
 
     penalizacion(id: ID!): Penalizacion
     penalizacionesPorFuncionario(funcionarioId: ID!): [Penalizacion]
@@ -167,8 +133,6 @@ extend type Mutation {
     saveFeriado(feriado: FeriadoInput!): Feriado!
     deleteFeriado(id: ID!): Boolean!
 
-    saveJornadaNovedad(jornadaNovedad: JornadaNovedadInput!): JornadaNovedad!
-    deleteJornadaNovedad(id: ID!): Boolean!
 
     savePenalizacion(penalizacion: PenalizacionInput!): Penalizacion!
     anularPenalizacion(id: ID!): Penalizacion

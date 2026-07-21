@@ -814,6 +814,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                         vo.getMotivoObservacion() != null && vo.getMotivoObservacion().getDescripcion() != null
                                 ? vo.getMotivoObservacion().getDescripcion() : ""));
             }
+            if (observacionesDto.isEmpty()) {
+                observacionesDto.add(new VentaObservacionReporteDetalladoDto("", "Sin observaciones", "Sin motivos"));
+            }
 
             ReporteVentaDetalladoDto dto = new ReporteVentaDetalladoDto();
             dto.setVentaId(v.getId());

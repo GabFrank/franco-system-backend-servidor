@@ -390,7 +390,7 @@
 		</band>
 	</title>
 	<detail>
-		<band height="210" splitType="Stretch">
+		<band height="165" splitType="Stretch">
 			<rectangle>
 				<reportElement x="0" y="0" width="802" height="14" backcolor="#EDEDED" mode="Opaque" uuid="33333333-1111-1111-1111-333333333301"/>
 				<graphicElement>
@@ -432,13 +432,13 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$F{estado}]]></textFieldExpression>
 			</textField>
-			<textField isBlankWhenNull="true">
-				<reportElement x="565" y="0" width="130" height="14" uuid="33333333-1111-1111-1111-333333333307"/>
-				<textElement textAlignment="Left" verticalAlignment="Middle">
-					<font fontName="Verdana" size="8"/>
+			<staticText>
+				<reportElement x="565" y="0" width="125" height="14" uuid="33333333-1111-1111-1111-333333333307"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
 				</textElement>
-				<textFieldExpression><![CDATA["Resp.: " + ($F{responsable} != null ? $F{responsable} : "")]]></textFieldExpression>
-			</textField>
+				<text><![CDATA[Total:]]></text>
+			</staticText>
 			<textField pattern="#,###" isBlankWhenNull="true">
 				<reportElement x="695" y="0" width="107" height="14" uuid="33333333-1111-1111-1111-333333333308"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle">
@@ -446,113 +446,117 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$F{totalGs}]]></textFieldExpression>
 			</textField>
+			<rectangle>
+				<reportElement positionType="Float" x="0" y="16" width="802" height="12" backcolor="#37474F" mode="Opaque" uuid="33333333-2222-1111-1111-300900000001"/>
+			</rectangle>
 			<staticText>
-				<reportElement positionType="Float" x="0" y="16" width="150" height="10" uuid="33333333-2222-1111-1111-333333333309"/>
-				<textElement>
-					<font fontName="Verdana" size="8" isBold="true" isUnderline="true"/>
+				<reportElement positionType="Float" mode="Transparent" x="0" y="16" width="802" height="12" forecolor="#FFFFFF" uuid="33333333-2222-1111-1111-333333333309"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+					<paragraph lineSpacing="Single"/>
 				</textElement>
-				<text><![CDATA[Productos]]></text>
+				<text><![CDATA[PRODUCTOS]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="0" y="27" width="220" height="10" uuid="33333333-2222-1111-1111-333333333310"/>
+				<reportElement positionType="Float" x="0" y="29" width="220" height="9" uuid="33333333-2222-1111-1111-333333333310"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Producto]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="220" y="27" width="120" height="10" uuid="33333333-2222-1111-1111-333333333311"/>
+				<reportElement positionType="Float" x="220" y="29" width="120" height="9" uuid="33333333-2222-1111-1111-333333333311"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Presentación]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="340" y="27" width="70" height="10" uuid="33333333-2222-1111-1111-333333333312"/>
+				<reportElement positionType="Float" x="340" y="29" width="70" height="9" uuid="33333333-2222-1111-1111-333333333312"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Cantidad]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="410" y="27" width="90" height="10" uuid="33333333-2222-1111-1111-333333333313"/>
+				<reportElement positionType="Float" x="410" y="29" width="90" height="9" uuid="33333333-2222-1111-1111-333333333313"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Precio]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="500" y="27" width="90" height="10" uuid="33333333-2222-1111-1111-333333333314"/>
+				<reportElement positionType="Float" x="500" y="29" width="90" height="9" uuid="33333333-2222-1111-1111-333333333314"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Costo Unit.]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="590" y="27" width="100" height="10" uuid="33333333-2222-1111-1111-333333333315"/>
+				<reportElement positionType="Float" x="590" y="29" width="100" height="9" uuid="33333333-2222-1111-1111-333333333315"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Costo Total]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="690" y="27" width="112" height="10" uuid="33333333-2222-1111-1111-333333333316"/>
+				<reportElement positionType="Float" x="690" y="29" width="112" height="9" uuid="33333333-2222-1111-1111-333333333316"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Total]]></text>
 			</staticText>
 			<componentElement>
-				<reportElement positionType="Float" x="0" y="38" width="802" height="12" uuid="33333333-3333-1111-1111-333333333317"/>
+				<reportElement positionType="Float" x="0" y="38" width="802" height="11" uuid="33333333-3333-1111-1111-333333333317"/>
 				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
 					<datasetRun subDataset="ItemsDataset" uuid="c2a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b21">
 						<dataSourceExpression><![CDATA[$F{itemsDataSource}]]></dataSourceExpression>
 					</datasetRun>
-					<jr:listContents height="12" width="802">
+					<jr:listContents height="11" width="802">
 						<textField isBlankWhenNull="true">
-							<reportElement x="0" y="0" width="220" height="12" uuid="33333333-4444-1111-1111-333333333318"/>
+							<reportElement x="0" y="0" width="220" height="11" uuid="33333333-4444-1111-1111-333333333318"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{producto}]]></textFieldExpression>
 						</textField>
 						<textField isBlankWhenNull="true">
-							<reportElement x="220" y="0" width="120" height="12" uuid="33333333-4444-1111-1111-333333333319"/>
+							<reportElement x="220" y="0" width="120" height="11" uuid="33333333-4444-1111-1111-333333333319"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{presentacion}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0.##" isBlankWhenNull="true">
-							<reportElement x="340" y="0" width="70" height="12" uuid="33333333-4444-1111-1111-333333333320"/>
+							<reportElement x="340" y="0" width="70" height="11" uuid="33333333-4444-1111-1111-333333333320"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0" isBlankWhenNull="true">
-							<reportElement x="410" y="0" width="90" height="12" uuid="33333333-4444-1111-1111-333333333321"/>
+							<reportElement x="410" y="0" width="90" height="11" uuid="33333333-4444-1111-1111-333333333321"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{precio}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0" isBlankWhenNull="true">
-							<reportElement x="500" y="0" width="90" height="12" uuid="33333333-4444-1111-1111-333333333322"/>
+							<reportElement x="500" y="0" width="90" height="11" uuid="33333333-4444-1111-1111-333333333322"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{precioCosto}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0" isBlankWhenNull="true">
-							<reportElement x="590" y="0" width="100" height="12" uuid="33333333-4444-1111-1111-333333333323"/>
+							<reportElement x="590" y="0" width="100" height="11" uuid="33333333-4444-1111-1111-333333333323"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{costoTotal}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0" isBlankWhenNull="true">
-							<reportElement x="690" y="0" width="112" height="12" uuid="33333333-4444-1111-1111-333333333324"/>
+							<reportElement x="690" y="0" width="112" height="11" uuid="33333333-4444-1111-1111-333333333324"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
@@ -561,85 +565,88 @@
 					</jr:listContents>
 				</jr:list>
 			</componentElement>
+			<rectangle>
+				<reportElement positionType="Float" x="0" y="49" width="802" height="12" backcolor="#37474F" mode="Opaque" uuid="33333333-2222-1111-1111-300900000002"/>
+			</rectangle>
 			<staticText>
-				<reportElement positionType="Float" x="0" y="51" width="150" height="10" uuid="33333333-2222-1111-1111-333333333330"/>
-				<textElement>
-					<font fontName="Verdana" size="8" isBold="true" isUnderline="true"/>
+				<reportElement positionType="Float" mode="Transparent" x="0" y="49" width="802" height="12" forecolor="#FFFFFF" uuid="33333333-2222-1111-1111-333333333330"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
 				</textElement>
-				<text><![CDATA[Movimientos]]></text>
+				<text><![CDATA[MOVIMIENTOS]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="0" y="62" width="180" height="10" uuid="33333333-2222-1111-1111-333333333331"/>
+				<reportElement positionType="Float" x="0" y="62" width="200" height="9" uuid="33333333-2222-1111-1111-333333333331"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Operación]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="180" y="62" width="150" height="10" uuid="33333333-2222-1111-1111-333333333332"/>
+				<reportElement positionType="Float" x="200" y="62" width="180" height="9" uuid="33333333-2222-1111-1111-333333333332"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Forma de Pago]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="330" y="62" width="90" height="10" uuid="33333333-2222-1111-1111-333333333333"/>
+				<reportElement positionType="Float" x="380" y="62" width="100" height="9" uuid="33333333-2222-1111-1111-333333333333"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Moneda]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="420" y="62" width="130" height="10" uuid="33333333-2222-1111-1111-333333333334"/>
+				<reportElement positionType="Float" x="480" y="62" width="150" height="9" uuid="33333333-2222-1111-1111-333333333334"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Valor en Moneda]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="550" y="62" width="130" height="10" uuid="33333333-2222-1111-1111-333333333335"/>
+				<reportElement positionType="Float" x="630" y="62" width="172" height="9" uuid="33333333-2222-1111-1111-333333333335"/>
 				<textElement textAlignment="Right">
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Valor en Gs]]></text>
 			</staticText>
 			<componentElement>
-				<reportElement positionType="Float" x="0" y="73" width="802" height="12" uuid="33333333-3333-1111-1111-333333333336"/>
+				<reportElement positionType="Float" x="0" y="71" width="802" height="11" uuid="33333333-3333-1111-1111-333333333336"/>
 				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
 					<datasetRun subDataset="MovimientosDataset" uuid="c2a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b22">
 						<dataSourceExpression><![CDATA[$F{movimientosDataSource}]]></dataSourceExpression>
 					</datasetRun>
-					<jr:listContents height="12" width="802">
+					<jr:listContents height="11" width="802">
 						<textField isBlankWhenNull="true">
-							<reportElement x="0" y="0" width="180" height="12" uuid="33333333-4444-1111-1111-333333333337"/>
+							<reportElement x="0" y="0" width="200" height="11" uuid="33333333-4444-1111-1111-333333333337"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{operacion}]]></textFieldExpression>
 						</textField>
 						<textField isBlankWhenNull="true">
-							<reportElement x="180" y="0" width="150" height="12" uuid="33333333-4444-1111-1111-333333333338"/>
+							<reportElement x="200" y="0" width="180" height="11" uuid="33333333-4444-1111-1111-333333333338"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{formaPago}]]></textFieldExpression>
 						</textField>
 						<textField isBlankWhenNull="true">
-							<reportElement x="330" y="0" width="90" height="12" uuid="33333333-4444-1111-1111-333333333339"/>
+							<reportElement x="380" y="0" width="100" height="11" uuid="33333333-4444-1111-1111-333333333339"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{moneda}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0.##" isBlankWhenNull="true">
-							<reportElement x="420" y="0" width="130" height="12" uuid="33333333-4444-1111-1111-333333333340"/>
+							<reportElement x="480" y="0" width="150" height="11" uuid="33333333-4444-1111-1111-333333333340"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{valorEnMoneda}]]></textFieldExpression>
 						</textField>
 						<textField pattern="#,##0" isBlankWhenNull="true">
-							<reportElement x="550" y="0" width="130" height="12" uuid="33333333-4444-1111-1111-333333333341"/>
+							<reportElement x="630" y="0" width="172" height="11" uuid="33333333-4444-1111-1111-333333333341"/>
 							<textElement textAlignment="Right" verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
@@ -648,57 +655,60 @@
 					</jr:listContents>
 				</jr:list>
 			</componentElement>
+			<rectangle>
+				<reportElement positionType="Float" x="0" y="82" width="802" height="12" backcolor="#37474F" mode="Opaque" uuid="33333333-2222-1111-1111-300900000003"/>
+			</rectangle>
 			<staticText>
-				<reportElement positionType="Float" x="0" y="86" width="150" height="10" uuid="33333333-2222-1111-1111-333333333350"/>
-				<textElement>
-					<font fontName="Verdana" size="8" isBold="true" isUnderline="true"/>
+				<reportElement positionType="Float" mode="Transparent" x="0" y="82" width="802" height="12" forecolor="#FFFFFF" uuid="33333333-2222-1111-1111-333333333350"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
 				</textElement>
-				<text><![CDATA[Observaciones]]></text>
+				<text><![CDATA[OBSERVACIONES]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="0" y="97" width="120" height="10" uuid="33333333-2222-1111-1111-333333333351"/>
+				<reportElement positionType="Float" x="0" y="95" width="100" height="9" uuid="33333333-2222-1111-1111-333333333351"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Fecha]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="120" y="97" width="400" height="10" uuid="33333333-2222-1111-1111-333333333352"/>
+				<reportElement positionType="Float" x="100" y="95" width="500" height="9" uuid="33333333-2222-1111-1111-333333333352"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Descripción]]></text>
 			</staticText>
 			<staticText>
-				<reportElement positionType="Float" x="520" y="97" width="200" height="10" uuid="33333333-2222-1111-1111-333333333353"/>
+				<reportElement positionType="Float" x="600" y="95" width="202" height="9" uuid="33333333-2222-1111-1111-333333333353"/>
 				<textElement>
 					<font fontName="Verdana" size="7" isBold="true"/>
 				</textElement>
 				<text><![CDATA[Motivo]]></text>
 			</staticText>
 			<componentElement>
-				<reportElement positionType="Float" x="0" y="108" width="802" height="12" uuid="33333333-3333-1111-1111-333333333354"/>
+				<reportElement positionType="Float" x="0" y="104" width="802" height="11" uuid="33333333-3333-1111-1111-333333333354"/>
 				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
 					<datasetRun subDataset="ObservacionesDataset" uuid="c2a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b23">
 						<dataSourceExpression><![CDATA[$F{observacionesDataSource}]]></dataSourceExpression>
 					</datasetRun>
-					<jr:listContents height="12" width="802">
+					<jr:listContents height="11" width="802">
 						<textField isBlankWhenNull="true">
-							<reportElement x="0" y="0" width="120" height="12" uuid="33333333-4444-1111-1111-333333333355"/>
+							<reportElement x="0" y="0" width="100" height="11" uuid="33333333-4444-1111-1111-333333333355"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{fecha}]]></textFieldExpression>
 						</textField>
 						<textField isBlankWhenNull="true">
-							<reportElement x="120" y="0" width="400" height="12" uuid="33333333-4444-1111-1111-333333333356"/>
+							<reportElement x="100" y="0" width="500" height="11" uuid="33333333-4444-1111-1111-333333333356"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
 							<textFieldExpression><![CDATA[$F{descripcion}]]></textFieldExpression>
 						</textField>
 						<textField isBlankWhenNull="true">
-							<reportElement x="520" y="0" width="200" height="12" uuid="33333333-4444-1111-1111-333333333357"/>
+							<reportElement x="600" y="0" width="202" height="11" uuid="33333333-4444-1111-1111-333333333357"/>
 							<textElement verticalAlignment="Middle">
 								<font fontName="Verdana" size="7"/>
 							</textElement>
@@ -708,100 +718,114 @@
 				</jr:list>
 			</componentElement>
 			<frame>
-				<reportElement positionType="Float" x="0" y="121" width="350" height="70" uuid="33333333-5555-1111-1111-333333333360"/>
+				<reportElement positionType="Float" x="0" y="115" width="802" height="40" uuid="33333333-5555-1111-1111-333333333360"/>
 				<staticText>
-					<reportElement x="0" y="0" width="200" height="10" uuid="33333333-5555-1111-1111-333333333361"/>
+					<reportElement x="0" y="0" width="150" height="10" uuid="33333333-5555-1111-1111-333333333375"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Responsable:]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="150" y="0" width="120" height="10" uuid="33333333-5555-1111-1111-333333333376"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{responsable}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="0" y="10" width="150" height="10" uuid="33333333-5555-1111-1111-333333333361"/>
 					<textElement>
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<text><![CDATA[Costo total venta (Gs.):]]></text>
 				</staticText>
 				<textField pattern="#,##0" isBlankWhenNull="true">
-					<reportElement x="200" y="0" width="150" height="10" uuid="33333333-5555-1111-1111-333333333362"/>
+					<reportElement x="150" y="10" width="120" height="10" uuid="33333333-5555-1111-1111-333333333362"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$F{costoTotalVenta}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="0" y="10" width="200" height="10" uuid="33333333-5555-1111-1111-333333333363"/>
+					<reportElement x="0" y="20" width="150" height="10" uuid="33333333-5555-1111-1111-333333333363"/>
 					<textElement>
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<text><![CDATA[Total recibido Gs:]]></text>
 				</staticText>
 				<textField pattern="#,##0" isBlankWhenNull="true">
-					<reportElement x="200" y="10" width="150" height="10" uuid="33333333-5555-1111-1111-333333333364"/>
+					<reportElement x="150" y="20" width="120" height="10" uuid="33333333-5555-1111-1111-333333333364"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$F{totalRecibidoGs}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="0" y="20" width="200" height="10" uuid="33333333-5555-1111-1111-333333333365"/>
+					<reportElement x="0" y="30" width="150" height="10" uuid="33333333-5555-1111-1111-333333333365"/>
 					<textElement>
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<text><![CDATA[Total recibido Rs:]]></text>
 				</staticText>
 				<textField pattern="#,##0.##" isBlankWhenNull="true">
-					<reportElement x="200" y="20" width="150" height="10" uuid="33333333-5555-1111-1111-333333333366"/>
+					<reportElement x="150" y="30" width="120" height="10" uuid="33333333-5555-1111-1111-333333333366"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$F{totalRecibidoRs}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="0" y="30" width="200" height="10" uuid="33333333-5555-1111-1111-333333333367"/>
+					<reportElement x="420" y="0" width="150" height="10" uuid="33333333-5555-1111-1111-333333333367"/>
 					<textElement>
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<text><![CDATA[Total recibido Ds:]]></text>
 				</staticText>
 				<textField pattern="#,##0.##" isBlankWhenNull="true">
-					<reportElement x="200" y="30" width="150" height="10" uuid="33333333-5555-1111-1111-333333333368"/>
+					<reportElement x="570" y="0" width="120" height="10" uuid="33333333-5555-1111-1111-333333333368"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$F{totalRecibidoDs}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="0" y="40" width="200" height="10" uuid="33333333-5555-1111-1111-333333333369"/>
+					<reportElement x="420" y="10" width="150" height="10" uuid="33333333-5555-1111-1111-333333333369"/>
 					<textElement>
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<text><![CDATA[Total descuento (Gs.):]]></text>
 				</staticText>
 				<textField pattern="#,##0" isBlankWhenNull="true">
-					<reportElement x="200" y="40" width="150" height="10" uuid="33333333-5555-1111-1111-333333333370"/>
+					<reportElement x="570" y="10" width="120" height="10" uuid="33333333-5555-1111-1111-333333333370"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$F{totalDescuento}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="0" y="50" width="200" height="10" uuid="33333333-5555-1111-1111-333333333371"/>
+					<reportElement x="420" y="20" width="150" height="10" uuid="33333333-5555-1111-1111-333333333371"/>
 					<textElement>
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<text><![CDATA[Total aumento (Gs.):]]></text>
 				</staticText>
 				<textField pattern="#,##0" isBlankWhenNull="true">
-					<reportElement x="200" y="50" width="150" height="10" uuid="33333333-5555-1111-1111-333333333372"/>
+					<reportElement x="570" y="20" width="120" height="10" uuid="33333333-5555-1111-1111-333333333372"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7"/>
 					</textElement>
 					<textFieldExpression><![CDATA[$F{totalAumento}]]></textFieldExpression>
 				</textField>
 				<staticText>
-					<reportElement x="0" y="60" width="200" height="10" uuid="33333333-5555-1111-1111-333333333373"/>
+					<reportElement x="420" y="30" width="150" height="10" uuid="33333333-5555-1111-1111-333333333373"/>
 					<textElement>
 						<font fontName="Verdana" size="7" isBold="true"/>
 					</textElement>
 					<text><![CDATA[Total final (Gs.):]]></text>
 				</staticText>
 				<textField pattern="#,##0" isBlankWhenNull="true">
-					<reportElement x="200" y="60" width="150" height="10" uuid="33333333-5555-1111-1111-333333333374"/>
+					<reportElement x="570" y="30" width="120" height="10" uuid="33333333-5555-1111-1111-333333333374"/>
 					<textElement textAlignment="Right">
 						<font fontName="Verdana" size="7" isBold="true"/>
 					</textElement>
@@ -809,7 +833,7 @@
 				</textField>
 			</frame>
 			<line>
-				<reportElement positionType="Float" x="0" y="192" width="802" height="1" uuid="33333333-6666-1111-1111-333333333380"/>
+				<reportElement positionType="Float" x="0" y="155" width="802" height="1" uuid="33333333-6666-1111-1111-333333333380"/>
 				<graphicElement>
 					<pen lineWidth="1.0" lineColor="#000000"/>
 				</graphicElement>

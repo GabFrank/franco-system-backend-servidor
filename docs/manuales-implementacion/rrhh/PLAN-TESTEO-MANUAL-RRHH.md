@@ -279,6 +279,49 @@ A cada funcionario se le asignan **metas/objetivos**; el legajo muestra el progr
 — por meta, por valor de venta, por valor de lucro (de una o varias sucursales o de determinados
 productos), etc. Módulo extenso, a analizar bien. Alimenta el card "Metas y objetivos" (TODO-4).
 
+### TODO-8 — Impacto de cambios de configuración sobre datos dependientes — *detectado en T4*
+Al cambiar un parámetro de RRHH que influye en salarios/cálculos, el sistema debería avisar y
+ofrecer actualizar lo que depende de él. **Distinguir dos tipos de config:**
+
+1. **Config usada al calcular** (IPS %, RECARGO_HE_*, DIAS_VACACIONES_*, TOLERANCIA_TARDANZA,
+   divisores): no se persiste en los registros; se lee al calcular. Cambiarla ya afecta todo
+   cálculo futuro → **no requiere cascade**, pero sí **avisar de la retroactividad** (ej. una
+   liquidación en BORRADOR que se regenere saldrá con los valores nuevos).
+2. **Config que define una regla sobre datos materializados** (`SALARIO_MINIMO_LEGAL_PYG`): al
+   subir el mínimo quedan funcionarios por debajo → requiere decisión.
+
+**Propuesta (NO auto-cascade):** flujo guiado opt-in. Al guardar el parámetro, mostrar un diálogo
+con los registros afectados (ej. "N funcionarios quedaron por debajo del nuevo mínimo" + lista) y
+permitir **seleccionar cuáles actualizar**, generando sus `funcionario_salario_historico` con motivo
+"AJUSTE POR CAMBIO DE SALARIO MÍNIMO". Los salarios son registros legales con histórico: nunca
+modificarlos en silencio.
+
+**Extra:** el cambio de configuración de RRHH debería ser **auditable** (quién, cuándo, valor
+anterior → nuevo). Hoy `rrhh.configuracion_rrhh` tiene `usuario_id`/`creado_en` pero no historial
+de cambios, y estos parámetros impactan la nómina.
+
+### TODO-8 — Impacto de cambiar una configuración sobre los datos ya existentes — *detectado en T4*
+Al cambiar un parámetro de Configuración RRHH que influye en datos ya guardados (ej.
+`SALARIO_MINIMO_LEGAL_PYG`), hoy no pasa nada con los registros existentes. Propuesta de Gabriel:
+avisar al usuario y ofrecer actualizar lo vinculado.
+
+**Distinción clave para no hacerlo mal:**
+1. **Parámetros usados en tiempo de cálculo** (IPS %, `RECARGO_HE_*`, `DIAS_VACACIONES_*`,
+   `TOLERANCIA_TARDANZA_MIN`, divisores): se leen al calcular, así que el cambio ya aplica solo a
+   los cálculos futuros. **NO** hay que cascadear nada — reescribir histórico sería incorrecto.
+2. **Parámetros materializados en registros** (el mínimo legal vs. el `sueldo` guardado en cada
+   funcionario): acá sí puede quedar data inconsistente (funcionarios por debajo del nuevo mínimo).
+
+**Comportamiento propuesto (solo para el caso 2):** al guardar el parámetro, detectar los
+registros afectados y abrir un diálogo con **vista previa** (lista de funcionarios por debajo del
+nuevo mínimo, con su salario actual), permitiendo **seleccionar cuáles actualizar**. Al confirmar,
+generar los cambios por la vía normal (creando `funcionario_salario_historico` con motivo
+"AJUSTE POR SALARIO MÍNIMO"), nunca con un UPDATE masivo silencioso.
+
+**Restricciones:** los salarios son registros legales/financieros → nunca actualizar
+automáticamente sin confirmación explícita, siempre auditable (histórico + motivo + usuario), y
+**jamás** tocar liquidaciones ya pagadas.
+
 ## Registro de bugs encontrados
 
 | # | Test | Tipo | Descripción | Estado |

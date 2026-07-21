@@ -327,8 +327,10 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         Double precioDeliveryGs = 0.0;
         Double precioDeliveryRs = 0.0;
         Double precioDeliveryDs = 0.0;
-        Double cambioRs = cambioService.findLastByMonedaId(Long.valueOf(2)).getValorEnGs();
-        Double cambioDs = cambioService.findLastByMonedaId(Long.valueOf(3)).getValorEnGs();
+        // Divisor seguro: evita NPE / división por cero cuando REAL/DÓLAR no
+        // tienen cotización registrada. No frena la venta ni el total en Gs.
+        Double cambioRs = cambioService.findLastValorEnGsByMonedaIdOrDefault(Long.valueOf(2), 1.0);
+        Double cambioDs = cambioService.findLastValorEnGsByMonedaIdOrDefault(Long.valueOf(3), 1.0);
 
         if (delivery != null) {
             precioDeliveryGs = delivery.getPrecio().getValor();

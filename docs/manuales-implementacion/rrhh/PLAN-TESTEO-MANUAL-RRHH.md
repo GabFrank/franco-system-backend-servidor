@@ -54,7 +54,7 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 ## FASE 2 — Legajo
 
-### ⬜ T4 — Legajo funcionario
+### ✅ T4 — Legajo funcionario  *(cargo/salario/documento OK en DB; legajo rediseñado como dashboard; bugs B3-B6 arreglados)*
 - **Objetivo:** ver el legajo (histórico de cargos/salarios, documentos, datos de egreso).
 - **Datos previos:** ESTEBAN (#8) existe. Claude puede sembrar 1 cargo + 1 salario histórico si
   el legajo aparece vacío, para que haya algo que mostrar.
@@ -68,12 +68,28 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 ## FASE 3 — Asistencia (sujeto: ESTEBAN #8)
 
-### ⬜ T5 — Novedades
-- **Objetivo:** registrar una novedad de jornada (justificación, permiso, etc.).
-- **Datos previos:** ESTEBAN existe.
-- **Pasos UI:** `R.R.H.H.` → `Novedades` → `Nuevo` → funcionario ESTEBAN, fecha 2026-07-10,
-  tipo (ej. JUSTIFICADO), observación → guardar.
-- **Verificación (DB):** `rrhh.jornada_novedad` con la novedad de ESTEBAN el 2026-07-10.
+### ⬜ T5 — Justificativos (ex "Novedades") + catálogo de tipos
+> **El módulo se rediseñó durante el testeo** (commits `c3a2385c` backend / `518db17c` desktop).
+> "Novedades" no reflejaba su función: son las **justificaciones** de por qué un día no fue una
+> jornada normal. Además los tipos eran un enum fijo y 3 de los 5 no producían ningún efecto.
+>
+> Ahora: tabla `rrhh.justificativo` + catálogo `rrhh.tipo_justificativo` con ABM propio, donde
+> cada tipo define **evitaPenalizacion**, **descuentaSalario** (NO/MEDIO_DIA/DIA_COMPLETO),
+> **requiereDocumento** y **generadoPorSistema**. Se pueden agregar tipos sin desplegar código.
+>
+> Efectos cableados: la penalización usa `evitaPenalizacion`; **la liquidación ahora descuenta**
+> (antes ignoraba las novedades por completo). Verificado: 1,5 días → 175.000,01 sobre un sueldo
+> de 3.500.000 con `DIAS_MES_PROMEDIO=30`.
+>
+> Vacaciones **no** se gestiona acá: sus justificativos son una proyección del módulo de
+> vacaciones, quedan de solo lectura (tipo marcado como generado por el sistema).
+
+- **Datos previos:** 8 tipos sembrados; 3 justificativos de ESTEBAN cargados en la verificación.
+- **Pasos UI:**
+  1. `R.R.H.H.` → `Tipos de justificativo`: revisar el catálogo, crear un tipo nuevo, editar el
+     descuento de uno, verificar que los del sistema (VACACION/FERIADO) no se puedan eliminar.
+  2. `R.R.H.H.` → `Justificativos` → buscar por ESTEBAN → `Nuevo` → tipo, fecha, observación.
+- **Verificación (DB):** `rrhh.justificativo` (con `tipo_justificativo_id`) y `rrhh.tipo_justificativo`.
 
 ### ⬜ T6 — Historial de marcaciones
 - **Objetivo:** consultar el historial de marcaciones de un funcionario.
@@ -328,6 +344,12 @@ automáticamente sin confirmación explícita, siempre auditable (histórico + m
 |---|---|---|---|---|
 | B1 | T1 | Backend | Editar configuración RRHH reventaba (`creado_en` NULL, ModelMapper pisaba el valor con el `creadoEn` null del input). Idéntico en `LiquidacionConcepto`. | ✅ Arreglado (commit bc4eaa39) |
 | B2 | T1 | Desktop UI | Las tablas de listas RRHH (`.tabla-container`, las 16) no tenían scroll vertical: se cortaban sin ver todas las filas. | ✅ Arreglado (desktop d5227337, scroll + header sticky, arregla las 16 listas) |
+| B3 | T4 | Desktop UI | Doble botón "No" en los confirmar: las **16** llamadas de RRHH pasaban `btn2=null` y el "No" como `btn3`; `DialogosComponent` defaultea `btn2Name`→"No", renderizando dos. | ✅ Arreglado (5bedd88a, las 16 llamadas) |
+| B4 | T4 | Desktop | "Ver documento" no hacía nada: `window.open()` está bloqueado en Electron. | ✅ Arreglado (5bedd88a, `DocumentoViewerDialogComponent` con iframe) |
+| B5 | T4 | Desktop | Al actualizar el salario desde el cambio de cargo, se guardaba con `moneda_id` NULL. | ✅ Arreglado (5bedd88a, selector de moneda + preselección) |
+| B6 | T4 | Desktop UI | Selector de moneda cortado y hint pisando el campo de fecha en "Cambiar salario". | ✅ Arreglado (976b9f3c) |
+| B7 | T5 | Backend/DB | Al renombrar una tabla, Postgres conserva el nombre viejo de la secuencia; el `AssignedIdentityGenerator` la busca como `<tabla>_id_seq` → **todo INSERT fallaba** con `no existe la relación "rrhh.justificativo_id_seq"`. Aplica a cualquier rename futuro. | ✅ Arreglado (V164.1) |
+| B8 | T5 | Diseño | Los tipos de justificativo eran un enum fijo y 3 de 5 no tenían ningún efecto: la liquidación **ignoraba por completo** las novedades, por lo que `MEDIA_FALTA` no descontaba nada. | ✅ Resuelto con el catálogo + cableado a liquidación (c3a2385c) |
 
 ## Tests opcionales / diferidos
 

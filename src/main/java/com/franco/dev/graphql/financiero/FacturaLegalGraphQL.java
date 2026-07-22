@@ -242,9 +242,9 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Page<FacturaLegal> facturaLegales(Integer page, Integer size, String fechaInicio, String fechaFin,
             List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico,
-            Boolean activo, Boolean sinNombre) {
+            Boolean activo, Boolean sinNombre, Long ventaId) {
         Page<FacturaLegal> response = service.findByAll(page, size, fechaInicio, fechaFin, sucId, ruc, nombre, iva5,
-                iva10, isElectronico, activo, sinNombre);
+                iva10, isElectronico, activo, sinNombre, ventaId);
         return response;
     }
 

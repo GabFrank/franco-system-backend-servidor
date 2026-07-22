@@ -21,7 +21,8 @@ public final class FacturaLegalSpecification {
             String nombre,
             Boolean isElectronico,
             Boolean activo,
-            Boolean sinNombre) {
+            Boolean sinNombre,
+            Long ventaId) {
 
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -70,6 +71,10 @@ public final class FacturaLegalSpecification {
                 } else {
                     predicates.add(criteriaBuilder.notEqual(criteriaBuilder.upper(root.get("nombre")), "SIN NOMBRE"));
                 }
+            }
+
+            if (ventaId != null) {
+                predicates.add(criteriaBuilder.equal(root.join("venta", JoinType.INNER).get("id"), ventaId));
             }
 
             return criteriaBuilder.and(predicates.toArray(new Predicate[0]));

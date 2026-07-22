@@ -432,29 +432,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             escpos.writeLF("Cant  IVA   P.U              P.T");
             escpos.writeLF("--------------------------------");
             for (FacturaLegalItem vi : facturaLegalItemList) {
-                // Prioridad 1: IVA del item directamente
-                Integer iva = vi.getIva();
-
-                // Prioridad 2: IVA del producto vinculado directamente
-                if (iva == null && vi.getProducto() != null) {
-                    iva = vi.getProducto().getIva();
-                }
-                // Prioridad 3: IVA del producto a través de la presentación
-                else if (iva == null && vi.getPresentacion() != null) {
-                    iva = vi.getPresentacion().getProducto().getIva();
-                }
-
-                // Fallback: lookup producto por descripcion (UPPER+TRIM) si iva todavia null.
-                if (iva == null && vi.getDescripcion() != null) {
-                    List<Producto> matches = productoService.findByDescripcionNormalized(vi.getDescripcion());
-                    if (matches.size() == 1 && matches.get(0).getIva() != null) {
-                        iva = matches.get(0).getIva();
-                    }
-                }
-                if (iva == null) {
-                    log.warn("IVA no resoluble al imprimir ticket para item desc='{}', default 10", vi.getDescripcion());
-                    iva = 10;
-                }
+                Integer iva = resolverIvaItem(vi);
 
                 Double total = vi.getTotal();
                 switch (iva) {
@@ -1494,6 +1472,33 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         }
     }
 
+    /**
+     * Resuelve el % de IVA de un item de factura legal con la misma cadena de fallbacks
+     * que usa el ticket ESC/POS: item directo -> producto directo -> producto via
+     * presentación -> lookup por descripción normalizada -> default 10.
+     */
+    private Integer resolverIvaItem(FacturaLegalItem vi) {
+        Integer iva = vi.getIva();
+
+        if (iva == null && vi.getProducto() != null) {
+            iva = vi.getProducto().getIva();
+        } else if (iva == null && vi.getPresentacion() != null && vi.getPresentacion().getProducto() != null) {
+            iva = vi.getPresentacion().getProducto().getIva();
+        }
+
+        if (iva == null && vi.getDescripcion() != null) {
+            List<Producto> matches = productoService.findByDescripcionNormalized(vi.getDescripcion());
+            if (matches.size() == 1 && matches.get(0).getIva() != null) {
+                iva = matches.get(0).getIva();
+            }
+        }
+        if (iva == null) {
+            log.warn("IVA no resoluble para item desc='{}', default 10", vi.getDescripcion());
+            iva = 10;
+        }
+        return iva;
+    }
+
     public String descargarPdfFacturaElectronica(Long id, Long sucId) {
         try {
             // Obtener factura legal con todas las relaciones necesarias
@@ -1502,13 +1507,20 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 throw new IllegalArgumentException("Factura no encontrada");
             }
 
-            // Obtener documento electrónico
-            Optional<DocumentoElectronico> docOpt = documentoElectronicoService.findByFacturaLegalId(id, sucId);
-            if (!docOpt.isPresent()) {
-                throw new IllegalArgumentException("La factura no tiene documento electrónico asociado");
-            }
+            // Timbrado.isElectronico=false (o sin timbrado) => factura legal sin SIFEN:
+            // mismo layout/datos, sin CDC ni QR, sin depender de un DocumentoElectronico.
+            boolean facturaElectronica = factura.getTimbradoDetalle() != null
+                    && factura.getTimbradoDetalle().getTimbrado() != null
+                    && Boolean.TRUE.equals(factura.getTimbradoDetalle().getTimbrado().getIsElectronico());
 
-            DocumentoElectronico documentoElectronico = docOpt.get();
+            DocumentoElectronico documentoElectronico = null;
+            if (facturaElectronica) {
+                Optional<DocumentoElectronico> docOpt = documentoElectronicoService.findByFacturaLegalId(id, sucId);
+                if (!docOpt.isPresent()) {
+                    throw new IllegalArgumentException("La factura no tiene documento electrónico asociado");
+                }
+                documentoElectronico = docOpt.get();
+            }
 
             // Obtener sucursal
             Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
@@ -1522,8 +1534,11 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     && !factura.getMonedaExtranjera().isEmpty();
             Double tipoCambio = factura.getTipoCambio() != null ? factura.getTipoCambio() : 1.0;
 
-            // Cargar y compilar el template Jasper
-            File file = ResourceUtils.getFile("classpath:reports/factura-electronica-kude.jrxml");
+            // Cargar y compilar el template Jasper (KUDE electrónico o réplica legal sin SIFEN)
+            String reportClasspath = facturaElectronica
+                    ? "classpath:reports/factura-electronica-kude.jrxml"
+                    : "classpath:reports/factura-legal.jrxml";
+            File file = ResourceUtils.getFile(reportClasspath);
             JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
 
             // Preparar datasource con items
@@ -1534,7 +1549,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 dto.setDescripcion(item.getDescripcion() != null ? item.getDescripcion() : "");
                 dto.setCantidad(item.getCantidad() != null ? item.getCantidad() : 0.0f);
                 dto.setPrecioUnitario(item.getPrecioUnitario() != null ? item.getPrecioUnitario() : 0.0);
-                dto.setIva(item.getIva() != null ? item.getIva() : 0);
+                dto.setIva(resolverIvaItem(item));
                 dto.setTotal(item.getTotal() != null ? item.getTotal() : 0.0);
 
                 // Obtener presentación desde el item o fallback desde el ventaItem
@@ -1591,6 +1606,8 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 parameters.put("numeroTimbrado", timbrado.getNumero() != null ? timbrado.getNumero() : "");
                 parameters.put("fechaInicioVigencia",
                         timbrado.getFechaInicio() != null ? DateUtils.toString(timbrado.getFechaInicio()) : "");
+                parameters.put("fechaFinVigencia",
+                        timbrado.getFechaFin() != null ? DateUtils.toString(timbrado.getFechaFin()) : "");
 
                 // Dirección del emisor: formatear como "{{direccion}}, {{ciudad}},
                 // {{departamento}}"
@@ -1626,6 +1643,12 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     direccionEmisorBuilder.append(timbrado.getDomicilioFiscalDireccion());
                 }
 
+                // Último fallback: dirección física de la sucursal (los timbrados no
+                // electrónicos suelen no cargar dirección propia, igual que en el ticket).
+                if (direccionEmisorBuilder.length() == 0 && sucursal != null && sucursal.getDireccion() != null) {
+                    direccionEmisorBuilder.append(sucursal.getDireccion());
+                }
+
                 parameters.put("direccionEmisor", direccionEmisorBuilder.toString());
 
                 if (factura.getTimbradoDetalle().getTelefono() != null) {
@@ -1646,6 +1669,7 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 parameters.put("rucEmisor", "");
                 parameters.put("numeroTimbrado", "");
                 parameters.put("fechaInicioVigencia", "");
+                parameters.put("fechaFinVigencia", "");
                 parameters.put("direccionEmisor", "");
                 parameters.put("telefonoEmisor", "");
                 parameters.put("emailEmisor", "");
@@ -1669,7 +1693,34 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 numeroFacturaFormateado = codigoEstablecimiento + "-" + puntoExpedicion + "-" + numeroStr;
             }
             parameters.put("numeroFactura", numeroFacturaFormateado);
-            parameters.put("cdc", documentoElectronico.getCdc() != null ? documentoElectronico.getCdc() : "");
+            parameters.put("sucursalNombre", sucursal != null && sucursal.getNombre() != null ? sucursal.getNombre() : "");
+
+            // Forma de pago real (EFECTIVO / TARJETA / TRANSFERENCIA / ...), tomada del
+            // cobro de la venta como hace VentaGraphQL. Es distinta de la "Condición"
+            // (contado/crédito): una venta contado puede pagarse con tarjeta.
+            java.util.LinkedHashSet<String> formasPago = new java.util.LinkedHashSet<>();
+            if (factura.getVenta() != null) {
+                Venta ventaFactura = factura.getVenta();
+                if (ventaFactura.getFormaPago() != null && ventaFactura.getFormaPago().getDescripcion() != null) {
+                    formasPago.add(ventaFactura.getFormaPago().getDescripcion());
+                }
+                if (ventaFactura.getCobro() != null) {
+                    List<com.franco.dev.domain.operaciones.CobroDetalle> cobroDetalles = cobroDetalleService
+                            .findByCobroId(ventaFactura.getCobro().getId(), sucId);
+                    if (cobroDetalles != null) {
+                        for (com.franco.dev.domain.operaciones.CobroDetalle cd : cobroDetalles) {
+                            if (!Boolean.TRUE.equals(cd.getVuelto()) && cd.getFormaPago() != null
+                                    && cd.getFormaPago().getDescripcion() != null) {
+                                formasPago.add(cd.getFormaPago().getDescripcion());
+                            }
+                        }
+                    }
+                }
+            }
+            parameters.put("formaPago", String.join(", ", formasPago));
+            if (facturaElectronica) {
+                parameters.put("cdc", documentoElectronico.getCdc() != null ? documentoElectronico.getCdc() : "");
+            }
             parameters.put("fechaEmision", factura.getFecha() != null ? DateUtils.toString(factura.getFecha()) : "");
             parameters.put("presupuesto", ""); // No disponible en la entidad actual
             parameters.put("ordenAsociada", ""); // No disponible en la entidad actual
@@ -1709,9 +1760,39 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 totalFinal = totalFinal / tipoCambio;
             }
 
-            parameters.put("subtotalExentas", total0);
-            parameters.put("subtotal5", total5);
-            parameters.put("subtotal10", total10);
+            // Subtotales por banda IVA:
+            //  - KUDE electrónico: parciales NETOS persistidos (convención SIFEN).
+            //  - Factura legal: subtotales BRUTOS (suma de ítems, antes de descuento),
+            //    para que la línea "Descuento" y el total neto cuadren aritméticamente.
+            if (facturaElectronica) {
+                parameters.put("subtotalExentas", total0);
+                parameters.put("subtotal5", total5);
+                parameters.put("subtotal10", total10);
+            } else {
+                double bruto0 = 0.0, bruto5 = 0.0, bruto10 = 0.0;
+                for (FacturaItemDto d : itemDtoList) {
+                    int ivaBanda = d.getIva() != null ? d.getIva() : 0;
+                    double t = d.getTotal() != null ? d.getTotal() : 0.0;
+                    if (ivaBanda == 5) {
+                        bruto5 += t;
+                    } else if (ivaBanda == 10) {
+                        bruto10 += t;
+                    } else {
+                        bruto0 += t;
+                    }
+                }
+                parameters.put("subtotalExentas", bruto0);
+                parameters.put("subtotal5", bruto5);
+                parameters.put("subtotal10", bruto10);
+            }
+
+            // Descuento (en la moneda de visualización) para el reporte legal.
+            Double descuentoFactura = factura.getDescuento() != null ? factura.getDescuento() : 0.0;
+            if (tieneMonedaExtranjera && tipoCambio > 0) {
+                descuentoFactura = descuentoFactura / tipoCambio;
+            }
+            parameters.put("descuento", descuentoFactura);
+
             parameters.put("totalOperacion", totalFinal);
             parameters.put("totalIva5", iva5);
             parameters.put("totalIva10", iva10);
@@ -1730,31 +1811,41 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             }
             parameters.put("totalEnGuarani", totalEnGuarani);
 
-            // URL de validación SET
-            parameters.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
+            // Totales en reales y dólares (mismas cotizaciones que el ticket: moneda 2 = Rs, 3 = Ds).
+            // Se calculan sobre el total neto en Gs, con el descuento ya aplicado.
+            // Divisor seguro (default 1.0) para no romper la generación si falta cotización.
+            Double cambioRsPdf = cambioService.findLastValorEnGsByMonedaIdOrDefault(2L, 1.0);
+            Double cambioDsPdf = cambioService.findLastValorEnGsByMonedaIdOrDefault(3L, 1.0);
+            parameters.put("totalEnReales", totalEnGuarani / cambioRsPdf);
+            parameters.put("totalEnDolares", totalEnGuarani / cambioDsPdf);
 
-            // QR Code - generar imagen del QR desde urlQr del documento electrónico
-            String urlQr = documentoElectronico.getUrlQr() != null ? documentoElectronico.getUrlQr() : "";
+            // URL de validación SET, QR y CDC solo aplican al KUDE de factura electrónica
             String qrImagePath = "";
-            if (urlQr != null && !urlQr.isEmpty()) {
-                try {
-                    // Generar imagen QR
-                    BufferedImage qrImage = QRCodeImageGenerator.generateQRCodeImage(urlQr, 200, 200);
+            if (facturaElectronica) {
+                parameters.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
 
-                    // Guardar imagen temporalmente
-                    File tempQrFile = File.createTempFile("qr_", ".png");
-                    ImageIO.write(qrImage, "PNG", tempQrFile);
-                    qrImagePath = tempQrFile.getAbsolutePath();
+                // QR Code - generar imagen del QR desde urlQr del documento electrónico
+                String urlQr = documentoElectronico.getUrlQr() != null ? documentoElectronico.getUrlQr() : "";
+                if (!urlQr.isEmpty()) {
+                    try {
+                        // Generar imagen QR
+                        BufferedImage qrImage = QRCodeImageGenerator.generateQRCodeImage(urlQr, 200, 200);
 
-                    // El archivo temporal se eliminará cuando se cierre el proceso o se puede
-                    // eliminar después de generar el PDF
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    // Si falla la generación del QR, continuar sin él
-                    qrImagePath = "";
+                        // Guardar imagen temporalmente
+                        File tempQrFile = File.createTempFile("qr_", ".png");
+                        ImageIO.write(qrImage, "PNG", tempQrFile);
+                        qrImagePath = tempQrFile.getAbsolutePath();
+
+                        // El archivo temporal se eliminará cuando se cierre el proceso o se puede
+                        // eliminar después de generar el PDF
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        // Si falla la generación del QR, continuar sin él
+                        qrImagePath = "";
+                    }
                 }
+                parameters.put("qrImagePath", qrImagePath);
             }
-            parameters.put("qrImagePath", qrImagePath);
 
             // Generar PDF
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);

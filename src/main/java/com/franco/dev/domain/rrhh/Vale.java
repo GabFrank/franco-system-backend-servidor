@@ -62,8 +62,6 @@ public class Vale implements Identifiable<Long> {
     @Column(name = "liquidacion_id")
     private Long liquidacionId;
 
-    @Column(name = "movimiento_persona_id")
-    private Long movimientoPersonaId;
 
     @Column(name = "caja_virtual_id")
     private Long cajaVirtualId;

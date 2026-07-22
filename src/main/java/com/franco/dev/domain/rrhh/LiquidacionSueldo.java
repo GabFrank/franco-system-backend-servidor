@@ -88,8 +88,6 @@ public class LiquidacionSueldo implements Identifiable<Long> {
     @Column(name = "movimiento_caja_virtual_id")
     private Long movimientoCajaVirtualId;
 
-    @Column(name = "movimiento_persona_id")
-    private Long movimientoPersonaId;
 
     private String observacion;
 

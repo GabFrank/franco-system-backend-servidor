@@ -69,8 +69,6 @@ public class Prestamo implements Identifiable<Long> {
     @Column(name = "movimiento_caja_virtual_id")
     private Long movimientoCajaVirtualId;
 
-    @Column(name = "movimiento_persona_id")
-    private Long movimientoPersonaId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)

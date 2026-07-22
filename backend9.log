@@ -165,3 +165,23 @@ Successfully Authentication
 Successfully Authentication
 Successfully Authentication
 Successfully Authentication
+2026-07-22 16:35:02.330  INFO 21522 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-22 16:35:04.298  INFO 21522 --- [MessageBroker-2] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-22 16:35:04.372  INFO 21522 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  06:57 min
+[INFO] Finished at: 2026-07-22T16:39:37-03:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:2.7.18:run (default-cli) on project franco-dev-systems: Application finished with exit code: 137 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

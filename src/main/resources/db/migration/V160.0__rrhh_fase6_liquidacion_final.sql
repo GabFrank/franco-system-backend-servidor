@@ -30,7 +30,6 @@ CREATE TABLE IF NOT EXISTS rrhh.liquidacion_final (
     fecha_pago                  TIMESTAMP,
     caja_virtual_id             BIGINT,
     movimiento_caja_virtual_id  BIGINT,
-    movimiento_persona_id       BIGINT,
     observacion                 TEXT,
     usuario_id                  BIGINT REFERENCES personas.usuario(id),
     creado_en                   TIMESTAMP NOT NULL DEFAULT now()

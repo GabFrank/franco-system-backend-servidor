@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS rrhh.vale (
     estado                     VARCHAR(20) NOT NULL DEFAULT 'SOLICITADO',
     es_adelanto                BOOLEAN NOT NULL DEFAULT FALSE,
     liquidacion_id             BIGINT,
-    movimiento_persona_id      BIGINT,
     caja_virtual_id            BIGINT REFERENCES financiero.caja_virtual(id),
     movimiento_caja_virtual_id BIGINT,
     autorizado_por_id          BIGINT REFERENCES personas.usuario(id),
@@ -62,7 +61,6 @@ CREATE TABLE IF NOT EXISTS rrhh.prestamo (
     observacion                TEXT,
     caja_virtual_id            BIGINT REFERENCES financiero.caja_virtual(id),
     movimiento_caja_virtual_id BIGINT,
-    movimiento_persona_id      BIGINT,
     usuario_id                 BIGINT REFERENCES personas.usuario(id),
     creado_en                  TIMESTAMP NOT NULL DEFAULT now()
 );

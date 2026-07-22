@@ -46,7 +46,6 @@ type Vale {
     estado: ValeEstado
     esAdelanto: Boolean
     liquidacionId: Int
-    movimientoPersonaId: Int
     cajaVirtualId: Int
     movimientoCajaVirtualId: Int
     autorizadoPor: Usuario

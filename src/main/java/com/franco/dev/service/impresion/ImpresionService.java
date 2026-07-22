@@ -15,6 +15,7 @@ import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
+import com.franco.dev.domain.operaciones.dto.ReporteVentaDetalladoDto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
@@ -1626,6 +1627,63 @@ public class ImpresionService {
             e.printStackTrace();
             return null;
         } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String imprimirReporteGenericVentasDetallado(
+            List<ReporteVentaDetalladoDto> itemList,
+            String filtroIdVenta,
+            String filtroFechaInicio,
+            String filtroFechaFin,
+            String filtroSucursal,
+            String filtroFormaPago,
+            String filtroMoneda,
+            String filtroEstado,
+            String filtroCliente,
+            String filtroModo,
+            String filtroConObservacion,
+            String filtroConDescuento,
+            String filtroConAumento,
+            Double totalGeneral,
+            Double totalEfectivo,
+            Double totalTarjeta,
+            Double totalConvenio,
+            Double totalTransferencia,
+            Double totalOtros,
+            Usuario usuario) {
+        try {
+            JasperReport jasperReport = compileReportFromClasspath("reports/reporte-ventas-detallado.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(
+                    itemList != null ? itemList : new ArrayList<>());
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario != null ? usuario.getNickname() : "");
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            parameters.put("filtroIdVenta", filtroIdVenta != null ? filtroIdVenta : "");
+            parameters.put("filtroFechaInicio", filtroFechaInicio != null ? filtroFechaInicio : "");
+            parameters.put("filtroFechaFin", filtroFechaFin != null ? filtroFechaFin : "");
+            parameters.put("filtroSucursal", filtroSucursal != null ? filtroSucursal : "");
+            parameters.put("filtroFormaPago", filtroFormaPago != null ? filtroFormaPago : "");
+            parameters.put("filtroMoneda", filtroMoneda != null ? filtroMoneda : "");
+            parameters.put("filtroEstado", filtroEstado != null ? filtroEstado : "");
+            parameters.put("filtroCliente", filtroCliente != null ? filtroCliente : "");
+            parameters.put("filtroModo", filtroModo != null ? filtroModo : "");
+            parameters.put("filtroConObservacion", filtroConObservacion != null ? filtroConObservacion : "");
+            parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
+            parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
+            parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
+            parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
+            parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);
+            parameters.put("totalTransferencia", totalTransferencia != null ? totalTransferencia : 0.0);
+            parameters.put("totalOtros", totalOtros != null ? totalOtros : 0.0);
+            parameters.put("cantidadVentas", itemList != null ? (long) itemList.size() : 0L);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
             e.printStackTrace();
             return null;
         }

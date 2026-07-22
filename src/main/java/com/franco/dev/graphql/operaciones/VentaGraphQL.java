@@ -14,6 +14,10 @@ import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.domain.operaciones.VentaPorFuncionario;
 import com.franco.dev.domain.operaciones.VentaPorSucursal;
 import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
+import com.franco.dev.domain.operaciones.dto.MovimientoReporteDetalladoDto;
+import com.franco.dev.domain.operaciones.dto.ReporteVentaDetalladoDto;
+import com.franco.dev.domain.operaciones.dto.VentaItemReporteDetalladoDto;
+import com.franco.dev.domain.operaciones.dto.VentaObservacionReporteDetalladoDto;
 import com.franco.dev.domain.operaciones.dto.VentaPorPeriodoV1Dto;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.domain.personas.Cliente;
@@ -59,6 +63,7 @@ import com.franco.dev.utilitarios.print.escpos.image.*;
 import com.franco.dev.utilitarios.print.output.PrinterOutputStream;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,6 +136,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
 
     @Autowired
     private CobroDetalleService cobroDetalleService;
+
+    @Autowired
+    private VentaObservacionService ventaObservacionService;
 
     @Autowired
     private MonedaService monedaService;
@@ -624,6 +632,271 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         String filtroIdVentaStr  = idVenta        != null ? idVenta.toString() : "Todos";
 
         return impresionService.imprimirReporteGenericVentas(
+                itemList,
+                filtroIdVentaStr,
+                fechaInicio != null ? fechaInicio : "-",
+                fechaFin    != null ? fechaFin    : "-",
+                filtroSucursalStr, filtroFpStr, filtroMonedaStr,
+                filtroEstadoStr, filtroClienteStr,
+                filtroModoStr, filtroConObsStr, filtroConDescStr, filtroConAumStr,
+                totalGeneral, totalEfectivo, totalTarjeta,
+                totalConvenio, totalTransferencia, totalOtros,
+                usuario);
+    }
+
+    public String reporteGenericVentasDetallado(
+            Long idVenta,
+            Long idCaja,
+            Long sucId,
+            Long formaPago,
+            VentaEstado estado,
+            Boolean isDelivery,
+            Long monedaId,
+            Boolean conDescuento,
+            Boolean conAumento,
+            Boolean conObservacion,
+            Long clienteId,
+            String fechaInicio,
+            String fechaFin,
+            Long usuarioId) {
+
+        // Cargar todas las ventas sin límite de paginación
+        Pageable allPages = PageRequest.of(0, Integer.MAX_VALUE);
+        Page<Venta> ventaPage = service.onGenericSearch(
+                idVenta, idCaja, allPages, false,
+                sucId, formaPago, estado, isDelivery, monedaId,
+                conDescuento, conAumento, conObservacion, clienteId,
+                fechaInicio, fechaFin);
+
+        List<Venta> ventas = ventaPage.getContent();
+
+        // Acumuladores de totales por forma de pago (en Gs.)
+        double totalGeneral       = 0.0;
+        double totalEfectivo      = 0.0;
+        double totalTarjeta       = 0.0;
+        double totalConvenio      = 0.0;
+        double totalTransferencia = 0.0;
+        double totalOtros         = 0.0;
+
+        List<ReporteVentaDetalladoDto> itemList = new ArrayList<>();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+        for (Venta v : ventas) {
+            double ventaTotalGs = v.getTotalGs() != null ? v.getTotalGs() : 0.0;
+            totalGeneral += ventaTotalGs;
+
+            // Resolver forma de pago y moneda usando la lógica del VentaResolver:
+            // si la venta no tiene formaPago directo, buscar en el cobro
+            FormaPago fp = v.getFormaPago();
+            Moneda moneda = null;
+            List<CobroDetalle> cobroDetalleList = new ArrayList<>();
+            if (v.getCobro() != null) {
+                cobroDetalleList = cobroDetalleService.findByCobroId(
+                        v.getCobro().getId(), v.getSucursalId());
+                if (cobroDetalleList != null && !cobroDetalleList.isEmpty()) {
+                    CobroDetalle primerDetalle = cobroDetalleList.get(0);
+                    if (fp == null) {
+                        fp = primerDetalle.getFormaPago();
+                    }
+                    moneda = primerDetalle.getMoneda();
+                }
+            }
+
+            String fpDesc = fp != null && fp.getDescripcion() != null
+                    ? fp.getDescripcion().toUpperCase() : "";
+
+            if (fpDesc.contains("EFECTIVO")) {
+                totalEfectivo += ventaTotalGs;
+            } else if (fpDesc.contains("TARJETA")) {
+                totalTarjeta += ventaTotalGs;
+            } else if (fpDesc.contains("CONVENIO")) {
+                totalConvenio += ventaTotalGs;
+            } else if (fpDesc.contains("TRANSFERENCIA")) {
+                totalTransferencia += ventaTotalGs;
+            } else {
+                totalOtros += ventaTotalGs;
+            }
+
+            // Items de la venta (producto, presentación, cantidad, precio, costo unitario/total)
+            List<VentaItem> ventaItemList = ventaItemService.findByVentaId(v.getId(), v.getSucursalId());
+            List<VentaItemReporteDetalladoDto> itemsDto = new ArrayList<>();
+            double costoTotalVenta = 0.0;
+            for (VentaItem vi : ventaItemList) {
+                double cantidad = vi.getCantidad() != null ? vi.getCantidad() : 0.0;
+                double precioCosto = vi.getPrecioCosto() != null ? vi.getPrecioCosto() : 0.0;
+                double precio = vi.getPrecio() != null ? vi.getPrecio() : 0.0;
+                double costoTotalItem = precioCosto * cantidad;
+                costoTotalVenta += costoTotalItem;
+                itemsDto.add(new VentaItemReporteDetalladoDto(
+                        vi.getProducto() != null ? vi.getProducto().getDescripcion() : "",
+                        vi.getPresentacion() != null ? vi.getPresentacion().getDescripcion() : "",
+                        cantidad,
+                        precio,
+                        precioCosto,
+                        costoTotalItem,
+                        vi.getPrecio() != null && vi.getCantidad() != null ? precio * cantidad : 0.0));
+            }
+
+            // Movimientos de cobro (operación, forma de pago, moneda, valor en moneda/Gs) y totales
+            List<MovimientoReporteDetalladoDto> movimientosDto = new ArrayList<>();
+            double totalRecibidoGs = 0.0;
+            double totalRecibidoRs = 0.0;
+            double totalRecibidoDs = 0.0;
+            double totalRecibido = 0.0;
+            double totalDescuento = 0.0;
+            double totalAumento = 0.0;
+            double totalFinal = 0.0;
+            for (CobroDetalle cd : cobroDetalleList) {
+                String operacion = cd.getPago() != null && cd.getPago() ? "PAGO"
+                        : cd.getDescuento() != null && cd.getDescuento() ? "DESCUENTO"
+                        : cd.getAumento() != null && cd.getAumento() ? "AUMENTO"
+                        : cd.getVuelto() != null && cd.getVuelto() ? "VUELTO"
+                        : "PROBLEMA";
+                double valor = cd.getValor() != null ? cd.getValor() : 0.0;
+                double cambio = cd.getCambio() != null ? cd.getCambio() : 1.0;
+                String denominacion = cd.getMoneda() != null && cd.getMoneda().getDenominacion() != null
+                        ? cd.getMoneda().getDenominacion() : "";
+
+                movimientosDto.add(new MovimientoReporteDetalladoDto(
+                        operacion,
+                        cd.getFormaPago() != null ? cd.getFormaPago().getDescripcion() : "",
+                        denominacion,
+                        valor,
+                        valor * cambio));
+
+                boolean recibido = (cd.getPago() != null && cd.getPago()) || (cd.getVuelto() != null && cd.getVuelto());
+                boolean aumento = cd.getAumento() != null && cd.getAumento();
+                boolean descuento = cd.getDescuento() != null && cd.getDescuento();
+                if ("GUARANI".equals(denominacion)) {
+                    if (recibido) {
+                        totalRecibidoGs += valor;
+                        totalRecibido += valor;
+                        totalFinal += valor;
+                    } else if (aumento) {
+                        totalAumento += valor;
+                        totalFinal += valor;
+                    } else if (descuento) {
+                        totalDescuento += valor;
+                    }
+                } else if ("REAL".equals(denominacion)) {
+                    if (recibido) {
+                        totalRecibidoRs += valor;
+                        totalRecibido += valor * cambio;
+                        totalFinal += valor * cambio;
+                    } else if (aumento) {
+                        totalAumento += valor * cambio;
+                        totalFinal += valor * cambio;
+                    } else if (descuento) {
+                        totalDescuento += valor * cambio;
+                    }
+                } else if ("DOLAR".equals(denominacion)) {
+                    if (recibido) {
+                        totalRecibidoDs += valor;
+                        totalRecibido += valor * cambio;
+                        totalFinal += valor * cambio;
+                    } else if (aumento) {
+                        totalAumento += valor * cambio;
+                        totalFinal += valor * cambio;
+                    } else if (descuento) {
+                        totalDescuento += valor * cambio;
+                    }
+                }
+            }
+
+            // Observaciones de la venta (descripción + motivo)
+            List<VentaObservacion> ventaObservacionList = ventaObservacionService
+                    .findByVentaIdAndSucursalId(v.getId(), v.getSucursalId());
+            List<VentaObservacionReporteDetalladoDto> observacionesDto = new ArrayList<>();
+            for (VentaObservacion vo : ventaObservacionList) {
+                observacionesDto.add(new VentaObservacionReporteDetalladoDto(
+                        vo.getCreadoEn() != null ? vo.getCreadoEn().format(formatter) : "",
+                        vo.getDescripcion() != null ? vo.getDescripcion() : "",
+                        vo.getMotivoObservacion() != null && vo.getMotivoObservacion().getDescripcion() != null
+                                ? vo.getMotivoObservacion().getDescripcion() : ""));
+            }
+            if (observacionesDto.isEmpty()) {
+                observacionesDto.add(new VentaObservacionReporteDetalladoDto("", "Sin observaciones", "Sin motivos"));
+            }
+
+            ReporteVentaDetalladoDto dto = new ReporteVentaDetalladoDto();
+            dto.setVentaId(v.getId());
+            dto.setSucursal(v.getSucursal() != null ? v.getSucursal().getNombre() : "");
+            dto.setCliente(v.getCliente() != null && v.getCliente().getPersona() != null
+                    ? v.getCliente().getPersona().getNombre() : "");
+            dto.setFecha(v.getCreadoEn() != null ? v.getCreadoEn().format(formatter) : "");
+            dto.setFormaPago(fp != null && fp.getDescripcion() != null ? fp.getDescripcion() : "");
+            dto.setMoneda(moneda != null && moneda.getDenominacion() != null ? moneda.getDenominacion() : "");
+            dto.setEstado(v.getEstado() != null ? v.getEstado().toString() : "");
+            dto.setResponsable(v.getUsuario() != null && v.getUsuario().getNickname() != null
+                    ? v.getUsuario().getNickname() : "");
+            dto.setTotalGs(ventaTotalGs);
+            dto.setTotalRecibidoGs(totalRecibidoGs);
+            dto.setTotalRecibidoRs(totalRecibidoRs);
+            dto.setTotalRecibidoDs(totalRecibidoDs);
+            dto.setTotalRecibido(totalRecibido);
+            dto.setTotalDescuento(totalDescuento);
+            dto.setTotalAumento(totalAumento);
+            dto.setTotalFinal(totalFinal);
+            dto.setCostoTotalVenta(costoTotalVenta);
+            dto.setItemsDataSource(new JRBeanCollectionDataSource(itemsDto));
+            dto.setMovimientosDataSource(new JRBeanCollectionDataSource(movimientosDto));
+            dto.setObservacionesDataSource(new JRBeanCollectionDataSource(observacionesDto));
+            itemList.add(dto);
+        }
+
+        // Resolver nombres reales de los filtros (idéntico a reporteGenericVentas)
+        Usuario usuario = usuarioId != null
+                ? usuarioService.findById(usuarioId).orElse(null) : null;
+
+        String filtroSucursalStr;
+        if (sucId != null) {
+            Sucursal suc = sucursalService.findById(sucId).orElse(null);
+            filtroSucursalStr = suc != null ? suc.getNombre() : "Sucursal " + sucId;
+        } else {
+            filtroSucursalStr = "Todas";
+        }
+
+        String filtroFpStr;
+        if (formaPago != null) {
+            FormaPago fp = formaPagoService.findById(formaPago).orElse(null);
+            filtroFpStr = fp != null ? fp.getDescripcion() : "FormaPago " + formaPago;
+        } else {
+            filtroFpStr = "Todas";
+        }
+
+        String filtroMonedaStr;
+        if (monedaId != null) {
+            Moneda m = monedaService.findById(monedaId).orElse(null);
+            filtroMonedaStr = m != null ? m.getDenominacion() : "Moneda " + monedaId;
+        } else {
+            filtroMonedaStr = "Todas";
+        }
+
+        String filtroEstadoStr  = estado    != null ? estado.toString() : "Todos";
+        String filtroClienteStr;
+        if (clienteId != null) {
+            Cliente c = clienteService.findById(clienteId).orElse(null);
+            filtroClienteStr = (c != null && c.getPersona() != null) ? c.getPersona().getNombre() : "ID: " + clienteId;
+        } else {
+            filtroClienteStr = "Todos";
+        }
+
+        String filtroModoStr;
+        if (isDelivery == null) {
+            filtroModoStr = "Todos";
+        } else if (isDelivery) {
+            filtroModoStr = "Delivery";
+        } else {
+            filtroModoStr = "Local";
+        }
+
+        String filtroConObsStr   = conObservacion != null && conObservacion ? "Sí" : "Todos";
+        String filtroConDescStr  = conDescuento   != null && conDescuento   ? "Sí" : "Todos";
+        String filtroConAumStr   = conAumento     != null && conAumento     ? "Sí" : "Todos";
+
+        String filtroIdVentaStr  = idVenta        != null ? idVenta.toString() : "Todos";
+
+        return impresionService.imprimirReporteGenericVentasDetallado(
                 itemList,
                 filtroIdVentaStr,
                 fechaInicio != null ? fechaInicio : "-",

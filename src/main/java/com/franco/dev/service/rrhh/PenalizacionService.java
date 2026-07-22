@@ -14,6 +14,8 @@ import com.franco.dev.service.personas.FuncionarioService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,11 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
 
     public List<Penalizacion> findByJornada(Long jornadaId, Long sucursalId) {
         return repository.findByJornadaIdAndSucursalId(jornadaId, sucursalId);
+    }
+
+    public Page<Penalizacion> findPage(Long funcionarioId, LocalDate desde, LocalDate hasta, PenalizacionTipo tipo,
+                                       Pageable pageable) {
+        return repository.findPage(funcionarioId, desde, hasta, tipo, pageable);
     }
 
     @Transactional

@@ -40,6 +40,18 @@ input FeriadoInput {
     usuarioId: Int
 }
 
+type FeriadoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Feriado]
+    getPageable: Pageable
+}
+
 type Penalizacion {
     id: ID!
     funcionario: Funcionario
@@ -67,6 +79,18 @@ input PenalizacionInput {
     autoGenerada: Boolean
     anulada: Boolean
     registradoPorId: Int
+}
+
+type PenalizacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Penalizacion]
+    getPageable: Pageable
 }
 
 type HoraExtra {
@@ -102,6 +126,18 @@ input HoraExtraInput {
     observacion: String
 }
 
+type HoraExtraPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [HoraExtra]
+    getPageable: Pageable
+}
+
 input JustificarJornadaInput {
     jornadaId: Int
     sucursalId: Int
@@ -117,16 +153,19 @@ extend type Query {
     feriadosPorRango(desde: String, hasta: String): [Feriado]
     feriadosActivos: [Feriado]
     countFeriado: Int
+    feriadosPage(page: Int = 0, size: Int = 20, desde: String, hasta: String, descripcion: String, activo: Boolean): FeriadoPage
 
 
     penalizacion(id: ID!): Penalizacion
     penalizacionesPorFuncionario(funcionarioId: ID!): [Penalizacion]
     penalizacionesPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [Penalizacion]
     penalizacionesPorJornada(jornadaId: ID!, sucursalId: ID!): [Penalizacion]
+    penalizacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, desde: String, hasta: String, tipo: PenalizacionTipo): PenalizacionPage
 
     horaExtra(id: ID!): HoraExtra
     horasExtraPorFuncionario(funcionarioId: ID!): [HoraExtra]
     horasExtraPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [HoraExtra]
+    horasExtraPage(page: Int = 0, size: Int = 20, funcionarioId: ID, desde: String, hasta: String, tipo: HoraExtraTipo): HoraExtraPage
 }
 
 extend type Mutation {

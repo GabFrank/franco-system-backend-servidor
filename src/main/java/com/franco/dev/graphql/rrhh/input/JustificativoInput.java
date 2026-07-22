@@ -12,5 +12,7 @@ public class JustificativoInput {
     private Long jornadaId;
     private Long sucursalId;
     private String observacion;
+    /** id del FuncionarioDocumento adjunto; requerido si el tipo lo exige */
+    private Long documentoId;
     private Long registradoPorId;
 }

@@ -11,6 +11,8 @@ import com.franco.dev.service.rrhh.PrestamoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -44,6 +46,11 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public List<Prestamo> prestamosPorEstado(PrestamoEstado estado) {
         return service.findByEstado(estado);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Prestamo> prestamosPage(int page, int size, Long funcionarioId, PrestamoEstado estado) {
+        return service.findPage(funcionarioId, estado, PageRequest.of(page, size));
     }
 
     public List<PrestamoCuota> prestamoCuotas(Long prestamoId) {

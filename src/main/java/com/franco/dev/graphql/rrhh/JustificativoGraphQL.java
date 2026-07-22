@@ -4,17 +4,22 @@ import com.franco.dev.domain.rrhh.Justificativo;
 import com.franco.dev.graphql.rrhh.input.JustificativoInput;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.rrhh.FuncionarioDocumentoService;
 import com.franco.dev.service.rrhh.JustificativoService;
 import com.franco.dev.service.rrhh.TipoJustificativoService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToLocalDate;
 
 @Component
 public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -31,6 +36,9 @@ public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private FuncionarioDocumentoService funcionarioDocumentoService;
+
     public Optional<Justificativo> justificativo(Long id) {
         return service.findById(id);
     }
@@ -46,6 +54,13 @@ public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutati
                 stringToDate(hasta) != null ? stringToDate(hasta).toLocalDate() : null);
     }
 
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Justificativo> justificativosPage(int page, int size, Long funcionarioId, String desde,
+                                                  String hasta, Long tipoId) {
+        return service.findPage(funcionarioId, tipoId, stringToLocalDate(desde), stringToLocalDate(hasta),
+                PageRequest.of(page, size));
+    }
+
     public Justificativo saveJustificativo(JustificativoInput input) {
         Justificativo e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Justificativo())
@@ -59,8 +74,21 @@ public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         e.setJornadaId(input.getJornadaId());
         e.setSucursalId(input.getSucursalId());
         e.setObservacion(input.getObservacion());
+        if (input.getDocumentoId() != null) {
+            e.setDocumento(funcionarioDocumentoService.findById(input.getDocumentoId()).orElse(null));
+        } else {
+            e.setDocumento(null);
+        }
         if (input.getRegistradoPorId() != null)
             e.setRegistradoPor(usuarioService.findById(input.getRegistradoPorId()).orElse(null));
+
+        // El catalogo define que tipos exigen respaldo (ej. REPOSO MEDICO, DUELO).
+        // Sin esta validacion la bandera requiereDocumento no tendria ningun efecto.
+        if (e.getTipo() != null && Boolean.TRUE.equals(e.getTipo().getRequiereDocumento())
+                && e.getDocumento() == null) {
+            throw new GraphQLException("El tipo '" + e.getTipo().getNombre()
+                    + "' exige un documento respaldatorio adjunto.");
+        }
         return service.save(e);
     }
 

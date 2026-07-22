@@ -6,6 +6,8 @@ import com.franco.dev.repository.rrhh.HoraExtraRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.rrhh.builder.HoraExtraCalculator;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,11 @@ public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository
 
     public List<HoraExtra> findByJornada(Long jornadaId, Long sucursalId) {
         return repository.findByJornadaIdAndSucursalId(jornadaId, sucursalId);
+    }
+
+    public Page<HoraExtra> findPage(Long funcionarioId, LocalDate desde, LocalDate hasta, HoraExtraTipo tipo,
+                                    Pageable pageable) {
+        return repository.findPage(funcionarioId, desde, hasta, tipo, pageable);
     }
 
     @Transactional

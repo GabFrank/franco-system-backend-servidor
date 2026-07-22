@@ -61,6 +61,14 @@ public class Justificativo implements Identifiable<Long> {
 
     private String observacion;
 
+    /**
+     * Documento respaldatorio del justificativo (reposo medico, duelo, etc).
+     * Obligatorio cuando el tipo tiene requiereDocumento = true.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "documento_id", nullable = true)
+    private FuncionarioDocumento documento;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "registrado_por_id", nullable = true)
     private Usuario registradoPor;

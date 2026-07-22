@@ -4,6 +4,8 @@ import com.franco.dev.domain.rrhh.Feriado;
 import com.franco.dev.repository.rrhh.FeriadoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -38,6 +40,11 @@ public class FeriadoService extends CrudService<Feriado, FeriadoRepository, Long
 
     public boolean esFeriado(LocalDate fecha) {
         return findByFecha(fecha).map(f -> Boolean.TRUE.equals(f.getActivo())).orElse(false);
+    }
+
+    public Page<Feriado> findPage(LocalDate desde, LocalDate hasta, String descripcion, Boolean activo,
+                                  Pageable pageable) {
+        return repository.findPage(desde, hasta, descripcion, activo, pageable);
     }
 
     @Override

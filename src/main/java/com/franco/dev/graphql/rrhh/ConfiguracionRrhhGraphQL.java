@@ -1,6 +1,10 @@
 package com.franco.dev.graphql.rrhh;
 
+import com.franco.dev.domain.personas.Funcionario;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.ConfiguracionRrhh;
+import com.franco.dev.domain.rrhh.ConfiguracionRrhhHistorico;
+import com.franco.dev.domain.rrhh.enums.ConfiguracionRrhhTipo;
 import com.franco.dev.graphql.rrhh.input.ConfiguracionRrhhInput;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.ConfiguracionRrhhService;
@@ -8,6 +12,7 @@ import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -26,6 +31,9 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.AjusteSalarioMinimoService ajusteSalarioMinimoService;
+
     public Optional<ConfiguracionRrhh> configuracionRrhh(Long id) {
         return service.findById(id);
     }
@@ -43,8 +51,35 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.findByAll(texto);
     }
 
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<ConfiguracionRrhh> configuracionesRrhhPage(int page, int size, String texto, ConfiguracionRrhhTipo tipo) {
+        return service.findPage(texto, tipo, PageRequest.of(page, size));
+    }
+
     public Long countConfiguracionRrhh() {
         return service.count();
+    }
+
+// ---- TODO-8: impacto de un cambio de configuracion sobre datos ya materializados ----
+
+    /** Vista previa: funcionarios activos que quedan por debajo del minimo indicado. */
+    public List<Funcionario> funcionariosBajoSalarioMinimo(java.math.BigDecimal minimo) {
+        return ajusteSalarioMinimoService.findAfectadosPorMinimo(minimo);
+    }
+
+    /** Historial de cambios de un parametro (auditoria de nomina). */
+    public List<ConfiguracionRrhhHistorico> configuracionRrhhHistorico(String clave) {
+        return service.findHistoricoPorClave(clave);
+    }
+
+    /**
+     * Sube al minimo los sueldos elegidos por el usuario. Nunca se dispara solo:
+     * el desktop muestra la lista y el usuario tilda a quienes ajustar.
+     */
+    public Integer ajustarSalariosAlMinimo(List<Long> funcionarioIds, java.math.BigDecimal minimo,
+                                           Long usuarioId) {
+        Usuario u = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        return ajusteSalarioMinimoService.ajustarAlMinimo(funcionarioIds, minimo, u);
     }
 
     public ConfiguracionRrhh saveConfiguracionRrhh(ConfiguracionRrhhInput input) {
@@ -56,6 +91,11 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
         ConfiguracionRrhh e;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new ConfiguracionRrhh());
+            // Se audita ANTES del map: despues el valor anterior ya se perdio.
+            service.auditarCambio(e, input.getValor(),
+                    input.getUsuarioId() != null
+                            ? usuarioService.findById(input.getUsuarioId()).orElse(null)
+                            : null);
             e.setUsuario(null);
             m.map(input, e);
         } else {

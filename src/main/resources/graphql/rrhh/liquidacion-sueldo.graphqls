@@ -42,10 +42,23 @@ type LiquidacionSueldo {
     creadoEn: Date
 }
 
+type LiquidacionSueldoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LiquidacionSueldo]
+    getPageable: Pageable
+}
+
 extend type Query {
     liquidacionSueldo(id: ID!): LiquidacionSueldo
     liquidacionesPorFuncionario(funcionarioId: ID!): [LiquidacionSueldo]
     liquidacionesPorPeriodo(periodo: String!): [LiquidacionSueldo]
+    liquidacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, periodo: String, estado: LiquidacionSueldoEstado): LiquidacionSueldoPage
     liquidacionItems(liquidacionId: ID!): [LiquidacionItem]
     imprimirReciboLiquidacion(id: ID!): String
 }

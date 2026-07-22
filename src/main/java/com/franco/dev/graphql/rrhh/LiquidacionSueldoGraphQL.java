@@ -3,10 +3,13 @@ package com.franco.dev.graphql.rrhh;
 import com.franco.dev.domain.rrhh.LiquidacionItem;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
 import com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo;
+import com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado;
 import com.franco.dev.service.rrhh.LiquidacionSueldoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -37,6 +40,12 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     public List<LiquidacionSueldo> liquidacionesPorPeriodo(String periodo) {
         return service.findByPeriodo(periodo);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String periodo,
+                                                     LiquidacionSueldoEstado estado) {
+        return service.findPage(funcionarioId, periodo, estado, PageRequest.of(page, size));
     }
 
     public List<LiquidacionItem> liquidacionItems(Long liquidacionId) {

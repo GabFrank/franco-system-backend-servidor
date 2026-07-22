@@ -8,6 +8,8 @@ import com.franco.dev.service.rrhh.VacacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -27,6 +29,11 @@ public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
 
     public List<Vacacion> vacacionesPorFuncionario(Long funcionarioId) {
         return service.findByFuncionarioId(funcionarioId);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Vacacion> vacacionesPage(int page, int size, Long funcionarioId, Integer anio) {
+        return service.findPage(funcionarioId, anio, PageRequest.of(page, size));
     }
 
     public List<VacacionPeriodo> vacacionPeriodos(Long vacacionId) {

@@ -4,6 +4,8 @@ import com.franco.dev.domain.rrhh.MotivoVale;
 import com.franco.dev.repository.rrhh.MotivoValeRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -22,6 +24,10 @@ public class MotivoValeService extends CrudService<MotivoVale, MotivoValeReposit
 
     public List<MotivoVale> findActivos() {
         return repository.findByActivoTrueOrderByNombreAsc();
+    }
+
+    public Page<MotivoVale> findPage(String descripcion, Boolean activo, Pageable pageable) {
+        return repository.findPage(descripcion, activo, pageable);
     }
 
     @Override

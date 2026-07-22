@@ -1,14 +1,18 @@
 package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.rrhh.Bono;
+import com.franco.dev.domain.rrhh.enums.BonoTipo;
 import com.franco.dev.repository.rrhh.BonoRepository;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +30,11 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
 
     public List<Bono> findByFuncionarioId(Long funcionarioId) {
         return repository.findByFuncionarioIdOrderByFechaDesc(funcionarioId);
+    }
+
+    public Page<Bono> findPage(Long funcionarioId, BonoTipo tipo, LocalDate desde, LocalDate hasta,
+                               Pageable pageable) {
+        return repository.findPage(funcionarioId, tipo, desde, hasta, pageable);
     }
 
     @Transactional

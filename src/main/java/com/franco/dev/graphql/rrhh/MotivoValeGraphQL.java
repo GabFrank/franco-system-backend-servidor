@@ -7,6 +7,7 @@ import com.franco.dev.service.rrhh.MotivoValeService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -36,6 +37,11 @@ public class MotivoValeGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     public List<MotivoVale> motivosValeActivos() {
         return service.findActivos();
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<MotivoVale> motivosValePage(int page, int size, String descripcion, Boolean activo) {
+        return service.findPage(descripcion, activo, PageRequest.of(page, size));
     }
 
     public MotivoVale saveMotivoVale(MotivoValeInput input) {

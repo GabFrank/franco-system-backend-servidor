@@ -11,12 +11,15 @@ import com.franco.dev.service.rrhh.ValeService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToLocalDate;
 
 @Component
 public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -46,6 +49,13 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
 
     public List<Vale> valesPorEstado(ValeEstado estado) {
         return service.findByEstado(estado);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Vale> valesPage(int page, int size, Long funcionarioId, ValeEstado estado,
+                                String desde, String hasta) {
+        return service.findPage(funcionarioId, estado, stringToLocalDate(desde), stringToLocalDate(hasta),
+                PageRequest.of(page, size));
     }
 
     public Vale saveVale(ValeInput input) {

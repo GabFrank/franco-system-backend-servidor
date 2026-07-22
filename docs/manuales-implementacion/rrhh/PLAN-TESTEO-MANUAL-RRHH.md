@@ -68,7 +68,7 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 ## FASE 3 — Asistencia (sujeto: ESTEBAN #8)
 
-### ⬜ T5 — Justificativos (ex "Novedades") + catálogo de tipos
+### ✅ T5 — Justificativos (ex "Novedades") + catálogo de tipos
 > **El módulo se rediseñó durante el testeo** (commits `c3a2385c` backend / `518db17c` desktop).
 > "Novedades" no reflejaba su función: son las **justificaciones** de por qué un día no fue una
 > jornada normal. Además los tipos eran un enum fijo y 3 de los 5 no producían ningún efecto.
@@ -86,10 +86,16 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 - **Datos previos:** 8 tipos sembrados; 3 justificativos de ESTEBAN cargados en la verificación.
 - **Pasos UI:**
-  1. `R.R.H.H.` → `Tipos de justificativo`: revisar el catálogo, crear un tipo nuevo, editar el
-     descuento de uno, verificar que los del sistema (VACACION/FERIADO) no se puedan eliminar.
-  2. `R.R.H.H.` → `Justificativos` → buscar por ESTEBAN → `Nuevo` → tipo, fecha, observación.
+  1. `R.R.H.H.` → `Configuración` → `Tipos de justificativo`: revisar el catálogo, crear un tipo
+     nuevo, editar el descuento de uno, verificar que los del sistema (VACACION/FERIADO) no se
+     puedan eliminar ni tampoco los que están en uso.
+  2. `R.R.H.H.` → `Asistencia` → `Justificativos` → buscar el funcionario → `Nueva` / editar.
 - **Verificación (DB):** `rrhh.justificativo` (con `tipo_justificativo_id`) y `rrhh.tipo_justificativo`.
+- **Resultado:** alta, edición, borrado y guard de tipos en uso verificados en DB. Bugs B7–B11
+  detectados y arreglados durante la prueba.
+- **Pendiente (va con el retrofit):** `requiereDocumento` es hoy una bandera sin efecto — la
+  entidad `Justificativo` no tiene documento adjunto. Cablearlo a `rrhh.funcionario_documento`
+  (FK nueva + validación en el save cuando el tipo lo exige).
 
 ### ⬜ T6 — Historial de marcaciones
 - **Objetivo:** consultar el historial de marcaciones de un funcionario.
@@ -229,7 +235,7 @@ Implicancia: modelar `feriado` con alcance (ciudad/turno/sucursal), tipo (facult
 ventana de cierre, y un "plan de feriado" (asignaciones de funcionarios + remuneración por cargo,
 % o monto fijo). Feature de tamaño considerable, para planificar aparte.
 
-### TODO-2 — RRHH viola el padrón de "toda tabla paginada + filtros en backend" — *detectado en T3*
+### ✅ TODO-2 — RRHH viola el padrón de "toda tabla paginada + filtros en backend" — *RESUELTO 2026-07-22*
 **Padrón del SaaS (confirmado por Gabriel):** TODA tabla del sistema debe estar **paginada** y
 tener **filtros en el backend** (simples o complejos) — no filtros/carga client-side. Es un
 estándar del producto y RRHH debe respetarlo.
@@ -249,6 +255,15 @@ la solución correcta y alineada al padrón es la paginación server-side con el
 
 > Nota: el mandato se reforzó en las skills `frc-central/mejoras-padronizacion.md` y
 > `frc-desktop/ui-patterns.md` (antes figuraba como patrón opcional / "inconsistente").
+>
+> **RESUELTO (2026-07-22).** Las 13 entidades de lista de RRHH tienen ahora query paginada
+> con filtros server-side (`valesPage`, `prestamosPage`, `motivosValePage`, `feriadosPage`,
+> `penalizacionesPage`, `horasExtraPage`, `justificativosPage`, `tiposJustificativoPage`,
+> `vacacionesPage`, `aguinaldosPage`, `bonosPage`, `liquidacionesPage`,
+> `configuracionesRrhhPage`), todas devolviendo `Page<T>` con el shape estándar del producto,
+> y sus listas desktop migradas a `GenericListComponent` + `MatPaginator`.
+> Verificado contra la API: los 13 endpoints responden, los filtros acotan de verdad y las
+> páginas no se solapan (`liquidacionesPage` tiene 392 registros — el caso que justificaba todo).
 
 ### TODO-3 — Reorganización del menú lateral por dominio — *detectado en T4*
 El menú tiene dos raíces "R.R.H.H." (una el módulo RRHH, otra que agrupaba Personas/Admin).
@@ -263,7 +278,7 @@ Administración→ Personas, Usuarios, Roles y permisos, Parámetros
 (Ejemplo del principio, no literal.) Reordenar el `side-mini-variant` completo por estos dominios.
 Toca navegación de toda la app → proyecto de UX aparte.
 
-### TODO-4 — Legajo del funcionario como DASHBOARD — *detectado en T4*
+### ✅ TODO-4 — Legajo del funcionario como DASHBOARD — *RESUELTO (rediseñado durante T4)*
 Transformar el legajo (hoy: card de datos + botones + 3 tablas de históricos) en un **dashboard**
 estilo el de devoluciones, pero con un **componente de navegación por Tabs** en vez de un gráfico:
 - **Tabs de históricos/detalle:** Cargos, Salarios, Documentos, Puntuaciones, Asistencia, etc.
@@ -350,6 +365,12 @@ automáticamente sin confirmación explícita, siempre auditable (histórico + m
 | B6 | T4 | Desktop UI | Selector de moneda cortado y hint pisando el campo de fecha en "Cambiar salario". | ✅ Arreglado (976b9f3c) |
 | B7 | T5 | Backend/DB | Al renombrar una tabla, Postgres conserva el nombre viejo de la secuencia; el `AssignedIdentityGenerator` la busca como `<tabla>_id_seq` → **todo INSERT fallaba** con `no existe la relación "rrhh.justificativo_id_seq"`. Aplica a cualquier rename futuro. | ✅ Arreglado (V164.1) |
 | B8 | T5 | Diseño | Los tipos de justificativo eran un enum fijo y 3 de 5 no tenían ningún efecto: la liquidación **ignoraba por completo** las novedades, por lo que `MEDIA_FALTA` no descontaba nada. | ✅ Resuelto con el catálogo + cableado a liquidación (c3a2385c) |
+| B9 | T5 | Backend | `deleteTipoJustificativo` bloqueaba los tipos de sistema pero no los que están **en uso**: eliminar un tipo con justificativos reventaba con un FK violation crudo en vez de un mensaje. | ✅ Arreglado (guard con `countByTipoId`) |
+| B10 | T5 | Desktop (global) | **Off-by-one de zona horaria al editar fechas.** `new Date('2026-07-21')` parsea como medianoche UTC; en Paraguay (UTC-3) eso es el día 20, y al guardar con `dateToString` se pierde un día **en cada edición**. Detectado editando un justificativo (21/07 → 20/07). Estaba también en `edit-feriado-dialog` y en el cálculo de antigüedad del legajo. | ✅ Arreglado con `stringToLocalDate()` en `dateUtils` |
+| B11 | T5 | Desktop | La lista de justificativos no exponía editar, aunque el backend ya hacía update cuando el input traía `id`. | ✅ Agregada la acción de editar (81e95dee) |
+| B12 | TODO-2 | Backend | `motivosValePage` filtraba por `descripcion`, pero la lista **muestra** `nombre`: buscar "QUINCENA" (que vive en `nombre`) no devolvía nada. Filtrar por un campo distinto del que se ve en pantalla es indistinguible de "no hay resultados". | ✅ Arreglado: busca en `nombre` Y `descripcion` |
+| B13 | TODO-8 | Backend/DB | La tabla nueva `configuracion_rrhh_historico` se creó sin `DEFAULT nextval(...)` en `id`; todo INSERT fallaba con *"valor nulo na coluna id"*. El generador del proyecto espera la convención `<tabla>_id_seq` **con el DEFAULT puesto** (igual que `funcionario_documento`). Emparentado con B7. | ✅ Arreglado en la propia V166.0 |
+| B14 | TODO-2 | Desktop | El `.scss` de las listas migradas anidaba todo bajo `.xxx-container`, clase que desapareció al pasar la raíz del template a `<app-generic-list>`: los chips de estado quedaban sin color y las tablas sin alinear. Afectaba a las 13 listas. | ✅ Aplanado + `:host` en las 13 |
 
 ## Tests opcionales / diferidos
 

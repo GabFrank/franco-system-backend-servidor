@@ -110,19 +110,58 @@ input BonoInput {
     usuarioId: Int
 }
 
+type VacacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Vacacion]
+    getPageable: Pageable
+}
+
+type AguinaldoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Aguinaldo]
+    getPageable: Pageable
+}
+
+type BonoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Bono]
+    getPageable: Pageable
+}
+
 extend type Query {
     vacacion(id: ID!): Vacacion
     vacacionesPorFuncionario(funcionarioId: ID!): [Vacacion]
     vacacionPeriodos(vacacionId: ID!): [VacacionPeriodo]
     vacacionPeriodosPorEstado(estado: VacacionPeriodoEstado): [VacacionPeriodo]
     vacacionVentas(vacacionId: ID!): [VacacionVenta]
+    vacacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, anio: Int): VacacionPage
 
     aguinaldo(id: ID!): Aguinaldo
     aguinaldosPorAnio(anio: Int!): [Aguinaldo]
     aguinaldosPorFuncionario(funcionarioId: ID!): [Aguinaldo]
+    aguinaldosPage(page: Int = 0, size: Int = 20, anio: Int, funcionarioId: ID): AguinaldoPage
 
     bono(id: ID!): Bono
     bonosPorFuncionario(funcionarioId: ID!): [Bono]
+    bonosPage(page: Int = 0, size: Int = 20, funcionarioId: ID, tipo: BonoTipo, desde: String, hasta: String): BonoPage
 }
 
 extend type Mutation {

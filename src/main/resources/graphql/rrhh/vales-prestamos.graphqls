@@ -110,19 +110,58 @@ input PrestamoInput {
     usuarioId: Int
 }
 
+type ValePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Vale]
+    getPageable: Pageable
+}
+
+type PrestamoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Prestamo]
+    getPageable: Pageable
+}
+
+type MotivoValePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [MotivoVale]
+    getPageable: Pageable
+}
+
 extend type Query {
     motivoVale(id: ID!): MotivoVale
     motivosVale(page: Int = 0, size: Int = 100): [MotivoVale]!
     motivosValeActivos: [MotivoVale]
+    motivosValePage(page: Int = 0, size: Int = 20, descripcion: String, activo: Boolean): MotivoValePage
 
     vale(id: ID!): Vale
     valesPorFuncionario(funcionarioId: ID!): [Vale]
     valesPorEstado(estado: ValeEstado): [Vale]
+    valesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, estado: ValeEstado, desde: String, hasta: String): ValePage
 
     prestamo(id: ID!): Prestamo
     prestamosPorFuncionario(funcionarioId: ID!): [Prestamo]
     prestamosPorEstado(estado: PrestamoEstado): [Prestamo]
     prestamoCuotas(prestamoId: ID!): [PrestamoCuota]
+    prestamosPage(page: Int = 0, size: Int = 20, funcionarioId: ID, estado: PrestamoEstado): PrestamoPage
 }
 
 extend type Mutation {

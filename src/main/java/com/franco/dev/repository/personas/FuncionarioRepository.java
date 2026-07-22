@@ -29,6 +29,24 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
         public Funcionario findByUsuarioId(Long id);
 
+        /**
+         * Funcionarios activos con sueldo por debajo de un monto. Lo usa el flujo de
+         * ajuste por cambio de SALARIO_MINIMO_LEGAL_PYG.
+         * Se excluye sueldo null (no cargado) y 0 (diaristas/jornaleros, que no tienen
+         * sueldo mensual y no aplican al minimo mensual).
+         *
+         * El filtro va por f.activo, NO por el activo del Usuario: el egreso marca
+         * f.setActivo(false) (FuncionarioRrhhService/LiquidacionFinalService) pero la
+         * cuenta de login puede quedar activa, o el funcionario puede no tener cuenta.
+         * Filtrar por usuario dejaba entrar egresados a un flujo que sube sueldos.
+         */
+        @Query("select f from Funcionario f " +
+                        "join f.persona p " +
+                        "where f.sueldo is not null and f.sueldo > 0 and f.sueldo < ?1 " +
+                        "and f.activo = true " +
+                        "order by p.nombre")
+        public List<Funcionario> findConSueldoMenorA(Float monto);
+
         @Query("select u from Funcionario u " +
                         "join u.persona p " +
                         "left join u.sucursal s " +

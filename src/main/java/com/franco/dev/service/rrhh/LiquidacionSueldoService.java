@@ -20,6 +20,8 @@ import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.builder.LiquidacionCalculator;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,6 +69,12 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
 
     public List<LiquidacionSueldo> findByPeriodo(String periodo) {
         return repository.findByPeriodoOrderByIdAsc(periodo);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<LiquidacionSueldo> findPage(Long funcionarioId, String periodo, LiquidacionSueldoEstado estado,
+                                            Pageable pageable) {
+        return repository.findPage(funcionarioId, periodo, estado, pageable);
     }
 
     public List<LiquidacionItem> findItems(Long liquidacionId) {

@@ -5,6 +5,8 @@ import com.franco.dev.service.rrhh.AguinaldoService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -26,6 +28,11 @@ public class AguinaldoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
 
     public List<Aguinaldo> aguinaldosPorFuncionario(Long funcionarioId) {
         return service.findByFuncionarioId(funcionarioId);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Aguinaldo> aguinaldosPage(int page, int size, Integer anio, Long funcionarioId) {
+        return service.findPage(anio, funcionarioId, PageRequest.of(page, size));
     }
 
     public Integer calcularAguinaldosAnio(Integer anio) {

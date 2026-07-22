@@ -4,6 +4,8 @@ import com.franco.dev.domain.rrhh.Justificativo;
 import com.franco.dev.repository.rrhh.JustificativoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -35,6 +37,11 @@ public class JustificativoService extends CrudService<Justificativo, Justificati
 
     public List<Justificativo> findByJornada(Long jornadaId, Long sucursalId) {
         return repository.findByJornadaIdAndSucursalId(jornadaId, sucursalId);
+    }
+
+    public Page<Justificativo> findPage(Long funcionarioId, Long tipoId, LocalDate desde, LocalDate hasta,
+                                        Pageable pageable) {
+        return repository.findPage(funcionarioId, tipoId, desde, hasta, pageable);
     }
 
     @Override

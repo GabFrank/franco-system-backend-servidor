@@ -15,6 +15,8 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.personas.FuncionarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +47,10 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
 
     public List<Vacacion> findByFuncionarioId(Long funcionarioId) {
         return repository.findByFuncionarioIdOrderByAnioServicioDesc(funcionarioId);
+    }
+
+    public Page<Vacacion> findPage(Long funcionarioId, Integer anio, Pageable pageable) {
+        return repository.findPage(funcionarioId, anio, pageable);
     }
 
     public List<VacacionPeriodo> findPeriodos(Long vacacionId) {

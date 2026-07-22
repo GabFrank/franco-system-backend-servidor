@@ -2,6 +2,7 @@ package com.franco.dev.graphql.rrhh;
 
 import com.franco.dev.domain.rrhh.Justificativo;
 import com.franco.dev.domain.rrhh.Penalizacion;
+import com.franco.dev.domain.rrhh.enums.PenalizacionTipo;
 import com.franco.dev.graphql.rrhh.input.JustificarJornadaInput;
 import com.franco.dev.graphql.rrhh.input.PenalizacionInput;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -12,6 +13,8 @@ import com.franco.dev.service.rrhh.PenalizacionService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -19,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToLocalDate;
 
 @Component
 public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -55,6 +59,13 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public List<Penalizacion> penalizacionesPorJornada(Long jornadaId, Long sucursalId) {
         return service.findByJornada(jornadaId, sucursalId);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Penalizacion> penalizacionesPage(int page, int size, Long funcionarioId, String desde, String hasta,
+                                                 PenalizacionTipo tipo) {
+        return service.findPage(funcionarioId, stringToLocalDate(desde), stringToLocalDate(hasta), tipo,
+                PageRequest.of(page, size));
     }
 
     public Penalizacion savePenalizacion(PenalizacionInput input) {

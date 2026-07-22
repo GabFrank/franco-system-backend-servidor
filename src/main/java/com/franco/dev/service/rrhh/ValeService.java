@@ -18,9 +18,12 @@ import com.franco.dev.service.financiero.MovimientoPersonasService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +49,11 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
 
     public List<Vale> findByEstado(ValeEstado estado) {
         return repository.findByEstadoOrderByFechaDesc(estado);
+    }
+
+    public Page<Vale> findPage(Long funcionarioId, ValeEstado estado, LocalDate desde, LocalDate hasta,
+                               Pageable pageable) {
+        return repository.findPage(funcionarioId, estado, desde, hasta, pageable);
     }
 
     @Override

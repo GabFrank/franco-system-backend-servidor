@@ -10,6 +10,8 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.personas.FuncionarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +39,10 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
 
     public List<Aguinaldo> findByFuncionarioId(Long funcionarioId) {
         return repository.findByFuncionarioIdOrderByAnioDesc(funcionarioId);
+    }
+
+    public Page<Aguinaldo> findPage(Integer anio, Long funcionarioId, Pageable pageable) {
+        return repository.findPage(anio, funcionarioId, pageable);
     }
 
     /**

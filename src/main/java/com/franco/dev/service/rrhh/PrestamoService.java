@@ -19,6 +19,8 @@ import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
 import com.franco.dev.service.financiero.MovimientoPersonasService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,10 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
 
     public List<Prestamo> findByEstado(PrestamoEstado estado) {
         return repository.findByEstadoOrderByFechaInicioDesc(estado);
+    }
+
+    public Page<Prestamo> findPage(Long funcionarioId, PrestamoEstado estado, Pageable pageable) {
+        return repository.findPage(funcionarioId, estado, pageable);
     }
 
     public List<PrestamoCuota> findCuotas(Long prestamoId) {

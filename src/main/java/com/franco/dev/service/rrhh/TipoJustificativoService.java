@@ -5,6 +5,8 @@ import com.franco.dev.domain.rrhh.enums.DescuentoJustificativo;
 import com.franco.dev.repository.rrhh.TipoJustificativoRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,10 @@ public class TipoJustificativoService extends CrudService<TipoJustificativo, Tip
     /** Busca un tipo por nombre. Lo usan los modulos que generan justificativos (vacaciones). */
     public TipoJustificativo findByNombre(String nombre) {
         return nombre != null ? repository.findFirstByNombreIgnoreCase(nombre) : null;
+    }
+
+    public Page<TipoJustificativo> findPage(String nombre, Boolean activo, Pageable pageable) {
+        return repository.findPage(nombre, activo, pageable);
     }
 
     @Override

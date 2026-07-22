@@ -2,9 +2,7 @@ package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
-import com.franco.dev.domain.financiero.MovimientoPersonas;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
-import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.Prestamo;
 import com.franco.dev.domain.rrhh.PrestamoCuota;
@@ -16,7 +14,6 @@ import com.franco.dev.repository.rrhh.PrestamoRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
-import com.franco.dev.service.financiero.MovimientoPersonasService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -39,7 +36,6 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
     private final PrestamoCuotaRepository cuotaRepository;
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
-    private final MovimientoPersonasService movimientoPersonasService;
 
     @Override
     public PrestamoRepository getRepository() {
@@ -64,7 +60,7 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
 
     /**
      * Crea el prestamo con sus N cuotas mensuales y desembolsa el monto:
-     * EGRESO en la Caja Mayor + MovimientoPersonas(PRESTAMO). Atomico.
+     * EGRESO en la Caja Mayor. Atomico.
      */
     @Transactional
     public Prestamo crearConDesembolso(Prestamo prestamo, Long cajaVirtualId) {
@@ -119,19 +115,8 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
         prestamo.setCajaVirtualId(cajaVirtualId);
         prestamo.setMovimientoCajaVirtualId(mov.getId());
 
-        Funcionario f = prestamo.getFuncionario();
-        if (f != null && f.getPersona() != null) {
-            MovimientoPersonas mp = new MovimientoPersonas();
-            mp.setPersona(f.getPersona());
-            mp.setTipo(TipoMovimientoPersonas.PRESTAMO);
-            mp.setReferenciaId(prestamo.getId());
-            mp.setValorTotal(prestamo.getMontoTotal().doubleValue());
-            mp.setActivo(true);
-            mp.setObservacion("PRESTAMO #" + prestamo.getId() + nombreFuncionario(f));
-            mp.setUsuario(prestamo.getUsuario());
-            mp = movimientoPersonasService.save(mp);
-            prestamo.setMovimientoPersonaId(mp.getId());
-        }
+        // Hasta 2026-07 aca se escribia un MovimientoPersonas. Se desvinculo: la tabla
+        // resulto write-only (nadie la lee) y mezclaba criterios de signo. Ver issue #159.
     }
 
     /**

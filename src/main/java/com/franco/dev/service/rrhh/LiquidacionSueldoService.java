@@ -2,9 +2,7 @@ package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
-import com.franco.dev.domain.financiero.MovimientoPersonas;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
-import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.*;
@@ -14,7 +12,6 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
-import com.franco.dev.service.financiero.MovimientoPersonasService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.builder.LiquidacionCalculator;
@@ -54,7 +51,6 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final PrestamoCuotaRepository prestamoCuotaRepository;
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
-    private final MovimientoPersonasService movimientoPersonasService;
     private final UsuarioService usuarioService;
     private final com.franco.dev.service.administrativo.JornadaService jornadaService;
 
@@ -375,7 +371,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
 
     /**
      * Paga una liquidacion APROBADA: egreso real del neto en la Caja Mayor +
-     * MovimientoPersonas(PAGO_SALARIO), y aplica los efectos cruzados de cada
+     * y aplica los efectos cruzados de cada
      * item (vale DESCONTADO, cuota PAGADA, aguinaldo/venta PAGADO, bono ligado).
      */
     @Transactional
@@ -397,17 +393,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         liq.setCajaVirtualId(cajaVirtualId);
         liq.setMovimientoCajaVirtualId(mov.getId());
 
-        if (liq.getFuncionario() != null && liq.getFuncionario().getPersona() != null) {
-            MovimientoPersonas mp = new MovimientoPersonas();
-            mp.setPersona(liq.getFuncionario().getPersona());
-            mp.setTipo(TipoMovimientoPersonas.PAGO_SALARIO);
-            mp.setReferenciaId(liq.getId());
-            mp.setValorTotal(liq.getTotalNeto() != null ? liq.getTotalNeto().doubleValue() : 0.0);
-            mp.setActivo(true);
-            mp.setObservacion("PAGO SALARIO " + liq.getPeriodo());
-            mp = movimientoPersonasService.save(mp);
-            liq.setMovimientoPersonaId(mp.getId());
-        }
+        // Hasta 2026-07 aca se escribia un MovimientoPersonas. Se desvinculo: la tabla
+        // resulto write-only (nadie la lee) y mezclaba criterios de signo. Ver issue #159.
 
         aplicarEfectosCruzados(liq, true);
 

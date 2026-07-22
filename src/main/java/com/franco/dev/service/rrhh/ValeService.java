@@ -3,9 +3,7 @@ package com.franco.dev.service.rrhh;
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
-import com.franco.dev.domain.financiero.MovimientoPersonas;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
-import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.Vale;
@@ -14,7 +12,6 @@ import com.franco.dev.repository.rrhh.ValeRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
-import com.franco.dev.service.financiero.MovimientoPersonasService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -35,7 +32,6 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
     private final ValeRepository repository;
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
-    private final MovimientoPersonasService movimientoPersonasService;
     private final UsuarioService usuarioService;
 
     @Override
@@ -68,8 +64,12 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
 
     /**
      * Confirma un vale SOLICITADO: registra el egreso real en la Caja Mayor
-     * (MovimientoCajaVirtual EGRESO) y el asiento en la cuenta corriente del
-     * empleado (MovimientoPersonas ANTICIPO), de forma atomica.
+     * (MovimientoCajaVirtual EGRESO).
+     *
+     * Hasta 2026-07 tambien escribia un MovimientoPersonas (la "cuenta corriente" del
+     * empleado). Se desvinculo: esa tabla resulto write-only — nadie la lee, la
+     * liquidacion descuenta leyendo rrhh.vale y rrhh.prestamo_cuota directamente, y
+     * mezclaba criterios de signo con VENTA_CREDITO. Ver issue #159.
      */
     @Transactional
     public Vale confirmar(Long valeId, Long cajaVirtualId, Long autorizadoPorId) {
@@ -79,8 +79,6 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
             throw new GraphQLException("Solo se puede confirmar un vale en estado SOLICITADO");
         }
         registrarEgresoCaja(vale, cajaVirtualId);
-        registrarAnticipoPersona(vale);
-
         vale.setEstado(ValeEstado.CONFIRMADO);
         vale.setCajaVirtualId(cajaVirtualId);
         if (autorizadoPorId != null) {
@@ -103,7 +101,7 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
 
     /**
      * Anula un vale. Si estaba CONFIRMADO, genera un contra-asiento AJUSTE en
-     * la caja (nunca borra el original) y desactiva el MovimientoPersonas.
+     * la caja (nunca borra el original).
      */
     @Transactional
     public Vale anular(Long valeId) {
@@ -117,7 +115,6 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         }
         if (vale.getEstado() == ValeEstado.CONFIRMADO) {
             revertirEgresoCaja(vale);
-            desactivarMovimientoPersona(vale);
         }
         vale.setEstado(ValeEstado.ANULADO);
         return repository.save(vale);
@@ -156,33 +153,6 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         rev.setUsuario(vale.getUsuario());
         rev.setActivo(true);
         movimientoCajaVirtualService.registrarMovimiento(rev);
-    }
-
-    private void registrarAnticipoPersona(Vale vale) {
-        Funcionario f = vale.getFuncionario();
-        if (f == null || f.getPersona() == null) return;
-        MovimientoPersonas mp = new MovimientoPersonas();
-        mp.setPersona(f.getPersona());
-        // Un vale (sea adelanto de sueldo o no) es siempre un ANTICIPO en la cuenta
-        // corriente del empleado; el enum no distingue subtipos.
-        mp.setTipo(TipoMovimientoPersonas.ANTICIPO);
-        mp.setReferenciaId(vale.getId());
-        mp.setValorTotal(vale.getMonto() != null ? vale.getMonto().doubleValue() : 0.0);
-        mp.setActivo(true);
-        mp.setObservacion("VALE #" + vale.getId() + nombreFuncionario(f));
-        mp.setUsuario(vale.getUsuario());
-        mp = movimientoPersonasService.save(mp);
-        vale.setMovimientoPersonaId(mp.getId());
-    }
-
-    private void desactivarMovimientoPersona(Vale vale) {
-        if (vale.getMovimientoPersonaId() == null) return;
-        Optional<MovimientoPersonas> opt = movimientoPersonasService.findById(vale.getMovimientoPersonaId());
-        if (opt.isPresent()) {
-            MovimientoPersonas mp = opt.get();
-            mp.setActivo(false);
-            movimientoPersonasService.save(mp);
-        }
     }
 
     /** Sufijo " - NOMBRE" para las descripciones de los movimientos (vacio si no hay). */

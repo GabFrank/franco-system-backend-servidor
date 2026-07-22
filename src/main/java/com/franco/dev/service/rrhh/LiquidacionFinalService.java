@@ -2,9 +2,7 @@ package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
-import com.franco.dev.domain.financiero.MovimientoPersonas;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
-import com.franco.dev.domain.financiero.enums.TipoMovimientoPersonas;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.LiquidacionFinalItem;
@@ -22,7 +20,6 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
-import com.franco.dev.service.financiero.MovimientoPersonasService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.builder.LiquidacionFinalCalculator;
@@ -51,7 +48,6 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
-    private final MovimientoPersonasService movimientoPersonasService;
     private final MonedaService monedaService;
     private final UsuarioService usuarioService;
 
@@ -225,7 +221,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
 
     /**
      * Paga el finiquito APROBADO: EGRESO real en la Caja Mayor +
-     * MovimientoPersonas(PAGO_SALARIO, obs LIQUIDACION FINAL) + funcionario.activo=false.
+     * funcionario.activo=false.
      */
     @Transactional
     public LiquidacionFinal pagar(Long id, Long cajaVirtualId) {
@@ -246,17 +242,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         lf.setCajaVirtualId(cajaVirtualId);
         lf.setMovimientoCajaVirtualId(mov.getId());
 
-        if (lf.getFuncionario() != null && lf.getFuncionario().getPersona() != null) {
-            MovimientoPersonas mp = new MovimientoPersonas();
-            mp.setPersona(lf.getFuncionario().getPersona());
-            mp.setTipo(TipoMovimientoPersonas.PAGO_SALARIO);
-            mp.setReferenciaId(lf.getId());
-            mp.setValorTotal(lf.getTotalLiquidado() != null ? lf.getTotalLiquidado().doubleValue() : 0.0);
-            mp.setActivo(true);
-            mp.setObservacion("LIQUIDACION FINAL");
-            mp = movimientoPersonasService.save(mp);
-            lf.setMovimientoPersonaId(mp.getId());
-        }
+        // Hasta 2026-07 aca se escribia un MovimientoPersonas. Se desvinculo: la tabla
+        // resulto write-only (nadie la lee) y mezclaba criterios de signo. Ver issue #159.
 
         // egreso definitivo
         Funcionario f = lf.getFuncionario();

@@ -152,15 +152,19 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 ## FASE 4 — Anticipos vía Caja Mayor (sujeto: ESTEBAN #8)
 
 ### ⬜ T9 — Vales
-- **Objetivo:** solicitar y confirmar un vale (egreso real de Caja Mayor + asiento en cuenta
-  corriente del empleado); anular otro (contra-asiento).
+- **Objetivo:** solicitar y confirmar un vale (egreso real de Caja Mayor); anular otro
+  (contra-asiento).
 - **Datos previos:** Caja Mayor fondeada ✅, motivos de vale ✅.
 - **Pasos UI:** `R.R.H.H.` → `Vales` → `Nuevo` → funcionario ESTEBAN, motivo, monto 400.000,
   fecha 2026-07-15 → confirmar eligiendo la Caja Mayor. Luego crear un segundo vale y anularlo.
 - **Verificación (DB):** vale CONFIRMADO; `financiero.movimiento_caja_virtual` EGRESO 400.000 con
-  `saldo_anterior/posterior` correctos y descripción "VALE #<id> - ESTEBAN…";
-  `financiero.movimiento_personas` ANTICIPO. El anulado: contra-asiento AJUSTE + MovimientoPersonas
-  desactivado.
+  `saldo_anterior/posterior` correctos y descripción "VALE #<id> - ESTEBAN…". El anulado:
+  contra-asiento AJUSTE que devuelve el saldo.
+- **Resultado:** OK. Cadena de caja sin huecos: 50.142.000 → 49.742.000 (vale #4) → 49.592.000
+  (vale #5) → 49.742.000 (anulación). Cada `saldo_anterior` empalma con el `saldo_posterior`
+  anterior.
+- **Nota:** `financiero.movimiento_personas` ya **no** se verifica acá — se desvinculó de RRHH,
+  ver TODO-10.
 
 ### ⬜ T10 — Préstamos
 - **Objetivo:** crear préstamo (desembolso EGRESO + plan de cuotas) y cobrar una cuota (INGRESO).
@@ -209,7 +213,8 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
   Revisar los ítems (haberes vs descuentos, neto). Aprobar → Pagar (elegir Caja Mayor) →
   Imprimir recibo.
 - **Verificación (DB):** ítems correctos; al pagar: Caja EGRESO por el neto, vale → DESCONTADO,
-  cuota → PAGADA/incrementada, bono/aguinaldo con `liquidacion_id`, MovimientoPersonas PAGO_SALARIO.
+  cuota → PAGADA/incrementada, bono/aguinaldo con `liquidacion_id`. (Ya no se escribe
+  `MovimientoPersonas`, ver TODO-10.)
 
 ### ⬜ T15 — Liquidación final / finiquito (sujeto: WILIAN #100)
 - **Objetivo:** generar finiquito (antigüedad, indemnización, vacaciones no gozadas, aguinaldo
@@ -337,6 +342,37 @@ A cada funcionario se le asignan **metas/objetivos**; el legajo muestra el progr
 (ej. `4/11`). Ligado al **módulo de comisiones** (Fase 7, hoy diferida): comisiones de varios tipos
 — por meta, por valor de venta, por valor de lucro (de una o varias sucursales o de determinados
 productos), etc. Módulo extenso, a analizar bien. Alimenta el card "Metas y objetivos" (TODO-4).
+
+### ✅ TODO-10 — Desvincular RRHH de `movimiento_personas` (tabla candidata a eliminarse) — *detectado en T10*
+Al cobrar una cuota de préstamo la caja se movía pero la "cuenta corriente" del empleado seguía
+mostrando la deuda completa, y el enum tenía un valor `COBRO` que no se usaba en ningún lado.
+Antes de implementarlo se auditó el uso real de la tabla. Resultado:
+
+**`financiero.movimiento_personas` es write-only.** Se escribe desde 6 puntos (Vale, Préstamo,
+LiquidacionSueldo, LiquidacionFinal, VentaCredito) y **nadie la lee**:
+- El único cálculo agregado (`getSaldoPorPersona` → `getTotalCredito`) tiene un solo llamador y
+  está **comentado** (`ClienteResolver.java:54`). El saldo del cliente se calcula desde
+  `VentaCredito` en estado `ABIERTO`.
+- Ningún reporte Jasper la usa. Desktop y mobile: cero referencias en todo `src/`.
+- **La liquidación de sueldo no la lee**: descuenta vales y cuotas leyendo `rrhh.vale` y
+  `rrhh.prestamo_cuota` directamente.
+- 7 de los 11 valores del enum nunca se emiten (`COBRO`, `AGUINALDO`, `BONO`, `MULTA`,
+  `VACACIONES`, `NO_DEVOLVIDOS`, `SALARIO`).
+
+**Además, signos inconsistentes en la misma columna:** `VENTA_CREDITO` guarda negativo (30.650
+filas), los tipos de RRHH guardan positivo. Dos personas reales (FRANCO AREVALOS #1, GILBERTO
+FRANCO #8) ya tienen ambos mezclados: si se descomentara el cálculo de saldo, un adelanto de
+sueldo les reduciría la deuda como clientes.
+
+**Decisión (Gabriel, 2026-07-22):** nadie la usa; se desvincula RRHH de la tabla y se la considera
+legacy. La deuda viva del préstamo sale de `prestamo_cuota` (`monto_total - monto_pagado`), que es
+la misma fuente que gobierna el cobro y que lee la liquidación — no puede desincronizarse.
+La eliminación completa de la tabla queda como issue de GitHub aparte (afecta también a
+VentaCredito y a la replicación filial→central).
+
+**Ojo al eliminarla del todo:** la tabla se replica `BRANCH_TO_MAIN`
+(`V112__sync_replication_table_with_publications.sql:69`) y tiene `REPLICA IDENTITY FULL`, así que
+sacarla toca la configuración de replicación de toda la red.
 
 ### TODO-9 — Catálogo configurable de tipos de penalización con monto estipulado — *detectado en T8*
 Hoy `PenalizacionTipo` es un **enum fijo en código** (`TARDANZA`, `AUSENCIA`, `QUEJA_CLIENTE`,

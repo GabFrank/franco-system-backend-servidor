@@ -39,6 +39,7 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final JustificativoService justificativoService;
     private final TipoJustificativoService tipoJustificativoService;
+    private final com.franco.dev.service.personas.UsuarioService usuarioService;
 
     @Override
     public VacacionRepository getRepository() {
@@ -130,8 +131,11 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
         VacacionPeriodo p = periodoRepository.findById(periodoId)
                 .orElseThrow(() -> new GraphQLException("Periodo no encontrado"));
         p.setEstado(VacacionPeriodoEstado.PROGRAMADA);
+        // autorizadoPor es un Usuario, no un Funcionario: antes se buscaba el
+        // funcionario con el id del usuario y se descartaba el resultado, asi que
+        // la aprobacion de un permiso laboral no dejaba rastro de quien la dio.
         if (autorizadoPorId != null) {
-            funcionarioService.findById(autorizadoPorId); // no-op guard
+            p.setAutorizadoPor(usuarioService.findById(autorizadoPorId).orElse(null));
         }
         return periodoRepository.save(p);
     }

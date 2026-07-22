@@ -178,13 +178,20 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 ## FASE 5 — Beneficios (sujeto: ESTEBAN #8)
 
-### ⬜ T11 — Vacaciones
+### ✅ T11 — Vacaciones
 - **Objetivo:** devengar, programar, aprobar y marcar GOZADA (genera novedades por día); vender días.
 - **Datos previos:** ESTEBAN con antigüedad ✅.
 - **Pasos UI:** `R.R.H.H.` → `Vacaciones` → devengar para ESTEBAN → programar un período
   (ej. 2026-08-03 a 2026-08-07) → aprobar → marcar GOZADA. Probar "vender días".
 - **Verificación (DB):** `rrhh.vacacion` (diasGenerados/diasGozados), `vacacion_periodo` GOZADA,
-  una `jornada_novedad` tipo VACACION por cada día del período, `vacacion_venta` si se vendió.
+  un `rrhh.justificativo` de tipo VACACION por cada día del período (la tabla se llamaba
+  `jornada_novedad` antes del rediseño de T5), `vacacion_venta` si se vendió.
+- **Resultado:** OK. Devengado año 5 con 12 días (`DIAS_VACACIONES_HASTA_5A`; con 4,38 años
+  de antigüedad no alcanza el tramo 5-10). Período 10-14/08 recorrió
+  `SOLICITADA → PROGRAMADA → GOZADA`, dejó `autorizado_por = GABRIEL`, sumó 5 días gozados
+  (quedan 7) y generó 5 justificativos VACACION, uno por día. Convive con la vacación
+  prescrita del año 1.
+- **Bugs corregidos durante la prueba:** B18 y B19 (ver registro).
 
 ### ⬜ T12 — Aguinaldo
 - **Objetivo:** calcular aguinaldos del año y aprobar.
@@ -459,6 +466,8 @@ automáticamente sin confirmación explícita, siempre auditable (histórico + m
 | B13 | TODO-8 | Backend/DB | La tabla nueva `configuracion_rrhh_historico` se creó sin `DEFAULT nextval(...)` en `id`; todo INSERT fallaba con *"valor nulo na coluna id"*. El generador del proyecto espera la convención `<tabla>_id_seq` **con el DEFAULT puesto** (igual que `funcionario_documento`). Emparentado con B7. | ✅ Arreglado en la propia V166.0 |
 | B15 | T8 | Desktop UX | El campo "fecha a procesar" de la generación automática vivía suelto entre los filtros con el label cortado ("Fecha a pro…"): parecía un filtro más y no el parámetro de la acción, así que se generaba sobre una fecha sin jornadas y el mensaje decía "generadas: 0" sin explicar nada. | ✅ Movido a un diálogo propio en la acción + mensaje explícito cuando no genera |
 | B16 | T8 | Desktop UX | La lista de Configuración RRHH mostraba la clave técnica (`PENALIZACION_MONTO_POR_MINUTO_TARDANZA`), exponiendo un detalle interno a quien solo quiere editar un parámetro. | ✅ Se muestra legible ("Penalizacion monto por minuto tardanza"); la clave queda en el tooltip para soporte |
+| B18 | T11 | Backend | `aprobarPeriodo` **nunca registraba quién aprobaba**: hacía `funcionarioService.findById(autorizadoPorId)` y descartaba el resultado (`// no-op guard`), sin llamar a `setAutorizadoPor`. Encima `autorizadoPor` es un `Usuario` y buscaba un `Funcionario` con ese id. Una autorización de permiso laboral quedaba sin constancia. | ✅ Guarda el usuario real |
+| B19 | T11 | Desktop | El botón "Programar" mandaba `'PROGRAMADA'` hardcodeado, salteando `SOLICITADA`: el botón de aprobar (visible solo en ese estado) quedaba **inalcanzable**, aunque mobile sí implementa la aprobación por supervisor (`aprobaciones-rrhh`, `VacacionesPendientesAprobacionMobile`). Detectado por Gabriel: "el botón se llama Programar y hace lo que se llama, en todo caso se debería llamar Solicitar". | ✅ Botón `Solicitar`, crea en SOLICITADA |
 | B17 | T8 | Desktop | Las 13 listas migradas no mostraban tabla ni paginador: el host sin altura definida hacía colapsar a cero el `<div fxFlex>` de `app-generic-list`. | ✅ `:host { display: block; height: 100% }` en las 13 |
 | B14 | TODO-2 | Desktop | El `.scss` de las listas migradas anidaba todo bajo `.xxx-container`, clase que desapareció al pasar la raíz del template a `<app-generic-list>`: los chips de estado quedaban sin color y las tablas sin alinear. Afectaba a las 13 listas. | ✅ Aplanado + `:host` en las 13 |
 

@@ -44,6 +44,13 @@ public class Aguinaldo implements Identifiable<Long> {
     @Column(name = "monto_calculado")
     private BigDecimal montoCalculado;
 
+    @Column(name = "monto_proyectado")
+    private BigDecimal montoProyectado;
+
+    /** Meses que va a haber trabajado al 31/12; con el anio cerrado coincide con mesesTrabajados. */
+    @Column(name = "meses_proyectados")
+    private Integer mesesProyectados;
+
     @Column(name = "meses_trabajados")
     private Integer mesesTrabajados;
 

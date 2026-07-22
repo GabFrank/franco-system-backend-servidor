@@ -1,6 +1,7 @@
 package com.franco.dev.domain.rrhh;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.enums.VacacionVentaEstado;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -50,6 +51,10 @@ public class VacacionVenta implements Identifiable<Long> {
     private Long liquidacionId;
 
     private String observacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "autorizado_por_id", nullable = true)
+    private Usuario autorizadoPor;
 
     @CreationTimestamp
     @Column(name = "creado_en")

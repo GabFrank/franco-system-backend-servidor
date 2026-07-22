@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,7 @@ import java.util.Optional;
 public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository, Long> {
 
     private final AguinaldoRepository repository;
+    private final ConfiguracionRrhhService configuracionRrhhService;
     private final FuncionarioService funcionarioService;
 
     @Override
@@ -61,10 +63,15 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
             if (f.getFechaIngreso().getYear() > anio) {
                 continue;
             }
-            int mesesTrabajados = AguinaldoCalculator.mesesTrabajados(anio, f.getFechaIngreso().toLocalDate());
+            LocalDate ingreso = f.getFechaIngreso().toLocalDate();
+            // Devengado = lo ganado hasta hoy. Proyectado = lo que se va a deber al 31/12.
+            // En un anio ya terminado coinciden.
+            int mesesDevengados = AguinaldoCalculator.mesesDevengados(anio, ingreso, LocalDate.now());
+            int mesesProyectados = AguinaldoCalculator.mesesTrabajados(anio, ingreso);
 
             BigDecimal sueldo = new BigDecimal(f.getSueldo().toString());
-            BigDecimal monto = AguinaldoCalculator.calcularMonto(sueldo, mesesTrabajados);
+            BigDecimal monto = AguinaldoCalculator.calcularMonto(sueldo, mesesDevengados);
+            BigDecimal montoProyectado = AguinaldoCalculator.calcularMonto(sueldo, mesesProyectados);
 
             Optional<Aguinaldo> existente = repository.findByFuncionarioIdAndAnio(f.getId(), anio);
             Aguinaldo a = existente.orElseGet(Aguinaldo::new);
@@ -73,8 +80,10 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
             }
             a.setFuncionario(f);
             a.setAnio(anio);
-            a.setMesesTrabajados(mesesTrabajados);
+            a.setMesesTrabajados(mesesDevengados);
             a.setMontoCalculado(monto);
+            a.setMesesProyectados(mesesProyectados);
+            a.setMontoProyectado(montoProyectado);
             a.setEstado(AguinaldoEstado.CALCULADO);
             if (a.getCreadoEn() == null) a.setCreadoEn(LocalDateTime.now());
             repository.save(a);
@@ -87,6 +96,16 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
     public Aguinaldo aprobar(Long id) {
         Aguinaldo a = repository.findById(id)
                 .orElseThrow(() -> new GraphQLException("Aguinaldo no encontrado"));
+        // Aprobar congela el monto: el recalculo no vuelve a tocar un APROBADO. Hacerlo
+        // antes de que el anio termine dejaria fijado un devengado parcial, y la
+        // liquidacion de diciembre pagaria de menos.
+        int mesAguinaldo = configuracionRrhhService.getNumber("MES_AGUINALDO", new BigDecimal("12")).intValue();
+        LocalDate hoy = LocalDate.now();
+        if (a.getAnio() != null && hoy.getYear() == a.getAnio() && hoy.getMonthValue() < mesAguinaldo) {
+            throw new GraphQLException("Todavia no se puede aprobar el aguinaldo " + a.getAnio()
+                    + ": recien esta devengado " + a.getMesesTrabajados() + "/12. Se aprueba a partir del mes "
+                    + mesAguinaldo + ".");
+        }
         a.setEstado(AguinaldoEstado.APROBADO);
         return repository.save(a);
     }

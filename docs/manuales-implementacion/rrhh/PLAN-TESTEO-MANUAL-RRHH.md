@@ -197,8 +197,12 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 - **Objetivo:** calcular aguinaldos del año y aprobar.
 - **Datos previos:** funcionarios con fecha_ingreso ✅.
 - **Pasos UI:** `R.R.H.H.` → `Aguinaldos` → calcular año 2026 → localizar el de ESTEBAN → aprobar.
-- **Verificación (DB):** `rrhh.aguinaldo` con el registro de ESTEBAN, monto proporcional coherente
-  (sueldo/12 × meses trabajados), estado APROBADO.
+- **Verificación (DB):** `rrhh.aguinaldo` con el registro de ESTEBAN. Ojo: **no se puede aprobar
+  antes de `MES_AGUINALDO` (12)** — aprobar congela el monto y dejaría fijado un devengado parcial.
+- **Nota:** la lista muestra dos cifras distintas: `montoCalculado` = devengado a la fecha,
+  `montoProyectado` = lo que se deberá al 31/12. En un año cerrado coinciden.
+- **Pendiente (issue #161):** la base de cálculo usa el sueldo base actual; por ley debería ser
+  1/12 de la remuneración total percibida (incluye HE, bonos, comisiones y aumentos del año).
 
 ### ⬜ T13 — Bonos
 - **Objetivo:** crear un bono.
@@ -466,6 +470,8 @@ automáticamente sin confirmación explícita, siempre auditable (histórico + m
 | B13 | TODO-8 | Backend/DB | La tabla nueva `configuracion_rrhh_historico` se creó sin `DEFAULT nextval(...)` en `id`; todo INSERT fallaba con *"valor nulo na coluna id"*. El generador del proyecto espera la convención `<tabla>_id_seq` **con el DEFAULT puesto** (igual que `funcionario_documento`). Emparentado con B7. | ✅ Arreglado en la propia V166.0 |
 | B15 | T8 | Desktop UX | El campo "fecha a procesar" de la generación automática vivía suelto entre los filtros con el label cortado ("Fecha a pro…"): parecía un filtro más y no el parámetro de la acción, así que se generaba sobre una fecha sin jornadas y el mensaje decía "generadas: 0" sin explicar nada. | ✅ Movido a un diálogo propio en la acción + mensaje explícito cuando no genera |
 | B16 | T8 | Desktop UX | La lista de Configuración RRHH mostraba la clave técnica (`PENALIZACION_MONTO_POR_MINUTO_TARDANZA`), exponiendo un detalle interno a quien solo quiere editar un parámetro. | ✅ Se muestra legible ("Penalizacion monto por minuto tardanza"); la clave queda en el tooltip para soporte |
+| B20 | T12 | Backend | El aguinaldo contaba **12 meses siempre** que el funcionario hubiera ingresado antes del año en curso: `mesesTrabajados` nunca miraba la fecha actual. Calculado en julio mostraba el aguinaldo completo (3.500.000) como si estuviera devengado, cuando lo ganado eran 7/12 (2.041.666,67). Detectado por Gabriel: "estamos en julio, ¿de qué sirve generar aguinaldo?". | ✅ Se separan devengado y proyectado (V168.0) |
+| B21 | T12 | Backend | Aprobar congela el monto (el recálculo no toca los `APROBADO`), así que aprobar a mitad de año dejaba fijado un devengado parcial y la liquidación de diciembre pagaba **de menos**. | ✅ Se bloquea aprobar antes de `MES_AGUINALDO` |
 | B18 | T11 | Backend | `aprobarPeriodo` **nunca registraba quién aprobaba**: hacía `funcionarioService.findById(autorizadoPorId)` y descartaba el resultado (`// no-op guard`), sin llamar a `setAutorizadoPor`. Encima `autorizadoPor` es un `Usuario` y buscaba un `Funcionario` con ese id. Una autorización de permiso laboral quedaba sin constancia. | ✅ Guarda el usuario real |
 | B19 | T11 | Desktop | El botón "Programar" mandaba `'PROGRAMADA'` hardcodeado, salteando `SOLICITADA`: el botón de aprobar (visible solo en ese estado) quedaba **inalcanzable**, aunque mobile sí implementa la aprobación por supervisor (`aprobaciones-rrhh`, `VacacionesPendientesAprobacionMobile`). Detectado por Gabriel: "el botón se llama Programar y hace lo que se llama, en todo caso se debería llamar Solicitar". | ✅ Botón `Solicitar`, crea en SOLICITADA |
 | B17 | T8 | Desktop | Las 13 listas migradas no mostraban tabla ni paginador: el host sin altura definida hacía colapsar a cero el `<div fxFlex>` de `app-generic-list`. | ✅ `:host { display: block; height: 100% }` en las 13 |

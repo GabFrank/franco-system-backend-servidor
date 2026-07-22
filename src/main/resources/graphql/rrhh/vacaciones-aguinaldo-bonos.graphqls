@@ -7,6 +7,7 @@ enum VacacionPeriodoEstado {
 }
 
 enum VacacionVentaEstado {
+    SOLICITADA
     PENDIENTE
     PAGADO
     ANULADO
@@ -67,6 +68,7 @@ type VacacionVenta {
     estado: VacacionVentaEstado
     liquidacionId: Int
     observacion: String
+    autorizadoPor: Usuario
     creadoEn: Date
 }
 
@@ -76,6 +78,8 @@ type Aguinaldo {
     anio: Int
     montoCalculado: Float
     mesesTrabajados: Int
+    montoProyectado: Float
+    mesesProyectados: Int
     estado: AguinaldoEstado
     fechaPago: String
     liquidacionId: Int
@@ -170,6 +174,8 @@ extend type Mutation {
     aprobarPeriodoVacacion(periodoId: ID!, autorizadoPorId: ID): VacacionPeriodo
     marcarGozadaVacacion(periodoId: ID!): VacacionPeriodo
     venderDiasVacacion(vacacionId: ID!, dias: Int!, observacion: String): VacacionVenta
+    aprobarVentaVacacion(ventaId: ID!, autorizadoPorId: ID): VacacionVenta
+    anularVentaVacacion(ventaId: ID!): VacacionVenta
 
     calcularAguinaldosAnio(anio: Int!): Int
     aprobarAguinaldo(id: ID!): Aguinaldo

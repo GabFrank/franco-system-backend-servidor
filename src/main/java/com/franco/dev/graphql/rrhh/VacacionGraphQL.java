@@ -72,4 +72,13 @@ public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public VacacionVenta venderDiasVacacion(Long vacacionId, Integer dias, String observacion) {
         return service.venderDias(vacacionId, dias, observacion);
     }
+
+    /** Autoriza la venta: recien ahi queda PENDIENTE y la liquidacion la paga. */
+    public VacacionVenta aprobarVentaVacacion(Long ventaId, Long autorizadoPorId) {
+        return service.aprobarVenta(ventaId, autorizadoPorId);
+    }
+
+    public VacacionVenta anularVentaVacacion(Long ventaId) {
+        return service.anularVenta(ventaId);
+    }
 }

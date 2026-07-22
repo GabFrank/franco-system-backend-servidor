@@ -15,9 +15,9 @@ public final class AguinaldoCalculator {
     }
 
     /**
-     * Meses trabajados dentro del anio dado. Si ingreso antes del anio: 12.
-     * Si ingreso durante el anio: 12 - mesIngreso + 1. Si ingreso despues del
-     * anio: 0 (no corresponde aguinaldo). fechaIngreso nula asume anio completo.
+     * Meses PROYECTADOS del anio: cuantos meses va a haber trabajado al 31/12.
+     * Si ingreso antes del anio: 12. Si ingreso durante el anio: 12 - mesIngreso + 1.
+     * Si ingreso despues: 0. fechaIngreso nula asume anio completo.
      */
     public static int mesesTrabajados(int anio, LocalDate fechaIngreso) {
         if (fechaIngreso == null) return 12;
@@ -26,6 +26,26 @@ public final class AguinaldoCalculator {
             return 12 - fechaIngreso.getMonthValue() + 1;
         }
         return 12;
+    }
+
+    /**
+     * Meses DEVENGADOS a una fecha de corte: los efectivamente trabajados hasta hoy.
+     *
+     * Antes solo existia el proyectado, que no miraba la fecha actual: calculado en
+     * julio mostraba 12 meses (el aguinaldo completo) como si ya estuviera ganado.
+     * Para un anio ya terminado ambos coinciden.
+     */
+    public static int mesesDevengados(int anio, LocalDate fechaIngreso, LocalDate corte) {
+        if (corte == null) return mesesTrabajados(anio, fechaIngreso);
+        if (corte.getYear() < anio) return 0;
+        if (corte.getYear() > anio) return mesesTrabajados(anio, fechaIngreso);
+
+        // El corte cae dentro del anio: se cuenta hasta el mes del corte inclusive.
+        int mesDesde = (fechaIngreso != null && fechaIngreso.getYear() == anio)
+                ? fechaIngreso.getMonthValue() : 1;
+        if (fechaIngreso != null && fechaIngreso.getYear() > anio) return 0;
+        int mesHasta = corte.getMonthValue();
+        return Math.max(0, mesHasta - mesDesde + 1);
     }
 
     /**

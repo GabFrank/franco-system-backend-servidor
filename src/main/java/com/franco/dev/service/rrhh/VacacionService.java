@@ -110,9 +110,10 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
         Vacacion v = repository.findById(vacacionId)
                 .orElseThrow(() -> new GraphQLException("Vacacion no encontrada"));
         int dias = (int) (ChronoUnit.DAYS.between(desde, hasta) + 1);
-        int gozados = v.getDiasGozados() != null ? v.getDiasGozados() : 0;
-        if (gozados + dias > (v.getDiasGenerados() != null ? v.getDiasGenerados() : 0)) {
-            throw new GraphQLException("Los dias del periodo superan los dias disponibles");
+        // Contra el disponible real: los dias ya vendidos tampoco se pueden gozar.
+        int disponibles = diasDisponibles(v);
+        if (dias > disponibles) {
+            throw new GraphQLException("Los dias del periodo superan los dias disponibles: " + disponibles);
         }
         VacacionPeriodo p = new VacacionPeriodo();
         p.setVacacion(v);
@@ -179,25 +180,71 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
      * valorizada a salarioDiario x dias. Se cobra como HABER en la liquidacion.
      */
     @Transactional
+    /**
+     * Dias que todavia se pueden usar: los generados menos los gozados y menos los
+     * YA VENDIDOS (sin contar las ventas anuladas).
+     *
+     * Antes solo restaba los gozados, asi que las ventas no consumian saldo y se podia
+     * vender el mismo dia infinitas veces: cada venta se cobra como HABER en la
+     * liquidacion. Verificado: con 7 disponibles se vendieron 23 dias.
+     */
+    public int diasDisponibles(Vacacion v) {
+        int generados = v.getDiasGenerados() != null ? v.getDiasGenerados() : 0;
+        int gozados = v.getDiasGozados() != null ? v.getDiasGozados() : 0;
+        int vendidos = ventaRepository.findByVacacionIdOrderByFechaDesc(v.getId()).stream()
+                .filter(x -> x.getEstado() != VacacionVentaEstado.ANULADO)
+                .mapToInt(x -> x.getDias() != null ? x.getDias() : 0)
+                .sum();
+        return generados - gozados - vendidos;
+    }
+
+    /** Autoriza una venta: recien ahi queda PENDIENTE de cobro y la liquidacion la paga. */
+    @Transactional
+    public VacacionVenta aprobarVenta(Long ventaId, Long autorizadoPorId) {
+        VacacionVenta venta = ventaRepository.findById(ventaId)
+                .orElseThrow(() -> new GraphQLException("Venta no encontrada"));
+        if (venta.getEstado() != VacacionVentaEstado.SOLICITADA) {
+            throw new GraphQLException("Solo se puede aprobar una venta SOLICITADA");
+        }
+        venta.setEstado(VacacionVentaEstado.PENDIENTE);
+        if (autorizadoPorId != null) {
+            venta.setAutorizadoPor(usuarioService.findById(autorizadoPorId).orElse(null));
+        }
+        return ventaRepository.save(venta);
+    }
+
+    /** Anula una venta no pagada; libera los dias. */
+    @Transactional
+    public VacacionVenta anularVenta(Long ventaId) {
+        VacacionVenta venta = ventaRepository.findById(ventaId)
+                .orElseThrow(() -> new GraphQLException("Venta no encontrada"));
+        if (venta.getEstado() == VacacionVentaEstado.PAGADO) {
+            throw new GraphQLException("No se puede anular una venta ya pagada");
+        }
+        venta.setEstado(VacacionVentaEstado.ANULADO);
+        return ventaRepository.save(venta);
+    }
+
     public VacacionVenta venderDias(Long vacacionId, Integer dias, String observacion) {
         Vacacion v = repository.findById(vacacionId)
                 .orElseThrow(() -> new GraphQLException("Vacacion no encontrada"));
-        int disponibles = (v.getDiasGenerados() != null ? v.getDiasGenerados() : 0)
-                - (v.getDiasGozados() != null ? v.getDiasGozados() : 0);
+        int disponibles = diasDisponibles(v);
         if (dias == null || dias <= 0 || dias > disponibles) {
-            throw new GraphQLException("Cantidad de dias a vender invalida");
+            throw new GraphQLException("Cantidad de dias a vender invalida. Disponibles: " + disponibles);
         }
+        BigDecimal diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30"));
         BigDecimal salarioDiario = BigDecimal.ZERO;
         if (v.getFuncionario() != null && v.getFuncionario().getSueldo() != null) {
             salarioDiario = new BigDecimal(v.getFuncionario().getSueldo().toString())
-                    .divide(new BigDecimal("30"), 2, RoundingMode.HALF_UP);
+                    .divide(diasMes, 2, RoundingMode.HALF_UP);
         }
         VacacionVenta venta = new VacacionVenta();
         venta.setVacacion(v);
         venta.setDias(dias);
         venta.setMonto(salarioDiario.multiply(new BigDecimal(dias)));
         venta.setFecha(LocalDate.now());
-        venta.setEstado(VacacionVentaEstado.PENDIENTE);
+        // Nace SOLICITADA: la liquidacion solo paga las PENDIENTE (ya autorizadas).
+        venta.setEstado(VacacionVentaEstado.SOLICITADA);
         venta.setObservacion(observacion != null ? observacion.toUpperCase() : null);
         venta.setCreadoEn(LocalDateTime.now());
         return ventaRepository.save(venta);

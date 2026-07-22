@@ -26,6 +26,29 @@ public class CambioService extends CrudService<Cambio, CambioRepository, Long> {
         return repository.findLastByCambioId(id);
     }
 
+    /**
+     * Devuelve el valor en guaraníes (Cambio.valorEnGs) de la última cotización
+     * de la moneda, o {@code null} si la moneda no tiene ninguna cotización
+     * registrada. Evita el NullPointerException de hacer
+     * {@code findLastByMonedaId(id).getValorEnGs()} sobre un resultado nulo.
+     */
+    public Double findLastValorEnGsByMonedaId(Long id) {
+        Cambio cambio = repository.findLastByCambioId(id);
+        return cambio != null ? cambio.getValorEnGs() : null;
+    }
+
+    /**
+     * Igual que {@link #findLastValorEnGsByMonedaId(Long)} pero garantiza un
+     * divisor seguro (&gt; 0) para los cálculos internos de conversión. Si no
+     * hay cotización válida, cae a {@code defaultValue} en lugar de lanzar
+     * excepción o dividir por cero. No se usa para la cotización que muestra el
+     * POS (esa la resuelve MonedaResolver.cambio y conserva el valor real).
+     */
+    public Double findLastValorEnGsByMonedaIdOrDefault(Long id, Double defaultValue) {
+        Double valor = findLastValorEnGsByMonedaId(id);
+        return (valor != null && valor > 0) ? valor : defaultValue;
+    }
+
     public List<Cambio> findByDate(String start, String end) {
         return repository.findByDate(start, end);
     }

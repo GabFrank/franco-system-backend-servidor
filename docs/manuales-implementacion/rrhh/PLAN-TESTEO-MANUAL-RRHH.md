@@ -97,27 +97,55 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
   entidad `Justificativo` no tiene documento adjunto. Cablearlo a `rrhh.funcionario_documento`
   (FK nueva + validación en el save cuando el tipo lo exige).
 
-### ⬜ T6 — Historial de marcaciones
+### ✅ T6 — Historial de marcaciones
 - **Objetivo:** consultar el historial de marcaciones de un funcionario.
 - **Datos previos:** requiere jornadas/marcaciones. Claude sembrará 2–3 jornadas de ESTEBAN en
   julio 2026 (una con tardanza) antes de la prueba.
 - **Pasos UI:** `R.R.H.H.` → `Historial de marcaciones` → seleccionar ESTEBAN, rango julio 2026.
   Revisar las jornadas (entrada/salida, minutos trabajados, tardanza).
 - **Verificación (DB):** las jornadas mostradas coinciden con `administrativo.jornada`.
+- **Resultado:** OK. Sembradas 4 jornadas de ESTEBAN (usuario 12) en julio 2026: normal,
+  con 27 min de tardanza, incompleta (sin salida) y ausente. La UI las muestra correctamente
+  y los totales del resumen cuadran (15:40 trabajadas = 482+458 min).
+- **Nota de siembra:** `jornada.entrada`/`salida` son relaciones **compuestas**
+  (`entrada_id` + `entrada_sucursal_id`), porque `Marcacion` tiene PK compuesta por la
+  replicación. Cargar solo el `_id` deja el join sin resolver y las columnas salen vacías
+  sin error. Aplica a cualquier siembra futura de jornadas.
+- **Hallazgo abierto (H1, módulo `administrativo`, fuera del alcance de RRHH):** la tabla no
+  tiene columna **Fecha** ni **Estado**. La fecha solo se ve incrustada en la columna Entrada,
+  asi que una jornada **AUSENTE** (sin marcación) no muestra fecha en ninguna parte y se ve
+  casi igual a una jornada normal sin atraso. Una **INCOMPLETA** solo se distingue porque le
+  falta la salida.
 
-### ⬜ T7 — Horas extra
+### ✅ T7 — Horas extra
 - **Objetivo:** cargar HE manual y ver la valorización (monto calculado).
 - **Datos previos:** ESTEBAN existe.
 - **Pasos UI:** `R.R.H.H.` → `Horas extra` → `Nuevo` → funcionario ESTEBAN, fecha 2026-07-12,
   minutos 120, tipo DIURNA, recargo 50% → guardar. Verificar el monto calculado.
 - **Verificación (DB):** `rrhh.hora_extra` con la HE de ESTEBAN, `monto_calculado` coherente.
+- **Resultado:** OK. 120 min DIURNA sobre sueldo 3.500.000 → **43.750,00**
+  (3.500.000 ÷ 30 días ÷ 8 h = 14.583,33 × 1,5 de recargo × 2 h). El recargo (50) se tomó solo
+  de `RECARGO_HE_DIURNA` sin cargarlo a mano, confirmando que la valorización lee la config.
 
-### ⬜ T8 — Penalizaciones
+### ✅ T8 — Penalizaciones
 - **Objetivo:** cargar una penalización manual.
 - **Datos previos:** ESTEBAN existe.
 - **Pasos UI:** `R.R.H.H.` → `Penalizaciones` → `Nuevo` → funcionario ESTEBAN, fecha 2026-07-14,
   tipo (ej. QUEJA_CLIENTE), monto 80.000, descripción → guardar.
 - **Verificación (DB):** `rrhh.penalizacion` con la penalización de ESTEBAN, `auto_generada=false`.
+- **Resultado:** OK, se probó la cadena completa:
+  1. Alta manual (QUEJA_CLIENTE 80.000, `auto_generada=false`).
+  2. `PENALIZACION_MONTO_POR_MINUTO_TARDANZA` 0 → 5000 desde la UI; el cambio quedó en
+     `configuracion_rrhh_historico` (primera validación de la auditoría de TODO-8 en uso real).
+  3. Generación automática sobre 07/07: TARDANZA **135.000** = 27 min × 5.000, ligada a la
+     jornada 102. La tolerancia decide *si* se penaliza, no descuenta minutos.
+  4. Idempotencia: regenerar la misma fecha no duplica.
+  5. **Guard de `evitaPenalizacion`:** con la penalización anulada y un justificativo
+     `JUSTIFICADO` (evitaPenalizacion=true) ligado a la jornada 102, regenerar **no crea nada**.
+     El comportamiento lo gobierna el catálogo, no un enum compilado.
+- **Bugs corregidos durante la prueba:** B15 (campo "fecha a procesar" suelto entre los filtros,
+  con el label cortado: parecía un filtro y se generaba sobre la fecha equivocada) y B16
+  (Configuración RRHH mostraba la clave técnica en vez de un nombre legible).
 
 ---
 
@@ -310,6 +338,29 @@ A cada funcionario se le asignan **metas/objetivos**; el legajo muestra el progr
 — por meta, por valor de venta, por valor de lucro (de una o varias sucursales o de determinados
 productos), etc. Módulo extenso, a analizar bien. Alimenta el card "Metas y objetivos" (TODO-4).
 
+### TODO-9 — Catálogo configurable de tipos de penalización con monto estipulado — *detectado en T8*
+Hoy `PenalizacionTipo` es un **enum fijo en código** (`TARDANZA`, `AUSENCIA`, `QUEJA_CLIENTE`,
+`AMBIENTE_LABORAL`, `DANIO_MATERIAL`, `COMISION_DESCUENTO`, `OTRO`): no se pueden agregar tipos sin
+desplegar, y **el monto se carga a mano en cada penalización**, sin valor de referencia por tipo.
+
+**Pedido de Gabriel (2026-07-22):** cada tipo de penalización debe tener un **monto estipulado**
+por defecto, y debe poder **crearse tipos nuevos** desde la UI.
+
+Es exactamente el mismo problema que tenía "Novedades" antes de T5, y la solución ya está probada:
+convertirlo en catálogo `rrhh.tipo_penalizacion` con ABM propio, con al menos:
+- `nombre`, `descripcion`, `activo`
+- `montoDefecto` (se precarga al elegir el tipo, editable por caso)
+- `generadoPorSistema` (para proteger `TARDANZA`, que emite el job automático)
+
+Ojo con la migración: `rrhh.penalizacion.tipo` es hoy un `varchar` con el nombre del enum. Mismo
+camino que V164.0: crear el catálogo, sembrar los 7 tipos actuales, agregar `tipo_penalizacion_id`
+y backfillear por nombre. Y **recordar el `DEFAULT nextval` en el id** (ver B13) y que un rename de
+tabla conserva el nombre viejo de la secuencia (ver B7).
+
+Relacionado: los montos de la penalización automática por tardanza hoy viven en config
+(`PENALIZACION_MONTO_TARDANZA`, `PENALIZACION_MONTO_POR_MINUTO_TARDANZA`). Al hacer el catálogo hay
+que decidir si esos parámetros se mueven al tipo TARDANZA o si conviven.
+
 ### TODO-8 — Impacto de cambios de configuración sobre datos dependientes — *detectado en T4*
 Al cambiar un parámetro de RRHH que influye en salarios/cálculos, el sistema debería avisar y
 ofrecer actualizar lo que depende de él. **Distinguir dos tipos de config:**
@@ -370,6 +421,9 @@ automáticamente sin confirmación explícita, siempre auditable (histórico + m
 | B11 | T5 | Desktop | La lista de justificativos no exponía editar, aunque el backend ya hacía update cuando el input traía `id`. | ✅ Agregada la acción de editar (81e95dee) |
 | B12 | TODO-2 | Backend | `motivosValePage` filtraba por `descripcion`, pero la lista **muestra** `nombre`: buscar "QUINCENA" (que vive en `nombre`) no devolvía nada. Filtrar por un campo distinto del que se ve en pantalla es indistinguible de "no hay resultados". | ✅ Arreglado: busca en `nombre` Y `descripcion` |
 | B13 | TODO-8 | Backend/DB | La tabla nueva `configuracion_rrhh_historico` se creó sin `DEFAULT nextval(...)` en `id`; todo INSERT fallaba con *"valor nulo na coluna id"*. El generador del proyecto espera la convención `<tabla>_id_seq` **con el DEFAULT puesto** (igual que `funcionario_documento`). Emparentado con B7. | ✅ Arreglado en la propia V166.0 |
+| B15 | T8 | Desktop UX | El campo "fecha a procesar" de la generación automática vivía suelto entre los filtros con el label cortado ("Fecha a pro…"): parecía un filtro más y no el parámetro de la acción, así que se generaba sobre una fecha sin jornadas y el mensaje decía "generadas: 0" sin explicar nada. | ✅ Movido a un diálogo propio en la acción + mensaje explícito cuando no genera |
+| B16 | T8 | Desktop UX | La lista de Configuración RRHH mostraba la clave técnica (`PENALIZACION_MONTO_POR_MINUTO_TARDANZA`), exponiendo un detalle interno a quien solo quiere editar un parámetro. | ✅ Se muestra legible ("Penalizacion monto por minuto tardanza"); la clave queda en el tooltip para soporte |
+| B17 | T8 | Desktop | Las 13 listas migradas no mostraban tabla ni paginador: el host sin altura definida hacía colapsar a cero el `<div fxFlex>` de `app-generic-list`. | ✅ `:host { display: block; height: 100% }` en las 13 |
 | B14 | TODO-2 | Desktop | El `.scss` de las listas migradas anidaba todo bajo `.xxx-container`, clase que desapareció al pasar la raíz del template a `<app-generic-list>`: los chips de estado quedaban sin color y las tablas sin alinear. Afectaba a las 13 listas. | ✅ Aplanado + `:host` en las 13 |
 
 ## Tests opcionales / diferidos

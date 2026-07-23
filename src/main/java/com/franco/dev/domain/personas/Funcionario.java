@@ -109,4 +109,13 @@ public class Funcionario implements Identifiable<Long> {
 
         @Column(name = "cuenta_bancaria")
         private String cuentaBancaria;
+
+        @Column(name = "fecha_ingreso_ips")
+        private java.time.LocalDate fechaIngresoIps;
+
+        @Column(name = "contacto_emergencia_nombre")
+        private String contactoEmergenciaNombre;
+
+        @Column(name = "contacto_emergencia_telefono")
+        private String contactoEmergenciaTelefono;
 }

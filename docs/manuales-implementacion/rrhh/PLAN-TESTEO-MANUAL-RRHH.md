@@ -461,6 +461,13 @@ generar los cambios por la vía normal (creando `funcionario_salario_historico` 
 automáticamente sin confirmación explícita, siempre auditable (histórico + motivo + usuario), y
 **jamás** tocar liquidaciones ya pagadas.
 
+### TODO-11 — Foto de perfil del funcionario: tipo de documento dedicado — *detectado al mover el alta al legajo*
+La foto se guarda como `FuncionarioDocumento` tipo `OTRO` con observación `FOTO_PERFIL` (no hay
+un tipo dedicado en `FuncionarioDocumentoTipo`). Para que se reconozca al reabrir, el operador
+tiene que tipear `FOTO_PERFIL` en la observación al subirla. Pendiente: agregar un valor
+`FOTO_PERFIL` al enum + un botón directo "Cambiar foto" que lo setee solo, y conectar el avatar
+de la cabecera del legajo a esa foto.
+
 ## Registro de bugs encontrados
 
 | # | Test | Tipo | Descripción | Estado |

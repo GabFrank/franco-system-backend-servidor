@@ -22,6 +22,9 @@ type Funcionario {
     valorJornal: Float
     moneda: Moneda
     cuentaBancaria: String
+    fechaIngresoIps: Date
+    contactoEmergenciaNombre: String
+    contactoEmergenciaTelefono: String
 }
 
 input FuncionarioInput {
@@ -39,6 +42,13 @@ input FuncionarioInput {
     usuarioId: Int
     activo: Boolean
     horarioId: Int
+    codigoInterno: String
+    ipsActivo: Boolean
+    numeroIps: String
+    fechaIngresoIps: String
+    cuentaBancaria: String
+    contactoEmergenciaNombre: String
+    contactoEmergenciaTelefono: String
 }
 
 type FuncionarioPage {

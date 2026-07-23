@@ -60,6 +60,7 @@ public class ReciboLiquidacionService {
         params.put("funcionario", nombreFuncionario(liq));
         params.put("cargo", liq.getFuncionario() != null && liq.getFuncionario().getCargo() != null
                 ? liq.getFuncionario().getCargo().getNombre() : null);
+        params.put("documento", documentoFuncionario(liq));
         params.put("periodo", liq.getPeriodo());
         params.put("fecha", LocalDate.now().toString());
         params.put("totalHaberes", formatear(liq.getTotalHaberes()));
@@ -86,6 +87,13 @@ public class ReciboLiquidacionService {
         if (liq.getFuncionario() != null && liq.getFuncionario().getPersona() != null
                 && liq.getFuncionario().getPersona().getNombre() != null) {
             return liq.getFuncionario().getPersona().getNombre();
+        }
+        return "";
+    }
+
+    private String documentoFuncionario(LiquidacionSueldo liq) {
+        if (liq.getFuncionario() != null && liq.getFuncionario().getPersona() != null) {
+            return liq.getFuncionario().getPersona().getDocumento();
         }
         return "";
     }

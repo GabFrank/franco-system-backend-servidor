@@ -3,6 +3,7 @@
 	<parameter name="empresa" class="java.lang.String"/>
 	<parameter name="funcionario" class="java.lang.String"/>
 	<parameter name="cargo" class="java.lang.String"/>
+	<parameter name="documento" class="java.lang.String"/>
 	<parameter name="periodo" class="java.lang.String"/>
 	<parameter name="fecha" class="java.lang.String"/>
 	<parameter name="totalHaberes" class="java.lang.String"/>
@@ -45,8 +46,15 @@
 				<textFieldExpression><![CDATA["Periodo: " + ($P{periodo} != null ? $P{periodo} : "")]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="0" y="66" width="555" height="14" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c06"/>
+				<reportElement x="0" y="66" width="360" height="14" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c06"/>
 				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Documento: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="360" y="66" width="195" height="14" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c15"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="8"/>
 				</textElement>
 				<textFieldExpression><![CDATA["Fecha: " + ($P{fecha} != null ? $P{fecha} : "")]]></textFieldExpression>
@@ -107,7 +115,7 @@
 		</band>
 	</detail>
 	<summary>
-		<band height="80" splitType="Stretch">
+		<band height="190" splitType="Stretch">
 			<line>
 				<reportElement x="0" y="4" width="555" height="1" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c0e"/>
 			</line>
@@ -152,6 +160,33 @@
 					<font fontName="SansSerif" size="10" isBold="true"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$P{totalNeto} != null ? $P{totalNeto} : ""]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="96" width="555" height="24" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c16"/>
+				<textElement textAlignment="Justified" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<text><![CDATA[Recibi de mi empleador la suma neta detallada en concepto de liquidacion del periodo indicado, dando por este acto total y cabal cancelacion, sin nada mas que reclamar.]]></text>
+			</staticText>
+			<line>
+				<reportElement x="40" y="160" width="180" height="1" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c17"/>
+			</line>
+			<staticText>
+				<reportElement x="40" y="162" width="180" height="14" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c18"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<text><![CDATA[Firma del empleador]]></text>
+			</staticText>
+			<line>
+				<reportElement x="335" y="160" width="180" height="1" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c19"/>
+			</line>
+			<textField>
+				<reportElement x="335" y="162" width="180" height="14" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c1a"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Recibi conforme - " + ($P{funcionario} != null ? $P{funcionario} : "")]]></textFieldExpression>
 			</textField>
 		</band>
 	</summary>

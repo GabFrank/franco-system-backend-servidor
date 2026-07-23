@@ -12,7 +12,13 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ReciboLiquidacionItemDto {
-    private String descripcion;
-    private String tipo;
+    /** Categoria del movimiento (SUELDO, ANTICIPOS, IPS, BONUS, ...). */
+    private String operacion;
+    /** ENTRADA (haber) o SALIDA (descuento). */
+    private String tipoMovimiento;
+    /** Detalle libre. */
+    private String observacion;
+    /** Fecha del movimiento origen (o del periodo si no aplica). */
+    private String fecha;
     private String monto;
 }

@@ -215,7 +215,7 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 ## FASE 6 — Liquidación
 
-### ⬜ T14 — Liquidación de sueldo (el test integrador)
+### ✅ T14 — Liquidación de sueldo (el test integrador)
 - **Objetivo:** generar borrador que arrastre TODOS los ítems de ESTEBAN del período (salario,
   IPS, HE, penalización, bono, vale, cuota de préstamo, aguinaldo), aprobar, pagar (efectos
   cruzados + egreso de Caja) e imprimir el recibo PDF.
@@ -226,6 +226,16 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 - **Verificación (DB):** ítems correctos; al pagar: Caja EGRESO por el neto, vale → DESCONTADO,
   cuota → PAGADA/incrementada, bono/aguinaldo con `liquidacion_id`. (Ya no se escribe
   `MovimientoPersonas`, ver TODO-10.)
+- **Resultado:** OK, test integrador completo. Liquidación #11 de ESTEBAN, período 2026-07:
+  9 ítems (5 haberes: salario 3.500.000, HE 43.750, bono 200.000, 2 ventas de vacaciones
+  233.333,34 + 350.000,01; 4 descuentos: IPS 315.000, penalización 80.000, justificativos
+  175.000,01, adelanto 400.000). **Neto 3.357.083,34**, calculado a mano de antemano y verificado
+  al centavo. Al pagar se dispararon los 5 efectos cruzados en una transacción: liquidación →
+  PAGADA, Caja Mayor 48.942.000 → 45.584.916,66 (EGRESO encadenado), vale #4 → DESCONTADO,
+  ventas de vacaciones #1/#6 → PAGADO, bono #2 ligado. Ninguna cuota de préstamo (venc. sep/oct,
+  fuera del período) ni aguinaldo (solo en diciembre), como se esperaba.
+- **Extras probados:** generación por lote (3 funcionarios de una, cada uno con su neto correcto;
+  IGOR con vale + cuota vencida), alta/eliminación de ítem manual con recálculo de totales.
 
 ### ⬜ T15 — Liquidación final / finiquito (sujeto: WILIAN #100)
 - **Objetivo:** generar finiquito (antigüedad, indemnización, vacaciones no gozadas, aguinaldo

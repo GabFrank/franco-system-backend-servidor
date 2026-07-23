@@ -159,3 +159,226 @@ Iniciando sistema
 2026-07-23 11:13:00.733  INFO 35761 --- [0.0-8081-exec-1] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoint(s) beneath base path '/actuator'
 2026-07-23 11:13:00.864  INFO 35761 --- [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 424 ms
 2026-07-23 11:13:00.979  INFO 35761 --- [0.0-8081-exec-2] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@195ccc6d, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@402f9496, org.springframework.security.web.context.SecurityContextPersistenceFilter@1b65d656, org.springframework.security.web.header.HeaderWriterFilter@3d1e096, org.springframework.web.filter.CorsFilter@640a43f8, org.springframework.security.web.authentication.logout.LogoutFilter@1f241f5c, com.franco.dev.security.JwtAuthenticationTokenFilter@12162991, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@4cda19a2, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@5d0227c8, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@615f5893, org.springframework.security.web.session.SessionManagementFilter@40ceb269, org.springframework.security.web.access.ExceptionTranslationFilter@4ae9c56c, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@678fddd]
+2026-07-23 11:13:58.315  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 11:13:59.776  INFO 35761 --- [MessageBroker-4] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 11:13:59.875  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 11:23:59.885  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 11:24:01.280  INFO 35761 --- [MessageBroker-3] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 11:24:01.290  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 11:34:01.299  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 11:34:02.668  INFO 35761 --- [MessageBroker-4] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 11:34:02.677  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 11:44:02.695  INFO 35761 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 11:44:04.089  INFO 35761 --- [MessageBroker-2] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 11:44:04.125  INFO 35761 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 11:54:04.132  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 11:54:05.527  INFO 35761 --- [MessageBroker-3] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 11:54:05.539  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+2026-07-23 11:54:59.669  WARN 35761 --- [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Retrograde clock change detected (housekeeper delta=29s849ms), soft-evicting connections from pool.
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 12:04:05.381  INFO 35761 --- [MessageBroker-1] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 12:04:06.978  INFO 35761 --- [MessageBroker-1] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 12:04:07.132  INFO 35761 --- [MessageBroker-1] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 12:14:07.118  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 12:14:08.927  INFO 35761 --- [MessageBroker-3] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 12:14:08.938  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 12:24:08.929  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 12:24:10.274  INFO 35761 --- [MessageBroker-3] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 12:24:10.282  INFO 35761 --- [MessageBroker-3] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 12:34:10.269  INFO 35761 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 12:34:11.649  INFO 35761 --- [MessageBroker-2] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 12:34:11.674  INFO 35761 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 12:44:11.661  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 12:44:12.999  INFO 35761 --- [MessageBroker-4] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 12:44:13.007  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 12:54:13.061  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 12:54:14.508  INFO 35761 --- [MessageBroker-4] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 12:54:14.520  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-23 13:04:14.510  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-23 13:04:15.889  INFO 35761 --- [MessageBroker-4] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-23 13:04:15.896  INFO 35761 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication

@@ -168,7 +168,7 @@
 			<textField isStretchWithOverflow="true">
 				<reportElement x="0" y="86" width="555" height="30" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c1d"/>
 				<textElement textAlignment="Justified" verticalAlignment="Top"><font fontName="SansSerif" size="8"/></textElement>
-				<textFieldExpression><![CDATA["EN LA CIUDAD DE " + ($P{ciudad} != null ? $P{ciudad} : "") + ", RECIBI DE " + ($P{empresa} != null ? $P{empresa} : "") + " LA SUMA DE: " + ($P{totalNeto} != null ? $P{totalNeto} : "") + " (" + ($P{montoEnLetras} != null ? $P{montoEnLetras} : "") + ") POR CONCEPTO DE PAGO DE SUELDO CORRESPONDIENTE AL PERIODO " + ($P{periodo} != null ? $P{periodo} : "") + "."]]></textFieldExpression>
+				<textFieldExpression><![CDATA["EN LA CIUDAD DE " + ($P{ciudad} != null ? $P{ciudad} : "") + ", RECIBI DE " + ($P{empresa} != null ? $P{empresa} : "") + " LA SUMA DE: " + ($P{totalNeto} != null ? $P{totalNeto} : "") + " (" + ($P{montoEnLetras} != null ? $P{montoEnLetras} : "") + ") POR CONCEPTO DE PAGO DE SUELDO, BONOS, COMISIONES Y OTROS EXTRAS CORRESPONDIENTE AL PERIODO " + ($P{periodo} != null ? $P{periodo} : "") + ", DANDO POR ESTE ACTO TOTAL Y CABAL CANCELACION."]]></textFieldExpression>
 			</textField>
 			<line>
 				<reportElement x="150" y="170" width="255" height="1" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c1e"/>

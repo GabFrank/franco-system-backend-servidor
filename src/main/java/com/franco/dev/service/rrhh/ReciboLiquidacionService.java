@@ -163,7 +163,12 @@ public class ReciboLiquidacionService {
                     break;
             }
         }
-        if (f == null) f = liq.getFechaFin();
+        // Concepto calculado (sueldo, IPS, HE): no ocurre un dia puntual. Si la
+        // liquidacion ya se pago, la fecha significativa es la del desembolso; si
+        // todavia no, el fin del periodo (no inventamos una fecha de pago inexistente).
+        if (f == null) {
+            f = liq.getFechaPago() != null ? liq.getFechaPago().toLocalDate() : liq.getFechaFin();
+        }
         return f != null ? f.format(DDMMYYYY) : "";
     }
 

@@ -70,6 +70,12 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             e.setUsuario(service.findById(input.getUsuarioId()).orElse(null));
         if (input.getPersonaId() != null)
             e.setPersona(personaService.findById(input.getPersonaId()).orElse(null));
+        if (input.getActivo() == null) {
+            // caller no envió 'activo': preservar el valor actual (o true si es nuevo)
+            e.setActivo(input.getId() != null
+                    ? service.findById(input.getId()).map(Usuario::getActivo).orElse(true)
+                    : true);
+        }
         e = service.save(e);
         return e;
     }

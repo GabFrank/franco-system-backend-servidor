@@ -483,9 +483,30 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     /** Genera borradores para todos los funcionarios activos en un periodo. */
     @Transactional
     public int generarMes(String periodo, Long monedaId) {
+        return generarLote(null, periodo, monedaId);
+    }
+
+    /**
+     * Genera (o regenera) borradores del periodo. Si funcionarioIds es null o vacio,
+     * corre para todos los activos; si no, solo para los indicados. Los que ya estan
+     * APROBADA/PAGADA se saltean en silencio (generarBorrador tira, se ignora).
+     */
+    @Transactional
+    public int generarLote(List<Long> funcionarioIds, String periodo, Long monedaId) {
+        List<Funcionario> objetivo;
+        if (funcionarioIds == null || funcionarioIds.isEmpty()) {
+            objetivo = new ArrayList<>();
+            for (Funcionario f : funcionarioService.findAll2()) {
+                if (Boolean.TRUE.equals(f.getActivo())) objetivo.add(f);
+            }
+        } else {
+            objetivo = new ArrayList<>();
+            for (Long id : funcionarioIds) {
+                funcionarioService.findById(id).ifPresent(objetivo::add);
+            }
+        }
         int n = 0;
-        for (Funcionario f : funcionarioService.findAll2()) {
-            if (!Boolean.TRUE.equals(f.getActivo())) continue;
+        for (Funcionario f : objetivo) {
             try {
                 generarBorrador(f.getId(), periodo, monedaId);
                 n++;

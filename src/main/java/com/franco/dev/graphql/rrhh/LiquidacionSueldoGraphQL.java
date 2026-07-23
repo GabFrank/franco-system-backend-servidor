@@ -83,4 +83,12 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     public Integer generarLiquidacionesMes(String periodo, Long monedaId) {
         return service.generarMes(periodo, monedaId);
     }
+
+    /** Genera borradores para una lista de funcionarios (vacia/null = todos los activos). */
+    public Integer generarLiquidacionesLote(List<Integer> funcionarioIds, String periodo, Long monedaId) {
+        // [Int] de GraphQL llega como List<Integer>; kickstart no convierte los elementos.
+        List<Long> ids = funcionarioIds == null ? null
+                : funcionarioIds.stream().map(Integer::longValue).collect(java.util.stream.Collectors.toList());
+        return service.generarLote(ids, periodo, monedaId);
+    }
 }

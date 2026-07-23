@@ -193,7 +193,7 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
   prescrita del año 1.
 - **Bugs corregidos durante la prueba:** B18 y B19 (ver registro).
 
-### ⬜ T12 — Aguinaldo
+### ✅ T12 — Aguinaldo
 - **Objetivo:** calcular aguinaldos del año y aprobar.
 - **Datos previos:** funcionarios con fecha_ingreso ✅.
 - **Pasos UI:** `R.R.H.H.` → `Aguinaldos` → calcular año 2026 → localizar el de ESTEBAN → aprobar.
@@ -204,7 +204,7 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 - **Pendiente (issue #161):** la base de cálculo usa el sueldo base actual; por ley debería ser
   1/12 de la remuneración total percibida (incluye HE, bonos, comisiones y aumentos del año).
 
-### ⬜ T13 — Bonos
+### ✅ T13 — Bonos
 - **Objetivo:** crear un bono.
 - **Datos previos:** ESTEBAN existe.
 - **Pasos UI:** `R.R.H.H.` → `Bonos` → `Nuevo` → funcionario ESTEBAN, tipo DESEMPENIO,

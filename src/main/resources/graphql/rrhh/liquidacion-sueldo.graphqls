@@ -72,4 +72,5 @@ extend type Mutation {
     pagarLiquidacion(id: ID!, cajaVirtualId: ID!): LiquidacionSueldo
     anularLiquidacion(id: ID!): LiquidacionSueldo
     generarLiquidacionesMes(periodo: String!, monedaId: ID): Int
+    generarLiquidacionesLote(funcionarioIds: [Int], periodo: String!, monedaId: ID): Int
 }

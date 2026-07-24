@@ -578,25 +578,24 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
      */
     public List<RankingInflacionItem> obtenerRankingInflacionCosto(LocalDateTime inicio, LocalDateTime fin,
             Long sucursalId, Long familiaId, Integer limit, String orden) {
+        // El costo se registra de forma global (no por sucursal) en productos.costo_por_producto,
+        // por eso sucursalId no se usa. El precio se normaliza a guaranies con la cotizacion.
         StringBuilder filtros = new StringBuilder();
-        if (inicio != null) filtros.append("AND COALESCE(c.fecha, c.creado_en) >= :inicio ");
-        if (fin != null) filtros.append("AND COALESCE(c.fecha, c.creado_en) < :fin ");
-        if (sucursalId != null && sucursalId > 0) filtros.append("AND c.sucursal_id = :sucursalId ");
+        if (inicio != null) filtros.append("AND cpp.creado_en >= :inicio ");
+        if (fin != null) filtros.append("AND cpp.creado_en < :fin ");
         if (familiaId != null && familiaId > 0) filtros.append("AND sf.familia_id = :familiaId ");
 
         String sql = "WITH costos_mes AS ( " +
-                "  SELECT ci.producto_id AS producto_id, p.descripcion AS descripcion, " +
-                "         TO_CHAR(COALESCE(c.fecha, c.creado_en), 'YYYY-MM') AS periodo, " +
-                "         SUM(ci.precio_unitario * ci.cantidad) / NULLIF(SUM(ci.cantidad), 0) AS costo, " +
-                "         COUNT(DISTINCT c.id) AS compras " +
-                "  FROM operaciones.compra_item ci " +
-                "  JOIN operaciones.compra c ON c.id = ci.compra_id " +
-                "  JOIN productos.producto p ON p.id = ci.producto_id " +
+                "  SELECT cpp.producto_id AS producto_id, p.descripcion AS descripcion, " +
+                "         TO_CHAR(cpp.creado_en, 'YYYY-MM') AS periodo, " +
+                "         AVG(cpp.ultimo_precio_compra * COALESCE(NULLIF(cpp.cotizacion, 0), 1)) AS costo, " +
+                "         COUNT(*) AS compras " +
+                "  FROM productos.costo_por_producto cpp " +
+                "  JOIN productos.producto p ON p.id = cpp.producto_id " +
                 "  LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id " +
-                "  WHERE c.estado = 'ACTIVO' AND ci.precio_unitario > 0 " +
-                "    AND (ci.bonificacion IS NULL OR ci.bonificacion = false) " +
+                "  WHERE cpp.ultimo_precio_compra > 0 " +
                 filtros.toString() +
-                "  GROUP BY ci.producto_id, p.descripcion, TO_CHAR(COALESCE(c.fecha, c.creado_en), 'YYYY-MM') " +
+                "  GROUP BY cpp.producto_id, p.descripcion, TO_CHAR(cpp.creado_en, 'YYYY-MM') " +
                 "), ranked AS ( " +
                 "  SELECT producto_id, descripcion, costo, compras, " +
                 "         ROW_NUMBER() OVER (PARTITION BY producto_id ORDER BY periodo ASC) AS rn_asc, " +
@@ -613,7 +612,6 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
         javax.persistence.Query query = em.createNativeQuery(sql);
         if (inicio != null) query.setParameter("inicio", inicio);
         if (fin != null) query.setParameter("fin", fin);
-        if (sucursalId != null && sucursalId > 0) query.setParameter("sucursalId", sucursalId);
         if (familiaId != null && familiaId > 0) query.setParameter("familiaId", familiaId);
 
         @SuppressWarnings("unchecked")

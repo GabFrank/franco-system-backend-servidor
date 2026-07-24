@@ -14,6 +14,7 @@ import com.franco.dev.graphql.operaciones.dto.ProductoVendidoEstadistica;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.GastoService;
 import com.franco.dev.service.operaciones.CobroDetalleService;
+import com.franco.dev.service.operaciones.DeliveryService;
 import com.franco.dev.service.operaciones.VentaItemService;
 import com.franco.dev.service.operaciones.VentaService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class GraficoAggregationService {
     private final VentaItemService ventaItemService;
     private final GastoService gastoService;
     private final SucursalService sucursalService;
+    private final DeliveryService deliveryService;
 
     public List<VentaPorFuncionario> ventasPorFuncionarioMulti(
             List<PeriodoGraficoInput> periodos,
@@ -130,6 +132,23 @@ public class GraficoAggregationService {
         for (PeriodoGraficoInput periodo : periodos) {
             Integer anio = extraerAnho(periodo.getInicio());
             List<VentaPorSucursal> items = ventaService.ventaPorSucursal(
+                    periodo.getInicio(),
+                    periodo.getFin());
+            acumularVentasPorSucursal(mapa, items, periodo.getEtiqueta(), multiPeriodo, anio);
+        }
+
+        return ordenarVentasPorSucursalDesc(mapa.values());
+    }
+
+    public List<VentaPorSucursal> deliveryPorSucursalMulti(List<PeriodoGraficoInput> periodos) {
+        validarPeriodos(periodos);
+        boolean multiPeriodo = esMultiPeriodo(periodos);
+
+        Map<String, VentaPorSucursal> mapa = new LinkedHashMap<>();
+
+        for (PeriodoGraficoInput periodo : periodos) {
+            Integer anio = extraerAnho(periodo.getInicio());
+            List<VentaPorSucursal> items = deliveryService.deliveryPorSucursal(
                     periodo.getInicio(),
                     periodo.getFin());
             acumularVentasPorSucursal(mapa, items, periodo.getEtiqueta(), multiPeriodo, anio);

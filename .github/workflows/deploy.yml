@@ -147,18 +147,16 @@ jobs:
               | jq -r '.assets[] | select(.name == "frc-central-server.jar") | .url')"
           ls -lh frc-central-server.jar
 
-      # Alpha corre en una PC sin IP publica: el runner se une a la red
-      # headscale (VPN) para poder alcanzarla via su IP 100.64.x.x.
-      # Requiere el secret HEADSCALE_AUTHKEY (preauth key reusable+ephemeral)
-      # en el environment alpha. Beta/produccion siguen siendo alcanzables
-      # por IP publica y no pasan por este paso.
-      - name: Connect to headscale (alpha only)
-        if: inputs.instance == 'alpha'
+      # Alpha corre en un host sin IP publica (nodo tailnet 100.64.0.2): el
+      # runner se une al tailnet (headscale) antes del SSH. TS_AUTHKEY es un
+      # secret de repo (preauth key reusable+ephemeral). beta/farmacia/bodega
+      # no se afectan: su DEPLOY_HOST sigue siendo el de repo (IP publica).
+      - name: Connect to tailnet (headscale)
         uses: tailscale/github-action@v3
         with:
-          authkey: ${{ secrets.HEADSCALE_AUTHKEY }}
-          hostname: gh-deploy-runner
-          args: --login-server=https://hs.farmaciafrancopy.com --accept-dns=false
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          args: --login-server=https://hs.farmaciafrancopy.com --accept-routes
+          version: latest
 
       - name: Setup SSH
         run: |

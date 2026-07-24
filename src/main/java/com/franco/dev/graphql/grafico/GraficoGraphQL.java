@@ -50,6 +50,10 @@ public class GraficoGraphQL implements GraphQLQueryResolver {
         return graficoAggregationService.ventasPorSucursalMulti(periodos);
     }
 
+    public List<VentaPorSucursal> deliveryPorSucursalMulti(List<PeriodoGraficoInput> periodos) {
+        return graficoAggregationService.deliveryPorSucursalMulti(periodos);
+    }
+
     public List<VentaPorCiudad> ventasPorCiudadMulti(List<PeriodoGraficoInput> periodos) {
         return graficoAggregationService.ventasPorCiudadMulti(periodos);
     }

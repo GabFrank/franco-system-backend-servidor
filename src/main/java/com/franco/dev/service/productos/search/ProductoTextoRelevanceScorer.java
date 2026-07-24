@@ -7,20 +7,30 @@ import java.util.Locale;
 
 /**
  * Puntúa coincidencias texto/descripción para ordenar resultados del buscador.
- * Prioriza prefijos al inicio, luego prefijos por palabra, subcadenas y por último fuzzy.
+ * Prioriza prefijos al inicio, luego prefijos por palabra, subcadenas y por último
+ * coincidencias aproximadas.
+ *
+ * <p>El tier aproximado se gradúa por distancia de edición real en vez de usar un
+ * puntaje plano: la pasada tolerante del buscador puede traer muchos candidatos
+ * flojos, y sin graduar quedarían todos empatados y ordenados por id, escondiendo
+ * el producto correcto entre ellos.
  */
 public final class ProductoTextoRelevanceScorer {
 
     private static final int SCORE_INICIO_DESCRIPCION = 10_000;
     private static final int SCORE_PALABRA_PREFIJO = 8_000;
     private static final int SCORE_CONTIENE = 6_000;
-    private static final int SCORE_FUZZY_PALABRA = 2_000;
+    private static final int SCORE_APROXIMADO = 4_000;
     private static final int SCORE_LUCENE_DEBIL = 100;
     private static final int SCORE_BASE_MULTI_TOKEN = 5_000;
+    private static final int SCORE_PARCIAL_MULTI_TOKEN = 3_000;
     private static final int BONUS_ORDEN_PALABRAS = 1_000;
     private static final int PUNTOS_PALABRA_PREFIJO = 1_000;
     private static final int PUNTOS_CONTIENE = 500;
-    private static final int PUNTOS_FUZZY = 200;
+    private static final int PUNTOS_APROXIMADO = 300;
+    private static final int PENALIZACION_EDICION = 400;
+    private static final int PENALIZACION_EDICION_TOKEN = 60;
+    private static final int PENALIZACION_TOKEN_SIN_MATCH = 600;
 
     private ProductoTextoRelevanceScorer() {
     }
@@ -50,10 +60,12 @@ public final class ProductoTextoRelevanceScorer {
     }
 
     static int distanciaFuzzyMaxima(int longitudToken) {
-        if (longitudToken < 5) {
+        // Con menos de 3 caracteres una edicion cambia demasiado el token
+        // ("co" -> "ca"/"lo"/"do") y el resultado es ruido puro.
+        if (longitudToken < 3) {
             return 0;
         }
-        if (longitudToken <= 7) {
+        if (longitudToken < 6) {
             return 1;
         }
         return 2;
@@ -70,13 +82,25 @@ public final class ProductoTextoRelevanceScorer {
         }
 
         int score = SCORE_BASE_MULTI_TOKEN;
+        int sinMatch = 0;
         for (String token : tokens) {
             int tokenScore = puntuarTokenIndividual(texto, token);
             if (tokenScore <= 0) {
-                return SCORE_LUCENE_DEBIL;
+                sinMatch++;
+            } else {
+                score += tokenScore;
             }
-            score += tokenScore;
         }
+
+        if (sinMatch > 0) {
+            // Coincidencia parcial: siempre por debajo de cualquier match completo,
+            // pero ordenada por cuantas palabras si pegaron y que tan bien.
+            int parcial = SCORE_PARCIAL_MULTI_TOKEN
+                    - sinMatch * PENALIZACION_TOKEN_SIN_MATCH
+                    + (score - SCORE_BASE_MULTI_TOKEN) / 10;
+            return Math.max(SCORE_LUCENE_DEBIL, parcial);
+        }
+
         if (aparecenEnOrden(texto, tokens)) {
             score += BONUS_ORDEN_PALABRAS;
         }
@@ -95,8 +119,9 @@ public final class ProductoTextoRelevanceScorer {
         if (indice >= 0) {
             return SCORE_CONTIENE - Math.min(indice, 999);
         }
-        if (coincidenciaFuzzyEnPalabra(texto, token)) {
-            return SCORE_FUZZY_PALABRA;
+        int distancia = distanciaMinimaPorPalabra(texto, token);
+        if (esDistanciaSignificativa(distancia, token)) {
+            return Math.max(SCORE_LUCENE_DEBIL + 1, SCORE_APROXIMADO - distancia * PENALIZACION_EDICION);
         }
         return SCORE_LUCENE_DEBIL;
     }
@@ -108,10 +133,33 @@ public final class ProductoTextoRelevanceScorer {
         if (texto.contains(token)) {
             return PUNTOS_CONTIENE;
         }
-        if (coincidenciaFuzzyEnPalabra(texto, token)) {
-            return PUNTOS_FUZZY;
+        int distancia = distanciaMinimaPorPalabra(texto, token);
+        if (esDistanciaSignificativa(distancia, token)) {
+            return Math.max(1, PUNTOS_APROXIMADO - distancia * PENALIZACION_EDICION_TOKEN);
         }
         return 0;
+    }
+
+    /**
+     * Descarta distancias que no aportan senal: si hacen falta tantas ediciones
+     * como letras tiene lo tipeado, la coincidencia es casualidad.
+     */
+    private static boolean esDistanciaSignificativa(int distancia, String token) {
+        return distancia >= 0 && distancia < token.length();
+    }
+
+    private static int distanciaMinimaPorPalabra(String texto, String token) {
+        int mejor = -1;
+        for (String palabra : texto.split("\\s+")) {
+            if (palabra.isEmpty()) {
+                continue;
+            }
+            int distancia = distanciaLevenshtein(palabra, token);
+            if (mejor < 0 || distancia < mejor) {
+                mejor = distancia;
+            }
+        }
+        return mejor;
     }
 
     private static boolean palabraEmpiezaCon(String texto, String prefijo) {
@@ -127,19 +175,6 @@ public final class ProductoTextoRelevanceScorer {
             posicion += palabra.length() + 1;
         }
         return -1;
-    }
-
-    private static boolean coincidenciaFuzzyEnPalabra(String texto, String token) {
-        int maxEdits = distanciaFuzzyMaxima(token.length());
-        if (maxEdits == 0) {
-            return false;
-        }
-        for (String palabra : texto.split("\\s+")) {
-            if (distanciaLevenshtein(palabra, token) <= maxEdits) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static boolean aparecenEnOrden(String texto, String[] tokens) {

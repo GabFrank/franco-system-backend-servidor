@@ -356,7 +356,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Page<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,
-            TransferenciaEstado estado, TipoTransferencia tipo,
+            TransferenciaEstado estado, List<TransferenciaEstado> estados, TipoTransferencia tipo,
             EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
             String creadoDesde, String creadoHasta, Integer page, Integer size) {
         if (page == null)
@@ -364,7 +364,14 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (size == null)
             size = 20;
         Pageable pageable = PageRequest.of(page, size);
-        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino,
+        // `estado` (singular) se mantiene por compatibilidad con clientes viejos: si
+        // viene, se suma a la lista de estados a filtrar.
+        List<TransferenciaEstado> estadoList = new ArrayList<>();
+        if (estados != null)
+            estadoList.addAll(estados);
+        if (estado != null && !estadoList.contains(estado))
+            estadoList.add(estado);
+        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estadoList, tipo, etapa, isOrigen, isDestino,
                 stringToDate(creadoDesde), stringToDate(creadoHasta), pageable);
     }
 

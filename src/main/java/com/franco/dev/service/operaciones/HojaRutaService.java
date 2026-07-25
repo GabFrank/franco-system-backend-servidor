@@ -33,7 +33,7 @@ public class HojaRutaService extends CrudService<HojaRuta, HojaRutaRepository, L
     }
 
     public Optional<HojaRuta> findActivaByVehiculoId(Long vehiculoId) {
-        return repository.findActivaByVehiculoId(vehiculoId);
+        return repository.findActivasByVehiculoId(vehiculoId).stream().findFirst();
     }
 
     public Page<HojaRuta> findHojasRutaConEntregas(Pageable pageable) {

@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -65,20 +66,44 @@ public class HojaRutaGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public HojaRuta saveHojaRuta(HojaRutaInput input) {
         ModelMapper m = new ModelMapper();
         HojaRuta e = m.map(input, HojaRuta.class);
+        // La entidad se persiste con merge: los campos ausentes en el input se guardarian
+        // como null. En edicion se cargan los valores actuales para preservarlos, ya que
+        // @PrePersist (que asigna estado y creadoEn) solo corre en el alta.
+        HojaRuta hojaRutaActual = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+
         if (input.getVehiculoId() != null) {
             e.setVehiculo(vehiculoService.findById(input.getVehiculoId()).orElse(null));
+        } else if (hojaRutaActual != null) {
+            e.setVehiculo(hojaRutaActual.getVehiculo());
         }
         if (input.getChoferId() != null) {
             e.setChofer(personaService.findById(input.getChoferId()).orElse(null));
+        } else if (hojaRutaActual != null) {
+            e.setChofer(hojaRutaActual.getChofer());
         }
         if (input.getFechaSalida() != null)
             e.setFechaSalida(stringToDate(input.getFechaSalida()));
+        else if (hojaRutaActual != null)
+            e.setFechaSalida(hojaRutaActual.getFechaSalida());
         if (input.getFechaLlegada() != null)
             e.setFechaLlegada(stringToDate(input.getFechaLlegada()));
+        else if (hojaRutaActual != null)
+            e.setFechaLlegada(hojaRutaActual.getFechaLlegada());
+
+        if (hojaRutaActual != null) {
+            if (input.getEstado() == null)
+                e.setEstado(hojaRutaActual.getEstado());
+            if (input.getKmSalida() == null)
+                e.setKmSalida(hojaRutaActual.getKmSalida());
+            if (input.getKmLlegada() == null)
+                e.setKmLlegada(hojaRutaActual.getKmLlegada());
+            e.setCreadoEn(hojaRutaActual.getCreadoEn());
+        }
 
         if (input.getAcompanantesIds() != null && !input.getAcompanantesIds().isEmpty()) {
             List<Persona> acompanantes = input.getAcompanantesIds().stream()
                     .map(id -> personaService.findById(id).orElse(null))
+                    .filter(Objects::nonNull)
                     .collect(Collectors.toList());
             e.setAcompanantes(acompanantes);
         } else {

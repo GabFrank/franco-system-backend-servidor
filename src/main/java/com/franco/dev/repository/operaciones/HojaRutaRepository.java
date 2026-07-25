@@ -23,8 +23,10 @@ public interface HojaRutaRepository extends HelperRepository<HojaRuta, Long> {
 
     Page<HojaRuta> findByChoferId(Long choferId, Pageable pageable);
 
-    @Query("SELECT h FROM HojaRuta h WHERE h.vehiculo.id = :vehiculoId AND h.estado = 'EN_RUTA'")
-    Optional<HojaRuta> findActivaByVehiculoId(Long vehiculoId);
+    // Devuelve lista y no Optional: un vehiculo puede acumular varias hojas en estado
+    // EN_RUTA y un Optional lanzaria NonUniqueResultException. El service toma la mas reciente.
+    @Query("SELECT h FROM HojaRuta h WHERE h.vehiculo.id = :vehiculoId AND h.estado = 'EN_RUTA' ORDER BY h.id DESC")
+    List<HojaRuta> findActivasByVehiculoId(Long vehiculoId);
 
     @Query("SELECT h FROM HojaRuta h WHERE h.chofer IS NOT NULL ORDER BY h.id DESC")
     Page<HojaRuta> findHojasRutaConEntregas(Pageable pageable);

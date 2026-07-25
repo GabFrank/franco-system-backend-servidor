@@ -58,6 +58,19 @@ public class TransferenciaService extends CrudService<Transferencia, Transferenc
                 creadoDesde, creadoHasta, pageable);
     }
 
+    public Page<Transferencia> findByFilter(Long sucursalOrigenId, Long sucursalDestinoId,
+            List<TransferenciaEstado> estados,
+            TipoTransferencia tipo, EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
+            LocalDateTime creadoDesde,
+            LocalDateTime creadoHasta, Pageable pageable) {
+        if (estados == null || estados.isEmpty()) {
+            return repository.findByFilter(sucursalOrigenId, sucursalDestinoId, null, tipo, etapa, isOrigen, isDestino,
+                    creadoDesde, creadoHasta, pageable);
+        }
+        return repository.findByFilterEstadoIn(sucursalOrigenId, sucursalDestinoId, estados, tipo, etapa, isOrigen,
+                isDestino, creadoDesde, creadoHasta, pageable);
+    }
+
     public List<VencimientoProductoDto> findProductosVencidos(Long sucId, LocalDateTime fechaInicio,
             LocalDateTime fechaFin) {
         return repository.findProductoVencido(sucId, fechaInicio, fechaFin);

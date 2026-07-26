@@ -30,7 +30,6 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -38,12 +37,10 @@ import org.springframework.stereotype.Component;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 @Component
 public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
@@ -120,24 +117,8 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
             Long sucursalId, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
 
-        if (codigo != null && !codigo.trim().isEmpty()) {
-            List<Codigo> foundCondigoList = codigoService.findByCodigo(codigo);
-            if (foundCondigoList != null && foundCondigoList.size() > 0) {
-                if (foundCondigoList.size() == 1) {
-                    Producto foundProducto = foundCondigoList.get(0).getPresentacion().getProducto();
-                    return new PageImpl<>(Arrays.asList(foundProducto), pageable, 1);
-                } else {
-                    List<Producto> foundProductoList = foundCondigoList.stream()
-                            .map(c -> c.getPresentacion().getProducto()).collect(Collectors.toList());
-                    return new PageImpl<>(foundProductoList, pageable, foundProductoList.size());
-                }
-            } else {
-                return new PageImpl<>(new ArrayList<>(), pageable, 0);
-            }
-        }
-
-        return service.findWithFilters(texto, activo, stock, balanza, subfamilia, familia, vencimiento, costoCero, stockFiltro,
-                sucursalId, pageable);
+        return service.findWithFilters(texto, codigo, activo, stock, balanza, subfamilia, familia, vencimiento, costoCero,
+                stockFiltro, sucursalId, pageable);
     }
 
     public List<Producto> productos(int page, int size) {

@@ -23,6 +23,17 @@ input HojaRutaInput {
     acompanantesIds: [Int]
 }
 
+type HojaRutaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [HojaRuta]
+}
+
 extend type Query {
     hojaRuta(id: ID!): HojaRuta
     hojaRutaList(page: Int = 0, size: Int = 10): [HojaRuta]!
@@ -32,6 +43,7 @@ extend type Query {
     hojasRutaConEntregas(page: Int = 0, size: Int = 20): [HojaRuta]!
     transferenciasPorHojaRuta(hojaRutaId: ID!, page: Int = 0, size: Int = 20): [Transferencia]!
     hojaRutaPorFecha(inicio: String, fin: String): [HojaRuta]
+    hojaRutaPorFechaPage(inicio: String, fin: String, texto: String, page: Int = 0, size: Int = 15): HojaRutaPage
 }
 
 extend type Mutation {

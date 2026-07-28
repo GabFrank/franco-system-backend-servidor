@@ -3,6 +3,7 @@ type TerminalPos {
     descripcion: String
     codigo: String
     moneda: Moneda
+    proveedorServicio: ProveedorServicio
     activo: Boolean
     creadoEn: Date
     usuario: Usuario
@@ -25,6 +26,7 @@ input TerminalPosInput {
     codigo: String
     cuentaBancariaId: Int
     monedaId: Int
+    proveedorServicioId: Int
     activo: Boolean
     creadoEn: Date
     usuarioId: Int

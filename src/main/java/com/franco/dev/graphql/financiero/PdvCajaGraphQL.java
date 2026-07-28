@@ -200,7 +200,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
-        if (sucId != null) {
+        // Ruteo a la filial SOLO cuando el caller no especifica impresora (frc-mobile envia
+        // printerName=null y la filial resuelve su propia config). El desktop siempre envia
+        // su printerName local y debe imprimir con esa config, igual que reimprimirVenta.
+        boolean sinImpresora = printerName == null || printerName.isBlank();
+        if (sucId != null && sinImpresora) {
             Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
             if (sucursal != null && sucursal.getIp() != null && !sucursal.getIp().isBlank()) {
                 return filialCajaProxyService.imprimirBalanceEnFilial(id, sucId, printerName, local);

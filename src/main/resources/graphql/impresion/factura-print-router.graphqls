@@ -1,0 +1,6 @@
+# "Imprimir en la sucursal" para facturas (aditivo, no reemplaza reimprimirFacturaLegal /
+# descargarPdfFacturaElectronica). Genera el mismo contenido y lo rutea vía PrintRouterService.
+extend type Mutation {
+    imprimirPdfFacturaEnImpresora(facturaId: ID!, sucId: ID!, impresoraId: ID!): Boolean
+    imprimirTicketFacturaEnImpresora(facturaId: ID!, sucId: ID!, impresoraId: ID!): Boolean
+}

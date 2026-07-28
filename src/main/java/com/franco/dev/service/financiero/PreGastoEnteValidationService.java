@@ -14,10 +14,12 @@ import org.springframework.stereotype.Service;
 public class PreGastoEnteValidationService {
 
     private final EnteService enteService;
+    private final TipoGastoModuloReglasService moduloReglasService;
 
     /**
      * Valida y resuelve el ente según el módulo padre del tipo de gasto.
-     * Para VEHICULO, MUEBLE, INMUEBLE y EQUIPO el ente es obligatorio y debe coincidir en tipo.
+     * Para activos (vehículo, mueble, inmueble, equipo) y servicios continuos
+     * vinculados a inmueble (ANDE, agua, etc.) el ente es obligatorio.
      */
     public Ente validarYResolverEnte(TipoGasto tipoGasto, Long enteId) {
         if (tipoGasto == null) {
@@ -28,7 +30,7 @@ public class PreGastoEnteValidationService {
         }
 
         TipoPadreGastoModulo modulo = tipoGasto.getModuloPadre();
-        TipoEnte tipoEnteRequerido = tipoEnteEsperado(modulo);
+        TipoEnte tipoEnteRequerido = moduloReglasService.tipoEnteEsperado(modulo);
 
         if (tipoEnteRequerido == null) {
             if (enteId != null) {
@@ -41,7 +43,7 @@ public class PreGastoEnteValidationService {
 
         if (enteId == null) {
             throw new GraphQLException(
-                    "Debe seleccionar " + etiquetaActivo(tipoEnteRequerido)
+                    "Debe seleccionar " + etiquetaActivo(tipoEnteRequerido, modulo)
                             + " para el tipo de gasto \"" + tipoGasto.getDescripcion() + "\".");
         }
 
@@ -55,31 +57,19 @@ public class PreGastoEnteValidationService {
         if (ente.getTipoEnte() != tipoEnteRequerido) {
             throw new GraphQLException(
                     "El activo seleccionado no corresponde al módulo del tipo de gasto. Se esperaba "
-                            + etiquetaActivo(tipoEnteRequerido) + ".");
+                            + etiquetaActivo(tipoEnteRequerido, modulo) + ".");
         }
 
         return ente;
     }
 
-    private TipoEnte tipoEnteEsperado(TipoPadreGastoModulo modulo) {
-        if (modulo == null) {
-            return null;
+    private String etiquetaActivo(TipoEnte tipo, TipoPadreGastoModulo modulo) {
+        if (modulo == TipoPadreGastoModulo.ANDE) {
+            return "un inmueble (factura ANDE)";
         }
-        switch (modulo) {
-            case VEHICULO:
-                return TipoEnte.VEHICULO;
-            case MUEBLE:
-                return TipoEnte.MUEBLE;
-            case INMUEBLE:
-                return TipoEnte.INMUEBLE;
-            case EQUIPOS:
-                return TipoEnte.EQUIPO;
-            default:
-                return null;
+        if (modulo == TipoPadreGastoModulo.JUNTA_SANEAMIENTO) {
+            return "un inmueble (servicio de agua)";
         }
-    }
-
-    private String etiquetaActivo(TipoEnte tipo) {
         switch (tipo) {
             case VEHICULO:
                 return "un vehículo";

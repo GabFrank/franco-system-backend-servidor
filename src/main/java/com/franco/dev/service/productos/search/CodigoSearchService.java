@@ -2,6 +2,7 @@ package com.franco.dev.service.productos.search;
 
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.repository.productos.CodigoRepository;
+import com.franco.dev.utilitarios.BarcodeSearchUtils;
 import org.hibernate.search.engine.search.query.SearchResult;
 import org.hibernate.search.mapper.orm.Search;
 import org.hibernate.search.mapper.orm.session.SearchSession;
@@ -35,6 +36,60 @@ public class CodigoSearchService {
 
     public CodigoSearchService(CodigoRepository codigoRepository) {
         this.codigoRepository = codigoRepository;
+    }
+
+    /**
+     * Punto único de búsqueda "inteligente" por código de barras, compartido por lista de
+     * productos, transferencias y gestión de compras.
+     *
+     * Encuentra el producto escribiendo el código completo, sin los ceros a la izquierda,
+     * o solo un tramo interno / la terminación. Los resultados vienen ordenados por
+     * calidad de coincidencia (exacto > prefijo > sufijo > infijo).
+     */
+    public List<Long> buscarProductoIdsPorCoincidencia(String texto, int maxResults) {
+        if (texto == null) {
+            return Collections.emptyList();
+        }
+        String base = texto.trim();
+        if (base.length() < MIN_PREFIJO || base.contains(" ")) {
+            return Collections.emptyList();
+        }
+        int limit = maxResults > 0 ? maxResults : 50;
+
+        Set<Long> ids = new LinkedHashSet<>();
+        for (String fragmento : fragmentosDeBusqueda(base)) {
+            if (ids.size() >= limit) {
+                break;
+            }
+            for (Long id : codigoRepository.findProductoIdsByCodigoCoincidencia(fragmento, limit)) {
+                if (id != null) {
+                    ids.add(id);
+                }
+            }
+        }
+        return ids.stream().limit(limit).collect(Collectors.toList());
+    }
+
+    /**
+     * Variantes a probar, de más específica a más amplia: el texto tal cual, los candidatos
+     * derivados del escaneo (pesable, GTIN GS1, token alfanumérico) y el texto sin los ceros
+     * a la izquierda, para que "078470" y "78470" lleguen al mismo producto.
+     */
+    private Set<String> fragmentosDeBusqueda(String base) {
+        Set<String> fragmentos = new LinkedHashSet<>();
+        fragmentos.add(base.toUpperCase());
+
+        for (String candidato : BarcodeSearchUtils.codigosParaBuscar(base)) {
+            if (candidato.length() >= MIN_PREFIJO) {
+                fragmentos.add(candidato.toUpperCase());
+            }
+        }
+
+        String sinCeros = base.replaceFirst("^0+", "");
+        if (sinCeros.length() >= MIN_PREFIJO) {
+            fragmentos.add(sinCeros.toUpperCase());
+        }
+        return fragmentos;
     }
 
     public List<Long> buscarProductoIdsPorPrefijo(String prefijo, int maxResults) {

@@ -55,7 +55,7 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
         if (entity.getDireccion() != null)
             entity.setDireccion(entity.getDireccion().toUpperCase());
         if (entity.getEmail() != null)
-            entity.setEmail(entity.getEmail().toUpperCase());
+            entity.setEmail(entity.getEmail().toLowerCase().trim());
         if (entity.getDocumento().contains("-")) {
             int index = entity.getDocumento().indexOf("-");
             entity.setDocumento(entity.getDocumento().substring(0, index));
@@ -86,7 +86,7 @@ public class PersonaService extends CrudService<Persona, PersonaRepository, Long
         if (entity.getDireccion() != null)
             entity.setDireccion(entity.getDireccion().toUpperCase());
         if (entity.getEmail() != null)
-            entity.setEmail(entity.getEmail().toUpperCase());
+            entity.setEmail(entity.getEmail().toLowerCase().trim());
 
         Persona p = super.save(entity);
         return p;

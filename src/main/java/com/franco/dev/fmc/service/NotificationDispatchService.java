@@ -8,6 +8,7 @@ import com.franco.dev.domain.configuracion.enums.EstadoNotificacion;
 import com.franco.dev.fmc.model.DeliveryResult;
 import com.franco.dev.fmc.model.PushNotificationRequest;
 import com.franco.dev.repository.configuracion.NotificacionEnvioLogRepository;
+import com.franco.dev.repository.configuracion.NotificacionRepository;
 
 import com.franco.dev.service.configuracion.InicioSesionService;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -29,6 +30,7 @@ public class NotificationDispatchService {
     private static final Logger LOGGER = LoggerFactory.getLogger(NotificationDispatchService.class);
 
     private final NotificacionEnvioLogRepository notificacionEnvioLogRepository;
+    private final NotificacionRepository notificacionRepository;
 
     private final FCMService fcmService;
     private final InicioSesionService inicioSesionService;
@@ -44,11 +46,13 @@ public class NotificationDispatchService {
 
     public NotificationDispatchService(
             NotificacionEnvioLogRepository notificacionEnvioLogRepository,
+            NotificacionRepository notificacionRepository,
             FCMService fcmService,
             InicioSesionService inicioSesionService,
             Optional<MeterRegistry> meterRegistry,
             org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
+        this.notificacionRepository = notificacionRepository;
         this.fcmService = fcmService;
         this.inicioSesionService = inicioSesionService;
         this.meterRegistry = meterRegistry;
@@ -82,6 +86,7 @@ public class NotificationDispatchService {
             DeliveryResult result = fcmService.sendToToken(target.getTokenFcm(), request);
             handleResult(target, notificacion, result);
             notificacionEnvioLogRepository.save(target);
+            notificacionRepository.save(notificacion);
         }
     }
 

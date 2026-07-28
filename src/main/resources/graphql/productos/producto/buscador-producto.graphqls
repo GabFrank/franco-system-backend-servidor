@@ -1,6 +1,7 @@
 enum TipoCoincidenciaBuscador {
     CODIGO_EXACTO
     CODIGO_PREFIJO
+    CODIGO_PARCIAL
     TEXTO
     ID
 }

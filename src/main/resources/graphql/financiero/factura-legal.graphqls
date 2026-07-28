@@ -96,7 +96,7 @@ type SaveFacturaLegalToFilialResponse {
 
 extend type Query {
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
-    facturaLegales(page: Int, size: Int, fechaInicio: String, fechaFin: String, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, isElectronico: Boolean, activo: Boolean, sinNombre: Boolean):FacturaLegalPage!
+    facturaLegales(page: Int, size: Int, fechaInicio: String, fechaFin: String, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, isElectronico: Boolean, activo: Boolean, sinNombre: Boolean, ventaId: ID):FacturaLegalPage!
     countFacturaLegal: Int
     facturaLegalByCdc(cdc: String):FacturaLegal
     reimprimirFacturaLegal(id:ID!, sucId:ID!, printerName: String):Boolean

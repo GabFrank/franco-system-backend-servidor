@@ -15,6 +15,7 @@ import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.dto.LucroPorFuncionarioDto;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
+import com.franco.dev.domain.operaciones.dto.ReporteVentaDetalladoDto;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
@@ -141,10 +142,21 @@ public class ImpresionService {
 
     public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent)
             throws GraphQLException {
+        printReport(jasperPrint, filename, printerName, silent, MediaSizeName.ISO_A4);
+    }
+
+    /**
+     * Overload que permite elegir el tamanho de hoja (A4, Carta, etc.) segun el perfil
+     * de papel de la impresora, en vez de fijar siempre A4.
+     * @see com.franco.dev.utilitarios.print.PerfilPapelHelper#mediaSize
+     */
+    public void printReport(JasperPrint jasperPrint, String filename, String printerName, Boolean silent,
+                            MediaSizeName mediaSize)
+            throws GraphQLException {
         if (silent == null)
             silent = false;
         PrintRequestAttributeSet printRequestAttributeSet = new HashPrintRequestAttributeSet();
-        printRequestAttributeSet.add(MediaSizeName.ISO_A4);
+        printRequestAttributeSet.add(mediaSize != null ? mediaSize : MediaSizeName.ISO_A4);
         if (jasperPrint.getOrientationValue() == net.sf.jasperreports.engine.type.OrientationEnum.LANDSCAPE) {
             printRequestAttributeSet.add(OrientationRequested.LANDSCAPE);
         } else {
@@ -1362,6 +1374,79 @@ public class ImpresionService {
         private String turno;
     }
 
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class VentaTarjetaItemDto {
+        private Long id;
+        private Long ventaId;
+        private String terminal;
+        private String codigo;
+        private String sucursal;
+        private java.math.BigDecimal monto;
+        private String montoFormateado;
+        private String montoEscaneado;
+        private String estado;
+        private String creadoEn;
+        private String simboloMoneda;
+    }
+
+    public String imprimirReporteVentaTarjeta(List<com.franco.dev.domain.financiero.VentaTarjeta> ventaTarjetaList,
+            String sucursalFiltro, String terminalFiltro, String estadoFiltro,
+            String fechaDesde, String fechaHasta, Usuario usuario) {
+        try {
+            List<VentaTarjetaItemDto> itemList = new ArrayList<>();
+            for (com.franco.dev.domain.financiero.VentaTarjeta vt : ventaTarjetaList) {
+                VentaTarjetaItemDto dto = new VentaTarjetaItemDto();
+                dto.setId(vt.getId());
+                dto.setVentaId(vt.getVenta() != null ? vt.getVenta().getId() : null);
+                dto.setTerminal(vt.getTerminalPos() != null ? vt.getTerminalPos().getDescripcion() : "");
+                dto.setCodigo(vt.getTerminalPos() != null ? vt.getTerminalPos().getCodigo() : "");
+                dto.setSucursal(vt.getSucursal() != null ? vt.getSucursal().getNombre() : "");
+                dto.setMonto(vt.getMonto());
+                dto.setMontoEscaneado(vt.getMontoEscaneado() != null
+                        ? new java.text.DecimalFormat("#,##0").format(vt.getMontoEscaneado())
+                        : "-");
+                dto.setEstado(vt.getEstado());
+                dto.setCreadoEn(vt.getCreadoEn() != null ? DateUtils.toString(vt.getCreadoEn()) : "");
+                String simbolo = (vt.getTerminalPos() != null && vt.getTerminalPos().getMoneda() != null)
+                        ? vt.getTerminalPos().getMoneda().getSimbolo() : "Gs.";
+                dto.setSimboloMoneda(simbolo);
+                dto.setMontoFormateado(formatMontoPorMoneda(vt.getMonto(), simbolo));
+                itemList.add(dto);
+            }
+            itemList.sort(java.util.Comparator.comparing(VentaTarjetaItemDto::getSimboloMoneda));
+
+            java.util.Map<String, java.math.BigDecimal> totalesPorMoneda = new java.util.LinkedHashMap<>();
+            for (VentaTarjetaItemDto dto : itemList) {
+                totalesPorMoneda.merge(dto.getSimboloMoneda(), dto.getMonto() != null ? dto.getMonto() : java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+            }
+            String totalPorMoneda = "Cantidad de ventas: " + itemList.size() + "\n"
+                    + totalesPorMoneda.entrySet().stream()
+                            .map(e -> "Total " + e.getKey() + ": " + formatMontoPorMoneda(e.getValue(), e.getKey()))
+                            .collect(java.util.stream.Collectors.joining("\n"));
+            JasperReport jasperReport = compileReportFromClasspath("reports/venta-tarjeta.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(itemList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("sucursalFiltro", sucursalFiltro != null ? sucursalFiltro : "Todas");
+            parameters.put("terminalFiltro", terminalFiltro != null ? terminalFiltro : "Todas");
+            parameters.put("estadoFiltro", estadoFiltro != null ? estadoFiltro : "Todos");
+            parameters.put("fechaDesde", fechaDesde != null ? fechaDesde : "");
+            parameters.put("fechaHasta", fechaHasta != null ? fechaHasta : "");
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario",
+                    usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "");
+            parameters.put("totalPorMoneda", totalPorMoneda);
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public String imprimirSolicitudPagoPDF(
             SolicitudPago solicitudPago,
             String proveedorNombre,
@@ -1542,6 +1627,63 @@ public class ImpresionService {
             e.printStackTrace();
             return null;
         } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public String imprimirReporteGenericVentasDetallado(
+            List<ReporteVentaDetalladoDto> itemList,
+            String filtroIdVenta,
+            String filtroFechaInicio,
+            String filtroFechaFin,
+            String filtroSucursal,
+            String filtroFormaPago,
+            String filtroMoneda,
+            String filtroEstado,
+            String filtroCliente,
+            String filtroModo,
+            String filtroConObservacion,
+            String filtroConDescuento,
+            String filtroConAumento,
+            Double totalGeneral,
+            Double totalEfectivo,
+            Double totalTarjeta,
+            Double totalConvenio,
+            Double totalTransferencia,
+            Double totalOtros,
+            Usuario usuario) {
+        try {
+            JasperReport jasperReport = compileReportFromClasspath("reports/reporte-ventas-detallado.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(
+                    itemList != null ? itemList : new ArrayList<>());
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario", usuario != null ? usuario.getNickname() : "");
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+            parameters.put("filtroIdVenta", filtroIdVenta != null ? filtroIdVenta : "");
+            parameters.put("filtroFechaInicio", filtroFechaInicio != null ? filtroFechaInicio : "");
+            parameters.put("filtroFechaFin", filtroFechaFin != null ? filtroFechaFin : "");
+            parameters.put("filtroSucursal", filtroSucursal != null ? filtroSucursal : "");
+            parameters.put("filtroFormaPago", filtroFormaPago != null ? filtroFormaPago : "");
+            parameters.put("filtroMoneda", filtroMoneda != null ? filtroMoneda : "");
+            parameters.put("filtroEstado", filtroEstado != null ? filtroEstado : "");
+            parameters.put("filtroCliente", filtroCliente != null ? filtroCliente : "");
+            parameters.put("filtroModo", filtroModo != null ? filtroModo : "");
+            parameters.put("filtroConObservacion", filtroConObservacion != null ? filtroConObservacion : "");
+            parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
+            parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
+            parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
+            parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
+            parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);
+            parameters.put("totalTransferencia", totalTransferencia != null ? totalTransferencia : 0.0);
+            parameters.put("totalOtros", totalOtros != null ? totalOtros : 0.0);
+            parameters.put("cantidadVentas", itemList != null ? (long) itemList.size() : 0L);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
             e.printStackTrace();
             return null;
         }
@@ -1794,6 +1936,19 @@ public class ImpresionService {
             log.error("Error al generar PDF de pre-gasto: {}", e.getMessage(), e);
             throw new RuntimeException("Error al generar el PDF: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Formatea un monto segun su moneda: guaranies sin decimales (10.000),
+     * el resto (reales, dolares, etc.) con dos decimales y coma decimal (10,00).
+     */
+    private String formatMontoPorMoneda(java.math.BigDecimal monto, String simbolo) {
+        java.math.BigDecimal valor = monto != null ? monto : java.math.BigDecimal.ZERO;
+        boolean esGuarani = simbolo != null
+                && (simbolo.trim().equalsIgnoreCase("Gs") || simbolo.trim().equalsIgnoreCase("Gs."));
+        java.text.DecimalFormatSymbols simbolos = new java.text.DecimalFormatSymbols(java.util.Locale.GERMANY);
+        java.text.DecimalFormat fmt = new java.text.DecimalFormat(esGuarani ? "#,##0" : "#,##0.00", simbolos);
+        return fmt.format(valor);
     }
 
     private String formatMonto(java.math.BigDecimal monto, String simbolo) {

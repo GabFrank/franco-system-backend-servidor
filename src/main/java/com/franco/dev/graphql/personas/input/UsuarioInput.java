@@ -12,4 +12,5 @@ public class UsuarioInput {
     private LocalDateTime creadoEn;
     private Long personaId;
     private Long usuarioId;
+    private Boolean activo;
 }

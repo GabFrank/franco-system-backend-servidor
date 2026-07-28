@@ -63,4 +63,7 @@ public class Sucursal implements Identifiable<Long> {
 
         private Integer puerto;
 
+        @Column(name = "puerto_servidor")
+        private Integer puertoServidor;
+
 }

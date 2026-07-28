@@ -236,6 +236,56 @@ public class PushNotificationController {
                 }
         }
 
+        @PostMapping("/notification/diferencia-maletin/{cajaId}/{sucursalId}/{diferenciaTotalGs}")
+        public ResponseEntity<PushNotificationResponse> sendDiferenciaMaletinNotification(
+                        @PathVariable Long cajaId,
+                        @PathVariable Long sucursalId,
+                        @PathVariable Double diferenciaTotalGs,
+                        @RequestParam(required = false) Double diferenciaGs,
+                        @RequestParam(required = false) Double diferenciaRs,
+                        @RequestParam(required = false) Double diferenciaDs,
+                        @RequestParam(required = false) String maletinDescripcion,
+                        @RequestParam(required = false) String sucursalNombre) {
+                try {
+                        if (diferenciaTotalGs == null || Math.abs(diferenciaTotalGs) <= 20000) {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.BAD_REQUEST.value(),
+                                                "La diferencia no supera el umbral de 20.000 Gs"), HttpStatus.BAD_REQUEST);
+                        }
+
+                        if (sucursalNombre == null || sucursalNombre.isEmpty()) {
+                                Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+                                sucursalNombre = sucursal != null ? sucursal.getNombre() : "";
+                        }
+
+                        List<Usuario> usuariosDestino = notificacionPreferenciaService
+                                        .obtenerUsuariosPorTipoNotificacion("DIFERENCIA_MALETIN");
+                        List<Long> usuariosRelevantes = usuariosDestino.stream()
+                                        .map(Usuario::getId)
+                                        .distinct()
+                                        .collect(Collectors.toList());
+
+                        if (!usuariosRelevantes.isEmpty()) {
+                                PushNotificationRequest request = notificationTemplateService.diferenciaMaletinDetectada(
+                                                cajaId, sucursalId, sucursalNombre, maletinDescripcion,
+                                                diferenciaGs, diferenciaRs, diferenciaDs, diferenciaTotalGs, df);
+                                request.setUsuarioIds(usuariosRelevantes);
+                                pushNotificationService.sendPushNotificationToToken(request);
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.ACCEPTED.value(),
+                                                "Notificación enviada exitosamente"), HttpStatus.ACCEPTED);
+                        } else {
+                                return new ResponseEntity<>(new PushNotificationResponse(HttpStatus.NOT_FOUND.value(),
+                                                "No se encontraron usuarios con roles relevantes"),
+                                                HttpStatus.NOT_FOUND);
+                        }
+
+                } catch (Exception e) {
+                        return new ResponseEntity<>(
+                                        new PushNotificationResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                                                        "Error al enviar notificación: " + e.getMessage()),
+                                        HttpStatus.INTERNAL_SERVER_ERROR);
+                }
+        }
+
         @PostMapping("/notification/venta-transferencia/{ventaId}/{sucursalId}/{valorTotal}")
         public ResponseEntity<PushNotificationResponse> sendVentaTransferenciaNotification(
                         @PathVariable Long ventaId,

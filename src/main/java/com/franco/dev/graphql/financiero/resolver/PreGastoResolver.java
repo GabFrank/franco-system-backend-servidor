@@ -47,18 +47,12 @@ public class PreGastoResolver implements GraphQLResolver<PreGasto> {
         BigDecimal solicitado = preGasto.getMontoSolicitado() != null ? preGasto.getMontoSolicitado() : BigDecimal.ZERO;
         BigDecimal retirado = preGasto.getMontoRetirado() != null ? preGasto.getMontoRetirado() : BigDecimal.ZERO;
         BigDecimal baseRendicion = retirado.compareTo(BigDecimal.ZERO) > 0 ? retirado : solicitado;
-        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
-            return baseRendicion.compareTo(BigDecimal.ZERO) > 0 ? baseRendicion : BigDecimal.ZERO;
-        }
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         BigDecimal pendiente = baseRendicion.subtract(gastado);
         return pendiente.compareTo(BigDecimal.ZERO) > 0 ? pendiente : BigDecimal.ZERO;
     }
 
     public Double porcentajeRendicion(PreGasto preGasto) {
-        if (preGasto.getEstado() == null || !"COMPLETADO".equals(preGasto.getEstado().name())) {
-            return 0d;
-        }
         BigDecimal solicitado = preGasto.getMontoSolicitado() != null ? preGasto.getMontoSolicitado() : BigDecimal.ZERO;
         BigDecimal gastado = preGasto.getMontoGastado() != null ? preGasto.getMontoGastado() : BigDecimal.ZERO;
         if (solicitado.compareTo(BigDecimal.ZERO) <= 0) {

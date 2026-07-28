@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.enums.SituacionPagoEnte;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.graphql.financiero.dto.CuotasDetalleCalculado;
 import com.franco.dev.graphql.financiero.input.CuotaDetalleInput;
 import com.franco.dev.repository.financiero.EnteCuotaRepository;
 import com.franco.dev.service.activos.EnteService;
@@ -92,14 +93,21 @@ public class ActivoFinancieroSyncService {
             return;
         }
 
-        List<EnteCuota> cuotas = buildCuotas(
-                financiero,
+        List<CuotaDetalleInput> detalles = calcularCuotasDetalle(
                 cantidadCuotas,
                 cantidadCuotasPagadas,
-                diaVencimiento,
                 montoTotal,
                 montoYaPagado,
-                cuotasDetalle,
+                cuotasDetalle
+        );
+        BigDecimal montoTotalFinal = resolverMontoTotal(detalles, montoYaPagado, montoTotal, cuotasDetalle);
+        financiero.setMontoTotal(montoTotalFinal);
+        financiero = enteFinancieroService.save(financiero);
+
+        List<EnteCuota> cuotas = buildCuotas(
+                financiero,
+                detalles,
+                diaVencimiento,
                 usuarioId
         );
 
@@ -107,51 +115,74 @@ public class ActivoFinancieroSyncService {
         for (EnteCuota cuota : cuotas) {
             enteCuotaRepository.save(cuota);
         }
-
-        BigDecimal totalCuotas = cuotas.stream()
-                .map(c -> c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (totalCuotas.compareTo(BigDecimal.ZERO) > 0) {
-            financiero.setMontoTotal(totalCuotas);
-            enteFinancieroService.save(financiero);
-        }
     }
 
-    private List<EnteCuota> buildCuotas(
-            EnteFinanciero financiero,
+    public CuotasDetalleCalculado calcularCuotasDetalleCompleto(
             Integer cantidadCuotas,
             Integer cantidadCuotasPagadas,
-            Integer diaVencimiento,
             BigDecimal montoTotal,
             BigDecimal montoYaPagado,
-            List<CuotaDetalleInput> cuotasDetalle,
-            Long usuarioId
+            List<CuotaDetalleInput> cuotasDetalle
+    ) {
+        List<CuotaDetalleInput> cuotas = calcularCuotasDetalle(
+                cantidadCuotas,
+                cantidadCuotasPagadas,
+                montoTotal,
+                montoYaPagado,
+                cuotasDetalle
+        );
+        BigDecimal montoTotalCalculado = resolverMontoTotal(cuotas, montoYaPagado, montoTotal, cuotasDetalle);
+        return new CuotasDetalleCalculado(cuotas, montoTotalCalculado);
+    }
+
+    private BigDecimal resolverMontoTotal(
+            List<CuotaDetalleInput> cuotas,
+            BigDecimal montoYaPagado,
+            BigDecimal montoTotalIngresado,
+            List<CuotaDetalleInput> cuotasDetalle
+    ) {
+        boolean tieneAjusteManual = cuotasDetalle != null && !cuotasDetalle.isEmpty();
+        if (tieneAjusteManual) {
+            return calcularMontoTotalDesdeCuotas(cuotas, montoYaPagado);
+        }
+        return montoTotalIngresado != null ? montoTotalIngresado : BigDecimal.ZERO;
+    }
+
+    private BigDecimal calcularMontoTotalDesdeCuotas(List<CuotaDetalleInput> cuotas, BigDecimal montoYaPagado) {
+        BigDecimal yaPagado = montoYaPagado != null ? montoYaPagado : BigDecimal.ZERO;
+        BigDecimal pendiente = cuotas.stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getPagado()))
+                .map(c -> c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return yaPagado.add(pendiente);
+    }
+
+    public List<CuotaDetalleInput> calcularCuotasDetalle(
+            Integer cantidadCuotas,
+            Integer cantidadCuotasPagadas,
+            BigDecimal montoTotal,
+            BigDecimal montoYaPagado,
+            List<CuotaDetalleInput> cuotasDetalle
     ) {
         int total = cantidadCuotas != null && cantidadCuotas > 0 ? cantidadCuotas : 0;
-        int pagadas = cantidadCuotasPagadas != null ? Math.max(0, cantidadCuotasPagadas) : 0;
-        int dia = diaVencimiento != null && diaVencimiento >= 1 && diaVencimiento <= 31 ? diaVencimiento : 1;
+        int pagadas = cantidadCuotasPagadas != null ? Math.max(0, Math.min(cantidadCuotasPagadas, total)) : 0;
 
         if (total <= 0) {
             return List.of();
         }
 
-        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
-        List<EnteCuota> result = new ArrayList<>();
-
         if (cuotasDetalle != null && !cuotasDetalle.isEmpty()) {
+            List<CuotaDetalleInput> result = new ArrayList<>();
             for (CuotaDetalleInput detalle : cuotasDetalle) {
                 if (detalle.getNumeroCuota() == null) {
                     continue;
                 }
-                EnteCuota cuota = new EnteCuota();
-                cuota.setEnteFinanciero(financiero);
+                CuotaDetalleInput cuota = new CuotaDetalleInput();
                 cuota.setNumeroCuota(detalle.getNumeroCuota());
                 cuota.setMonto(detalle.getMonto());
                 cuota.setPagado(detalle.getPagado() != null
                         ? detalle.getPagado()
                         : detalle.getNumeroCuota() <= pagadas);
-                cuota.setFechaVencimiento(calcularFechaVencimiento(detalle.getNumeroCuota(), dia));
-                cuota.setUsuario(usuario);
                 result.add(cuota);
             }
             return result;
@@ -165,13 +196,41 @@ public class ActivoFinancieroSyncService {
                 ? pendiente.divide(BigDecimal.valueOf(cuotasPendientes), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
+        List<CuotaDetalleInput> result = new ArrayList<>();
         for (int i = 1; i <= total; i++) {
-            EnteCuota cuota = new EnteCuota();
-            cuota.setEnteFinanciero(financiero);
+            CuotaDetalleInput cuota = new CuotaDetalleInput();
             cuota.setNumeroCuota(i);
             cuota.setPagado(i <= pagadas);
             cuota.setMonto(i <= pagadas ? BigDecimal.ZERO : montoPorCuota);
-            cuota.setFechaVencimiento(calcularFechaVencimiento(i, dia));
+            result.add(cuota);
+        }
+        return result;
+    }
+
+    private List<EnteCuota> buildCuotas(
+            EnteFinanciero financiero,
+            List<CuotaDetalleInput> detalles,
+            Integer diaVencimiento,
+            Long usuarioId
+    ) {
+        if (detalles == null || detalles.isEmpty()) {
+            return List.of();
+        }
+
+        int dia = diaVencimiento != null && diaVencimiento >= 1 && diaVencimiento <= 31 ? diaVencimiento : 1;
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        List<EnteCuota> result = new ArrayList<>();
+
+        for (CuotaDetalleInput detalle : detalles) {
+            if (detalle.getNumeroCuota() == null) {
+                continue;
+            }
+            EnteCuota cuota = new EnteCuota();
+            cuota.setEnteFinanciero(financiero);
+            cuota.setNumeroCuota(detalle.getNumeroCuota());
+            cuota.setMonto(detalle.getMonto());
+            cuota.setPagado(detalle.getPagado());
+            cuota.setFechaVencimiento(calcularFechaVencimiento(detalle.getNumeroCuota(), dia));
             cuota.setUsuario(usuario);
             result.add(cuota);
         }

@@ -2,6 +2,7 @@ type TerminalPos {
     id:ID!
     descripcion: String
     codigo: String
+    moneda: Moneda
     activo: Boolean
     creadoEn: Date
     usuario: Usuario
@@ -23,6 +24,7 @@ input TerminalPosInput {
     descripcion: String
     codigo: String
     cuentaBancariaId: Int
+    monedaId: Int
     activo: Boolean
     creadoEn: Date
     usuarioId: Int

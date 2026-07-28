@@ -83,6 +83,8 @@ type Aguinaldo {
     estado: AguinaldoEstado
     fechaPago: String
     liquidacionId: Int
+    cajaVirtualId: Int
+    movimientoCajaVirtualId: Int
     creadoEn: Date
 }
 
@@ -179,6 +181,7 @@ extend type Mutation {
 
     calcularAguinaldosAnio(anio: Int!): Int
     aprobarAguinaldo(id: ID!): Aguinaldo
+    pagarAguinaldo(id: ID!, cajaVirtualId: ID!): Aguinaldo
 
     saveBono(bono: BonoInput!): Bono!
     anularBono(id: ID!): Bono

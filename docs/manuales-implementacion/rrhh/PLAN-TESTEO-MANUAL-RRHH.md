@@ -23,13 +23,14 @@ eventos de ESTEBAN (HE, vale, préstamo, bono, penalización) deben fecharse en 
 Caja Mayor fondeada. Cada prueba indica si necesita datos previos adicionales (Claude los carga
 antes de habilitar la prueba).
 
-Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
+Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual del usuario ·
+✅ OK · ❌ falla · ⏭️ diferida
 
 ---
 
 ## FASE 1 — Catálogos y configuración
 
-### ✅ T1 — Configuración RRHH  *(guardado OK; bugs B1 backend arreglado, B2 UI pendiente)*
+### ✅ T1 — Configuración RRHH  *(guardado OK; bugs B1 backend arreglado, B2 UI arreglado — la lista cruda fue reemplazada por `PanelConfiguracionRrhhComponent`, pantalla curada por secciones (incluida Preaviso))*
 - **Objetivo:** ver y editar los ~22 parámetros de RRHH.
 - **Datos previos:** 24 params ya sembrados. Ninguno adicional.
 - **Pasos UI:** Menú `R.R.H.H.` → `Configuración RRHH`. Revisar la lista. Editar un parámetro
@@ -151,7 +152,7 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 
 ## FASE 4 — Anticipos vía Caja Mayor (sujeto: ESTEBAN #8)
 
-### ⬜ T9 — Vales
+### ✅ T9 — Vales  *(OK; vales #4 DESCONTADO→liq.11, #5/#6 ANULADOS; cadena de caja sin huecos)*
 - **Objetivo:** solicitar y confirmar un vale (egreso real de Caja Mayor); anular otro
   (contra-asiento).
 - **Datos previos:** Caja Mayor fondeada ✅, motivos de vale ✅.
@@ -166,13 +167,17 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 - **Nota:** `financiero.movimiento_personas` ya **no** se verifica acá — se desvinculó de RRHH,
   ver TODO-10.
 
-### ⬜ T10 — Préstamos
+### ✅ T10 — Préstamos
 - **Objetivo:** crear préstamo (desembolso EGRESO + plan de cuotas) y cobrar una cuota (INGRESO).
 - **Datos previos:** Caja Mayor fondeada ✅.
 - **Pasos UI:** `R.R.H.H.` → `Préstamos` → `Nuevo` → funcionario ESTEBAN, monto 1.200.000,
   3 cuotas, inicio 2026-07-16 → confirmar con Caja Mayor. Ver el plan de cuotas. Cobrar la cuota #1.
 - **Verificación (DB):** `rrhh.prestamo` ACTIVO; 3 cuotas de 400.000 con vencimientos mensuales;
   Caja EGRESO 1.200.000 (desembolso) + INGRESO 400.000 (cobro); cuota #1 PAGADA.
+- **Resultado:** OK. Préstamo #3 (TEST) por 1.200.000, ACTIVO, 3 cuotas de 400.000 (venc.
+  mensual 16/08, 16/09, 16/10). Cuota #1 PAGADA (pago 2026-07-22), monto_pagado del préstamo
+  400.000, saldo vigente 800.000. Cuotas #2/#3 PENDIENTES. Validado también contra el tab
+  Financiero del legajo (card "Saldo de préstamos" = 800.000).
 
 ---
 
@@ -237,33 +242,70 @@ Leyenda de estado: ⬜ pendiente · ✅ OK · ❌ falla · ⏭️ diferida
 - **Extras probados:** generación por lote (3 funcionarios de una, cada uno con su neto correcto;
   IGOR con vale + cuota vencida), alta/eliminación de ítem manual con recálculo de totales.
 
-### ⬜ T15 — Liquidación final / finiquito (sujeto: WILIAN #100)
-- **Objetivo:** generar finiquito (antigüedad, indemnización, vacaciones no gozadas, aguinaldo
-  proporcional), aprobar, pagar (funcionario queda inactivo), imprimir recibo PDF.
-- **Datos previos:** WILIAN activo con antigüedad ✅.
-- **Pasos UI:** `R.R.H.H.` → `Liquidaciones` (o sección finiquito) → generar liquidación final de
-  WILIAN, motivo DESPIDO_INJUSTIFICADO, fecha egreso hoy → revisar cálculo → aprobar → pagar →
+### ✅ T15 — Liquidación final / finiquito (sujeto: WILIAN #100 / ESTEBAN #8)
+- **Estado:** cálculo base validado (WILIAN: indemniz. 7.650.000 + vac. 2.550.000 +
+  aguinaldo 1.487.500 = 11.687.500, coincide exacto). Se completó el feature: ítems
+  editables (HABER/DESCUENTO, total por suma, auditoría), **descuentos automáticos**
+  (IPS + vales + cuotas de préstamo + crédito convenio), **preaviso** (ley laboral
+  Paraguay: días por antigüedad, HABER si despido injustificado sin preaviso,
+  DESCUENTO de la mitad de los días si renuncia sin preaviso) y **salario del mes**
+  (sueldo/30 × días trabajados del mes de egreso, primer HABER del finiquito).
+  Diálogo de generación enriquecido (`previewLiquidacionFinal` + toggle por cada
+  descuento) y recibo PDF rediseñado (ver ESTADO-IMPLEMENTACION-RRHH.md §7/§8.2).
+- **Verificación end-to-end en DB (ESTEBAN, finiquito id 4):**
+  - **Despido injustificado sin preaviso:** SALARIO_MES + indemnización 8.654.167 +
+    preaviso HABER 6.490.625 + vacaciones 1.009.653 + aguinaldo 360.590 − IPS
+    389.437 − 2 cuotas 400.000 − penalización 80.000. Todos los montos enteros
+    (guaraníes sin decimales).
+  - **Renuncia sin preaviso:** preaviso DESCUENTO 3.245.313 (mitad de los días),
+    sin indemnización, 22 días trabajados (egreso 2026-07-22).
+- **Objetivo:** generar finiquito (antigüedad, indemnización, preaviso, vacaciones no
+  gozadas, aguinaldo proporcional, salario del mes), aprobar, pagar (funcionario queda
+  inactivo), imprimir recibo PDF.
+- **Datos previos:** WILIAN activo con antigüedad ✅. ESTEBAN usado para el caso completo
+  con descuentos automáticos + preaviso.
+- **Pasos UI:** `R.R.H.H.` → `Liquidaciones` (o sección finiquito) → generar liquidación final,
+  motivo DESPIDO_INJUSTIFICADO o RENUNCIA, fecha egreso → revisar/editar el desglose en el
+  diálogo enriquecido (preaviso otorgado + días, toggles de descuentos) → aprobar → pagar →
   imprimir recibo.
-- **Verificación (DB):** `rrhh.liquidacion_final` con antigüedad/indemnización/aguinaldo coherentes;
-  al pagar: Caja EGRESO por el total, `personas.funcionario.activo=false` para WILIAN.
+- **Verificación (DB):** `rrhh.liquidacion_final` con antigüedad/indemnización/preaviso/aguinaldo
+  coherentes; al pagar: Caja EGRESO por el total, `personas.funcionario.activo=false`.
+- **Pendiente:** probar el pago end-to-end con saldado de vales/cuotas (efectos cruzados)
+  si aún no se hizo.
 
 ---
 
 ## FASE 7 — Consulta
 
-### ⬜ T16 — Dashboard RRHH
-- **Objetivo:** ver los KPIs del período.
+### 🟡 T16 — Dashboard RRHH *(reconstruido al padrón de dashboards — ver ESTADO-IMPLEMENTACION-RRHH.md §8.2 —; implementado, pendiente de test manual del usuario)*
+- **Objetivo:** validar el dashboard nuevo (ya no la grilla de 11 cards vieja): filtro de
+  **período mensual** (no rango desde/hasta — RRHH trabaja por período, no por rango arbitrario),
+  4 KPIs headline, chart de nómina, cumpleaños, rankings y accesos rápidos.
 - **Datos previos:** los generados en T7–T15 ✅.
-- **Pasos UI:** `R.R.H.H.` → `Dashboard RRHH` → período 2026-07. Revisar funcionarios activos,
-  nómina del mes, liquidaciones pendientes, vales/préstamos, cumpleaños, vacaciones por vencer.
-- **Verificación (DB):** los KPIs cuadran con los datos reales.
+- **Pasos UI:** `R.R.H.H.` → `Dashboard RRHH`.
+  1. Filtrar por período **2026-07** y Aplicar.
+  2. Revisar los **4 KPIs**: funcionarios activos, nómina del mes, liquidaciones pendientes,
+     vacaciones por vencer (colores semánticos, warning si corresponde).
+  3. Revisar el **chart de nómina, últimos 12 meses** (barras = monto neto, línea = nº
+     liquidaciones) — es independiente del filtro de período elegido.
+  4. Revisar el ranking **"Cumpleaños del mes"**.
+  5. Revisar los rankings **"Top exposición financiera"** (vales pendientes + saldo de préstamos
+     por funcionario) y **"Top horas extra del mes"**.
+  6. Probar los **accesos rápidos** (Liquidaciones / Vales / Préstamos abren su tab) y el botón
+     **Reportes** (abre el mat-menu, ver T17).
+- **Verificación (DB):** los KPIs, el chart y los rankings cuadran con los datos reales de
+  liquidaciones/vales/préstamos/horas extra.
 
-### ⬜ T17 — Reportes RRHH
-- **Objetivo:** generar los reportes PDF (nómina, IPS, vales, préstamos, aguinaldo).
+### 🟡 T17 — Reportes RRHH *(reubicados dentro del dashboard + visor arreglado; implementado, pendiente de test manual del usuario)*
+- **Objetivo:** generar los 5 reportes PDF (nómina, IPS, vales, préstamos, aguinaldo) desde su
+  ubicación nueva y verificar que se ven en el visor integrado.
 - **Datos previos:** los generados en fases previas ✅.
-- **Pasos UI:** `R.R.H.H.` → `Reportes RRHH` → generar cada uno (período 2026-07 / año 2026).
-  Verificar que el PDF abre y muestra datos reales.
-- **Verificación (DB):** los totales del PDF cuadran con la DB.
+- **Pasos UI:** `R.R.H.H.` → `Dashboard RRHH` → botón **Reportes** (ya no es un tab dedicado, es
+  un mat-menu) → generar cada uno de los 5 (usan el período del dashboard: 2026-07 / año 2026).
+  Verificar que cada PDF **abre en el visor integrado** (antes no se veía: `window.open()` bloqueado
+  en Electron, bug B29).
+- **Verificación (DB):** montos **enteros en guaraníes** y razón social correcta en cada PDF; los
+  totales cuadran con la DB.
 
 ---
 
@@ -461,12 +503,11 @@ generar los cambios por la vía normal (creando `funcionario_salario_historico` 
 automáticamente sin confirmación explícita, siempre auditable (histórico + motivo + usuario), y
 **jamás** tocar liquidaciones ya pagadas.
 
-### TODO-11 — Foto de perfil del funcionario: tipo de documento dedicado — *detectado al mover el alta al legajo*
-La foto se guarda como `FuncionarioDocumento` tipo `OTRO` con observación `FOTO_PERFIL` (no hay
-un tipo dedicado en `FuncionarioDocumentoTipo`). Para que se reconozca al reabrir, el operador
-tiene que tipear `FOTO_PERFIL` en la observación al subirla. Pendiente: agregar un valor
-`FOTO_PERFIL` al enum + un botón directo "Cambiar foto" que lo setee solo, y conectar el avatar
-de la cabecera del legajo a esa foto.
+### ✅ TODO-11 — Foto de perfil del funcionario: tipo de documento dedicado — *RESUELTO*
+Se agregó `FuncionarioDocumentoTipo.FOTO_PERFIL` al enum + schema. En "Información general"
+del legajo, un botón abre directo el selector de archivos del SO (sin elegir tipo ni escribir
+nada) y sube el documento como `FOTO_PERFIL`; el avatar de la cabecera del legajo se alimenta
+de esa foto. Layout Persona 80% / Foto 20% lado a lado.
 
 ## Registro de bugs encontrados
 
@@ -497,6 +538,10 @@ de la cabecera del legajo a esa foto.
 | B19 | T11 | Desktop | El botón "Programar" mandaba `'PROGRAMADA'` hardcodeado, salteando `SOLICITADA`: el botón de aprobar (visible solo en ese estado) quedaba **inalcanzable**, aunque mobile sí implementa la aprobación por supervisor (`aprobaciones-rrhh`, `VacacionesPendientesAprobacionMobile`). Detectado por Gabriel: "el botón se llama Programar y hace lo que se llama, en todo caso se debería llamar Solicitar". | ✅ Botón `Solicitar`, crea en SOLICITADA |
 | B17 | T8 | Desktop | Las 13 listas migradas no mostraban tabla ni paginador: el host sin altura definida hacía colapsar a cero el `<div fxFlex>` de `app-generic-list`. | ✅ `:host { display: block; height: 100% }` en las 13 |
 | B14 | TODO-2 | Desktop | El `.scss` de las listas migradas anidaba todo bajo `.xxx-container`, clase que desapareció al pasar la raíz del template a `<app-generic-list>`: los chips de estado quedaban sin color y las tablas sin alinear. Afectaba a las 13 listas. | ✅ Aplanado + `:host` en las 13 |
+| B26 | T4 | Backend | `savePersona` no persistía `ciudadId`: el resolver mapeaba nombre/doc/tel/etc. pero nunca seteaba la ciudad, así que crear/editar un funcionario desde el legajo perdía la ciudad de la persona. | ✅ Arreglado: se inyectó `CiudadService` + `if (input.getCiudadId() != null) e.setCiudad(...)` |
+| B27 | T4 | Backend | NPE en `Cliente.getCredito()` al actualizar "Información general" del legajo: comparación de crédito con `Float.equals` sobre un valor `null` en un cliente sin crédito cargado. | ✅ Arreglado con `java.util.Objects.equals(...)` null-safe |
+| B28 | — | Config/Arranque | `application.properties:19` con corrupción commiteada (`spring.datasource.username=francospring.profiles.active=user-dev`, dos líneas fusionadas): Central solo arrancaba con `-Dspring-boot.run.profiles=dev`, sino FATAL por rol de DB inexistente. | ✅ Corregido a `spring.datasource.username=franco` |
+| B29 | T17 | Desktop/Reporte | El tab dedicado `ReportesRrhhComponent` mostraba el PDF con `window.open()`, bloqueado en Electron (mismo caso que B4/B22) — el tab no mostraba nada. Se eliminó el tab (+ su entrada de menú `reportes-rrhh`) y los 5 reportes ahora se generan desde el mat-menu "Reportes" del dashboard, mostrados en el visor integrado (`ReporteService.onAdd`). | ✅ Arreglado (reubicación + visor integrado) |
 
 ## Tests opcionales / diferidos
 

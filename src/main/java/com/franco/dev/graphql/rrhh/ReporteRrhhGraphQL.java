@@ -21,9 +21,9 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
         return service.resumenIpsBase64(periodo);
     }
 
-    /** Recibo de finiquito (liquidación final) en PDF (base64). */
-    public String imprimirReciboFinal(Long id) {
-        return service.finiquitoBase64(id);
+    /** Recibo de finiquito (liquidación final). anchoMm null = PDF A4; 58/80 = ticket. */
+    public String imprimirReciboFinal(Long id, Integer anchoMm) {
+        return service.finiquitoBase64(id, anchoMm);
     }
 
     /** Vales pendientes en PDF (base64). */
@@ -39,5 +39,27 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
     /** Aguinaldo del año en PDF (base64). */
     public String reporteAguinaldoAnual(Integer anio) {
         return service.reporteAguinaldoAnualBase64(anio);
+    }
+
+    // ===== Recibos firmables por registro (anchoMm null = PDF A4; 58/80 = ticket) =====
+
+    public String imprimirReciboVale(Long id, Integer anchoMm) {
+        return service.reciboValeBase64(id, anchoMm);
+    }
+
+    public String imprimirReciboPenalizacion(Long id, Integer anchoMm) {
+        return service.reciboPenalizacionBase64(id, anchoMm);
+    }
+
+    public String imprimirReciboAguinaldo(Long id, Integer anchoMm) {
+        return service.reciboAguinaldoBase64(id, anchoMm);
+    }
+
+    public String imprimirReciboPrestamo(Long id, Integer anchoMm) {
+        return service.reciboPrestamoBase64(id, anchoMm);
+    }
+
+    public String imprimirReciboBono(Long id, Integer anchoMm) {
+        return service.reciboBonoBase64(id, anchoMm);
     }
 }

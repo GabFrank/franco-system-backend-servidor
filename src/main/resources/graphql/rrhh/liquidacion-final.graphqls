@@ -15,10 +15,50 @@ enum LiquidacionFinalEstado {
     ANULADA
 }
 
+# Parámetros configurables del finiquito antes de generar. Los null se auto-calculan.
+input LiquidacionFinalGenerarInput {
+    funcionarioId: ID!
+    motivoEgreso: MotivoEgreso!
+    fechaEgreso: String
+    monedaId: ID
+    fechaIngreso: String
+    salarioBase: Float
+    diasTrabajadosMes: Int
+    preavisoOtorgado: Boolean
+    preavisoDias: Int
+    diasVacaciones: Int
+    aguinaldo: Float
+    ipsBase: Float
+    descontarIps: Boolean
+    cobrarVales: Boolean
+    cobrarConvenios: Boolean
+    cobrarPrestamos: Boolean
+    descontarPenalizaciones: Boolean
+}
+
+# Valores por defecto (auto-calculados) para precargar el diálogo, sin persistir.
+type LiquidacionFinalPreview {
+    fechaIngreso: String
+    antiguedadAnios: Int
+    antiguedadDias: Int
+    salarioPromedio: Float
+    sueldoBase: Float
+    diasTrabajadosMes: Int
+    salarioDelMes: Float
+    aguinaldoProporcional: Float
+    diasVacacionesNoGozadas: Int
+    preavisoDias: Int
+    ipsBase: Float
+    ipsActivo: Boolean
+}
+
 enum LiquidacionFinalConcepto {
+    SALARIO_MES
     INDEMNIZACION
+    PREAVISO
     VACACIONES_NO_GOZADAS
     AGUINALDO_PROPORCIONAL
+    MANUAL
 }
 
 type LiquidacionFinalItem {
@@ -26,6 +66,12 @@ type LiquidacionFinalItem {
     concepto: LiquidacionFinalConcepto
     descripcion: String
     monto: Float
+    tipo: LiquidacionItemTipo
+    manual: Boolean
+    editado: Boolean
+    editadoPor: Usuario
+    editadoEn: Date
+    montoOriginal: Float
 }
 
 type LiquidacionFinal {
@@ -42,6 +88,10 @@ type LiquidacionFinal {
     diasVacacionesNoGozadas: Int
     montoVacacionesNoGozadas: Float
     aguinaldoProporcional: Float
+    preavisoOtorgado: Boolean
+    preavisoDias: Int
+    preavisoMonto: Float
+    preavisoEsDescuento: Boolean
     totalLiquidado: Float
     moneda: Moneda
     estado: LiquidacionFinalEstado
@@ -57,12 +107,16 @@ extend type Query {
     liquidacionFinal(id: ID!): LiquidacionFinal
     liquidacionesFinalesPorFuncionario(funcionarioId: ID!): [LiquidacionFinal]
     liquidacionFinalItems(liquidacionFinalId: ID!): [LiquidacionFinalItem]
+    previewLiquidacionFinal(funcionarioId: ID!, fechaEgreso: String): LiquidacionFinalPreview
 }
 
 extend type Mutation {
-    generarLiquidacionFinal(funcionarioId: ID!, motivoEgreso: MotivoEgreso!, fechaEgreso: String, monedaId: ID): LiquidacionFinal
+    generarLiquidacionFinal(input: LiquidacionFinalGenerarInput!): LiquidacionFinal
     aprobarLiquidacionFinal(id: ID!, aprobadoPorId: ID): LiquidacionFinal
     volverBorradorLiquidacionFinal(id: ID!): LiquidacionFinal
     pagarLiquidacionFinal(id: ID!, cajaVirtualId: ID!): LiquidacionFinal
     anularLiquidacionFinal(id: ID!): LiquidacionFinal
+    agregarItemLiquidacionFinal(liquidacionFinalId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo): LiquidacionFinalItem
+    editarItemLiquidacionFinal(itemId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo, usuarioId: ID): LiquidacionFinalItem
+    eliminarItemLiquidacionFinal(itemId: ID!): Boolean
 }

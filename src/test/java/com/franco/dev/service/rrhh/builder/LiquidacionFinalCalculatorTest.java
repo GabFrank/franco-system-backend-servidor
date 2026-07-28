@@ -41,7 +41,7 @@ class LiquidacionFinalCalculatorTest {
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
                 LocalDate.of(2023, 1, 1), LocalDate.of(2026, 1, 1),
                 MotivoEgreso.DESPIDO_INJUSTIFICADO,
-                new BigDecimal("3000000"), 10, new BigDecimal("250000"), DIAS_POR_ANIO, 90, 30, 365);
+                new BigDecimal("3000000"), 10, new BigDecimal("250000"), DIAS_POR_ANIO, 90, 30, 365, 0, true);
         assertTrue(r.isIndemnizacionAplica());
         assertEquals(0, new BigDecimal("4500000.00").compareTo(r.getIndemnizacionMonto()));
         assertEquals(0, new BigDecimal("1000000.00").compareTo(r.getMontoVacacionesNoGozadas()));
@@ -54,7 +54,7 @@ class LiquidacionFinalCalculatorTest {
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
                 LocalDate.of(2023, 1, 1), LocalDate.of(2026, 1, 1),
                 MotivoEgreso.RENUNCIA,
-                new BigDecimal("3000000"), 10, new BigDecimal("250000"), DIAS_POR_ANIO, 90, 30, 365);
+                new BigDecimal("3000000"), 10, new BigDecimal("250000"), DIAS_POR_ANIO, 90, 30, 365, 0, true);
         assertFalse(r.isIndemnizacionAplica());
         assertEquals(0, BigDecimal.ZERO.compareTo(r.getIndemnizacionMonto()));
         assertEquals(0, new BigDecimal("1000000.00").compareTo(r.getMontoVacacionesNoGozadas()));
@@ -67,7 +67,7 @@ class LiquidacionFinalCalculatorTest {
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
                 LocalDate.of(2025, 11, 1), LocalDate.of(2026, 1, 1),
                 MotivoEgreso.DESPIDO_INJUSTIFICADO,
-                new BigDecimal("3000000"), 0, BigDecimal.ZERO, DIAS_POR_ANIO, 90, 30, 365);
+                new BigDecimal("3000000"), 0, BigDecimal.ZERO, DIAS_POR_ANIO, 90, 30, 365, 0, true);
         assertFalse(r.isIndemnizacionAplica());
         assertEquals(0, BigDecimal.ZERO.compareTo(r.getIndemnizacionMonto()));
         assertEquals(0, BigDecimal.ZERO.compareTo(r.getTotalLiquidado()));
@@ -80,8 +80,37 @@ class LiquidacionFinalCalculatorTest {
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
                 LocalDate.of(2025, 9, 1), LocalDate.of(2025, 12, 30),
                 MotivoEgreso.DESPIDO_INJUSTIFICADO,
-                new BigDecimal("3000000"), 0, BigDecimal.ZERO, DIAS_POR_ANIO, 90, 30, 365);
+                new BigDecimal("3000000"), 0, BigDecimal.ZERO, DIAS_POR_ANIO, 90, 30, 365, 0, true);
         assertTrue(r.isIndemnizacionAplica());
         assertEquals(0, new BigDecimal("1500000.00").compareTo(r.getIndemnizacionMonto()));
+    }
+
+    @Test
+    void despidoInjustificadoSinPreaviso_pagaPreavisoHaber() {
+        // 3 años, salario 3.000.000 (diario 100.000), preaviso 30 días NO otorgado.
+        // preaviso HABER = 30 × 100.000 = 3.000.000
+        // total = indemniz 4.500.000 + vac 1.000.000 + aguinaldo 250.000 + preaviso 3.000.000 = 8.750.000
+        LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
+                LocalDate.of(2023, 1, 1), LocalDate.of(2026, 1, 1),
+                MotivoEgreso.DESPIDO_INJUSTIFICADO,
+                new BigDecimal("3000000"), 10, new BigDecimal("250000"), DIAS_POR_ANIO, 90, 30, 365, 30, false);
+        assertTrue(r.isPreavisoAplica());
+        assertFalse(r.isPreavisoEsDescuento());
+        assertEquals(0, new BigDecimal("3000000.00").compareTo(r.getPreavisoMonto()));
+        assertEquals(0, new BigDecimal("8750000.00").compareTo(r.getTotalLiquidado()));
+    }
+
+    @Test
+    void renunciaSinPreaviso_descuentaMitadDelTramo() {
+        // Renuncia, preaviso 30 días NO otorgado → DESCUENTO = (30/2) × 100.000 = 1.500.000
+        // total = 0 indemniz + vac 1.000.000 + aguinaldo 250.000 − preaviso 1.500.000 = -250.000
+        LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
+                LocalDate.of(2023, 1, 1), LocalDate.of(2026, 1, 1),
+                MotivoEgreso.RENUNCIA,
+                new BigDecimal("3000000"), 10, new BigDecimal("250000"), DIAS_POR_ANIO, 90, 30, 365, 30, false);
+        assertTrue(r.isPreavisoAplica());
+        assertTrue(r.isPreavisoEsDescuento());
+        assertEquals(0, new BigDecimal("1500000.00").compareTo(r.getPreavisoMonto()));
+        assertEquals(0, new BigDecimal("-250000.00").compareTo(r.getTotalLiquidado()));
     }
 }

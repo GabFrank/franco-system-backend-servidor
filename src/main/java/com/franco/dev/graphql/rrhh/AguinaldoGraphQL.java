@@ -42,4 +42,9 @@ public class AguinaldoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     public Aguinaldo aprobarAguinaldo(Long id) {
         return service.aprobar(id);
     }
+
+    /** Pago separado del aguinaldo (egreso de Caja Mayor). Queda excluido de la liquidación mensual. */
+    public Aguinaldo pagarAguinaldo(Long id, Long cajaVirtualId) {
+        return service.pagar(id, cajaVirtualId);
+    }
 }

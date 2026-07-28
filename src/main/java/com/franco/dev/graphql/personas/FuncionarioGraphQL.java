@@ -129,7 +129,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         e = service.save(e);
         Cliente cliente = clienteService.findByPersonaId(e.getPersona().getId());
         if (cliente != null) {
-            if (!cliente.getCredito().equals(e.getCredito())) {
+            if (!java.util.Objects.equals(cliente.getCredito(), e.getCredito())) {
                 cliente.setCredito(e.getCredito());
                 cliente = clienteService.save(cliente);
             }

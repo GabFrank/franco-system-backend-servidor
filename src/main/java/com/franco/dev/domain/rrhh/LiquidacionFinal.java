@@ -81,6 +81,19 @@ public class LiquidacionFinal implements Identifiable<Long> {
     @Column(name = "aguinaldo_proporcional")
     private BigDecimal aguinaldoProporcional;
 
+    // Preaviso: HABER en despido injustificado sin preaviso; DESCUENTO (½) en renuncia sin preaviso.
+    @Column(name = "preaviso_otorgado")
+    private Boolean preavisoOtorgado;
+
+    @Column(name = "preaviso_dias")
+    private Integer preavisoDias;
+
+    @Column(name = "preaviso_monto")
+    private BigDecimal preavisoMonto;
+
+    @Column(name = "preaviso_es_descuento")
+    private Boolean preavisoEsDescuento;
+
     @Column(name = "total_liquidado")
     private BigDecimal totalLiquidado;
 

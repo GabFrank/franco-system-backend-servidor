@@ -2,7 +2,11 @@ package com.franco.dev.graphql.rrhh;
 
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.LiquidacionFinalItem;
-import com.franco.dev.domain.rrhh.enums.MotivoEgreso;
+import com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo;
+import com.franco.dev.graphql.rrhh.input.LiquidacionFinalGenerarInput;
+import com.franco.dev.service.rrhh.dto.LiquidacionFinalPreview;
+
+import java.math.BigDecimal;
 import com.franco.dev.service.rrhh.LiquidacionFinalService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -35,10 +39,14 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
         return service.findItems(liquidacionFinalId);
     }
 
+    public LiquidacionFinalPreview previewLiquidacionFinal(Long funcionarioId, String fechaEgreso) {
+        return service.previewDefaults(funcionarioId, parseFecha(fechaEgreso));
+    }
+
     // ----- Mutations -----
 
-    public LiquidacionFinal generarLiquidacionFinal(Long funcionarioId, MotivoEgreso motivoEgreso, String fechaEgreso, Long monedaId) {
-        return service.generarBorrador(funcionarioId, motivoEgreso, parseFecha(fechaEgreso), monedaId);
+    public LiquidacionFinal generarLiquidacionFinal(LiquidacionFinalGenerarInput input) {
+        return service.generarBorrador(input);
     }
 
     public LiquidacionFinal aprobarLiquidacionFinal(Long id, Long aprobadoPorId) {
@@ -55,6 +63,18 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     public LiquidacionFinal anularLiquidacionFinal(Long id) {
         return service.anular(id);
+    }
+
+    public LiquidacionFinalItem agregarItemLiquidacionFinal(Long liquidacionFinalId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
+        return service.agregarItemManual(liquidacionFinalId, descripcion, monto, tipo);
+    }
+
+    public LiquidacionFinalItem editarItemLiquidacionFinal(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
+        return service.editarItem(itemId, descripcion, monto, tipo, usuarioId);
+    }
+
+    public Boolean eliminarItemLiquidacionFinal(Long itemId) {
+        return service.eliminarItem(itemId);
     }
 
     private LocalDate parseFecha(String s) {

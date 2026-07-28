@@ -345,6 +345,33 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         return true;
     }
 
+    /**
+     * Edita cualquier item (auto o manual) en BORRADOR — "todo es negociable".
+     * Registra auditoría (editado/quién/cuándo) y guarda el monto original en la
+     * primera edición. El total se recalcula desde los items.
+     */
+    @Transactional
+    public LiquidacionItem editarItem(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
+        LiquidacionItem it = itemRepository.findById(itemId)
+                .orElseThrow(() -> new GraphQLException("Item no encontrado"));
+        LiquidacionSueldo liq = it.getLiquidacion();
+        if (liq == null) throw new GraphQLException("Item sin liquidación asociada");
+        if (liq.getEstado() != LiquidacionSueldoEstado.BORRADOR) {
+            throw new GraphQLException("Solo se pueden editar items en estado BORRADOR");
+        }
+        if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
+        if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
+        if (monto != null) it.setMonto(monto);
+        if (tipo != null) it.setTipo(tipo);
+        it.setEditado(true);
+        it.setEditadoEn(LocalDateTime.now());
+        if (usuarioId != null) it.setEditadoPor(usuarioService.findById(usuarioId).orElse(null));
+        it = itemRepository.save(it);
+        aplicarTotales(liq, itemRepository.findByLiquidacionIdOrderByIdAsc(liq.getId()));
+        repository.save(liq);
+        return it;
+    }
+
     // =====================================================================
     // Estados
     // =====================================================================

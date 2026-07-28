@@ -8,5 +8,6 @@ public enum FuncionarioDocumentoTipo {
     ANTECEDENTES,
     CARNET_SALUD,
     TITULO_ACADEMICO,
+    FOTO_PERFIL,
     OTRO
 }

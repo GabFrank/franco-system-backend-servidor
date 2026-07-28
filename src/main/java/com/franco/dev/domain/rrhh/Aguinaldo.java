@@ -63,6 +63,13 @@ public class Aguinaldo implements Identifiable<Long> {
     @Column(name = "liquidacion_id")
     private Long liquidacionId;
 
+    /** Pago separado (fuera de la liquidación mensual): trazabilidad del egreso de Caja Mayor. */
+    @Column(name = "caja_virtual_id")
+    private Long cajaVirtualId;
+
+    @Column(name = "movimiento_caja_virtual_id")
+    private Long movimientoCajaVirtualId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

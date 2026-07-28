@@ -19,6 +19,10 @@ type LiquidacionItem {
     referenciaId: Int
     referenciaTipo: String
     manual: Boolean
+    editado: Boolean
+    editadoPor: Usuario
+    editadoEn: Date
+    montoOriginal: Float
 }
 
 type LiquidacionSueldo {
@@ -60,12 +64,13 @@ extend type Query {
     liquidacionesPorPeriodo(periodo: String!): [LiquidacionSueldo]
     liquidacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, periodo: String, estado: LiquidacionSueldoEstado): LiquidacionSueldoPage
     liquidacionItems(liquidacionId: ID!): [LiquidacionItem]
-    imprimirReciboLiquidacion(id: ID!): String
+    imprimirReciboLiquidacion(id: ID!, anchoMm: Int): String
 }
 
 extend type Mutation {
     generarLiquidacionBorrador(funcionarioId: ID!, periodo: String!, monedaId: ID): LiquidacionSueldo
     agregarItemLiquidacion(liquidacionId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo): LiquidacionItem
+    editarItemLiquidacion(itemId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo, usuarioId: ID): LiquidacionItem
     eliminarItemLiquidacion(itemId: ID!): Boolean
     aprobarLiquidacion(id: ID!, aprobadoPorId: ID): LiquidacionSueldo
     volverBorradorLiquidacion(id: ID!): LiquidacionSueldo

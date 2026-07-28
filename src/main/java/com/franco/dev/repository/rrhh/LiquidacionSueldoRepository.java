@@ -35,4 +35,17 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
                                      @Param("periodo") String periodo,
                                      @Param("estado") LiquidacionSueldoEstado estado,
                                      Pageable pageable);
+
+    // Serie de nómina por período (los períodos son 'YYYY-MM', ordenan lexicográfico).
+    // Solo liquidaciones APROBADA/PAGADA (lo efectivamente liquidado). Native SQL:
+    // el enum se guarda como texto (@Enumerated(STRING)).
+    @Query(value = "SELECT l.periodo AS periodo, COUNT(l.id) AS cantidad, " +
+            "COALESCE(SUM(l.total_neto), 0) AS monto " +
+            "FROM rrhh.liquidacion_sueldo l " +
+            "WHERE l.periodo BETWEEN :periodoInicio AND :periodoFin " +
+            "AND l.estado IN ('APROBADA', 'PAGADA') " +
+            "GROUP BY l.periodo ORDER BY l.periodo",
+            nativeQuery = true)
+    List<Object[]> nominaSeriePorMesRaw(@Param("periodoInicio") String periodoInicio,
+                                        @Param("periodoFin") String periodoFin);
 }

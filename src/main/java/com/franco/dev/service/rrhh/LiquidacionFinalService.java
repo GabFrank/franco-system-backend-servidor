@@ -2,24 +2,42 @@ package com.franco.dev.service.rrhh;
 
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
+import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
+import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
+import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.LiquidacionFinalItem;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
+import com.franco.dev.domain.rrhh.Penalizacion;
+import com.franco.dev.domain.rrhh.Prestamo;
+import com.franco.dev.domain.rrhh.PrestamoCuota;
 import com.franco.dev.domain.rrhh.Vacacion;
+import com.franco.dev.domain.rrhh.Vale;
+import com.franco.dev.graphql.rrhh.input.LiquidacionFinalGenerarInput;
+import com.franco.dev.service.rrhh.dto.LiquidacionFinalPreview;
 import com.franco.dev.domain.rrhh.enums.LiquidacionFinalConcepto;
 import com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado;
+import com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo;
 import com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado;
 import com.franco.dev.domain.rrhh.enums.MotivoEgreso;
+import com.franco.dev.domain.rrhh.enums.PrestamoCuotaEstado;
+import com.franco.dev.domain.rrhh.enums.ValeEstado;
+import com.franco.dev.repository.financiero.VentaCreditoRepository;
+import com.franco.dev.repository.rrhh.PenalizacionRepository;
 import com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository;
 import com.franco.dev.repository.rrhh.LiquidacionFinalRepository;
 import com.franco.dev.repository.rrhh.LiquidacionSueldoRepository;
+import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
+import com.franco.dev.repository.rrhh.PrestamoRepository;
 import com.franco.dev.repository.rrhh.VacacionRepository;
+import com.franco.dev.repository.rrhh.ValeRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
+import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.builder.LiquidacionFinalCalculator;
@@ -36,6 +54,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+
 @Service
 @AllArgsConstructor
 public class LiquidacionFinalService extends CrudService<LiquidacionFinal, LiquidacionFinalRepository, Long> {
@@ -50,6 +70,12 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
     private final MonedaService monedaService;
     private final UsuarioService usuarioService;
+    private final ValeRepository valeRepository;
+    private final PrestamoRepository prestamoRepository;
+    private final PrestamoCuotaRepository prestamoCuotaRepository;
+    private final ClienteService clienteService;
+    private final VentaCreditoRepository ventaCreditoRepository;
+    private final PenalizacionRepository penalizacionRepository;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -69,25 +95,36 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
      * si ya existe un BORRADOR lo reusa; nunca toca APROBADA/PAGADA.
      */
     @Transactional
-    public LiquidacionFinal generarBorrador(Long funcionarioId, MotivoEgreso motivo, LocalDate fechaEgreso, Long monedaId) {
+    public LiquidacionFinal generarBorrador(LiquidacionFinalGenerarInput in) {
+        if (in == null || in.getFuncionarioId() == null) throw new GraphQLException("Datos insuficientes para generar el finiquito");
+        Long funcionarioId = in.getFuncionarioId();
+        MotivoEgreso motivo = in.getMotivoEgreso();
         Funcionario f = funcionarioService.findById(funcionarioId)
                 .orElseThrow(() -> new GraphQLException("Funcionario no encontrado"));
 
-        LocalDate ingreso = f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null;
-        LocalDate egreso = fechaEgreso != null ? fechaEgreso
+        // Fecha de ingreso: override del diálogo o la del funcionario.
+        LocalDate ingreso = in.getFechaIngreso() != null ? parseLocalDate(in.getFechaIngreso())
+                : (f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null);
+        LocalDate egreso = in.getFechaEgreso() != null ? parseLocalDate(in.getFechaEgreso())
                 : (f.getFechaEgreso() != null ? f.getFechaEgreso().toLocalDate() : LocalDate.now());
 
-        BigDecimal salarioPromedio = calcularSalarioPromedio(f);
-        int diasNoGozados = calcularDiasVacacionesNoGozadas(funcionarioId);
-        BigDecimal aguinaldoProporcional = calcularAguinaldoProporcional(f, egreso);
+        // Overrides opcionales del diálogo (antes de generar). Si no vienen, se auto-calculan.
+        BigDecimal salarioPromedio = in.getSalarioBase() != null ? in.getSalarioBase() : calcularSalarioPromedio(f);
+        int diasNoGozados = in.getDiasVacaciones() != null ? Math.max(0, in.getDiasVacaciones()) : calcularDiasVacacionesNoGozadas(funcionarioId);
+        BigDecimal aguinaldoProporcional = in.getAguinaldo() != null ? in.getAguinaldo() : calcularAguinaldoProporcional(f, egreso);
         BigDecimal diasPorAnio = configuracionRrhhService.getNumber("INDEMNIZACION_DIAS_POR_ANIO", new BigDecimal("15"));
         int minDiasIndemnizacion = configuracionRrhhService.getNumber("INDEMNIZACION_ANTIGUEDAD_MIN_DIAS", new BigDecimal("90")).intValue();
         int diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30")).intValue();
         int diasAnio = configuracionRrhhService.getNumber("DIAS_ANIO_ANTIGUEDAD", new BigDecimal("365")).intValue();
 
+        // Preaviso: días override o según tramo de antigüedad (configurable).
+        int aniosAnt = LiquidacionFinalCalculator.antiguedad(ingreso, egreso, diasMes, diasAnio).getAnios();
+        int preavisoDias = in.getPreavisoDias() != null ? Math.max(0, in.getPreavisoDias()) : diasPreavisoPorTramo(aniosAnt);
+        boolean otorgado = Boolean.TRUE.equals(in.getPreavisoOtorgado());
+
         LiquidacionFinalCalculator.Resultado r = LiquidacionFinalCalculator.calcular(
                 ingreso, egreso, motivo, salarioPromedio, diasNoGozados, aguinaldoProporcional, diasPorAnio,
-                minDiasIndemnizacion, diasMes, diasAnio);
+                minDiasIndemnizacion, diasMes, diasAnio, preavisoDias, otorgado);
 
         LiquidacionFinal lf = repository
                 .findFirstByFuncionarioIdAndEstadoOrderByCreadoEnDesc(funcionarioId, LiquidacionFinalEstado.BORRADOR)
@@ -105,8 +142,12 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         lf.setDiasVacacionesNoGozadas(r.getDiasNoGozados());
         lf.setMontoVacacionesNoGozadas(r.getMontoVacacionesNoGozadas());
         lf.setAguinaldoProporcional(r.getAguinaldoProporcional());
+        lf.setPreavisoOtorgado(otorgado);
+        lf.setPreavisoDias(r.isPreavisoAplica() ? r.getPreavisoDias() : preavisoDias);
+        lf.setPreavisoMonto(r.getPreavisoMonto());
+        lf.setPreavisoEsDescuento(r.isPreavisoEsDescuento());
         lf.setTotalLiquidado(r.getTotalLiquidado());
-        if (monedaId != null) lf.setMoneda(monedaService.findById(monedaId).orElse(null));
+        if (in.getMonedaId() != null) lf.setMoneda(monedaService.findById(in.getMonedaId()).orElse(null));
         else if (lf.getMoneda() == null) lf.setMoneda(f.getMoneda());
         lf.setEstado(LiquidacionFinalEstado.BORRADOR);
         if (lf.getCreadoEn() == null) lf.setCreadoEn(LocalDateTime.now());
@@ -119,9 +160,22 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             }
         }
         List<LiquidacionFinalItem> items = new ArrayList<>();
+        // Salario del mes (días trabajados no liquidados) — base sueldo mensual del funcionario.
+        BigDecimal sueldoMensual = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        int diasTrabajadosMes = in.getDiasTrabajadosMes() != null ? Math.max(0, in.getDiasTrabajadosMes()) : egreso.getDayOfMonth();
+        BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoMensual, diasTrabajadosMes, diasMes);
+        if (salarioDelMes.signum() > 0) {
+            items.add(item(lf, LiquidacionFinalConcepto.SALARIO_MES,
+                    "SALARIO DEL MES (" + diasTrabajadosMes + " DIAS TRABAJADOS)", salarioDelMes));
+        }
         if (r.isIndemnizacionAplica() && r.getIndemnizacionMonto().signum() > 0) {
             items.add(item(lf, LiquidacionFinalConcepto.INDEMNIZACION,
                     "INDEMNIZACION POR DESPIDO INJUSTIFICADO", r.getIndemnizacionMonto()));
+        }
+        // Preaviso HABER (despido injustificado sin preaviso otorgado).
+        if (r.isPreavisoAplica() && !r.isPreavisoEsDescuento() && r.getPreavisoMonto().signum() > 0) {
+            items.add(item(lf, LiquidacionFinalConcepto.PREAVISO,
+                    "PREAVISO NO OTORGADO (" + r.getPreavisoDias() + " DIAS)", r.getPreavisoMonto()));
         }
         if (r.getMontoVacacionesNoGozadas().signum() > 0) {
             items.add(item(lf, LiquidacionFinalConcepto.VACACIONES_NO_GOZADAS,
@@ -133,7 +187,81 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         }
         for (LiquidacionFinalItem it : items) itemRepository.save(it);
 
+        // Preaviso DESCUENTO (renuncia sin preaviso otorgado): ½ del tramo.
+        if (r.isPreavisoAplica() && r.isPreavisoEsDescuento() && r.getPreavisoMonto().signum() > 0) {
+            LiquidacionFinalItem pre = new LiquidacionFinalItem();
+            pre.setLiquidacionFinal(lf);
+            pre.setConcepto(LiquidacionFinalConcepto.PREAVISO);
+            pre.setDescripcion("PREAVISO NO OTORGADO (" + r.getPreavisoDias() + " DIAS, DESCUENTO 1/2)");
+            pre.setMonto(r.getPreavisoMonto());
+            pre.setTipo(LiquidacionItemTipo.DESCUENTO);
+            pre.setManual(false);
+            pre.setEditado(false);
+            pre.setReferenciaTipo("PREAVISO");
+            itemRepository.save(pre);
+        }
+
+        // Descuentos automáticos del funcionario (IPS, vales, cuotas, convenio, penalizaciones),
+        // cada uno activable/desactivable desde el diálogo (default: todos activos).
+        BigDecimal ipsBase = in.getIpsBase() != null ? in.getIpsBase() : salarioPromedio;
+        // IPS: override del diálogo, o por defecto según ipsActivo del funcionario.
+        boolean descontarIps = in.getDescontarIps() != null ? in.getDescontarIps() : !Boolean.FALSE.equals(f.getIpsActivo());
+        boolean cobrarVales = in.getCobrarVales() == null || in.getCobrarVales();
+        boolean cobrarConvenios = in.getCobrarConvenios() == null || in.getCobrarConvenios();
+        boolean cobrarPrestamos = in.getCobrarPrestamos() == null || in.getCobrarPrestamos();
+        boolean descontarPenal = in.getDescontarPenalizaciones() == null || in.getDescontarPenalizaciones();
+        agregarDescuentosAutomaticos(lf, f, ipsBase, egreso, descontarIps, cobrarVales, cobrarConvenios, cobrarPrestamos, descontarPenal);
+
+        // El total sigue a los items (fuente única de verdad para la edición negociada).
+        recalcularTotal(lf);
         return lf;
+    }
+
+    /** Preview de los valores auto-calculados, para precargar el diálogo sin persistir. */
+    public LiquidacionFinalPreview previewDefaults(Long funcionarioId, LocalDate fechaEgreso) {
+        Funcionario f = funcionarioService.findById(funcionarioId)
+                .orElseThrow(() -> new GraphQLException("Funcionario no encontrado"));
+        LocalDate ingreso = f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null;
+        LocalDate egreso = fechaEgreso != null ? fechaEgreso
+                : (f.getFechaEgreso() != null ? f.getFechaEgreso().toLocalDate() : LocalDate.now());
+        int diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30")).intValue();
+        int diasAnio = configuracionRrhhService.getNumber("DIAS_ANIO_ANTIGUEDAD", new BigDecimal("365")).intValue();
+        LiquidacionFinalCalculator.Antiguedad ant = LiquidacionFinalCalculator.antiguedad(ingreso, egreso, diasMes, diasAnio);
+        BigDecimal salarioPromedio = calcularSalarioPromedio(f);
+        BigDecimal aguinaldo = calcularAguinaldoProporcional(f, egreso);
+        int diasVac = calcularDiasVacacionesNoGozadas(funcionarioId);
+        int preavisoDias = diasPreavisoPorTramo(ant.getAnios());
+        // IPS: por defecto se descuenta salvo que el funcionario tenga ipsActivo=false explícito.
+        boolean ipsActivo = !Boolean.FALSE.equals(f.getIpsActivo());
+        // Salario del mes: días trabajados = día del mes del egreso; base = sueldo mensual.
+        BigDecimal sueldoBase = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        int diasTrabajadosMes = egreso.getDayOfMonth();
+        BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoBase, diasTrabajadosMes, diasMes);
+        return new LiquidacionFinalPreview(
+                ingreso != null ? ingreso.toString() : null,
+                ant.getAnios(), (int) ant.getDias(), salarioPromedio, sueldoBase, diasTrabajadosMes, salarioDelMes,
+                aguinaldo, diasVac, preavisoDias, salarioPromedio, ipsActivo);
+    }
+
+    /** Salario por días trabajados: (sueldo / diasMes) × días, guaraníes enteros. */
+    private BigDecimal salarioPorDiasTrabajados(BigDecimal sueldo, int dias, int diasMes) {
+        if (sueldo == null || dias <= 0) return BigDecimal.ZERO;
+        return sueldo.multiply(new BigDecimal(dias))
+                .divide(new BigDecimal(diasMes > 0 ? diasMes : 30), 0, RoundingMode.HALF_UP);
+    }
+
+    private LocalDate parseLocalDate(String s) {
+        if (s == null || s.isBlank()) return null;
+        java.time.LocalDateTime d = stringToDate(s);
+        return d != null ? d.toLocalDate() : null;
+    }
+
+    /** Días de preaviso según tramo de antigüedad (configurables). */
+    private int diasPreavisoPorTramo(int anios) {
+        if (anios < 1) return configuracionRrhhService.getNumber("PREAVISO_DIAS_HASTA_1A", new BigDecimal("30")).intValue();
+        if (anios < 5) return configuracionRrhhService.getNumber("PREAVISO_DIAS_1_5A", new BigDecimal("45")).intValue();
+        if (anios < 10) return configuracionRrhhService.getNumber("PREAVISO_DIAS_5_10A", new BigDecimal("60")).intValue();
+        return configuracionRrhhService.getNumber("PREAVISO_DIAS_MAS_10A", new BigDecimal("90")).intValue();
     }
 
     private LiquidacionFinalItem item(LiquidacionFinal lf, LiquidacionFinalConcepto concepto, String desc, BigDecimal monto) {
@@ -142,7 +270,183 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         it.setConcepto(concepto);
         it.setDescripcion(desc);
         it.setMonto(monto);
+        it.setTipo(LiquidacionItemTipo.HABER);
+        it.setManual(false);
+        it.setEditado(false);
         return it;
+    }
+
+    /** Ítem DESCUENTO automático (obligaciones del funcionario). refTipo/refId permiten saldar al pagar. */
+    private LiquidacionFinalItem descItem(LiquidacionFinal lf, String desc, BigDecimal monto, Long refId, String refTipo) {
+        LiquidacionFinalItem it = new LiquidacionFinalItem();
+        it.setLiquidacionFinal(lf);
+        it.setConcepto(LiquidacionFinalConcepto.MANUAL);
+        it.setDescripcion(desc);
+        it.setMonto(monto);
+        it.setTipo(LiquidacionItemTipo.DESCUENTO);
+        it.setManual(false);
+        it.setEditado(false);
+        it.setReferenciaId(refId);
+        it.setReferenciaTipo(refTipo);
+        return it;
+    }
+
+    /**
+     * Descuentos automáticos del funcionario al salir (mismas obligaciones que la
+     * liquidación mensual): IPS (sobre ipsBase), vales/adelantos, cuotas de préstamo
+     * pendientes, crédito por convenio y penalizaciones. Cada bloque es activable
+     * desde el diálogo. Se agregan como ítems DESCUENTO editables; el total los resta
+     * vía recalcularTotal().
+     */
+    private void agregarDescuentosAutomaticos(LiquidacionFinal lf, Funcionario f, BigDecimal ipsBase, LocalDate egreso,
+                                              boolean descontarIps, boolean cobrarVales, boolean cobrarConvenios,
+                                              boolean cobrarPrestamos, boolean descontarPenalizaciones) {
+        Long fid = f.getId();
+
+        // IPS (parte del funcionario) — % sobre la base indicada (default salario promedio).
+        // Solo si corresponde (funcionario con IPS o forzado desde el diálogo).
+        if (descontarIps) {
+            BigDecimal ipsPct = configuracionRrhhService.getNumber("IPS_PORCENTAJE_FUNCIONARIO", new BigDecimal("9"));
+            BigDecimal base = ipsBase != null ? ipsBase : BigDecimal.ZERO;
+            BigDecimal ips = base.multiply(ipsPct).divide(new BigDecimal("100"), 0, RoundingMode.HALF_UP);
+            if (ips.signum() > 0) {
+                itemRepository.save(descItem(lf, "DESCUENTO IPS", ips, null, "IPS"));
+            }
+        }
+
+        // Vales / adelantos CONFIRMADO sin liquidar.
+        if (cobrarVales) {
+            for (Vale v : valeRepository.findByFuncionarioIdAndEstado(fid, ValeEstado.CONFIRMADO)) {
+                BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
+                if (monto.signum() <= 0) continue;
+                if (Boolean.TRUE.equals(v.getEsAdelanto())) {
+                    itemRepository.save(descItem(lf, "ADELANTO DE SUELDO", monto, v.getId(), "ADELANTO"));
+                } else {
+                    itemRepository.save(descItem(lf, "VALE", monto, v.getId(), "VALE"));
+                }
+            }
+        }
+
+        // Cuotas de préstamo pendientes/parciales/vencidas.
+        if (cobrarPrestamos) {
+            for (Prestamo pr : prestamoRepository.findByFuncionarioIdOrderByFechaInicioDesc(fid)) {
+                for (PrestamoCuota c : prestamoCuotaRepository.findByPrestamoIdOrderByNumeroAsc(pr.getId())) {
+                    boolean pendiente = c.getEstado() == PrestamoCuotaEstado.PENDIENTE
+                            || c.getEstado() == PrestamoCuotaEstado.PARCIAL
+                            || c.getEstado() == PrestamoCuotaEstado.VENCIDA;
+                    if (!pendiente) continue;
+                    BigDecimal monto = c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO;
+                    BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
+                    BigDecimal pend = monto.subtract(pagado);
+                    if (pend.signum() <= 0) continue;
+                    itemRepository.save(descItem(lf, "CUOTA #" + c.getNumero() + " PRESTAMO #" + pr.getId(),
+                            pend, c.getId(), "CPP_CUOTA"));
+                }
+            }
+        }
+
+        // Crédito por convenio (compras a crédito) — saldo del funcionario como cliente.
+        // Se agrega agregado (sin referencia): saldar cada VentaCredito es cross-módulo
+        // (financiero) y queda como reconciliación aparte.
+        if (cobrarConvenios) {
+            Cliente cli = clienteService.findByPersonaId(f.getPersona() != null ? f.getPersona().getId() : null);
+            if (cli != null) {
+                BigDecimal saldoConvenio = BigDecimal.ZERO;
+                for (EstadoVentaCredito est : new EstadoVentaCredito[]{EstadoVentaCredito.ABIERTO, EstadoVentaCredito.EN_MORA, EstadoVentaCredito.INCOBRABLE}) {
+                    for (VentaCredito vc : ventaCreditoRepository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(cli.getId(), est)) {
+                        if (vc.getSaldoTotal() != null) saldoConvenio = saldoConvenio.add(BigDecimal.valueOf(vc.getSaldoTotal()));
+                    }
+                }
+                if (saldoConvenio.signum() > 0) {
+                    itemRepository.save(descItem(lf, "CREDITO POR CONVENIO (COMPRAS)", saldoConvenio, null, "CREDITO_CONVENIO"));
+                }
+            }
+        }
+
+        // Penalizaciones no anuladas del mes de egreso.
+        if (descontarPenalizaciones && egreso != null) {
+            LocalDate inicioMes = egreso.withDayOfMonth(1);
+            BigDecimal totalPenal = BigDecimal.ZERO;
+            for (Penalizacion p : penalizacionRepository.findByFuncionarioIdAndFechaBetweenAndAnuladaFalse(fid, inicioMes, egreso)) {
+                if (p.getMonto() != null) totalPenal = totalPenal.add(p.getMonto());
+            }
+            if (totalPenal.signum() > 0) {
+                itemRepository.save(descItem(lf, "PENALIZACIONES DEL MES", totalPenal, null, "PENALIZACION"));
+            }
+        }
+    }
+
+    // =====================================================================
+    // Items editables — "todo es negociable". El total pasa a ser Σ haberes −
+    // Σ descuentos de los items; el desglose calculado queda como referencia.
+    // =====================================================================
+
+    /** total_liquidado = Σ HABER − Σ DESCUENTO de los items del finiquito. */
+    private void recalcularTotal(LiquidacionFinal lf) {
+        BigDecimal haberes = BigDecimal.ZERO;
+        BigDecimal descuentos = BigDecimal.ZERO;
+        for (LiquidacionFinalItem it : itemRepository.findByLiquidacionFinalIdOrderByIdAsc(lf.getId())) {
+            BigDecimal m = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
+            if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) descuentos = descuentos.add(m);
+            else haberes = haberes.add(m);
+        }
+        lf.setTotalLiquidado(haberes.subtract(descuentos));
+        repository.save(lf);
+    }
+
+    private LiquidacionFinal borradorDelItem(LiquidacionFinalItem it) {
+        LiquidacionFinal lf = it.getLiquidacionFinal();
+        if (lf == null) throw new GraphQLException("Item sin liquidación asociada");
+        if (lf.getEstado() != LiquidacionFinalEstado.BORRADOR)
+            throw new GraphQLException("Solo se pueden modificar items en estado BORRADOR");
+        return lf;
+    }
+
+    @Transactional
+    public LiquidacionFinalItem agregarItemManual(Long liquidacionFinalId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
+        LiquidacionFinal lf = repository.findById(liquidacionFinalId)
+                .orElseThrow(() -> new GraphQLException("Liquidación final no encontrada"));
+        if (lf.getEstado() != LiquidacionFinalEstado.BORRADOR)
+            throw new GraphQLException("Solo se pueden agregar items en estado BORRADOR");
+        LiquidacionFinalItem it = new LiquidacionFinalItem();
+        it.setLiquidacionFinal(lf);
+        it.setConcepto(LiquidacionFinalConcepto.MANUAL);
+        it.setDescripcion(descripcion != null ? descripcion.toUpperCase() : null);
+        it.setMonto(monto != null ? monto : BigDecimal.ZERO);
+        it.setTipo(tipo != null ? tipo : LiquidacionItemTipo.HABER);
+        it.setManual(true);
+        it.setEditado(false);
+        it = itemRepository.save(it);
+        recalcularTotal(lf);
+        return it;
+    }
+
+    @Transactional
+    public LiquidacionFinalItem editarItem(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
+        LiquidacionFinalItem it = itemRepository.findById(itemId)
+                .orElseThrow(() -> new GraphQLException("Item no encontrado"));
+        LiquidacionFinal lf = borradorDelItem(it);
+        // Guardar el monto original en la primera edición (delta negociado).
+        if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
+        if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
+        if (monto != null) it.setMonto(monto);
+        if (tipo != null) it.setTipo(tipo);
+        it.setEditado(true);
+        it.setEditadoEn(LocalDateTime.now());
+        if (usuarioId != null) it.setEditadoPor(usuarioService.findById(usuarioId).orElse(null));
+        it = itemRepository.save(it);
+        recalcularTotal(lf);
+        return it;
+    }
+
+    @Transactional
+    public Boolean eliminarItem(Long itemId) {
+        LiquidacionFinalItem it = itemRepository.findById(itemId).orElse(null);
+        if (it == null) return false;
+        LiquidacionFinal lf = borradorDelItem(it);
+        itemRepository.deleteById(itemId);
+        recalcularTotal(lf);
+        return true;
     }
 
     /** Promedio de total_haberes de las últimas N liquidaciones APROBADA/PAGADA; fallback al sueldo. */
@@ -162,7 +466,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         }
         BigDecimal suma = BigDecimal.ZERO;
         for (BigDecimal h : haberes) suma = suma.add(h);
-        return suma.divide(new BigDecimal(haberes.size()), 2, RoundingMode.HALF_UP);
+        return suma.divide(new BigDecimal(haberes.size()), 0, RoundingMode.HALF_UP);
     }
 
     private int calcularDiasVacacionesNoGozadas(Long funcionarioId) {
@@ -188,7 +492,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 hay = true;
             }
         }
-        if (hay) return suma.divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
+        if (hay) return suma.divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
         // fallback: sueldo × meses trabajados en el año / 12
         BigDecimal sueldo = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
         int mesesTrabajados = egreso.getMonthValue();
@@ -196,7 +500,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             mesesTrabajados = egreso.getMonthValue() - f.getFechaIngreso().getMonthValue() + 1;
         }
         mesesTrabajados = Math.max(0, mesesTrabajados);
-        return sueldo.multiply(new BigDecimal(mesesTrabajados)).divide(new BigDecimal("12"), 2, RoundingMode.HALF_UP);
+        return sueldo.multiply(new BigDecimal(mesesTrabajados)).divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
     }
 
     @Transactional
@@ -254,9 +558,47 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             funcionarioService.save(f);
         }
 
+        // Saldar las obligaciones descontadas (vales DESCONTADO, cuotas PAGADA).
+        aplicarEfectosCruzados(lf, true);
+
         lf.setEstado(LiquidacionFinalEstado.PAGADA);
         lf.setFechaPago(LocalDateTime.now());
         return repository.save(lf);
+    }
+
+    /**
+     * Aplica (pagar=true) o revierte (pagar=false) el saldado de las obligaciones
+     * descontadas en el finiquito, vía la referencia de cada ítem. Espejo de la
+     * mensual. El crédito por convenio no se salda acá (reconciliación aparte).
+     */
+    private void aplicarEfectosCruzados(LiquidacionFinal lf, boolean pagar) {
+        for (LiquidacionFinalItem it : itemRepository.findByLiquidacionFinalIdOrderByIdAsc(lf.getId())) {
+            String tipo = it.getReferenciaTipo();
+            Long refId = it.getReferenciaId();
+            if (tipo == null || refId == null) continue;
+            switch (tipo) {
+                case "VALE":
+                case "ADELANTO":
+                    valeRepository.findById(refId).ifPresent(v -> {
+                        v.setEstado(pagar ? ValeEstado.DESCONTADO : ValeEstado.CONFIRMADO);
+                        valeRepository.save(v);
+                    });
+                    break;
+                case "CPP_CUOTA":
+                    prestamoCuotaRepository.findById(refId).ifPresent(c -> {
+                        BigDecimal monto = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
+                        BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
+                        c.setMontoPagado(pagar ? pagado.add(monto) : pagado.subtract(monto).max(BigDecimal.ZERO));
+                        BigDecimal totalCuota = c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO;
+                        c.setEstado(c.getMontoPagado().compareTo(totalCuota) >= 0
+                                ? PrestamoCuotaEstado.PAGADA : PrestamoCuotaEstado.PENDIENTE);
+                        prestamoCuotaRepository.save(c);
+                    });
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     /** Anula un finiquito PAGADO: contra-asiento AJUSTE en la caja. */
@@ -276,6 +618,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             rev.setDescripcion("ANULACION LIQUIDACION FINAL #" + lf.getId());
             rev.setActivo(true);
             movimientoCajaVirtualService.registrarMovimiento(rev);
+            // Revertir el saldado de vales/cuotas.
+            aplicarEfectosCruzados(lf, false);
         }
         lf.setEstado(LiquidacionFinalEstado.ANULADA);
         return repository.save(lf);

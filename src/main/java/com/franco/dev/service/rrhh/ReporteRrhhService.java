@@ -41,20 +41,33 @@ public class ReporteRrhhService {
     private final com.franco.dev.repository.rrhh.ValeRepository valeRepository;
     private final com.franco.dev.repository.rrhh.PrestamoRepository prestamoRepository;
     private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
+    private final com.franco.dev.repository.rrhh.PenalizacionRepository penalizacionRepository;
+    private final com.franco.dev.repository.rrhh.BonoRepository bonoRepository;
+    private final com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService;
+    private final com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
+    private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales
 
     public ReporteRrhhService(LiquidacionSueldoRepository liquidacionSueldoRepository,
                               ConfiguracionRrhhService configuracionRrhhService,
                               LiquidacionFinalService liquidacionFinalService,
                               com.franco.dev.repository.rrhh.ValeRepository valeRepository,
                               com.franco.dev.repository.rrhh.PrestamoRepository prestamoRepository,
-                              com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository) {
+                              com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository,
+                              com.franco.dev.repository.rrhh.PenalizacionRepository penalizacionRepository,
+                              com.franco.dev.repository.rrhh.BonoRepository bonoRepository,
+                              com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService,
+                              com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
         this.valeRepository = valeRepository;
         this.prestamoRepository = prestamoRepository;
         this.aguinaldoRepository = aguinaldoRepository;
+        this.penalizacionRepository = penalizacionRepository;
+        this.bonoRepository = bonoRepository;
+        this.numeroALetrasService = numeroALetrasService;
+        this.configuracionGeneralService = configuracionGeneralService;
     }
 
     /** Nómina del mes: liquidaciones aprobadas/pagadas del período. */
@@ -123,47 +136,87 @@ public class ReporteRrhhService {
         return generar("reports/resumen-ips.jrxml", params, filas);
     }
 
-    /** Recibo de finiquito (liquidación final) en PDF base64. */
+    /** Recibo de finiquito (liquidación final). anchoMm null = PDF A4; 58/80 = ticket. */
     @Transactional(readOnly = true)
-    public String finiquitoBase64(Long liquidacionFinalId) {
+    public String finiquitoBase64(Long liquidacionFinalId, Integer anchoMm) {
         com.franco.dev.domain.rrhh.LiquidacionFinal lf = liquidacionFinalService.findById(liquidacionFinalId)
                 .orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
-        List<com.franco.dev.service.rrhh.dto.ReporteGenericoRowDto> filas = new ArrayList<>();
+        com.franco.dev.domain.personas.Funcionario f = lf.getFuncionario();
+
+        List<FiniquitoRow> filas = new ArrayList<>();
         for (com.franco.dev.domain.rrhh.LiquidacionFinalItem it : liquidacionFinalService.findItems(liquidacionFinalId)) {
             String concepto = it.getDescripcion() != null ? it.getDescripcion()
                     : (it.getConcepto() != null ? it.getConcepto().name() : "");
-            // reutiliza el DTO generico: c1=concepto, c2=monto
-            filas.add(new com.franco.dev.service.rrhh.dto.ReporteGenericoRowDto(
-                    concepto, formatear(it.getMonto()), null, null));
+            boolean esDescuento = it.getTipo() == com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo.DESCUENTO;
+            // Guaraníes sin decimales; los descuentos entre paréntesis (restan).
+            String montoStr = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
+            if (esDescuento) montoStr = "(" + montoStr + ")";
+            filas.add(new FiniquitoRow(concepto, montoStr));
         }
-        if (filas.isEmpty()) filas.add(new com.franco.dev.service.rrhh.dto.ReporteGenericoRowDto("SIN ITEMS", "0", null, null));
+        if (filas.isEmpty()) filas.add(new FiniquitoRow("SIN ITEMS", "0"));
+
+        BigDecimal totalLiq = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
+
+        // Formato ticket: plantilla genérica angosta.
+        if (anchoMm != null) {
+            String clausula = "Recibí conforme, en concepto de liquidación final de haberes,";
+            return reciboRrhh("LIQUIDACION FINAL", f, filas, totalLiq, clausula, anchoMm);
+        }
+
+        java.time.LocalDate ingreso = f != null && f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null;
+        java.time.LocalDate egreso = lf.getFechaEgreso();
+        BigDecimal sueldo = f != null && f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        BigDecimal jornal = sueldo.divide(new BigDecimal("30"), 0, java.math.RoundingMode.HALF_UP);
+        String documento = f != null && f.getPersona() != null && f.getPersona().getDocumento() != null
+                ? f.getPersona().getDocumento() : "";
 
         Map<String, Object> params = new HashMap<>();
-        params.put("empresa", lf.getFuncionario() != null && lf.getFuncionario().getSucursal() != null
-                ? lf.getFuncionario().getSucursal().getNombre() : "");
-        params.put("funcionario", nombreFuncionario(lf.getFuncionario()));
+        params.put("empresa", razonSocialEmpresa());
+        params.put("trabajador", nombreFuncionario(f));
+        params.put("documento", documento);
         params.put("motivo", lf.getMotivoEgreso() != null ? lf.getMotivoEgreso().name() : "");
-        params.put("fechaEgreso", lf.getFechaEgreso() != null ? lf.getFechaEgreso().toString() : "");
-        params.put("antiguedad", (lf.getAntiguedadAnios() != null ? lf.getAntiguedadAnios() : 0) + " años ("
-                + (lf.getAntiguedadDias() != null ? lf.getAntiguedadDias() : 0) + " días)");
-        params.put("salarioPromedio", formatear(lf.getSalarioPromedio()));
+        params.put("entrada", ingreso != null ? ingreso.toString() : "");
+        params.put("salida", egreso != null ? egreso.toString() : "");
+        params.put("antiguedad", antiguedadTexto(ingreso, egreso));
+        params.put("salario", formatoGs.format(sueldo));
+        params.put("jornalDiario", formatoGs.format(jornal));
         params.put("fecha", LocalDate.now().toString());
-        params.put("totalLiquidado", formatear(lf.getTotalLiquidado()));
+        params.put("total", formatoGs.format(totalLiq));
+        params.put("totalEnLetras", enLetrasGs(totalLiq));
 
-        return generarFiniquito(params, filas);
-    }
-
-    private String generarFiniquito(Map<String, Object> params,
-                                    List<com.franco.dev.service.rrhh.dto.ReporteGenericoRowDto> filasGen) {
-        // recibo-finiquito.jrxml usa fields concepto/monto
-        List<FiniquitoRow> filas = new ArrayList<>();
-        for (com.franco.dev.service.rrhh.dto.ReporteGenericoRowDto g : filasGen) {
-            filas.add(new FiniquitoRow(g.getC1(), g.getC2()));
-        }
         return generar("reports/recibo-finiquito.jrxml", params, filas);
     }
 
+
     /** Row para recibo-finiquito.jrxml (fields concepto, monto). */
+    /** Razón social de la empresa (ConfiguracionGeneral), no el nombre de la sucursal. */
+    private String razonSocialEmpresa() {
+        java.util.List<com.franco.dev.domain.empresarial.ConfiguracionGeneral> all = configuracionGeneralService.findAll2();
+        com.franco.dev.domain.empresarial.ConfiguracionGeneral cg = all != null && !all.isEmpty() ? all.get(0) : null;
+        if (cg != null) {
+            if (cg.getRazonSocial() != null) return cg.getRazonSocial();
+            if (cg.getNombreEmpresa() != null) return cg.getNombreEmpresa();
+        }
+        return "";
+    }
+
+    /** "X año(s) Y mes(es) Z día(s)" entre ingreso y egreso. */
+    private String antiguedadTexto(java.time.LocalDate ingreso, java.time.LocalDate egreso) {
+        if (ingreso == null || egreso == null || egreso.isBefore(ingreso)) return "";
+        java.time.Period p = java.time.Period.between(ingreso, egreso);
+        return p.getYears() + " año(s) " + p.getMonths() + " mes(es) " + p.getDays() + " día(s)";
+    }
+
+    /** Total en palabras (guaraníes, entero). */
+    private String enLetrasGs(BigDecimal monto) {
+        BigDecimal v = monto != null ? monto : BigDecimal.ZERO;
+        boolean neg = v.signum() < 0;
+        String entero = v.abs().setScale(0, java.math.RoundingMode.HALF_UP).toPlainString();
+        String palabras = numeroALetrasService.converter(entero, true);
+        String txt = palabras != null ? palabras.trim() + " GUARANIES" : "";
+        return neg ? "MENOS " + txt : txt;
+    }
+
     public static class FiniquitoRow {
         private final String concepto;
         private final String monto;
@@ -229,6 +282,109 @@ public class ReporteRrhhService {
         Map<String, Object> params = paramsGenericos("AGUINALDO " + anio, "Aguinaldo del anio " + anio,
                 "Funcionario", "Meses", "Monto", "Estado", "Total:", formatear(total));
         return generarGenerico(params, filas);
+    }
+
+    // ===== Recibos firmables por registro (recibo-rrhh.jrxml) =====
+
+    /** Recibo de vale / adelanto. anchoMm null = PDF A4; 58/80 = ticket. */
+    @Transactional(readOnly = true)
+    public String reciboValeBase64(Long id, Integer anchoMm) {
+        com.franco.dev.domain.rrhh.Vale v = valeRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Vale no encontrado"));
+        boolean adelanto = Boolean.TRUE.equals(v.getEsAdelanto());
+        String concepto = (v.getMotivo() != null && v.getMotivo().getNombre() != null ? v.getMotivo().getNombre()
+                : (adelanto ? "ADELANTO DE SALARIO" : "VALE"))
+                + (v.getFecha() != null ? " (" + v.getFecha() + ")" : "");
+        List<FiniquitoRow> filas = new ArrayList<>();
+        filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(v.getMonto()))));
+        String clausula = "Recibí conforme, en concepto de " + (adelanto ? "adelanto de salario" : "vale") + ",";
+        return reciboRrhh("RECIBO DE " + (adelanto ? "ADELANTO" : "VALE"), v.getFuncionario(), filas, nz(v.getMonto()), clausula, anchoMm);
+    }
+
+    /** Recibo / notificación de penalización. */
+    @Transactional(readOnly = true)
+    public String reciboPenalizacionBase64(Long id, Integer anchoMm) {
+        com.franco.dev.domain.rrhh.Penalizacion p = penalizacionRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Penalizacion no encontrada"));
+        String tipo = p.getTipo() != null ? p.getTipo().name() : "PENALIZACION";
+        String concepto = tipo + (p.getDescripcion() != null && !p.getDescripcion().isEmpty() ? " - " + p.getDescripcion() : "")
+                + (p.getFecha() != null ? " (" + p.getFecha() + ")" : "");
+        List<FiniquitoRow> filas = new ArrayList<>();
+        filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(p.getMonto()))));
+        String clausula = "Tomo conocimiento de la penalización aplicada y su descuento correspondiente,";
+        return reciboRrhh("RECIBO DE PENALIZACION", p.getFuncionario(), filas, nz(p.getMonto()), clausula, anchoMm);
+    }
+
+    /** Recibo de aguinaldo. */
+    @Transactional(readOnly = true)
+    public String reciboAguinaldoBase64(Long id, Integer anchoMm) {
+        com.franco.dev.domain.rrhh.Aguinaldo a = aguinaldoRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Aguinaldo no encontrado"));
+        String concepto = "AGUINALDO " + (a.getAnio() != null ? a.getAnio() : "")
+                + (a.getMesesTrabajados() != null ? " (" + a.getMesesTrabajados() + " meses)" : "");
+        List<FiniquitoRow> filas = new ArrayList<>();
+        filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(a.getMontoCalculado()))));
+        String clausula = "Recibí conforme, en concepto de aguinaldo,";
+        return reciboRrhh("RECIBO DE AGUINALDO", a.getFuncionario(), filas, nz(a.getMontoCalculado()), clausula, anchoMm);
+    }
+
+    /** Recibo de entrega de préstamo (desembolso al funcionario). */
+    @Transactional(readOnly = true)
+    public String reciboPrestamoBase64(Long id, Integer anchoMm) {
+        com.franco.dev.domain.rrhh.Prestamo p = prestamoRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Prestamo no encontrado"));
+        String concepto = "PRESTAMO"
+                + (p.getDescripcion() != null && !p.getDescripcion().isEmpty() ? " - " + p.getDescripcion() : "")
+                + (p.getCantidadCuotas() != null ? " (" + p.getCantidadCuotas() + " cuotas)" : "");
+        List<FiniquitoRow> filas = new ArrayList<>();
+        filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(p.getMontoTotal()))));
+        String clausula = "Recibí conforme el importe entregado en concepto de préstamo, a descontar en las cuotas pactadas,";
+        return reciboRrhh("RECIBO DE PRESTAMO", p.getFuncionario(), filas, nz(p.getMontoTotal()), clausula, anchoMm);
+    }
+
+    /** Recibo de bono. */
+    @Transactional(readOnly = true)
+    public String reciboBonoBase64(Long id, Integer anchoMm) {
+        com.franco.dev.domain.rrhh.Bono b = bonoRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Bono no encontrado"));
+        String tipo = b.getTipo() != null ? b.getTipo().name() : "BONO";
+        String concepto = tipo + (b.getMotivo() != null && !b.getMotivo().isEmpty() ? " - " + b.getMotivo() : "")
+                + (b.getFecha() != null ? " (" + b.getFecha() + ")" : "");
+        List<FiniquitoRow> filas = new ArrayList<>();
+        filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(b.getMonto()))));
+        String clausula = "Recibí conforme, en concepto de bono,";
+        return reciboRrhh("RECIBO DE BONO", b.getFuncionario(), filas, nz(b.getMonto()), clausula, anchoMm);
+    }
+
+    /**
+     * Builder común de los recibos firmables. anchoMm null → PDF A4
+     * (recibo-rrhh.jrxml); 58/80 → plantilla ticket del ancho correspondiente.
+     */
+    private String reciboRrhh(String titulo, Funcionario f, List<FiniquitoRow> filas, BigDecimal total, String clausula, Integer anchoMm) {
+        if (filas.isEmpty()) filas.add(new FiniquitoRow("-", "0"));
+        Map<String, Object> params = new HashMap<>();
+        params.put("empresa", razonSocialEmpresa());
+        params.put("titulo", titulo);
+        params.put("funcionario", nombreFuncionario(f));
+        params.put("documento", documentoOf(f));
+        params.put("fecha", LocalDate.now().toString());
+        params.put("clausula", clausula);
+        params.put("total", formatoGs.format(nz(total)));
+        params.put("totalEnLetras", enLetrasGs(total));
+        return generar(plantillaRecibo(anchoMm), params, filas);
+    }
+
+    /** Elige la plantilla según el formato: A4 (null) o ticket 58/80mm. */
+    private String plantillaRecibo(Integer anchoMm) {
+        if (anchoMm == null) return "reports/recibo-rrhh.jrxml";
+        return anchoMm >= 80 ? "reports/recibo-ticket-80.jrxml" : "reports/recibo-ticket-58.jrxml";
+    }
+
+    private BigDecimal nz(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+
+    private String documentoOf(Funcionario f) {
+        return f != null && f.getPersona() != null && f.getPersona().getDocumento() != null
+                ? f.getPersona().getDocumento() : "";
     }
 
     private Map<String, Object> paramsGenericos(String titulo, String subtitulo, String h1, String h2, String h3, String h4,

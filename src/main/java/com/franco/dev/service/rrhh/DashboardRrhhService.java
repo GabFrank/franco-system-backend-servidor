@@ -20,6 +20,11 @@ import com.franco.dev.repository.rrhh.PrestamoRepository;
 import com.franco.dev.repository.rrhh.ValeRepository;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.rrhh.dto.DashboardRrhhKpisDto;
+import com.franco.dev.service.rrhh.dto.RrhhCumpleanosDto;
+import com.franco.dev.service.rrhh.dto.RrhhFuncionarioIncompletoDto;
+import com.franco.dev.service.rrhh.dto.RrhhIncompletosPageDto;
+import com.franco.dev.service.rrhh.dto.RrhhRankingItemDto;
+import com.franco.dev.service.rrhh.dto.RrhhSeriePuntoDto;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,7 +33,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Calcula los KPIs del dashboard de RRHH para un período (YYYY-MM),
@@ -161,5 +171,167 @@ public class DashboardRrhhService {
         k.setAguinaldoEstimadoAnio(aguinaldo);
 
         return k;
+    }
+
+    /**
+     * Serie mensual de nómina (neto liquidado) entre dos períodos 'YYYY-MM'
+     * inclusive, para el gráfico de tendencia. Solo APROBADA/PAGADA.
+     */
+    @Transactional(readOnly = true)
+    public List<RrhhSeriePuntoDto> getNominaSeriePorMes(String periodoInicio, String periodoFin) {
+        validarPeriodo(periodoInicio);
+        validarPeriodo(periodoFin);
+        List<RrhhSeriePuntoDto> serie = new ArrayList<>();
+        for (Object[] fila : liquidacionSueldoRepository.nominaSeriePorMesRaw(periodoInicio, periodoFin)) {
+            serie.add(new RrhhSeriePuntoDto(
+                    fila[0] != null ? fila[0].toString() : null,
+                    fila[1] != null ? ((Number) fila[1]).longValue() : 0L,
+                    fila[2] != null ? new BigDecimal(fila[2].toString()) : BigDecimal.ZERO));
+        }
+        return serie;
+    }
+
+    /**
+     * Top funcionarios por exposición financiera = vales pendientes (SOLICITADO/
+     * CONFIRMADO) + saldo de préstamos activos. secundario = nº de obligaciones.
+     */
+    @Transactional(readOnly = true)
+    public List<RrhhRankingItemDto> getTopExposicion(int limite) {
+        Map<Long, RrhhRankingItemDto> acc = new LinkedHashMap<>();
+        for (ValeEstado est : new ValeEstado[]{ValeEstado.SOLICITADO, ValeEstado.CONFIRMADO}) {
+            for (Vale v : valeRepository.findByEstadoOrderByFechaDesc(est)) {
+                if (v.getFuncionario() == null) continue;
+                acumular(acc, v.getFuncionario(), v.getMonto());
+            }
+        }
+        for (Prestamo p : prestamoRepository.findByEstadoOrderByFechaInicioDesc(PrestamoEstado.ACTIVO)) {
+            if (p.getFuncionario() == null) continue;
+            BigDecimal total = p.getMontoTotal() != null ? p.getMontoTotal() : BigDecimal.ZERO;
+            BigDecimal pagado = p.getMontoPagado() != null ? p.getMontoPagado() : BigDecimal.ZERO;
+            acumular(acc, p.getFuncionario(), total.subtract(pagado).max(BigDecimal.ZERO));
+        }
+        return topN(acc, limite);
+    }
+
+    /** Top funcionarios por monto de horas extra del mes del período. */
+    @Transactional(readOnly = true)
+    public List<RrhhRankingItemDto> getTopHorasExtra(String periodo, int limite) {
+        validarPeriodo(periodo);
+        YearMonth ym = YearMonth.parse(periodo);
+        Map<Long, RrhhRankingItemDto> acc = new LinkedHashMap<>();
+        for (HoraExtra x : horaExtraRepository.findByFechaBetweenAndAnuladaFalse(ym.atDay(1), ym.atEndOfMonth())) {
+            if (x.getFuncionario() == null) continue;
+            acumular(acc, x.getFuncionario(), x.getMontoCalculado());
+        }
+        return topN(acc, limite);
+    }
+
+    /** Cumpleaños de funcionarios activos dentro del mes del período. */
+    @Transactional(readOnly = true)
+    public List<RrhhCumpleanosDto> getCumpleanosDelMes(String periodo) {
+        validarPeriodo(periodo);
+        int mes = YearMonth.parse(periodo).getMonthValue();
+        List<RrhhCumpleanosDto> lista = new ArrayList<>();
+        for (Funcionario f : funcionarioService.findAll2()) {
+            if (!Boolean.TRUE.equals(f.getActivo()) || f.getPersona() == null
+                    || f.getPersona().getNacimiento() == null) continue;
+            if (f.getPersona().getNacimiento().getMonthValue() != mes) continue;
+            lista.add(new RrhhCumpleanosDto(
+                    f.getId(),
+                    nombre(f),
+                    f.getPersona().getNacimiento().getDayOfMonth(),
+                    f.getCargo() != null ? f.getCargo().getNombre() : null));
+        }
+        return lista.stream()
+                .sorted(Comparator.comparing(RrhhCumpleanosDto::getDia))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Funcionarios activos con legajo incompleto, peores primero (menor score),
+     * paginado. score 1..10 según cuántos de los campos clave estén cargados.
+     * Pensado para que el usuario abra el legajo y complete lo que falta.
+     */
+    @Transactional(readOnly = true)
+    public RrhhIncompletosPageDto getFuncionariosIncompletos(int page, int size) {
+        List<RrhhFuncionarioIncompletoDto> todos = new ArrayList<>();
+        for (Funcionario f : funcionarioService.findAll2()) {
+            // Solo funcionarios vigentes: activos y sin egreso registrado.
+            if (!Boolean.TRUE.equals(f.getActivo()) || f.getFechaEgreso() != null) continue;
+            RrhhFuncionarioIncompletoDto d = evaluarCompletitud(f);
+            if (d != null) todos.add(d);
+        }
+        todos.sort(Comparator.comparing(RrhhFuncionarioIncompletoDto::getScore)
+                .thenComparing(d -> d.getNombre() != null ? d.getNombre() : ""));
+
+        int total = todos.size();
+        int desde = Math.max(0, page) * Math.max(1, size);
+        int hasta = Math.min(total, desde + Math.max(1, size));
+        List<RrhhFuncionarioIncompletoDto> items = desde >= total
+                ? new ArrayList<>() : todos.subList(desde, hasta);
+        return new RrhhIncompletosPageDto(total, new ArrayList<>(items));
+    }
+
+    /**
+     * Evalúa 8 campos clave del legajo. Devuelve null si está completo (nada que
+     * hacer); si no, arma el DTO con score 1..10 y la lista de faltantes.
+     */
+    private RrhhFuncionarioIncompletoDto evaluarCompletitud(Funcionario f) {
+        com.franco.dev.domain.personas.Persona p = f.getPersona();
+        List<String> faltantes = new ArrayList<>();
+        if (f.getCargo() == null) faltantes.add("Cargo");
+        if (f.getSueldo() == null || f.getSueldo() <= 0) faltantes.add("Salario");
+        if (f.getFechaIngreso() == null) faltantes.add("Fecha ingreso");
+        if (blank(p == null ? null : p.getDocumento())) faltantes.add("Documento");
+        if (p == null || p.getNacimiento() == null) faltantes.add("Nacimiento");
+        if (blank(p == null ? null : p.getSexo())) faltantes.add("Sexo");
+        if (blank(p == null ? null : p.getDireccion())) faltantes.add("Dirección");
+        if (blank(p == null ? null : p.getTelefono())) faltantes.add("Teléfono");
+
+        final int TOTAL = 8;
+        int cumplidos = TOTAL - faltantes.size();
+        if (cumplidos >= TOTAL) return null; // completo
+
+        int score = Math.max(1, (int) Math.round((cumplidos / (double) TOTAL) * 10));
+        return new RrhhFuncionarioIncompletoDto(
+                f.getId(), nombre(f),
+                f.getCargo() != null ? f.getCargo().getNombre() : null,
+                score, String.join(", ", faltantes));
+    }
+
+    private boolean blank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    // ===== helpers =====
+
+    private void acumular(Map<Long, RrhhRankingItemDto> acc, Funcionario f, BigDecimal monto) {
+        if (monto == null) monto = BigDecimal.ZERO;
+        RrhhRankingItemDto item = acc.get(f.getId());
+        if (item == null) {
+            acc.put(f.getId(), new RrhhRankingItemDto(f.getId(), nombre(f), monto, 1L));
+        } else {
+            item.setPrincipal(item.getPrincipal().add(monto));
+            item.setSecundario(item.getSecundario() + 1);
+        }
+    }
+
+    private List<RrhhRankingItemDto> topN(Map<Long, RrhhRankingItemDto> acc, int limite) {
+        return acc.values().stream()
+                .sorted(Comparator.comparing(RrhhRankingItemDto::getPrincipal).reversed())
+                .limit(Math.max(1, limite))
+                .collect(Collectors.toList());
+    }
+
+    private String nombre(Funcionario f) {
+        if (f.getPersona() == null) return "—";
+        String n = f.getPersona().getNombre();
+        return n != null && !n.isEmpty() ? n : "—";
+    }
+
+    private void validarPeriodo(String periodo) {
+        if (periodo == null || !periodo.matches("\\d{4}-\\d{2}")) {
+            throw new GraphQLException("Periodo invalido, se espera 'YYYY-MM'");
+        }
     }
 }

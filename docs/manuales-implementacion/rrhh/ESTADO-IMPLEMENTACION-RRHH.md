@@ -53,8 +53,11 @@ se puede cambiar el tipo). Estado: Compila.
 
 **Legajo digital de documentos** — `funcionario_documento`: metadata + binario
 en disco (`ImageService.getImagePath()/rrhh/funcionario-documentos`), lectura
-como base64. Tipos: cédula, contrato, certificado, CV, antecedentes, carnet de
-salud, título, otro. Estado: Compila.
+como base64. Tipos (`FuncionarioDocumentoTipo`): cédula, contrato, certificado,
+CV, antecedentes, carnet de salud, título, **foto de perfil (`FOTO_PERFIL`)**,
+otro. El tipo `FOTO_PERFIL` es dedicado: la foto de perfil se guarda como un
+`funcionario_documento` de ese tipo (no como campo en `funcionario`), y el legajo
+la usa para el avatar. Estado: Compila.
 
 **Mutaciones dedicadas (cambio de cargo/salario, egreso)** —
 `FuncionarioRrhhService`: `cambiarCargo`, `cambiarSalario`, `egresar`
@@ -62,11 +65,40 @@ salud, título, otro. Estado: Compila.
 desktop existente) — regla de retrocompatibilidad §18.1. Migración `V146.0`.
 Estado: Compila.
 
-**Pantalla desktop "Legajo funcionario"** — Selector de funcionario + resumen
-(cargo/salario/estado), tablas de históricos de cargo y salario, documentos
-(subir vía archivo→base64, ver inline, anular) y acciones (cambiar cargo,
-cambiar salario, egresar, liquidación final). En el sidenav de R.R.H.H.
-Estado: Compila (AOT).
+**Pantalla desktop "Legajo funcionario"** (`rrhh/legajo/legajo-funcionario`) —
+Cabecera con avatar (foto `FOTO_PERFIL`), identidad, KPIs y accesos rápidos
+(cambiar cargo, cambiar salario, subir documento, egresar, liquidación final).
+Debajo, `mat-tab-group` con estas pestañas **en este orden**:
+
+1. **Información general** (`informacion-general` component) — **ES EL ALTA/EDICIÓN
+   del funcionario**. Se movió acá desde el viejo `AdicionarFuncionarioDialog`
+   (eliminado del menú de la lista, que ahora solo abre el legajo). Un funcionario
+   **proviene de una persona**: el form busca la persona por documento y, si no
+   existe, la crea (`savePersona` con `isFuncionario=true`) antes de guardar el
+   funcionario. **No** gestiona cargo/sueldo/crédito/horario (tienen sus propias
+   pestañas/diálogos); al editar preserva esos valores para no pisarlos. Campos:
+   persona (doc/nombre/nac/sexo/ciudad/dirección/tel/email), datos laborales
+   (ingreso/sucursal/supervisor/código interno/activo/fase prueba/diarista), IPS
+   (activo + número + fecha ingreso), cuenta bancaria, contacto de emergencia, y
+   **foto de perfil** (botón abre el selector del SO directo, sube en un paso como
+   documento `FOTO_PERFIL`, avatar en vivo vía `@Output() fotoCambiada`). Layout
+   persona 80% / foto 20%.
+2. **Financiero** (`financiero-legajo` component, lazy `matTabContent`) — **VISTA
+   CONSOLIDADA de solo lectura** de la deuda del funcionario. 4 KPIs (crédito
+   convenio, vales pendientes, saldo préstamos, penalizaciones) + card "Exposición
+   total" (crédito + vales + préstamos; las penalizaciones no suman, son descuentos
+   puntuales) + 4 tablas de detalle. Reusa `ValeService`/`PrestamoService`/
+   `PenalizacionService`/`VentaCreditoService`/`ClienteService` (cero backend
+   nuevo). El crédito de convenio resuelve `persona → clientePorPersonaId →
+   ventaCreditoPorCliente` (encadenado, porque `VentaCredito` cuelga del `Cliente`,
+   no del `Funcionario`). No hace CRUD: alta/cobro viven en sus módulos propios.
+3. **Cargos** — histórico de cargos.
+4. **Salarios** — histórico de salarios.
+5. **Asistencia** — placeholder (Fase futura).
+6. **Puntuaciones** — placeholder (evaluación 360°).
+7. **Documentos** — subir (archivo→base64), ver inline, anular.
+
+En el sidenav de R.R.H.H. Estado: Compila (AOT).
 
 ---
 
@@ -152,8 +184,17 @@ fill OK** (validado con la librería Jasper); **verificación visual del PDF
 pendiente** (el export final usa iText, presente en el ambiente real).
 
 **Pantallas desktop** — Lista de liquidaciones (por funcionario/período),
-generar (individual/masivo), diálogo de detalle con items, acciones por estado,
-pago vía Caja Mayor, y botón "Recibo". Estado: Compila (AOT).
+generar (individual/masivo), **detalle en TAB** con items, acciones por estado,
+pago vía Caja Mayor, y "Ver Recibo" (visor PDF integrado). Estado: Compila (AOT).
+
+**Ítems editables + auditoría ("todo es negociable")** — En BORRADOR se puede
+**editar cualquier ítem** (auto o manual), agregar ítems HABER/DESCUENTO y
+eliminar. Mutations: `agregarItemLiquidacion`, **`editarItemLiquidacion`**
+(nueva), `eliminarItemLiquidacion`. Editar registra auditoría: `editado`,
+`editado_por_id`, `editado_en` y `monto_original` (valor pre-edición) — migración
+`V171.0`. El total sigue siendo Σ haberes − Σ descuentos (`aplicarTotales`). En
+la UI: panel dual alta/edición + ícono "editado" con tooltip (quién / monto
+original). Estado: Compila.
 
 ---
 
@@ -165,17 +206,85 @@ mínimo configurable: `salarioPromedio/30 × díasPorAño × max(1, años)`),
 vacaciones no gozadas (`días × salarioPromedio/30`), aguinaldo proporcional, y
 total. Estado: Compila + Tests.
 
+**Preaviso (ley laboral Paraguay)** — Días configurables por antigüedad (Hasta
+1 año = 30, 1–5 años = 45, 5–10 años = 60, +10 años = 90; 4 claves de config
+nuevas). Matriz legal: despido injustificado **sin** preaviso → concepto
+**HABER** (paga los días completos); renuncia **sin** preaviso → concepto
+**DESCUENTO** de la **mitad** de los días. Columnas nuevas en
+`liquidacion_final`: `preaviso_otorgado`, `preaviso_dias`, `preaviso_monto`,
+`preaviso_es_descuento`. Editable en el diálogo de generación (toggle "¿se
+otorgó?" + días). Migración `V173.0`. Estado: Compila (verificado en dev, ver
+más abajo).
+
+**Salario del mes (días trabajados)** — El primer ítem HABER del finiquito ya
+no es fijo: es el sueldo base mensual (`funcionario.sueldo`) / 30 × días
+trabajados del mes de egreso (default = día del mes de la fecha de egreso,
+editable en el diálogo). Concepto `SALARIO_MES`.
+
 **Servicio de finiquito** — `LiquidacionFinalService.generarBorrador`: reúne
 salario promedio (últimas 6 liquidaciones aprobadas/pagadas), días de vacaciones
-no gozadas, aguinaldo del año; arma items (INDEMNIZACION, VACACIONES_NO_GOZADAS,
-AGUINALDO_PROPORCIONAL). Estados BORRADOR/APROBADA/PAGADA/ANULADA;
-`pagar` (EGRESO Caja Mayor + `MovimientoPersonas` + `funcionario.activo=false`);
-`anular` (contra-asiento). Migración `V147.0`. Estado: Compila.
+no gozadas, aguinaldo del año, salario del mes y preaviso; arma items HABER
+(`LiquidacionFinalConcepto`: SALARIO_MES, INDEMNIZACION, PREAVISO,
+VACACIONES_NO_GOZADAS, AGUINALDO_PROPORCIONAL, MANUAL). Estados
+BORRADOR/APROBADA/PAGADA/ANULADA; `pagar` (EGRESO Caja Mayor +
+`funcionario.activo=false`); `anular` (contra-asiento). Migración `V147.0`.
+Estado: Compila.
 
-**Pantalla desktop** — Diálogo de liquidación final lanzado desde el Legajo:
-elige motivo de egreso + fecha, muestra el desglose (antigüedad, salario
-promedio, indemnización, vacaciones, aguinaldo, total) y las acciones por
-estado. Estado: Compila (AOT).
+**Ítems editables (paridad con la mensual, "todo es negociable")** — El
+`liquidacion_final_item` ganó `tipo` (HABER/DESCUENTO), `manual`, auditoría de
+edición (`editado`/`editado_por_id`/`editado_en`/`monto_original`) y
+`referencia_id`/`referencia_tipo` — migraciones `V170.0` + `V172.0`. **El total
+pasó de fijo a Σ haberes − Σ descuentos** (`recalcularTotal`). Mutations:
+`agregarItemLiquidacionFinal`, `editarItemLiquidacionFinal`,
+`eliminarItemLiquidacionFinal` (todas guard BORRADOR).
+
+**Descuentos automáticos del funcionario** — Al generar el borrador se agregan
+como ítems DESCUENTO (editables) las mismas obligaciones que la mensual:
+**IPS** (`IPS% × salario promedio`, sobre base configurable), **vales/adelantos**
+CONFIRMADO, **cuotas de préstamo** pendientes (con `referencia_tipo=CPP_CUOTA`), y
+**crédito por convenio** (saldo de `VentaCredito` ABIERTO/EN_MORA/INCOBRABLE del
+funcionario como cliente, agregado sin referencia). Cada uno con su propio toggle
+en el diálogo de generación. Al **pagar**, `aplicarEfectosCruzados` salda los
+orígenes (vales→DESCONTADO, cuotas→PAGADA); al **anular** los revierte. El crédito
+por convenio se descuenta pero su reconciliación en el módulo financiero queda
+como follow-up (cross-módulo). **Guaraníes enteros:** todos los montos se
+redondean a escala 0 en el cálculo (sin decimales para Gs); display con pipe
+`1.0-0` e inputs con `currencyMask` guaraní.
+
+**Diálogo de generación enriquecido** — `LiquidacionFinalGenerarInput` + query
+`previewLiquidacionFinal`: precarga editable de fecha de ingreso, salario
+promedio (formato Gs), días trabajados del mes, preaviso otorgado + días, días
+de vacaciones no gozadas, aguinaldo proporcional (Gs), base IPS (Gs), y toggles
+`descontarIps` (default según `funcionario.ipsActivo`) / `cobrarVales` /
+`cobrarConvenios` / `cobrarPrestamos` / `descontarPenalizaciones` (default true).
+Botón **"Regenerar"** reabre este diálogo sobre un finiquito en BORRADOR.
+
+**Verificación end-to-end en DB (ESTEBAN, finiquito id 4)** — Despido
+injustificado sin preaviso: SALARIO_MES + indemnización 8.654.167 + preaviso
+HABER 6.490.625 + vacaciones 1.009.653 + aguinaldo 360.590 − IPS 389.437 − 2
+cuotas 400.000 − penalización 80.000, todos los montos enteros. Renuncia sin
+preaviso: preaviso DESCUENTO 3.245.313 (mitad de los días), sin indemnización,
+22 días trabajados (egreso 2026-07-22). **Pendiente:** probar el pago end-to-end
+con saldado de vales/cuotas si aún no se hizo.
+
+**Pantalla desktop** — Lanzada desde el Legajo (acceso rápido "Liquidación
+final"): **diálogo enriquecido** de parámetros → al generar abre el
+**finiquito en TAB** (si ya existe uno vigente, abre el tab directo). En el tab:
+desglose legal sugerido + **tabla de ítems editable** (editar/agregar
+HABER-DESCUENTO/eliminar), total por suma, pago vía Caja Mayor y **"Ver Recibo"
+en el visor PDF integrado** (se corrigió el `window.open`, bloqueado en Electron).
+Estado: Compila (AOT).
+
+**Recibo del finiquito (PDF) — rediseñado** — `recibo-finiquito.jrxml`:
+"LIQUIDACION FINAL DE HABERES", tabla bordeada de datos (Empresa/Trabajador/
+Entrada/Salida/Antigüedad/Salario/Jornal diario), tabla Concepto/Monto
+(descuentos entre paréntesis), TOTAL A LIQUIDAR, cláusula con el monto en
+letras, firma con C.I. El nombre de empresa sale de la razón social
+(`empresarial.configuracion_general`, no la sucursal). Sin total en la esquina
+superior. Fuente `SansSerif`. Se muestra en el visor PDF integrado (no
+`window.open`, bloqueado en Electron). Estado: Compila; validado con test
+automatizado (`ReciboFiniquitoJrxmlTest`: compila + fill + export);
+verificación visual manual en dev pendiente.
 
 ---
 
@@ -216,35 +325,84 @@ de nómina; 28–31 = mes calendario), `MESES_PROMEDIO_LIQUIDACION_FINAL` (antes
 "6" fijo), `DIAS_MES_PROMEDIO` (30) y `DIAS_ANIO_ANTIGUEDAD` (365). Migración
 `V148.0`. Calculadoras parametrizadas + tests (40 casos). Estado: Compila + Tests.
 
-**Diálogo de info en Configuración RRHH** — Botón de info por fila que abre un
-diálogo con explicación curada de cada parámetro (título, descripción, ejemplo,
-impacto) para las ~22 configs. Además, en cambio de salario: hint del mínimo
-legal + confirmación si el salario queda por debajo. Estado: Compila (AOT).
+**Pantalla de Configuración RRHH — rediseñada (curada, no CRUD)** —
+`PanelConfiguracionRrhhComponent` reemplazó la lista editable con crear/eliminar.
+Las 28 claves (24 + las 4 de preaviso sumadas por `V173.0`) son un **catálogo
+fijo de desarrollo** (nacen por migración/seed):
+el usuario final **solo ajusta valores**, no crea ni elimina claves. UI: **tabs
+por sección** (IPS y aportes · Indemnización y finiquito (incluye preaviso) ·
+Vacaciones · Aguinaldo · Horas extra · Tardanza y penalización · General), cada
+campo con su **widget**
+según tipo (número+unidad, `%`, `Gs`, toggle boolean, selector de mes), label
+legible + texto de ayuda + ícono info. Guarda al cambiar cada campo. La metadata
+(secciones + widgets) vive en el frontend (`configuracion-rrhh-catalogo.ts`); los
+valores siguen en el backend (cero migración). Clave nueva no mapeada → cae en la
+tab "Otros". Preserva el **diálogo de info** curado por clave y la **cascada
+guiada del salario mínimo** (al subirlo, ofrece —no impone— ajustar a los
+funcionarios que quedan por debajo, TODO-8). Los componentes viejos (lista/editar/
+eliminar) quedan declarados pero sin uso. Estado: Compila (AOT).
 
 ## 8.2 Dashboard y reportes (Fase 8)
 
-**Dashboard RRHH** — `dashboardRrhhKpis(periodo)` agrega sobre los repos
-existentes: funcionarios activos, nómina del mes, liquidaciones pendientes,
-vales/préstamos abiertos (cant+monto/saldo), penalizaciones y HE del mes,
-cuotas vencidas, aguinaldo estimado, **cumpleaños del mes** y **vacaciones por
-vencer** (usando `PRESCRIPCION_VACACIONES_MESES` + `VACACION_AVISO_PRESCRIPCION_DIAS`).
-Pantalla desktop con tarjetas de KPIs. Estado: Compila (backend + AOT desktop).
+**Dashboard RRHH — reconstruido al padrón `desktop/docs/DASHBOARDS.md`** — El
+dashboard original era una grilla plana de 11 cards custom (colores propios,
+sin filtro de rango, sin chart, sin rankings, sin accesos), fuera del padrón
+del producto. Se reconstruyó siguiendo el dashboard de Devoluciones
+(implementación de referencia): `dash-header` (título "RRHH" + subtítulo +
+filtro de **período mensual** + botón Aplicar) → `dash-stats-row` con **4 KPIs
+headline** (`dash-stat-chip`, colores semánticos primary/success/warning/error/
+info): funcionarios activos (info), nómina del mes (primary, moneda),
+liquidaciones pendientes (warning si >0), vacaciones por vencer (warning si >0)
+→ `dash-main` en 2 columnas. Izquierda: `dash-chart-card` (echarts) con
+**nómina por mes, últimos 12 meses** (barras = monto neto, línea = nº
+liquidaciones; serie desacoplada del filtro de período) + ranking "Cumpleaños
+del mes". Derecha: ranking "Top exposición financiera" (vales pendientes +
+saldo de préstamos por funcionario) + "Top horas extra del mes". `dash-quick-
+actions`: Liquidaciones · Vales · Préstamos + botón **Reportes** (mat-menu,
+ver abajo). SCSS del componente reducido a `:host` scroll (el look vive en
+`_dashboard.scss` global). Backend nuevo, aditivo, sin migración: en
+`dashboard-rrhh.graphqls` se agregaron tipos `RrhhSeriePunto`/
+`RrhhRankingItem`/`RrhhCumpleanos` y queries `nominaSeriePorMes(periodoInicio,
+periodoFin)`, `rrhhTopExposicion(limite)`, `rrhhTopHorasExtra(periodo, limite)`,
+`rrhhCumpleanosDelMes(periodo)`. Resolver `DashboardRrhhGraphQL` +
+`DashboardRrhhService` (agregación) + DTOs `RrhhSeriePuntoDto`/
+`RrhhRankingItemDto`/`RrhhCumpleanosDto` + native query `nominaSeriePorMesRaw`
+en `LiquidacionSueldoRepository` (agrupa `liquidacion_sueldo` por período, solo
+APROBADA/PAGADA). La query KPI previa `dashboardRrhhKpis(periodo)` se mantiene
+(alimenta los 4 KPIs headline). Service con `silentLoad=true`
+(`onCustomQuery(..., true)`), sin diálogo de carga global. Estado: Compila
+(backend + AOT desktop); **falta test manual del usuario** (ver T16 en
+`PLAN-TESTEO-MANUAL-RRHH.md`).
 
-**Reportes RRHH** — Reportes Jasper: **nómina del mes** (liquidaciones
-aprobadas/pagadas del período), **resumen IPS** (base salarial + aporte
-funcionario 9% y patronal 16.5% desde config), **vales pendientes**
-(solicitados/confirmados), **préstamos activos** (con saldo pendiente) y
-**aguinaldo anual**. Los tres últimos reusan una plantilla genérica de 4
-columnas (`reporte-rrhh-generico.jrxml`) parametrizada por títulos/encabezados,
-evitando triplicar templates. Fuente SansSerif; validados (compilan y hacen fill
-OK con datos dummy). Pantalla desktop que genera y abre el PDF. Estado: Compila;
-**verificación visual del PDF pendiente en dev**.
+**Reportes RRHH — reubicados dentro del dashboard (sin tab dedicado)** — Se
+**eliminó** el componente/tab dedicado `ReportesRrhhComponent` (era un
+componente entero solo para 5 botones), junto con su entrada en el menú
+lateral (`side-mini-variant`, action `reportes-rrhh`) y su declaración de
+módulo. Los 5 reportes Jasper (**nómina del mes** — liquidaciones aprobadas/
+pagadas del período —, **resumen IPS** — base salarial + aporte funcionario 9%
+y patronal 16.5% desde config —, **vales pendientes** — solicitados/
+confirmados —, **préstamos activos** — con saldo pendiente — y **aguinaldo
+anual**; los tres últimos reusan la plantilla genérica de 4 columnas
+`reporte-rrhh-generico.jrxml`, evitando triplicar templates) ahora se acceden
+desde un **mat-menu** en el quick-action "Reportes" del dashboard, usando el
+período del dashboard. La lógica de generación (`ReportesRrhhService` + sus
+queries GraphQL) se conserva intacta. **Bug arreglado (B29):** el
+`ReportesRrhhComponent` mostraba el PDF con `window.open()`, que está
+**bloqueado en Electron** (mismo caso que B22/B4) — el tab no mostraba el PDF.
+Ahora los reportes se muestran en el **visor integrado**
+(`ReporteService.onAdd` + tab `ReportesComponent`). Fuente SansSerif;
+validados (compilan y hacen fill OK con datos dummy). Estado: Compila; **falta
+test manual del usuario** (5 PDF con datos reales, ver T17 en
+`PLAN-TESTEO-MANUAL-RRHH.md`).
 
 **Recibo de finiquito (PDF)** — `recibo-finiquito.jrxml` + `finiquitoBase64(id)`
-en `ReporteRrhhService` (concepto/monto por ítem, con antigüedad, salario
-promedio, motivo y total). Botón **Imprimir recibo** en el diálogo de
-liquidación final (estados APROBADA/PAGADA). SansSerif; validado por compile+fill.
-Estado: Compila; **verificación visual del PDF pendiente en dev**.
+en `ReporteRrhhService`, **rediseñado** (ver detalle en §7): tabla legal
+Empresa/Trabajador/Entrada/Salida/Antigüedad/Salario/Jornal + tabla
+Concepto/Monto (descuentos entre paréntesis) + TOTAL A LIQUIDAR + monto en
+letras + firma con C.I. Botón **Imprimir recibo** en el diálogo de liquidación
+final (estados APROBADA/PAGADA), visor PDF integrado. SansSerif; validado con
+test `ReciboFiniquitoJrxmlTest` (compila+fill+export).
+Estado: Compila; **verificación visual manual del PDF pendiente en dev**.
 
 **Notificaciones RRHH (job)** — `RrhhNotificacionScheduler` genera alertas
 diarias resolviendo destinatarios por rol vía
@@ -334,8 +492,15 @@ previas. **Ninguna está mergeada a `develop` todavía.**
   mobile.
 
 ### Mejoras / deuda menor
-- ~~**Recibo de finiquito (PDF)**~~ — **Hecho** (§8.2): plantilla Jasper +
-  botón Imprimir recibo en el diálogo de liquidación final.
+- ~~**Recibo de finiquito (PDF)**~~ — **Hecho** (§7/§8.2): plantilla Jasper
+  rediseñada (formato legal Empresa/Trabajador/Entrada/Salida/Antigüedad/Salario/
+  Jornal, descuentos entre paréntesis, TOTAL A LIQUIDAR, monto en letras, firma
+  con C.I.), botón Imprimir recibo en el diálogo de liquidación final, validada
+  con test `ReciboFiniquitoJrxmlTest`. Verificación visual manual en dev pendiente.
+- **Reconciliación del crédito por convenio en el finiquito** — El finiquito
+  descuenta el saldo de compras a crédito del funcionario, pero **no salda las
+  `VentaCredito`** al pagar (cross-módulo financiero). Hoy queda como conciliación
+  manual. Evaluar finalizar esas ventas a crédito automáticamente al pagar.
 - ~~**Historial propio de marcaciones**~~ — **Hecho** (§8.2): acceso en el menú
   RRHH reutilizando `ListMarcacionComponent`.
 - **Planilla legal de IPS (REI)** — El plan (§20 #7) la deja como mejora
@@ -343,3 +508,51 @@ previas. **Ninguna está mergeada a `develop` todavía.**
 - **`funcionario.sueldo` es `Float`** — Precisión monetaria pobre; las
   liquidaciones snapshottean en `numeric(18,2)`. Migrar a `sueldo_decimal` con
   estrategia de 2 versiones queda como mejora futura (§20 #3).
+
+---
+
+## 11. Gotchas técnicos (sesión legajo / alta-in-legajo / financiero)
+
+Lecciones y fixes de la iteración que movió el alta al legajo y agregó el tab
+Financiero. Todos están **arreglados en código**.
+
+1. **`saveFuncionario` nulaba persona/cargo/sucursal en update parcial**
+   (`FuncionarioGraphQL`). ModelMapper mapea los `null` del input sobre la entidad
+   ya cargada. Fix: capturar `personaActual/cargoActual/sucursalActual` **antes**
+   de nular las relaciones y restaurarlas si el input no las trae. **Gotcha de
+   testeo:** probar con mutations crudas parciales sobre un funcionario real le
+   nula datos (nos pasó con ESTEBAN #8: sueldo/activo/cargo/sucursal). El form real
+   es seguro porque manda todos los campos; **no testear con mutations parciales
+   sobre el sujeto principal.**
+
+2. **`savePersona` no persistía `ciudadId`** (`PersonaGraphQL`). El resolver nunca
+   seteaba la ciudad (mapeaba nombre/doc/tel/etc. pero no ciudad). Fix: inyectar
+   `CiudadService` + `if (input.getCiudadId() != null) e.setCiudad(...)`. `savePersona`
+   usa guards `if != null` en cada campo → es update parcial seguro, **nunca nula**.
+
+3. **NPE `Cliente.getCredito()` null** en `saveFuncionario` al comparar crédito de
+   un cliente viejo sin crédito. Fix: `java.util.Objects.equals(...)` null-safe.
+
+4. **Campo inexistente en la query GraphQL tumba TODO el resultado.** Un
+   `imagenPrincipal` pedido en `funcionarioQuery` (no existe en el tipo `Funcionario`)
+   hacía fallar la query entera → `funcionario` null → el legajo se ocultaba salvo
+   el primer tab. Apollo no ignora campos inexistentes: es error de validación, no
+   omisión. Al agregar campos a una query, verificar que existan en el schema.
+
+5. **[ARREGLADO] `application.properties:19` tenía una corrupción commiteada
+   desde `56113ee5`:** `spring.datasource.username=francospring.profiles.active=user-dev`
+   (dos líneas fusionadas), que hacía FATAL el arranque sin el profile `dev`
+   (`FATAL: role "francospring.profiles.active=user-dev" not exist`; solo se
+   "tapaba" cuando `application-user-dev.properties` sobreescribía el username a
+   `franco`). Fix: se corrigió la línea a `spring.datasource.username=franco`,
+   eliminando el fragmento fusionado (nunca debió estar en el base).
+
+6. **Persona es compartida entre roles.** Editar nombre/doc/etc. desde el tab
+   Información general modifica la **misma fila `persona`**, visible en todos sus
+   roles (cliente/proveedor/usuario). Es por diseño ("un funcionario proviene de
+   una persona"). No hay forma de editar "solo el legajo" sin tocar la persona
+   compartida.
+
+7. **`mat-tab` renderiza su contenido eager por default.** Para no disparar las
+   queries del tab Financiero en cada apertura del legajo, se envuelve en
+   `<ng-template matTabContent>` (lazy: instancia al entrar al tab).

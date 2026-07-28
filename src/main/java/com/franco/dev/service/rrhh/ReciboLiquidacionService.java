@@ -53,6 +53,7 @@ public class ReciboLiquidacionService {
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
+    private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
     public ReciboLiquidacionService(LiquidacionSueldoService liquidacionSueldoService,
                                     ConfiguracionGeneralService configuracionGeneralService,
@@ -71,9 +72,14 @@ public class ReciboLiquidacionService {
     }
 
     @Transactional(readOnly = true)
-    public String generarBase64(Long liquidacionId) {
+    public String generarBase64(Long liquidacionId, Integer anchoMm) {
         LiquidacionSueldo liq = liquidacionSueldoService.findById(liquidacionId)
                 .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
+
+        // Formato ticket: plantilla genérica angosta (concepto/monto, descuentos entre paréntesis).
+        if (anchoMm != null) {
+            return generarTicket(liq, anchoMm);
+        }
 
         List<ReciboLiquidacionItemDto> filas = new ArrayList<>();
         for (LiquidacionItem it : liquidacionSueldoService.findItems(liquidacionId)) {
@@ -114,6 +120,41 @@ public class ReciboLiquidacionService {
             return java.util.Base64.getEncoder().encodeToString(pdfBytes);
         } catch (Exception e) {
             throw new GraphQLException("Error generando el recibo: " + e.getMessage());
+        }
+    }
+
+    /** Recibo de sueldo en formato ticket (58/80mm), plantilla genérica concepto/monto. */
+    private String generarTicket(LiquidacionSueldo liq, Integer anchoMm) {
+        List<ReporteRrhhService.FiniquitoRow> filas = new ArrayList<>();
+        for (LiquidacionItem it : liquidacionSueldoService.findItems(liq.getId())) {
+            String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
+            if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) monto = "(" + monto + ")";
+            String concepto = it.getDescripcion() != null ? it.getDescripcion() : operacion(it);
+            filas.add(new ReporteRrhhService.FiniquitoRow(concepto, monto));
+        }
+        if (filas.isEmpty()) filas.add(new ReporteRrhhService.FiniquitoRow("SIN ITEMS", "0"));
+
+        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+        Map<String, Object> params = new HashMap<>();
+        params.put("empresa", razonSocial());
+        params.put("titulo", "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""));
+        params.put("funcionario", nombreFuncionario(liq));
+        params.put("documento", documentoFuncionario(liq));
+        params.put("fecha", LocalDate.now().toString());
+        params.put("clausula", "Recibí conforme, en concepto de haberes del período,");
+        params.put("total", formatoGs.format(neto));
+        params.put("totalEnLetras", enLetras(neto));
+
+        String tpl = anchoMm >= 80 ? "reports/recibo-ticket-80.jrxml" : "reports/recibo-ticket-58.jrxml";
+        try {
+            File file = ResourceUtils.getFile("classpath:" + tpl);
+            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(filas);
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return java.util.Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (Exception e) {
+            throw new GraphQLException("Error generando el recibo (ticket): " + e.getMessage());
         }
     }
 

@@ -18,7 +18,11 @@ import java.time.LocalDate;
 public class StockLoteDto {
     private Long loteId;
     private Long productoId;
+    /** Solo lo completa la consulta con filtros; la query por producto+sucursal lo deja null. */
+    private String productoDescripcion;
     private Long sucursalId;
+    /** Solo lo completa la consulta con filtros; la query por producto+sucursal lo deja null. */
+    private String sucursalNombre;
     private String numeroLote;
     private LocalDate fechaVencimiento;
     /** Fecha por la que ordena FEFO. Null si el producto no tiene días de vencimiento configurados. */
@@ -26,4 +30,21 @@ public class StockLoteDto {
     /** Solo los LIBERADO se pueden vender. */
     private EstadoLote estado;
     private Double cantidadDisponible;
+
+    /**
+     * Constructor para la consulta FEFO por producto y sucursal, donde el llamador ya conoce el
+     * producto y la sucursal y no hace falta resolver sus nombres.
+     */
+    public StockLoteDto(Long loteId, Long productoId, Long sucursalId, String numeroLote,
+                        LocalDate fechaVencimiento, LocalDate fechaRetiro, EstadoLote estado,
+                        Double cantidadDisponible) {
+        this.loteId = loteId;
+        this.productoId = productoId;
+        this.sucursalId = sucursalId;
+        this.numeroLote = numeroLote;
+        this.fechaVencimiento = fechaVencimiento;
+        this.fechaRetiro = fechaRetiro;
+        this.estado = estado;
+        this.cantidadDisponible = cantidadDisponible;
+    }
 }

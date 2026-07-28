@@ -8,10 +8,15 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
+import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
+import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.productos.Presentacion;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.operaciones.MovimientoStockLoteRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -203,6 +208,124 @@ public class MovimientoStockLoteService
 
     public List<MovimientoStockLote> findByMovimientoStock(Long movimientoStockId, Long sucursalId) {
         return repository.findByMovimientoStockIdAndSucursalId(movimientoStockId, sucursalId);
+    }
+
+    /**
+     * Reemplaza el desglose por lote de un movimiento con las asignaciones dadas.
+     *
+     * Se borra y se vuelve a crear en vez de intentar un diff porque una transferencia corrige la
+     * cantidad varias veces (preparación, transporte, recepción) y el reparto entre lotes puede
+     * cambiar por completo entre etapas.
+     *
+     * @param signo 1 para entradas, -1 para salidas.
+     */
+    @Transactional
+    public List<MovimientoStockLote> reemplazarDesglose(MovimientoStock movimiento,
+                                                        Producto producto,
+                                                        List<LoteFefoService.AsignacionLote> asignaciones,
+                                                        Long referencia,
+                                                        int signo) {
+        List<MovimientoStockLote> creados = new ArrayList<>();
+        if (movimiento == null || movimiento.getId() == null || producto == null) {
+            return creados;
+        }
+
+        repository.deleteByMovimientoStockIdAndSucursalId(movimiento.getId(), movimiento.getSucursalId());
+
+        if (asignaciones == null || asignaciones.isEmpty()) {
+            return creados;
+        }
+
+        for (LoteFefoService.AsignacionLote asignacion : asignaciones) {
+            if (asignacion.getCantidad() == null || asignacion.getCantidad() <= 0) {
+                continue;
+            }
+            Lote loteMaestro = loteService.findById(asignacion.getLoteId()).orElse(null);
+            if (loteMaestro == null) {
+                log.warning("Asignacion FEFO con lote inexistente " + asignacion.getLoteId()
+                        + ": no se desglosa esa cantidad.");
+                continue;
+            }
+
+            MovimientoStockLote fila = new MovimientoStockLote();
+            fila.setSucursalId(movimiento.getSucursalId());
+            fila.setMovimientoStockId(movimiento.getId());
+            fila.setLote(loteMaestro);
+            fila.setProducto(producto);
+            fila.setNumeroLote(loteMaestro.getNumeroLote());
+            fila.setCantidad(asignacion.getCantidad() * signo);
+            fila.setReferencia(referencia);
+            fila.setEstado(movimiento.getEstado() != null ? movimiento.getEstado() : true);
+            fila.setUsuario(movimiento.getUsuario());
+            fila.setCreadoEn(movimiento.getCreadoEn() != null ? movimiento.getCreadoEn() : LocalDateTime.now());
+            creados.add(save(fila));
+        }
+        return creados;
+    }
+
+    /**
+     * Propaga el estado del movimiento agregado a su desglose por lote.
+     *
+     * Hace falta porque no todos los flujos borran: las transferencias canceladas o rechazadas y
+     * las ventas anuladas usan borrado lógico ({@code estado = false}), y ahí el ON DELETE CASCADE
+     * de la FK no se dispara.
+     */
+    @Transactional
+    public void sincronizarEstado(MovimientoStock movimiento) {
+        if (movimiento == null || movimiento.getId() == null) {
+            return;
+        }
+        boolean estado = movimiento.getEstado() != null && movimiento.getEstado();
+        List<MovimientoStockLote> filas = repository.findByMovimientoStockIdAndSucursalId(
+                movimiento.getId(), movimiento.getSucursalId());
+        for (MovimientoStockLote fila : filas) {
+            if (fila.getEstado() == null || fila.getEstado() != estado) {
+                fila.setEstado(estado);
+                super.save(fila);
+            }
+        }
+    }
+
+    /**
+     * Consulta general de stock por lote con filtros opcionales, para la pantalla
+     * "Stock por lotes". Responde "¿dónde tengo qué?".
+     *
+     * Los filtros vacíos se normalizan a null para desactivarlos. El estado se recibe como enum
+     * y se pasa como texto porque la consulta es nativa.
+     */
+    public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, EstadoLote estado,
+                                                  String numeroLote, String texto, String vencimientoHasta,
+                                                  Pageable pageable) {
+        return repository.buscarStockPorLote(
+                productoId,
+                sucursalId,
+                estado != null ? estado.name() : null,
+                normalizarFiltro(numeroLote),
+                normalizarFiltro(texto),
+                normalizarFiltro(vencimientoHasta),
+                pageable
+        ).map(this::aDto);
+    }
+
+    private StockLoteDto aDto(StockLoteProjection p) {
+        return new StockLoteDto(
+                p.getLoteId(),
+                p.getProductoId(),
+                p.getProductoDescripcion(),
+                p.getSucursalId(),
+                p.getSucursalNombre(),
+                p.getNumeroLote(),
+                p.getFechaVencimiento(),
+                p.getFechaRetiro(),
+                p.getEstado() != null ? EstadoLote.valueOf(p.getEstado()) : null,
+                p.getCantidadDisponible()
+        );
+    }
+
+    private String normalizarFiltro(String valor) {
+        if (valor == null) return null;
+        String limpio = valor.trim();
+        return limpio.isEmpty() ? null : limpio;
     }
 
 }

@@ -48,7 +48,11 @@ type MovimientoStockLote {
 type StockLote {
     loteId: ID
     productoId: ID
+    # Solo lo completa buscarStockPorLote; stockPorLote lo deja null porque el llamador ya
+    # conoce el producto.
+    productoDescripcion: String
     sucursalId: ID
+    sucursalNombre: String
     numeroLote: String
     fechaVencimiento: Date
     fechaRetiro: Date
@@ -56,10 +60,35 @@ type StockLote {
     cantidadDisponible: Float
 }
 
+type StockLotePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [StockLote]
+}
+
 extend type Query {
     # Saldo por lote de un producto en una sucursal, ordenado por FEFO
     # (fecha de retiro mas proxima primero, lotes sin fecha al final).
     stockPorLote(productoId: ID!, sucursalId: ID!): [StockLote]
+
+    # Consulta general "donde tengo que": todos los filtros son opcionales.
+    # vencimientoHasta filtra por COALESCE(fecha_retiro, fecha_vencimiento) <= fecha, para
+    # responder "que se me vence antes de tal fecha". Formato yyyy-MM-dd.
+    buscarStockPorLote(
+        productoId: ID
+        sucursalId: ID
+        estado: EstadoLote
+        numeroLote: String
+        texto: String
+        vencimientoHasta: String
+        page: Int = 0
+        size: Int = 20
+    ): StockLotePage
 
     # Lotes registrados de un producto, ordenados por FEFO. Incluye los bloqueados.
     lotesPorProducto(productoId: ID!): [Lote]

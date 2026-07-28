@@ -6,6 +6,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.repository.operaciones.MovimientoStockRepository;
@@ -35,6 +36,12 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private MovimientoStockLoteService movimientoStockLoteService;
+
+    @Autowired
+    private LoteFefoService loteFefoService;
 
     @Override
     public MovimientoStockRepository getRepository() {
@@ -280,10 +287,92 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
                 save(movimientoStockEntrada);
             }
         }
+
+        // Desglose por lote. Solo para productos con control de lote: el resto del flujo queda
+        // exactamente igual que antes.
+        desglosarTransferenciaPorLote(e, movimientoStockSalida, movimientoStockEntrada);
+
         List<MovimientoStock> res = new ArrayList<>();
         res.add(movimientoStockSalida);
         res.add(movimientoStockEntrada);
         return res;
+    }
+
+    /**
+     * Mantiene el desglose por lote de una transferencia alineado con sus movimientos agregados.
+     *
+     * La salida en la sucursal origen se resuelve por FEFO. La entrada en destino replica
+     * exactamente los mismos lotes que salieron: el lote viaja con la mercadería, no se crea uno
+     * nuevo. Eso sale gratis del diseño, porque operaciones.lote no tiene sucursal — transferir es
+     * mover cantidad de (lote, origen) a (lote, destino).
+     *
+     * Se recalcula en cada etapa porque las cantidades cambian (preparación, transporte,
+     * recepción) y puede haber rechazos parciales.
+     */
+    private void desglosarTransferenciaPorLote(TransferenciaItem item,
+                                               MovimientoStock salida,
+                                               MovimientoStock entrada) {
+        Producto producto = item.getPresentacionPreTransferencia() != null
+                ? item.getPresentacionPreTransferencia().getProducto()
+                : null;
+        if (producto == null || !Boolean.TRUE.equals(producto.getLote())) {
+            return;
+        }
+
+        // Salida: FEFO sobre el stock por lote de la sucursal origen.
+        if (salida != null && salida.getId() != null) {
+            if (Boolean.TRUE.equals(salida.getEstado()) && salida.getCantidad() != null
+                    && salida.getCantidad() < 0) {
+                double cantidadSalida = Math.abs(salida.getCantidad());
+                List<LoteFefoService.AsignacionLote> asignaciones = loteFefoService.asignar(
+                        producto.getId(), salida.getSucursalId(), cantidadSalida);
+                movimientoStockLoteService.reemplazarDesglose(
+                        salida, producto, asignaciones, item.getId(), -1);
+            } else {
+                movimientoStockLoteService.sincronizarEstado(salida);
+            }
+        }
+
+        // Entrada: los mismos lotes que salieron, recortados a la cantidad efectivamente recibida.
+        if (entrada != null && entrada.getId() != null) {
+            if (Boolean.TRUE.equals(entrada.getEstado()) && entrada.getCantidad() != null
+                    && entrada.getCantidad() > 0 && salida != null && salida.getId() != null) {
+                List<LoteFefoService.AsignacionLote> recibidos = recortarAsignaciones(
+                        movimientoStockLoteService.findByMovimientoStock(
+                                salida.getId(), salida.getSucursalId()),
+                        entrada.getCantidad());
+                movimientoStockLoteService.reemplazarDesglose(
+                        entrada, producto, recibidos, item.getId(), 1);
+            } else {
+                movimientoStockLoteService.sincronizarEstado(entrada);
+            }
+        }
+    }
+
+    /**
+     * Recorta el desglose de la salida a la cantidad realmente recibida en destino, respetando el
+     * orden FEFO en el que salió. Si en el camino se rechaza mercadería, lo que no llegó es lo
+     * último de la lista: los lotes de vencimiento más lejano.
+     */
+    private List<LoteFefoService.AsignacionLote> recortarAsignaciones(
+            List<com.franco.dev.domain.operaciones.MovimientoStockLote> filasSalida,
+            Double cantidadRecibida) {
+        List<LoteFefoService.AsignacionLote> resultado = new ArrayList<>();
+        if (filasSalida == null || cantidadRecibida == null || cantidadRecibida <= 0) {
+            return resultado;
+        }
+        double pendiente = cantidadRecibida;
+        for (com.franco.dev.domain.operaciones.MovimientoStockLote fila : filasSalida) {
+            if (pendiente <= 0.0001) break;
+            if (fila.getLote() == null || fila.getCantidad() == null) continue;
+            double disponible = Math.abs(fila.getCantidad());
+            if (disponible <= 0) continue;
+            double aTomar = Math.min(disponible, pendiente);
+            resultado.add(new LoteFefoService.AsignacionLote(
+                    fila.getLote().getId(), fila.getNumeroLote(), aTomar));
+            pendiente -= aTomar;
+        }
+        return resultado;
     }
 
     public Page<ProductoSaldoDto> findProductosConCantidadPositiva(Long sucursalId, Long productoId,

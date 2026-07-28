@@ -12,6 +12,9 @@ import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -40,6 +43,18 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      */
     public List<StockLoteDto> stockPorLote(Long productoId, Long sucursalId) {
         return service.stockPorLote(productoId, sucursalId);
+    }
+
+    /**
+     * Consulta general de stock por lote con filtros opcionales, para la pantalla
+     * "Stock por lotes". Todos los filtros son opcionales y el orden es FEFO.
+     */
+    public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, EstadoLote estado,
+                                                  String numeroLote, String texto, String vencimientoHasta,
+                                                  int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
+        return service.buscarStockPorLote(productoId, sucursalId, estado, numeroLote, texto,
+                vencimientoHasta, pageable);
     }
 
     /**

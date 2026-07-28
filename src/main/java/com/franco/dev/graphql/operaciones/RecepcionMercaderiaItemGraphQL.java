@@ -6,6 +6,7 @@ import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.operaciones.NotaRecepcionItemService;
 import com.franco.dev.service.operaciones.NotaRecepcionItemDistribucionService;
+import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaItemService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaService;
 import com.franco.dev.service.operaciones.RecepcionMercaderiaNotaService;
@@ -187,6 +188,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             throw new GraphQLException("Input es requerido");
         }
 
+        validarLoteObligatorio(input);
+
         try {
             RecepcionMercaderiaItem saved = input.getId() == null
                 ? crearRecepcionMercaderiaItem(input)
@@ -207,6 +210,98 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             e.printStackTrace();
             throw new GraphQLException("Error al guardar ítem de recepción: " + e.getMessage());
         }
+    }
+
+    /**
+     * Cantidad que todavía falta recibir de una distribución: lo esperado menos lo ya recibido
+     * y lo ya rechazado.
+     */
+    private double calcularCantidadPendiente(NotaRecepcionItemDistribucion dist) {
+        List<RecepcionMercaderiaItem> itemsExistentes = service.getRepository()
+                .findByNotaRecepcionItemDistribucionId(dist.getId());
+
+        double totalRecibido = itemsExistentes.stream()
+                .mapToDouble(item -> item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0)
+                .sum();
+        double totalRechazado = itemsExistentes.stream()
+                .mapToDouble(item -> item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0)
+                .sum();
+
+        double cantidadEsperada = dist.getCantidad() != null ? dist.getCantidad() : 0.0;
+        return cantidadEsperada - totalRecibido - totalRechazado;
+    }
+
+    /**
+     * Normaliza el número de lote. Delega en {@link LoteService} para que la regla viva en un
+     * solo lugar: es la misma que se aplica al crear el lote en el maestro.
+     */
+    private String normalizarLote(String lote) {
+        return LoteService.normalizarNumeroLote(lote);
+    }
+
+    /**
+     * Convierte la fecha de vencimiento recibida (String) a LocalDate.
+     * Usa stringToDate porque el frontend puede enviar "yyyy-MM-dd HH:mm" o ISO-8601 con offset.
+     */
+    private java.time.LocalDate parseVencimiento(String vencimiento) {
+        java.time.LocalDateTime fecha = stringToDate(vencimiento);
+        return fecha != null ? fecha.toLocalDate() : null;
+    }
+
+    /**
+     * Si el producto está marcado con control de lote, exige que venga el número de lote.
+     * La UI ya lo valida, pero mobile y llamadas directas al resolver son puertas de entrada
+     * independientes. Solo aplica cuando efectivamente se está recibiendo mercadería:
+     * un ítem totalmente rechazado no tiene lote que informar.
+     */
+    private void validarLoteObligatorio(RecepcionMercaderiaItemInput input) {
+        Double cantidadRecibida = input.getCantidadRecibida();
+        boolean tieneVariacionesRecibidas = input.getVariaciones() != null
+                && input.getVariaciones().stream()
+                        .anyMatch(v -> v.getRechazado() == null || !v.getRechazado());
+
+        if ((cantidadRecibida == null || cantidadRecibida <= 0) && !tieneVariacionesRecibidas) {
+            return;
+        }
+
+        Producto producto = resolverProductoDelInput(input);
+        if (producto == null || producto.getLote() == null || !producto.getLote()) {
+            return;
+        }
+
+        if (input.getVariaciones() != null && !input.getVariaciones().isEmpty()) {
+            for (RecepcionMercaderiaItemVariacionInput variacion : input.getVariaciones()) {
+                boolean rechazada = variacion.getRechazado() != null && variacion.getRechazado();
+                if (!rechazada && normalizarLote(variacion.getLote()) == null) {
+                    throw new GraphQLException("El producto '" + producto.getDescripcion()
+                            + "' requiere control de lote: falta el número de lote en una de las variaciones recibidas.");
+                }
+            }
+            return;
+        }
+
+        if (normalizarLote(input.getLote()) == null) {
+            throw new GraphQLException("El producto '" + producto.getDescripcion()
+                    + "' requiere control de lote: el número de lote es obligatorio.");
+        }
+    }
+
+    /**
+     * Resuelve el producto del input, sea por productoId, por el ítem de nota o por el ítem existente.
+     */
+    private Producto resolverProductoDelInput(RecepcionMercaderiaItemInput input) {
+        if (input.getProductoId() != null) {
+            return productoService.findById(input.getProductoId()).orElse(null);
+        }
+        if (input.getNotaRecepcionItemId() != null) {
+            NotaRecepcionItem notaItem = notaRecepcionItemService.findById(input.getNotaRecepcionItemId()).orElse(null);
+            if (notaItem != null) return notaItem.getProducto();
+        }
+        if (input.getId() != null) {
+            RecepcionMercaderiaItem existente = service.findById(input.getId()).orElse(null);
+            if (existente != null) return existente.getProducto();
+        }
+        return null;
     }
 
     /**
@@ -405,6 +500,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
         item.setObservaciones(input.getObservaciones());
         item.setMotivoRechazo(input.getMotivoRechazo());
+        item.setLote(normalizarLote(input.getLote()));
+        item.setVencimientoRecibido(parseVencimiento(input.getVencimientoRecibido()));
 
         // 8. Procesar variaciones si existen
         Double cantidadRecibidaTotal = input.getCantidadRecibida() != null ? input.getCantidadRecibida() : 0.0;
@@ -427,7 +524,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 }
 
                 variacion.setCantidad(varInput.getCantidad());
-                variacion.setLote(varInput.getLote());
+                variacion.setLote(normalizarLote(varInput.getLote()));
                 variacion.setRechazado(varInput.getRechazado() != null && varInput.getRechazado());
                 variacion.setMotivoRechazo(varInput.getMotivoRechazo());
 
@@ -470,6 +567,12 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         item.setObservaciones(input.getObservaciones());
         item.setMetodoVerificacion(input.getMetodoVerificacion());
         item.setMotivoVerificacionManual(input.getMotivoVerificacionManual());
+        if (input.getLote() != null) {
+            item.setLote(normalizarLote(input.getLote()));
+        }
+        if (input.getVencimientoRecibido() != null) {
+            item.setVencimientoRecibido(parseVencimiento(input.getVencimientoRecibido()));
+        }
 
         // 2.1. Actualizar la distribución asociada si es necesario
         // Esto corrige casos donde el item fue pre-creado con una distribución incorrecta
@@ -522,7 +625,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 }
 
                 variacion.setCantidad(varInput.getCantidad());
-                variacion.setLote(varInput.getLote());
+                variacion.setLote(normalizarLote(varInput.getLote()));
                 variacion.setRechazado(varInput.getRechazado() != null && varInput.getRechazado());
                 variacion.setMotivoRechazo(varInput.getMotivoRechazo());
 
@@ -951,23 +1054,35 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 return true; // Nada que recepcionar, pero no es un error
             }
 
+            // 2.1. Regla de negocio: una nota que contiene productos con control de lote NO se
+            // recepciona de forma masiva. Es todo o nada: la recepción masiva no captura número
+            // de lote, así que se rechaza la operación completa en vez de recibir una parte y
+            // dejar el resto pendiente sin que quede claro por qué.
+            //
+            // IMPORTANTE: solo cuentan las distribuciones que todavía tienen cantidad PENDIENTE.
+            // Un producto con lote que ya fue verificado en detalle no debe seguir bloqueando la
+            // recepción masiva del resto de la nota.
+            List<String> productosConLote = distribucionesFiltradas.stream()
+                    .filter(dist -> calcularCantidadPendiente(dist) > 0.001)
+                    .map(dist -> dist.getNotaRecepcionItem().getProducto())
+                    .filter(producto -> producto != null && Boolean.TRUE.equals(producto.getLote()))
+                    .map(Producto::getDescripcion)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (!productosConLote.isEmpty()) {
+                throw new GraphQLException(
+                        "Esta nota contiene " + productosConLote.size() + " producto(s) con control de lote ("
+                                + String.join(", ", productosConLote)
+                                + "). La recepción masiva no captura el número de lote: verifique los ítems "
+                                + "de esta nota con la Verificación Detallada.");
+            }
+
             int itemsProcesados = 0;
 
             // 3. Procesar cada distribución
             for (NotaRecepcionItemDistribucion dist : distribucionesFiltradas) {
-                // Obtener cuánto se ha recibido/rechazado de esta distribución específica
-                List<RecepcionMercaderiaItem> itemsExistentes = service.getRepository()
-                        .findByNotaRecepcionItemDistribucionId(dist.getId());
-
-                double totalRecibido = itemsExistentes.stream()
-                        .mapToDouble(item -> item.getCantidadRecibida() != null ? item.getCantidadRecibida() : 0.0)
-                        .sum();
-                double totalRechazado = itemsExistentes.stream()
-                        .mapToDouble(item -> item.getCantidadRechazada() != null ? item.getCantidadRechazada() : 0.0)
-                        .sum();
-
-                double cantidadEsperada = dist.getCantidad() != null ? dist.getCantidad() : 0.0;
-                double cantidadPendiente = cantidadEsperada - totalRecibido - totalRechazado;
+                double cantidadPendiente = calcularCantidadPendiente(dist);
 
                 if (cantidadPendiente > 0.001) {
                     System.out.println(
@@ -997,6 +1112,10 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
             System.out.println("Recepción masiva completada. Ítems creados/actualizados: " + itemsProcesados);
             return true;
+        } catch (GraphQLException e) {
+            // Errores de validación de negocio: se propagan tal cual para que el mensaje
+            // llegue legible al usuario, sin el prefijo genérico.
+            throw e;
         } catch (Exception e) {
             System.err.println("Error al recepcionar todo por nota: " + e.getMessage());
             e.printStackTrace();

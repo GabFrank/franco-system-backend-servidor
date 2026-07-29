@@ -51,6 +51,14 @@ public class LiquidacionItem implements Identifiable<Long> {
     @Column(name = "referencia_tipo")
     private String referenciaTipo;
 
+    /** Sucursal de la referencia cuando su PK es compuesta (ej. venta_credito_cuota). */
+    @Column(name = "referencia_sucursal_id")
+    private Long referenciaSucursalId;
+
+    /** Estado previo del origen (ej. VentaCredito) antes de cobrarlo, para revertir al anular. */
+    @Column(name = "referencia_estado_previo")
+    private String referenciaEstadoPrevio;
+
     private Boolean manual = false;
 
     // --- Auditoría de edición (todo es negociable) ---

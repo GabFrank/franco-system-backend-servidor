@@ -53,6 +53,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
     private final UsuarioService usuarioService;
     private final com.franco.dev.service.administrativo.JornadaService jornadaService;
+    private final CreditoConvenioService creditoConvenioService;
 
     @Override
     public LiquidacionSueldoRepository getRepository() {
@@ -281,7 +282,39 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 }
             }
         }
+
+        // CREDITO_CONVENIO_CUOTA (DESC) — cuotas VENCIDAS de compras a credito del
+        // funcionario, cobradas hasta donde alcanza el neto (tope por disponible; el
+        // remanente cae al mes siguiente). Se arma AL FINAL: el convenio es el
+        // descuento elastico y no debe dejar el neto en negativo.
+        BigDecimal disponible = disponibleParaConvenio(items);
+        Long personaId = f.getPersona() != null ? f.getPersona().getId() : null;
+        LocalDateTime finVenc = fin.atTime(23, 59, 59);
+        for (CreditoConvenioService.CobroCuota cc :
+                creditoConvenioService.planificar(personaId, finVenc, disponible, liq.getId(), null)) {
+            String desc = "CUOTA CREDITO - venta #" + (cc.ventaCredito != null ? cc.ventaCredito.getId() : "?")
+                    + (cc.parcial ? " (parcial)" : "");
+            LiquidacionItem it = item(liq, "CREDITO_CONVENIO_CUOTA", desc, cc.monto,
+                    LiquidacionItemTipo.DESCUENTO, cc.cuota.getId(), "CREDITO_CONVENIO_CUOTA");
+            it.setReferenciaSucursalId(cc.cuota.getSucursalId());
+            it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
+                    ? cc.ventaCredito.getEstado().name() : null);
+            items.add(it);
+        }
         return items;
+    }
+
+    /** Neto disponible para cobrar convenio = Σ HABER − Σ DESCUENTO de los items ya armados. */
+    private BigDecimal disponibleParaConvenio(List<LiquidacionItem> items) {
+        BigDecimal haberes = BigDecimal.ZERO;
+        BigDecimal descuentos = BigDecimal.ZERO;
+        for (LiquidacionItem it : items) {
+            BigDecimal m = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
+            if (it.getTipo() == LiquidacionItemTipo.HABER) haberes = haberes.add(m);
+            else if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) descuentos = descuentos.add(m);
+        }
+        BigDecimal disp = haberes.subtract(descuentos);
+        return disp.signum() > 0 ? disp : BigDecimal.ZERO;
     }
 
     private LiquidacionItem item(LiquidacionSueldo liq, String codigo, String desc, BigDecimal monto,
@@ -500,6 +533,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                         b.setLiquidacionId(pagar ? liq.getId() : null);
                         bonoRepository.save(b);
                     });
+                    break;
+                case "CREDITO_CONVENIO_CUOTA":
+                    // El cobro (parcial/total) ya quedo registrado por el propio item.
+                    // Solo reconciliamos el estado del VentaCredito: FINALIZADO si quedo
+                    // saldado; al anular, se restaura el estado previo si vuelve a deber.
+                    creditoConvenioService.reconciliarPorCuota(refId, it.getReferenciaSucursalId(),
+                            pagar ? null : it.getReferenciaEstadoPrevio(),
+                            pagar ? null : liq.getId(), null);
                     break;
                 default:
                     break;

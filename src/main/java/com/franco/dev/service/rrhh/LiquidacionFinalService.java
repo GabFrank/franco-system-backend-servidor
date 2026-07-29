@@ -76,6 +76,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final ClienteService clienteService;
     private final VentaCreditoRepository ventaCreditoRepository;
     private final PenalizacionRepository penalizacionRepository;
+    private final CreditoConvenioService creditoConvenioService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -345,24 +346,6 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             }
         }
 
-        // Crédito por convenio (compras a crédito) — saldo del funcionario como cliente.
-        // Se agrega agregado (sin referencia): saldar cada VentaCredito es cross-módulo
-        // (financiero) y queda como reconciliación aparte.
-        if (cobrarConvenios) {
-            Cliente cli = clienteService.findByPersonaId(f.getPersona() != null ? f.getPersona().getId() : null);
-            if (cli != null) {
-                BigDecimal saldoConvenio = BigDecimal.ZERO;
-                for (EstadoVentaCredito est : new EstadoVentaCredito[]{EstadoVentaCredito.ABIERTO, EstadoVentaCredito.EN_MORA, EstadoVentaCredito.INCOBRABLE}) {
-                    for (VentaCredito vc : ventaCreditoRepository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(cli.getId(), est)) {
-                        if (vc.getSaldoTotal() != null) saldoConvenio = saldoConvenio.add(BigDecimal.valueOf(vc.getSaldoTotal()));
-                    }
-                }
-                if (saldoConvenio.signum() > 0) {
-                    itemRepository.save(descItem(lf, "CREDITO POR CONVENIO (COMPRAS)", saldoConvenio, null, "CREDITO_CONVENIO"));
-                }
-            }
-        }
-
         // Penalizaciones no anuladas del mes de egreso.
         if (descontarPenalizaciones && egreso != null) {
             LocalDate inicioMes = egreso.withDayOfMonth(1);
@@ -374,6 +357,39 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 itemRepository.save(descItem(lf, "PENALIZACIONES DEL MES", totalPenal, null, "PENALIZACION"));
             }
         }
+
+        // Crédito por convenio (compras a crédito) — cuotas impagas del funcionario,
+        // cobradas por cuota (arregla el sobre-cobro de usar saldoTotal, que nunca baja)
+        // AL FINAL y con tope por disponible (no deja el neto en negativo). El empleado
+        // se va → se toman TODAS las cuotas impagas (no solo las vencidas). Al pagar, si
+        // la venta queda 100% saldada se la marca FINALIZADO (reversible al anular).
+        if (cobrarConvenios) {
+            BigDecimal disponible = disponibleFiniquito(lf);
+            Long personaId = f.getPersona() != null ? f.getPersona().getId() : null;
+            for (CreditoConvenioService.CobroCuota cc :
+                    creditoConvenioService.planificar(personaId, null, disponible, null, lf.getId())) {
+                String desc = "CUOTA CREDITO - venta #" + (cc.ventaCredito != null ? cc.ventaCredito.getId() : "?")
+                        + (cc.parcial ? " (parcial)" : "");
+                LiquidacionFinalItem it = descItem(lf, desc, cc.monto, cc.cuota.getId(), "CREDITO_CONVENIO_CUOTA");
+                it.setReferenciaSucursalId(cc.cuota.getSucursalId());
+                it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
+                        ? cc.ventaCredito.getEstado().name() : null);
+                itemRepository.save(it);
+            }
+        }
+    }
+
+    /** Neto disponible para cobrar convenio = Σ HABER − Σ DESCUENTO de los items ya persistidos. */
+    private BigDecimal disponibleFiniquito(LiquidacionFinal lf) {
+        BigDecimal haberes = BigDecimal.ZERO;
+        BigDecimal descuentos = BigDecimal.ZERO;
+        for (LiquidacionFinalItem it : itemRepository.findByLiquidacionFinalIdOrderByIdAsc(lf.getId())) {
+            BigDecimal m = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
+            if (it.getTipo() == LiquidacionItemTipo.HABER) haberes = haberes.add(m);
+            else if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) descuentos = descuentos.add(m);
+        }
+        BigDecimal disp = haberes.subtract(descuentos);
+        return disp.signum() > 0 ? disp : BigDecimal.ZERO;
     }
 
     // =====================================================================
@@ -594,6 +610,14 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                                 ? PrestamoCuotaEstado.PAGADA : PrestamoCuotaEstado.PENDIENTE);
                         prestamoCuotaRepository.save(c);
                     });
+                    break;
+                case "CREDITO_CONVENIO_CUOTA":
+                    // El cobro ya quedo registrado por el item. Reconciliamos el estado del
+                    // VentaCredito: FINALIZADO si quedo 100% saldado; al anular, se restaura
+                    // el estado previo (excluyendo este finiquito del calculo del remanente).
+                    creditoConvenioService.reconciliarPorCuota(refId, it.getReferenciaSucursalId(),
+                            pagar ? null : it.getReferenciaEstadoPrevio(),
+                            null, pagar ? null : lf.getId());
                     break;
                 default:
                     break;

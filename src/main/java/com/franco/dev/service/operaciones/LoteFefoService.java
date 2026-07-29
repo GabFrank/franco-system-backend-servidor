@@ -8,7 +8,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Asignación de lotes por FEFO (First Expired, First Out).
@@ -51,6 +55,20 @@ public class LoteFefoService {
      * @return las asignaciones, en orden FEFO. Vacío si no hay nada disponible.
      */
     public List<AsignacionLote> asignar(Long productoId, Long sucursalId, Double cantidad) {
+        return asignar(productoId, sucursalId, cantidad, null);
+    }
+
+    /**
+     * Igual que {@link #asignar(Long, Long, Double)}, pero saltando lotes ya comprometidos.
+     *
+     * Se usa para completar el faltante cuando el operador eligio lotes a mano y no alcanzaron:
+     * sin la exclusion, FEFO volveria a proponer el mismo lote que ya se conto.
+     *
+     * @param lotesExcluidos ids a ignorar. Null o vacio se comporta igual que el metodo de 3
+     *                       parametros, que es lo que mantiene el flujo historico intacto.
+     */
+    public List<AsignacionLote> asignar(Long productoId, Long sucursalId, Double cantidad,
+                                        Set<Long> lotesExcluidos) {
         List<AsignacionLote> asignaciones = new ArrayList<>();
         if (productoId == null || sucursalId == null || cantidad == null || cantidad <= 0) {
             return asignaciones;
@@ -66,6 +84,9 @@ public class LoteFefoService {
             if (lote.getLoteId() == null || lote.getEstado() != EstadoLote.LIBERADO) {
                 continue;
             }
+            if (lotesExcluidos != null && lotesExcluidos.contains(lote.getLoteId())) {
+                continue;
+            }
             Double saldo = lote.getCantidadDisponible();
             if (saldo == null || saldo <= 0) {
                 continue;
@@ -73,6 +94,74 @@ public class LoteFefoService {
             double aTomar = Math.min(saldo, pendiente);
             asignaciones.add(new AsignacionLote(lote.getLoteId(), lote.getNumeroLote(), aTomar));
             pendiente -= aTomar;
+        }
+
+        return asignaciones;
+    }
+
+    /**
+     * Resuelve el reparto respetando primero los lotes que eligio el operador y completando el
+     * faltante por FEFO.
+     *
+     * Reglas:
+     * - Cada preferencia se recorta al saldo real de ese lote en la sucursal. El operador puede
+     *   pedir 100 de un lote que ya solo tiene 40; se toman 40 y el resto se busca en otro lado.
+     * - Las preferencias sobre lotes que no estan LIBERADO se descartan: un lote bloqueado por
+     *   recall no sale ni aunque lo pidan explicitamente.
+     * - Lo que quede pendiente se completa por FEFO, excluyendo los lotes ya usados.
+     * - Sin preferencias, es exactamente {@link #asignar(Long, Long, Double)}. Ese es el camino
+     *   por el que siguen pasando todas las transferencias que no eligen lote.
+     *
+     * @param preferencias reparto pedido por el operador, en orden de prioridad.
+     */
+    public List<AsignacionLote> asignarConPreferencia(Long productoId, Long sucursalId, Double cantidad,
+                                                      List<AsignacionLote> preferencias) {
+        if (preferencias == null || preferencias.isEmpty()) {
+            return asignar(productoId, sucursalId, cantidad);
+        }
+        if (productoId == null || sucursalId == null || cantidad == null || cantidad <= 0) {
+            return new ArrayList<>();
+        }
+
+        Map<Long, StockLoteDto> saldoPorLote = new HashMap<>();
+        for (StockLoteDto lote : movimientoStockLoteService.stockPorLote(productoId, sucursalId)) {
+            if (lote.getLoteId() != null) {
+                saldoPorLote.put(lote.getLoteId(), lote);
+            }
+        }
+
+        List<AsignacionLote> asignaciones = new ArrayList<>();
+        Set<Long> usados = new HashSet<>();
+        double pendiente = cantidad;
+
+        for (AsignacionLote preferida : preferencias) {
+            if (pendiente <= 0.0001) {
+                break;
+            }
+            if (preferida == null || preferida.getLoteId() == null || preferida.getCantidad() == null) {
+                continue;
+            }
+            if (!usados.add(preferida.getLoteId())) {
+                continue;
+            }
+            StockLoteDto disponible = saldoPorLote.get(preferida.getLoteId());
+            if (disponible == null || disponible.getEstado() != EstadoLote.LIBERADO) {
+                continue;
+            }
+            Double saldo = disponible.getCantidadDisponible();
+            if (saldo == null || saldo <= 0) {
+                continue;
+            }
+            double aTomar = Math.min(Math.min(saldo, preferida.getCantidad()), pendiente);
+            if (aTomar <= 0) {
+                continue;
+            }
+            asignaciones.add(new AsignacionLote(preferida.getLoteId(), disponible.getNumeroLote(), aTomar));
+            pendiente -= aTomar;
+        }
+
+        if (pendiente > 0.0001) {
+            asignaciones.addAll(asignar(productoId, sucursalId, pendiente, usados));
         }
 
         return asignaciones;

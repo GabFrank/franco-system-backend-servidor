@@ -30,6 +30,31 @@ type TransferenciaItem {
     usuario: Usuario
     creadoEn: Date
     vencimientoVerificado: Boolean
+    # Lotes elegidos a mano para este item. Vacio = el desglose se resuelve por FEFO.
+    # Se resuelve en TransferenciaItemResolver, no es una asociacion de la entidad.
+    lotesAsignados: [TransferenciaItemLote]
+}
+
+# Etapa en la que se eligieron los lotes. PREPARACION pisa a PRE_TRANSFERENCIA al momento de
+# resolver el desglose, pero ambas quedan guardadas para poder auditar que se habia pedido.
+enum EtapaAsignacionLote {
+    PRE_TRANSFERENCIA
+    PREPARACION
+}
+
+# Una porcion de la cantidad de un item, asignada a un lote concreto.
+# Es la INTENCION del operador: el desglose real del stock vive en movimiento_stock_lote.
+type TransferenciaItemLote {
+    id: ID
+    loteId: ID
+    numeroLote: String
+    cantidad: Float
+    etapa: EtapaAsignacionLote
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    estadoLote: EstadoLote
+    usuario: Usuario
+    creadoEn: Date
 }
 
 type TransferenciaItemAlerta {
@@ -71,6 +96,17 @@ input TransferenciaItemInput {
     usuarioId: Int
     creadoEn: String
     vencimientoVerificado: Boolean
+    # null  -> no toca la asignacion existente (es lo que manda todo cliente que no sabe de lotes)
+    # []    -> borra la asignacion de esa etapa y el item vuelve a resolverse por FEFO
+    # lista -> reemplaza la asignacion de esa etapa
+    lotesAsignados: [TransferenciaItemLoteInput]
+    # Etapa a la que corresponde lotesAsignados. Se ignora si la lista viene null.
+    etapaAsignacionLote: EtapaAsignacionLote
+}
+
+input TransferenciaItemLoteInput {
+    loteId: ID!
+    cantidad: Float!
 }
 
 type TransferenciaItemPage {

@@ -5,6 +5,7 @@ import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.TransferenciaItemLote;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
@@ -42,6 +43,9 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
 
     @Autowired
     private LoteFefoService loteFefoService;
+
+    @Autowired
+    private TransferenciaItemLoteService transferenciaItemLoteService;
 
     @Override
     public MovimientoStockRepository getRepository() {
@@ -319,13 +323,15 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             return;
         }
 
-        // Salida: FEFO sobre el stock por lote de la sucursal origen.
+        // Salida: primero los lotes que eligio el operador, el faltante por FEFO.
         if (salida != null && salida.getId() != null) {
             if (Boolean.TRUE.equals(salida.getEstado()) && salida.getCantidad() != null
                     && salida.getCantidad() < 0) {
                 double cantidadSalida = Math.abs(salida.getCantidad());
-                List<LoteFefoService.AsignacionLote> asignaciones = loteFefoService.asignar(
-                        producto.getId(), salida.getSucursalId(), cantidadSalida);
+                List<LoteFefoService.AsignacionLote> preferencias = preferenciasDeLote(item);
+                List<LoteFefoService.AsignacionLote> asignaciones = loteFefoService.asignarConPreferencia(
+                        producto.getId(), salida.getSucursalId(), cantidadSalida, preferencias);
+                advertirSiSeCompletoPorFefo(item, preferencias, asignaciones);
                 movimientoStockLoteService.reemplazarDesglose(
                         salida, producto, asignaciones, item.getId(), -1);
             } else {
@@ -346,6 +352,52 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             } else {
                 movimientoStockLoteService.sincronizarEstado(entrada);
             }
+        }
+    }
+
+    /**
+     * Lotes que el operador eligió a mano para este ítem, en orden de prioridad.
+     *
+     * Devuelve vacío cuando no eligió ninguno, que es el caso de toda transferencia anterior a
+     * esta funcionalidad y de todo producto donde el operador no toca nada. Con la lista vacía,
+     * la asignación queda en FEFO puro, igual que antes.
+     */
+    private List<LoteFefoService.AsignacionLote> preferenciasDeLote(TransferenciaItem item) {
+        List<LoteFefoService.AsignacionLote> preferencias = new ArrayList<>();
+        if (item == null || item.getId() == null) {
+            return preferencias;
+        }
+        for (TransferenciaItemLote fila : transferenciaItemLoteService.asignacionVigente(item.getId())) {
+            if (fila.getLote() == null || fila.getLote().getId() == null) {
+                continue;
+            }
+            preferencias.add(new LoteFefoService.AsignacionLote(
+                    fila.getLote().getId(), fila.getNumeroLote(), fila.getCantidad()));
+        }
+        return preferencias;
+    }
+
+    /**
+     * Deja rastro cuando la elección manual no alcanzó y hubo que completar por FEFO.
+     *
+     * No corta la operación a propósito: el criterio del sistema es que el stock agregado manda y
+     * la mercadería igual sale. El aviso al operador lo da la pantalla antes de guardar; esto es
+     * la red de seguridad para poder auditarlo después.
+     */
+    private void advertirSiSeCompletoPorFefo(TransferenciaItem item,
+                                             List<LoteFefoService.AsignacionLote> preferencias,
+                                             List<LoteFefoService.AsignacionLote> asignaciones) {
+        if (preferencias.isEmpty() || asignaciones == null) {
+            return;
+        }
+        List<Long> preferidos = preferencias.stream()
+                .map(LoteFefoService.AsignacionLote::getLoteId)
+                .collect(Collectors.toList());
+        boolean completadoPorFefo = asignaciones.stream()
+                .anyMatch(a -> a.getLoteId() != null && !preferidos.contains(a.getLoteId()));
+        if (completadoPorFefo) {
+            log.warning("Transferencia item " + item.getId() + ": los lotes elegidos a mano no "
+                    + "cubrieron la cantidad y el resto se completo por FEFO.");
         }
     }
 

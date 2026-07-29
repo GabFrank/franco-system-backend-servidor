@@ -63,11 +63,22 @@ public interface MovimientoStockLoteRepository
      *
      * Se consulta contra el ledger agrupado en vez de la vista v_stock_lote para poder paginar
      * y filtrar sin depender del plan de la vista.
+     *
+     * Los alias van en camelCase y ENTRE COMILLAS DOBLES a propósito: Spring Data resuelve una
+     * proyección por interfaz sobre una query nativa buscando el alias exacto del getter
+     * ({@code getLoteId()} -> {@code "loteId"}), sin convertir snake_case. Un alias
+     * {@code lote_id} devuelve null en vez de fallar, y la pantalla queda con las columnas
+     * vacías. Las comillas son necesarias porque Postgres pasa a minúsculas todo alias sin
+     * comillar ({@code AS loteId} llegaría como {@code loteid} y tampoco matchearía).
      */
     @Query(value =
-            "SELECT l.id AS lote_id, msl.producto_id, p.descripcion AS producto_descripcion, " +
-            "       msl.sucursal_id, s.nombre AS sucursal_nombre, msl.numero_lote, " +
-            "       l.fecha_vencimiento, l.fecha_retiro, l.estado, SUM(msl.cantidad) AS cantidad_disponible " +
+            "SELECT l.id AS \"loteId\", msl.producto_id AS \"productoId\", " +
+            "       p.descripcion AS \"productoDescripcion\", " +
+            "       msl.sucursal_id AS \"sucursalId\", s.nombre AS \"sucursalNombre\", " +
+            "       msl.numero_lote AS \"numeroLote\", " +
+            "       l.fecha_vencimiento AS \"fechaVencimiento\", l.fecha_retiro AS \"fechaRetiro\", " +
+            "       l.estado AS \"estado\", " +
+            "       CAST(SUM(msl.cantidad) AS double precision) AS \"cantidadDisponible\" " +
             "FROM operaciones.movimiento_stock_lote msl " +
             "LEFT JOIN operaciones.lote l ON l.id = msl.lote_id " +
             "JOIN productos.producto p ON p.id = msl.producto_id " +
@@ -96,7 +107,10 @@ public interface MovimientoStockLoteRepository
             "    AND (:numeroLote IS NULL OR msl.numero_lote LIKE UPPER(CONCAT('%', :numeroLote, '%'))) " +
             "    AND (:texto IS NULL OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))) " +
             "    AND (:vencimientoHasta IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) <= CAST(:vencimientoHasta AS date)) " +
-            "  GROUP BY l.id, msl.producto_id, p.descripcion, msl.sucursal_id, s.nombre, msl.numero_lote, " +
+            // Sin s.nombre en el GROUP BY: el count no joinea empresarial.sucursal y la columna no
+            // resuelve. Agrupar por msl.sucursal_id da exactamente los mismos grupos, porque el
+            // nombre depende funcionalmente del id.
+            "  GROUP BY l.id, msl.producto_id, p.descripcion, msl.sucursal_id, msl.numero_lote, " +
             "           l.fecha_vencimiento, l.fecha_retiro, l.estado " +
             "  HAVING SUM(msl.cantidad) <> 0) sub",
             nativeQuery = true)

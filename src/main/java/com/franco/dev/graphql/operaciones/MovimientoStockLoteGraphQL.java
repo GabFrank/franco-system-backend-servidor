@@ -53,9 +53,11 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * la asignacion manual, y tenerla duplicada en la pantalla haria que el saldo mostrado y la
      * cantidad guardada pudieran diferir en el ultimo decimal.
      */
-    public List<StockLotePresentacionDto> stockPorLoteEnPresentacion(Long productoId, Long sucursalId,
-                                                                     Long presentacionId) {
-        return service.stockPorLoteEnPresentacion(productoId, sucursalId, presentacionId);
+    public Page<StockLotePresentacionDto> stockPorLoteEnPresentacion(Long productoId, Long sucursalId,
+                                                                     Long presentacionId, String numeroLote,
+                                                                     int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 10);
+        return service.stockPorLoteEnPresentacion(productoId, sucursalId, presentacionId, numeroLote, pageable);
     }
 
     /**

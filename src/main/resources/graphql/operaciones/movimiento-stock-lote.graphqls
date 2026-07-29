@@ -80,6 +80,17 @@ type StockLotePresentacion {
     presentacionDescripcion: String
 }
 
+type StockLotePresentacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [StockLotePresentacion]
+}
+
 type StockLotePage {
     getTotalPages: Int
     getTotalElements: Int
@@ -97,12 +108,16 @@ extend type Query {
     stockPorLote(productoId: ID!, sucursalId: ID!): [StockLote]
 
     # Mismo saldo que stockPorLote, pero convertido a la presentacion con la que carga el
-    # operador. Con presentacionId nulo devuelve las cantidades en unidades, sin convertir.
+    # operador y paginado. Con presentacionId nulo devuelve las cantidades en unidades, sin
+    # convertir. numeroLote filtra por coincidencia parcial.
     stockPorLoteEnPresentacion(
         productoId: ID!
         sucursalId: ID!
         presentacionId: ID
-    ): [StockLotePresentacion]
+        numeroLote: String
+        page: Int = 0
+        size: Int = 10
+    ): StockLotePresentacionPage
 
     # Consulta general "donde tengo que": todos los filtros son opcionales.
     # vencimientoHasta filtra por COALESCE(fecha_retiro, fecha_vencimiento) <= fecha, para

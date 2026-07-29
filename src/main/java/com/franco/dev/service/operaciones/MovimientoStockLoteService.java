@@ -217,33 +217,33 @@ public class MovimientoStockLoteService
      * cajas o packs, no en unidades, asi que la conversion se resuelve aca y no en la pantalla.
      * Con presentacionId nulo devuelve las cantidades en unidades, sin convertir.
      */
-    public List<StockLotePresentacionDto> stockPorLoteEnPresentacion(Long productoId, Long sucursalId,
-                                                                     Long presentacionId) {
+    public Page<StockLotePresentacionDto> stockPorLoteEnPresentacion(Long productoId, Long sucursalId,
+                                                                     Long presentacionId, String numeroLote,
+                                                                     Pageable pageable) {
         Presentacion presentacion = presentacionId != null
                 ? presentacionService.findById(presentacionId).orElse(null)
                 : null;
         double unidadesPorPresentacion = ConversionPresentacion.unidadesPorPresentacion(presentacion);
         String descripcion = presentacion != null ? presentacion.getDescripcion() : null;
 
-        List<StockLotePresentacionDto> resultado = new ArrayList<>();
-        for (StockLoteDto lote : stockPorLote(productoId, sucursalId)) {
-            resultado.add(new StockLotePresentacionDto(
-                    lote.getLoteId(),
-                    lote.getNumeroLote(),
-                    lote.getFechaVencimiento(),
-                    lote.getFechaRetiro(),
-                    lote.getEstado(),
-                    lote.getCantidadDisponible(),
-                    // Completas, no la division: no se puede transferir una fraccion de caja.
-                    ConversionPresentacion.presentacionesCompletas(
-                            lote.getCantidadDisponible(), unidadesPorPresentacion),
-                    ConversionPresentacion.unidadesSobrantes(
-                            lote.getCantidadDisponible(), unidadesPorPresentacion),
-                    unidadesPorPresentacion,
-                    descripcion
-            ));
-        }
-        return resultado;
+        // Se apoya en buscarStockPorLote, que ya pagina, ordena por FEFO y filtra por numero de
+        // lote. Aca solo se agrega la conversion a la presentacion del operador.
+        return buscarStockPorLote(productoId, sucursalId, null, numeroLote, null, null, pageable)
+                .map(lote -> new StockLotePresentacionDto(
+                        lote.getLoteId(),
+                        lote.getNumeroLote(),
+                        lote.getFechaVencimiento(),
+                        lote.getFechaRetiro(),
+                        lote.getEstado(),
+                        lote.getCantidadDisponible(),
+                        // Completas, no la division: no se puede transferir una fraccion de caja.
+                        ConversionPresentacion.presentacionesCompletas(
+                                lote.getCantidadDisponible(), unidadesPorPresentacion),
+                        ConversionPresentacion.unidadesSobrantes(
+                                lote.getCantidadDisponible(), unidadesPorPresentacion),
+                        unidadesPorPresentacion,
+                        descripcion
+                ));
     }
 
     public List<MovimientoStockLote> findByMovimientoStock(Long movimientoStockId, Long sucursalId) {

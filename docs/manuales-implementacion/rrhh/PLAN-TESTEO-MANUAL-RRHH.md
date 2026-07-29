@@ -241,6 +241,17 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
   fuera del período) ni aguinaldo (solo en diciembre), como se esperaba.
 - **Extras probados:** generación por lote (3 funcionarios de una, cada uno con su neto correcto;
   IGOR con vale + cuota vencida), alta/eliminación de ítem manual con recálculo de totales.
+- **✅ Cobro de crédito por convenio (compras a crédito) — runtime OK 2026-07-29:** la liquidación
+  mensual descuenta las **cuotas vencidas** de las ventas a crédito del funcionario (ítem
+  `CREDITO_CONVENIO_CUOTA`, gemelo de `PRESTAMO_CUOTA`). Verificado (func 105, cliente 5):
+  - **Cobro completo:** cuota 500.000 → ítem 500.000; pagar → `venta_credito` **FINALIZADO**;
+    anular → vuelve a **ABIERTO** (revierte vía `referencia_estado_previo`).
+  - **Parcial + tope:** cuota 3.000.000 con disponible 2.320.500 → ítem **"(parcial)" 2.320.500**,
+    **neto = 0** (el convenio nunca deja el neto negativo).
+  - **Carry-over:** el mes siguiente cobra el remanente exacto **679.500**; al cobrar la última
+    cuota → **FINALIZADO** (el mensual SÍ flipa cuando la venta queda 100% saldada).
+  - Sub-caso a repetir en la prueba manual del usuario con un funcionario real que tenga compras
+    a crédito abiertas. Ver PLAN-CREDITO-CONVENIO-RRHH.md.
 
 ### ✅ T15 — Liquidación final / finiquito (sujeto: WILIAN #100 / ESTEBAN #8)
 - **Estado:** cálculo base validado (WILIAN: indemniz. 7.650.000 + vac. 2.550.000 +
@@ -270,6 +281,13 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
   imprimir recibo.
 - **Verificación (DB):** `rrhh.liquidacion_final` con antigüedad/indemnización/preaviso/aguinaldo
   coherentes; al pagar: Caja EGRESO por el total, `personas.funcionario.activo=false`.
+- **✅ Crédito por convenio a nivel cuota — runtime OK 2026-07-29:** el finiquito ya NO descuenta
+  el `saldoTotal` agregado (que **nunca baja** → en la data real es NULL, así que el finiquito
+  viejo **no descontaba nada**). Ahora toma **todas las cuotas impagas** del funcionario, con el
+  mismo tope por disponible. Verificado (func 105, RENUNCIA): cuota 800.000 capada a **510.000
+  (parcial)** según el disponible tras el preaviso, `referencia_estado_previo=EN_MORA` guardado;
+  al pagar, si la venta queda 100% saldada → `FINALIZADO` (si queda remanente, sigue abierta y el
+  ex-empleado la sigue debiendo). Reversible al anular.
 - **Pendiente:** probar el pago end-to-end con saldado de vales/cuotas (efectos cruzados)
   si aún no se hizo.
 

@@ -18,6 +18,9 @@ public class AguinaldoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     @Autowired
     private AguinaldoService service;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
     public Optional<Aguinaldo> aguinaldo(Long id) {
         return service.findById(id);
     }
@@ -36,15 +39,18 @@ public class AguinaldoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public Integer calcularAguinaldosAnio(Integer anio) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         return service.calcularAguinaldosAnio(anio);
     }
 
     public Aguinaldo aprobarAguinaldo(Long id) {
+        seg.requireAnyRole(seg.APROBAR);
         return service.aprobar(id);
     }
 
     /** Pago separado del aguinaldo (egreso de Caja Mayor). Queda excluido de la liquidación mensual. */
     public Aguinaldo pagarAguinaldo(Long id, Long cajaVirtualId) {
+        seg.requireAnyRole(seg.PAGAR);
         return service.pagar(id, cajaVirtualId);
     }
 }

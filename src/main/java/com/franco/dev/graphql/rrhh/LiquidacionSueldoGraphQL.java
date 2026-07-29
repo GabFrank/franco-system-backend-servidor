@@ -25,6 +25,9 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private com.franco.dev.service.rrhh.ReciboLiquidacionService reciboLiquidacionService;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
     public Optional<LiquidacionSueldo> liquidacionSueldo(Long id) {
         return service.findById(id);
     }
@@ -53,43 +56,53 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public LiquidacionSueldo generarLiquidacionBorrador(Long funcionarioId, String periodo, Long monedaId) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         return service.generarBorrador(funcionarioId, periodo, monedaId);
     }
 
     public LiquidacionItem agregarItemLiquidacion(Long liquidacionId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         return service.agregarItemManual(liquidacionId, descripcion, monto, tipo);
     }
 
     public Boolean eliminarItemLiquidacion(Long itemId) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         return service.eliminarItem(itemId);
     }
 
     public LiquidacionItem editarItemLiquidacion(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         return service.editarItem(itemId, descripcion, monto, tipo, usuarioId);
     }
 
     public LiquidacionSueldo aprobarLiquidacion(Long id, Long aprobadoPorId) {
+        seg.requireAnyRole(seg.APROBAR);
         return service.aprobar(id, aprobadoPorId);
     }
 
     public LiquidacionSueldo volverBorradorLiquidacion(Long id) {
+        seg.requireAnyRole(seg.LIQUIDAR, seg.APROBAR);
         return service.volverBorrador(id);
     }
 
     public LiquidacionSueldo pagarLiquidacion(Long id, Long cajaVirtualId) {
+        seg.requireAnyRole(seg.PAGAR);
         return service.pagar(id, cajaVirtualId);
     }
 
     public LiquidacionSueldo anularLiquidacion(Long id) {
+        seg.requireAnyRole(seg.PAGAR);
         return service.anular(id);
     }
 
     public Integer generarLiquidacionesMes(String periodo, Long monedaId) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         return service.generarMes(periodo, monedaId);
     }
 
     /** Genera borradores para una lista de funcionarios (vacia/null = todos los activos). */
     public Integer generarLiquidacionesLote(List<Integer> funcionarioIds, String periodo, Long monedaId) {
+        seg.requireAnyRole(seg.LIQUIDAR);
         // [Int] de GraphQL llega como List<Integer>; kickstart no convierte los elementos.
         List<Long> ids = funcionarioIds == null ? null
                 : funcionarioIds.stream().map(Integer::longValue).collect(java.util.stream.Collectors.toList());

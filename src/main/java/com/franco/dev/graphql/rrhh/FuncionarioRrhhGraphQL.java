@@ -40,6 +40,9 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
     @Autowired
     private FuncionarioService funcionarioService;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
     // ----- Queries -----
 
     public List<FuncionarioCargoHistorico> funcionarioCargoHistoricos(Long funcionarioId) {
@@ -61,6 +64,7 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
     // ----- Mutations -----
 
     public Funcionario cambiarCargoFuncionario(CambioCargoInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return funcionarioRrhhService.cambiarCargo(
                 input.getFuncionarioId(),
                 input.getCargoId(),
@@ -70,6 +74,7 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Funcionario cambiarSalarioFuncionario(CambioSalarioInput input) {
+        seg.requireAnyRole(seg.GESTIONAR, seg.CONFIG);
         return funcionarioRrhhService.cambiarSalario(
                 input.getFuncionarioId(),
                 input.getNuevoSalario(),
@@ -80,10 +85,12 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public Funcionario egresarFuncionario(Long funcionarioId, String fecha, String motivo) {
+        seg.requireAnyRole(seg.GESTIONAR, seg.APROBAR);
         return funcionarioRrhhService.egresar(funcionarioId, parseFecha(fecha), motivo);
     }
 
     public FuncionarioDocumento saveFuncionarioDocumento(FuncionarioDocumentoInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         FuncionarioDocumento e = input.getId() != null
                 ? documentoService.findById(input.getId()).orElse(new FuncionarioDocumento())
                 : new FuncionarioDocumento();
@@ -109,6 +116,7 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public FuncionarioDocumento anularFuncionarioDocumento(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return documentoService.anular(id);
     }
 

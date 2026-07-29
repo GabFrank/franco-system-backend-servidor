@@ -28,6 +28,9 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private PrestamoService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private FuncionarioService funcionarioService;
 
     @Autowired
@@ -58,6 +61,7 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Prestamo crearPrestamo(PrestamoInput input, Long cajaVirtualId) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Prestamo p = new Prestamo();
         if (input.getFuncionarioId() != null)
             p.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
@@ -75,6 +79,7 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public PrestamoCuota cobrarCuota(Long cuotaId, Long cajaVirtualId, BigDecimal montoPago) {
+        seg.requireAnyRole(seg.GESTIONAR, seg.PAGAR);
         return service.cobrarCuota(cuotaId, cajaVirtualId, montoPago);
     }
 }

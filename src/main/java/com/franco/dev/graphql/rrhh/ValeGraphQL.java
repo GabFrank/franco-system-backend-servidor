@@ -28,6 +28,9 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private ValeService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private MotivoValeService motivoValeService;
 
     @Autowired
@@ -59,6 +62,7 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Vale saveVale(ValeInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Vale e = mapInput(input, input.getId() != null
                 ? service.findById(input.getId()).orElse(new Vale())
                 : new Vale());
@@ -66,15 +70,18 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Vale confirmarVale(Long id, Long cajaVirtualId, Long autorizadoPorId) {
+        seg.requireAnyRole(seg.APROBAR);
         return service.confirmar(id, cajaVirtualId, autorizadoPorId);
     }
 
     public Vale crearValeConfirmado(ValeInput input, Long cajaVirtualId, Long autorizadoPorId) {
+        seg.requireAnyRole(seg.APROBAR);
         Vale e = mapInput(input, new Vale());
         return service.crearConfirmado(e, cajaVirtualId, autorizadoPorId);
     }
 
     public Vale anularVale(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.anular(id);
     }
 

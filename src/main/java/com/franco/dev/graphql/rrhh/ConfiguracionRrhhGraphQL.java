@@ -29,6 +29,9 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
     private ConfiguracionRrhhService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
@@ -78,11 +81,13 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
      */
     public Integer ajustarSalariosAlMinimo(List<Long> funcionarioIds, java.math.BigDecimal minimo,
                                            Long usuarioId) {
+        seg.requireAnyRole(seg.CONFIG);
         Usuario u = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         return ajusteSalarioMinimoService.ajustarAlMinimo(funcionarioIds, minimo, u);
     }
 
     public ConfiguracionRrhh saveConfiguracionRrhh(ConfiguracionRrhhInput input) {
+        seg.requireAnyRole(seg.CONFIG);
         ModelMapper m = new ModelMapper();
         // En update, m.map(input, e) sobre la entidad cargada: los campos null del
         // input (ej. creadoEn, que el form no envia) NO deben pisar los valores
@@ -113,6 +118,7 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Boolean deleteConfiguracionRrhh(Long id) {
+        seg.requireAnyRole(seg.CONFIG);
         return service.deleteById(id);
     }
 }

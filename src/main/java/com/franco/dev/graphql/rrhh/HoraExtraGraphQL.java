@@ -26,6 +26,9 @@ public class HoraExtraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     private HoraExtraService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private FuncionarioService funcionarioService;
 
     @Autowired
@@ -54,6 +57,7 @@ public class HoraExtraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public HoraExtra saveHoraExtra(HoraExtraInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         HoraExtra e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new HoraExtra())
                 : new HoraExtra();
@@ -76,10 +80,12 @@ public class HoraExtraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     }
 
     public HoraExtra anularHoraExtra(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.anular(id);
     }
 
     public Boolean deleteHoraExtra(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.deleteById(id);
     }
 }

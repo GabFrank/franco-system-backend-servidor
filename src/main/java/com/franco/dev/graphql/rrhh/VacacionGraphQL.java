@@ -23,6 +23,9 @@ public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     @Autowired
     private VacacionService service;
 
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
     public Optional<Vacacion> vacacion(Long id) {
         return service.findById(id);
     }
@@ -49,11 +52,13 @@ public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public Vacacion devengarVacacion(Long funcionarioId) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.devengar(funcionarioId);
     }
 
     public VacacionPeriodo programarPeriodoVacacion(Long vacacionId, String desde, String hasta,
                                                     VacacionPeriodoEstado estado, String observacion) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.programarPeriodo(
                 vacacionId,
                 stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null,
@@ -62,23 +67,28 @@ public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     }
 
     public VacacionPeriodo aprobarPeriodoVacacion(Long periodoId, Long autorizadoPorId) {
+        seg.requireAnyRole(seg.APROBAR);
         return service.aprobarPeriodo(periodoId, autorizadoPorId);
     }
 
     public VacacionPeriodo marcarGozadaVacacion(Long periodoId) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.marcarGozada(periodoId);
     }
 
     public VacacionVenta venderDiasVacacion(Long vacacionId, Integer dias, String observacion) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.venderDias(vacacionId, dias, observacion);
     }
 
     /** Autoriza la venta: recien ahi queda PENDIENTE y la liquidacion la paga. */
     public VacacionVenta aprobarVentaVacacion(Long ventaId, Long autorizadoPorId) {
+        seg.requireAnyRole(seg.APROBAR);
         return service.aprobarVenta(ventaId, autorizadoPorId);
     }
 
     public VacacionVenta anularVentaVacacion(Long ventaId) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.anularVenta(ventaId);
     }
 }

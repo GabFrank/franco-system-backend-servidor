@@ -31,6 +31,9 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private PenalizacionService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private JustificativoService justificativoService;
 
     @Autowired
@@ -69,6 +72,7 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Penalizacion savePenalizacion(PenalizacionInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Penalizacion e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Penalizacion())
                 : new Penalizacion();
@@ -89,11 +93,13 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public Penalizacion anularPenalizacion(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.anular(id);
     }
 
     /** Genera las penalizaciones automaticas por tardanza de la fecha dada. Devuelve la cantidad generada. */
     public Integer generarPenalizacionesAuto(String fecha) {
+        seg.requireAnyRole(seg.GESTIONAR);
         LocalDate f = stringToDate(fecha) != null ? stringToDate(fecha).toLocalDate() : LocalDate.now().minusDays(1);
         return service.generarPenalizacionesAuto(f);
     }
@@ -103,6 +109,7 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * penalizaciones auto-generadas de esa jornada.
      */
     public Boolean justificarJornada(JustificarJornadaInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Justificativo n = new Justificativo();
         if (input.getFuncionarioId() != null)
             n.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));

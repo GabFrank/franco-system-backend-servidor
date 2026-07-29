@@ -26,6 +26,9 @@ public class BonoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private BonoService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private FuncionarioService funcionarioService;
 
     @Autowired
@@ -47,6 +50,7 @@ public class BonoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Bono saveBono(BonoInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Bono e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Bono())
                 : new Bono();
@@ -67,6 +71,7 @@ public class BonoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
     public Bono anularBono(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.anular(id);
     }
 }

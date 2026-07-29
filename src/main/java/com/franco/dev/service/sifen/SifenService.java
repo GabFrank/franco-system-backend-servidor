@@ -37,6 +37,7 @@ import com.franco.dev.service.financiero.FacturaLegalItemService;
 import com.franco.dev.service.financiero.FacturaLegalService;
 import com.franco.dev.service.financiero.LoteDEService;
 import com.franco.dev.service.personas.ClienteService;
+import com.franco.dev.service.sifen.util.GCamIvaMapper;
 import com.franco.dev.service.sifen.util.SifenEventoParser;
 import com.franco.dev.service.sifen.util.SifenReceptorHelper;
 import com.roshka.sifen.Sifen;
@@ -1103,8 +1104,8 @@ public class SifenService {
         List<com.franco.dev.domain.financiero.DocumentoElectronico> documentos = 
             documentoElectronicoService.findByLoteDe(lote);
         
-        int aprobados = 0, rechazados = 0;
-        
+        int aprobados = 0, rechazados = 0, sinConfirmar = 0;
+
         for (com.franco.dev.domain.financiero.DocumentoElectronico documento : documentos) {
             // Buscar detalle individual por CDC
             DetalleDocumentoEnLote detalle = detallesDocumentos.stream()
@@ -1130,23 +1131,29 @@ public class SifenService {
                     log.debug("      ✗ Documento {} RECHAZADO: {}", documento.getCdc(), detalle.mensaje);
                 }
             } else {
-                // No se encontró detalle, usar estado general
-                EstadoDE estadoGeneral = loteAprobado ? EstadoDE.APROBADO : EstadoDE.RECHAZADO;
-                documento.setEstado(estadoGeneral);
-                log.warn("      ⚠️ Documento {} sin detalle individual - usando estado general", documento.getCdc());
+                // SIFEN no devolvió resultado para este CDC: no procesó el documento (típicamente
+                // porque el XML no pasó la validación del esquema). El estado del lote es el del
+                // resto de los documentos y no dice nada sobre éste, así que no se infiere: se deja
+                // como está (EN_LOTE) y sin fecha de recepción, para que figure como no confirmado
+                // en lugar de aparecer como aprobado por arrastre.
+                sinConfirmar++;
+                log.error("      ❌ Documento {} sin resultado individual en la respuesta del lote {} "
+                        + "- se mantiene en estado {} (no confirmado por SIFEN)",
+                    documento.getCdc(), lote.getId(), documento.getEstado());
+                continue;
             }
-            
+
             documento.setFechaRecepcionSifen(LocalDateTime.now());
             documentoElectronicoService.save(documento);
         }
-        
-        log.info("   📊 Resumen: {} aprobados, {} rechazados de {} totales", 
-            aprobados, rechazados, documentos.size());
-        
-        // 5. Ajustar estado final del lote si hay errores mixtos
-        if (aprobados > 0 && rechazados > 0) {
+
+        log.info("   📊 Resumen: {} aprobados, {} rechazados, {} sin confirmar de {} totales",
+            aprobados, rechazados, sinConfirmar, documentos.size());
+
+        // 5. Ajustar estado final del lote si hay errores mixtos o documentos sin confirmar
+        if ((aprobados > 0 && rechazados > 0) || sinConfirmar > 0) {
             lote.setEstado(EstadoLoteDE.PROCESADO_CON_ERRORES);
-            log.info("   ⚠️ Lote con resultados mixtos → PROCESADO_CON_ERRORES");
+            log.info("   ⚠️ Lote con resultados mixtos o incompletos → PROCESADO_CON_ERRORES");
         }
     }
 
@@ -1546,27 +1553,12 @@ public class SifenService {
             gValorItem.setgValorRestaItem(gValorRestaItem);
             gCamItem.setgValorItem(gValorItem);
 
-            TgCamIVA gCamIVA = new TgCamIVA();
             Integer iva = (producto != null && producto.getIva() != null) ? producto.getIva() : 10; // Default to 10
 
-            switch (iva) {
-                case 5:
-                    gCamIVA.setiAfecIVA(TiAfecIVA.GRAVADO);
-                    gCamIVA.setdPropIVA(BigDecimal.valueOf(100));
-                    gCamIVA.setdTasaIVA(BigDecimal.valueOf(5));
-                    gCamIVA.setdBasExe(BigDecimal.ZERO);
-                    break;
-                case 0:
-                    gCamIVA.setiAfecIVA(TiAfecIVA.EXENTO);
-                    break;
-                case 10:
-                default:
-                    gCamIVA.setiAfecIVA(TiAfecIVA.GRAVADO);
-                    gCamIVA.setdPropIVA(BigDecimal.valueOf(100));
-                    gCamIVA.setdTasaIVA(BigDecimal.valueOf(10));
-                    gCamIVA.setdBasExe(BigDecimal.ZERO);
-                    break;
-            }
+            // Mapeo a gCamIVA (E730) centralizado en GCamIvaMapper, que aplica las reglas
+            // 1904/1905/1907/1908 del MT v150 y evita dejar campos obligatorios en null.
+            TgCamIVA gCamIVA = GCamIvaMapper.construir(iva);
+
             gCamItem.setgCamIVA(gCamIVA);
 
             gCamItemList.add(gCamItem);

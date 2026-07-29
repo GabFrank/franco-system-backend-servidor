@@ -100,7 +100,7 @@
       <li><a href="#t1"><span class="n">1</span> Legajo del funcionario</a></li>
       <li><a href="#t2"><span class="n">2</span> Historial de marcaciones</a></li>
       <li><a href="#t3"><span class="n">3</span> Feriados</a></li>
-      <li><a href="#t4"><span class="n">4</span> Novedades (justificaciones)</a></li>
+      <li><a href="#t4"><span class="n">4</span> Justificativos</a></li>
       <li><a href="#t5"><span class="n">5</span> Penalizaciones</a></li>
       <li><a href="#t6"><span class="n">6</span> Horas extra</a></li>
       <li><a href="#t7"><span class="n">7</span> Motivos de vale</a></li>
@@ -109,13 +109,14 @@
       <li><a href="#t10"><span class="n">10</span> Vacaciones</a></li>
       <li><a href="#t11"><span class="n">11</span> Aguinaldo</a></li>
       <li><a href="#t12"><span class="n">12</span> Bonos</a></li>
-      <li><a href="#t13"><span class="n">13</span> Liquidación de sueldo</a></li>
-      <li><a href="#t14"><span class="n">14</span> Liquidación final (finiquito)</a></li>
-      <li><a href="#t15"><span class="n">15</span> Panel (Dashboard)</a></li>
-      <li><a href="#t16"><span class="n">16</span> Reportes</a></li>
-      <li><a href="#t17"><span class="n">17</span> Configuración</a></li>
-      <li><a href="#t18"><span class="n">18</span> Mis RRHH (celular)</a></li>
-      <li><a href="#t19"><span class="n">19</span> Aprobaciones (celular)</a></li>
+      <li><a href="#t13"><span class="n">13</span> Imprimir recibos: PDF o Ticket</a></li>
+      <li><a href="#t14"><span class="n">14</span> Liquidación de sueldo</a></li>
+      <li><a href="#t15"><span class="n">15</span> Liquidación final (finiquito)</a></li>
+      <li><a href="#t16"><span class="n">16</span> Panel (Dashboard)</a></li>
+      <li><a href="#t17"><span class="n">17</span> Reportes</a></li>
+      <li><a href="#t18"><span class="n">18</span> Configuración</a></li>
+      <li><a href="#t19"><span class="n">19</span> Mis RRHH (en el celular)</a></li>
+      <li><a href="#t20"><span class="n">20</span> Aprobaciones (para encargados)</a></li>
     </ol>
   </nav>
 
@@ -127,16 +128,17 @@
       <article class="topic" id="t1">
         <h3><span class="num">1</span> Legajo del funcionario</h3>
         <div class="lbl">¿Para qué sirve?</div>
-        <p class="q">Es la ficha completa de cada empleado: su cargo, su salario, sus documentos y su situación actual. Desde acá se hacen los cambios importantes de su carrera dentro de la empresa.</p>
+        <p class="q">Es la ficha completa de cada empleado, organizada como un mini-panel con pestañas: sus datos, su situación financiera, su cargo, su salario y sus documentos. Desde acá también se da de alta a un empleado nuevo y se hacen los cambios importantes de su carrera dentro de la empresa.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Legajo funcionario</b>.</li>
-          <li>Elegí al empleado con el buscador de arriba.</li>
-          <li>Vas a ver su cargo y salario actuales, más el historial de cambios.</li>
-          <li>Con los botones podés cambiarle el cargo, cambiarle el salario, subir un documento (contrato, cédula, carnet de salud, etc.) o darlo de baja.</li>
-          <li>Para subir un documento: tocá “Subir documento”, elegí el tipo y el archivo, y guardá.</li>
+          <li>Entrá a R.R.H.H. → Personal → Funcionarios y elegí al empleado para abrir su legajo. Para uno nuevo, usá el botón de agregar.</li>
+          <li>En la pestaña "Información general" cargás o editás sus datos (documento, nacimiento, contacto, datos laborales, IPS) y su foto de perfil. Acá se crea el empleado nuevo.</li>
+          <li>En "Financiero" ves de un vistazo todo lo que debe o cobró (crédito, vales, préstamos, penalizaciones) y su exposición total. Es solo lectura.</li>
+          <li>En "Cargos" y "Salarios" cambiás el cargo o el salario, y queda el historial de cada cambio (fecha, valor anterior y nuevo).</li>
+          <li>En "Documentos" subís y ves archivos del legajo (contrato, cédula, carnet de salud, etc.).</li>
+          <li>Con el acceso rápido de arriba también podés lanzar la Liquidación final o dar de baja al empleado.</li>
         </ol>
-        <div class="tip"><b>Consejo:</b> cuando le cambiás el salario, el sistema te avisa si queda por debajo del mínimo legal y te pide confirmar.</div>
+        <div class="tip"><b>Consejo:</b> cuando le cambiás el salario, el sistema te avisa si queda por debajo del mínimo legal y te pide confirmar. El cargo y el salario quedan versionados: nada se pierde, todo queda auditado.</div>
       </article>
 
       <article class="topic" id="t2">
@@ -145,7 +147,7 @@
         <p class="q">Sirve para ver a qué hora entró y salió cada empleado, en un rango de fechas. Útil para revisar la asistencia.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Historial de marcaciones</b>.</li>
+          <li>Entrá a R.R.H.H. → Asistencia → Historial de marcaciones.</li>
           <li>Elegí el empleado y el rango de fechas que querés revisar.</li>
           <li>La lista te muestra las entradas y salidas.</li>
           <li>Si necesitás, podés imprimir el reporte.</li>
@@ -162,22 +164,23 @@
         <p class="q">Es la lista de días feriados. El sistema la usa para saber cuándo una hora extra vale más (recargo de feriado).</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Feriados</b>.</li>
+          <li>Entrá a R.R.H.H. → Configuración → Feriados.</li>
           <li>Tocá el botón para agregar un feriado nuevo con su fecha y nombre.</li>
           <li>Podés editar o quitar los que ya cargaste.</li>
         </ol>
       </article>
 
       <article class="topic" id="t4">
-        <h3><span class="num">4</span> Novedades (justificaciones)</h3>
+        <h3><span class="num">4</span> Justificativos</h3>
         <div class="lbl">¿Para qué sirve?</div>
-        <p class="q">Sirve para justificar situaciones de la jornada: un permiso, una ausencia justificada, una vacación. Una novedad justificada evita que el empleado reciba una penalización por ese día.</p>
+        <p class="q">Sirve para justificar situaciones de la jornada: un permiso, una ausencia justificada, una vacación. Según el tipo, el justificativo puede descontar (o no) del sueldo y puede evitar que el empleado reciba una penalización por ese día.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Novedades</b>.</li>
-          <li>Agregá una novedad para el empleado, elegí el tipo y la fecha.</li>
+          <li>Entrá a R.R.H.H. → Asistencia → Justificativos.</li>
+          <li>Agregá un justificativo para el empleado, elegí el tipo y la fecha.</li>
           <li>Guardá. A partir de ahí ese día queda justificado.</li>
         </ol>
+        <div class="tip"><b>Consejo:</b> los tipos de justificativo se administran en R.R.H.H. → Configuración → Tipos de justificativo. Ahí se define si un tipo descuenta salario y si evita la penalización por tardanza.</div>
       </article>
 
       <article class="topic" id="t5">
@@ -186,9 +189,10 @@
         <p class="q">Son los descuentos por llegar tarde. El sistema las genera solo cada día, revisando quién llegó tarde sin justificación.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Penalizaciones</b> para ver las que se generaron.</li>
+          <li>Entrá a R.R.H.H. → Asistencia → Penalizaciones para ver las que se generaron.</li>
           <li>Si una penalización no corresponde, podés anularla.</li>
           <li>También podés justificar el día para que no se cobre.</li>
+          <li>Podés imprimir un recibo de la penalización para que el empleado la firme (PDF o Ticket).</li>
         </ol>
         <div class="tip"><b>Consejo:</b> el sistema respeta unos minutos de tolerancia (configurables). Solo penaliza cuando la tardanza pasa ese margen.</div>
       </article>
@@ -199,7 +203,7 @@
         <p class="q">Sirve para registrar las horas de más que trabajó un empleado. El sistema calcula solo cuánto valen según el tipo (día, noche o feriado).</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Horas extra</b>.</li>
+          <li>Entrá a R.R.H.H. → Asistencia → Horas extra.</li>
           <li>Cargá las horas del empleado, con la fecha y el tipo.</li>
           <li>Al guardar, el monto se calcula automáticamente.</li>
           <li>Esas horas se suman después al sueldo del mes.</li>
@@ -216,7 +220,7 @@
         <p class="q">Es la lista de razones por las que se puede pedir un vale (por ejemplo: adelanto, emergencia). Ayuda a ordenar y clasificar los vales.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Motivos de vale</b>.</li>
+          <li>Entrá a R.R.H.H. → Configuración → Motivos de vale.</li>
           <li>Agregá o editá los motivos que uses habitualmente.</li>
         </ol>
       </article>
@@ -227,12 +231,13 @@
         <p class="q">Es un adelanto de plata al empleado. Cuando lo confirmás, sale la plata de la caja; después se le descuenta cuando se le paga el sueldo.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Vales</b>.</li>
-          <li>Creá un vale para el empleado, con el monto y el motivo. Queda como “solicitado”.</li>
-          <li>Cuando lo confirmás, el sistema saca la plata de la Caja Mayor y lo registra a nombre del empleado.</li>
+          <li>Entrá a R.R.H.H. → Anticipos → Vales.</li>
+          <li>Creá un vale para el empleado, con el monto y el motivo. Queda como "solicitado".</li>
+          <li>Cuando lo confirmás, el sistema saca la plata de la Caja Mayor.</li>
           <li>Ese vale se descuenta solo en la próxima liquidación de sueldo.</li>
+          <li>Podés imprimir un recibo del vale para que el empleado lo firme (PDF o Ticket).</li>
         </ol>
-        <div class="tip"><b>Consejo:</b> el empleado también puede pedir un vale desde la app del celular; te llega como “solicitado” para que lo confirmes.</div>
+        <div class="tip"><b>Consejo:</b> el empleado también puede pedir un vale desde la app del celular; te llega como "solicitado" para que lo confirmes.</div>
       </article>
 
       <article class="topic" id="t9">
@@ -241,11 +246,12 @@
         <p class="q">Es un préstamo al empleado que se paga en varias cuotas. Podés cobrarlo directamente o descontarlo del sueldo.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Préstamos</b>.</li>
+          <li>Entrá a R.R.H.H. → Anticipos → Préstamos.</li>
           <li>Creá el préstamo indicando el monto total y en cuántas cuotas se paga.</li>
           <li>Al crearlo, sale el dinero de la Caja Mayor.</li>
           <li>Podés ver el plan de cuotas y cobrar una cuota cuando el empleado paga.</li>
           <li>Las cuotas también se pueden descontar automáticamente del sueldo.</li>
+          <li>Podés imprimir un recibo de la entrega del préstamo para que el empleado lo firme (PDF o Ticket).</li>
         </ol>
       </article>
     </section>
@@ -259,10 +265,11 @@
         <p class="q">Sirve para llevar el control de los días de vacaciones que le corresponden a cada empleado, los que ya se tomó y los que se le pagaron.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Vacaciones</b>.</li>
+          <li>Entrá a R.R.H.H. → Beneficios → Vacaciones.</li>
           <li>El sistema calcula solo los días que le corresponden según su antigüedad.</li>
-          <li>Cuando el empleado se toma las vacaciones, marcás el período como “gozado”.</li>
-          <li>Si en vez de tomarlas se le pagan, podés registrar la venta de esos días.</li>
+          <li>Con "Solicitar" programás un período; luego se aprueba.</li>
+          <li>Cuando el empleado se toma las vacaciones, marcás el período como "gozado".</li>
+          <li>Si en vez de tomarlas se le pagan, podés registrar la venta de esos días (se pagan en el sueldo o en el finiquito).</li>
         </ol>
         <div class="tip"><b>Consejo:</b> los días de vacaciones tienen fecha de vencimiento. El sistema te avisa cuando están por prescribir.</div>
       </article>
@@ -270,14 +277,16 @@
       <article class="topic" id="t11">
         <h3><span class="num">11</span> Aguinaldo</h3>
         <div class="lbl">¿Para qué sirve?</div>
-        <p class="q">Es el pago del aguinaldo (13.º salario). El sistema lo calcula automáticamente según lo trabajado en el año.</p>
+        <p class="q">Es el pago del aguinaldo (13.º salario). El sistema lo calcula automáticamente según lo trabajado en el año. Podés pagarlo junto con el sueldo de fin de año o por separado.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Aguinaldos</b>.</li>
+          <li>Entrá a R.R.H.H. → Beneficios → Aguinaldos.</li>
           <li>El sistema calcula el aguinaldo del año para cada empleado.</li>
           <li>Revisás y aprobás el monto.</li>
-          <li>Ese aguinaldo se puede sumar al pago del sueldo.</li>
+          <li>Para pagarlo por separado: tocá "Pagar", elegí la Caja Mayor y confirmá. Después podés imprimir el recibo (PDF o Ticket).</li>
+          <li>Si no lo pagás por separado, se suma solo al sueldo del mes de aguinaldo.</li>
         </ol>
+        <div class="tip"><b>Consejo:</b> si ya pagaste el aguinaldo por separado, el sistema NO lo vuelve a sumar en la liquidación del sueldo. No hay riesgo de pagarlo dos veces.</div>
       </article>
 
       <article class="topic" id="t12">
@@ -286,10 +295,11 @@
         <p class="q">Sirve para darle un pago extra al empleado (por ejemplo, un premio o incentivo). Puede ser una sola vez o repetirse todos los meses.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Bonos</b>.</li>
+          <li>Entrá a R.R.H.H. → Beneficios → Bonos.</li>
           <li>Creá el bono para el empleado con su monto.</li>
           <li>Indicá si es por única vez o recurrente.</li>
           <li>El bono se suma al sueldo del mes correspondiente.</li>
+          <li>Podés imprimir un recibo del bono para que el empleado lo firme (PDF o Ticket).</li>
         </ol>
       </article>
     </section>
@@ -298,73 +308,93 @@
       <h2>Pagos de sueldo</h2>
 
       <article class="topic" id="t13">
-        <h3><span class="num">13</span> Liquidación de sueldo</h3>
+        <h3><span class="num">13</span> Imprimir recibos: PDF o Ticket</h3>
+        <div class="lbl">¿Para qué sirve?</div>
+        <p class="q">Todos los comprobantes que el empleado firma (vale, penalización, aguinaldo, préstamo, bono, recibo de sueldo y finiquito) se pueden imprimir de dos maneras. Vos elegís cuál en el momento de imprimir.</p>
+        <div class="lbl">¿Cómo se usa?</div>
+        <ol class="steps">
+          <li>Al tocar "Imprimir recibo" (o "Ver recibo"), el sistema te pregunta el formato.</li>
+          <li>PDF (A4): se abre el comprobante en pantalla, listo para imprimir en una hoja normal o guardar.</li>
+          <li>Ticket (58mm u 80mm): se imprime al toque en la impresora térmica (la del cajero/mostrador), como un ticket.</li>
+          <li>Elegí el que te convenga según cómo lo vas a hacer firmar.</li>
+        </ol>
+        <div class="tip"><b>Consejo:</b> para usar la opción Ticket tenés que tener una impresora térmica configurada en Configuración → Impresoras. Los reportes (nómina, IPS, etc.) salen solo en PDF.</div>
+      </article>
+
+      <article class="topic" id="t14">
+        <h3><span class="num">14</span> Liquidación de sueldo</h3>
         <div class="lbl">¿Para qué sirve?</div>
         <p class="q">Es el cálculo del sueldo del mes. El sistema junta todo (salario, horas extra, bonos, aguinaldo, y los descuentos por vales, cuotas y penalizaciones) y saca cuánto cobra el empleado.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Liquidaciones</b>.</li>
+          <li>Entrá a R.R.H.H. → Liquidaciones.</li>
           <li>Generá la liquidación del período, para un empleado o para todos a la vez.</li>
-          <li>Revisá el detalle: vas a ver los conceptos que suman y los que restan, y el neto a pagar.</li>
+          <li>Revisá el detalle: vas a ver los conceptos que suman y los que restan, y el neto a pagar. Si hace falta, podés editar, agregar o quitar un ítem (queda auditado quién y cuándo).</li>
           <li>Aprobá la liquidación cuando esté correcta.</li>
           <li>Pagala eligiendo la Caja Mayor. Al pagar, se descuentan solos los vales y cuotas pendientes.</li>
-          <li>Podés imprimir el recibo de sueldo para el empleado.</li>
+          <li>Imprimí el recibo de sueldo para el empleado (PDF o Ticket).</li>
         </ol>
         <div class="tip"><b>Consejo:</b> si un dato quedó mal, mientras esté aprobada podés volverla a borrador y regenerarla.</div>
       </article>
 
-      <article class="topic" id="t14">
-        <h3><span class="num">14</span> Liquidación final (finiquito)</h3>
+      <article class="topic" id="t15">
+        <h3><span class="num">15</span> Liquidación final (finiquito)</h3>
         <div class="lbl">¿Para qué sirve?</div>
-        <p class="q">Es el pago final cuando un empleado deja la empresa. El sistema calcula la antigüedad, la indemnización (si corresponde), las vacaciones no tomadas y el aguinaldo proporcional.</p>
+        <p class="q">Es el pago final cuando un empleado deja la empresa. El sistema calcula la antigüedad, el preaviso, la indemnización (si corresponde), las vacaciones no tomadas y el aguinaldo proporcional, y descuenta lo que el empleado todavía debe.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá al <b>Legajo del funcionario</b> y tocá “Liquidación final”.</li>
-          <li>Elegí el motivo de la salida y la fecha.</li>
-          <li>El sistema muestra el desglose y el total a pagar.</li>
+          <li>Entrá al Legajo del funcionario y tocá "Liquidación final".</li>
+          <li>En el diálogo elegí el motivo de la salida, la fecha, y ajustá lo que haga falta (preaviso, días de vacaciones, toggles de descuentos). Todo viene precargado y editable.</li>
+          <li>El sistema muestra el desglose y el total a pagar. Podés editar los ítems si negociás algo.</li>
           <li>Aprobá y pagá desde la Caja Mayor. El empleado queda inactivo.</li>
-          <li>Podés imprimir el recibo del finiquito.</li>
+          <li>Imprimí el recibo del finiquito (PDF o Ticket).</li>
         </ol>
+        <div class="tip"><b>Consejo:</b> el preaviso cambia según el caso: en un despido injustificado sin preaviso se PAGA; en una renuncia sin preaviso se DESCUENTA la mitad de los días. El sistema lo resuelve solo según el motivo.</div>
       </article>
     </section>
 
     <section class="cat">
       <h2>Seguimiento y ajustes</h2>
 
-      <article class="topic" id="t15">
-        <h3><span class="num">15</span> Panel (Dashboard)</h3>
+      <article class="topic" id="t16">
+        <h3><span class="num">16</span> Panel (Dashboard)</h3>
         <div class="lbl">¿Para qué sirve?</div>
-        <p class="q">Es un resumen rápido del mes: cuánta gente activa hay, cuánto suma la nómina, cuántos vales y préstamos hay abiertos, cumpleaños del mes, vacaciones por vencer y más.</p>
+        <p class="q">Es la puerta de entrada al módulo y el resumen del sector: indicadores del mes, el gráfico de la nómina, rankings y una lista de empleados con datos incompletos para completar.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Dashboard RRHH</b>.</li>
-          <li>Elegí el período que querés ver.</li>
-          <li>Cada tarjeta te muestra un número importante de un vistazo.</li>
+          <li>Entrá a R.R.H.H. → Dashboard RRHH.</li>
+          <li>Elegí el período (mes) arriba y tocá "Aplicar": los indicadores del mes se recalculan.</li>
+          <li>Arriba ves 4 indicadores clave: funcionarios activos, nómina del mes, liquidaciones pendientes y vacaciones por vencer.</li>
+          <li>El gráfico muestra la nómina de los últimos 12 meses. A la derecha, rankings: top de deuda (vales + préstamos), top de horas extra y cumpleaños del mes.</li>
+          <li>La lista "Legajos por completar" muestra a los empleados con datos faltantes, de peor a mejor. Tocá una fila para abrir su legajo y completarlo.</li>
+          <li>Con los accesos rápidos entrás a Liquidaciones, Vales, Préstamos y al menú de Reportes.</li>
         </ol>
+        <div class="tip"><b>Consejo:</b> el gráfico de nómina de 12 meses no depende del período que elijas: es histórico. El filtro de período afecta solo a los indicadores y rankings del mes.</div>
       </article>
 
-      <article class="topic" id="t16">
-        <h3><span class="num">16</span> Reportes</h3>
+      <article class="topic" id="t17">
+        <h3><span class="num">17</span> Reportes</h3>
         <div class="lbl">¿Para qué sirve?</div>
         <p class="q">Sirve para generar informes en PDF para imprimir o archivar: la nómina del mes, el resumen de IPS, los vales pendientes, los préstamos activos y el aguinaldo del año.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Reportes RRHH</b>.</li>
-          <li>Para los reportes del mes, escribí el período.</li>
-          <li>Tocá “Generar PDF” en el reporte que necesites.</li>
-          <li>Se abre el PDF listo para imprimir o guardar.</li>
+          <li>Entrá a R.R.H.H. → Dashboard RRHH.</li>
+          <li>Tocá el botón "Reportes" (es un menú dentro del panel; ya no es una pantalla aparte).</li>
+          <li>Elegí el reporte que necesités. Usa el período que tengas elegido en el panel.</li>
+          <li>El PDF se abre en pantalla, listo para imprimir o guardar.</li>
         </ol>
       </article>
 
-      <article class="topic" id="t17">
-        <h3><span class="num">17</span> Configuración</h3>
+      <article class="topic" id="t18">
+        <h3><span class="num">18</span> Configuración</h3>
         <div class="lbl">¿Para qué sirve?</div>
-        <p class="q">Son los parámetros que usa el módulo para sus cálculos: porcentajes de IPS, recargos de horas extra, días de vacaciones, tolerancia de tardanza, días de aviso, etc.</p>
+        <p class="q">Son los parámetros que usa el módulo para sus cálculos: porcentajes de IPS, recargos de horas extra, días de vacaciones, indemnización, preaviso, tolerancia de tardanza, días de aviso, etc.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>Entrá a <b>R.R.H.H. → Configuración RRHH</b>.</li>
-          <li>Cada parámetro tiene un botón de información que explica para qué sirve y da un ejemplo.</li>
-          <li>Cambiá el valor solo si sabés qué afecta.</li>
+          <li>Entrá a R.R.H.H. → Configuración → Configuración RRHH.</li>
+          <li>Los parámetros están organizados en pestañas por tema (IPS y aportes, Indemnización y finiquito, Vacaciones, Aguinaldo, Horas extra, Tardanza, General).</li>
+          <li>Cada campo tiene su etiqueta, una ayuda y un botón de información con un ejemplo.</li>
+          <li>Cambiá el valor solo si sabés qué afecta; se guarda al modificarlo.</li>
         </ol>
         <div class="tip"><b>Consejo:</b> esta pantalla la maneja normalmente el encargado. Un cambio acá afecta los cálculos de todos.</div>
       </article>
@@ -373,26 +403,26 @@
     <section class="cat">
       <h2>App del empleado</h2>
 
-      <article class="topic" id="t18">
-        <h3><span class="num">18</span> Mis RRHH (en el celular)</h3>
+      <article class="topic" id="t19">
+        <h3><span class="num">19</span> Mis RRHH (en el celular)</h3>
         <div class="lbl">¿Para qué sirve?</div>
         <p class="q">Es lo que el empleado ve en su celular: su saldo de vacaciones, sus vales, sus recibos y sus marcaciones. También puede pedir un vale o pedir vacaciones.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>El empleado abre la app “Bodega Franco” y entra a “Mis RRHH”.</li>
+          <li>El empleado abre la app "Bodega Franco" y entra a "Mis RRHH".</li>
           <li>Ve su resumen y puede tocar cada sección (recibos, vales, vacaciones, marcaciones).</li>
           <li>Puede ver el recibo de sueldo en PDF.</li>
           <li>Puede solicitar un vale o vacaciones; quedan pendientes de aprobación.</li>
         </ol>
       </article>
 
-      <article class="topic" id="t19">
-        <h3><span class="num">19</span> Aprobaciones (para encargados)</h3>
+      <article class="topic" id="t20">
+        <h3><span class="num">20</span> Aprobaciones (para encargados)</h3>
         <div class="lbl">¿Para qué sirve?</div>
         <p class="q">Sirve para que un encargado apruebe desde el celular las vacaciones que pidió el personal.</p>
         <div class="lbl">¿Cómo se usa?</div>
         <ol class="steps">
-          <li>El encargado entra a “Aprobaciones” en la app (necesita el permiso correspondiente).</li>
+          <li>El encargado entra a "Aprobaciones" en la app (necesita el permiso correspondiente).</li>
           <li>Ve las vacaciones pendientes y las aprueba.</li>
           <li>Los vales pendientes se ven, pero se confirman desde el sistema de escritorio (porque mueven la caja).</li>
         </ol>

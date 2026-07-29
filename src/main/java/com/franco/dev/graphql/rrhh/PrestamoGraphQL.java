@@ -40,23 +40,28 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private UsuarioService usuarioService;
 
     public Optional<Prestamo> prestamo(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Prestamo> prestamosPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<Prestamo> prestamosPorEstado(PrestamoEstado estado) {
+        seg.requireVer();
         return service.findByEstado(estado);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<Prestamo> prestamosPage(int page, int size, Long funcionarioId, PrestamoEstado estado) {
+        seg.requireVer();
         return service.findPage(funcionarioId, estado, PageRequest.of(page, size));
     }
 
     public List<PrestamoCuota> prestamoCuotas(Long prestamoId) {
+        seg.requireVer();
         return service.findCuotas(prestamoId);
     }
 

@@ -35,14 +35,17 @@ public class HoraExtraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     private UsuarioService usuarioService;
 
     public Optional<HoraExtra> horaExtra(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<HoraExtra> horasExtraPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<HoraExtra> horasExtraPorFuncionarioYRango(Long funcionarioId, String desde, String hasta) {
+        seg.requireVer();
         return service.findByFuncionarioIdAndFechaBetween(
                 funcionarioId,
                 stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null,
@@ -52,6 +55,7 @@ public class HoraExtraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<HoraExtra> horasExtraPage(int page, int size, Long funcionarioId, String desde, String hasta,
                                          HoraExtraTipo tipo) {
+        seg.requireVer();
         return service.findPage(funcionarioId, stringToLocalDate(desde), stringToLocalDate(hasta), tipo,
                 PageRequest.of(page, size));
     }

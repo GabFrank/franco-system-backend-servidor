@@ -522,6 +522,48 @@ desktop, requiere Caja Mayor). Acceso desde el home gateado por rol.
 Estado: **Build verde**. Solo código Angular → se propaga por OTA
 (CapacitorUpdater), sin release nativo a Play Store.
 
+## 8.5 Seguridad por roles (RRHH-only)
+
+**Contexto (issue #177):** el backend GraphQL del producto **no tiene autorización
+por roles funcional** — el pipeline JWT→Authentication está roto (`JwtUser.setRoles`
+no asigna, `JwtValidator` no lee el claim `roles`), así que `@AdminSecured` nunca
+matchea y todo método sin anotación queda protegido **solo por login**. Es un
+problema **sistémico** (no solo RRHH) a resolver en sesión aparte (toca auth
+compartido, ver `REPORTE_VULNERABILIDADES.md`).
+
+**Mitigación RRHH-only aplicada** (`service/rrhh/RrhhSecurityService`): control de
+acceso self-contained que resuelve al usuario autenticado desde el principal del
+`SecurityContext` (el nickname sí se setea) y lee sus roles desde `personas.usuario_role`,
+**sin tocar el pipeline JWT**. Bypass de superusuario: rol `ADMIN` o nickname `ADMIN`.
+
+- **Mutations** (todas las sensibles): `requireAnyRole(...)` según la matriz —
+  `RRHH PAGAR` (pagar/anular liq/finiquito/aguinaldo), `RRHH APROBAR` (aprobar
+  liq/finiquito/aguinaldo, confirmar vale, aprobar vacaciones), `RRHH LIQUIDAR`
+  (generar/items/calcular), `RRHH GESTIONAR` (vales/préstamos/bonos/HE/penalizaciones/
+  vacaciones/documentos/cargo/catálogos), `RRHH CONFIG` (configuración/ajuste salario
+  mínimo/cambiar salario).
+- **Queries sensibles**: `requireVer()` (cualquier rol RRHH) — liquidaciones,
+  finiquitos, aguinaldos, dashboard, configuración, historial de cargo/salario,
+  documentos, y los listados de vale/préstamo/vacación/bono/HE/penalización. Los
+  recibos por-id y los endpoints `*Mobile` **no** se gatean (self-service; el mobile
+  además ignora el `usuarioId` del cliente y usa el autenticado).
+- **Frontend**: el menú ya gateaba por `visibilityRoles`; se agregó gating de
+  **botones** (Aprobar/Pagar/Anular en liquidación/finiquito, pagar aguinaldo,
+  confirmar vale, aprobar vacaciones, cambiar cargo/salario/egresar en el legajo,
+  ajuste salario mínimo) con flags calculados en `ngOnInit` vía
+  `mainService.tieneAlgunRol([...])` (mismo bypass ADMIN). Es **UX**: el backend es
+  la seguridad real.
+
+> ⚠️ **Operativo:** al desplegar RRHH hay que **asignar los roles** a los usuarios
+> (`RRHH VER/GESTIONAR/LIQUIDAR/APROBAR/PAGAR/CONFIG`), o quedan bloqueados. ADMIN
+> mantiene acceso por el bypass. `COMISION GESTIONAR/APROBAR` siguen sin uso (no hay
+> módulo de comisiones).
+
+> **Regla para nuevas implementaciones RRHH:** toda mutation nueva debe llamar
+> `seg.requireAnyRole(...)` con el rol adecuado, y toda query que exponga datos de
+> nómina/personales `seg.requireVer()`; en el frontend, gatear el botón con un flag
+> de `mainService.tieneAlgunRol([...])`. Ver skill `rrhh-expert` → `seguridad-roles.md`.
+
 ---
 
 ## 9. Ramas de trabajo

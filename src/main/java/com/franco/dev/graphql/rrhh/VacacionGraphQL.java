@@ -27,27 +27,33 @@ public class VacacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
     public Optional<Vacacion> vacacion(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Vacacion> vacacionesPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<Vacacion> vacacionesPage(int page, int size, Long funcionarioId, Integer anio) {
+        seg.requireVer();
         return service.findPage(funcionarioId, anio, PageRequest.of(page, size));
     }
 
     public List<VacacionPeriodo> vacacionPeriodos(Long vacacionId) {
+        seg.requireVer();
         return service.findPeriodos(vacacionId);
     }
 
     public List<VacacionPeriodo> vacacionPeriodosPorEstado(VacacionPeriodoEstado estado) {
+        seg.requireVer();
         return service.findPeriodosPorEstado(estado);
     }
 
     public List<VacacionVenta> vacacionVentas(Long vacacionId) {
+        seg.requireVer();
         return service.findVentas(vacacionId);
     }
 

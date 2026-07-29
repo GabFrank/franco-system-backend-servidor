@@ -35,16 +35,19 @@ public class BonoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private UsuarioService usuarioService;
 
     public Optional<Bono> bono(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Bono> bonosPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<Bono> bonosPage(int page, int size, Long funcionarioId, BonoTipo tipo,
                                 String desde, String hasta) {
+        seg.requireVer();
         return service.findPage(funcionarioId, tipo, stringToLocalDate(desde), stringToLocalDate(hasta),
                 PageRequest.of(page, size));
     }

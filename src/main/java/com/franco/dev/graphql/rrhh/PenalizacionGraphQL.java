@@ -46,14 +46,17 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private UsuarioService usuarioService;
 
     public Optional<Penalizacion> penalizacion(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Penalizacion> penalizacionesPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<Penalizacion> penalizacionesPorFuncionarioYRango(Long funcionarioId, String desde, String hasta) {
+        seg.requireVer();
         return service.findByFuncionarioIdAndFechaBetween(
                 funcionarioId,
                 stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null,
@@ -61,12 +64,14 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     public List<Penalizacion> penalizacionesPorJornada(Long jornadaId, Long sucursalId) {
+        seg.requireVer();
         return service.findByJornada(jornadaId, sucursalId);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<Penalizacion> penalizacionesPage(int page, int size, Long funcionarioId, String desde, String hasta,
                                                  PenalizacionTipo tipo) {
+        seg.requireVer();
         return service.findPage(funcionarioId, stringToLocalDate(desde), stringToLocalDate(hasta), tipo,
                 PageRequest.of(page, size));
     }

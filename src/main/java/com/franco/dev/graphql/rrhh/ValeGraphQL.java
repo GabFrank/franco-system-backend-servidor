@@ -43,20 +43,24 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     private UsuarioService usuarioService;
 
     public Optional<Vale> vale(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Vale> valesPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<Vale> valesPorEstado(ValeEstado estado) {
+        seg.requireVer();
         return service.findByEstado(estado);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<Vale> valesPage(int page, int size, Long funcionarioId, ValeEstado estado,
                                 String desde, String hasta) {
+        seg.requireVer();
         return service.findPage(funcionarioId, estado, stringToLocalDate(desde), stringToLocalDate(hasta),
                 PageRequest.of(page, size));
     }

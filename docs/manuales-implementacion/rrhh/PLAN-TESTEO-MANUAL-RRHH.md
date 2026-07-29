@@ -290,11 +290,16 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
      liquidaciones) — es independiente del filtro de período elegido.
   4. Revisar el ranking **"Cumpleaños del mes"**.
   5. Revisar los rankings **"Top exposición financiera"** (vales pendientes + saldo de préstamos
-     por funcionario) y **"Top horas extra del mes"**.
-  6. Probar los **accesos rápidos** (Liquidaciones / Vales / Préstamos abren su tab) y el botón
+     por funcionario) y **"Top horas extra del mes"**. **"Cumpleaños del mes"** está en esta
+     columna de tops con scroll interno (`maxAlto`).
+  6. Revisar la card **"Legajos por completar"**: funcionarios con **score 1-10** (peores primero,
+     badge rojo si score≤3), **paginada**. Confirmar que **no aparecen inactivos ni egresados**.
+     **Click en una fila** → abre el **legajo** del funcionario. Completar un dato faltante,
+     volver y **Aplicar** → el score sube / sale de la lista.
+  7. Probar los **accesos rápidos** (Liquidaciones / Vales / Préstamos abren su tab) y el botón
      **Reportes** (abre el mat-menu, ver T17).
 - **Verificación (DB):** los KPIs, el chart y los rankings cuadran con los datos reales de
-  liquidaciones/vales/préstamos/horas extra.
+  liquidaciones/vales/préstamos/horas extra; el score de completitud refleja los campos cargados.
 
 ### 🟡 T17 — Reportes RRHH *(reubicados dentro del dashboard + visor arreglado; implementado, pendiente de test manual del usuario)*
 - **Objetivo:** generar los 5 reportes PDF (nómina, IPS, vales, préstamos, aguinaldo) desde su
@@ -306,6 +311,42 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
   en Electron, bug B29).
 - **Verificación (DB):** montos **enteros en guaraníes** y razón social correcta en cada PDF; los
   totales cuadran con la DB.
+
+---
+
+## FASE 8 — Impresión de recibos y pago separado de aguinaldo
+
+### 🟡 T18 — Recibos firmables: PDF + Ticket ESC/POS *(implementado + verificado runtime; pendiente test manual del usuario en su térmica)*
+- **Objetivo:** validar el **componente oficial de impresión** en los 7 recibos: cada uno debe
+  poder salir en **PDF (A4)** y en **Ticket térmico (58/80mm)** vía el diálogo que pregunta el
+  formato. Ver `desktop/docs/IMPRESION.md`.
+- **Requisito:** una impresora configurada con `uso=TICKET` (o `tipo=TERMICA`) en
+  `Configuración → Impresoras`. En **Windows** solo funciona `conexion=RED` (socket TCP); en
+  macOS/Linux también `CUPS`/`USB`/`BLUETOOTH` (`lp -o raw`).
+- **Pasos UI:** en cada lista (Vales, Penalizaciones, Aguinaldos, Préstamos, Bonos) → acción
+  **Imprimir/Ver recibo**; también **finiquito** (diálogo de liquidación final) y **liquidación
+  mensual** (Ver recibo). En el diálogo:
+  1. **PDF (A4)** → abre en el **visor integrado** (razón social, guaraníes enteros, monto en
+     letras, firma).
+  2. **Ticket 58mm** / **Ticket 80mm** → imprime **directo en la térmica** (sin visor, sin
+     diálogo del SO).
+- **Verificación (ticket):** conceptos largos (ej. **penalización con descripción**, préstamo con
+  descripción) se **envuelven a 2+ líneas sin truncar**, monto alineado a la derecha en la 1ra
+  línea; acentos limpios (ASCII); título centrado; total y línea de firma. 58mm ≈ 32 col, 80mm ≈ 48 col.
+- **Nota:** si no hay impresora de ticket configurada, el sistema avisa; si la app no corre en
+  Electron, el ticket no está disponible (solo PDF).
+
+### 🟡 T19 — Aguinaldo: pago separado *(implementado; pendiente test manual del usuario)*
+- **Objetivo:** validar el pago del aguinaldo **fuera** de la liquidación mensual y la regla de
+  **no-doble-pago**.
+- **Pasos UI:** `R.R.H.H.` → `Beneficios` → `Aguinaldos`. Sobre un aguinaldo **APROBADO** →
+  **Pagar** → elegir **Caja Mayor** → confirmar. Tras pagar: el aguinaldo pasa a **PAGADO** y se
+  **ofrece el recibo** automáticamente (probar PDF y ticket, ver T18).
+- **Verificación (regla clave):** generar/regenerar la **liquidación mensual de diciembre** del
+  mismo funcionario → el ítem **AGUINALDO no debe aparecer** (ya se pagó por separado). Con un
+  funcionario cuyo aguinaldo sigue **APROBADO** sin pagar, el ítem **sí** aparece.
+- **Verificación (DB/caja):** EGRESO en la Caja Mayor elegida por el monto del aguinaldo;
+  `aguinaldo.caja_virtual_id` / `movimiento_caja_virtual_id` seteados; estado `PAGADO`.
 
 ---
 

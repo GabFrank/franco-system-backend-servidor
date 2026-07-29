@@ -107,7 +107,7 @@ Recorrer las pestañas en orden:
 ## 7. Beneficios
 
 - **Vacaciones**: mostrar los días generados por antigüedad. 💬 "Los días no gozados se pagan en el finiquito automáticamente."
-- **Aguinaldo**: mostrar el acumulado del año.
+- **Aguinaldo**: mostrar el acumulado del año. 💬 "Se puede **pagar por separado** (elige Caja Mayor y emite recibo) o dejar que se sume en la liquidación del mes. Si ya se pagó aparte, la liquidación no lo vuelve a sumar." (🔴 opcional: pagar el aguinaldo de MARÍA por separado e imprimir el recibo.)
 - 🔴 **Bono**: cargar un bono (ej. 200.000 por productividad). 💬 "También entra en la liquidación."
 
 ---
@@ -120,7 +120,7 @@ Recorrer las pestañas en orden:
 - ✅ El borrador trae: **salario base**, **hora extra**, **bono** (haberes) y **IPS**, **penalización**, **vale**, **cuota de préstamo** (descuentos). El **neto** es la suma.
 - 🔴 **Editar un ítem** (todo es negociable): cambiar un monto → 💬 "Queda auditado quién y cuándo lo editó, y el total se recalcula."
 - 🔴 **Aprobar → Pagar** (elegir Caja Mayor) → 💬 "En una sola transacción: egreso de caja por el neto, el vale pasa a DESCONTADO, la cuota a PAGADA."
-- 🔴 **Imprimir recibo** → se abre el **PDF en el visor integrado** (nombre de empresa = razón social, montos en guaraníes enteros, monto en letras, firma).
+- 🔴 **Imprimir recibo** → el diálogo pregunta **PDF (A4) o Ticket (58/80mm)**. 💬 "Mismo comprobante, dos salidas: el PDF para archivar/firmar en hoja, o el ticket térmico que sale directo en la impresora del cajero." El PDF abre en el visor integrado (razón social, guaraníes enteros, monto en letras, firma); el ticket se imprime al toque en la térmica local.
 
 ✅ Queda demostrado el flujo mensual completo, punta a punta.
 
@@ -138,7 +138,7 @@ Recorrer las pestañas en orden:
 - 🔴 **Escenario A — Despido injustificado SIN preaviso**: generar. 💬 "La ley obliga a **pagar** el preaviso: aparece como HABER. Más indemnización por antigüedad, vacaciones no gozadas, aguinaldo proporcional y el salario de los días del mes. Menos IPS y las obligaciones pendientes (vale/cuota/penalización)."
 - 🔴 **Editar ítems** si hace falta (negociable, con auditoría). El total se recalcula.
 - 🔴 **Aprobar → Pagar** → 💬 "El funcionario queda **inactivo**; egreso de caja por el total."
-- 🔴 **Ver Recibo** → PDF **"LIQUIDACIÓN FINAL DE HABERES"** en el visor integrado (empresa, trabajador, entrada/salida, antigüedad, tabla de conceptos, total, monto en letras, firma con C.I.).
+- 🔴 **Ver Recibo** → diálogo **PDF o Ticket**. El PDF **"LIQUIDACIÓN FINAL DE HABERES"** abre en el visor (empresa, trabajador, entrada/salida, antigüedad, tabla de conceptos, total, monto en letras, firma con C.I.); el ticket sale en la térmica.
 - (Opcional) 🔴 **Regenerar** con **Escenario B — Renuncia SIN preaviso**: 💬 "Al revés: el preaviso se **descuenta** (la mitad de los días), y no hay indemnización." Mostrar la diferencia en el total.
 
 ✅ El módulo cierra el ciclo de vida del funcionario, con la ley de por medio.

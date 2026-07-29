@@ -84,7 +84,7 @@ Una migracion mal hecha puede dejar el sistema inoperativo. **El rollback automa
 
 **Eliminar o renombrar columnas:** estrategia de 2 versiones. Version N: crear columna nueva, codigo deja de usar la vieja. Version N+1 (solo cuando N esta estable en produccion): eliminar la vieja.
 
-**Naming:** `V{numero}__{descripcion_con_underscores}.sql`. Numeracion secuencial y unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo VXX (no crear una nueva para arreglar la anterior).
+**Naming:** `V{numero}.5__{descripcion_con_underscores}.sql`. **Usar sufijo `.5` en migraciones nuevas** (ej. `V176.5__...`), **nunca `.0` ni entero pelado**: Flyway normaliza el `.0` (`V176` == `V176.0`), asi que un `V176.0` de una rama colisiona con un `V176` de otra al mergear (paso al integrar develop: `V151` vs `V151.0`). El `.5` no se normaliza y slotea entre los enteros de develop (out-of-order lo soporta). Numeracion unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo (no crear una nueva para arreglar la anterior). Detalle: [../../frc-cicd/guia-desarrollo-cicd.md](../../frc-cicd/guia-desarrollo-cicd.md) §5.
 
 ## Overrides locales: NO tocar `application-dev.properties`
 

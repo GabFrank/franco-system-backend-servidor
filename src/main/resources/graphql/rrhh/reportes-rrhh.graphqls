@@ -1,14 +1,14 @@
 extend type Query {
     reporteNominaMes(periodo: String!): String
     reporteResumenIps(periodo: String!): String
-    imprimirReciboFinal(id: ID!, anchoMm: Int): String
+    imprimirReciboFinal(id: ID!, anchoMm: Int, escpos: Boolean): String
     reporteValesPendientes: String
     reportePrestamosActivos: String
     reporteAguinaldoAnual(anio: Int!): String
-    # Recibos firmables por registro. anchoMm: null = PDF A4; 58/80 = ticket.
-    imprimirReciboVale(id: ID!, anchoMm: Int): String
-    imprimirReciboPenalizacion(id: ID!, anchoMm: Int): String
-    imprimirReciboAguinaldo(id: ID!, anchoMm: Int): String
-    imprimirReciboPrestamo(id: ID!, anchoMm: Int): String
-    imprimirReciboBono(id: ID!, anchoMm: Int): String
+    # Recibos firmables por registro. anchoMm: null=PDF A4, 58/80=ticket. escpos=true → payload ESC/POS (para print-local del cliente).
+    imprimirReciboVale(id: ID!, anchoMm: Int, escpos: Boolean): String
+    imprimirReciboPenalizacion(id: ID!, anchoMm: Int, escpos: Boolean): String
+    imprimirReciboAguinaldo(id: ID!, anchoMm: Int, escpos: Boolean): String
+    imprimirReciboPrestamo(id: ID!, anchoMm: Int, escpos: Boolean): String
+    imprimirReciboBono(id: ID!, anchoMm: Int, escpos: Boolean): String
 }

@@ -72,11 +72,15 @@ public class ReciboLiquidacionService {
     }
 
     @Transactional(readOnly = true)
-    public String generarBase64(Long liquidacionId, Integer anchoMm) {
+    public String generarBase64(Long liquidacionId, Integer anchoMm, boolean escpos) {
         LiquidacionSueldo liq = liquidacionSueldoService.findById(liquidacionId)
                 .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
 
-        // Formato ticket: plantilla genérica angosta (concepto/monto, descuentos entre paréntesis).
+        // Ticket ESC/POS (payload crudo para print-local del cliente).
+        if (escpos) {
+            return generarTicketEscPos(liq, anchoMm);
+        }
+        // Formato ticket PDF (preview angosto en el visor).
         if (anchoMm != null) {
             return generarTicket(liq, anchoMm);
         }
@@ -121,6 +125,23 @@ public class ReciboLiquidacionService {
         } catch (Exception e) {
             throw new GraphQLException("Error generando el recibo: " + e.getMessage());
         }
+    }
+
+    /** Recibo de sueldo en ESC/POS (base64) para impresión térmica local del cliente. */
+    private String generarTicketEscPos(LiquidacionSueldo liq, Integer anchoMm) {
+        List<com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row> rows = new ArrayList<>();
+        for (LiquidacionItem it : liquidacionSueldoService.findItems(liq.getId())) {
+            String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
+            if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) monto = "(" + monto + ")";
+            String concepto = it.getDescripcion() != null ? it.getDescripcion() : operacion(it);
+            rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(concepto, monto));
+        }
+        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+        return com.franco.dev.utilitarios.print.ReciboTicketEscPos.build(
+                razonSocial(), "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""),
+                nombreFuncionario(liq), documentoFuncionario(liq), LocalDate.now().toString(),
+                rows, formatoGs.format(neto), enLetras(neto),
+                "Recibi conforme, en concepto de haberes del periodo,", anchoMm);
     }
 
     /** Recibo de sueldo en formato ticket (58/80mm), plantilla genérica concepto/monto. */

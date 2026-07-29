@@ -21,9 +21,9 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
         return service.resumenIpsBase64(periodo);
     }
 
-    /** Recibo de finiquito (liquidación final). anchoMm null = PDF A4; 58/80 = ticket. */
-    public String imprimirReciboFinal(Long id, Integer anchoMm) {
-        return service.finiquitoBase64(id, anchoMm);
+    /** Recibo de finiquito. anchoMm null = PDF A4; 58/80 = ticket; escpos=true = payload ESC/POS. */
+    public String imprimirReciboFinal(Long id, Integer anchoMm, Boolean escpos) {
+        return service.finiquitoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
     /** Vales pendientes en PDF (base64). */
@@ -43,23 +43,23 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
 
     // ===== Recibos firmables por registro (anchoMm null = PDF A4; 58/80 = ticket) =====
 
-    public String imprimirReciboVale(Long id, Integer anchoMm) {
-        return service.reciboValeBase64(id, anchoMm);
+    public String imprimirReciboVale(Long id, Integer anchoMm, Boolean escpos) {
+        return service.reciboValeBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
-    public String imprimirReciboPenalizacion(Long id, Integer anchoMm) {
-        return service.reciboPenalizacionBase64(id, anchoMm);
+    public String imprimirReciboPenalizacion(Long id, Integer anchoMm, Boolean escpos) {
+        return service.reciboPenalizacionBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
-    public String imprimirReciboAguinaldo(Long id, Integer anchoMm) {
-        return service.reciboAguinaldoBase64(id, anchoMm);
+    public String imprimirReciboAguinaldo(Long id, Integer anchoMm, Boolean escpos) {
+        return service.reciboAguinaldoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
-    public String imprimirReciboPrestamo(Long id, Integer anchoMm) {
-        return service.reciboPrestamoBase64(id, anchoMm);
+    public String imprimirReciboPrestamo(Long id, Integer anchoMm, Boolean escpos) {
+        return service.reciboPrestamoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
-    public String imprimirReciboBono(Long id, Integer anchoMm) {
-        return service.reciboBonoBase64(id, anchoMm);
+    public String imprimirReciboBono(Long id, Integer anchoMm, Boolean escpos) {
+        return service.reciboBonoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 }

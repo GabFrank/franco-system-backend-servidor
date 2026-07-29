@@ -29,9 +29,9 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.findById(id);
     }
 
-    /** Recibo de sueldo de la liquidación. anchoMm null = PDF A4; 58/80 = ticket. */
-    public String imprimirReciboLiquidacion(Long id, Integer anchoMm) {
-        return reciboLiquidacionService.generarBase64(id, anchoMm);
+    /** Recibo de sueldo. anchoMm null = PDF A4; 58/80 = ticket; escpos=true = payload ESC/POS. */
+    public String imprimirReciboLiquidacion(Long id, Integer anchoMm, Boolean escpos) {
+        return reciboLiquidacionService.generarBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
     public List<LiquidacionSueldo> liquidacionesPorFuncionario(Long funcionarioId) {

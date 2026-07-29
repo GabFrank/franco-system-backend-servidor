@@ -328,6 +328,10 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
             if (Boolean.TRUE.equals(salida.getEstado()) && salida.getCantidad() != null
                     && salida.getCantidad() < 0) {
                 double cantidadSalida = Math.abs(salida.getCantidad());
+                // Primero se borra el desglose anterior de ESTE movimiento: el saldo por lote sale
+                // del ledger, y si las filas viejas siguen ahí el movimiento se descuenta a sí
+                // mismo y la asignación se calcula contra un stock que en realidad está libre.
+                movimientoStockLoteService.limpiarDesglose(salida);
                 List<LoteFefoService.AsignacionLote> preferencias = preferenciasDeLote(item);
                 List<LoteFefoService.AsignacionLote> asignaciones = loteFefoService.asignarConPreferencia(
                         producto.getId(), salida.getSucursalId(), cantidadSalida, preferencias);

@@ -234,7 +234,10 @@ public class MovimientoStockLoteService
                     lote.getFechaRetiro(),
                     lote.getEstado(),
                     lote.getCantidadDisponible(),
-                    ConversionPresentacion.aPresentaciones(
+                    // Completas, no la division: no se puede transferir una fraccion de caja.
+                    ConversionPresentacion.presentacionesCompletas(
+                            lote.getCantidadDisponible(), unidadesPorPresentacion),
+                    ConversionPresentacion.unidadesSobrantes(
                             lote.getCantidadDisponible(), unidadesPorPresentacion),
                     unidadesPorPresentacion,
                     descripcion
@@ -245,6 +248,29 @@ public class MovimientoStockLoteService
 
     public List<MovimientoStockLote> findByMovimientoStock(Long movimientoStockId, Long sucursalId) {
         return repository.findByMovimientoStockIdAndSucursalId(movimientoStockId, sucursalId);
+    }
+
+    /**
+     * Borra el desglose de un movimiento y lo confirma contra la base.
+     *
+     * Hay que llamarlo ANTES de calcular una asignacion nueva para ese mismo movimiento. El saldo
+     * por lote se deriva del ledger, y el ledger todavia contiene las filas de la corrida
+     * anterior: sin este borrado previo, el movimiento se descuenta a si mismo del saldo y la
+     * asignacion se calcula contra un stock que no existe.
+     *
+     * El caso concreto: una transferencia recalcula su desglose en cada etapa (preparacion,
+     * transporte, recepcion). En la segunda corrida, un lote de 88 unidades del que ya se habian
+     * tomado 65 aparecia con 23 disponibles, y la eleccion del operador se recortaba a esas 23.
+     */
+    @Transactional
+    public void limpiarDesglose(MovimientoStock movimiento) {
+        if (movimiento == null || movimiento.getId() == null) {
+            return;
+        }
+        repository.deleteByMovimientoStockIdAndSucursalId(
+                movimiento.getId(), movimiento.getSucursalId());
+        // Flush explicito: la consulta de saldo tiene que ver la base ya sin estas filas.
+        repository.flush();
     }
 
     /**

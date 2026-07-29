@@ -37,12 +37,40 @@ public final class ConversionPresentacion {
         return presentacion.getCantidad();
     }
 
-    /** Pasa una cantidad en unidades a la presentacion dada. */
+    /**
+     * Pasa una cantidad en unidades a la presentacion dada, sin redondear.
+     *
+     * Se usa para reexpresar una cantidad YA elegida, que siempre es un multiplo exacto de la
+     * presentacion. Para el saldo disponible NO sirve: ver {@link #presentacionesCompletas}.
+     */
     public static double aPresentaciones(Double unidades, double unidadesPorPresentacion) {
         if (unidades == null || unidades == 0d) {
             return 0d;
         }
         return redondear(unidades / normalizar(unidadesPorPresentacion));
+    }
+
+    /**
+     * Presentaciones COMPLETAS que entran en una cantidad de unidades.
+     *
+     * Una presentacion es indivisible: de un lote de 65 unidades con cajas de 6 se pueden sacar
+     * 10 cajas, no 10,833. Las 5 unidades que sobran existen en el stock pero no se pueden mover
+     * con esa presentacion; salen con una presentacion de menor tamano.
+     */
+    public static double presentacionesCompletas(Double unidades, double unidadesPorPresentacion) {
+        if (unidades == null || unidades <= 0d) {
+            return 0d;
+        }
+        return Math.floor(unidades / normalizar(unidadesPorPresentacion));
+    }
+
+    /** Unidades que quedan fuera de las presentaciones completas. */
+    public static double unidadesSobrantes(Double unidades, double unidadesPorPresentacion) {
+        if (unidades == null || unidades <= 0d) {
+            return 0d;
+        }
+        double factor = normalizar(unidadesPorPresentacion);
+        return redondear(unidades - presentacionesCompletas(unidades, factor) * factor);
     }
 
     /** Pasa una cantidad expresada en presentaciones a unidades, que es como vive el ledger. */

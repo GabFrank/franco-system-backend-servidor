@@ -71,8 +71,11 @@ type StockLotePresentacion {
     estado: EstadoLote
     # Saldo en unidades.
     cantidadDisponible: Float
-    # El mismo saldo en la presentacion pedida.
+    # Presentaciones COMPLETAS que entran en el saldo: una caja de 6 es indivisible, asi que de
+    # 65 unidades salen 10 cajas y no 10,833.
     cantidadDisponiblePresentacion: Float
+    # Unidades que quedan fuera de esas presentaciones completas.
+    unidadesSobrantes: Float
     unidadesPorPresentacion: Float
     presentacionDescripcion: String
 }

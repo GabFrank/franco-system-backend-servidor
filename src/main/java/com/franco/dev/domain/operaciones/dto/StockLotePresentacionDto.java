@@ -27,8 +27,13 @@ public class StockLotePresentacionDto {
     private EstadoLote estado;
     /** Saldo en unidades, como vive en el ledger. */
     private Double cantidadDisponible;
-    /** El mismo saldo expresado en la presentacion pedida. */
+    /**
+     * Presentaciones COMPLETAS que entran en el saldo. Una caja de 6 es indivisible: de 65
+     * unidades salen 10 cajas, no 10,833.
+     */
     private Double cantidadDisponiblePresentacion;
+    /** Unidades que sobran fuera de las presentaciones completas. */
+    private Double unidadesSobrantes;
     /** Unidades que vale una presentacion. 1 cuando no se pidio ninguna. */
     private Double unidadesPorPresentacion;
     /** Nombre de la presentacion, para que la pantalla no tenga que resolverlo aparte. */

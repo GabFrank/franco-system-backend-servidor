@@ -319,7 +319,7 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
 - **Verificación (DB):** los KPIs, el chart y los rankings cuadran con los datos reales de
   liquidaciones/vales/préstamos/horas extra; el score de completitud refleja los campos cargados.
 
-### 🟡 T17 — Reportes RRHH *(reubicados dentro del dashboard + visor arreglado; implementado, pendiente de test manual del usuario)*
+### ⏸️ T17 — Reportes RRHH *(DIFERIDO — se mejorará más adelante; implementado y reubicado, sin test manual por ahora por decisión de Gabriel)*
 - **Objetivo:** generar los 5 reportes PDF (nómina, IPS, vales, préstamos, aguinaldo) desde su
   ubicación nueva y verificar que se ven en el visor integrado.
 - **Datos previos:** los generados en fases previas ✅.
@@ -354,17 +354,25 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
 - **Nota:** si no hay impresora de ticket configurada, el sistema avisa; si la app no corre en
   Electron, el ticket no está disponible (solo PDF).
 
-### 🟡 T19 — Aguinaldo: pago separado *(implementado; pendiente test manual del usuario)*
+### ✅ T19 — Aguinaldo: pago separado *(regla no-doble-pago verificada runtime 2026-07-29)*
 - **Objetivo:** validar el pago del aguinaldo **fuera** de la liquidación mensual y la regla de
   **no-doble-pago**.
 - **Pasos UI:** `R.R.H.H.` → `Beneficios` → `Aguinaldos`. Sobre un aguinaldo **APROBADO** →
   **Pagar** → elegir **Caja Mayor** → confirmar. Tras pagar: el aguinaldo pasa a **PAGADO** y se
   **ofrece el recibo** automáticamente (probar PDF y ticket, ver T18).
-- **Verificación (regla clave):** generar/regenerar la **liquidación mensual de diciembre** del
-  mismo funcionario → el ítem **AGUINALDO no debe aparecer** (ya se pagó por separado). Con un
-  funcionario cuyo aguinaldo sigue **APROBADO** sin pagar, el ítem **sí** aparece.
+- **Verificación (regla clave):** generar/regenerar la **liquidación mensual del mes de aguinaldo**
+  (`MES_AGUINALDO`, config) del mismo funcionario → el ítem **AGUINALDO no debe aparecer** (ya se
+  pagó por separado). Con un funcionario cuyo aguinaldo sigue **APROBADO** sin pagar, el ítem **sí**
+  aparece.
+- **✅ Runtime OK (smoke test GraphQL, func 103, MES_AGUINALDO=7):** aguinaldo APROBADO → ítem
+  `AGUINALDO` 1.487.500 en la liq de 2026-07; `pagarAguinaldo` → PAGADO + EGRESO en caja; regenerar
+  → el ítem **desaparece**. La regla (filtro `estado == APROBADO` en `construirItemsAutomaticos`)
+  funciona.
 - **Verificación (DB/caja):** EGRESO en la Caja Mayor elegida por el monto del aguinaldo;
   `aguinaldo.caja_virtual_id` / `movimiento_caja_virtual_id` seteados; estado `PAGADO`.
+- **⚠️ Gap detectado (ver TODO-12):** el **finiquito** NO aplica esta regla — su "aguinaldo
+  proporcional" se calcula aparte y **no mira** el registro `rrhh.aguinaldo` → si el aguinaldo se
+  pagó por separado y luego se hace el finiquito el mismo año, se **paga dos veces**.
 
 ---
 
@@ -567,6 +575,19 @@ Se agregó `FuncionarioDocumentoTipo.FOTO_PERFIL` al enum + schema. En "Informac
 del legajo, un botón abre directo el selector de archivos del SO (sin elegir tipo ni escribir
 nada) y sube el documento como `FOTO_PERFIL`; el avatar de la cabecera del legajo se alimenta
 de esa foto. Layout Persona 80% / Foto 20% lado a lado.
+
+### 🔴 TODO-12 — El finiquito no considera el aguinaldo pagado por separado (posible doble pago) — *detectado en T19*
+El pago separado del aguinaldo (V174) marca `rrhh.aguinaldo` como `PAGADO`, y la **liquidación
+mensual** respeta eso (no re-agrega el ítem `AGUINALDO` si está PAGADO). Pero el **finiquito**
+calcula un **"aguinaldo proporcional"** por su cuenta (`LiquidacionFinalService.calcularAguinaldoProporcional`:
+Σ haberes del año / 12, o sueldo × meses/12) y **nunca mira** el registro `rrhh.aguinaldo` ni su
+estado. Consecuencia: si a un funcionario se le paga el aguinaldo **por separado** y después se le
+hace el **finiquito el mismo año**, el finiquito **suma igual el aguinaldo proporcional → doble pago**.
+
+**Fix a resolver:** el finiquito debe **restar lo ya pagado** del aguinaldo del año (leer el
+`rrhh.aguinaldo` PAGADO del año y descontarlo del proporcional, o marcar el proporcional en 0 si ya
+se cobró todo). Confirmar la regla legal con Gabriel (proporcional al egreso vs aguinaldo ya
+liquidado). Bajo/medio esfuerzo, aditivo.
 
 ## Registro de bugs encontrados
 

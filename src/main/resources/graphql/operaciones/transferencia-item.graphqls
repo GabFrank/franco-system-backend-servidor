@@ -48,7 +48,10 @@ type TransferenciaItemLote {
     id: ID
     loteId: ID
     numeroLote: String
+    # En UNIDADES, como vive en el ledger.
     cantidad: Float
+    # La misma cantidad en la presentacion del item, ya convertida por el backend.
+    cantidadPresentacion: Float
     etapa: EtapaAsignacionLote
     fechaVencimiento: Date
     fechaRetiro: Date
@@ -106,6 +109,9 @@ input TransferenciaItemInput {
 
 input TransferenciaItemLoteInput {
     loteId: ID!
+    # EN PRESENTACIONES, la misma unidad que carga el operador y que devuelve
+    # stockPorLoteEnPresentacion. El backend la convierte a unidades antes de guardar, usando la
+    # presentacion del item para la etapa correspondiente.
     cantidad: Float!
 }
 

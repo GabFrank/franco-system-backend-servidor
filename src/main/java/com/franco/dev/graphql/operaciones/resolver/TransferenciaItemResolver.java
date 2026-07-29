@@ -28,6 +28,6 @@ public class TransferenciaItemResolver implements GraphQLResolver<TransferenciaI
         if (transferenciaItem == null || transferenciaItem.getId() == null) {
             return new ArrayList<>();
         }
-        return transferenciaItemLoteService.asignacionesDtoPorItem(transferenciaItem.getId());
+        return transferenciaItemLoteService.asignacionesDtoPorItem(transferenciaItem);
     }
 }

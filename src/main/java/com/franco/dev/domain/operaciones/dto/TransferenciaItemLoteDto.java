@@ -23,7 +23,13 @@ public class TransferenciaItemLoteDto {
     private Long id;
     private Long loteId;
     private String numeroLote;
+    /** Cantidad en UNIDADES, como vive en el ledger. */
     private Double cantidad;
+    /**
+     * La misma cantidad en la presentacion del item, que es como la cargo el operador. Se calcula
+     * en el backend para no repetir la conversion en la pantalla.
+     */
+    private Double cantidadPresentacion;
     private EtapaAsignacionLote etapa;
     private LocalDate fechaVencimiento;
     /** Fecha por la que ordena FEFO. Null si el producto no tiene dias de vencimiento configurados. */

@@ -60,6 +60,23 @@ type StockLote {
     cantidadDisponible: Float
 }
 
+# Saldo de un lote expresado en la presentacion con la que carga el operador.
+# El ledger lleva UNIDADES y las pantallas de transferencia cargan PRESENTACIONES; la conversion
+# se resuelve en el backend para que sea la misma regla que se aplica al guardar la asignacion.
+type StockLotePresentacion {
+    loteId: ID
+    numeroLote: String
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    estado: EstadoLote
+    # Saldo en unidades.
+    cantidadDisponible: Float
+    # El mismo saldo en la presentacion pedida.
+    cantidadDisponiblePresentacion: Float
+    unidadesPorPresentacion: Float
+    presentacionDescripcion: String
+}
+
 type StockLotePage {
     getTotalPages: Int
     getTotalElements: Int
@@ -75,6 +92,14 @@ extend type Query {
     # Saldo por lote de un producto en una sucursal, ordenado por FEFO
     # (fecha de retiro mas proxima primero, lotes sin fecha al final).
     stockPorLote(productoId: ID!, sucursalId: ID!): [StockLote]
+
+    # Mismo saldo que stockPorLote, pero convertido a la presentacion con la que carga el
+    # operador. Con presentacionId nulo devuelve las cantidades en unidades, sin convertir.
+    stockPorLoteEnPresentacion(
+        productoId: ID!
+        sucursalId: ID!
+        presentacionId: ID
+    ): [StockLotePresentacion]
 
     # Consulta general "donde tengo que": todos los filtros son opcionales.
     # vencimientoHasta filtra por COALESCE(fecha_retiro, fecha_vencimiento) <= fecha, para

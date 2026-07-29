@@ -6,6 +6,7 @@ import com.franco.dev.domain.operaciones.TransferenciaItemLote;
 import com.franco.dev.domain.operaciones.dto.TransferenciaItemLoteDto;
 import com.franco.dev.domain.operaciones.enums.EtapaAsignacionLote;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.repository.operaciones.TransferenciaItemLoteRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
@@ -110,20 +111,35 @@ public class TransferenciaItemLoteService
         return repository.findByTransferenciaItemIdOrderByIdAsc(transferenciaItemId);
     }
 
-    /** Asignaciones de un item con los datos del maestro ya resueltos, para la capa GraphQL. */
-    public List<TransferenciaItemLoteDto> asignacionesDtoPorItem(Long transferenciaItemId) {
-        return asignacionesPorItem(transferenciaItemId).stream()
-                .map(this::aDto)
+    /**
+     * Asignaciones de un item con los datos del maestro ya resueltos y las cantidades expresadas
+     * tambien en la presentacion del item, para que la pantalla no tenga que convertir nada.
+     */
+    public List<TransferenciaItemLoteDto> asignacionesDtoPorItem(TransferenciaItem item) {
+        if (item == null || item.getId() == null) {
+            return new ArrayList<>();
+        }
+        return asignacionesPorItem(item.getId()).stream()
+                .map(fila -> aDto(fila, item))
                 .collect(Collectors.toList());
     }
 
-    private TransferenciaItemLoteDto aDto(TransferenciaItemLote fila) {
+    private TransferenciaItemLoteDto aDto(TransferenciaItemLote fila, TransferenciaItem item) {
         Lote lote = fila.getLote();
+        // La presentacion depende de la etapa en la que se eligieron los lotes: en preparacion el
+        // item puede haberse preparado con otra distinta a la de creacion.
+        Presentacion presentacion = fila.getEtapa() == EtapaAsignacionLote.PREPARACION
+                && item.getPresentacionPreparacion() != null
+                ? item.getPresentacionPreparacion()
+                : item.getPresentacionPreTransferencia();
+        double unidadesPorPresentacion = ConversionPresentacion.unidadesPorPresentacion(presentacion);
+
         return new TransferenciaItemLoteDto(
                 fila.getId(),
                 lote != null ? lote.getId() : null,
                 fila.getNumeroLote(),
                 fila.getCantidad(),
+                ConversionPresentacion.aPresentaciones(fila.getCantidad(), unidadesPorPresentacion),
                 fila.getEtapa(),
                 lote != null ? lote.getFechaVencimiento() : null,
                 lote != null ? lote.getFechaRetiro() : null,

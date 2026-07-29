@@ -8,12 +8,14 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
+import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.operaciones.MovimientoStockLoteRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.productos.PresentacionService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -37,6 +39,8 @@ public class MovimientoStockLoteService
     private final MovimientoStockLoteRepository repository;
 
     private final LoteService loteService;
+
+    private final PresentacionService presentacionService;
 
     @Override
     public MovimientoStockLoteRepository getRepository() {
@@ -204,6 +208,39 @@ public class MovimientoStockLoteService
      */
     public List<StockLoteDto> stockPorLote(Long productoId, Long sucursalId) {
         return repository.stockPorLote(productoId, sucursalId);
+    }
+
+    /**
+     * Saldo por lote expresado en una presentacion concreta, ordenado por FEFO.
+     *
+     * Es lo que consume la eleccion manual de lotes en transferencias: el operador carga en
+     * cajas o packs, no en unidades, asi que la conversion se resuelve aca y no en la pantalla.
+     * Con presentacionId nulo devuelve las cantidades en unidades, sin convertir.
+     */
+    public List<StockLotePresentacionDto> stockPorLoteEnPresentacion(Long productoId, Long sucursalId,
+                                                                     Long presentacionId) {
+        Presentacion presentacion = presentacionId != null
+                ? presentacionService.findById(presentacionId).orElse(null)
+                : null;
+        double unidadesPorPresentacion = ConversionPresentacion.unidadesPorPresentacion(presentacion);
+        String descripcion = presentacion != null ? presentacion.getDescripcion() : null;
+
+        List<StockLotePresentacionDto> resultado = new ArrayList<>();
+        for (StockLoteDto lote : stockPorLote(productoId, sucursalId)) {
+            resultado.add(new StockLotePresentacionDto(
+                    lote.getLoteId(),
+                    lote.getNumeroLote(),
+                    lote.getFechaVencimiento(),
+                    lote.getFechaRetiro(),
+                    lote.getEstado(),
+                    lote.getCantidadDisponible(),
+                    ConversionPresentacion.aPresentaciones(
+                            lote.getCantidadDisponible(), unidadesPorPresentacion),
+                    unidadesPorPresentacion,
+                    descripcion
+            ));
+        }
+        return resultado;
     }
 
     public List<MovimientoStockLote> findByMovimientoStock(Long movimientoStockId, Long sucursalId) {

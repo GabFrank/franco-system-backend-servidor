@@ -3,6 +3,7 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
+import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.operaciones.LoteService;
@@ -43,6 +44,18 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      */
     public List<StockLoteDto> stockPorLote(Long productoId, Long sucursalId) {
         return service.stockPorLote(productoId, sucursalId);
+    }
+
+    /**
+     * Saldo por lote convertido a la presentacion con la que carga el operador.
+     *
+     * La conversion vive en el backend a proposito: es la misma regla que se aplica al persistir
+     * la asignacion manual, y tenerla duplicada en la pantalla haria que el saldo mostrado y la
+     * cantidad guardada pudieran diferir en el ultimo decimal.
+     */
+    public List<StockLotePresentacionDto> stockPorLoteEnPresentacion(Long productoId, Long sucursalId,
+                                                                     Long presentacionId) {
+        return service.stockPorLoteEnPresentacion(productoId, sucursalId, presentacionId);
     }
 
     /**

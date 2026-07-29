@@ -44,13 +44,15 @@ type MovimientoStockLote {
     creadoEn: Date
 }
 
-# Saldo disponible de un lote en una sucursal (agregado del ledger + datos del maestro).
+# Saldo disponible de un lote (agregado del ledger + datos del maestro).
 type StockLote {
     loteId: ID
     productoId: ID
     # Solo lo completa buscarStockPorLote; stockPorLote lo deja null porque el llamador ya
     # conoce el producto.
     productoDescripcion: String
+    # Solo los completa stockPorLote, que consulta una sucursal puntual. buscarStockPorLote
+    # agrupa por lote y los deja null: el desglose se pide con stockLotePorSucursal.
     sucursalId: ID
     sucursalNombre: String
     numeroLote: String
@@ -91,6 +93,13 @@ type StockLotePresentacionPage {
     getContent: [StockLotePresentacion]
 }
 
+# Saldo de un lote en una sucursal puntual. Es el desglose de una fila de StockLote.
+type StockLoteSucursal {
+    sucursalId: ID
+    sucursalNombre: String
+    cantidadDisponible: Float
+}
+
 type StockLotePage {
     getTotalPages: Int
     getTotalElements: Int
@@ -119,7 +128,9 @@ extend type Query {
         size: Int = 10
     ): StockLotePresentacionPage
 
-    # Consulta general "donde tengo que": todos los filtros son opcionales.
+    # Consulta general "donde tengo que": todos los filtros son opcionales. Devuelve una fila por
+    # LOTE, con el saldo sumado de todas las sucursales; con sucursalId el total queda restringido
+    # a esa sucursal.
     # vencimientoHasta filtra por COALESCE(fecha_retiro, fecha_vencimiento) <= fecha, para
     # responder "que se me vence antes de tal fecha". Formato yyyy-MM-dd.
     buscarStockPorLote(
@@ -132,6 +143,10 @@ extend type Query {
         page: Int = 0
         size: Int = 20
     ): StockLotePage
+
+    # Desglose por sucursal del saldo de un lote, para expandir una fila de "Stock por lotes".
+    # Devuelve todas las sucursales ACTIVAS, con cantidad 0 en las que no tienen ese lote.
+    stockLotePorSucursal(loteId: ID!): [StockLoteSucursal]
 
     # Lotes registrados de un producto, ordenados por FEFO. Incluye los bloqueados.
     lotesPorProducto(productoId: ID!): [Lote]

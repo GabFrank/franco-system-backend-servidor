@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
+import com.franco.dev.domain.operaciones.dto.StockLoteSucursalProjection;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -64,6 +65,11 @@ public interface MovimientoStockLoteRepository
      * Se consulta contra el ledger agrupado en vez de la vista v_stock_lote para poder paginar
      * y filtrar sin depender del plan de la vista.
      *
+     * Agrupa por LOTE, no por lote y sucursal: la fila es el lote y la cantidad es su saldo total.
+     * El desglose por sucursal se pide aparte con {@link #stockLotePorSucursal(Long)}. Con
+     * :sucursalId el total queda restringido a esa sucursal, que es lo que espera la pantalla
+     * cuando se filtra. Por eso el DTO sale con sucursalId y sucursalNombre en null.
+     *
      * Los alias van en camelCase y ENTRE COMILLAS DOBLES a propósito: Spring Data resuelve una
      * proyección por interfaz sobre una query nativa buscando el alias exacto del getter
      * ({@code getLoteId()} -> {@code "loteId"}), sin convertir snake_case. Un alias
@@ -74,7 +80,6 @@ public interface MovimientoStockLoteRepository
     @Query(value =
             "SELECT l.id AS \"loteId\", msl.producto_id AS \"productoId\", " +
             "       p.descripcion AS \"productoDescripcion\", " +
-            "       msl.sucursal_id AS \"sucursalId\", s.nombre AS \"sucursalNombre\", " +
             "       msl.numero_lote AS \"numeroLote\", " +
             "       l.fecha_vencimiento AS \"fechaVencimiento\", l.fecha_retiro AS \"fechaRetiro\", " +
             "       l.estado AS \"estado\", " +
@@ -82,7 +87,6 @@ public interface MovimientoStockLoteRepository
             "FROM operaciones.movimiento_stock_lote msl " +
             "LEFT JOIN operaciones.lote l ON l.id = msl.lote_id " +
             "JOIN productos.producto p ON p.id = msl.producto_id " +
-            "LEFT JOIN empresarial.sucursal s ON s.id = msl.sucursal_id " +
             "WHERE msl.estado = true " +
             "  AND (:productoId IS NULL OR msl.producto_id = :productoId) " +
             "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
@@ -90,11 +94,11 @@ public interface MovimientoStockLoteRepository
             "  AND (:numeroLote IS NULL OR msl.numero_lote LIKE UPPER(CONCAT('%', :numeroLote, '%'))) " +
             "  AND (:texto IS NULL OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))) " +
             "  AND (:vencimientoHasta IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) <= CAST(:vencimientoHasta AS date)) " +
-            "GROUP BY l.id, msl.producto_id, p.descripcion, msl.sucursal_id, s.nombre, msl.numero_lote, " +
+            "GROUP BY l.id, msl.producto_id, p.descripcion, msl.numero_lote, " +
             "         l.fecha_vencimiento, l.fecha_retiro, l.estado " +
             "HAVING SUM(msl.cantidad) <> 0 " +
             "ORDER BY CASE WHEN COALESCE(l.fecha_retiro, l.fecha_vencimiento) IS NULL THEN 1 ELSE 0 END, " +
-            "         COALESCE(l.fecha_retiro, l.fecha_vencimiento) ASC, msl.producto_id, msl.sucursal_id",
+            "         COALESCE(l.fecha_retiro, l.fecha_vencimiento) ASC, msl.producto_id, msl.numero_lote",
             countQuery =
             "SELECT COUNT(*) FROM (" +
             "  SELECT 1 FROM operaciones.movimiento_stock_lote msl " +
@@ -107,10 +111,7 @@ public interface MovimientoStockLoteRepository
             "    AND (:numeroLote IS NULL OR msl.numero_lote LIKE UPPER(CONCAT('%', :numeroLote, '%'))) " +
             "    AND (:texto IS NULL OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))) " +
             "    AND (:vencimientoHasta IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) <= CAST(:vencimientoHasta AS date)) " +
-            // Sin s.nombre en el GROUP BY: el count no joinea empresarial.sucursal y la columna no
-            // resuelve. Agrupar por msl.sucursal_id da exactamente los mismos grupos, porque el
-            // nombre depende funcionalmente del id.
-            "  GROUP BY l.id, msl.producto_id, p.descripcion, msl.sucursal_id, msl.numero_lote, " +
+            "  GROUP BY l.id, msl.producto_id, p.descripcion, msl.numero_lote, " +
             "           l.fecha_vencimiento, l.fecha_retiro, l.estado " +
             "  HAVING SUM(msl.cantidad) <> 0) sub",
             nativeQuery = true)
@@ -121,4 +122,31 @@ public interface MovimientoStockLoteRepository
                                                  @Param("texto") String texto,
                                                  @Param("vencimientoHasta") String vencimientoHasta,
                                                  Pageable pageable);
+
+    /**
+     * Desglose por sucursal del saldo de un lote, para expandir una fila de "Stock por lotes".
+     *
+     * Parte del maestro de sucursales y no del ledger, así que devuelve todas las sucursales
+     * ACTIVAS, con 0 en las que no tienen movimientos de ese lote. Poner esos ceros acá y no en la
+     * pantalla mantiene el cálculo del lado del servidor y evita que el frontend tenga que cruzar
+     * el resultado contra otro listado.
+     *
+     * Las condiciones del lote van en el ON y no en el WHERE a propósito: en el WHERE
+     * descartarían las filas sin match y el LEFT JOIN dejaría de tener efecto. El filtro de
+     * activo sí va en el WHERE: aplica a la sucursal, no al match.
+     *
+     * COALESCE sobre activo porque la columna es nullable y su default es true: una sucursal sin
+     * el dato cargado se trata como activa, no como dada de baja.
+     */
+    @Query(value =
+            "SELECT s.id AS \"sucursalId\", s.nombre AS \"sucursalNombre\", " +
+            "       CAST(COALESCE(SUM(msl.cantidad), 0) AS double precision) AS \"cantidadDisponible\" " +
+            "FROM empresarial.sucursal s " +
+            "LEFT JOIN operaciones.movimiento_stock_lote msl " +
+            "       ON msl.sucursal_id = s.id AND msl.lote_id = :loteId AND msl.estado = true " +
+            "WHERE COALESCE(s.activo, true) = true " +
+            "GROUP BY s.id, s.nombre " +
+            "ORDER BY s.id",
+            nativeQuery = true)
+    List<StockLoteSucursalProjection> stockLotePorSucursal(@Param("loteId") Long loteId);
 }

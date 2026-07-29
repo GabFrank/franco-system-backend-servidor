@@ -4,6 +4,7 @@ import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
+import com.franco.dev.domain.operaciones.dto.StockLoteSucursalDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.operaciones.LoteService;
@@ -70,6 +71,14 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
         return service.buscarStockPorLote(productoId, sucursalId, estado, numeroLote, texto,
                 vencimientoHasta, pageable);
+    }
+
+    /**
+     * Desglose por sucursal del saldo de un lote. Es lo que abre la fila expandible de la
+     * pantalla "Stock por lotes", donde la fila ya representa al lote completo.
+     */
+    public List<StockLoteSucursalDto> stockLotePorSucursal(Long loteId) {
+        return service.stockLotePorSucursal(loteId);
     }
 
     /**

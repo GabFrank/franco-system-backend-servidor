@@ -10,6 +10,7 @@ import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
+import com.franco.dev.domain.operaciones.dto.StockLoteSucursalDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
@@ -26,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Ledger de stock por lote. Ver {@link MovimientoStockLote} para el racional del diseño.
@@ -370,13 +373,32 @@ public class MovimientoStockLoteService
         ).map(this::aDto);
     }
 
+    /**
+     * Desglose por sucursal del saldo de un lote, con las sucursales sin stock en 0.
+     */
+    public List<StockLoteSucursalDto> stockLotePorSucursal(Long loteId) {
+        if (loteId == null) {
+            return Collections.emptyList();
+        }
+        return repository.stockLotePorSucursal(loteId).stream()
+                .map(p -> new StockLoteSucursalDto(
+                        p.getSucursalId(),
+                        p.getSucursalNombre(),
+                        p.getCantidadDisponible() != null ? p.getCantidadDisponible() : 0d))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * La consulta agrupa por lote, no por lote y sucursal, así que sucursalId y sucursalNombre
+     * quedan sin resolver: el desglose se pide aparte con {@link #stockLotePorSucursal(Long)}.
+     */
     private StockLoteDto aDto(StockLoteProjection p) {
         return new StockLoteDto(
                 p.getLoteId(),
                 p.getProductoId(),
                 p.getProductoDescripcion(),
-                p.getSucursalId(),
-                p.getSucursalNombre(),
+                null,
+                null,
                 p.getNumeroLote(),
                 p.getFechaVencimiento(),
                 p.getFechaRetiro(),

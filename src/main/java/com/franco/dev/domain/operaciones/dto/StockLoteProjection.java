@@ -13,8 +13,6 @@ public interface StockLoteProjection {
     Long getLoteId();
     Long getProductoId();
     String getProductoDescripcion();
-    Long getSucursalId();
-    String getSucursalNombre();
     String getNumeroLote();
     LocalDate getFechaVencimiento();
     LocalDate getFechaRetiro();

@@ -576,18 +576,18 @@ del legajo, un botón abre directo el selector de archivos del SO (sin elegir ti
 nada) y sube el documento como `FOTO_PERFIL`; el avatar de la cabecera del legajo se alimenta
 de esa foto. Layout Persona 80% / Foto 20% lado a lado.
 
-### 🔴 TODO-12 — El finiquito no considera el aguinaldo pagado por separado (posible doble pago) — *detectado en T19*
+### ✅ TODO-12 — El finiquito no consideraba el aguinaldo pagado por separado (doble pago) — *detectado en T19, RESUELTO 2026-07-29*
 El pago separado del aguinaldo (V174) marca `rrhh.aguinaldo` como `PAGADO`, y la **liquidación
-mensual** respeta eso (no re-agrega el ítem `AGUINALDO` si está PAGADO). Pero el **finiquito**
-calcula un **"aguinaldo proporcional"** por su cuenta (`LiquidacionFinalService.calcularAguinaldoProporcional`:
-Σ haberes del año / 12, o sueldo × meses/12) y **nunca mira** el registro `rrhh.aguinaldo` ni su
-estado. Consecuencia: si a un funcionario se le paga el aguinaldo **por separado** y después se le
-hace el **finiquito el mismo año**, el finiquito **suma igual el aguinaldo proporcional → doble pago**.
+mensual** respeta eso. Pero el **finiquito** calculaba un **"aguinaldo proporcional"** por su cuenta
+(`LiquidacionFinalService.calcularAguinaldoProporcional`) y **no miraba** el registro `rrhh.aguinaldo`
+→ si se pagaba aparte y luego se finiquitaba el mismo año, se **pagaba dos veces**.
 
-**Fix a resolver:** el finiquito debe **restar lo ya pagado** del aguinaldo del año (leer el
-`rrhh.aguinaldo` PAGADO del año y descontarlo del proporcional, o marcar el proporcional en 0 si ya
-se cobró todo). Confirmar la regla legal con Gabriel (proporcional al egreso vs aguinaldo ya
-liquidado). Bajo/medio esfuerzo, aditivo.
+**Fix (aplicado):** `calcularAguinaldoProporcional` ahora **resta lo ya pagado** — lee el
+`rrhh.aguinaldo` del año de egreso y, si está `PAGADO`, descuenta su `montoCalculado` del
+proporcional (`max(0, proporcional − yaPagado)`). **Verificado runtime** (func 103): aguinaldo
+pagado aparte 1.487.500 → el finiquito ya NO agrega el ítem AGUINALDO_PROPORCIONAL (proporcional
+1.487.500 − pagado 1.487.500 = 0). **Supuesto a confirmar con Gabriel:** se asume que lo pagado
+cubre el proporcional al egreso; si el devengado post-pago debiera sumar, ajustar la fórmula.
 
 ## Registro de bugs encontrados
 

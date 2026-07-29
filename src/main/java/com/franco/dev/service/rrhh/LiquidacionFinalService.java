@@ -77,6 +77,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final VentaCreditoRepository ventaCreditoRepository;
     private final PenalizacionRepository penalizacionRepository;
     private final CreditoConvenioService creditoConvenioService;
+    private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -508,15 +509,27 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 hay = true;
             }
         }
-        if (hay) return suma.divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
-        // fallback: sueldo × meses trabajados en el año / 12
-        BigDecimal sueldo = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
-        int mesesTrabajados = egreso.getMonthValue();
-        if (f.getFechaIngreso() != null && f.getFechaIngreso().getYear() == anio) {
-            mesesTrabajados = egreso.getMonthValue() - f.getFechaIngreso().getMonthValue() + 1;
+        BigDecimal proporcional;
+        if (hay) {
+            proporcional = suma.divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
+        } else {
+            // fallback: sueldo × meses trabajados en el año / 12
+            BigDecimal sueldo = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+            int mesesTrabajados = egreso.getMonthValue();
+            if (f.getFechaIngreso() != null && f.getFechaIngreso().getYear() == anio) {
+                mesesTrabajados = egreso.getMonthValue() - f.getFechaIngreso().getMonthValue() + 1;
+            }
+            mesesTrabajados = Math.max(0, mesesTrabajados);
+            proporcional = sueldo.multiply(new BigDecimal(mesesTrabajados)).divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
         }
-        mesesTrabajados = Math.max(0, mesesTrabajados);
-        return sueldo.multiply(new BigDecimal(mesesTrabajados)).divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
+        // Restar el aguinaldo del año YA PAGADO (por separado con AguinaldoService.pagar, o
+        // dentro de la liquidacion mensual del mes de aguinaldo), para no pagarlo dos veces
+        // en el finiquito. Si ya se pago igual o mas que el proporcional, no queda saldo.
+        BigDecimal yaPagado = aguinaldoRepository.findByFuncionarioIdAndAnio(f.getId(), anio)
+                .filter(a -> a.getEstado() == com.franco.dev.domain.rrhh.enums.AguinaldoEstado.PAGADO)
+                .map(a -> a.getMontoCalculado() != null ? a.getMontoCalculado() : BigDecimal.ZERO)
+                .orElse(BigDecimal.ZERO);
+        return proporcional.subtract(yaPagado).max(BigDecimal.ZERO);
     }
 
     @Transactional

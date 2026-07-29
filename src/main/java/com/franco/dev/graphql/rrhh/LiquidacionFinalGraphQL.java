@@ -31,18 +31,22 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
     // ----- Queries -----
 
     public Optional<LiquidacionFinal> liquidacionFinal(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<LiquidacionFinal> liquidacionesFinalesPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<LiquidacionFinalItem> liquidacionFinalItems(Long liquidacionFinalId) {
+        seg.requireVer();
         return service.findItems(liquidacionFinalId);
     }
 
     public LiquidacionFinalPreview previewLiquidacionFinal(Long funcionarioId, String fechaEgreso) {
+        seg.requireVer();
         return service.previewDefaults(funcionarioId, parseFecha(fechaEgreso));
     }
 

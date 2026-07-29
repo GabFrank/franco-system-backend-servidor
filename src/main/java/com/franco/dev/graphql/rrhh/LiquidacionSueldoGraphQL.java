@@ -29,6 +29,7 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
     public Optional<LiquidacionSueldo> liquidacionSueldo(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
@@ -38,20 +39,24 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public List<LiquidacionSueldo> liquidacionesPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     public List<LiquidacionSueldo> liquidacionesPorPeriodo(String periodo) {
+        seg.requireVer();
         return service.findByPeriodo(periodo);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String periodo,
                                                      LiquidacionSueldoEstado estado) {
+        seg.requireVer();
         return service.findPage(funcionarioId, periodo, estado, PageRequest.of(page, size));
     }
 
     public List<LiquidacionItem> liquidacionItems(Long liquidacionId) {
+        seg.requireVer();
         return service.findItems(liquidacionId);
     }
 

@@ -24,6 +24,9 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
     private LiquidacionConceptoService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     public Optional<LiquidacionConcepto> liquidacionConcepto(Long id) {
@@ -44,6 +47,7 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public LiquidacionConcepto saveLiquidacionConcepto(LiquidacionConceptoInput input) {
+        seg.requireAnyRole(seg.CONFIG, seg.GESTIONAR);
         ModelMapper m = new ModelMapper();
         // Ver ConfiguracionRrhhGraphQL: en update, los campos null del input no deben
         // pisar valores existentes (ej. creadoEn) y disparar NOT NULL al guardar.
@@ -68,6 +72,7 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     public Boolean deleteLiquidacionConcepto(Long id) {
+        seg.requireAnyRole(seg.CONFIG, seg.GESTIONAR);
         return service.deleteById(id);
     }
 }

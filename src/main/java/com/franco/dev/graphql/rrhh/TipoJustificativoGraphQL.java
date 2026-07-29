@@ -23,6 +23,9 @@ public class TipoJustificativoGraphQL implements GraphQLQueryResolver, GraphQLMu
     private TipoJustificativoService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     @Autowired
@@ -46,6 +49,7 @@ public class TipoJustificativoGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public TipoJustificativo saveTipoJustificativo(TipoJustificativoInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         TipoJustificativo e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new TipoJustificativo())
                 : new TipoJustificativo();
@@ -63,6 +67,7 @@ public class TipoJustificativoGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     public Boolean deleteTipoJustificativo(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         TipoJustificativo e = service.findById(id).orElse(null);
         if (e != null && Boolean.TRUE.equals(e.getGeneradoPorSistema())) {
             throw new GraphQLException("No se puede eliminar un tipo generado por el sistema");

@@ -27,6 +27,9 @@ public class FeriadoGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     private FeriadoService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     public Optional<Feriado> feriado(Long id) {
@@ -60,6 +63,7 @@ public class FeriadoGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Feriado saveFeriado(FeriadoInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Feriado e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Feriado())
                 : new Feriado();
@@ -81,6 +85,7 @@ public class FeriadoGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public Boolean deleteFeriado(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.deleteById(id);
     }
 }

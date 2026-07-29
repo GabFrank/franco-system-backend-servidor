@@ -22,19 +22,23 @@ public class AguinaldoGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
     public Optional<Aguinaldo> aguinaldo(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Aguinaldo> aguinaldosPorAnio(Integer anio) {
+        seg.requireVer();
         return service.findByAnio(anio);
     }
 
     public List<Aguinaldo> aguinaldosPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
         return service.findByFuncionarioId(funcionarioId);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<Aguinaldo> aguinaldosPage(int page, int size, Integer anio, Long funcionarioId) {
+        seg.requireVer();
         return service.findPage(anio, funcionarioId, PageRequest.of(page, size));
     }
 

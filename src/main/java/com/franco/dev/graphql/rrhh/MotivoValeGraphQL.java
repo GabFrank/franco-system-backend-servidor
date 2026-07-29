@@ -24,6 +24,9 @@ public class MotivoValeGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     private MotivoValeService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private UsuarioService usuarioService;
 
     public Optional<MotivoVale> motivoVale(Long id) {
@@ -45,6 +48,7 @@ public class MotivoValeGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public MotivoVale saveMotivoVale(MotivoValeInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         MotivoVale e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new MotivoVale())
                 : new MotivoVale();
@@ -63,6 +67,7 @@ public class MotivoValeGraphQL implements GraphQLQueryResolver, GraphQLMutationR
     }
 
     public Boolean deleteMotivoVale(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.deleteById(id);
     }
 }

@@ -46,18 +46,22 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
     // ----- Queries -----
 
     public List<FuncionarioCargoHistorico> funcionarioCargoHistoricos(Long funcionarioId) {
+        seg.requireVer();
         return cargoHistoricoService.findByFuncionarioId(funcionarioId);
     }
 
     public List<FuncionarioSalarioHistorico> funcionarioSalarioHistoricos(Long funcionarioId) {
+        seg.requireVer();
         return salarioHistoricoService.findByFuncionarioId(funcionarioId);
     }
 
     public List<FuncionarioDocumento> funcionarioDocumentos(Long funcionarioId) {
+        seg.requireVer();
         return documentoService.findByFuncionarioId(funcionarioId);
     }
 
     public String funcionarioDocumentoContenido(Long id) {
+        seg.requireVer();
         return documentoService.getContenidoBase64(id);
     }
 

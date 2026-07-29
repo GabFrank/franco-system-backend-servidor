@@ -28,6 +28,9 @@ public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     private JustificativoService service;
 
     @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
     private TipoJustificativoService tipoService;
 
     @Autowired
@@ -62,6 +65,7 @@ public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Justificativo saveJustificativo(JustificativoInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
         Justificativo e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Justificativo())
                 : new Justificativo();
@@ -93,6 +97,7 @@ public class JustificativoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Boolean deleteJustificativo(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
         return service.deleteById(id);
     }
 }

@@ -38,28 +38,34 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
     private com.franco.dev.service.rrhh.AjusteSalarioMinimoService ajusteSalarioMinimoService;
 
     public Optional<ConfiguracionRrhh> configuracionRrhh(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public Optional<ConfiguracionRrhh> configuracionRrhhPorClave(String clave) {
+        seg.requireVer();
         return service.findByClave(clave);
     }
 
     public List<ConfiguracionRrhh> configuracionesRrhh(int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
 
     public List<ConfiguracionRrhh> configuracionesRrhhSearch(String texto) {
+        seg.requireVer();
         return service.findByAll(texto);
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     public Page<ConfiguracionRrhh> configuracionesRrhhPage(int page, int size, String texto, ConfiguracionRrhhTipo tipo) {
+        seg.requireVer();
         return service.findPage(texto, tipo, PageRequest.of(page, size));
     }
 
     public Long countConfiguracionRrhh() {
+        seg.requireVer();
         return service.count();
     }
 
@@ -67,11 +73,13 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     /** Vista previa: funcionarios activos que quedan por debajo del minimo indicado. */
     public List<Funcionario> funcionariosBajoSalarioMinimo(java.math.BigDecimal minimo) {
+        seg.requireVer();
         return ajusteSalarioMinimoService.findAfectadosPorMinimo(minimo);
     }
 
     /** Historial de cambios de un parametro (auditoria de nomina). */
     public List<ConfiguracionRrhhHistorico> configuracionRrhhHistorico(String clave) {
+        seg.requireVer();
         return service.findHistoricoPorClave(clave);
     }
 

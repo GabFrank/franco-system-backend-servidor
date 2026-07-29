@@ -39,6 +39,9 @@ public class RrhhSecurityService {
     public static final String PAGAR = "RRHH PAGAR";
     public static final String CONFIG = "RRHH CONFIG";
 
+    /** Todos los roles RRHH: cualquiera habilita la lectura. */
+    public static final String[] TODOS = {VER, GESTIONAR, LIQUIDAR, APROBAR, PAGAR, CONFIG};
+
     /** El usuario autenticado (por nickname del SecurityContext), o null. */
     public Usuario currentUsuario() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -81,6 +84,13 @@ public class RrhhSecurityService {
         if (!hasAnyRole(roles)) {
             throw new GraphQLException("No autorizado: se requiere el rol "
                     + String.join(" o ", roles) + " para esta acción.");
+        }
+    }
+
+    /** Lectura de datos RRHH: exige cualquier rol RRHH (o superusuario). */
+    public void requireVer() {
+        if (!hasAnyRole(TODOS)) {
+            throw new GraphQLException("No autorizado: se requiere un rol de RRHH para ver estos datos.");
         }
     }
 }

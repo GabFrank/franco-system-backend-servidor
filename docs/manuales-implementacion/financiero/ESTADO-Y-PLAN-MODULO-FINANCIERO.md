@@ -270,10 +270,13 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - `PagoProveedorGraphQL` con guards. Test `PagoProveedorServiceTest` (5) verde.
 - Pendiente (follow-up F6/F8): pago en lote (multi-solicitud), "toda compra → CPP" wiring en `CompraService` (DA2, requiere tocar Compras — riesgoso, aparte), fuente CHEQUE (llega con F7), deprecar `CompraGraphQL.saveCompra` paralelo (AJ-6). Préstamo funcionario invertido: RRHH ya lo maneja.
 
-**Fase 7 — Cheques + POS.**
-Cheques: emitir (diferido reserva saldo / contado débito+COBRADO), cobrar diferido, anular; numeración de chequera.
-POS: `AcreditacionPos` (comisión + minutos), **scheduler `@Scheduled`** de acreditación automática, verificación manual
-con ajuste diferencial. Acreditación PIX/transferencia directa. UI de cheques y POS.
+**Fase 7 — Cheques + POS. ✅ HECHO backend (2026-07-31)**
+- `V183.5`: `cheque` (estado/moneda/cuenta/fecha_cobro/motivo); `chequera` (nombre/siguiente_numero/estado); `terminal_pos` (porcentaje_comision/minutos_acreditacion); `acreditacion_pos`.
+- Enums `EstadoCheque`/`EstadoChequera`/`EstadoAcreditacionPos`; `AcreditacionPos`; enriquecimiento de Cheque/Chequera/TerminalPos.
+- **`ChequeGestionService`**: emitir (diferido reserva saldo vía `ajustarReservado` / contado debita + COBRADO), cobrar diferido (debita + libera reserva), anular (bloquea si cobrado), numeración de chequera + AGOTADA.
+- **`AcreditacionPosService`**: crear PENDIENTE (comisión + minutos), `procesarPendientes` (acredita vencidas, idempotente por estado), `verificar` (ajuste diferencial). **`AcreditacionPosScheduler`** `@Scheduled` off-default (AJ-17: update atómico por estado).
+- `ChequePosGraphQL` con guards. Test `ChequeGestionServiceTest` (5) verde. **Total suite financiera: 36 tests verdes.**
+- Pendiente F8/UI: migrar `VentaTarjeta.estado` a enum (AJ-17), acreditación PIX/transferencia directa, UI de cheques/POS, wiring venta-tarjeta → `crearAcreditacionPos`.
 
 **Fase 8 — Reportes, consolidación y limpieza.**
 Cuenta corriente por cliente/proveedor (vista). GastoPorCategoria/Mes. Saldos consolidados. Config dashboard server-side.

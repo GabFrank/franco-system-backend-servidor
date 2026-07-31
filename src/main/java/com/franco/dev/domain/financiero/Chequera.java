@@ -41,6 +41,15 @@ public class Chequera implements Identifiable<Long> {
     @Column(name = "rango_hasta")
     private Double rangoHasta;
 
+    private String nombre;
+
+    @Column(name = "siguiente_numero")
+    private Long siguienteNumero;
+
+    @javax.persistence.Enumerated(javax.persistence.EnumType.STRING)
+    @Column(name = "estado", length = 20)
+    private com.franco.dev.domain.financiero.enums.EstadoChequera estado;
+
     @Column(name = "fecha_retiro")
     private LocalDateTime fechaRetiro;
 

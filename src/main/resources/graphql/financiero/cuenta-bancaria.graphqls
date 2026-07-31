@@ -5,6 +5,12 @@ type CuentaBancaria {
     moneda: Moneda,
     numero: String,
     tipoCuenta: TipoCuenta,
+    saldo: Float,
+    saldoReservado: Float,
+    titular: String,
+    alias: String,
+    activo: Boolean,
+    permiteSaldoNegativo: Boolean,
     creadoEn: Date
     usuario: Usuario
 }
@@ -16,6 +22,10 @@ input CuentaBancariaInput {
     monedaId: Int,
     numero: String,
     tipoCuenta: TipoCuenta,
+    titular: String,
+    alias: String,
+    activo: Boolean,
+    permiteSaldoNegativo: Boolean,
     usuarioId: Int
 }
 

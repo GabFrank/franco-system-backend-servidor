@@ -59,6 +59,18 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
     public CuentaBancaria saveCuentaBancaria(CuentaBancariaInput input) {
         ModelMapper m = new ModelMapper();
         CuentaBancaria e = m.map(input, CuentaBancaria.class);
+        // saldo/saldoReservado los administra el ledger (BancoLedgerService); nunca por el CRUD.
+        // En edición se preservan; en alta arrancan en 0.
+        if (input.getId() != null) {
+            final CuentaBancaria target = e;
+            service.findById(input.getId()).ifPresent(prev -> {
+                target.setSaldo(prev.getSaldo());
+                target.setSaldoReservado(prev.getSaldoReservado());
+            });
+        } else {
+            if (e.getSaldo() == null) e.setSaldo(java.math.BigDecimal.ZERO);
+            if (e.getSaldoReservado() == null) e.setSaldoReservado(java.math.BigDecimal.ZERO);
+        }
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }

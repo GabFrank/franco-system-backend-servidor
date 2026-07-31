@@ -29,7 +29,7 @@ public class CobroCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public VentaCreditoCuota cobrarCuotaCreditoBanco(Long cuotaId, Long sucursalId, Double montoCobrar,
                                                      Long cuentaBancariaId, Double montoBanco, Double cotizacion) {
-        seg.requireGestionar();
+        seg.requireCobrarCpc();
         return service.cobrarCuotaBanco(cuotaId, sucursalId,
                 BigDecimal.valueOf(montoCobrar), cuentaBancariaId,
                 montoBanco != null ? BigDecimal.valueOf(montoBanco) : null,

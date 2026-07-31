@@ -24,6 +24,8 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
     
     Cheque findByPagoDetalleCuotaId(Long pagoDetalleCuotaId);
 
+    java.util.List<com.franco.dev.domain.financiero.Cheque> findByEstado(com.franco.dev.domain.financiero.enums.EstadoCheque estado);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select e from Cheque e where e.id = :id")
     Optional<Cheque> lockById(@Param("id") Long id);

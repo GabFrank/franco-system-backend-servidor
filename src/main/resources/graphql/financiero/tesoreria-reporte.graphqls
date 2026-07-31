@@ -7,6 +7,22 @@ type SaldoTesoreria {
     total: Float
 }
 
+type VencimientoTesoreria {
+    tipo: String
+    referenciaId: Int
+    descripcion: String
+    monto: Float
+    fecha: Date
+    diasRestantes: Int
+}
+
+type AgingTesoreria {
+    porVencer: Float
+    vencido: Float
+}
+
 extend type Query {
     saldoConsolidadoTesoreria: [SaldoTesoreria]
+    proximosVencimientosTesoreria(dias: Int = 30): [VencimientoTesoreria]
+    agingCppTesoreria: AgingTesoreria
 }

@@ -41,6 +41,7 @@ public class PagoProveedorService {
     private final ProveedorCuentaService proveedorCuentaService;
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
+    private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepository;
 
     /** Una línea de pago (pago mixto). */
     @Data
@@ -101,6 +102,19 @@ public class PagoProveedorService {
         if (monto == null || monto.signum() <= 0) throw new GraphQLException("Monto de línea inválido");
         Moneda moneda = l.getMonedaId() != null ? monedaRepository.findById(l.getMonedaId()).orElse(null) : null;
 
+        // Detalle (línea) del pago para trazabilidad línea→movimiento.
+        com.franco.dev.domain.financiero.PagoSolicitudDetalle det = new com.franco.dev.domain.financiero.PagoSolicitudDetalle();
+        det.setSolicitudPagoId(sp.getId());
+        det.setFuente(l.getFuente());
+        det.setCajaVirtualId(l.getCajaVirtualId());
+        det.setCuentaBancariaId(l.getCuentaBancariaId());
+        det.setMonedaId(l.getMonedaId());
+        det.setMonto(monto);
+        det.setCotizacion(l.getCotizacion());
+        det.setMontoSolicitud(l.getMontoSolicitud() != null ? l.getMontoSolicitud() : monto);
+        det.setUsuario(usuario);
+        det.setAnulado(false);
+
         if (l.getFuente() == FuentePago.CAJA_MAYOR) {
             CajaVirtual caja = cajaVirtualRepository.findById(l.getCajaVirtualId())
                     .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada"));
@@ -114,14 +128,17 @@ public class PagoProveedorService {
             m.setReferenciaId(sp.getId());
             m.setOrigenTipo(OrigenMovimientoTipo.PAGO_CPP);
             m.setOrigenId(sp.getId());
-            tesoreriaService.registrar(m);
+            MovimientoCajaVirtual posteado = tesoreriaService.registrar(m);
+            det.setMovimientoCajaVirtualId(posteado.getId());
         } else if (l.getFuente() == FuentePago.CUENTA_BANCARIA) {
-            bancoLedgerService.registrar(l.getCuentaBancariaId(), MovimientoBancarioTipo.SALIDA_MANUAL, monto,
+            MovimientoBancario mb = bancoLedgerService.registrar(l.getCuentaBancariaId(), MovimientoBancarioTipo.SALIDA_MANUAL, monto,
                     "Pago proveedor (solicitud #" + sp.getId() + ")",
                     OrigenMovimientoTipo.PAGO_CPP.name(), sp.getId(), usuario);
+            det.setMovimientoBancarioId(mb != null ? mb.getId() : null);
         } else {
             // FuentePago.CHEQUE se implementa en F7 (emisión de cheque desde el pago).
             throw new GraphQLException("Pago con cheque disponible en la fase de cheques (F7)");
         }
+        detalleRepository.save(det);
     }
 }

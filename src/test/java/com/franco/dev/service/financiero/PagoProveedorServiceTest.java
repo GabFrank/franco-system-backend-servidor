@@ -41,8 +41,11 @@ class PagoProveedorServiceTest {
         proveedorCuentaService = mock(ProveedorCuentaService.class);
         cajaVirtualRepository = mock(CajaVirtualRepository.class);
         monedaRepository = mock(MonedaRepository.class);
+        com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepo =
+                mock(com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository.class);
+        when(detalleRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         service = new PagoProveedorService(solicitudPagoService, tesoreriaService, bancoLedgerService,
-                proveedorCuentaService, cajaVirtualRepository, monedaRepository);
+                proveedorCuentaService, cajaVirtualRepository, monedaRepository, detalleRepo);
 
         Proveedor prov = new Proveedor(); prov.setId(7L);
         sp = new SolicitudPago(); sp.setId(1L); sp.setMontoTotal(100000.0);
@@ -53,6 +56,12 @@ class PagoProveedorServiceTest {
         when(solicitudPagoService.getRepository()).thenReturn(spRepo);
         when(spRepo.lockById(1L)).thenReturn(Optional.of(sp));
         when(solicitudPagoService.save(any())).thenAnswer(i -> i.getArgument(0));
+        com.franco.dev.domain.financiero.MovimientoCajaVirtual mcv = new com.franco.dev.domain.financiero.MovimientoCajaVirtual();
+        mcv.setId(888L);
+        when(tesoreriaService.registrar(any())).thenReturn(mcv);
+        com.franco.dev.domain.financiero.MovimientoBancario mb = new com.franco.dev.domain.financiero.MovimientoBancario();
+        mb.setId(999L);
+        when(bancoLedgerService.registrar(anyLong(), any(), any(), any(), any(), any(), any())).thenReturn(mb);
         when(cajaVirtualRepository.findById(anyLong())).thenReturn(Optional.of(new com.franco.dev.domain.financiero.CajaVirtual()));
     }
 

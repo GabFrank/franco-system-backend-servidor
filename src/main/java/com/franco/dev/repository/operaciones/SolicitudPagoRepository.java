@@ -26,6 +26,8 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
     @Query("select s from SolicitudPago s where s.id = :id")
     Optional<SolicitudPago> lockById(@Param("id") Long id);
 
+    java.util.List<SolicitudPago> findByEstadoIn(java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados);
+
     public List<SolicitudPago> findByUsuarioId(Long id);
     
     // public SolicitudPago findByTipoAndReferenciaId(TipoSolicitudPago tipo, Long referenciaId);

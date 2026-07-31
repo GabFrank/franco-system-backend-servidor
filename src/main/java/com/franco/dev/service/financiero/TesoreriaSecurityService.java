@@ -35,9 +35,19 @@ public class TesoreriaSecurityService {
     public static final String ADMIN = "ADMIN";
     public static final String VER = "TESORERIA VER";
     public static final String GESTIONAR = "TESORERIA GESTIONAR";
+    /** Permiso dedicado para cobrar cuentas por cobrar (CPC). */
+    public static final String CPC_COBRAR = "TESORERIA CPC COBRAR";
+    /** Permiso dedicado para pagar cuentas por pagar / solicitudes (CPP). */
+    public static final String CPP_PAGAR = "TESORERIA CPP PAGAR";
 
     /** Cualquier rol de tesorería habilita la lectura. */
-    public static final String[] TODOS = {VER, GESTIONAR};
+    public static final String[] TODOS = {VER, GESTIONAR, CPC_COBRAR, CPP_PAGAR};
+
+    /** Cobrar CPC: permiso dedicado, o GESTIONAR, o superusuario. */
+    public void requireCobrarCpc() { requireAnyRole(CPC_COBRAR, GESTIONAR); }
+
+    /** Pagar CPP: permiso dedicado, o GESTIONAR, o superusuario. */
+    public void requirePagarCpp() { requireAnyRole(CPP_PAGAR, GESTIONAR); }
 
     private String currentNickname() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

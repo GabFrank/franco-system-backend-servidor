@@ -1,13 +1,22 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.financiero.Cheque;
+import com.franco.dev.domain.financiero.enums.EstadoCheque;
+import com.franco.dev.domain.operaciones.SolicitudPago;
+import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
 import com.franco.dev.repository.financiero.CajaVirtualSaldoRepository;
+import com.franco.dev.repository.financiero.ChequeRepository;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
+import com.franco.dev.repository.operaciones.SolicitudPagoRepository;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,6 +32,8 @@ public class TesoreriaReporteService {
 
     private final CajaVirtualSaldoRepository cajaSaldoRepository;
     private final CuentaBancariaRepository cuentaBancariaRepository;
+    private final SolicitudPagoRepository solicitudPagoRepository;
+    private final ChequeRepository chequeRepository;
 
     @Data
     public static class SaldoPorMoneda {
@@ -64,5 +75,72 @@ public class TesoreriaReporteService {
         if (o == null) return BigDecimal.ZERO;
         if (o instanceof BigDecimal) return (BigDecimal) o;
         return new BigDecimal(o.toString());
+    }
+
+    // ---- Vencimientos (CPP + cheques diferidos) ----
+
+    @Data
+    public static class Vencimiento {
+        private String tipo;          // CPP | CHEQUE
+        private Long referenciaId;
+        private String descripcion;
+        private BigDecimal monto;
+        private LocalDateTime fecha;
+        private long diasRestantes;   // negativo = vencido
+    }
+
+    /** Próximos vencimientos (CPP pendientes/parciales + cheques diferidos) dentro de {@code dias}. */
+    public List<Vencimiento> proximosVencimientos(int dias) {
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime hasta = ahora.plusDays(dias);
+        List<Vencimiento> out = new ArrayList<>();
+
+        for (SolicitudPago sp : solicitudPagoRepository.findByEstadoIn(
+                Arrays.asList(SolicitudPagoEstado.PENDIENTE, SolicitudPagoEstado.PARCIAL))) {
+            LocalDateTime f = sp.getFechaPagoPropuesta();
+            if (f == null || f.isAfter(hasta)) continue;
+            BigDecimal total = BigDecimal.valueOf(sp.getMontoTotal() != null ? sp.getMontoTotal() : 0.0);
+            BigDecimal pagado = sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO;
+            Vencimiento v = new Vencimiento();
+            v.setTipo("CPP"); v.setReferenciaId(sp.getId());
+            v.setDescripcion("Solicitud #" + sp.getId() + (sp.getProveedor() != null ? "" : ""));
+            v.setMonto(total.subtract(pagado)); v.setFecha(f);
+            v.setDiasRestantes(ChronoUnit.DAYS.between(ahora.toLocalDate(), f.toLocalDate()));
+            out.add(v);
+        }
+        for (Cheque ch : chequeRepository.findByEstado(EstadoCheque.DIFERIDO)) {
+            LocalDateTime f = ch.getFechaPago();
+            if (f == null || f.isAfter(hasta)) continue;
+            Vencimiento v = new Vencimiento();
+            v.setTipo("CHEQUE"); v.setReferenciaId(ch.getId());
+            v.setDescripcion("Cheque " + (ch.getNumero() != null ? ch.getNumero().longValue() : ch.getId()));
+            v.setMonto(BigDecimal.valueOf(ch.getTotal() != null ? ch.getTotal() : 0.0)); v.setFecha(f);
+            v.setDiasRestantes(ChronoUnit.DAYS.between(ahora.toLocalDate(), f.toLocalDate()));
+            out.add(v);
+        }
+        out.sort((a, b) -> Long.compare(a.getDiasRestantes(), b.getDiasRestantes()));
+        return out;
+    }
+
+    @Data
+    public static class Aging {
+        private BigDecimal porVencer = BigDecimal.ZERO;
+        private BigDecimal vencido = BigDecimal.ZERO;
+    }
+
+    /** Aging de CPP (por vencer vs vencido) sobre solicitudes pendientes/parciales. */
+    public Aging agingCpp() {
+        LocalDateTime ahora = LocalDateTime.now();
+        Aging a = new Aging();
+        for (SolicitudPago sp : solicitudPagoRepository.findByEstadoIn(
+                Arrays.asList(SolicitudPagoEstado.PENDIENTE, SolicitudPagoEstado.PARCIAL))) {
+            BigDecimal total = BigDecimal.valueOf(sp.getMontoTotal() != null ? sp.getMontoTotal() : 0.0);
+            BigDecimal pagado = sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO;
+            BigDecimal saldo = total.subtract(pagado);
+            LocalDateTime f = sp.getFechaPagoPropuesta();
+            if (f != null && f.isBefore(ahora)) a.setVencido(a.getVencido().add(saldo));
+            else a.setPorVencer(a.getPorVencer().add(saldo));
+        }
+        return a;
     }
 }

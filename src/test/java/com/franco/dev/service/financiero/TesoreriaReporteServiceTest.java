@@ -25,7 +25,7 @@ class TesoreriaReporteServiceTest {
         when(bancoRepo.saldoBancarioPorMoneda()).thenReturn(Arrays.<Object[]>asList(
                 new Object[]{10L, "GUARANIES", new BigDecimal("200000"), new BigDecimal("50000")}));
 
-        TesoreriaReporteService service = new TesoreriaReporteService(cajaRepo, bancoRepo);
+        TesoreriaReporteService service = new TesoreriaReporteService(cajaRepo, bancoRepo, mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class), mock(com.franco.dev.repository.financiero.ChequeRepository.class));
         List<TesoreriaReporteService.SaldoPorMoneda> out = service.saldoConsolidado();
 
         assertEquals(1, out.size());
@@ -44,7 +44,7 @@ class TesoreriaReporteServiceTest {
         when(bancoRepo.saldoBancarioPorMoneda()).thenReturn(Arrays.<Object[]>asList(
                 new Object[]{20L, "DOLARES", new BigDecimal("1000"), new BigDecimal("0")}));
 
-        TesoreriaReporteService service = new TesoreriaReporteService(cajaRepo, bancoRepo);
+        TesoreriaReporteService service = new TesoreriaReporteService(cajaRepo, bancoRepo, mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class), mock(com.franco.dev.repository.financiero.ChequeRepository.class));
         List<TesoreriaReporteService.SaldoPorMoneda> out = service.saldoConsolidado();
         assertEquals(1, out.size());
         assertEquals(0, out.get(0).getTotal().compareTo(new BigDecimal("1000")));

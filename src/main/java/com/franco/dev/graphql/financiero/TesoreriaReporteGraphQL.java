@@ -19,4 +19,14 @@ public class TesoreriaReporteGraphQL implements GraphQLQueryResolver {
         seg.requireVer();
         return service.saldoConsolidado();
     }
+
+    public List<TesoreriaReporteService.Vencimiento> proximosVencimientosTesoreria(int dias) {
+        seg.requireVer();
+        return service.proximosVencimientos(dias);
+    }
+
+    public TesoreriaReporteService.Aging agingCppTesoreria() {
+        seg.requireVer();
+        return service.agingCpp();
+    }
 }

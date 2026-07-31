@@ -32,7 +32,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public SolicitudPago pagarSolicitud(Long solicitudId, List<LineaPagoInputWrapper> lineas) {
-        seg.requireGestionar();
+        seg.requirePagarCpp();
         List<PagoProveedorService.LineaPago> ls = new ArrayList<>();
         for (LineaPagoInputWrapper w : lineas) {
             PagoProveedorService.LineaPago l = new PagoProveedorService.LineaPago();

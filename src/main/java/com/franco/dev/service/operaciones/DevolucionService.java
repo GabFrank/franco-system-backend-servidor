@@ -551,9 +551,25 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
         d.setGastoId(guardado.getId());
         d.setGastoSucursalId(guardado.getSucursalId());
 
-        // TODO(fd-93): si d.getCajaVirtualId() != null, registrar EGRESO en la caja virtual
-        //   via MovimientoCajaVirtualService (referenciaId = d.getId()). Se activa cuando
-        //   financiero.caja_virtual exista en develop.
+        // Si la devolución tiene una caja mayor asignada, la merma egresa de tesorería.
+        if (d.getCajaVirtualId() != null) {
+            com.franco.dev.service.financiero.CajaVirtualService cvService =
+                    applicationContext.getBean(com.franco.dev.service.financiero.CajaVirtualService.class);
+            com.franco.dev.domain.financiero.CajaVirtual caja = cvService.findById(d.getCajaVirtualId()).orElse(null);
+            if (caja != null) {
+                com.franco.dev.domain.financiero.MovimientoCajaVirtual mov =
+                        new com.franco.dev.domain.financiero.MovimientoCajaVirtual();
+                mov.setCajaVirtual(caja);
+                mov.setTipoMovimiento(com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento.EGRESO);
+                mov.setCantidad(total); // merma en guaraníes; TesoreriaService resuelve moneda por defecto
+                mov.setUsuario(usuario);
+                mov.setDescripcion("Merma por devolucion " + (d.getIdentificador() != null ? d.getIdentificador() : d.getId()));
+                mov.setReferenciaId(d.getId());
+                mov.setOrigenTipo(com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.DEVOLUCION);
+                mov.setOrigenId(d.getId());
+                applicationContext.getBean(com.franco.dev.service.financiero.TesoreriaService.class).registrar(mov);
+            }
+        }
     }
 
     private double cantidadEnUnidadBase(DevolucionItem item) {

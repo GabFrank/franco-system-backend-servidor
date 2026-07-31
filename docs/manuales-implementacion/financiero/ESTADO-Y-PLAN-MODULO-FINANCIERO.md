@@ -239,9 +239,13 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - Tests: `ComprobanteSerieServiceTest` (4) + `TesoreriaServiceTest` (10) verdes.
 - **Pendiente para el pase de UI/config (F8):** gastos multi-detalle (colisiona con `Gasto` de PDV → se modela aparte), egreso de caja inicial + abrir caja desde conteo (AJ-3: asiento central-only), dashboard KPIs, editar campos nuevos de Moneda/FormaPago vía sus resolvers, UI desktop de tesorería.
 
-**Fase 3 — Puente con el PDV (circuito de efectivo).**
-`RetiroCaja` con `origen` (MANUAL/CIERRE) + generación idempotente al cerrar caja PDV (mapear `retiro.caja_virtual_id`).
-Retiro → `INGRESO_CIERRE/INGRESO_RETIRO` en caja mayor. Devolución/merma → `EGRESO` (activar `TODO fd-93`).
+**Fase 3 — Puente con el PDV (circuito de efectivo). ✅ HECHO backend (2026-07-31)**
+- `V179.5`: marcador `retiro.movimiento_caja_virtual_id` + índice parcial de pendientes (`caja_virtual_id` ya existía en V114.1).
+- `Retiro` mapea `cajaVirtualId` + `movimientoCajaVirtualId` (AJ-15). Repo `findPendientesIngresoCajaMayor`.
+- **`RetiroTesoreriaScheduler`** (AJ-1): poller `@Scheduled` `@ConditionalOnProperty(tesoreria.retiro-poller.enabled, off por default)` — reconcilia retiros replicados (BRANCH_TO_MAIN) destinados a una caja mayor, agrupa efectivo por moneda, postea `INGRESO` (origen `RETIRO_CAJA`), marca la fila (idempotente + guard anti doble-ingreso, releído en la transacción).
+- Devolución/merma → `EGRESO` (activado el `TODO(fd-93)` en `DevolucionService`, origen `DEVOLUCION`, si la devolución tiene caja asignada).
+- Test `RetiroTesoreriaSchedulerTest` (3) verde.
+- Nota (DA1): el poller corre en central sobre las tablas ya replicadas. **El wiring filial-side** (que el retiro nazca con `caja_virtual_id` seteado) es follow-up cuando se toque el flujo de cierre de caja en filial/desktop. Estado `CONCLUIDO`/`VERIFICADO_*` real (no `FLOTANTE/INGRESADO`, que no existen — AJ-15).
 
 **Fase 4 — Bancos + operaciones financieras.**
 `CuentaBancaria` con 3 saldos (actual/reservado/futuro). `MovimientoBancario` + enum (5 tipos) + helper.

@@ -13,6 +13,7 @@ type Pedido {
     sucursalEntregaList: [PedidoSucursalEntrega]
     sucursalInfluenciaList: [PedidoSucursalInfluencia]
     procesoEtapas: [ProcesoEtapa]
+    montoTotal: Float
 }
 
 type PedidoResumen {

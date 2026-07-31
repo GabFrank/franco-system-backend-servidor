@@ -40,6 +40,10 @@ public class PedidoResolver implements GraphQLResolver<Pedido> {
     public List<ProcesoEtapa> getProcesoEtapas(Pedido pedido) {
         return procesoEtapaService.getEtapasByPedidoId(pedido.getId());
     }
+
+    public Double getMontoTotal(Pedido pedido) {
+        return pedidoService.getMontoTotal(pedido.getId());
+    }
     
     // All resolver methods removed since GraphQL schema now only includes entity fields
     // No computed fields = no resolvers needed

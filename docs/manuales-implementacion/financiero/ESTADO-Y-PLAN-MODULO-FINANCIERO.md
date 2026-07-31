@@ -255,10 +255,13 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - `OperacionFinancieraGraphQL` con guards. Test `OperacionFinancieraServiceTest` (5, cubre los 5 tipos) verde.
 - Pendiente F8/UI: saldo futuro (calculado con POS de F7), ledger unificado con dedupe, ajuste manual de movimiento, UI de bancos/menú "Bancario".
 
-**Fase 5 — CPC: cobros a clientes (robusto).**
-`VentaCredito`/`Cuota` como CPC. Cobro con bifurcación caja/banco, parcial, conversión de moneda, cobro rápido.
-`MovimientoCliente` + `Cliente.saldoActual` (cuenta corriente) con reversión idempotente. Cobro consolidado por
-convenio (recibo/preview PDF) — alinear con el crédito por convenio de RRHH.
+**Fase 5 — CPC: cobros a clientes (robusto). ✅ HECHO backend core (2026-07-31)**
+- `V181.5`: `cliente.saldo_actual` (cuenta corriente); `venta_credito_cuota.monto_cobrado`/`estado_cobro` (cobro parcial nativo); `movimiento_cliente` (ledger de tercero).
+- `MovimientoCliente` + enum `MovimientoClienteTipo`; `Cliente.saldoActual`; `VentaCreditoCuota.montoCobrado/estadoCobro`.
+- **`ClienteCuentaService`**: cuenta corriente con lock (`ClienteRepository.lockById`), CARGO/PAGO.
+- **`CobroCreditoService`**: cobro por banco (DA8: efectivo exclusivo del POS filial), **doble ledger** (acredita cuenta bancaria + PAGO en libro del cliente + baja `saldoActual`), cobro **parcial** nativo, tolerancia de redondeo, finaliza la venta si todas las cuotas quedan cobradas.
+- `CobroCreditoGraphQL` con guards. Test `CobroCreditoServiceTest` (4) verde.
+- Pendiente (follow-up dentro de F5/F8): cobro consolidado por convenio (recibo PDF) — alinear con crédito por convenio de RRHH; cobro por cheque (llega con F7); anulación idempotente de cobro.
 
 **Fase 6 — CPP: pagos a proveedores.**
 `SolicitudPago` como CPP + transición PENDIENTE→PARCIAL→CONCLUIDO. Pago **simple / mixto (multi-línea moneda/forma/fuente)

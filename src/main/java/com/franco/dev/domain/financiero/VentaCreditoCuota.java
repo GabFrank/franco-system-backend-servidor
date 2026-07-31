@@ -49,6 +49,14 @@ public class VentaCreditoCuota implements Serializable {
 
     private Double valor;
 
+    /** Monto cobrado acumulado (cobro parcial nativo, CPC). */
+    @Column(name = "monto_cobrado")
+    private java.math.BigDecimal montoCobrado;
+
+    /** PENDIENTE | PARCIAL | COBRADO | CANCELADO. */
+    @Column(name = "estado_cobro")
+    private String estadoCobro;
+
     private Boolean parcial;
 
     private Boolean activo;

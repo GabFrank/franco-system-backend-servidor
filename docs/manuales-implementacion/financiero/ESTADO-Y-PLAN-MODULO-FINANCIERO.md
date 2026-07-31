@@ -224,10 +224,12 @@ Tres agentes revisaron el plan. Estos ajustes **prevalecen** sobre el texto de l
 
 **Fase 0 — Integración (HECHO).** UI fd-93 + roles + gating + guards backend.
 
-**Fase 1 — Núcleo de tesorería robusto (el ledger correcto).**
-Modelo rico (D5): saldo por `(caja, moneda, formaPago)`, enum `TipoMovimiento` ampliado, `origenTipo`+`origenId`,
-ledger inmutable. Helper único de saldo con lock (P2). `anularMovimiento` central + bloqueo cross-módulo.
-Fix `AJUSTE` con signo. Migrar los 5 consumidores RRHH al nuevo modelo/helper. `recalcularSaldos`. Tests. Migraciones aditivas.
+**Fase 1 — Núcleo de tesorería robusto (el ledger correcto). ✅ HECHO (2026-07-31)**
+Modelo rico (D5): saldo por `(caja, moneda)`, `origenTipo`+`origenId`, ledger inmutable. Helper único de saldo
+con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` con signo. `recalcularSaldos`. Tests.
+- Implementado: migración `V177.5` (tabla `caja_virtual_saldo`, `origen_tipo/id`, `permite_saldo_negativo` CN2, backfill saldo + origen RRHH); entidad `CajaVirtualSaldo` + `OrigenMovimientoTipo`; `TesoreriaService` (helper con lock pesimista en orden canónico AJ-9, saldo por moneda, shim `saldoGs/Rs/Ds` AJ-8, AJUSTE firmado, anular con contra-movimiento + bloqueo cross-módulo, recalcular); `MovimientoCajaVirtualService` delega en él (RRHH intacto, 0 líneas de saldo — AJ-7); `origenTipo` seteado en los 5 servicios RRHH; `TesoreriaServiceTest` (10 tests verdes).
+- CN3 (numeración) → F2; CN4 (límite anulación) → default permisivo, UI en F8.
+- Enum `TipoMovimiento` se amplía por fase con `ALTER TYPE ADD VALUE` idempotente (AJ-13) cuando cada fase lo necesite.
 
 **Fase 2 — Operación de caja mayor (operaciones directas + UI).**
 Entradas/Salidas varias (destino caja/banco). Gastos multi-detalle con destino caja/banco (extender `Gasto`).

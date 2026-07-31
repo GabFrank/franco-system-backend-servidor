@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.Vale;
@@ -132,6 +133,8 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         mov.setCantidad(vale.getMonto() != null ? vale.getMonto().doubleValue() : 0.0);
         mov.setMoneda(moneda);
         mov.setReferenciaId(vale.getId());
+        mov.setOrigenTipo(OrigenMovimientoTipo.RRHH_VALE);
+        mov.setOrigenId(vale.getId());
         mov.setDescripcion("VALE #" + vale.getId() + nombreFuncionario(vale.getFuncionario()));
         mov.setUsuario(vale.getUsuario());
         mov.setActivo(true);
@@ -149,6 +152,8 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         rev.setCantidad(vale.getMonto() != null ? vale.getMonto().doubleValue() : 0.0);
         rev.setMoneda(vale.getMoneda());
         rev.setReferenciaId(vale.getId());
+        rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_VALE);
+        rev.setOrigenId(vale.getId());
         rev.setDescripcion("ANULACION VALE #" + vale.getId());
         rev.setUsuario(vale.getUsuario());
         rev.setActivo(true);

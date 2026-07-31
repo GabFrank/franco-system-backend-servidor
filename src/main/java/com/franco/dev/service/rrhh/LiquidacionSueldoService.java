@@ -3,6 +3,7 @@ package com.franco.dev.service.rrhh;
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.*;
@@ -447,6 +448,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         mov.setCantidad(liq.getTotalNeto() != null ? liq.getTotalNeto().doubleValue() : 0.0);
         mov.setMoneda(liq.getMoneda());
         mov.setReferenciaId(liq.getId());
+        mov.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_SUELDO);
+        mov.setOrigenId(liq.getId());
         mov.setDescripcion("PAGO SALARIO " + liq.getPeriodo() + " - LIQ #" + liq.getId());
         mov.setActivo(true);
         mov = movimientoCajaVirtualService.registrarMovimiento(mov);
@@ -480,6 +483,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             rev.setCantidad(liq.getTotalNeto() != null ? liq.getTotalNeto().doubleValue() : 0.0);
             rev.setMoneda(liq.getMoneda());
             rev.setReferenciaId(liq.getId());
+            rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_SUELDO);
+            rev.setOrigenId(liq.getId());
             rev.setDescripcion("ANULACION LIQUIDACION #" + liq.getId());
             rev.setActivo(true);
             movimientoCajaVirtualService.registrarMovimiento(rev);

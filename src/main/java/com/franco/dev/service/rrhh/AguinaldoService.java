@@ -6,6 +6,7 @@ import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.Aguinaldo;
 import com.franco.dev.domain.rrhh.enums.AguinaldoEstado;
@@ -145,6 +146,8 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
         mov.setCantidad(monto.doubleValue());
         mov.setMoneda(moneda);
         mov.setReferenciaId(a.getId());
+        mov.setOrigenTipo(OrigenMovimientoTipo.RRHH_AGUINALDO);
+        mov.setOrigenId(a.getId());
         mov.setDescripcion("PAGO AGUINALDO " + (a.getAnio() != null ? a.getAnio() : "") + " #" + a.getId()
                 + (a.getFuncionario() != null && a.getFuncionario().getPersona() != null
                         && a.getFuncionario().getPersona().getNombre() != null

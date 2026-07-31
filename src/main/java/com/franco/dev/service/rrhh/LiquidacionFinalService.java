@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.VentaCredito;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.financiero.enums.EstadoVentaCredito;
 import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
@@ -569,6 +570,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         mov.setCantidad(lf.getTotalLiquidado() != null ? lf.getTotalLiquidado().doubleValue() : 0.0);
         mov.setMoneda(lf.getMoneda());
         mov.setReferenciaId(lf.getId());
+        mov.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_FINAL);
+        mov.setOrigenId(lf.getId());
         mov.setDescripcion("LIQUIDACION FINAL - FUNC #" + (lf.getFuncionario() != null ? lf.getFuncionario().getId() : "") + " - LIQF #" + lf.getId());
         mov.setActivo(true);
         mov = movimientoCajaVirtualService.registrarMovimiento(mov);
@@ -652,6 +655,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             rev.setCantidad(lf.getTotalLiquidado() != null ? lf.getTotalLiquidado().doubleValue() : 0.0);
             rev.setMoneda(lf.getMoneda());
             rev.setReferenciaId(lf.getId());
+            rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_FINAL);
+            rev.setOrigenId(lf.getId());
             rev.setDescripcion("ANULACION LIQUIDACION FINAL #" + lf.getId());
             rev.setActivo(true);
             movimientoCajaVirtualService.registrarMovimiento(rev);

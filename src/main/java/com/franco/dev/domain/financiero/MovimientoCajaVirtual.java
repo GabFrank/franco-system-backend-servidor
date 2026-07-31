@@ -60,6 +60,15 @@ public class MovimientoCajaVirtual implements Serializable {
     @Column(name = "referencia_id")
     private Long referenciaId;
 
+    /** Dominio dueño del movimiento (para bloqueo de anulación cross-módulo). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origen_tipo", length = 40)
+    private com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo origenTipo;
+
+    /** Id de la entidad de origen (vale, préstamo, retiro, cuota, etc.). */
+    @Column(name = "origen_id")
+    private Long origenId;
+
     private String descripcion;
 
     @ManyToOne(fetch = FetchType.LAZY)

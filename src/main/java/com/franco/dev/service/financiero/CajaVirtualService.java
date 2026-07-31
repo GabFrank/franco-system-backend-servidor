@@ -56,52 +56,7 @@ public class CajaVirtualService {
         }
     }
 
-    /**
-     * Actualiza el saldo de forma atómica según la moneda del movimiento.
-     * La cantidad debe ser positiva para ingresos y negativa para egresos.
-     * Se usa UPDATE directo para evitar condiciones de carrera.
-     *
-     * @param cajaId  ID de la caja virtual
-     * @param monto   monto (positivo=ingreso, negativo=egreso)
-     * @param monedaDenominacion denominación de la moneda (GUARANI, REAL, DOLAR)
-     */
-    @Transactional
-    public void actualizarSaldo(Long cajaId, Double monto, String monedaDenominacion) {
-        CajaVirtual caja = repository.findById(cajaId)
-                .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada: " + cajaId));
-
-        if (monedaDenominacion != null && monedaDenominacion.toUpperCase().contains("GUARANI")) {
-            caja.setSaldoGs(caja.getSaldoGs() + monto);
-        } else if (monedaDenominacion != null && monedaDenominacion.toUpperCase().contains("REAL")) {
-            caja.setSaldoRs(caja.getSaldoRs() + monto);
-        } else if (monedaDenominacion != null && monedaDenominacion.toUpperCase().contains("DOLAR")) {
-            caja.setSaldoDs(caja.getSaldoDs() + monto);
-        } else {
-            // Por defecto Guaraníes
-            caja.setSaldoGs(caja.getSaldoGs() + monto);
-        }
-        repository.save(caja);
-    }
-
-    /**
-     * Verifica si la caja tiene fondos suficientes para un egreso.
-     *
-     * @param cajaId              ID de la caja virtual
-     * @param monto               monto a verificar (positivo)
-     * @param monedaDenominacion  denominación de la moneda
-     * @return true si hay fondos suficientes
-     */
-    public boolean verificarSaldo(Long cajaId, Double monto, String monedaDenominacion) {
-        CajaVirtual caja = repository.findById(cajaId)
-                .orElseThrow(() -> new GraphQLException("Caja virtual no encontrada: " + cajaId));
-
-        if (monedaDenominacion != null && monedaDenominacion.toUpperCase().contains("GUARANI")) {
-            return caja.getSaldoGs() >= monto;
-        } else if (monedaDenominacion != null && monedaDenominacion.toUpperCase().contains("REAL")) {
-            return caja.getSaldoRs() >= monto;
-        } else if (monedaDenominacion != null && monedaDenominacion.toUpperCase().contains("DOLAR")) {
-            return caja.getSaldoDs() >= monto;
-        }
-        return caja.getSaldoGs() >= monto;
-    }
+    // El manejo de saldo (por (caja, moneda), con lock y control de descubierto)
+    // vive en TesoreriaService. Las columnas saldo_gs/rs/ds quedan como shim
+    // derivado, sincronizadas por TesoreriaService.
 }

@@ -3,6 +3,7 @@ package com.franco.dev.service.rrhh;
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.Prestamo;
 import com.franco.dev.domain.rrhh.PrestamoCuota;
@@ -108,6 +109,8 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
         mov.setCantidad(prestamo.getMontoTotal().doubleValue());
         mov.setMoneda(prestamo.getMoneda());
         mov.setReferenciaId(prestamo.getId());
+        mov.setOrigenTipo(OrigenMovimientoTipo.RRHH_PRESTAMO);
+        mov.setOrigenId(prestamo.getId());
         mov.setDescripcion("DESEMBOLSO PRESTAMO #" + prestamo.getId() + nombreFuncionario(prestamo.getFuncionario()));
         mov.setUsuario(prestamo.getUsuario());
         mov.setActivo(true);
@@ -144,6 +147,8 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
         mov.setCantidad(pago.doubleValue());
         mov.setMoneda(prestamo.getMoneda());
         mov.setReferenciaId(prestamo.getId());
+        mov.setOrigenTipo(OrigenMovimientoTipo.RRHH_PRESTAMO);
+        mov.setOrigenId(prestamo.getId());
         mov.setDescripcion("COBRO CUOTA #" + cuota.getNumero() + " PRESTAMO #" + prestamo.getId());
         mov.setUsuario(prestamo.getUsuario());
         mov.setActivo(true);

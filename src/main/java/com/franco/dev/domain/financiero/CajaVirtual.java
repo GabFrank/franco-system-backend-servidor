@@ -69,6 +69,10 @@ public class CajaVirtual implements Serializable {
     @Column(name = "limite_gs")
     private Double limiteGs;
 
+    /** Si es false, un egreso/ajuste que dejaría el saldo por debajo de 0 se rechaza (CN2). */
+    @Column(name = "permite_saldo_negativo")
+    private Boolean permiteSaldoNegativo;
+
     private String descripcion;
 
     private Boolean activo;

@@ -8,6 +8,7 @@ import com.franco.dev.graphql.financiero.input.MovimientoCajaVirtualInput;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.MovimientoCajaVirtualService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -26,22 +27,27 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
     private final CajaVirtualService cajaVirtualService;
     private final MonedaService monedaService;
     private final UsuarioService usuarioService;
+    private final TesoreriaSecurityService seg;
 
     public MovimientoCajaVirtual movimientoCajaVirtual(Long id) {
+        seg.requireVer();
         return service.findById(id).orElse(null);
     }
 
     public Page<MovimientoCajaVirtual> movimientosCajaVirtual(Long cajaVirtualId, int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findByCajaVirtualId(cajaVirtualId, pageable);
     }
 
     public Page<MovimientoCajaVirtual> movimientosCajaVirtualPorFecha(Long cajaVirtualId, String inicio, String fin, int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findByCajaVirtualIdAndFecha(cajaVirtualId, inicio, fin, pageable);
     }
 
     public MovimientoCajaVirtual saveMovimientoCajaVirtual(MovimientoCajaVirtualInput input) {
+        seg.requireGestionar();
         MovimientoCajaVirtual entity = new MovimientoCajaVirtual();
 
         CajaVirtual cajaVirtual = cajaVirtualService.findById(input.getCajaVirtualId())
@@ -72,6 +78,7 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
 
     public Boolean realizarTransferenciaCajaVirtual(Long origenId, Long destinoId, Double cantidad,
                                                      Long monedaId, String descripcion, Long usuarioId) {
+        seg.requireGestionar();
         Moneda moneda = monedaId != null ? monedaService.findById(monedaId).orElse(null) : null;
         Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         return service.realizarTransferencia(origenId, destinoId, cantidad, moneda, descripcion, usuario);

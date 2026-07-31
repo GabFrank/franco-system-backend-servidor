@@ -50,6 +50,17 @@ public class CajaVirtualConfiguracion implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "forma_pago_id"))
     private Set<FormaPago> formasPagoVisibles = new HashSet<>();
 
+    /** Cuentas bancarias cuyo saldo se muestra en el sidebar del dashboard de la caja. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(schema = "financiero", name = "caja_virtual_config_cuenta_bancaria",
+            joinColumns = @JoinColumn(name = "configuracion_id"),
+            inverseJoinColumns = @JoinColumn(name = "cuenta_bancaria_id"))
+    private Set<CuentaBancaria> cuentasBancariasVisibles = new HashSet<>();
+
+    /** Orden de las cards de cuenta bancaria (JSON array de IDs). Null = por id ascendente. */
+    @Column(name = "cuentas_bancarias_orden")
+    private String cuentasBancariasOrden;
+
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;

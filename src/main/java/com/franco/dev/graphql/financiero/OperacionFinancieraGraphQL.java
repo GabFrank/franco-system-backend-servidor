@@ -62,7 +62,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     public OperacionFinanciera registrarOperacionFinanciera(OperacionFinancieraInputWrapper in) {
         seg.requireGestionar();
         OperacionFinanciera op = new OperacionFinanciera();
-        op.setTipoOperacion(TipoOperacionFinanciera.valueOf(in.getTipoOperacion()));
+        op.setTipoOperacion(in.getTipoOperacion());
         op.setDescripcion(in.getDescripcion());
         op.setCotizacion(in.getCotizacion() != null ? BigDecimal.valueOf(in.getCotizacion()) : null);
         op.setNumeroComprobante(in.getNumeroComprobante());
@@ -80,7 +80,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
 
     @Data
     public static class OperacionFinancieraInputWrapper {
-        private String tipoOperacion;
+        private TipoOperacionFinanciera tipoOperacion;
         private String descripcion;
         private Long categoriaId;
         private Long cajaMayorOrigenId;

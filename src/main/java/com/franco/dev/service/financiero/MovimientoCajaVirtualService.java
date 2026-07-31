@@ -39,6 +39,16 @@ public class MovimientoCajaVirtualService {
                 cajaVirtualId, stringToDate(inicio), stringToDate(fin), pageable);
     }
 
+    /** Filtro combinado de movimientos: fecha (opcional), tipo (opcional), y soloActivos (oculta anulados). */
+    public Page<MovimientoCajaVirtual> filter(Long cajaVirtualId, String desde, String fin,
+                                              com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento tipo,
+                                              boolean soloActivos, Pageable pageable) {
+        return repository.filter(cajaVirtualId,
+                (desde != null && !desde.isEmpty()) ? stringToDate(desde) : null,
+                (fin != null && !fin.isEmpty()) ? stringToDate(fin) : null,
+                tipo, soloActivos, pageable);
+    }
+
     /** Registra un movimiento y actualiza el saldo de la caja de forma atómica (delega en TesoreriaService). */
     public MovimientoCajaVirtual registrarMovimiento(MovimientoCajaVirtual movimiento) {
         return tesoreriaService.registrar(movimiento);

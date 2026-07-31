@@ -1,8 +1,10 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.domain.financiero.CajaVirtualConfiguracion;
+import com.franco.dev.domain.financiero.CuentaBancaria;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.repository.financiero.CajaVirtualConfiguracionRepository;
+import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.FormaPagoRepository;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
@@ -22,6 +24,7 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
 
     private final CajaVirtualConfiguracionRepository repository;
     private final FormaPagoRepository formaPagoRepository;
+    private final CuentaBancariaRepository cuentaBancariaRepository;
     private final CajaVirtualService cajaVirtualService;
     private final TesoreriaSecurityService seg;
 
@@ -49,6 +52,17 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
             }
             c.setFormasPagoVisibles(fps);
         }
+        if (input.getCuentasBancariasVisiblesIds() != null) {
+            Set<CuentaBancaria> cbs = new HashSet<>();
+            for (Long id : input.getCuentasBancariasVisiblesIds()) {
+                cuentaBancariaRepository.findById(id).ifPresent(cbs::add);
+            }
+            c.setCuentasBancariasVisibles(cbs);
+        }
+        // Semántica PATCH: solo pisar el orden si el input lo trae (no borrarlo en saves parciales).
+        if (input.getCuentasBancariasOrden() != null) {
+            c.setCuentasBancariasOrden(input.getCuentasBancariasOrden());
+        }
         return repository.save(c);
     }
 
@@ -60,5 +74,7 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
         private Boolean mostrarCuentasPorCobrar;
         private Boolean operacionesFinancierasHabilitado;
         private List<Long> formasPagoVisiblesIds;
+        private List<Long> cuentasBancariasVisiblesIds;
+        private String cuentasBancariasOrden;
     }
 }

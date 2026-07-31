@@ -20,4 +20,9 @@ public interface AcreditacionPosRepository extends JpaRepository<AcreditacionPos
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from AcreditacionPos a where a.id = :id")
     Optional<AcreditacionPos> lockById(@Param("id") Long id);
+
+    /** Suma del monto esperado de acreditaciones POS pendientes de una cuenta (saldo "futuro"). */
+    @Query("select coalesce(sum(a.montoEsperado), 0) from AcreditacionPos a "
+            + "where a.cuentaBancaria.id = :cbId and a.estado = com.franco.dev.domain.financiero.enums.EstadoAcreditacionPos.PENDIENTE")
+    java.math.BigDecimal sumEsperadoPendienteByCuenta(@Param("cbId") Long cbId);
 }

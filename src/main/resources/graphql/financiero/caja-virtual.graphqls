@@ -40,12 +40,29 @@ type CajaVirtualPage {
     getContent: [CajaVirtual]
 }
 
+# Saldo de efectivo por moneda de una caja (fuente de verdad: caja_virtual_saldo).
+type CajaVirtualSaldoItem {
+    moneda: Moneda
+    saldo: Float
+}
+
+# Resumen de una cuenta bancaria para el sidebar del dashboard de caja.
+type CuentaBancariaResumen {
+    cuentaBancaria: CuentaBancaria
+    saldo: Float
+    saldoReservado: Float
+    saldoFuturo: Float
+}
+
 extend type Query {
     cajaVirtual(id: ID!): CajaVirtual
     cajaVirtuales(page: Int = 0, size: Int = 10): CajaVirtualPage
+    cajaVirtualesFilter(nombre: String, tipo: CajaVirtualTipo, sucursalId: Int, activo: Boolean, page: Int = 0, size: Int = 10): CajaVirtualPage
     cajaVirtualesPorTipo(tipo: CajaVirtualTipo!): [CajaVirtual]
     cajaVirtualesPorSucursal(sucursalId: ID!): [CajaVirtual]
     cajaVirtualesActivas: [CajaVirtual]
+    cajaVirtualSaldos(cajaVirtualId: ID!): [CajaVirtualSaldoItem]
+    cajaVirtualResumenBancario(cajaVirtualId: ID!): [CuentaBancariaResumen]
 }
 
 extend type Mutation {

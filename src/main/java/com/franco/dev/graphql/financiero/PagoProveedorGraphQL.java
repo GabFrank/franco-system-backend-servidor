@@ -36,7 +36,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         List<PagoProveedorService.LineaPago> ls = new ArrayList<>();
         for (LineaPagoInputWrapper w : lineas) {
             PagoProveedorService.LineaPago l = new PagoProveedorService.LineaPago();
-            l.setFuente(FuentePago.valueOf(w.getFuente()));
+            l.setFuente(w.getFuente());
             l.setCajaVirtualId(w.getCajaVirtualId());
             l.setCuentaBancariaId(w.getCuentaBancariaId());
             l.setMonedaId(w.getMonedaId());
@@ -50,7 +50,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Data
     public static class LineaPagoInputWrapper {
-        private String fuente;
+        private FuentePago fuente;
         private Long cajaVirtualId;
         private Long cuentaBancariaId;
         private Long monedaId;

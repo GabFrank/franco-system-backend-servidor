@@ -5,6 +5,8 @@ type CajaVirtualConfiguracion {
     mostrarCuentasPorCobrar: Boolean
     operacionesFinancierasHabilitado: Boolean
     formasPagoVisibles: [FormaPago]
+    cuentasBancariasVisibles: [CuentaBancaria]
+    cuentasBancariasOrden: String
     creadoEn: Date
 }
 
@@ -14,6 +16,8 @@ input CajaVirtualConfiguracionInput {
     mostrarCuentasPorCobrar: Boolean
     operacionesFinancierasHabilitado: Boolean
     formasPagoVisiblesIds: [Int]
+    cuentasBancariasVisiblesIds: [Int]
+    cuentasBancariasOrden: String
 }
 
 extend type Query {

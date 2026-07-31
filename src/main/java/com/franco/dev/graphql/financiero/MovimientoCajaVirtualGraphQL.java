@@ -46,6 +46,15 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
         return service.findByCajaVirtualIdAndFecha(cajaVirtualId, inicio, fin, pageable);
     }
 
+    /** Movimientos filtrados por fecha/tipo, con opción de ocultar anulados (para el dashboard). */
+    public Page<MovimientoCajaVirtual> movimientosCajaVirtualFilter(Long cajaVirtualId, String desde, String fin,
+                                                                    com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento tipo,
+                                                                    Boolean soloActivos, int page, int size) {
+        seg.requireVer();
+        Pageable pageable = PageRequest.of(page, size);
+        return service.filter(cajaVirtualId, desde, fin, tipo, soloActivos != null && soloActivos, pageable);
+    }
+
     public MovimientoCajaVirtual saveMovimientoCajaVirtual(MovimientoCajaVirtualInput input) {
         seg.requireGestionar();
         MovimientoCajaVirtual entity = new MovimientoCajaVirtual();
@@ -74,6 +83,11 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
         }
 
         return service.registrarMovimiento(entity);
+    }
+
+    public MovimientoCajaVirtual anularMovimientoCajaVirtual(Long id, String motivo) {
+        seg.requireGestionar();
+        return service.anularMovimiento(id, motivo, seg.currentUsuario());
     }
 
     public Boolean realizarTransferenciaCajaVirtual(Long origenId, Long destinoId, Double cantidad,

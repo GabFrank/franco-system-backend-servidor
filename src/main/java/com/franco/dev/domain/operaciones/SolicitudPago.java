@@ -59,6 +59,9 @@ public class SolicitudPago implements Identifiable<Long> {
     @Column(name = "monto_total", nullable = false)
     private Double montoTotal;
 
+    @Column(name = "monto_pagado")
+    private java.math.BigDecimal montoPagado;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id", nullable = false)
     private Moneda moneda;

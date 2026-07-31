@@ -35,6 +35,10 @@ public class Proveedor implements Identifiable<Long> {
 
     private Boolean credito;
 
+    /** Saldo de cuenta corriente (deuda con el proveedor). */
+    @javax.persistence.Column(name = "saldo_actual")
+    private java.math.BigDecimal saldoActual;
+
     @Column(name = "tipo_credito")
     private String tipoCredito;
 

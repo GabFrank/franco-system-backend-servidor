@@ -1,0 +1,40 @@
+enum FuentePago {
+    CAJA_MAYOR
+    CUENTA_BANCARIA
+    CHEQUE
+}
+
+type MovimientoProveedor {
+    id: ID!
+    tipo: String
+    monto: Float
+    saldoAnterior: Float
+    saldoPosterior: Float
+    solicitudPagoId: Int
+    descripcion: String
+    anulado: Boolean
+    creadoEn: Date
+}
+
+type MovimientoProveedorPage {
+    getTotalElements: Int
+    getContent: [MovimientoProveedor]
+}
+
+input LineaPagoInput {
+    fuente: FuentePago!
+    cajaVirtualId: Int
+    cuentaBancariaId: Int
+    monedaId: Int
+    monto: Float!
+    cotizacion: Float
+    montoSolicitud: Float
+}
+
+extend type Query {
+    movimientosProveedor(proveedorId: ID!, page: Int = 0, size: Int = 10): MovimientoProveedorPage
+}
+
+extend type Mutation {
+    pagarSolicitud(solicitudId: ID!, lineas: [LineaPagoInput!]!): SolicitudPago!
+}

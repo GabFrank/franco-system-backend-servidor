@@ -263,10 +263,12 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - `CobroCreditoGraphQL` con guards. Test `CobroCreditoServiceTest` (4) verde.
 - Pendiente (follow-up dentro de F5/F8): cobro consolidado por convenio (recibo PDF) — alinear con crédito por convenio de RRHH; cobro por cheque (llega con F7); anulación idempotente de cobro.
 
-**Fase 6 — CPP: pagos a proveedores.**
-`SolicitudPago` como CPP + transición PENDIENTE→PARCIAL→CONCLUIDO. Pago **simple / mixto (multi-línea moneda/forma/fuente)
-/ lote**. `PAGO_PROVEEDOR` como emisor real. Préstamo a funcionario con dirección invertida (unificar con RRHH).
-`MovimientoProveedor` + saldo proveedor.
+**Fase 6 — CPP: pagos a proveedores. ✅ HECHO backend core (2026-07-31)**
+- `V182.5`: `proveedor.saldo_actual`; `solicitud_pago.monto_pagado`; `movimiento_proveedor` (ledger); `pago_solicitud_detalle` (pago mixto).
+- `MovimientoProveedor` + enum; enums `FuentePago` (CAJA_MAYOR/CUENTA_BANCARIA/CHEQUE, **abierto** AJ-16); `Proveedor.saldoActual`; `SolicitudPago.montoPagado`.
+- **`ProveedorCuentaService`**: cuenta corriente con lock; **`PagoProveedorService`**: pago **mixto** (varias líneas caja/banco por solicitud), `PAGO_PROVEEDOR` como emisor real, doble ledger (egreso + PAGO proveedor), transición PENDIENTE→PARCIAL→CONCLUIDO, tope por saldo + tolerancia.
+- `PagoProveedorGraphQL` con guards. Test `PagoProveedorServiceTest` (5) verde.
+- Pendiente (follow-up F6/F8): pago en lote (multi-solicitud), "toda compra → CPP" wiring en `CompraService` (DA2, requiere tocar Compras — riesgoso, aparte), fuente CHEQUE (llega con F7), deprecar `CompraGraphQL.saveCompra` paralelo (AJ-6). Préstamo funcionario invertido: RRHH ya lo maneja.
 
 **Fase 7 — Cheques + POS.**
 Cheques: emitir (diferido reserva saldo / contado débito+COBRADO), cobrar diferido, anular; numeración de chequera.

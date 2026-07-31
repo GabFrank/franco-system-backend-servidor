@@ -176,14 +176,49 @@ plan de central (coordinar aparte si hace falta). frc-comercial central ya tiene
 | CN3 | **Numeración de comprobantes** (serie configurable: prefijo + próximo número) | ✅ INCLUIR (resuelve DA4) |
 | CN4 | **Límite de anulación por antigüedad** (`diasLimiteAnulacion`, global o por tipo) | ✅ INCLUIR (F1) |
 | CN5 | Tolerancia de diferencia de caja | ⛔ FUERA (es de PdV → desktop/filial) |
-| CN6 | **Monto que exige autorización** (por tipo de movimiento) | ✅ INCLUIR (bajo costo, más config = mejor) |
-| CN7 | **Redondeo configurable por moneda** (regla + múltiplo 50/100 Gs para vueltos) | ✅ INCLUIR (F "config base") |
+| CN6 | Monto que exige autorización | ⏸️ DIFERIR (revisión: huérfano — sin fase/test/flujo; agrega complejidad sin dueño). Retomar con diseño de workflow completo si se necesita. |
+| CN7 | **Redondeo configurable por moneda** (regla + múltiplo 50/100 Gs para vueltos) | ✅ INCLUIR (F config base) |
 | CN8 | **Días de anticipación de aviso de vencimiento** (cheques/CPP/CPC) | ✅ INCLUIR (con notificaciones, F8) |
-| CN9 | **Feature flags por sub-módulo** (habilitar/deshabilitar CPC, op. financieras, etc.) | ✅ INCLUIR (rollout por fases) |
+| CN9 | ~~Feature flags por sub-módulo~~ | ❌ ELIMINADO (revisión: duplica `CajaMayorConfiguracion.mostrarCPP/CPC`). Se cubre extendiendo `CajaMayorConfiguracion` con booleanos (`operacionesFinancierasHabilitado`, etc.) en F2. |
 | CN10 | **Auditoría de cambios de configuración** (quién cambió qué umbral y cuándo) | ✅ INCLUIR (compliance, bajo costo) |
 
-> Decisión: **incluir CN1–CN4 y CN6–CN10** (todas salvo CN5, que es de PdV). Criterio del equipo: cuanta más
-> configuración disponible, mejor. Cada una en su fase natural (config base con F1/F2; vencimientos con F8).
+> Decisión post-revisión: **incluir CN1–CN4, CN7, CN8, CN10** (config base con F1/F2; vencimientos/notif con F8).
+> **CN5** fuera (PdV). **CN6** diferido (huérfano). **CN9** eliminado (lo cubre `CajaMayorConfiguracion` en F2).
+> **CN4** se implementa con default permisivo (sin límite) — la validación por antigüedad vive en el helper, la UI de config va en F8.
+
+### 2.6 Ajustes de la revisión del plan (2026-07-31) — AUTORITATIVO
+Tres agentes revisaron el plan. Estos ajustes **prevalecen** sobre el texto de las fases donde haya conflicto.
+
+**🔴 Estructural (reescribe F3 y F5): datos que llegan por replicación, no por Spring.**
+- `financiero.retiro`, `financiero.venta_credito`, `financiero.venta_credito_cuota`, `operaciones.cobro` son **BRANCH_TO_MAIN**: llegan a central por **replicación lógica PG (WAL-apply)**, NO por `save()`/eventos Spring → ningún listener corre sobre esas filas.
+- **AJ-1 (F3):** el puente Retiro→Caja Mayor **no** puede ser un hook a `RetiroService.save()`. Usar un **`@Scheduled` poller reconciliador** (patrón `SifenSchedulerService`/`CotizacionMercadoScheduler`): escanea `financiero.retiro WHERE caja_virtual_id IS NULL AND estado IN (...)`, postea el `MovimientoCajaVirtual` y marca la fila procesada. 1 clase nueva, patrón ya probado.
+- **AJ-2 (F5):** mismo poller para reconciliar `venta_credito_cuota` cobradas → `MovimientoCliente`/`Cliente.saldoActual`.
+- **DA8 (nueva decisión de negocio, evita doble-cobro):** la replicación es **unidireccional filial→central** (no hay HTTP central→filial). Por eso: **el cobro de cuota en efectivo sigue siendo exclusivo del POS filial**; Tesorería central (F5) **solo cobra los canales que el POS no maneja** (banco/cheque). Así no hay carrera de doble cobro.
+- **AJ-3 (F2):** "egreso de caja inicial" es **puro asiento contable central-only** (no viaja a la filial ni dispara apertura de PdvCaja automáticamente) → no requiere bridge central→filial. Aclarado así; si se quisiera el vínculo real, iría después de F3.
+
+**🟠 Simplificaciones de duplicación:**
+- **AJ-4 (F8 notificaciones):** central **ya tiene** el modelo evento→receptor→canal (`NotificacionTipoRole`, `NotificacionPreferenciaUsuario`, `NotificacionEnvioLog`, `RrhhNotificacionScheduler`, `PushNotificationService`). **No portar** las 4 entidades de gourmet: reusar lo existente + agregar solo una tabla angosta de **canal saliente** (PUSH/EMAIL/WHATSAPP) — SMTP/WhatsApp es lo único genuinamente nuevo.
+- **AJ-5 (§2.5):** CN9 eliminado (lo cubre `CajaMayorConfiguracion`); CN6 diferido.
+- **AJ-6 (F6/F8):** DA2 "toda compra → CPP" es papel mientras `CompraGraphQL` (`saveCompra`) siga wireado. Verificar callers vivos en desktop/mobile y deprecar el camino paralelo para que DA2 sea invariante real.
+
+**🟡 F1 (núcleo) — precisiones antes de codear:**
+- **AJ-7:** "migrar 5 consumidores RRHH" es engañoso — son **0 líneas en RRHH**; la migración de saldo (`Gs/Rs/Ds` → tabla `(caja,moneda)`) es **interna** a `CajaVirtualService`/`MovimientoCajaVirtualService`, sin cambiar la firma de `registrarMovimiento`.
+- **AJ-8:** mantener `saldoGs/Rs/Ds` como **campos derivados (shim)** recalculados desde la tabla nueva, o las UIs de desktop (RRHH + Tesorería fd-93) muestran `0`/`null` sin error de build (falla silenciosa). El soporte real de N monedas se ve recién al portar la UI (F2/F8).
+- **AJ-9:** helper de saldo con lock debe **lockear cajas en orden canónico (id asc)** → evita deadlock en transferencias A→B / B→A.
+- **AJ-10:** helper **genérico** (parametrizado por par saldo/ledger) para que F4 (`CuentaBancaria`/`MovimientoBancario`) lo **reutilice**, no reimplemente. Consolidar los 3 `findById` redundantes de `registrarMovimiento` en una sola lectura+lock+update.
+- **AJ-11:** backfill de `origenTipo`/`origenId` en filas ya posteadas, reusando el FK inverso `movimientoCajaVirtualId` que las 5 entidades RRHH ya guardan (`UPDATE ... FROM rrhh.vale v WHERE v.movimiento_caja_virtual_id = m.id`, ×5 tablas).
+- **AJ-12:** `AJUSTE` con signo = permitir **`cantidad` negativa** (no partir el enum). `esEgreso` deja de ser la única fuente de signo.
+- **AJ-13:** extender `TipoMovimiento` (enum PG) con el patrón idempotente `ALTER TYPE ... ADD VALUE` ya usado (`V105`, `V125.3`, `V141.0`, `V146.0`, `V149.0`) — nunca usar el valor nuevo en la misma transacción.
+- **AJ-14:** CN3 (numeración) → F2. CN4 (límite anulación) → validación en helper con default permisivo; UI de config en F8.
+
+**🟡 Otros:**
+- **AJ-15 (F3):** `Retiro.java` **no mapea** `caja_virtual_id` (columna V114.1) — agregar el campo antes de la lógica. Los estados `FLOTANTE/INGRESADO` del texto **no existen** en `EstadoRetiro` real (`EN_PROCESO, CONCLUIDO, ...`) — mapear a estados reales o declarar nuevos.
+- **AJ-16 (F6):** dejar el enum "fuente de pago" **abierto** (`CAJA | BANCO | CHEQUE`) — `Cheque.pagoDetalleCuota` ya existe → F7 no reabre el servicio de F6.
+- **AJ-17 (F7):** migrar `VentaTarjeta.estado` (hoy `String`) a enum tipado (`PostgreSQLEnumType`). Scheduler POS: **update atómico por estado** (no lectura+escritura separada) para no duplicar acreditaciones.
+- **AJ-18 (F2):** atar `ConfiguracionGeneral` (timbrado/zonaHoraria/monedaPrincipal/logo) y `TipoPrecio.autorizadoPor` a F2 (config base).
+- **AJ-19 (manual):** agregar a §4 del manual de prueba: bloqueo de saldo negativo en cuenta bancaria + anulación de un depósito/retiro bancario.
+
+**✅ Confirmado sólido por la revisión:** D5/D6/D7, router `FormaPago.movimientoCaja`+`cuentaBancaria`, `SolicitudPago` como CPP (central-only, sin problema de replicación), secuenciamiento F1→F8, CN1/CN2/CN3/CN4/CN7/CN8.
 
 ### Fases
 

@@ -42,6 +42,8 @@
 - [ ] **Retiro bancario** → resta en cuenta + ingreso en caja.
 - [ ] **Transferencia entre cajas** (mayor↔chica) → par transferencia.
 - [ ] **Transferencia bancaria** (banco→banco) → mueve solo cuentas, **no** toca caja mayor.
+- [ ] Un egreso/depósito que dejaría la cuenta bancaria en negativo → **bloqueado** (CN2).
+- [ ] **Anular** un depósito/retiro bancario → contra-movimiento; saldo de la cuenta restaurado.
 - [ ] Ledger unificado de la cuenta muestra todo sin duplicados.
 
 ## 5. CPC — cobros a clientes (F5)

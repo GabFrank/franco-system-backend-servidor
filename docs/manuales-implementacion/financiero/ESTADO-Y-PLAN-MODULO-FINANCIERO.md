@@ -247,11 +247,13 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - Test `RetiroTesoreriaSchedulerTest` (3) verde.
 - Nota (DA1): el poller corre en central sobre las tablas ya replicadas. **El wiring filial-side** (que el retiro nazca con `caja_virtual_id` seteado) es follow-up cuando se toque el flujo de cierre de caja en filial/desktop. Estado `CONCLUIDO`/`VERIFICADO_*` real (no `FLOTANTE/INGRESADO`, que no existen — AJ-15).
 
-**Fase 4 — Bancos + operaciones financieras.**
-`CuentaBancaria` con 3 saldos (actual/reservado/futuro). `MovimientoBancario` + enum (5 tipos) + helper.
-Ledger unificado de cuenta (dedupe multi-fuente). Ajuste manual. **Operaciones financieras**: los 5 tipos
-(CAMBIO_DIVISA, DEPOSITO/RETIRO_BANCARIO, TRANSFERENCIA_ENTRE_CAJAS, TRANSFERENCIA_BANCARIA) + manejo de
-diferencia. Exponer UI de bancos (poblar menú "Bancario").
+**Fase 4 — Bancos + operaciones financieras. ✅ HECHO backend (2026-07-31)**
+- `V180.5`: `cuenta_bancaria` (saldo, saldo_reservado, titular, alias, activo, permite_saldo_negativo); `movimiento_bancario` (ledger, 5 tipos); `operacion_financiera` + categoría.
+- `CuentaBancaria` enriquecida; `MovimientoBancario` + enum `MovimientoBancarioTipo`; `OperacionFinanciera`/`OperacionFinancieraCategoria` + enum `TipoOperacionFinanciera`.
+- **`BancoLedgerService`** (AJ-10): ledger de banco con lock pesimista (`lockById`), control de descubierto, `ajustarReservado` (para cheques diferidos F7). Análogo a `TesoreriaService`.
+- **`OperacionFinancieraService`**: los 5 tipos — CAMBIO_DIVISA (egreso+ingreso caja), DEPOSITO (egreso caja + entrada banco), RETIRO (salida banco + ingreso caja), TRANSFERENCIA_ENTRE_CAJAS (salida+entrada caja), TRANSFERENCIA_BANCARIA (banco→banco, **no toca caja**). Atómico.
+- `OperacionFinancieraGraphQL` con guards. Test `OperacionFinancieraServiceTest` (5, cubre los 5 tipos) verde.
+- Pendiente F8/UI: saldo futuro (calculado con POS de F7), ledger unificado con dedupe, ajuste manual de movimiento, UI de bancos/menú "Bancario".
 
 **Fase 5 — CPC: cobros a clientes (robusto).**
 `VentaCredito`/`Cuota` como CPC. Cobro con bifurcación caja/banco, parcial, conversión de moneda, cobro rápido.

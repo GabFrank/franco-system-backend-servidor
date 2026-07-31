@@ -57,6 +57,22 @@ public class CuentaBancaria implements Identifiable<Long> {
     private Moneda moneda;
 
     @Enumerated(EnumType.STRING)
+    /** Saldo disponible de la cuenta. */
+    private java.math.BigDecimal saldo;
+
+    /** Comprometido por cheques diferidos emitidos no cobrados. */
+    @Column(name = "saldo_reservado")
+    private java.math.BigDecimal saldoReservado;
+
+    private String titular;
+
+    private String alias;
+
+    private Boolean activo;
+
+    @Column(name = "permite_saldo_negativo")
+    private Boolean permiteSaldoNegativo;
+
     @Column(name = "tipo_cuenta")
     @Type( type = "tipo_cuenta")
     private TipoCuenta tipoCuenta;

@@ -24,6 +24,8 @@ class ChequeGestionServiceTest {
 
     private ChequeService chequeService;
     private ChequeraService chequeraService;
+    private com.franco.dev.repository.financiero.ChequeRepository chequeRepository;
+    private com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
     private BancoLedgerService bancoLedgerService;
     private ChequeGestionService service;
 
@@ -34,14 +36,16 @@ class ChequeGestionServiceTest {
     void setUp() {
         chequeService = mock(ChequeService.class);
         chequeraService = mock(ChequeraService.class);
+        chequeRepository = mock(com.franco.dev.repository.financiero.ChequeRepository.class);
+        chequeraRepository = mock(com.franco.dev.repository.financiero.ChequeraRepository.class);
         bancoLedgerService = mock(BancoLedgerService.class);
-        service = new ChequeGestionService(chequeService, chequeraService, bancoLedgerService);
+        service = new ChequeGestionService(chequeService, chequeraService, chequeRepository, chequeraRepository, bancoLedgerService);
 
         cuenta = new CuentaBancaria(); cuenta.setId(4L);
         chequera = new Chequera(); chequera.setId(1L); chequera.setSiguienteNumero(100L);
         chequera.setRangoHasta(105.0); chequera.setEstado(EstadoChequera.ACTIVA); chequera.setCuentaBancaria(cuenta);
 
-        when(chequeraService.findById(1L)).thenReturn(Optional.of(chequera));
+        when(chequeraRepository.lockById(1L)).thenReturn(Optional.of(chequera));
         when(chequeraService.save(any())).thenAnswer(i -> i.getArgument(0));
         when(chequeService.save(any())).thenAnswer(i -> i.getArgument(0));
     }
@@ -72,7 +76,7 @@ class ChequeGestionServiceTest {
     @Test
     void cobrar_diferido_debita_y_libera_reserva() {
         Cheque c = nuevo(true); c.setId(9L); c.setEstado(EstadoCheque.DIFERIDO); c.setCuentaBancaria(cuenta);
-        when(chequeService.findById(9L)).thenReturn(Optional.of(c));
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
 
         Cheque r = service.cobrar(9L, null);
         assertEquals(EstadoCheque.COBRADO, r.getEstado());
@@ -83,7 +87,7 @@ class ChequeGestionServiceTest {
     @Test
     void anular_cobrado_falla() {
         Cheque c = nuevo(false); c.setId(9L); c.setEstado(EstadoCheque.COBRADO);
-        when(chequeService.findById(9L)).thenReturn(Optional.of(c));
+        when(chequeRepository.lockById(9L)).thenReturn(Optional.of(c));
         assertThrows(GraphQLException.class, () -> service.anular(9L, "x", null));
     }
 

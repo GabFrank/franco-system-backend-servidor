@@ -27,6 +27,7 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     private final EntradaVariaCategoriaRepository categoriaRepository;
     private final CajaVirtualService cajaVirtualService;
     private final MonedaService monedaService;
+    private final com.franco.dev.repository.financiero.FormaPagoRepository formaPagoRepository;
     private final TesoreriaSecurityService seg;
 
     public List<EntradaVariaCategoria> entradaVariaCategorias() {
@@ -64,6 +65,7 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 .orElseThrow(() -> new GraphQLException("Caja mayor no encontrada")));
         if (input.getMonedaId() != null) e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         if (input.getCategoriaId() != null) e.setCategoria(categoriaRepository.findById(input.getCategoriaId()).orElse(null));
+        if (input.getFormaPagoId() != null) e.setFormaPago(formaPagoRepository.findById(input.getFormaPagoId()).orElse(null));
         return service.registrar(e, seg.currentUsuario());
     }
 

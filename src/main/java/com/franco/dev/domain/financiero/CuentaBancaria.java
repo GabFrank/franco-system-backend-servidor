@@ -56,8 +56,8 @@ public class CuentaBancaria implements Identifiable<Long> {
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;
 
-    @Enumerated(EnumType.STRING)
     /** Saldo disponible de la cuenta. */
+    @Column(name = "saldo")
     private java.math.BigDecimal saldo;
 
     /** Comprometido por cheques diferidos emitidos no cobrados. */

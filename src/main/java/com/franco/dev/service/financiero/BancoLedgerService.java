@@ -42,8 +42,10 @@ public class BancoLedgerService {
         BigDecimal delta = esEgreso(tipo) ? monto.abs().negate() : monto.abs();
         BigDecimal nuevo = anterior.add(delta);
         boolean permiteNegativo = Boolean.TRUE.equals(cuenta.getPermiteSaldoNegativo());
-        if (!permiteNegativo && nuevo.compareTo(BigDecimal.ZERO) < 0) {
-            throw new GraphQLException("Saldo insuficiente en la cuenta bancaria");
+        // El descubierto se controla contra el disponible (saldo − reservado por cheques diferidos).
+        BigDecimal reservado = cuenta.getSaldoReservado() != null ? cuenta.getSaldoReservado() : BigDecimal.ZERO;
+        if (!permiteNegativo && esEgreso(tipo) && nuevo.subtract(reservado).compareTo(BigDecimal.ZERO) < 0) {
+            throw new GraphQLException("Saldo insuficiente en la cuenta bancaria (disponible = saldo − reservado)");
         }
         cuenta.setSaldo(nuevo);
         cuentaRepository.save(cuenta);

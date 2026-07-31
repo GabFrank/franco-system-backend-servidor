@@ -6,9 +6,18 @@ enum TipoOperacionFinanciera {
     TRANSFERENCIA_BANCARIA
 }
 
+type OperacionFinancieraCategoria {
+    id: ID!
+    nombre: String
+    padre: OperacionFinancieraCategoria
+    icono: String
+    activo: Boolean
+}
+
 type OperacionFinanciera {
     id: ID!
     tipoOperacion: TipoOperacionFinanciera
+    categoria: OperacionFinancieraCategoria
     descripcion: String
     cajaMayorOrigen: CajaVirtual
     cuentaBancariaOrigen: CuentaBancaria
@@ -64,6 +73,7 @@ type MovimientoBancarioPage {
 
 extend type Query {
     operacionesFinancieras(page: Int = 0, size: Int = 10): OperacionFinancieraPage
+    operacionFinancieraCategorias: [OperacionFinancieraCategoria]
     movimientosBancarios(cuentaBancariaId: ID!, page: Int = 0, size: Int = 10): MovimientoBancarioPage
 }
 

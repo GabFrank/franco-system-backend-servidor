@@ -25,19 +25,28 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     private final CajaVirtualService cajaVirtualService;
     private final CuentaBancariaRepository cuentaBancariaRepository;
     private final MonedaService monedaService;
+    private final com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository categoriaRepository;
     private final TesoreriaSecurityService seg;
 
     public OperacionFinancieraGraphQL(OperacionFinancieraService service,
                                       MovimientoBancarioRepository movimientoBancarioRepository,
                                       CajaVirtualService cajaVirtualService,
                                       CuentaBancariaRepository cuentaBancariaRepository,
-                                      MonedaService monedaService, TesoreriaSecurityService seg) {
+                                      MonedaService monedaService,
+                                      com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository categoriaRepository,
+                                      TesoreriaSecurityService seg) {
         this.service = service;
         this.movimientoBancarioRepository = movimientoBancarioRepository;
         this.cajaVirtualService = cajaVirtualService;
         this.cuentaBancariaRepository = cuentaBancariaRepository;
         this.monedaService = monedaService;
+        this.categoriaRepository = categoriaRepository;
         this.seg = seg;
+    }
+
+    public java.util.List<com.franco.dev.domain.financiero.OperacionFinancieraCategoria> operacionFinancieraCategorias() {
+        seg.requireVer();
+        return categoriaRepository.findByActivoTrue();
     }
 
     public Page<OperacionFinanciera> operacionesFinancieras(int page, int size) {
@@ -65,6 +74,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         if (in.getCuentaBancariaDestinoId() != null) op.setCuentaBancariaDestino(cuentaBancariaRepository.findById(in.getCuentaBancariaDestinoId()).orElse(null));
         if (in.getMonedaOrigenId() != null) op.setMonedaOrigen(monedaService.findById(in.getMonedaOrigenId()).orElse(null));
         if (in.getMonedaDestinoId() != null) op.setMonedaDestino(monedaService.findById(in.getMonedaDestinoId()).orElse(null));
+        if (in.getCategoriaId() != null) op.setCategoria(categoriaRepository.findById(in.getCategoriaId()).orElse(null));
         return service.registrar(op, seg.currentUsuario());
     }
 

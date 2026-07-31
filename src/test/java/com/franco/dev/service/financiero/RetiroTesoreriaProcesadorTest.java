@@ -17,14 +17,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/** Puente Retiro → Caja Mayor (F3): idempotencia, guard anti doble-ingreso, posteo por moneda. */
-class RetiroTesoreriaSchedulerTest {
+/** Puente Retiro -> Caja Mayor (F3): idempotencia, guard anti doble-ingreso, posteo por moneda. */
+class RetiroTesoreriaProcesadorTest {
 
     private RetiroRepository retiroRepository;
     private RetiroDetalleService retiroDetalleService;
     private CajaVirtualService cajaVirtualService;
     private TesoreriaService tesoreriaService;
-    private RetiroTesoreriaScheduler scheduler;
+    private RetiroTesoreriaProcesador procesador;
 
     private CajaVirtual caja;
     private Moneda gs;
@@ -35,35 +35,26 @@ class RetiroTesoreriaSchedulerTest {
         retiroDetalleService = mock(RetiroDetalleService.class);
         cajaVirtualService = mock(CajaVirtualService.class);
         tesoreriaService = mock(TesoreriaService.class);
-        scheduler = new RetiroTesoreriaScheduler(retiroRepository, retiroDetalleService, cajaVirtualService, tesoreriaService);
+        procesador = new RetiroTesoreriaProcesador(retiroRepository, retiroDetalleService, cajaVirtualService, tesoreriaService);
 
-        caja = new CajaVirtual();
-        caja.setId(5L);
-        gs = new Moneda();
-        gs.setId(10L);
-        gs.setDenominacion("GUARANIES");
+        caja = new CajaVirtual(); caja.setId(5L);
+        gs = new Moneda(); gs.setId(10L); gs.setDenominacion("GUARANIES");
 
         when(cajaVirtualService.findById(5L)).thenReturn(Optional.of(caja));
         when(retiroRepository.save(any())).thenAnswer(i -> i.getArgument(0));
-        MovimientoCajaVirtual posteado = new MovimientoCajaVirtual();
-        posteado.setId(777L);
+        MovimientoCajaVirtual posteado = new MovimientoCajaVirtual(); posteado.setId(777L);
         when(tesoreriaService.registrar(any())).thenReturn(posteado);
     }
 
     private Retiro retiro(Long movMarker) {
         Retiro r = new Retiro();
-        r.setId(1L);
-        r.setSucursalId(2L);
-        r.setCajaVirtualId(5L);
-        r.setMovimientoCajaVirtualId(movMarker);
-        r.setEstado(EstadoRetiro.CONCLUIDO);
+        r.setId(1L); r.setSucursalId(2L); r.setCajaVirtualId(5L);
+        r.setMovimientoCajaVirtualId(movMarker); r.setEstado(EstadoRetiro.CONCLUIDO);
         return r;
     }
 
     private RetiroDetalle detalle(double cantidad) {
-        RetiroDetalle d = new RetiroDetalle();
-        d.setCantidad(cantidad);
-        d.setMoneda(gs);
+        RetiroDetalle d = new RetiroDetalle(); d.setCantidad(cantidad); d.setMoneda(gs);
         return d;
     }
 
@@ -71,26 +62,23 @@ class RetiroTesoreriaSchedulerTest {
     void postea_ingreso_y_marca_procesado() {
         Retiro r = retiro(null);
         when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
-        when(retiroDetalleService.findByRetiroId(1L, 2L))
-                .thenReturn(Arrays.asList(detalle(100000), detalle(50000)));
+        when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Arrays.asList(detalle(100000), detalle(50000)));
 
-        assertTrue(scheduler.procesar(r));
+        assertTrue(procesador.procesar(1L, 2L));
 
         ArgumentCaptor<MovimientoCajaVirtual> cap = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
         verify(tesoreriaService).registrar(cap.capture());
-        MovimientoCajaVirtual mov = cap.getValue();
-        assertEquals(CajaVirtualTipoMovimiento.INGRESO, mov.getTipoMovimiento());
-        assertEquals(150000.0, mov.getCantidad()); // agrupado por moneda
-        assertEquals(OrigenMovimientoTipo.RETIRO_CAJA, mov.getOrigenTipo());
-        assertEquals(777L, r.getMovimientoCajaVirtualId()); // marcado
+        assertEquals(CajaVirtualTipoMovimiento.INGRESO, cap.getValue().getTipoMovimiento());
+        assertEquals(150000.0, cap.getValue().getCantidad());
+        assertEquals(OrigenMovimientoTipo.RETIRO_CAJA, cap.getValue().getOrigenTipo());
+        assertEquals(777L, r.getMovimientoCajaVirtualId());
     }
 
     @Test
     void ya_procesado_no_reingresa() {
-        Retiro r = retiro(777L); // ya tiene marker
+        Retiro r = retiro(777L);
         when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
-
-        assertFalse(scheduler.procesar(r));
+        assertFalse(procesador.procesar(1L, 2L));
         verify(tesoreriaService, never()).registrar(any());
     }
 
@@ -99,9 +87,8 @@ class RetiroTesoreriaSchedulerTest {
         Retiro r = retiro(null);
         when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
         when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Collections.emptyList());
-
-        assertTrue(scheduler.procesar(r));
+        assertTrue(procesador.procesar(1L, 2L));
         verify(tesoreriaService, never()).registrar(any());
-        assertEquals(-1L, r.getMovimientoCajaVirtualId()); // marcado para no reintentar
+        assertEquals(-1L, r.getMovimientoCajaVirtualId());
     }
 }

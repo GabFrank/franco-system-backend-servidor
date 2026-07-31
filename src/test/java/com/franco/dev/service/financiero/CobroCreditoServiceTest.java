@@ -20,6 +20,7 @@ class CobroCreditoServiceTest {
 
     private VentaCreditoService ventaCreditoService;
     private VentaCreditoCuotaService ventaCreditoCuotaService;
+    private com.franco.dev.repository.financiero.VentaCreditoCuotaRepository ventaCreditoCuotaRepository;
     private BancoLedgerService bancoLedgerService;
     private ClienteCuentaService clienteCuentaService;
     private CobroCreditoService service;
@@ -31,9 +32,10 @@ class CobroCreditoServiceTest {
     void setUp() {
         ventaCreditoService = mock(VentaCreditoService.class);
         ventaCreditoCuotaService = mock(VentaCreditoCuotaService.class);
+        ventaCreditoCuotaRepository = mock(com.franco.dev.repository.financiero.VentaCreditoCuotaRepository.class);
         bancoLedgerService = mock(BancoLedgerService.class);
         clienteCuentaService = mock(ClienteCuentaService.class);
-        service = new CobroCreditoService(ventaCreditoService, ventaCreditoCuotaService, bancoLedgerService, clienteCuentaService);
+        service = new CobroCreditoService(ventaCreditoService, ventaCreditoCuotaService, ventaCreditoCuotaRepository, bancoLedgerService, clienteCuentaService);
 
         cliente = new Cliente(); cliente.setId(3L);
         vc = new VentaCredito(); vc.setId(1L); vc.setCliente(cliente);
@@ -53,7 +55,7 @@ class CobroCreditoServiceTest {
     @Test
     void cobro_total_marca_cobrado_acredita_banco_y_paga_cliente() {
         VentaCreditoCuota c = cuota(100000, BigDecimal.ZERO);
-        when(ventaCreditoService.cuota(10L, 2L)).thenReturn(c);
+        when(ventaCreditoCuotaRepository.lockByIdAndSucursalId(10L, 2L)).thenReturn(java.util.Optional.of(c));
         when(ventaCreditoService.cuotasDeVenta(vc)).thenReturn(Collections.singletonList(c));
 
         service.cobrarCuotaBanco(10L, 2L, new BigDecimal("100000"), 9L, new BigDecimal("100000"), null, null);
@@ -67,7 +69,7 @@ class CobroCreditoServiceTest {
     @Test
     void cobro_parcial_marca_parcial_sin_finalizar() {
         VentaCreditoCuota c = cuota(100000, BigDecimal.ZERO);
-        when(ventaCreditoService.cuota(10L, 2L)).thenReturn(c);
+        when(ventaCreditoCuotaRepository.lockByIdAndSucursalId(10L, 2L)).thenReturn(java.util.Optional.of(c));
 
         service.cobrarCuotaBanco(10L, 2L, new BigDecimal("40000"), 9L, new BigDecimal("40000"), null, null);
 
@@ -79,7 +81,7 @@ class CobroCreditoServiceTest {
     @Test
     void monto_mayor_al_saldo_falla() {
         VentaCreditoCuota c = cuota(100000, new BigDecimal("60000")); // restante 40000
-        when(ventaCreditoService.cuota(10L, 2L)).thenReturn(c);
+        when(ventaCreditoCuotaRepository.lockByIdAndSucursalId(10L, 2L)).thenReturn(java.util.Optional.of(c));
 
         assertThrows(GraphQLException.class,
                 () -> service.cobrarCuotaBanco(10L, 2L, new BigDecimal("50000"), 9L, new BigDecimal("50000"), null, null));
@@ -90,7 +92,7 @@ class CobroCreditoServiceTest {
     void cuota_ya_cobrada_falla() {
         VentaCreditoCuota c = cuota(100000, new BigDecimal("100000"));
         c.setEstadoCobro("COBRADO");
-        when(ventaCreditoService.cuota(10L, 2L)).thenReturn(c);
+        when(ventaCreditoCuotaRepository.lockByIdAndSucursalId(10L, 2L)).thenReturn(java.util.Optional.of(c));
 
         assertThrows(GraphQLException.class,
                 () -> service.cobrarCuotaBanco(10L, 2L, new BigDecimal("1"), 9L, new BigDecimal("1"), null, null));

@@ -89,14 +89,11 @@ public class TesoreriaService {
      * Devuelve el saldo anterior.
      */
     private BigDecimal aplicarSaldo(CajaVirtual caja, Moneda moneda, BigDecimal delta) {
+        // Asegura la fila (upsert idempotente) antes de tomar el lock: evita la carrera del
+        // primer movimiento donde dos transacciones no encuentran fila y ambas insertan.
+        saldoRepository.ensureRow(caja.getId(), moneda.getId());
         CajaVirtualSaldo saldo = saldoRepository.lockByCajaVirtualIdAndMonedaId(caja.getId(), moneda.getId())
-                .orElseGet(() -> {
-                    CajaVirtualSaldo s = new CajaVirtualSaldo();
-                    s.setCajaVirtual(caja);
-                    s.setMoneda(moneda);
-                    s.setSaldo(BigDecimal.ZERO);
-                    return saldoRepository.save(s);
-                });
+                .orElseThrow(() -> new GraphQLException("No se pudo tomar el saldo de la caja"));
         BigDecimal anterior = saldo.getSaldo() != null ? saldo.getSaldo() : BigDecimal.ZERO;
         BigDecimal nuevo = anterior.add(delta);
         boolean permiteNegativo = Boolean.TRUE.equals(caja.getPermiteSaldoNegativo());
@@ -219,13 +216,15 @@ public class TesoreriaService {
      */
     @Transactional
     public MovimientoCajaVirtual revertir(MovimientoCajaVirtual orig, String motivo, Usuario usuario) {
-        double efecto = (orig.getSaldoPosterior() != null ? orig.getSaldoPosterior() : 0.0)
-                - (orig.getSaldoAnterior() != null ? orig.getSaldoAnterior() : 0.0);
+        // Recomputa el efecto con BigDecimal (no restando los snapshots Double, que arrastran
+        // error de punto flotante en monedas con decimales). El contra-movimiento es el negado.
+        BigDecimal cantidadOrig = orig.getCantidad() != null ? BigDecimal.valueOf(orig.getCantidad()) : BigDecimal.ZERO;
+        BigDecimal efecto = signedDelta(orig.getTipoMovimiento(), cantidadOrig);
 
         MovimientoCajaVirtual contra = new MovimientoCajaVirtual();
         contra.setCajaVirtual(orig.getCajaVirtual());
         contra.setTipoMovimiento(CajaVirtualTipoMovimiento.AJUSTE);
-        contra.setCantidad(-efecto); // AJUSTE firmado: revierte el efecto original
+        contra.setCantidad(efecto.negate().doubleValue()); // AJUSTE firmado: revierte el efecto original
         contra.setMoneda(orig.getMoneda());
         contra.setUsuario(usuario);
         contra.setReferenciaId(orig.getId());
@@ -257,13 +256,9 @@ public class TesoreriaService {
         }
         for (Map.Entry<Long, BigDecimal> e : totalPorMoneda.entrySet()) {
             Moneda moneda = monedas.get(e.getKey());
-            CajaVirtualSaldo saldo = saldoRepository.findByCajaVirtualIdAndMonedaId(cajaId, e.getKey())
-                    .orElseGet(() -> {
-                        CajaVirtualSaldo s = new CajaVirtualSaldo();
-                        s.setCajaVirtual(caja);
-                        s.setMoneda(moneda);
-                        return s;
-                    });
+            saldoRepository.ensureRow(cajaId, e.getKey());
+            CajaVirtualSaldo saldo = saldoRepository.lockByCajaVirtualIdAndMonedaId(cajaId, e.getKey())
+                    .orElseThrow(() -> new GraphQLException("No se pudo tomar el saldo para recalcular"));
             saldo.setSaldo(e.getValue());
             saldoRepository.save(saldo);
             sincronizarShim(caja, moneda, e.getValue());

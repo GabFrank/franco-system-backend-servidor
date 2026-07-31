@@ -56,7 +56,8 @@ public class PagoProveedorService {
 
     @Transactional
     public SolicitudPago pagar(Long solicitudId, List<LineaPago> lineas, Usuario usuario) {
-        SolicitudPago sp = solicitudPagoService.findById(solicitudId).orElse(null);
+        // Lock pesimista de la solicitud: serializa pagos parciales concurrentes sobre la misma solicitud.
+        SolicitudPago sp = solicitudPagoService.getRepository().lockById(solicitudId).orElse(null);
         if (sp == null) throw new GraphQLException("Solicitud de pago no encontrada: " + solicitudId);
         if (sp.getEstado() == SolicitudPagoEstado.CONCLUIDO || sp.getEstado() == SolicitudPagoEstado.CANCELADO) {
             throw new GraphQLException("La solicitud ya está " + sp.getEstado());

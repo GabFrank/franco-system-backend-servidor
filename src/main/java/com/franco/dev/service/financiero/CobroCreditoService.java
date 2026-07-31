@@ -32,6 +32,7 @@ public class CobroCreditoService {
 
     private final VentaCreditoService ventaCreditoService;
     private final VentaCreditoCuotaService ventaCreditoCuotaService;
+    private final com.franco.dev.repository.financiero.VentaCreditoCuotaRepository ventaCreditoCuotaRepository;
     private final BancoLedgerService bancoLedgerService;
     private final ClienteCuentaService clienteCuentaService;
 
@@ -49,7 +50,8 @@ public class CobroCreditoService {
     public VentaCreditoCuota cobrarCuotaBanco(Long cuotaId, Long sucId, BigDecimal montoCobrar,
                                               Long cuentaBancariaId, BigDecimal montoBanco,
                                               BigDecimal cotizacion, Usuario usuario) {
-        VentaCreditoCuota cuota = ventaCreditoService.cuota(cuotaId, sucId);
+        // Lock pesimista de la cuota: serializa cobros parciales concurrentes sobre la misma cuota.
+        VentaCreditoCuota cuota = ventaCreditoCuotaRepository.lockByIdAndSucursalId(cuotaId, sucId).orElse(null);
         if (cuota == null) throw new GraphQLException("Cuota no encontrada: " + cuotaId + "/" + sucId);
         if ("COBRADO".equals(cuota.getEstadoCobro()) || "CANCELADO".equals(cuota.getEstadoCobro())) {
             throw new GraphQLException("La cuota ya está " + cuota.getEstadoCobro());

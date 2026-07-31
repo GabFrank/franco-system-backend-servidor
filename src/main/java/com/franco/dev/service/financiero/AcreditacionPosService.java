@@ -71,7 +71,7 @@ public class AcreditacionPosService {
     /** Acredita una pendiente: entra el monto esperado a la cuenta. Idempotente por estado. */
     @Transactional
     public boolean acreditar(Long id) {
-        AcreditacionPos a = repository.findById(id).orElse(null);
+        AcreditacionPos a = repository.lockById(id).orElse(null);
         if (a == null || a.getEstado() != EstadoAcreditacionPos.PENDIENTE) return false;
         if (a.getCuentaBancaria() == null) return false;
         MovimientoBancario mov = bancoLedgerService.registrar(a.getCuentaBancaria().getId(),
@@ -87,8 +87,11 @@ public class AcreditacionPosService {
     /** Verificación manual contra extracto: ajusta la diferencia si el monto real difiere del esperado. */
     @Transactional
     public AcreditacionPos verificar(Long id, BigDecimal montoReal, Usuario usuario) {
-        AcreditacionPos a = repository.findById(id).orElseThrow(
+        AcreditacionPos a = repository.lockById(id).orElseThrow(
                 () -> new GraphQLException("Acreditación no encontrada: " + id));
+        if (a.getCuentaBancaria() == null) {
+            throw new GraphQLException("La acreditación no tiene cuenta bancaria asociada");
+        }
         if (a.getEstado() == EstadoAcreditacionPos.VERIFICADO || a.getEstado() == EstadoAcreditacionPos.CON_DIFERENCIA) {
             throw new GraphQLException("La acreditación ya fue verificada");
         }

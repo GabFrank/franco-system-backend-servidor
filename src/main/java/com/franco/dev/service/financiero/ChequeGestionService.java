@@ -30,6 +30,8 @@ public class ChequeGestionService {
 
     private final ChequeService chequeService;
     private final ChequeraService chequeraService;
+    private final com.franco.dev.repository.financiero.ChequeRepository chequeRepository;
+    private final com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
     private final BancoLedgerService bancoLedgerService;
 
     /** Emite un cheque. Avanza el correlativo de la chequera; agota la chequera si corresponde. */
@@ -37,7 +39,8 @@ public class ChequeGestionService {
     public Cheque emitir(Cheque cheque, Usuario usuario) {
         Chequera chequera = cheque.getChequera();
         if (chequera == null) throw new GraphQLException("El cheque requiere una chequera");
-        chequera = chequeraService.findById(chequera.getId()).orElseThrow(
+        // Lock pesimista de la chequera: serializa el avance del correlativo (evita números duplicados).
+        chequera = chequeraRepository.lockById(chequera.getId()).orElseThrow(
                 () -> new GraphQLException("Chequera no encontrada"));
         if (chequera.getEstado() != null && chequera.getEstado() != EstadoChequera.ACTIVA) {
             throw new GraphQLException("La chequera no está activa (" + chequera.getEstado() + ")");
@@ -77,17 +80,19 @@ public class ChequeGestionService {
     /** Cobra un cheque diferido: debita el saldo real y libera la reserva. */
     @Transactional
     public Cheque cobrar(Long chequeId, Usuario usuario) {
-        Cheque cheque = chequeService.findById(chequeId).orElseThrow(
+        Cheque cheque = chequeRepository.lockById(chequeId).orElseThrow(
                 () -> new GraphQLException("Cheque no encontrado: " + chequeId));
         if (cheque.getEstado() == EstadoCheque.COBRADO) throw new GraphQLException("El cheque ya está cobrado");
         if (cheque.getEstado() == EstadoCheque.ANULADO) throw new GraphQLException("El cheque está anulado");
         BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
-        MovimientoBancario mov = bancoLedgerService.registrar(cheque.getCuentaBancaria().getId(),
-                MovimientoBancarioTipo.SALIDA_MANUAL, monto, "Cobro cheque " + cheque.getNumero(),
-                "CHEQUE", cheque.getId(), usuario);
+        // Liberar la reserva ANTES de debitar: así el control de descubierto (saldo - reservado)
+        // no cuenta dos veces este mismo cheque.
         if (Boolean.TRUE.equals(cheque.getDiferido())) {
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
         }
+        MovimientoBancario mov = bancoLedgerService.registrar(cheque.getCuentaBancaria().getId(),
+                MovimientoBancarioTipo.SALIDA_MANUAL, monto, "Cobro cheque " + cheque.getNumero(),
+                "CHEQUE", cheque.getId(), usuario);
         cheque.setEstado(EstadoCheque.COBRADO);
         cheque.setFechaCobro(LocalDateTime.now());
         cheque.setMovimientoBancarioId(mov != null ? mov.getId() : null);
@@ -97,7 +102,7 @@ public class ChequeGestionService {
     /** Anula un cheque no cobrado. Libera la reserva si era diferido. */
     @Transactional
     public Cheque anular(Long chequeId, String motivo, Usuario usuario) {
-        Cheque cheque = chequeService.findById(chequeId).orElseThrow(
+        Cheque cheque = chequeRepository.lockById(chequeId).orElseThrow(
                 () -> new GraphQLException("Cheque no encontrado: " + chequeId));
         if (cheque.getEstado() == EstadoCheque.COBRADO) {
             throw new GraphQLException("No se puede anular un cheque ya cobrado");

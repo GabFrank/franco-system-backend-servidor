@@ -48,7 +48,10 @@ class PagoProveedorServiceTest {
         sp = new SolicitudPago(); sp.setId(1L); sp.setMontoTotal(100000.0);
         sp.setMontoPagado(BigDecimal.ZERO); sp.setEstado(SolicitudPagoEstado.PENDIENTE); sp.setProveedor(prov);
 
-        when(solicitudPagoService.findById(1L)).thenReturn(Optional.of(sp));
+        com.franco.dev.repository.operaciones.SolicitudPagoRepository spRepo =
+                mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class);
+        when(solicitudPagoService.getRepository()).thenReturn(spRepo);
+        when(spRepo.lockById(1L)).thenReturn(Optional.of(sp));
         when(solicitudPagoService.save(any())).thenAnswer(i -> i.getArgument(0));
         when(cajaVirtualRepository.findById(anyLong())).thenReturn(Optional.of(new com.franco.dev.domain.financiero.CajaVirtual()));
     }

@@ -1,5 +1,10 @@
 package com.franco.dev.repository.financiero;
 
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import javax.persistence.LockModeType;
+import java.util.Optional;
 import com.franco.dev.domain.financiero.Cheque;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -18,4 +23,9 @@ public interface ChequeRepository extends HelperRepository<Cheque, Long> {
     List<Cheque> findByChequeraId(Long chequeraId);
     
     Cheque findByPagoDetalleCuotaId(Long pagoDetalleCuotaId);
-} 
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Cheque e where e.id = :id")
+    Optional<Cheque> lockById(@Param("id") Long id);
+
+}

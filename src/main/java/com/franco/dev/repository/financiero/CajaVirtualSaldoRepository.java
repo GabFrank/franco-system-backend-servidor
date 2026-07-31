@@ -3,6 +3,7 @@ package com.franco.dev.repository.financiero;
 import com.franco.dev.domain.financiero.CajaVirtualSaldo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +14,12 @@ import java.util.Optional;
 public interface CajaVirtualSaldoRepository extends JpaRepository<CajaVirtualSaldo, Long> {
 
     Optional<CajaVirtualSaldo> findByCajaVirtualIdAndMonedaId(Long cajaVirtualId, Long monedaId);
+
+    /** Crea la fila de saldo (caja, moneda) en 0 si no existe. Idempotente; evita carrera en el primer movimiento. */
+    @Modifying
+    @Query(value = "INSERT INTO financiero.caja_virtual_saldo (caja_virtual_id, moneda_id, saldo, creado_en) " +
+            "VALUES (:cajaId, :monedaId, 0, now()) ON CONFLICT (caja_virtual_id, moneda_id) DO NOTHING", nativeQuery = true)
+    void ensureRow(@Param("cajaId") Long cajaId, @Param("monedaId") Long monedaId);
 
     List<CajaVirtualSaldo> findByCajaVirtualId(Long cajaVirtualId);
 

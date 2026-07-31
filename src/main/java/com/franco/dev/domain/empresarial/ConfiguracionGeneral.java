@@ -50,6 +50,10 @@ public class ConfiguracionGeneral implements Serializable {
     @Column(name = "actividad_economica")
     private String actividadEconomica;
 
+    /** CN4: días máximos hacia atrás para anular un movimiento de caja (null = sin límite). */
+    @Column(name = "dias_limite_anulacion")
+    private Integer diasLimiteAnulacion;
+
     private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)

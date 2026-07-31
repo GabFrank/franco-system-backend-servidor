@@ -40,6 +40,7 @@ public class TesoreriaService {
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final MovimientoCajaVirtualRepository movimientoRepository;
+    private final com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
 
     /** Los tipos que restan del saldo (además de AJUSTE, que ya llega firmado). */
     private static boolean esEgreso(CajaVirtualTipoMovimiento tipo) {
@@ -184,7 +185,25 @@ public class TesoreriaService {
             throw new GraphQLException("Este movimiento proviene de " + origen
                     + "; anúlelo desde su módulo de origen, no desde la caja mayor.");
         }
+        // CN4: límite de anulación por antigüedad (null = sin límite).
+        Integer diasLimite = diasLimiteAnulacion();
+        if (diasLimite != null && diasLimite > 0 && orig.getCreadoEn() != null
+                && orig.getCreadoEn().isBefore(java.time.LocalDateTime.now().minusDays(diasLimite))) {
+            throw new GraphQLException("El movimiento supera el límite de " + diasLimite
+                    + " días para anular. Requiere autorización.");
+        }
         return revertir(orig, motivo, usuario);
+    }
+
+    /** Días límite de anulación configurados (CN4), o null si no hay config/límite. */
+    private Integer diasLimiteAnulacion() {
+        try {
+            return configRepository.findAll().stream().findFirst()
+                    .map(com.franco.dev.domain.empresarial.ConfiguracionGeneral::getDiasLimiteAnulacion)
+                    .orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** Busca un movimiento para revertirlo. Lo usan los servicios dueños al anular su operación. */

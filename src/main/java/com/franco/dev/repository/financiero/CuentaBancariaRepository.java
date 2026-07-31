@@ -25,4 +25,9 @@ public interface CuentaBancariaRepository extends HelperRepository<CuentaBancari
     @Query("select c from CuentaBancaria c where c.id = :id")
     Optional<CuentaBancaria> lockById(@Param("id") Long id);
 
+    /** Saldo bancario total por moneda. Fila: [monedaId, denominacion, saldo, saldoReservado]. */
+    @Query("select c.moneda.id, c.moneda.denominacion, coalesce(sum(c.saldo),0), coalesce(sum(c.saldoReservado),0) " +
+            "from CuentaBancaria c where c.activo is null or c.activo = true group by c.moneda.id, c.moneda.denominacion")
+    List<Object[]> saldoBancarioPorMoneda();
+
 }

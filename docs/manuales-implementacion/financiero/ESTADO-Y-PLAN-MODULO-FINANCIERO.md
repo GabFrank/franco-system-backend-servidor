@@ -278,10 +278,12 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - `ChequePosGraphQL` con guards. Test `ChequeGestionServiceTest` (5) verde. **Total suite financiera: 36 tests verdes.**
 - Pendiente F8/UI: migrar `VentaTarjeta.estado` a enum (AJ-17), acreditación PIX/transferencia directa, UI de cheques/POS, wiring venta-tarjeta → `crearAcreditacionPos`.
 
-**Fase 8 — Reportes, consolidación y limpieza.**
-Cuenta corriente por cliente/proveedor (vista). GastoPorCategoria/Mes. Saldos consolidados. Config dashboard server-side.
-Modelo de permisos/roles por operación (espejo de gourmet: cajero/tesorero/bancos/CPC/CPP). Limpieza dead-code
-(Concepto; decidir Sencillo, MonedaComponent). Egresos de cajón PDV (`EgresoCaja`) si se confirma necesario.
+**Fase 8 — Reportes, consolidación y config. ✅ HECHO backend core (2026-07-31)**
+- `V184.5`: `configuracion_general.dias_limite_anulacion` (CN4); `financiero.auditoria_config` (CN10).
+- **`TesoreriaReporteService`**: **saldo consolidado** (efectivo de todas las cajas + bancos, por moneda) — la vista unificada de liquidez (presentación; ledgers separados). `TesoreriaReporteGraphQL` con guard.
+- **CN4**: límite de anulación por antigüedad enforced en `TesoreriaService.anular` (config `dias_limite_anulacion`, null = sin límite).
+- Test `TesoreriaReporteServiceTest` (2) verde. **Suite financiera: 38 tests verdes.**
+- Pendiente (follow-up, no bloqueante del MVP backend): **notificaciones** (reusar `NotificacionTipoRole`/`PushNotificationService` + canal saliente SMTP/WhatsApp — AJ-4) + CN8 anticipación de vencimiento; reportes cierre-mes (aging CPC/CPP, flujo de caja, comisiones POS); auditoría de config CN10 (tabla lista, wiring en cada setter); migrar `VentaTarjeta.estado` a enum (AJ-17); limpieza dead-code (Concepto/Sencillo); **toda la UI desktop de tesorería**; permisos granulares extra (`CPP_*` dedicados — DA6).
 
 ### Tests por fase
 Cada fase cierra con sus tests (backend JUnit sobre servicios/builders puros — patrón `service/rrhh/builder/*Test`;

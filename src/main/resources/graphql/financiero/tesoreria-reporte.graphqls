@@ -1,0 +1,12 @@
+type SaldoTesoreria {
+    monedaId: Int
+    moneda: String
+    efectivo: Float
+    banco: Float
+    bancoReservado: Float
+    total: Float
+}
+
+extend type Query {
+    saldoConsolidadoTesoreria: [SaldoTesoreria]
+}

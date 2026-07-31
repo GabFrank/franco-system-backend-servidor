@@ -26,4 +26,9 @@ public interface CajaVirtualSaldoRepository extends JpaRepository<CajaVirtualSal
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from CajaVirtualSaldo s where s.cajaVirtual.id = :cajaId and s.moneda.id = :monedaId")
     Optional<CajaVirtualSaldo> lockByCajaVirtualIdAndMonedaId(@Param("cajaId") Long cajaId, @Param("monedaId") Long monedaId);
+
+    /** Saldo total de efectivo por moneda (todas las cajas). Fila: [monedaId, denominacion, saldo]. */
+    @Query("select s.moneda.id, s.moneda.denominacion, coalesce(sum(s.saldo),0) " +
+            "from CajaVirtualSaldo s group by s.moneda.id, s.moneda.denominacion")
+    List<Object[]> saldoConsolidadoPorMoneda();
 }

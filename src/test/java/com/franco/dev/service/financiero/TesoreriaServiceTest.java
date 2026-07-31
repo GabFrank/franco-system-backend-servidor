@@ -34,6 +34,7 @@ class TesoreriaServiceTest {
     private CajaVirtualRepository cajaVirtualRepository;
     private MonedaRepository monedaRepository;
     private MovimientoCajaVirtualRepository movimientoRepository;
+    private com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
     private TesoreriaService service;
 
     private CajaVirtual caja;
@@ -46,7 +47,9 @@ class TesoreriaServiceTest {
         cajaVirtualRepository = mock(CajaVirtualRepository.class);
         monedaRepository = mock(MonedaRepository.class);
         movimientoRepository = mock(MovimientoCajaVirtualRepository.class);
-        service = new TesoreriaService(saldoRepository, cajaVirtualRepository, monedaRepository, movimientoRepository);
+        configRepository = mock(com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository.class);
+        when(configRepository.findAll()).thenReturn(java.util.Collections.emptyList());
+        service = new TesoreriaService(saldoRepository, cajaVirtualRepository, monedaRepository, movimientoRepository, configRepository);
 
         caja = new CajaVirtual();
         caja.setId(1L);

@@ -231,10 +231,13 @@ con lock (P2). `anularMovimiento` central + bloqueo cross-módulo. Fix `AJUSTE` 
 - CN3 (numeración) → F2; CN4 (límite anulación) → default permisivo, UI en F8.
 - Enum `TipoMovimiento` se amplía por fase con `ALTER TYPE ADD VALUE` idempotente (AJ-13) cuando cada fase lo necesite.
 
-**Fase 2 — Operación de caja mayor (operaciones directas + UI).**
-Entradas/Salidas varias (destino caja/banco). Gastos multi-detalle con destino caja/banco (extender `Gasto`).
-`CajaMayorConfiguracion` (formas de pago/cuentas visibles + orden). Dashboard KPI + movimientos consolidados.
-Egreso de caja inicial + abrir caja PDV desde el mismo conteo. UI: detalle de caja mayor, registrar ingreso/egreso, config.
+**Fase 2 — Operación de caja mayor + config base. ✅ HECHO backend (2026-07-31)**
+- Migración `V178.5`: Moneda enriquecida (`activo`/`principal`/`decimales`/`regla_redondeo`/`redondeo_multiplo` + unique partial index CN1); FormaPago (`orden`/`principal`); ConfiguracionGeneral (timbrado/puntoExpedición/zonaHoraria/monedaPrincipal/logo/actividad — AJ-18); `comprobante_serie` (CN3); `entrada_varia_categoria` (árbol); `entrada_varia`; `caja_virtual_configuracion` + M:M formas de pago visibles (absorbe CN9).
+- Entidades: `EntradaVaria`, `EntradaVariaCategoria`, `ComprobanteSerie`, `CajaVirtualConfiguracion` + enriquecimiento de `Moneda`/`FormaPago`/`ConfiguracionGeneral`.
+- Servicios: `ComprobanteSerieService` (numeración atómica con lock), `EntradaVariaService` (registra ingreso/egreso → postea a `TesoreriaService`, anula vía `revertir`). `TesoreriaService.revertir`/`findMovimiento` (reversión desde módulo dueño, sin guard cross-módulo).
+- GraphQL con guards: `EntradaVariaGraphQL` (registrar/anular/categorías), `CajaVirtualConfiguracionGraphQL`.
+- Tests: `ComprobanteSerieServiceTest` (4) + `TesoreriaServiceTest` (10) verdes.
+- **Pendiente para el pase de UI/config (F8):** gastos multi-detalle (colisiona con `Gasto` de PDV → se modela aparte), egreso de caja inicial + abrir caja desde conteo (AJ-3: asiento central-only), dashboard KPIs, editar campos nuevos de Moneda/FormaPago vía sus resolvers, UI desktop de tesorería.
 
 **Fase 3 — Puente con el PDV (circuito de efectivo).**
 `RetiroCaja` con `origen` (MANUAL/CIERRE) + generación idempotente al cerrar caja PDV (mapear `retiro.caja_virtual_id`).

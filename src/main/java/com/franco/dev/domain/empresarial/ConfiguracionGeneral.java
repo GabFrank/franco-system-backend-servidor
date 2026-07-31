@@ -29,6 +29,27 @@ public class ConfiguracionGeneral implements Serializable {
 
     private String ruc;
 
+    @Column(name = "timbrado_numero")
+    private String timbradoNumero;
+
+    @Column(name = "timbrado_vigencia_hasta")
+    private java.time.LocalDate timbradoVigenciaHasta;
+
+    @Column(name = "punto_expedicion")
+    private String puntoExpedicion;
+
+    @Column(name = "zona_horaria")
+    private String zonaHoraria;
+
+    @Column(name = "moneda_principal_id")
+    private Long monedaPrincipalId;
+
+    @Column(name = "logo_url")
+    private String logoUrl;
+
+    @Column(name = "actividad_economica")
+    private String actividadEconomica;
+
     private LocalDateTime creadoEn;
 
     @ManyToOne(fetch = FetchType.EAGER)

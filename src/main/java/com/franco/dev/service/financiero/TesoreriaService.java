@@ -166,6 +166,11 @@ public class TesoreriaService {
      * Nunca edita/borra el original (ledger inmutable). Bloquea la anulación si el
      * movimiento proviene de otro módulo (debe anularse desde su dominio dueño).
      */
+    /**
+     * Anulación desde la caja mayor (operación manual). Solo permite anular
+     * movimientos de origen MANUAL; los que provienen de otro módulo se bloquean
+     * y deben anularse desde su dominio dueño (que llama a {@link #revertir}).
+     */
     @Transactional
     public MovimientoCajaVirtual anular(Long movimientoId, String motivo, Usuario usuario) {
         MovimientoCajaVirtual orig = movimientoRepository.findById(movimientoId)
@@ -179,7 +184,22 @@ public class TesoreriaService {
             throw new GraphQLException("Este movimiento proviene de " + origen
                     + "; anúlelo desde su módulo de origen, no desde la caja mayor.");
         }
+        return revertir(orig, motivo, usuario);
+    }
 
+    /** Busca un movimiento para revertirlo. Lo usan los servicios dueños al anular su operación. */
+    public MovimientoCajaVirtual findMovimiento(Long id) {
+        return movimientoRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Movimiento no encontrado: " + id));
+    }
+
+    /**
+     * Genera el contra-movimiento que revierte el efecto de {@code orig} (ledger
+     * inmutable, nunca se edita/borra el original). Sin el guard cross-módulo: lo
+     * invoca el módulo dueño de la operación al anularla.
+     */
+    @Transactional
+    public MovimientoCajaVirtual revertir(MovimientoCajaVirtual orig, String motivo, Usuario usuario) {
         double efecto = (orig.getSaldoPosterior() != null ? orig.getSaldoPosterior() : 0.0)
                 - (orig.getSaldoAnterior() != null ? orig.getSaldoAnterior() : 0.0);
 

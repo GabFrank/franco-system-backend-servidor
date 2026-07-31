@@ -1,0 +1,25 @@
+type CajaVirtualConfiguracion {
+    id: ID!
+    cajaVirtual: CajaVirtual
+    mostrarCuentasPorPagar: Boolean
+    mostrarCuentasPorCobrar: Boolean
+    operacionesFinancierasHabilitado: Boolean
+    formasPagoVisibles: [FormaPago]
+    creadoEn: Date
+}
+
+input CajaVirtualConfiguracionInput {
+    cajaVirtualId: Int!
+    mostrarCuentasPorPagar: Boolean
+    mostrarCuentasPorCobrar: Boolean
+    operacionesFinancierasHabilitado: Boolean
+    formasPagoVisiblesIds: [Int]
+}
+
+extend type Query {
+    cajaVirtualConfiguracion(cajaVirtualId: ID!): CajaVirtualConfiguracion
+}
+
+extend type Mutation {
+    saveCajaVirtualConfiguracion(input: CajaVirtualConfiguracionInput!): CajaVirtualConfiguracion!
+}

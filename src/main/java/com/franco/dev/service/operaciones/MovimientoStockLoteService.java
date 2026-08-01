@@ -113,8 +113,8 @@ public class MovimientoStockLoteService
         if (cantidad == null || cantidad <= 0) {
             return creados;
         }
-        creados.add(crearMovimiento(item, movimiento, numeroLote, item.getVencimientoRecibido(), cantidad,
-                item.getPresentacionRecibida()));
+        creados.add(crearMovimiento(item, movimiento, numeroLote, item.getVencimientoRecibido(),
+                item.getFechaRetiro(), cantidad, item.getPresentacionRecibida()));
         verificarInvariante(creados, movimiento, item);
         return creados;
     }
@@ -141,7 +141,9 @@ public class MovimientoStockLoteService
             LocalDate vencimiento = variacion.getVencimiento() != null
                     ? variacion.getVencimiento().toLocalDate()
                     : null;
-            creados.add(crearMovimiento(item, movimiento, numeroLote, vencimiento, cantidad,
+            // Sin fecha de retiro manual: cada variación es un lote distinto con su propio
+            // vencimiento, así que la del ítem no aplica y se deja derivar por lote.
+            creados.add(crearMovimiento(item, movimiento, numeroLote, vencimiento, null, cantidad,
                     variacion.getPresentacion()));
         }
         return creados;
@@ -177,6 +179,7 @@ public class MovimientoStockLoteService
                                                 MovimientoStock movimiento,
                                                 String numeroLote,
                                                 LocalDate fechaVencimiento,
+                                                LocalDate fechaRetiro,
                                                 Double cantidad,
                                                 Presentacion presentacion) {
         // Resolver (o crear) el lote en el maestro. Acá es donde dos recepciones del mismo lote
@@ -186,7 +189,7 @@ public class MovimientoStockLoteService
                 ? item.getRecepcionMercaderia().getProveedor()
                 : null;
         Lote loteMaestro = loteService.obtenerOCrear(item.getProducto(), numeroLote, fechaVencimiento,
-                proveedor, movimiento.getUsuario());
+                fechaRetiro, proveedor, movimiento.getUsuario());
 
         MovimientoStockLote movimientoLote = new MovimientoStockLote();
         movimientoLote.setSucursalId(movimiento.getSucursalId());

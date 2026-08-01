@@ -48,26 +48,38 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
      * Devuelve el lote existente para (producto, número) o lo crea si es la primera vez que entra.
      *
      * Esta es la pieza que hace que dos recepciones del mismo lote sumen en el mismo saldo en vez
-     * de generar dos lotes distintos: la segunda vez reutiliza la fila y respeta la fecha de
-     * vencimiento ya registrada.
+     * de generar dos lotes distintos: la segunda vez reutiliza la fila y respeta las fechas ya
+     * registradas.
      *
-     * Si el lote ya existe pero no tenía fecha de vencimiento y ahora sí viene una, se completa.
-     * Nunca se pisa una fecha ya cargada: corregirla es una acción explícita del usuario.
+     * Si el lote ya existe pero le faltaba una fecha y ahora sí viene, se completa. Nunca se pisa
+     * una fecha ya cargada: corregirla es una acción explícita del usuario, no un efecto colateral
+     * de recibir mercadería. Sin esta regla un tipeo en una recepción reordenaría el FEFO de stock
+     * que ya está en góndola.
+     *
+     * @param fechaRetiroManual fecha cargada por el operador en la verificación. Opcional: si es
+     *                          null se deriva de los días de vencimiento del producto.
      */
     @Transactional
     public Lote obtenerOCrear(Producto producto, String numeroLote, LocalDate fechaVencimiento,
-                              Proveedor proveedor, Usuario usuario) {
+                              LocalDate fechaRetiroManual, Proveedor proveedor, Usuario usuario) {
         String numero = normalizarNumeroLote(numeroLote);
         if (producto == null || producto.getId() == null || numero == null) {
             return null;
         }
+
+        LocalDate fechaRetiro = resolverFechaRetiro(producto, fechaVencimiento, fechaRetiroManual);
 
         Lote existente = repository.findByProductoIdAndNumeroLote(producto.getId(), numero).orElse(null);
         if (existente != null) {
             boolean modificado = false;
             if (existente.getFechaVencimiento() == null && fechaVencimiento != null) {
                 existente.setFechaVencimiento(fechaVencimiento);
-                existente.setFechaRetiro(calcularFechaRetiro(producto, fechaVencimiento));
+                modificado = true;
+            }
+            // Independiente del vencimiento: el operador puede cargar solo la fecha de retiro, y
+            // un lote viejo sin retiro debe poder completarse aunque su vencimiento ya esté.
+            if (existente.getFechaRetiro() == null && fechaRetiro != null) {
+                existente.setFechaRetiro(fechaRetiro);
                 modificado = true;
             }
             if (existente.getProveedor() == null && proveedor != null) {
@@ -85,12 +97,24 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
         lote.setProducto(producto);
         lote.setNumeroLote(numero);
         lote.setFechaVencimiento(fechaVencimiento);
-        lote.setFechaRetiro(calcularFechaRetiro(producto, fechaVencimiento));
+        lote.setFechaRetiro(fechaRetiro);
         lote.setProveedor(proveedor);
         lote.setUsuario(usuario);
         lote.setEstado(EstadoLote.LIBERADO);
         lote.setCreadoEn(LocalDateTime.now());
         return repository.save(lote);
+    }
+
+    /**
+     * Lo que carga el operador manda sobre el cálculo automático. Sin carga manual se mantiene el
+     * comportamiento histórico, así que los productos que ya funcionaban con días de vencimiento
+     * no cambian de conducta.
+     */
+    private LocalDate resolverFechaRetiro(Producto producto, LocalDate fechaVencimiento,
+                                          LocalDate fechaRetiroManual) {
+        return fechaRetiroManual != null
+                ? fechaRetiroManual
+                : calcularFechaRetiro(producto, fechaVencimiento);
     }
 
     /**

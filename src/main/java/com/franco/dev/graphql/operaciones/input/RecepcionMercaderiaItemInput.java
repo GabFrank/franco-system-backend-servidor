@@ -19,6 +19,8 @@ public class RecepcionMercaderiaItemInput {
     private Double cantidadRecibida;
     private Double cantidadRechazada;
     private String vencimientoRecibido;
+    /** Opcional. Si viene, pisa el calculo automatico de la fecha de retiro del lote. */
+    private String fechaRetiro;
     private String lote;
     private Boolean esBonificacion;
     private MotivoRechazoFisico motivoRechazo;

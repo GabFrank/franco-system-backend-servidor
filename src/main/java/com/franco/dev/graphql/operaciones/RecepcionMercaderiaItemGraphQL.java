@@ -240,7 +240,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
     }
 
     /**
-     * Convierte la fecha de vencimiento recibida (String) a LocalDate.
+     * Convierte una fecha recibida (String) a LocalDate. La usan tanto el vencimiento como la
+     * fecha de retiro.
      * Usa stringToDate porque el frontend puede enviar "yyyy-MM-dd HH:mm" o ISO-8601 con offset.
      */
     private java.time.LocalDate parseVencimiento(String vencimiento) {
@@ -502,6 +503,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         item.setMotivoRechazo(input.getMotivoRechazo());
         item.setLote(normalizarLote(input.getLote()));
         item.setVencimientoRecibido(parseVencimiento(input.getVencimientoRecibido()));
+        item.setFechaRetiro(parseVencimiento(input.getFechaRetiro()));
 
         // 8. Procesar variaciones si existen
         Double cantidadRecibidaTotal = input.getCantidadRecibida() != null ? input.getCantidadRecibida() : 0.0;
@@ -572,6 +574,9 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         }
         if (input.getVencimientoRecibido() != null) {
             item.setVencimientoRecibido(parseVencimiento(input.getVencimientoRecibido()));
+        }
+        if (input.getFechaRetiro() != null) {
+            item.setFechaRetiro(parseVencimiento(input.getFechaRetiro()));
         }
 
         // 2.1. Actualizar la distribución asociada si es necesario

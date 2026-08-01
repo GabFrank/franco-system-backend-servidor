@@ -88,6 +88,15 @@ public class RecepcionMercaderiaItem implements Identifiable<Long> {
     @Column(name = "vencimiento_recibido")
     private LocalDate vencimientoRecibido;
 
+    /**
+     * Fecha de retiro cargada a mano por el operador. Opcional: cuando queda null,
+     * {@code LoteService} la deriva de {@code vencimiento - producto.diasVencimiento}, que es el
+     * comportamiento historico. Se guarda acá porque el lote maestro recién se crea al finalizar
+     * la recepción, un paso posterior a la verificación del ítem.
+     */
+    @Column(name = "fecha_retiro")
+    private LocalDate fechaRetiro;
+
     @Column(name = "lote")
     private String lote;
 

@@ -3,6 +3,7 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.*;
+import com.franco.dev.domain.financiero.enums.EstadoRetiro;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
@@ -291,6 +292,14 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
             Double vueltoDs = 0.0;
 
             for (RetiroDetalle retiroDetalle : retiroDetalleList) {
+                // Un retiro cancelado no descuenta de la caja: la plata volvio.
+                // La comparacion va en Java y no en la query a proposito: en SQL un
+                // "estado <> 'CANCELADO'" descartaria tambien las filas con estado
+                // NULL, que son todos los retiros historicos.
+                if (retiroDetalle.getRetiro() != null
+                        && retiroDetalle.getRetiro().getEstado() == EstadoRetiro.CANCELADO) {
+                    continue;
+                }
                 if (retiroDetalle.getMoneda().getDenominacion().contains("GUARANI")) {
                     totalRetiroGs += retiroDetalle.getCantidad();
                 } else if (retiroDetalle.getMoneda().getDenominacion().contains("REAL")) {

@@ -23,6 +23,13 @@ public class ConteoResolver implements GraphQLResolver<Conteo> {
         return conteoMonedaService.findByConteoId(e.getId(), e.getSucursalId());
     }
 
+    public Conteo conteoAnterior(Conteo e) {
+        if (e.getConteoAnteriorId() == null || e.getSucursalId() == null) {
+            return null;
+        }
+        return conteoService.findByIdAndSucursalId(e.getConteoAnteriorId(), e.getSucursalId());
+    }
+
     public Double totalGs(Conteo e) {
         return conteoService.getTotalPorMoneda(e.getId(), (long) 1, e.getSucursalId());
     }

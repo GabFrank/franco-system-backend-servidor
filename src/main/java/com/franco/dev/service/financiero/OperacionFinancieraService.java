@@ -117,6 +117,9 @@ public class OperacionFinancieraService {
      * Igual que gourmet: no crea un Gasto/Vale real, solo un ajuste de caja rotulado.
      */
     private void aplicarDiferencia(OperacionFinanciera op, OperacionFinanciera saved, Usuario usuario) {
+        // TRANSFERENCIA_BANCARIA no toca caja mayor: no hay dónde imputar la diferencia. Se ignora.
+        if (op.getTipoOperacion() == TipoOperacionFinanciera.TRANSFERENCIA_BANCARIA) return;
+
         com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo destino = op.getDiferenciaDestinoTipo();
         BigDecimal dif = op.getDiferencia();
         if (dif == null || dif.signum() == 0) return;

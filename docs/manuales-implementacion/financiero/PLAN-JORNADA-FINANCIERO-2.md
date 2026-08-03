@@ -53,6 +53,13 @@ El menú soporta anidamiento (RRHH ya usa 3 niveles). Reagrupar:
 
 ---
 
+## Estado: TODOS los ítems IMPLEMENTADOS y pusheados (2026-08-03)
+Central `bdf8aa86`, desktop `c38435fe` (+ fix 42P18 `c234ce5f`). 54 tests backend verdes, AOT desktop verde,
+queries validadas end-to-end (cuentasBancariasOperables, monedas.principal, operacion.diferencia).
+Diferido según lo previsto: Pagar Compras CPP en lote, Compra Simplificada, Emitir Cheque (dialog),
+Retiro-caja manual, shortcuts persistidos, rename de campos GraphQL/roles backend.
+Vale en el selector de egreso quedó diferido (evitar cross-import RrhhModule por ahora).
+
 ## Orden de ejecución recomendado (fase 1)
 1. Ítem 1 (responsable) + Ítem 3 (botones) — triviales, desktop, inmediatos.
 2. Ítem 2 (cuenta bancaria) — backend V187.5 + desktop; desbloquea el filtro operable.

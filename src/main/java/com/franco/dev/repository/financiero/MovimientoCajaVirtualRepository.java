@@ -1,6 +1,7 @@
 package com.franco.dev.repository.financiero;
 
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,6 +21,9 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
             Long cajaVirtualId, LocalDateTime inicio, LocalDateTime fin, Pageable pageable);
 
     List<MovimientoCajaVirtual> findByCajaVirtualIdAndActivoTrue(Long cajaVirtualId);
+
+    /** Patas de caja activas de una operación dueña (para revertir todas al anularla). */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo origenTipo, Long origenId);
 
     /**
      * Filtro combinado de movimientos (todos opcionales salvo la caja). soloActivos=true oculta anulados.

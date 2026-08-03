@@ -4,6 +4,8 @@ import com.franco.dev.domain.financiero.*;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
 import com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo;
 import com.franco.dev.domain.financiero.enums.TipoOperacionFinanciera;
+import com.franco.dev.repository.financiero.MovimientoBancarioRepository;
+import com.franco.dev.repository.financiero.MovimientoCajaVirtualRepository;
 import com.franco.dev.repository.financiero.OperacionFinancieraRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,8 @@ class OperacionFinancieraServiceTest {
     private OperacionFinancieraRepository repository;
     private TesoreriaService tesoreriaService;
     private BancoLedgerService bancoLedgerService;
+    private MovimientoCajaVirtualRepository movimientoCajaVirtualRepository;
+    private MovimientoBancarioRepository movimientoBancarioRepository;
     private OperacionFinancieraService service;
 
     @BeforeEach
@@ -28,7 +32,10 @@ class OperacionFinancieraServiceTest {
         repository = mock(OperacionFinancieraRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
         bancoLedgerService = mock(BancoLedgerService.class);
-        service = new OperacionFinancieraService(repository, tesoreriaService, bancoLedgerService);
+        movimientoCajaVirtualRepository = mock(MovimientoCajaVirtualRepository.class);
+        movimientoBancarioRepository = mock(MovimientoBancarioRepository.class);
+        service = new OperacionFinancieraService(repository, tesoreriaService, bancoLedgerService,
+                movimientoCajaVirtualRepository, movimientoBancarioRepository);
         when(repository.save(any())).thenAnswer(i -> {
             OperacionFinanciera o = i.getArgument(0);
             if (o.getId() == null) o.setId(1L);
@@ -93,6 +100,39 @@ class OperacionFinancieraServiceTest {
         verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), any(), any(), any(), any(), any());
         verify(bancoLedgerService).registrar(eq(8L), eq(MovimientoBancarioTipo.ENTRADA_MANUAL), any(), any(), any(), any(), any());
         verifyNoInteractions(tesoreriaService);
+    }
+
+    @Test
+    void anular_revierte_patas_de_caja_y_banco_y_marca_anulado() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setId(5L);
+        op.setAnulado(false);
+        when(repository.findById(5L)).thenReturn(java.util.Optional.of(op));
+
+        MovimientoCajaVirtual cajaLeg = new MovimientoCajaVirtual();
+        MovimientoBancario bancoLeg = new MovimientoBancario();
+        when(movimientoCajaVirtualRepository.findByOrigenTipoAndOrigenIdAndActivoTrue(
+                eq(com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.OPERACION_FINANCIERA), eq(5L)))
+                .thenReturn(java.util.List.of(cajaLeg));
+        when(movimientoBancarioRepository.findByOrigenTipoAndOrigenIdAndAnuladoFalse(
+                eq("OPERACION_FINANCIERA"), eq(5L)))
+                .thenReturn(java.util.List.of(bancoLeg));
+
+        service.anular(5L, "prueba", null);
+
+        verify(tesoreriaService).revertir(eq(cajaLeg), any(), any());
+        verify(bancoLedgerService).revertir(eq(bancoLeg), any(), any());
+        assertTrue(op.getAnulado());
+        verify(repository).save(op);
+    }
+
+    @Test
+    void anular_una_operacion_ya_anulada_falla() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setId(7L);
+        op.setAnulado(true);
+        when(repository.findById(7L)).thenReturn(java.util.Optional.of(op));
+        assertThrows(graphql.GraphQLException.class, () -> service.anular(7L, null, null));
     }
 
     @Test

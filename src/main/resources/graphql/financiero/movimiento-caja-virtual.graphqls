@@ -13,6 +13,26 @@ type MovimientoCajaVirtual {
     cajaDestino: CajaVirtual
     activo: Boolean
     creadoEn: Date
+    origenTipo: OrigenMovimientoTipo
+}
+
+enum OrigenMovimientoTipo {
+    MANUAL
+    ANULACION
+    RRHH_VALE
+    RRHH_PRESTAMO
+    RRHH_AGUINALDO
+    RRHH_LIQUIDACION_SUELDO
+    RRHH_LIQUIDACION_FINAL
+    RETIRO_CAJA
+    VENTA_CREDITO_COBRO
+    DEVOLUCION
+    GASTO
+    ENTRADA_VARIA
+    OPERACION_FINANCIERA
+    PAGO_CPP
+    CHEQUE
+    ACREDITACION_POS
 }
 
 input MovimientoCajaVirtualInput {

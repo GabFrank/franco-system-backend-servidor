@@ -91,4 +91,5 @@ extend type Query {
 
 extend type Mutation {
     registrarOperacionFinanciera(input: OperacionFinancieraInput!): OperacionFinanciera!
+    anularOperacionFinanciera(id: ID!, motivo: String): OperacionFinanciera!
 }

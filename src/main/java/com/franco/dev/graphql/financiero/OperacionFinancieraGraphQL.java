@@ -81,6 +81,11 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         return service.registrar(op, seg.currentUsuario());
     }
 
+    public OperacionFinanciera anularOperacionFinanciera(Long id, String motivo) {
+        seg.requireGestionar();
+        return service.anular(id, motivo, seg.currentUsuario());
+    }
+
     @Data
     public static class OperacionFinancieraInputWrapper {
         private TipoOperacionFinanciera tipoOperacion;

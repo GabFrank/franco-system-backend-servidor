@@ -3,6 +3,7 @@ package com.franco.dev.service.financiero;
 import com.franco.dev.domain.financiero.CuentaBancaria;
 import com.franco.dev.domain.financiero.MovimientoBancario;
 import com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo;
+import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.MovimientoBancarioRepository;
@@ -62,6 +63,29 @@ public class BancoLedgerService {
         m.setUsuario(usuario);
         m.setAnulado(false);
         return movimientoRepository.save(m);
+    }
+
+    /**
+     * Revierte un movimiento bancario posteando un AJUSTE compensatorio del signo opuesto
+     * (ledger inmutable: no borra ni edita el original, solo lo marca anulado). Lo invoca el
+     * módulo dueño al anular su operación. El compensatorio pasa por el control de descubierto.
+     */
+    @Transactional
+    public MovimientoBancario revertir(MovimientoBancario orig, String motivo, Usuario usuario) {
+        if (Boolean.TRUE.equals(orig.getAnulado())) {
+            throw new GraphQLException("El movimiento bancario #" + orig.getId() + " ya está anulado");
+        }
+        // El original restó (egreso) → devolvemos con AJUSTE_POSITIVO; sumó (ingreso) → quitamos con AJUSTE_NEGATIVO.
+        MovimientoBancarioTipo compensa = esEgreso(orig.getTipoMovimiento())
+                ? MovimientoBancarioTipo.AJUSTE_POSITIVO
+                : MovimientoBancarioTipo.AJUSTE_NEGATIVO;
+        BigDecimal monto = orig.getMonto() != null ? orig.getMonto().abs() : BigDecimal.ZERO;
+        MovimientoBancario contra = registrar(orig.getCuentaBancaria().getId(), compensa, monto,
+                "ANULACION: " + (motivo != null ? motivo : "") + " (mov #" + orig.getId() + ")",
+                OrigenMovimientoTipo.ANULACION.name(), orig.getId(), usuario);
+        orig.setAnulado(true);
+        movimientoRepository.save(orig);
+        return contra;
     }
 
     /** Ajusta el saldo reservado (cheques diferidos). Positivo reserva, negativo libera. */

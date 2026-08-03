@@ -2,6 +2,7 @@ package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.CajaVirtual;
 import com.franco.dev.domain.financiero.Moneda;
+import com.franco.dev.domain.financiero.MovimientoBancario;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
 import com.franco.dev.domain.financiero.OperacionFinanciera;
 import com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento;
@@ -9,6 +10,8 @@ import com.franco.dev.domain.financiero.enums.MovimientoBancarioTipo;
 import com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo;
 import com.franco.dev.domain.financiero.enums.TipoOperacionFinanciera;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.repository.financiero.MovimientoBancarioRepository;
+import com.franco.dev.repository.financiero.MovimientoCajaVirtualRepository;
 import com.franco.dev.repository.financiero.OperacionFinancieraRepository;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -32,6 +35,8 @@ public class OperacionFinancieraService {
     private final OperacionFinancieraRepository repository;
     private final TesoreriaService tesoreriaService;
     private final BancoLedgerService bancoLedgerService;
+    private final MovimientoCajaVirtualRepository movimientoCajaVirtualRepository;
+    private final MovimientoBancarioRepository movimientoBancarioRepository;
 
     public Page<OperacionFinanciera> findAll(Pageable pageable) {
         return repository.findAllByOrderByCreadoEnDesc(pageable);
@@ -109,6 +114,38 @@ public class OperacionFinancieraService {
 
         aplicarDiferencia(op, saved, usuario);
         return saved;
+    }
+
+    /**
+     * Anula una operación financiera completa desde la caja mayor: revierte TODAS sus patas
+     * (ambas patas de caja de un cambio de divisa / transferencia entre cajas, la pata de caja
+     * + la pata bancaria de un depósito/retiro, las dos patas bancarias de una transferencia
+     * bancaria, y el AJUSTE de diferencia si lo hubo) de forma atómica. Cada pata se revierte
+     * con su contra-movimiento (ledger inmutable). Idempotente por el flag {@code anulado}.
+     */
+    @Transactional
+    public OperacionFinanciera anular(Long operacionId, String motivo, Usuario usuario) {
+        OperacionFinanciera op = repository.findById(operacionId)
+                .orElseThrow(() -> new GraphQLException("Operación financiera no encontrada: " + operacionId));
+        if (Boolean.TRUE.equals(op.getAnulado())) {
+            throw new GraphQLException("La operación financiera #" + operacionId + " ya está anulada");
+        }
+        String razon = (motivo != null && !motivo.trim().isEmpty())
+                ? motivo : "Anulación operación financiera #" + operacionId;
+
+        // Patas de caja mayor (cambio divisa, transf. entre cajas, pata de caja de depósito/retiro, AJUSTE de diferencia).
+        for (MovimientoCajaVirtual m : movimientoCajaVirtualRepository
+                .findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo.OPERACION_FINANCIERA, operacionId)) {
+            tesoreriaService.revertir(m, razon, usuario);
+        }
+        // Patas bancarias (depósito, retiro, transferencia bancaria).
+        for (MovimientoBancario m : movimientoBancarioRepository
+                .findByOrigenTipoAndOrigenIdAndAnuladoFalse(OrigenMovimientoTipo.OPERACION_FINANCIERA.name(), operacionId)) {
+            bancoLedgerService.revertir(m, razon, usuario);
+        }
+
+        op.setAnulado(true);
+        return repository.save(op);
     }
 
     /**

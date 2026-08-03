@@ -25,12 +25,6 @@ import java.util.Set;
 @AllArgsConstructor
 public class LoteFefoService {
 
-    /**
-     * Bucket del stock que existe en el agregado pero no está atribuido a ningún lote. No es un
-     * lote real: no se persiste como maestro y se deriva de existencia - suma de lotes reales.
-     */
-    public static final String NUMERO_LOTE_SIN_TRAZAR = "SIN LOTE";
-
     private final MovimientoStockLoteService movimientoStockLoteService;
 
     /**
@@ -83,7 +77,6 @@ public class LoteFefoService {
         List<StockLoteDto> disponibles = movimientoStockLoteService.stockPorLote(productoId, sucursalId);
         double pendiente = cantidad;
 
-        // Primera pasada: solo lotes reales, en orden FEFO.
         for (StockLoteDto lote : disponibles) {
             if (pendiente <= 0.0001) {
                 break;
@@ -101,26 +94,6 @@ public class LoteFefoService {
             double aTomar = Math.min(saldo, pendiente);
             asignaciones.add(new AsignacionLote(lote.getLoteId(), lote.getNumeroLote(), aTomar));
             pendiente -= aTomar;
-        }
-
-        // Segunda pasada: el stock sin trazar. Va SIEMPRE al final, en pasada aparte y no
-        // confiando en el ORDER BY, para que ningun cambio futuro en la consulta pueda hacer que
-        // se consuma antes que un lote con vencimiento.
-        if (pendiente > 0.0001) {
-            for (StockLoteDto lote : disponibles) {
-                if (lote.getLoteId() != null
-                        || !NUMERO_LOTE_SIN_TRAZAR.equals(lote.getNumeroLote())) {
-                    continue;
-                }
-                Double saldo = lote.getCantidadDisponible();
-                if (saldo == null || saldo <= 0) {
-                    continue;
-                }
-                double aTomar = Math.min(saldo, pendiente);
-                asignaciones.add(new AsignacionLote(null, NUMERO_LOTE_SIN_TRAZAR, aTomar));
-                pendiente -= aTomar;
-                break;
-            }
         }
 
         return asignaciones;

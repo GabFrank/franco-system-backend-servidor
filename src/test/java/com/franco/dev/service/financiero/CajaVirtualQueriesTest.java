@@ -54,7 +54,8 @@ class CajaVirtualQueriesTest {
         cajaService.filter("   ", CajaVirtualTipo.CAJA_MAYOR, 5L, true, pageable);
 
         ArgumentCaptor<String> nombre = ArgumentCaptor.forClass(String.class);
-        verify(cajaRepo).filter(nombre.capture(), eq(CajaVirtualTipo.CAJA_MAYOR), eq(5L), eq(true), eq(pageable));
+        // El repo recibe el tipo como String (name del enum) para evitar el 42P18 del enum nativo.
+        verify(cajaRepo).filter(nombre.capture(), eq("CAJA_MAYOR"), eq(5L), eq(true), eq(pageable));
         assertNull(nombre.getValue(), "nombre en blanco debe pasarse como null (sin filtro)");
     }
 
@@ -72,7 +73,7 @@ class CajaVirtualQueriesTest {
         movService.filter(1L, "", "", CajaVirtualTipoMovimiento.INGRESO, true, pageable);
 
         verify(movRepo).filter(eq(1L), isNull(), isNull(),
-                eq(CajaVirtualTipoMovimiento.INGRESO), eq(true), eq(pageable));
+                eq("INGRESO"), eq(true), eq(pageable));
     }
 
     @Test

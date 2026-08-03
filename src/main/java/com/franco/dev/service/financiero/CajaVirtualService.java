@@ -33,7 +33,8 @@ public class CajaVirtualService {
 
     public Page<CajaVirtual> filter(String nombre, CajaVirtualTipo tipo, Long sucursalId, Boolean activo, Pageable pageable) {
         String n = (nombre != null && !nombre.trim().isEmpty()) ? nombre.trim() : null;
-        return repository.filter(n, tipo, sucursalId, activo, pageable);
+        String tipoStr = tipo != null ? tipo.name() : null;
+        return repository.filter(n, tipoStr, sucursalId, activo, pageable);
     }
 
     public List<CajaVirtual> findBySucursalId(Long sucursalId) {

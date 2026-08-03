@@ -46,7 +46,7 @@ public class MovimientoCajaVirtualService {
         return repository.filter(cajaVirtualId,
                 (desde != null && !desde.isEmpty()) ? stringToDate(desde) : null,
                 (fin != null && !fin.isEmpty()) ? stringToDate(fin) : null,
-                tipo, soloActivos, pageable);
+                tipo != null ? tipo.name() : null, soloActivos, pageable);
     }
 
     /** Registra un movimiento y actualiza el saldo de la caja de forma atómica (delega en TesoreriaService). */

@@ -22,14 +22,19 @@ public interface CajaVirtualRepository extends JpaRepository<CajaVirtual, Long> 
 
     Page<CajaVirtual> findAll(Pageable pageable);
 
-    /** Filtro combinado (todos opcionales) para la lista de cajas. */
+    /**
+     * Filtro combinado (todos opcionales) para la lista de cajas. {@code tipo} llega como
+     * String (name del enum) y se compara contra la columna casteada a texto: el enum es un
+     * tipo nativo de Postgres y un bind param nulo de enum rompe con 42P18 (no puede inferir
+     * el tipo del parámetro); castear a texto lo evita.
+     */
     @Query("select c from CajaVirtual c where "
             + "(:nombre is null or lower(c.nombre) like lower(concat('%', :nombre, '%'))) and "
-            + "(:tipo is null or c.tipo = :tipo) and "
+            + "(:tipo is null or cast(c.tipo as string) = :tipo) and "
             + "(:sucursalId is null or c.sucursal.id = :sucursalId) and "
             + "(:activo is null or c.activo = :activo)")
     Page<CajaVirtual> filter(@Param("nombre") String nombre,
-                             @Param("tipo") CajaVirtualTipo tipo,
+                             @Param("tipo") String tipo,
                              @Param("sucursalId") Long sucursalId,
                              @Param("activo") Boolean activo,
                              Pageable pageable);

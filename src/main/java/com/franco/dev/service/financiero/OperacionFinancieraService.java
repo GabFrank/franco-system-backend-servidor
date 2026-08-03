@@ -106,7 +106,39 @@ public class OperacionFinancieraService {
             default:
                 throw new GraphQLException("Tipo de operación no soportado: " + t);
         }
+
+        aplicarDiferencia(op, saved, usuario);
         return saved;
+    }
+
+    /**
+     * Imputa la diferencia (sobra/falta) como un AJUSTE etiquetado en la caja mayor de destino
+     * (o la de origen si no hay destino). No aplica a TRANSFERENCIA_BANCARIA (no toca caja).
+     * Igual que gourmet: no crea un Gasto/Vale real, solo un ajuste de caja rotulado.
+     */
+    private void aplicarDiferencia(OperacionFinanciera op, OperacionFinanciera saved, Usuario usuario) {
+        com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo destino = op.getDiferenciaDestinoTipo();
+        BigDecimal dif = op.getDiferencia();
+        if (dif == null || dif.signum() == 0) return;
+        if (destino == null || destino == com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo.IGNORAR) return;
+
+        CajaVirtual caja = op.getCajaMayorDestino() != null ? op.getCajaMayorDestino() : op.getCajaMayorOrigen();
+        Moneda moneda = op.getCajaMayorDestino() != null ? op.getMonedaDestino() : op.getMonedaOrigen();
+        req(caja != null, "La diferencia requiere una caja mayor donde imputarse");
+
+        MovimientoCajaVirtual m = new MovimientoCajaVirtual();
+        m.setCajaVirtual(caja);
+        m.setTipoMovimiento(CajaVirtualTipoMovimiento.AJUSTE);
+        m.setCantidad(dif.doubleValue()); // AJUSTE conserva el signo (positivo=sobra, negativo=falta)
+        m.setMoneda(moneda);
+        m.setUsuario(usuario);
+        String rotulo = destino + " POR DIFERENCIA (op #" + saved.getId() + ")"
+                + (op.getDiferenciaObservacion() != null ? " - " + op.getDiferenciaObservacion() : "");
+        m.setDescripcion(rotulo);
+        m.setReferenciaId(saved.getId());
+        m.setOrigenTipo(OrigenMovimientoTipo.OPERACION_FINANCIERA);
+        m.setOrigenId(saved.getId());
+        tesoreriaService.registrar(m);
     }
 
     private BigDecimal montoOrigen(OperacionFinanciera op) {

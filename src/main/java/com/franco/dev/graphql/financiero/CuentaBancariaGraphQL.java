@@ -55,6 +55,11 @@ public class CuentaBancariaGraphQL implements GraphQLQueryResolver, GraphQLMutat
         return service.findAll(pageable);
     }
 
+    /** Cuentas propias operables (activas + disponibles para operaciones financieras): para caja mayor y operaciones. */
+    public List<CuentaBancaria> cuentasBancariasOperables() {
+        return service.getRepository().findOperables();
+    }
+
 
     public CuentaBancaria saveCuentaBancaria(CuentaBancariaInput input) {
         ModelMapper m = new ModelMapper();

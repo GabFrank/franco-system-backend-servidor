@@ -79,6 +79,17 @@ public class OperacionFinanciera implements Serializable {
     @Column(name = "numero_comprobante")
     private String numeroComprobante;
 
+    // --- Diferencia (sobra/falta al cerrar la operación) ---
+    /** Monto de la diferencia; positivo = sobra, negativo = falta. */
+    private BigDecimal diferencia;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "diferencia_destino_tipo", length = 20)
+    private com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo diferenciaDestinoTipo;
+
+    @Column(name = "diferencia_observacion")
+    private String diferenciaObservacion;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

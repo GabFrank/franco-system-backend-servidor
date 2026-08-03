@@ -68,6 +68,9 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         op.setNumeroComprobante(in.getNumeroComprobante());
         op.setMontoOrigen(in.getMontoOrigen() != null ? BigDecimal.valueOf(in.getMontoOrigen()) : null);
         op.setMontoDestino(in.getMontoDestino() != null ? BigDecimal.valueOf(in.getMontoDestino()) : null);
+        op.setDiferencia(in.getDiferencia() != null ? BigDecimal.valueOf(in.getDiferencia()) : null);
+        op.setDiferenciaDestinoTipo(in.getDiferenciaDestinoTipo());
+        op.setDiferenciaObservacion(in.getDiferenciaObservacion());
         if (in.getCajaMayorOrigenId() != null) op.setCajaMayorOrigen(cajaVirtualService.findById(in.getCajaMayorOrigenId()).orElse(null));
         if (in.getCajaMayorDestinoId() != null) op.setCajaMayorDestino(cajaVirtualService.findById(in.getCajaMayorDestinoId()).orElse(null));
         if (in.getCuentaBancariaOrigenId() != null) op.setCuentaBancariaOrigen(cuentaBancariaRepository.findById(in.getCuentaBancariaOrigenId()).orElse(null));
@@ -93,5 +96,8 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         private Double montoDestino;
         private Double cotizacion;
         private String numeroComprobante;
+        private Double diferencia;
+        private com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo diferenciaDestinoTipo;
+        private String diferenciaObservacion;
     }
 }

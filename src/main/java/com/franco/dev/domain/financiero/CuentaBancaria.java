@@ -44,6 +44,13 @@ public class CuentaBancaria implements Identifiable<Long> {
 
     private String numero;
 
+    /** Nombre de la cuenta (p.ej. "FRANCO AREVALOS S.A."); distinto de titular/firmantes. */
+    private String nombre;
+
+    /** Si la cuenta puede usarse en caja mayor / operaciones financieras (cuentas propias vs de terceros). */
+    @Column(name = "disponible_operaciones_financieras")
+    private Boolean disponibleOperacionesFinancieras;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "persona_id", nullable = true)
     private Persona persona;

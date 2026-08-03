@@ -30,4 +30,10 @@ public interface CuentaBancariaRepository extends HelperRepository<CuentaBancari
             "from CuentaBancaria c where c.activo is null or c.activo = true group by c.moneda.id, c.moneda.denominacion")
     List<Object[]> saldoBancarioPorMoneda();
 
+    /** Cuentas propias operables en tesorería: activas y disponibles para operaciones financieras. */
+    @Query("select c from CuentaBancaria c where (c.activo is null or c.activo = true) " +
+            "and (c.disponibleOperacionesFinancieras is null or c.disponibleOperacionesFinancieras = true) " +
+            "order by c.nombre")
+    List<CuentaBancaria> findOperables();
+
 }

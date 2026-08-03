@@ -29,8 +29,17 @@ type OperacionFinanciera {
     montoDestino: Float
     cotizacion: Float
     numeroComprobante: String
+    diferencia: Float
+    diferenciaDestinoTipo: DiferenciaDestinoTipo
+    diferenciaObservacion: String
     anulado: Boolean
     creadoEn: Date
+}
+
+enum DiferenciaDestinoTipo {
+    IGNORAR
+    GASTO
+    VALE
 }
 
 input OperacionFinancieraInput {
@@ -47,6 +56,9 @@ input OperacionFinancieraInput {
     montoDestino: Float
     cotizacion: Float
     numeroComprobante: String
+    diferencia: Float
+    diferenciaDestinoTipo: DiferenciaDestinoTipo
+    diferenciaObservacion: String
 }
 
 type OperacionFinancieraPage {

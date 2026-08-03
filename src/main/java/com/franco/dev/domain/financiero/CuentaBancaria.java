@@ -80,6 +80,7 @@ public class CuentaBancaria implements Identifiable<Long> {
     @Column(name = "permite_saldo_negativo")
     private Boolean permiteSaldoNegativo;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "tipo_cuenta")
     @Type( type = "tipo_cuenta")
     private TipoCuenta tipoCuenta;

@@ -59,6 +59,8 @@ type StockLote {
     fechaVencimiento: Date
     fechaRetiro: Date
     estado: EstadoLote
+    # De quien vino el lote. Solo lo completa buscarStockPorLote.
+    proveedorNombre: String
     cantidadDisponible: Float
 }
 
@@ -100,6 +102,35 @@ type StockLoteSucursal {
     cantidadDisponible: Float
 }
 
+# Un movimiento del historial de un lote. Es la lectura inversa del ledger: en vez de "que lotes
+# tiene este movimiento", responde "que movimientos tocaron este lote".
+type MovimientoLote {
+    # Id de la fila del ledger. No es unico por si solo: la clave es (id, sucursalId).
+    id: ID
+    sucursalId: ID
+    fecha: Date
+    sucursalNombre: String
+    # COMPRA, VENTA, AJUSTE o TRANSFERENCIA. Nulo si el movimiento padre ya no esta.
+    tipoMovimiento: String
+    # Id del documento que origino el movimiento. Su significado depende del tipo: venta, compra
+    # o transferencia. Va crudo para que la pantalla pueda ofrecer el salto al documento.
+    referencia: ID
+    # Positiva si entro al lote, negativa si salio.
+    cantidad: Float
+    usuarioNombre: String
+}
+
+type MovimientoLotePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [MovimientoLote]
+}
+
 type StockLotePage {
     getTotalPages: Int
     getTotalElements: Int
@@ -136,6 +167,7 @@ extend type Query {
     buscarStockPorLote(
         productoId: ID
         sucursalId: ID
+        proveedorId: ID
         estado: EstadoLote
         numeroLote: String
         texto: String
@@ -153,6 +185,17 @@ extend type Query {
 
     # Desglose por lote de un movimiento de stock agregado.
     movimientoStockLotePorMovimiento(movimientoStockId: ID!, sucursalId: ID!): [MovimientoStockLote]
+
+    # Historial de un lote: los movimientos que lo tocaron, del mas reciente al mas viejo.
+    # Con sucursalId nulo devuelve el recorrido completo del lote por toda la red, que es lo que
+    # hace falta en un recall: la compra que lo trajo, las transferencias que lo repartieron y las
+    # ventas que lo sacaron.
+    movimientosPorLote(
+        loteId: ID!
+        sucursalId: ID
+        page: Int = 0
+        size: Int = 20
+    ): MovimientoLotePage
 }
 
 extend type Mutation {

@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
+import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteSucursalDto;
@@ -65,12 +66,12 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * Consulta general de stock por lote con filtros opcionales, para la pantalla
      * "Stock por lotes". Todos los filtros son opcionales y el orden es FEFO.
      */
-    public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, EstadoLote estado,
-                                                  String numeroLote, String texto, String vencimientoHasta,
-                                                  int page, int size) {
+    public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, Long proveedorId,
+                                                  EstadoLote estado, String numeroLote, String texto,
+                                                  String vencimientoHasta, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
-        return service.buscarStockPorLote(productoId, sucursalId, estado, numeroLote, texto,
-                vencimientoHasta, pageable);
+        return service.buscarStockPorLote(productoId, sucursalId, proveedorId, estado, numeroLote,
+                texto, vencimientoHasta, pageable);
     }
 
     /**
@@ -93,6 +94,17 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      */
     public List<MovimientoStockLote> movimientoStockLotePorMovimiento(Long movimientoStockId, Long sucursalId) {
         return service.findByMovimientoStock(movimientoStockId, sucursalId);
+    }
+
+    /**
+     * Historial de un lote: los movimientos que lo tocaron, del mas reciente al mas viejo.
+     *
+     * Es la contraparte de cambiarEstadoLote: bloquear el lote lo saca de circulacion, pero para
+     * que el recall sirva hay que poder decir de que compra vino y a que ventas fue.
+     */
+    public Page<MovimientoLoteDto> movimientosPorLote(Long loteId, Long sucursalId, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
+        return service.movimientosPorLote(loteId, sucursalId, pageable);
     }
 
     /**

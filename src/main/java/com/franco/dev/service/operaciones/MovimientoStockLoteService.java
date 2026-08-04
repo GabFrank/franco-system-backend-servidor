@@ -7,6 +7,7 @@ import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
+import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
@@ -234,7 +235,7 @@ public class MovimientoStockLoteService
 
         // Se apoya en buscarStockPorLote, que ya pagina, ordena por FEFO y filtra por numero de
         // lote. Aca solo se agrega la conversion a la presentacion del operador.
-        return buscarStockPorLote(productoId, sucursalId, null, numeroLote, null, null, pageable)
+        return buscarStockPorLote(productoId, sucursalId, null, null, numeroLote, null, null, pageable)
                 .map(lote -> new StockLotePresentacionDto(
                         lote.getLoteId(),
                         lote.getNumeroLote(),
@@ -362,12 +363,13 @@ public class MovimientoStockLoteService
      * Los filtros vacíos se normalizan a null para desactivarlos. El estado se recibe como enum
      * y se pasa como texto porque la consulta es nativa.
      */
-    public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, EstadoLote estado,
-                                                  String numeroLote, String texto, String vencimientoHasta,
-                                                  Pageable pageable) {
+    public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, Long proveedorId,
+                                                  EstadoLote estado, String numeroLote, String texto,
+                                                  String vencimientoHasta, Pageable pageable) {
         return repository.buscarStockPorLote(
                 productoId,
                 sucursalId,
+                proveedorId,
                 estado != null ? estado.name() : null,
                 normalizarFiltro(numeroLote),
                 normalizarFiltro(texto),
@@ -392,6 +394,29 @@ public class MovimientoStockLoteService
     }
 
     /**
+     * Historial de un lote, del movimiento más reciente al más viejo.
+     *
+     * Con sucursalId nulo devuelve el recorrido completo del lote por toda la red, que es lo que
+     * hace falta en un recall: la compra que lo trajo, las transferencias que lo repartieron y
+     * las ventas que lo sacaron.
+     */
+    public Page<MovimientoLoteDto> movimientosPorLote(Long loteId, Long sucursalId, Pageable pageable) {
+        if (loteId == null) {
+            return Page.empty(pageable);
+        }
+        return repository.movimientosPorLote(loteId, sucursalId, pageable)
+                .map(p -> new MovimientoLoteDto(
+                        p.getId(),
+                        p.getSucursalId(),
+                        p.getFecha() != null ? p.getFecha().toLocalDateTime() : null,
+                        p.getSucursalNombre(),
+                        p.getTipoMovimiento(),
+                        p.getReferencia(),
+                        p.getCantidad() != null ? p.getCantidad() : 0d,
+                        p.getUsuarioNombre()));
+    }
+
+    /**
      * La consulta agrupa por lote, no por lote y sucursal, así que sucursalId y sucursalNombre
      * quedan sin resolver: el desglose se pide aparte con {@link #stockLotePorSucursal(Long)}.
      */
@@ -406,7 +431,8 @@ public class MovimientoStockLoteService
                 p.getFechaVencimiento(),
                 p.getFechaRetiro(),
                 p.getEstado() != null ? EstadoLote.valueOf(p.getEstado()) : null,
-                p.getCantidadDisponible()
+                p.getCantidadDisponible(),
+                p.getProveedorNombre()
         );
     }
 

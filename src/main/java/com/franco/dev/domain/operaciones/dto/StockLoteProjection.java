@@ -17,5 +17,6 @@ public interface StockLoteProjection {
     LocalDate getFechaVencimiento();
     LocalDate getFechaRetiro();
     String getEstado();
+    String getProveedorNombre();
     Double getCantidadDisponible();
 }

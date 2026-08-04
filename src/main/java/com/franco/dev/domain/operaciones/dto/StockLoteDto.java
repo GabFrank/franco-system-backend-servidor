@@ -30,6 +30,11 @@ public class StockLoteDto {
     /** Solo los LIBERADO se pueden vender. */
     private EstadoLote estado;
     private Double cantidadDisponible;
+    /**
+     * De quién vino el lote. Solo lo completa la consulta con filtros. Va al final para no correr
+     * el orden del constructor de Lombok, del que dependen los llamadores existentes.
+     */
+    private String proveedorNombre;
 
     /**
      * Constructor para la consulta FEFO por producto y sucursal, donde el llamador ya conoce el

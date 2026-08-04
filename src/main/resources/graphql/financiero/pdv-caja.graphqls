@@ -83,6 +83,7 @@ extend type Mutation {
     savePdvCaja(pdvCaja:PdvCajaInput!):PdvCaja!
     savePdvCajaPorSucursal(pdvCaja:PdvCajaInput!):PdvCaja!
     abrirCajaDesdeServidor(input:PdvCajaInput!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput], cajaId: ID):CajaFilialOperacionResult
+    editarConteoCajaDesdeServidor(cajaId: Int!, sucursalId: Int!, conteoAnteriorId: ID!, apertura: Boolean!, conteoInput: ConteoInput!, conteoMonedaInputList: [ConteoMonedaInput]):CajaFilialOperacionResult
 }
 
 enum PdvCajaEstado {

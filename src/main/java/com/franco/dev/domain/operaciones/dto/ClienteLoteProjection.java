@@ -4,18 +4,20 @@ import java.sql.Timestamp;
 
 /**
  * Proyección de {@code MovimientoStockLoteRepository.clientesPorLote}: a quién se le vendió un
- * lote, agrupado por cliente.
+ * lote, una fila por venta.
  *
  * Mismo criterio que {@link MovimientoLoteProjection}: query nativa y paginada, alias en camelCase
  * entre comillas dobles, y la fecha como {@link Timestamp} porque es lo que devuelve el driver.
  */
 public interface ClienteLoteProjection {
+    Long getVentaId();
+    /** La clave de venta es (id, sucursal_id), así que el número solo no la identifica. */
+    Long getSucursalId();
+    String getSucursalNombre();
+    Timestamp getFecha();
     Long getClienteId();
     String getClienteNombre();
     String getClienteDocumento();
-    /** Cuántas ventas distintas de este lote se le hicieron. */
-    Long getVentas();
-    /** Unidades del lote que se llevó, en positivo. */
+    /** Unidades del lote que salieron en esa venta, en positivo. */
     Double getCantidad();
-    Timestamp getUltimaVenta();
 }

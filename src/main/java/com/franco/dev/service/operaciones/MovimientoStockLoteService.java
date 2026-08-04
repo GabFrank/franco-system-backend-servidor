@@ -8,8 +8,6 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.domain.operaciones.dto.ClienteLoteDto;
-import com.franco.dev.domain.operaciones.dto.MostradorLoteDto;
-import com.franco.dev.domain.operaciones.dto.MostradorLoteProjection;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
@@ -422,41 +420,28 @@ public class MovimientoStockLoteService
     }
 
     /**
-     * A qué clientes se le vendió el lote. Deja afuera la venta de mostrador, que se pide con
-     * {@link #resumenMostradorLote(Long, Long)}.
+     * A qué clientes se le vendió el lote, una fila por venta.
+     *
+     * Con rastreable en true (el default de la pantalla) devuelve las ventas con cliente
+     * identificado; en false, las de mostrador. Nulo se trata como true: es el caso util, y
+     * devolver los dos conjuntos juntos ahogaria a los clientes reales entre miles de filas
+     * anonimas.
      */
-    public Page<ClienteLoteDto> clientesPorLote(Long loteId, Long sucursalId, Pageable pageable) {
+    public Page<ClienteLoteDto> clientesPorLote(Long loteId, Long sucursalId, Boolean rastreable,
+                                                Pageable pageable) {
         if (loteId == null) {
             return Page.empty(pageable);
         }
-        return repository.clientesPorLote(loteId, sucursalId, pageable)
+        return repository.clientesPorLote(loteId, sucursalId, rastreable == null || rastreable, pageable)
                 .map(p -> new ClienteLoteDto(
+                        p.getVentaId(),
+                        p.getSucursalId(),
+                        p.getSucursalNombre(),
+                        p.getFecha() != null ? p.getFecha().toLocalDateTime() : null,
                         p.getClienteId(),
                         p.getClienteNombre(),
                         p.getClienteDocumento(),
-                        p.getVentas() != null ? p.getVentas() : 0L,
-                        p.getCantidad() != null ? p.getCantidad() : 0d,
-                        p.getUltimaVenta() != null ? p.getUltimaVenta().toLocalDateTime() : null));
-    }
-
-    /**
-     * Cuánto del lote se vendió sin cliente identificado.
-     *
-     * Un lote que nunca se vendió no tiene filas que agregar y la proyección vuelve nula: se
-     * responde en cero y no null, porque la pantalla muestra este número siempre y un null la
-     * obligaría a distinguir dos casos que significan lo mismo.
-     */
-    public MostradorLoteDto resumenMostradorLote(Long loteId, Long sucursalId) {
-        if (loteId == null) {
-            return new MostradorLoteDto(0L, 0d);
-        }
-        MostradorLoteProjection p = repository.resumenMostradorLote(loteId, sucursalId);
-        if (p == null) {
-            return new MostradorLoteDto(0L, 0d);
-        }
-        return new MostradorLoteDto(
-                p.getVentas() != null ? p.getVentas() : 0L,
-                p.getCantidad() != null ? p.getCantidad() : 0d);
+                        p.getCantidad() != null ? p.getCantidad() : 0d));
     }
 
     /**

@@ -7,28 +7,33 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * Un cliente al que se le vendió un lote, con lo que se llevó sumado.
+ * Una venta de un lote. El cliente viene resuelto cuando la venta lo identifica; en las de
+ * mostrador es el genérico.
  *
  * Es la lista que se necesita en un recall: bloquear el lote lo saca del mostrador, pero avisar
  * exige saber a quién llamar.
  *
- * La lista NO es la venta completa del lote. La gran mayoría de las ventas del sistema son de
- * mostrador y van contra el cliente genérico, así que nunca se puede reconstruir a quién se le
- * vendió esa parte. Ese saldo se pide aparte con {@code resumenMostradorLote} y se muestra al
- * tope de la lista, para que la pantalla diga cuánto del lote quedó sin rastro en vez de aparentar
- * cobertura total.
+ * Va una fila por VENTA y no una por cliente, aunque eso repita al cliente que compró el lote
+ * varias veces: cada fila tiene que poder abrir su venta, y un cliente agrupado no tiene un único
+ * número al que apuntar.
+ *
+ * Una consulta devuelve las ventas rastreables o las de mostrador, nunca las dos juntas. La gran
+ * mayoría de las ventas del sistema van contra el cliente genérico, así que mezcladas taparían a
+ * los pocos clientes reales, que son justamente los que se pueden llamar.
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class ClienteLoteDto {
 
+    private Long ventaId;
+    /** La clave de venta es (id, sucursal_id): sin la sucursal el número es ambiguo. */
+    private Long sucursalId;
+    private String sucursalNombre;
+    private LocalDateTime fecha;
     private Long clienteId;
     private String clienteNombre;
     private String clienteDocumento;
-    /** Cuántas ventas distintas de este lote se le hicieron. */
-    private Long ventas;
-    /** Unidades del lote que se llevó, en positivo: el ledger las guarda negativas. */
+    /** Unidades del lote que salieron en esa venta, en positivo: el ledger las guarda negativas. */
     private Double cantidad;
-    private LocalDateTime ultimaVenta;
 }

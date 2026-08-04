@@ -125,18 +125,22 @@ type MovimientoLote {
     usuarioNombre: String
 }
 
-# Un cliente al que se le vendio un lote, con lo que se llevo sumado.
+# Una venta de un lote a un cliente identificado. Va una fila por VENTA y no una por cliente,
+# aunque eso repita al que compro varias veces: cada fila tiene que poder abrir su venta, y un
+# cliente agrupado no tiene un unico numero al que apuntar.
 # NO es la venta completa del lote: la venta de mostrador va contra el cliente generico y no
 # identifica a nadie, asi que queda afuera y su total se pide con resumenMostradorLote.
 type ClienteLote {
+    ventaId: ID
+    # La clave de venta es (id, sucursal_id): sin la sucursal el numero es ambiguo.
+    sucursalId: ID
+    sucursalNombre: String
+    fecha: Date
     clienteId: ID
     clienteNombre: String
     clienteDocumento: String
-    # Cuantas ventas distintas de este lote se le hicieron.
-    ventas: Int
-    # Unidades que se llevo, en positivo: el ledger las guarda negativas.
+    # Unidades que se llevo en esa venta, en positivo: el ledger las guarda negativas.
     cantidad: Float
-    ultimaVenta: Date
 }
 
 type ClienteLotePage {
@@ -150,12 +154,6 @@ type ClienteLotePage {
     getContent: [ClienteLote]
 }
 
-# Lo que se vendio de un lote sin cliente identificado. Es el complemento honesto de
-# clientesPorLote: sin este numero la lista de clientes se lee como si fuera todo lo que salio.
-type MostradorLote {
-    ventas: Int
-    cantidad: Float
-}
 
 type MovimientoLotePage {
     getTotalPages: Int
@@ -235,18 +233,18 @@ extend type Query {
         size: Int = 20
     ): MovimientoLotePage
 
-    # A que clientes se le vendio el lote, agrupado por cliente y ordenado por lo que se llevaron.
+    # A que clientes se le vendio el lote, una fila por venta, de la mas reciente a la mas vieja.
     # Es lo que hace accionable el recall: bloquear el lote lo saca del mostrador, pero avisar
-    # exige saber a quien llamar. Deja afuera la venta de mostrador.
+    # exige saber a quien llamar.
+    # rastreable parte el resultado en dos conjuntos que no se solapan: en true las ventas con
+    # cliente identificado, en false las de mostrador.
     clientesPorLote(
         loteId: ID!
         sucursalId: ID
+        rastreable: Boolean = true
         page: Int = 0
         size: Int = 20
     ): ClienteLotePage
-
-    # Cuanto del lote se vendio sin cliente identificado.
-    resumenMostradorLote(loteId: ID!, sucursalId: ID): MostradorLote
 }
 
 extend type Mutation {

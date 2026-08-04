@@ -3,7 +3,6 @@ package com.franco.dev.repository.operaciones;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.ClienteLoteProjection;
-import com.franco.dev.domain.operaciones.dto.MostradorLoteProjection;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteProjection;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
@@ -235,42 +234,59 @@ public interface MovimientoStockLoteRepository
                                                       Pageable pageable);
 
     /**
-     * A qué clientes se le vendió un lote, agrupado por cliente y ordenado por lo que se llevaron.
+     * A qué clientes se le vendió un lote, una fila por VENTA, de la más reciente a la más vieja.
      *
      * Es la lista que hace accionable el recall: cambiar el estado del lote lo saca del mostrador,
      * pero avisar exige saber a quién llamar.
      *
-     * Deja afuera la venta de mostrador (el cliente genérico "SIN NOMBRE"), que es la mayor parte
-     * de las ventas y no identifica a nadie: mezclada en la lista sería una fila gigante que tapa
-     * a los clientes reales. Su total se pide con {@link #resumenMostradorLote(Long, Long)}.
+     * No se agrupa por cliente aunque eso repita al que compró varias veces: cada fila tiene que
+     * poder abrir su venta, y un cliente agrupado no tiene un único número al que apuntar.
+     *
+     * Se agrupa por venta y no se devuelve el ítem crudo porque una misma venta puede llevar dos
+     * líneas del mismo lote; sin el GROUP BY la venta aparecería duplicada.
+     *
+     * :rastreable parte el resultado en dos conjuntos que no se solapan. En true devuelve las
+     * ventas con cliente identificado, que es lo que sirve para llamar; en false las de mostrador,
+     * que no identifican a nadie pero igual se pueden abrir para ver qué se vendió. Nunca los dos
+     * juntos: mezclados, las miles de filas de mostrador tapan a los pocos clientes reales.
      *
      * El cliente se descarta por nombre y no solo por id porque 'SIN NOMBRE' es la marca que ya
      * usa el resto del sistema para la venta anónima (ver FacturaLegalSpecification); el id 0 se
      * chequea igual por si algún registro quedó sin persona asociada.
      *
+     * El CAST del parámetro es necesario: sin él Postgres no puede inferir el tipo del bind y
+     * falla con "could not determine data type of parameter".
+     *
      * La cantidad se invierte porque el ledger guarda las salidas en negativo, y lo que la
      * pantalla necesita mostrar es cuánto se llevó cada uno.
      */
     @Query(value =
-            "SELECT v.cliente_id AS \"clienteId\", pc.nombre AS \"clienteNombre\", " +
+            "SELECT v.id AS \"ventaId\", v.sucursal_id AS \"sucursalId\", " +
+            "       s.nombre AS \"sucursalNombre\", v.creado_en AS \"fecha\", " +
+            "       v.cliente_id AS \"clienteId\", pc.nombre AS \"clienteNombre\", " +
             "       pc.documento AS \"clienteDocumento\", " +
-            "       COUNT(DISTINCT v.id) AS \"ventas\", " +
-            "       CAST(-SUM(msl.cantidad) AS double precision) AS \"cantidad\", " +
-            "       MAX(v.creado_en) AS \"ultimaVenta\" " +
+            "       CAST(-SUM(msl.cantidad) AS double precision) AS \"cantidad\" " +
             "FROM operaciones.movimiento_stock_lote msl " +
             "JOIN operaciones.movimiento_stock ms " +
             "     ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
             "JOIN operaciones.venta_item vi " +
             "     ON vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
             "JOIN operaciones.venta v ON v.id = vi.venta_id AND v.sucursal_id = vi.sucursal_id " +
+            "LEFT JOIN empresarial.sucursal s ON s.id = v.sucursal_id " +
             "LEFT JOIN personas.cliente c ON c.id = v.cliente_id " +
             "LEFT JOIN personas.persona pc ON pc.id = c.persona_id " +
             "WHERE msl.estado = true AND msl.lote_id = :loteId " +
             "  AND CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
             "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
-            "  AND v.cliente_id <> 0 AND UPPER(COALESCE(pc.nombre, '')) <> 'SIN NOMBRE' " +
-            "GROUP BY v.cliente_id, pc.nombre, pc.documento " +
-            "ORDER BY 5 DESC, 4 DESC",
+            "  AND ((CAST(:rastreable AS boolean) = true " +
+            "        AND v.cliente_id <> 0 " +
+            "        AND UPPER(COALESCE(pc.nombre, '')) <> 'SIN NOMBRE') " +
+            "       OR (CAST(:rastreable AS boolean) = false " +
+            "        AND (v.cliente_id = 0 " +
+            "             OR UPPER(COALESCE(pc.nombre, '')) = 'SIN NOMBRE'))) " +
+            "GROUP BY v.id, v.sucursal_id, s.nombre, v.creado_en, v.cliente_id, " +
+            "         pc.nombre, pc.documento " +
+            "ORDER BY v.creado_en DESC, v.id DESC",
             countQuery =
             "SELECT COUNT(*) FROM (" +
             "  SELECT 1 FROM operaciones.movimiento_stock_lote msl " +
@@ -284,36 +300,16 @@ public interface MovimientoStockLoteRepository
             "  WHERE msl.estado = true AND msl.lote_id = :loteId " +
             "    AND CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
             "    AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
-            "    AND v.cliente_id <> 0 AND UPPER(COALESCE(pc.nombre, '')) <> 'SIN NOMBRE' " +
-            "  GROUP BY v.cliente_id, pc.nombre, pc.documento) sub",
+            "    AND ((CAST(:rastreable AS boolean) = true " +
+            "        AND v.cliente_id <> 0 " +
+            "        AND UPPER(COALESCE(pc.nombre, '')) <> 'SIN NOMBRE') " +
+            "       OR (CAST(:rastreable AS boolean) = false " +
+            "        AND (v.cliente_id = 0 " +
+            "             OR UPPER(COALESCE(pc.nombre, '')) = 'SIN NOMBRE'))) " +
+            "  GROUP BY v.id, v.sucursal_id) sub",
             nativeQuery = true)
     Page<ClienteLoteProjection> clientesPorLote(@Param("loteId") Long loteId,
                                                 @Param("sucursalId") Long sucursalId,
+                                                @Param("rastreable") Boolean rastreable,
                                                 Pageable pageable);
-
-    /**
-     * Cuánto del lote se vendió sin cliente identificado. Es el complemento de
-     * {@link #clientesPorLote(Long, Long, Pageable)}: sin este número la lista de clientes se lee
-     * como si fuera todo lo que salió del lote.
-     *
-     * Mismo criterio de exclusión que allá, invertido.
-     */
-    @Query(value =
-            "SELECT COUNT(DISTINCT v.id) AS \"ventas\", " +
-            "       CAST(COALESCE(-SUM(msl.cantidad), 0) AS double precision) AS \"cantidad\" " +
-            "FROM operaciones.movimiento_stock_lote msl " +
-            "JOIN operaciones.movimiento_stock ms " +
-            "     ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
-            "JOIN operaciones.venta_item vi " +
-            "     ON vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
-            "JOIN operaciones.venta v ON v.id = vi.venta_id AND v.sucursal_id = vi.sucursal_id " +
-            "LEFT JOIN personas.cliente c ON c.id = v.cliente_id " +
-            "LEFT JOIN personas.persona pc ON pc.id = c.persona_id " +
-            "WHERE msl.estado = true AND msl.lote_id = :loteId " +
-            "  AND CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
-            "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
-            "  AND (v.cliente_id = 0 OR UPPER(COALESCE(pc.nombre, '')) = 'SIN NOMBRE')",
-            nativeQuery = true)
-    MostradorLoteProjection resumenMostradorLote(@Param("loteId") Long loteId,
-                                                 @Param("sucursalId") Long sucursalId);
 }

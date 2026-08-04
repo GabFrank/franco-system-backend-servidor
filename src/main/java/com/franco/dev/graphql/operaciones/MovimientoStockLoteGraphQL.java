@@ -3,7 +3,6 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.ClienteLoteDto;
-import com.franco.dev.domain.operaciones.dto.MostradorLoteDto;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
@@ -114,23 +113,18 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
     }
 
     /**
-     * A que clientes se le vendio el lote, agrupado por cliente.
+     * A que clientes se le vendio el lote, una fila por venta.
      *
      * Es lo que hace accionable el recall: cambiar el estado saca el lote del mostrador, pero
-     * avisar exige saber a quien llamar. Deja afuera la venta de mostrador, que no identifica a
-     * nadie y se pide con resumenMostradorLote.
+     * avisar exige saber a quien llamar.
+     *
+     * Con rastreable en true devuelve las ventas con cliente identificado; en false, las de
+     * mostrador, que no identifican a nadie pero igual se pueden abrir para ver que se vendio.
      */
-    public Page<ClienteLoteDto> clientesPorLote(Long loteId, Long sucursalId, int page, int size) {
+    public Page<ClienteLoteDto> clientesPorLote(Long loteId, Long sucursalId, Boolean rastreable,
+                                                int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
-        return service.clientesPorLote(loteId, sucursalId, pageable);
-    }
-
-    /**
-     * Cuanto del lote se vendio sin cliente identificado. Es el complemento de clientesPorLote:
-     * sin este numero la lista de clientes se lee como si fuera todo lo que salio del lote.
-     */
-    public MostradorLoteDto resumenMostradorLote(Long loteId, Long sucursalId) {
-        return service.resumenMostradorLote(loteId, sucursalId);
+        return service.clientesPorLote(loteId, sucursalId, rastreable, pageable);
     }
 
     /**

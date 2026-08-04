@@ -34,6 +34,12 @@ public class MaletinTesoreriaGraphQL implements GraphQLQueryResolver, GraphQLMut
                 monto != null ? BigDecimal.valueOf(monto) : null, descripcion, seg.currentUsuario());
     }
 
+    public List<MovimientoCajaVirtual> ingresarMaletinCierre(Long cajaVirtualId, Long maletinId,
+                                                             List<Long> monedaIds, String descripcion) {
+        seg.requireGestionar();
+        return service.ingresarMaletinCierre(cajaVirtualId, maletinId, monedaIds, descripcion, seg.currentUsuario());
+    }
+
     public MovimientoCajaVirtual egresarMaletinCajaMayor(Long cajaVirtualId, Long maletinId, Long monedaId,
                                                          Double monto, String descripcion) {
         seg.requireGestionar();

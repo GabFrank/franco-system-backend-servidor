@@ -75,6 +75,31 @@ public class MaletinTesoreriaService {
                 CajaVirtualTipoMovimiento.INGRESO, "INGRESO MALETIN", descripcion, usuario);
     }
 
+    /**
+     * Ingresa a la caja mayor, en una sola operación, el valor del último cierre del maletín
+     * para las monedas indicadas (o todas si {@code monedaIds} es nulo/vacío). Los montos se
+     * toman del cierre (autoritativo), no del cliente: el usuario solo elige qué monedas incluir.
+     * Crea un movimiento de INGRESO por cada moneda con valor.
+     */
+    @Transactional
+    public List<MovimientoCajaVirtual> ingresarMaletinCierre(Long cajaVirtualId, Long maletinId,
+                                                             List<Long> monedaIds, String descripcion, Usuario usuario) {
+        List<ValorMaletinItem> valores = valorMaletin(maletinId);
+        if (valores.isEmpty()) {
+            throw new GraphQLException("El maletín no tiene un cierre con valores para ingresar");
+        }
+        List<MovimientoCajaVirtual> creados = new ArrayList<>();
+        for (ValorMaletinItem v : valores) {
+            boolean incluir = (monedaIds == null || monedaIds.isEmpty()) || monedaIds.contains(v.getMoneda().getId());
+            if (!incluir) continue;
+            if (v.getTotal() == null || v.getTotal().signum() <= 0) continue;
+            creados.add(postear(cajaVirtualId, maletinId, v.getMoneda().getId(), v.getTotal(),
+                    CajaVirtualTipoMovimiento.INGRESO, "INGRESO MALETIN", descripcion, usuario));
+        }
+        if (creados.isEmpty()) throw new GraphQLException("Seleccione al menos una moneda con valor para ingresar");
+        return creados;
+    }
+
     /** Egresa de la caja mayor el valor que se despacha dentro de un maletín. */
     @Transactional
     public MovimientoCajaVirtual egresarMaletin(Long cajaVirtualId, Long maletinId, Long monedaId,

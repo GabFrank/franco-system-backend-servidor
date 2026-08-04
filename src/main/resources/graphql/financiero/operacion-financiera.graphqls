@@ -76,6 +76,7 @@ type MovimientoBancario {
     descripcion: String
     anulado: Boolean
     creadoEn: Date
+    usuario: Usuario
 }
 
 type MovimientoBancarioPage {

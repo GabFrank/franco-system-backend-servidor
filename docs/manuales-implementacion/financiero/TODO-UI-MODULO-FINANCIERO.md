@@ -36,6 +36,40 @@ Refinamientos de UI detectados durante las pruebas manuales guiadas (2026-07-31)
 - Ledger consolidado caja+banco en la tabla de movimientos + toggle "ver POS/ocultos".
 - Egreso de caja inicial (conteo billete) y diálogos de cobro CPC / pago compras / emitir cheque embebidos en el dashboard.
 
+## Maletín — histórico de contenido (propuesta futura, 2026-08-04)
+
+**Contexto:** hoy la entidad `Maletin` (`financiero.maletin`) NO guarda ninguna información sobre su
+contenido; es solo un identificador (descripción=código de barras, activo, abierto, sucursal). El "valor
+dentro del maletín" se **infiere** en tiempo real comparando el último `conteoCierre` de la `PdvCaja` que
+lo usó (ver `MaletinTesoreriaService.valorMaletin`). El ingreso/egreso de maletín a caja mayor (implementado
+2026-08-04) postea movimientos en `MovimientoCajaVirtual` con `origenTipo=MALETIN`, pero el maletín en sí
+no lleva registro de su saldo.
+
+**Propuesta (Gabriel):** crear un **histórico de contenido del maletín**, multi-moneda, que registre el
+contenido en cada **evento** de su ciclo de vida:
+- apertura de caja (el maletín entrega efectivo para abrir la caja)
+- cierre de caja (el efectivo contado vuelve al maletín)
+- ingreso a caja mayor (el maletín llega a tesorería y descarga su valor)
+- carga desde caja mayor / egreso (se despacha efectivo dentro del maletín hacia una sucursal)
+
+**Beneficios:**
+- Saldo del maletín **persistido y auditable** por moneda (no inferido), con trazabilidad evento a evento.
+- Habilita **retiros/cargas parciales** del maletín (hoy el ingreso descarga todo el cierre; con histórico
+  se puede sacar/meter solo una parte) dejando cada movimiento registrado.
+- Permite conciliar diferencias por maletín contra su histórico, no solo contra la caja anterior.
+
+**Bosquejo técnico (a definir):**
+- Nueva entidad tipo `MaletinMovimiento` / `MaletinContenido` (M:1 a `Maletin`), con `evento` (enum:
+  APERTURA_CAJA, CIERRE_CAJA, INGRESO_CAJA_MAYOR, CARGA_CAJA_MAYOR, RETIRO_PARCIAL, AJUSTE), `moneda`,
+  `monto` (con signo o entrada/salida), `saldoPosterior` por moneda, `referencia` al origen (pdv_caja id,
+  movimiento_caja_virtual id, etc.), usuario, fecha. Patrón ledger inmutable, igual que `MovimientoCajaVirtual`.
+- Enganchar los hooks: `PdvCajaService.save` (apertura/cierre) y `MaletinTesoreriaService` (ingreso/egreso).
+- Migración aditiva (sufijo `.5`), replicación filial→central (el maletín se origina en filial).
+- UI: pantalla de "contenido/histórico del maletín" (multi-moneda) + saldo actual por maletín.
+
+**Estado:** NO iniciado. Es un feature grande (nueva entidad + hooks en flujo PDV productivo + replicación).
+Planificar fasado antes de construir.
+
 ## Notas
 - Capa desktop (`frc-comercial/desktop`), módulo `financiero`. Backend de soporte en central (migración V186.5 + queries nuevas).
 - Convenciones respetadas: dark mode, sin funciones en HTML (display precalculado en `toRow`), fechas string vía `dateToString`.

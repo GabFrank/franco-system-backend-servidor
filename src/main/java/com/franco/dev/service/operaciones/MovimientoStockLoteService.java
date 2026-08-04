@@ -7,6 +7,9 @@ import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
+import com.franco.dev.domain.operaciones.dto.ClienteLoteDto;
+import com.franco.dev.domain.operaciones.dto.MostradorLoteDto;
+import com.franco.dev.domain.operaciones.dto.MostradorLoteProjection;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
@@ -400,11 +403,12 @@ public class MovimientoStockLoteService
      * hace falta en un recall: la compra que lo trajo, las transferencias que lo repartieron y
      * las ventas que lo sacaron.
      */
-    public Page<MovimientoLoteDto> movimientosPorLote(Long loteId, Long sucursalId, Pageable pageable) {
+    public Page<MovimientoLoteDto> movimientosPorLote(Long loteId, Long sucursalId,
+                                                      String tipoMovimiento, Pageable pageable) {
         if (loteId == null) {
             return Page.empty(pageable);
         }
-        return repository.movimientosPorLote(loteId, sucursalId, pageable)
+        return repository.movimientosPorLote(loteId, sucursalId, tipoMovimiento, pageable)
                 .map(p -> new MovimientoLoteDto(
                         p.getId(),
                         p.getSucursalId(),
@@ -412,8 +416,47 @@ public class MovimientoStockLoteService
                         p.getSucursalNombre(),
                         p.getTipoMovimiento(),
                         p.getReferencia(),
+                        p.getDocumentoId(),
                         p.getCantidad() != null ? p.getCantidad() : 0d,
                         p.getUsuarioNombre()));
+    }
+
+    /**
+     * A qué clientes se le vendió el lote. Deja afuera la venta de mostrador, que se pide con
+     * {@link #resumenMostradorLote(Long, Long)}.
+     */
+    public Page<ClienteLoteDto> clientesPorLote(Long loteId, Long sucursalId, Pageable pageable) {
+        if (loteId == null) {
+            return Page.empty(pageable);
+        }
+        return repository.clientesPorLote(loteId, sucursalId, pageable)
+                .map(p -> new ClienteLoteDto(
+                        p.getClienteId(),
+                        p.getClienteNombre(),
+                        p.getClienteDocumento(),
+                        p.getVentas() != null ? p.getVentas() : 0L,
+                        p.getCantidad() != null ? p.getCantidad() : 0d,
+                        p.getUltimaVenta() != null ? p.getUltimaVenta().toLocalDateTime() : null));
+    }
+
+    /**
+     * Cuánto del lote se vendió sin cliente identificado.
+     *
+     * Un lote que nunca se vendió no tiene filas que agregar y la proyección vuelve nula: se
+     * responde en cero y no null, porque la pantalla muestra este número siempre y un null la
+     * obligaría a distinguir dos casos que significan lo mismo.
+     */
+    public MostradorLoteDto resumenMostradorLote(Long loteId, Long sucursalId) {
+        if (loteId == null) {
+            return new MostradorLoteDto(0L, 0d);
+        }
+        MostradorLoteProjection p = repository.resumenMostradorLote(loteId, sucursalId);
+        if (p == null) {
+            return new MostradorLoteDto(0L, 0d);
+        }
+        return new MostradorLoteDto(
+                p.getVentas() != null ? p.getVentas() : 0L,
+                p.getCantidad() != null ? p.getCantidad() : 0d);
     }
 
     /**

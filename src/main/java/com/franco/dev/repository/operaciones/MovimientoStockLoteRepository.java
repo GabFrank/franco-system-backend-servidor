@@ -2,6 +2,8 @@ package com.franco.dev.repository.operaciones;
 
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
+import com.franco.dev.domain.operaciones.dto.ClienteLoteProjection;
+import com.franco.dev.domain.operaciones.dto.MostradorLoteProjection;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteProjection;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteProjection;
@@ -173,6 +175,21 @@ public interface MovimientoStockLoteRepository
      *
      * No se filtra por lote_id IS NOT NULL porque el parámetro ya lo hace: las filas del bucket
      * "SIN LOTE" tienen lote_id nulo y nunca matchean.
+     *
+     * OJO con ms.referencia: NO es el documento, es el ÍTEM del documento, porque el ledger se
+     * escribe por ítem. Mostrarla tal cual como "documento" manda al operador a buscar un id que
+     * no existe en la tabla que va a abrir. Por eso se resuelve al padre en "documentoId", con un
+     * LEFT JOIN por tipo:
+     *
+     *   VENTA         -> venta_item.venta_id
+     *   COMPRA        -> recepcion_mercaderia_item.recepcion_mercaderia_id
+     *   TRANSFERENCIA -> transferencia_item.transferencia_id
+     *
+     * Solo venta_item lleva sucursal_id y por eso es el único que matchea por (id, sucursal_id);
+     * los otros dos son de id global. Sumarles sucursal_id al ON no devolvería nada.
+     *
+     * La condición de tipo va DENTRO del ON de cada join: en el WHERE descartaría las filas de los
+     * otros tipos en vez de dejarles el documento en null.
      */
     @Query(value =
             "SELECT msl.id AS \"id\", msl.sucursal_id AS \"sucursalId\", " +
@@ -181,23 +198,122 @@ public interface MovimientoStockLoteRepository
             // parametro con nombre, se come ":text" y le manda a Postgres "tipo_movimiento:" suelto.
             "       CAST(ms.tipo_movimiento AS text) AS \"tipoMovimiento\", " +
             "       ms.referencia AS \"referencia\", " +
+            "       COALESCE(vi.venta_id, rmi.recepcion_mercaderia_id, ti.transferencia_id) " +
+            "           AS \"documentoId\", " +
             "       CAST(msl.cantidad AS double precision) AS \"cantidad\", " +
             "       COALESCE(u.nickname, p.nombre) AS \"usuarioNombre\" " +
             "FROM operaciones.movimiento_stock_lote msl " +
             "LEFT JOIN operaciones.movimiento_stock ms " +
             "       ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
+            "LEFT JOIN operaciones.venta_item vi " +
+            "       ON CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
+            "      AND vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
+            "LEFT JOIN operaciones.recepcion_mercaderia_item rmi " +
+            "       ON CAST(ms.tipo_movimiento AS text) = 'COMPRA' AND rmi.id = ms.referencia " +
+            "LEFT JOIN operaciones.transferencia_item ti " +
+            "       ON CAST(ms.tipo_movimiento AS text) = 'TRANSFERENCIA' AND ti.id = ms.referencia " +
             "LEFT JOIN empresarial.sucursal s ON s.id = msl.sucursal_id " +
             "LEFT JOIN personas.usuario u ON u.id = msl.usuario_id " +
             "LEFT JOIN personas.persona p ON p.id = u.persona_id " +
             "WHERE msl.estado = true AND msl.lote_id = :loteId " +
             "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
+            "  AND (:tipoMovimiento IS NULL " +
+            "       OR CAST(ms.tipo_movimiento AS text) = :tipoMovimiento) " +
             "ORDER BY msl.creado_en DESC, msl.id DESC",
             countQuery =
             "SELECT COUNT(*) FROM operaciones.movimiento_stock_lote msl " +
+            "LEFT JOIN operaciones.movimiento_stock ms " +
+            "       ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
             "WHERE msl.estado = true AND msl.lote_id = :loteId " +
-            "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId)",
+            "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
+            "  AND (:tipoMovimiento IS NULL " +
+            "       OR CAST(ms.tipo_movimiento AS text) = :tipoMovimiento)",
             nativeQuery = true)
     Page<MovimientoLoteProjection> movimientosPorLote(@Param("loteId") Long loteId,
                                                       @Param("sucursalId") Long sucursalId,
+                                                      @Param("tipoMovimiento") String tipoMovimiento,
                                                       Pageable pageable);
+
+    /**
+     * A qué clientes se le vendió un lote, agrupado por cliente y ordenado por lo que se llevaron.
+     *
+     * Es la lista que hace accionable el recall: cambiar el estado del lote lo saca del mostrador,
+     * pero avisar exige saber a quién llamar.
+     *
+     * Deja afuera la venta de mostrador (el cliente genérico "SIN NOMBRE"), que es la mayor parte
+     * de las ventas y no identifica a nadie: mezclada en la lista sería una fila gigante que tapa
+     * a los clientes reales. Su total se pide con {@link #resumenMostradorLote(Long, Long)}.
+     *
+     * El cliente se descarta por nombre y no solo por id porque 'SIN NOMBRE' es la marca que ya
+     * usa el resto del sistema para la venta anónima (ver FacturaLegalSpecification); el id 0 se
+     * chequea igual por si algún registro quedó sin persona asociada.
+     *
+     * La cantidad se invierte porque el ledger guarda las salidas en negativo, y lo que la
+     * pantalla necesita mostrar es cuánto se llevó cada uno.
+     */
+    @Query(value =
+            "SELECT v.cliente_id AS \"clienteId\", pc.nombre AS \"clienteNombre\", " +
+            "       pc.documento AS \"clienteDocumento\", " +
+            "       COUNT(DISTINCT v.id) AS \"ventas\", " +
+            "       CAST(-SUM(msl.cantidad) AS double precision) AS \"cantidad\", " +
+            "       MAX(v.creado_en) AS \"ultimaVenta\" " +
+            "FROM operaciones.movimiento_stock_lote msl " +
+            "JOIN operaciones.movimiento_stock ms " +
+            "     ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
+            "JOIN operaciones.venta_item vi " +
+            "     ON vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
+            "JOIN operaciones.venta v ON v.id = vi.venta_id AND v.sucursal_id = vi.sucursal_id " +
+            "LEFT JOIN personas.cliente c ON c.id = v.cliente_id " +
+            "LEFT JOIN personas.persona pc ON pc.id = c.persona_id " +
+            "WHERE msl.estado = true AND msl.lote_id = :loteId " +
+            "  AND CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
+            "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
+            "  AND v.cliente_id <> 0 AND UPPER(COALESCE(pc.nombre, '')) <> 'SIN NOMBRE' " +
+            "GROUP BY v.cliente_id, pc.nombre, pc.documento " +
+            "ORDER BY 5 DESC, 4 DESC",
+            countQuery =
+            "SELECT COUNT(*) FROM (" +
+            "  SELECT 1 FROM operaciones.movimiento_stock_lote msl " +
+            "  JOIN operaciones.movimiento_stock ms " +
+            "       ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
+            "  JOIN operaciones.venta_item vi " +
+            "       ON vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
+            "  JOIN operaciones.venta v ON v.id = vi.venta_id AND v.sucursal_id = vi.sucursal_id " +
+            "  LEFT JOIN personas.cliente c ON c.id = v.cliente_id " +
+            "  LEFT JOIN personas.persona pc ON pc.id = c.persona_id " +
+            "  WHERE msl.estado = true AND msl.lote_id = :loteId " +
+            "    AND CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
+            "    AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
+            "    AND v.cliente_id <> 0 AND UPPER(COALESCE(pc.nombre, '')) <> 'SIN NOMBRE' " +
+            "  GROUP BY v.cliente_id, pc.nombre, pc.documento) sub",
+            nativeQuery = true)
+    Page<ClienteLoteProjection> clientesPorLote(@Param("loteId") Long loteId,
+                                                @Param("sucursalId") Long sucursalId,
+                                                Pageable pageable);
+
+    /**
+     * Cuánto del lote se vendió sin cliente identificado. Es el complemento de
+     * {@link #clientesPorLote(Long, Long, Pageable)}: sin este número la lista de clientes se lee
+     * como si fuera todo lo que salió del lote.
+     *
+     * Mismo criterio de exclusión que allá, invertido.
+     */
+    @Query(value =
+            "SELECT COUNT(DISTINCT v.id) AS \"ventas\", " +
+            "       CAST(COALESCE(-SUM(msl.cantidad), 0) AS double precision) AS \"cantidad\" " +
+            "FROM operaciones.movimiento_stock_lote msl " +
+            "JOIN operaciones.movimiento_stock ms " +
+            "     ON ms.id = msl.movimiento_stock_id AND ms.sucursal_id = msl.sucursal_id " +
+            "JOIN operaciones.venta_item vi " +
+            "     ON vi.id = ms.referencia AND vi.sucursal_id = ms.sucursal_id " +
+            "JOIN operaciones.venta v ON v.id = vi.venta_id AND v.sucursal_id = vi.sucursal_id " +
+            "LEFT JOIN personas.cliente c ON c.id = v.cliente_id " +
+            "LEFT JOIN personas.persona pc ON pc.id = c.persona_id " +
+            "WHERE msl.estado = true AND msl.lote_id = :loteId " +
+            "  AND CAST(ms.tipo_movimiento AS text) = 'VENTA' " +
+            "  AND (:sucursalId IS NULL OR msl.sucursal_id = :sucursalId) " +
+            "  AND (v.cliente_id = 0 OR UPPER(COALESCE(pc.nombre, '')) = 'SIN NOMBRE')",
+            nativeQuery = true)
+    MostradorLoteProjection resumenMostradorLote(@Param("loteId") Long loteId,
+                                                 @Param("sucursalId") Long sucursalId);
 }

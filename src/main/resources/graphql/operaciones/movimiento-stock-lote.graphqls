@@ -112,12 +112,49 @@ type MovimientoLote {
     sucursalNombre: String
     # COMPRA, VENTA, AJUSTE o TRANSFERENCIA. Nulo si el movimiento padre ya no esta.
     tipoMovimiento: String
-    # Id del documento que origino el movimiento. Su significado depende del tipo: venta, compra
-    # o transferencia. Va crudo para que la pantalla pueda ofrecer el salto al documento.
+    # OJO: no es el documento, es el ITEM del documento, porque el ledger se escribe por item.
+    # Para VENTA apunta a venta_item, para COMPRA a recepcion_mercaderia_item y para
+    # TRANSFERENCIA a transferencia_item. Mostrarlo como documento manda a buscar un id que no
+    # existe en la tabla que el operador va a abrir: para eso esta documentoId.
     referencia: ID
+    # El documento al que pertenece ese item: la venta, la recepcion o la transferencia. Nulo
+    # cuando el tipo no tiene documento resoluble o cuando el item ya no esta.
+    documentoId: ID
     # Positiva si entro al lote, negativa si salio.
     cantidad: Float
     usuarioNombre: String
+}
+
+# Un cliente al que se le vendio un lote, con lo que se llevo sumado.
+# NO es la venta completa del lote: la venta de mostrador va contra el cliente generico y no
+# identifica a nadie, asi que queda afuera y su total se pide con resumenMostradorLote.
+type ClienteLote {
+    clienteId: ID
+    clienteNombre: String
+    clienteDocumento: String
+    # Cuantas ventas distintas de este lote se le hicieron.
+    ventas: Int
+    # Unidades que se llevo, en positivo: el ledger las guarda negativas.
+    cantidad: Float
+    ultimaVenta: Date
+}
+
+type ClienteLotePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ClienteLote]
+}
+
+# Lo que se vendio de un lote sin cliente identificado. Es el complemento honesto de
+# clientesPorLote: sin este numero la lista de clientes se lee como si fuera todo lo que salio.
+type MostradorLote {
+    ventas: Int
+    cantidad: Float
 }
 
 type MovimientoLotePage {
@@ -193,9 +230,23 @@ extend type Query {
     movimientosPorLote(
         loteId: ID!
         sucursalId: ID
+        tipoMovimiento: TipoMovimiento
         page: Int = 0
         size: Int = 20
     ): MovimientoLotePage
+
+    # A que clientes se le vendio el lote, agrupado por cliente y ordenado por lo que se llevaron.
+    # Es lo que hace accionable el recall: bloquear el lote lo saca del mostrador, pero avisar
+    # exige saber a quien llamar. Deja afuera la venta de mostrador.
+    clientesPorLote(
+        loteId: ID!
+        sucursalId: ID
+        page: Int = 0
+        size: Int = 20
+    ): ClienteLotePage
+
+    # Cuanto del lote se vendio sin cliente identificado.
+    resumenMostradorLote(loteId: ID!, sucursalId: ID): MostradorLote
 }
 
 extend type Mutation {

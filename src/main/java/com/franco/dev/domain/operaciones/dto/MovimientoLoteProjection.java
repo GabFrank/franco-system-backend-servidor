@@ -23,6 +23,7 @@ public interface MovimientoLoteProjection {
     String getSucursalNombre();
     String getTipoMovimiento();
     Long getReferencia();
+    Long getDocumentoId();
     Double getCantidad();
     String getUsuarioNombre();
 }

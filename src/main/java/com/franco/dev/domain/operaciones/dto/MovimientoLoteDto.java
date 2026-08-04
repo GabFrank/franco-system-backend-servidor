@@ -14,9 +14,11 @@ import java.time.LocalDateTime;
  * de un recall: bloquear el lote lo saca del mostrador, pero para avisar hay que saber a quién se
  * le vendió.
  *
- * {@code referencia} es el id del documento que originó el movimiento y su significado depende
- * del tipo: venta, compra o transferencia. Se devuelve crudo para que la pantalla pueda ofrecer
- * el salto al documento.
+ * OJO con {@code referencia}: no es el documento, es el ÍTEM del documento. El ledger se escribe
+ * por ítem, así que para una venta apunta a {@code venta_item}, para una compra a
+ * {@code recepcion_mercaderia_item} y para una transferencia a {@code transferencia_item}.
+ * Mostrarla como "documento" es engañoso: el id no existe en la tabla que el operador iría a
+ * buscar. Por eso viaja también {@code documentoId}, ya resuelto al padre.
  */
 @Data
 @AllArgsConstructor
@@ -33,7 +35,13 @@ public class MovimientoLoteDto {
     private String sucursalNombre;
     /** COMPRA, VENTA, AJUSTE o TRANSFERENCIA. Nulo si el movimiento padre ya no está. */
     private String tipoMovimiento;
+    /** Id del ÍTEM que originó el movimiento, no del documento. Ver el javadoc de la clase. */
     private Long referencia;
+    /**
+     * Documento al que pertenece ese ítem: la venta, la recepción o la transferencia. Nulo cuando
+     * el tipo no tiene documento resoluble o cuando el ítem ya no está.
+     */
+    private Long documentoId;
     /** Positiva si entró al lote, negativa si salió. */
     private Double cantidad;
     private String usuarioNombre;

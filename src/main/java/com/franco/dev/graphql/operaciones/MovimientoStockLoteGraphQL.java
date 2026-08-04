@@ -2,11 +2,14 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
+import com.franco.dev.domain.operaciones.dto.ClienteLoteDto;
+import com.franco.dev.domain.operaciones.dto.MostradorLoteDto;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteSucursalDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
+import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.MovimientoStockLoteService;
@@ -102,9 +105,32 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * Es la contraparte de cambiarEstadoLote: bloquear el lote lo saca de circulacion, pero para
      * que el recall sirva hay que poder decir de que compra vino y a que ventas fue.
      */
-    public Page<MovimientoLoteDto> movimientosPorLote(Long loteId, Long sucursalId, int page, int size) {
+    public Page<MovimientoLoteDto> movimientosPorLote(Long loteId, Long sucursalId,
+                                                      TipoMovimiento tipoMovimiento,
+                                                      int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
-        return service.movimientosPorLote(loteId, sucursalId, pageable);
+        return service.movimientosPorLote(loteId, sucursalId,
+                tipoMovimiento != null ? tipoMovimiento.name() : null, pageable);
+    }
+
+    /**
+     * A que clientes se le vendio el lote, agrupado por cliente.
+     *
+     * Es lo que hace accionable el recall: cambiar el estado saca el lote del mostrador, pero
+     * avisar exige saber a quien llamar. Deja afuera la venta de mostrador, que no identifica a
+     * nadie y se pide con resumenMostradorLote.
+     */
+    public Page<ClienteLoteDto> clientesPorLote(Long loteId, Long sucursalId, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
+        return service.clientesPorLote(loteId, sucursalId, pageable);
+    }
+
+    /**
+     * Cuanto del lote se vendio sin cliente identificado. Es el complemento de clientesPorLote:
+     * sin este numero la lista de clientes se lee como si fuera todo lo que salio del lote.
+     */
+    public MostradorLoteDto resumenMostradorLote(Long loteId, Long sucursalId) {
+        return service.resumenMostradorLote(loteId, sucursalId);
     }
 
     /**

@@ -80,11 +80,29 @@ public class ImageService {
         return Base64Decoder.multipartFile(bytes, charArray[0]);
     }
 
+    /**
+     * Directorio base de los archivos de la instancia (logo, imagenes, reports).
+     *
+     * Se resuelve en runtime a proposito. La property `homepath` NO puede tener
+     * `${user.home}` como default en `application.properties`: el maven-resources-plugin
+     * esta configurado con el delimitador `${*}`, asi que Maven la reemplaza en tiempo de
+     * compilacion por el home de la maquina que buildea -- en CI, `/home/runner` -- y esa
+     * ruta queda horneada en el jar. Cada instancia define `HOMEPATH` en su `.env`; el
+     * fallback a `user.home` es para desarrollo local.
+     */
+    public String getHomePath() {
+        String configured = env.getProperty("homepath");
+        if (configured != null && !configured.isBlank()) {
+            return configured;
+        }
+        return System.getProperty("user.home");
+    }
+
     public String getResourcesPath() {
         if (isWindows) {
             return "C:\\\\FRC\\resources";
         } else {
-            return env.getProperty("homepath") + "/FRC/resources";
+            return getHomePath() + "/FRC/resources";
         }
     }
 
@@ -92,7 +110,7 @@ public class ImageService {
         if (isWindows) {
             return "C:\\\\FRC\\reports\\";
         } else {
-            return env.getProperty("homepath") + storageDirectoryPathReports + "/";
+            return getHomePath() + storageDirectoryPathReports + "/";
         }
     }
 
@@ -100,7 +118,7 @@ public class ImageService {
         if (isWindows) {
             return "C:\\\\FRC\\resources\\images\\productos\\presentaciones\\";
         } else {
-            return env.getProperty("homepath") + imagePresentaciones + "/";
+            return getHomePath() + imagePresentaciones + "/";
         }
     }
 
@@ -108,7 +126,7 @@ public class ImageService {
         if (isWindows) {
             return "C:\\\\FRC\\resources\\images\\productos\\presentaciones\\thumbnails\\";
         } else {
-            return env.getProperty("homepath") + imagePresentacionesThumb + "/";
+            return getHomePath() + imagePresentacionesThumb + "/";
         }
     }
 
@@ -116,7 +134,7 @@ public class ImageService {
         if (isWindows) {
             return "C:\\\\FRC\\resources\\images\\";
         } else {
-            return env.getProperty("homepath") + imagePath + "/";
+            return getHomePath() + imagePath + "/";
         }
     }
 
@@ -146,7 +164,7 @@ public class ImageService {
         List<String> images = new ArrayList<>();
 
         if (isPrefix) {
-            File dir = new File(env.getProperty("homepath") + imagePath + File.separator + folderPath + File.separator);
+            File dir = new File(getHomePath() + imagePath + File.separator + folderPath + File.separator);
             File[] matchingFiles = dir.listFiles(new FilenameFilter() {
                 public boolean accept(File dir, String name) {
                     return name.startsWith(imageName);

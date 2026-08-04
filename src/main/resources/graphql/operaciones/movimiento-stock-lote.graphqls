@@ -139,6 +139,8 @@ type ClienteLote {
     clienteId: ID
     clienteNombre: String
     clienteDocumento: String
+    # Donde ubicarlo si hay que avisarle por un recall. Nula cuando la persona no la tiene cargada.
+    clienteDireccion: String
     # Unidades que se llevo en esa venta, en positivo: el ledger las guarda negativas.
     cantidad: Float
 }

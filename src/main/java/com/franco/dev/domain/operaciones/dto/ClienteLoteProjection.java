@@ -18,6 +18,8 @@ public interface ClienteLoteProjection {
     Long getClienteId();
     String getClienteNombre();
     String getClienteDocumento();
+    /** Dónde ubicarlo si hay que avisarle por un recall. Nula cuando la persona no la tiene cargada. */
+    String getClienteDireccion();
     /** Unidades del lote que salieron en esa venta, en positivo. */
     Double getCantidad();
 }

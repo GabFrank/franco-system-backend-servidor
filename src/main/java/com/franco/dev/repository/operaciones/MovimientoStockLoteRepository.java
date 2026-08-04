@@ -265,6 +265,7 @@ public interface MovimientoStockLoteRepository
             "       s.nombre AS \"sucursalNombre\", v.creado_en AS \"fecha\", " +
             "       v.cliente_id AS \"clienteId\", pc.nombre AS \"clienteNombre\", " +
             "       pc.documento AS \"clienteDocumento\", " +
+            "       pc.direccion AS \"clienteDireccion\", " +
             "       CAST(-SUM(msl.cantidad) AS double precision) AS \"cantidad\" " +
             "FROM operaciones.movimiento_stock_lote msl " +
             "JOIN operaciones.movimiento_stock ms " +
@@ -285,7 +286,7 @@ public interface MovimientoStockLoteRepository
             "        AND (v.cliente_id = 0 " +
             "             OR UPPER(COALESCE(pc.nombre, '')) = 'SIN NOMBRE'))) " +
             "GROUP BY v.id, v.sucursal_id, s.nombre, v.creado_en, v.cliente_id, " +
-            "         pc.nombre, pc.documento " +
+            "         pc.nombre, pc.documento, pc.direccion " +
             "ORDER BY v.creado_en DESC, v.id DESC",
             countQuery =
             "SELECT COUNT(*) FROM (" +

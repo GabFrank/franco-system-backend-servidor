@@ -34,6 +34,8 @@ public class ClienteLoteDto {
     private Long clienteId;
     private String clienteNombre;
     private String clienteDocumento;
+    /** Dónde ubicarlo si hay que avisarle por un recall. Nula cuando la persona no la tiene cargada. */
+    private String clienteDireccion;
     /** Unidades del lote que salieron en esa venta, en positivo: el ledger las guarda negativas. */
     private Double cantidad;
 }

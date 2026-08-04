@@ -441,6 +441,7 @@ public class MovimientoStockLoteService
                         p.getClienteId(),
                         p.getClienteNombre(),
                         p.getClienteDocumento(),
+                        p.getClienteDireccion(),
                         p.getCantidad() != null ? p.getCantidad() : 0d));
     }
 

@@ -70,10 +70,11 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      */
     public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, Long proveedorId,
                                                   EstadoLote estado, String numeroLote, String texto,
-                                                  String vencimientoHasta, int page, int size) {
+                                                  String vencimientoDesde, String vencimientoHasta,
+                                                  int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
         return service.buscarStockPorLote(productoId, sucursalId, proveedorId, estado, numeroLote,
-                texto, vencimientoHasta, pageable);
+                texto, vencimientoDesde, vencimientoHasta, pageable);
     }
 
     /**

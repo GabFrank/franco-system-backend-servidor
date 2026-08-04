@@ -236,7 +236,7 @@ public class MovimientoStockLoteService
 
         // Se apoya en buscarStockPorLote, que ya pagina, ordena por FEFO y filtra por numero de
         // lote. Aca solo se agrega la conversion a la presentacion del operador.
-        return buscarStockPorLote(productoId, sucursalId, null, null, numeroLote, null, null, pageable)
+        return buscarStockPorLote(productoId, sucursalId, null, null, numeroLote, null, null, null, pageable)
                 .map(lote -> new StockLotePresentacionDto(
                         lote.getLoteId(),
                         lote.getNumeroLote(),
@@ -366,7 +366,8 @@ public class MovimientoStockLoteService
      */
     public Page<StockLoteDto> buscarStockPorLote(Long productoId, Long sucursalId, Long proveedorId,
                                                   EstadoLote estado, String numeroLote, String texto,
-                                                  String vencimientoHasta, Pageable pageable) {
+                                                  String vencimientoDesde, String vencimientoHasta,
+                                                  Pageable pageable) {
         return repository.buscarStockPorLote(
                 productoId,
                 sucursalId,
@@ -374,6 +375,7 @@ public class MovimientoStockLoteService
                 estado != null ? estado.name() : null,
                 normalizarFiltro(numeroLote),
                 normalizarFiltro(texto),
+                normalizarFiltro(vencimientoDesde),
                 normalizarFiltro(vencimientoHasta),
                 pageable
         ).map(this::aDto);

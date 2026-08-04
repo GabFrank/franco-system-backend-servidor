@@ -98,6 +98,7 @@ public interface MovimientoStockLoteRepository
             "  AND (:estado IS NULL OR l.estado = :estado) " +
             "  AND (:numeroLote IS NULL OR msl.numero_lote LIKE UPPER(CONCAT('%', :numeroLote, '%'))) " +
             "  AND (:texto IS NULL OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))) " +
+            "  AND (:vencimientoDesde IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) >= CAST(:vencimientoDesde AS date)) " +
             "  AND (:vencimientoHasta IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) <= CAST(:vencimientoHasta AS date)) " +
             "GROUP BY l.id, msl.producto_id, p.descripcion, msl.numero_lote, " +
             "         l.fecha_vencimiento, l.fecha_retiro, l.estado, pp.nombre " +
@@ -116,6 +117,7 @@ public interface MovimientoStockLoteRepository
             "    AND (:estado IS NULL OR l.estado = :estado) " +
             "    AND (:numeroLote IS NULL OR msl.numero_lote LIKE UPPER(CONCAT('%', :numeroLote, '%'))) " +
             "    AND (:texto IS NULL OR UPPER(p.descripcion) LIKE UPPER(CONCAT('%', :texto, '%'))) " +
+            "    AND (:vencimientoDesde IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) >= CAST(:vencimientoDesde AS date)) " +
             "    AND (:vencimientoHasta IS NULL OR COALESCE(l.fecha_retiro, l.fecha_vencimiento) <= CAST(:vencimientoHasta AS date)) " +
             "  GROUP BY l.id, msl.producto_id, p.descripcion, msl.numero_lote, " +
             "           l.fecha_vencimiento, l.fecha_retiro, l.estado " +
@@ -127,6 +129,7 @@ public interface MovimientoStockLoteRepository
                                                  @Param("estado") String estado,
                                                  @Param("numeroLote") String numeroLote,
                                                  @Param("texto") String texto,
+                                                 @Param("vencimientoDesde") String vencimientoDesde,
                                                  @Param("vencimientoHasta") String vencimientoHasta,
                                                  Pageable pageable);
 

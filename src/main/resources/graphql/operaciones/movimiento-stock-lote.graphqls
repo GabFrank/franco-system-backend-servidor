@@ -199,8 +199,9 @@ extend type Query {
     # Consulta general "donde tengo que": todos los filtros son opcionales. Devuelve una fila por
     # LOTE, con el saldo sumado de todas las sucursales; con sucursalId el total queda restringido
     # a esa sucursal.
-    # vencimientoHasta filtra por COALESCE(fecha_retiro, fecha_vencimiento) <= fecha, para
-    # responder "que se me vence antes de tal fecha". Formato yyyy-MM-dd.
+    # vencimientoDesde y vencimientoHasta acotan COALESCE(fecha_retiro, fecha_vencimiento) por
+    # abajo y por arriba. Son independientes: solo hasta responde "que se me vence antes de tal
+    # fecha", los dos juntos acotan una ventana. Formato yyyy-MM-dd.
     buscarStockPorLote(
         productoId: ID
         sucursalId: ID
@@ -208,6 +209,7 @@ extend type Query {
         estado: EstadoLote
         numeroLote: String
         texto: String
+        vencimientoDesde: String
         vencimientoHasta: String
         page: Int = 0
         size: Int = 20

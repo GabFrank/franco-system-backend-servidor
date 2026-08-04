@@ -33,6 +33,7 @@ enum OrigenMovimientoTipo {
     PAGO_CPP
     CHEQUE
     ACREDITACION_POS
+    MALETIN
 }
 
 input MovimientoCajaVirtualInput {

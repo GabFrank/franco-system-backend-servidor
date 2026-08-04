@@ -27,5 +27,8 @@ public enum OrigenMovimientoTipo {
     OPERACION_FINANCIERA,
     PAGO_CPP,
     CHEQUE,
-    ACREDITACION_POS
+    ACREDITACION_POS,
+    /** Ingreso/egreso de un maletín en la caja mayor (recaudación física que llega/sale en el maletín).
+     *  Se opera manualmente en tesorería, por eso es anulable directamente desde la caja mayor. */
+    MALETIN
 }

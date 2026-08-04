@@ -178,7 +178,9 @@ public class TesoreriaService {
         if (origen == OrigenMovimientoTipo.ANULACION) {
             throw new GraphQLException("No se puede anular un contra-movimiento de anulación.");
         }
-        if (origen != null && origen != OrigenMovimientoTipo.MANUAL) {
+        // MALETIN se opera manualmente en tesorería (no tiene módulo dueño con reversa propia),
+        // así que es anulable directo desde la caja mayor igual que MANUAL.
+        if (origen != null && origen != OrigenMovimientoTipo.MANUAL && origen != OrigenMovimientoTipo.MALETIN) {
             throw new GraphQLException("Este movimiento proviene de " + origen
                     + "; anúlelo desde su módulo de origen, no desde la caja mayor.");
         }

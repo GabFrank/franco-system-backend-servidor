@@ -35,6 +35,10 @@ public class PagoSolicitudDetalle implements Serializable {
     @Column(name = "solicitud_pago_id")
     private Long solicitudPagoId;
 
+    /** Evento de pago (operaciones.pago) que consolidó este detalle. Ancla para anular todo el evento. */
+    @Column(name = "pago_id")
+    private Long pagoId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "fuente", length = 20)
     private FuentePago fuente;
@@ -60,6 +64,12 @@ public class PagoSolicitudDetalle implements Serializable {
 
     @Column(name = "movimiento_bancario_id")
     private Long movimientoBancarioId;
+
+    /** Línea de ajuste (fuente AJUSTE): diferencia de cambio a favor (pagó de menos). */
+    private Boolean descuento;
+
+    /** Línea de ajuste (fuente AJUSTE): diferencia de cambio en contra (pagó de más). */
+    private Boolean aumento;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)

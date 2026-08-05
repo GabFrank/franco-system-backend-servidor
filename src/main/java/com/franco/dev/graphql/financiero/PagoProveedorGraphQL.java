@@ -1,17 +1,14 @@
 package com.franco.dev.graphql.financiero;
 
-import com.franco.dev.domain.financiero.MovimientoProveedor;
 import com.franco.dev.domain.financiero.enums.FuentePago;
+import com.franco.dev.domain.operaciones.Pago;
 import com.franco.dev.domain.operaciones.SolicitudPago;
-import com.franco.dev.repository.financiero.MovimientoProveedorRepository;
 import com.franco.dev.service.financiero.PagoProveedorService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -23,16 +20,51 @@ import java.util.List;
 public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     private final PagoProveedorService service;
-    private final MovimientoProveedorRepository movimientoProveedorRepository;
     private final TesoreriaSecurityService seg;
 
-    public Page<MovimientoProveedor> movimientosProveedor(Long proveedorId, int page, int size) {
+    public List<SolicitudPago> solicitudesPagoPendientes(Long proveedorId) {
         seg.requireVer();
-        return movimientoProveedorRepository.findByProveedorIdOrderByCreadoEnDesc(proveedorId, PageRequest.of(page, size));
+        return service.listarPendientes(proveedorId);
+    }
+
+    public Pago pagarSolicitudesLoteCajaMayor(Long cajaVirtualId, List<PagoLoteWrapper> pagos) {
+        seg.requirePagarCpp();
+        List<PagoProveedorService.PagoLote> ls = new ArrayList<>();
+        for (PagoLoteWrapper w : pagos) {
+            PagoProveedorService.PagoLote p = new PagoProveedorService.PagoLote();
+            p.setSolicitudId(w.getSolicitudId());
+            p.setMonedaId(w.getMonedaId());
+            p.setMonto(w.getMonto() != null ? BigDecimal.valueOf(w.getMonto()) : null);
+            ls.add(p);
+        }
+        return service.pagarLoteCajaMayor(cajaVirtualId, ls, seg.currentUsuario());
     }
 
     public SolicitudPago pagarSolicitud(Long solicitudId, List<LineaPagoInputWrapper> lineas) {
         seg.requirePagarCpp();
+        return service.pagar(solicitudId, mapLineas(lineas), seg.currentUsuario());
+    }
+
+    /** Pago mixto de varias solicitudes como un único evento consolidado. Devuelve el evento (Pago). */
+    public Pago pagarSolicitudesMixto(List<SolicitudConLineasWrapper> pagos) {
+        seg.requirePagarCpp();
+        List<PagoProveedorService.SolicitudConLineas> ls = new ArrayList<>();
+        for (SolicitudConLineasWrapper w : pagos) {
+            PagoProveedorService.SolicitudConLineas s = new PagoProveedorService.SolicitudConLineas();
+            s.setSolicitudId(w.getSolicitudId());
+            s.setLineas(mapLineas(w.getLineas()));
+            ls.add(s);
+        }
+        return service.pagarLoteMixto(ls, seg.currentUsuario());
+    }
+
+    /** Anula todo un evento de pago (revierte los movimientos consolidados y reabre sus solicitudes). */
+    public Pago anularPagoCpp(Long pagoId, String motivo) {
+        seg.requirePagarCpp();
+        return service.anularPagoCpp(pagoId, motivo, seg.currentUsuario());
+    }
+
+    private List<PagoProveedorService.LineaPago> mapLineas(List<LineaPagoInputWrapper> lineas) {
         List<PagoProveedorService.LineaPago> ls = new ArrayList<>();
         for (LineaPagoInputWrapper w : lineas) {
             PagoProveedorService.LineaPago l = new PagoProveedorService.LineaPago();
@@ -43,9 +75,24 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
             l.setMonto(w.getMonto() != null ? BigDecimal.valueOf(w.getMonto()) : null);
             l.setCotizacion(w.getCotizacion() != null ? BigDecimal.valueOf(w.getCotizacion()) : null);
             l.setMontoSolicitud(w.getMontoSolicitud() != null ? BigDecimal.valueOf(w.getMontoSolicitud()) : null);
+            l.setDescuento(Boolean.TRUE.equals(w.getDescuento()));
+            l.setAumento(Boolean.TRUE.equals(w.getAumento()));
             ls.add(l);
         }
-        return service.pagar(solicitudId, ls, seg.currentUsuario());
+        return ls;
+    }
+
+    @Data
+    public static class PagoLoteWrapper {
+        private Long solicitudId;
+        private Long monedaId;
+        private Double monto;
+    }
+
+    @Data
+    public static class SolicitudConLineasWrapper {
+        private Long solicitudId;
+        private List<LineaPagoInputWrapper> lineas;
     }
 
     @Data
@@ -57,5 +104,7 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         private Double monto;
         private Double cotizacion;
         private Double montoSolicitud;
+        private Boolean descuento;   // línea de ajuste Fx: pagó de menos (ganancia)
+        private Boolean aumento;     // línea de ajuste Fx: pagó de más (pérdida)
     }
 }

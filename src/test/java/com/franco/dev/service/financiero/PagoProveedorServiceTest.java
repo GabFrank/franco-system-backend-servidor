@@ -20,13 +20,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** CPP (F6): pago simple/mixto, transición de estado, doble ledger, tope por saldo. */
+/** CPP (F6): pago simple/mixto, transición de estado, ajuste Fx, tope por saldo. Sin ledger de proveedor. */
 class PagoProveedorServiceTest {
 
     private SolicitudPagoService solicitudPagoService;
+    private com.franco.dev.service.operaciones.PagoService pagoService;
     private TesoreriaService tesoreriaService;
     private BancoLedgerService bancoLedgerService;
-    private ProveedorCuentaService proveedorCuentaService;
     private CajaVirtualRepository cajaVirtualRepository;
     private MonedaRepository monedaRepository;
     private PagoProveedorService service;
@@ -36,18 +36,24 @@ class PagoProveedorServiceTest {
     @BeforeEach
     void setUp() {
         solicitudPagoService = mock(SolicitudPagoService.class);
+        pagoService = mock(com.franco.dev.service.operaciones.PagoService.class);
         tesoreriaService = mock(TesoreriaService.class);
         bancoLedgerService = mock(BancoLedgerService.class);
-        proveedorCuentaService = mock(ProveedorCuentaService.class);
         cajaVirtualRepository = mock(CajaVirtualRepository.class);
         monedaRepository = mock(MonedaRepository.class);
         com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepo =
                 mock(com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository.class);
         when(detalleRepo.save(any())).thenAnswer(i -> i.getArgument(0));
-        service = new PagoProveedorService(solicitudPagoService, tesoreriaService, bancoLedgerService,
-                proveedorCuentaService, cajaVirtualRepository, monedaRepository, detalleRepo);
+        com.franco.dev.repository.financiero.MovimientoBancarioRepository movBancarioRepo =
+                mock(com.franco.dev.repository.financiero.MovimientoBancarioRepository.class);
+        com.franco.dev.domain.operaciones.Pago pagoEvento = new com.franco.dev.domain.operaciones.Pago();
+        pagoEvento.setId(500L);
+        when(pagoService.save(any())).thenReturn(pagoEvento);
+        service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
+                cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo);
 
-        Proveedor prov = new Proveedor(); prov.setId(7L);
+        com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
+        Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);
         sp = new SolicitudPago(); sp.setId(1L); sp.setMontoTotal(100000.0);
         sp.setMontoPagado(BigDecimal.ZERO); sp.setEstado(SolicitudPagoEstado.PENDIENTE); sp.setProveedor(prov);
 
@@ -55,6 +61,7 @@ class PagoProveedorServiceTest {
                 mock(com.franco.dev.repository.operaciones.SolicitudPagoRepository.class);
         when(solicitudPagoService.getRepository()).thenReturn(spRepo);
         when(spRepo.lockById(1L)).thenReturn(Optional.of(sp));
+        when(spRepo.findById(1L)).thenReturn(Optional.of(sp));
         when(solicitudPagoService.save(any())).thenAnswer(i -> i.getArgument(0));
         com.franco.dev.domain.financiero.MovimientoCajaVirtual mcv = new com.franco.dev.domain.financiero.MovimientoCajaVirtual();
         mcv.setId(888L);
@@ -73,12 +80,25 @@ class PagoProveedorServiceTest {
     }
 
     @Test
-    void pago_total_caja_concluye_y_paga_proveedor() {
+    void pago_total_caja_concluye() {
         service.pagar(1L, Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 100000)), null);
         assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+        assertEquals(0, sp.getMontoPagado().compareTo(new BigDecimal("100000")));
         verify(tesoreriaService).registrar(any());
-        verify(proveedorCuentaService).registrar(eq(7L), eq(MovimientoProveedorTipo.PAGO),
-                argThat(v -> v.compareTo(new BigDecimal("100000")) == 0), any(), any());
+    }
+
+    @Test
+    void pago_con_ajuste_descuento_concluye_sin_mover_efectivo_extra() {
+        // Efectivo 99.872 + ajuste descuento 128 = deuda 100.000 → CONCLUIDO, el ajuste no postea movimiento.
+        PagoProveedorService.LineaPago fisica = linea(FuentePago.CAJA_MAYOR, 99872);
+        fisica.setMontoSolicitud(new BigDecimal("99872"));
+        PagoProveedorService.LineaPago ajuste = new PagoProveedorService.LineaPago();
+        ajuste.setFuente(FuentePago.AJUSTE); ajuste.setDescuento(true);
+        ajuste.setMonto(BigDecimal.ZERO); ajuste.setMontoSolicitud(new BigDecimal("128"));
+        service.pagar(1L, Arrays.asList(fisica, ajuste), null);
+        assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+        assertEquals(0, sp.getMontoPagado().compareTo(new BigDecimal("100000")));
+        verify(tesoreriaService, times(1)).registrar(any()); // solo la línea física
     }
 
     @Test
@@ -96,6 +116,25 @@ class PagoProveedorServiceTest {
         assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
         verify(tesoreriaService).registrar(any());
         verify(bancoLedgerService).registrar(anyLong(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void pago_dos_solicitudes_misma_fuente_consolida_un_movimiento() {
+        SolicitudPago sp2 = new SolicitudPago(); sp2.setId(2L); sp2.setMontoTotal(50000.0);
+        sp2.setMontoPagado(BigDecimal.ZERO); sp2.setEstado(SolicitudPagoEstado.PENDIENTE); sp2.setProveedor(sp.getProveedor());
+        com.franco.dev.repository.operaciones.SolicitudPagoRepository spRepo = solicitudPagoService.getRepository();
+        when(spRepo.lockById(2L)).thenReturn(Optional.of(sp2));
+
+        PagoProveedorService.SolicitudConLineas s1 = new PagoProveedorService.SolicitudConLineas();
+        s1.setSolicitudId(1L); s1.setLineas(Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 100000)));
+        PagoProveedorService.SolicitudConLineas s2 = new PagoProveedorService.SolicitudConLineas();
+        s2.setSolicitudId(2L); s2.setLineas(Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 50000)));
+
+        service.pagarLoteMixto(Arrays.asList(s1, s2), null);
+
+        assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+        assertEquals(SolicitudPagoEstado.CONCLUIDO, sp2.getEstado());
+        verify(tesoreriaService, times(1)).registrar(any()); // ambas notas → un solo movimiento consolidado
     }
 
     @Test

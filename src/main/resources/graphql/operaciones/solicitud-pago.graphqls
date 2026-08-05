@@ -5,6 +5,7 @@ type SolicitudPago {
     fechaSolicitud: String!
     fechaPagoPropuesta: String
     montoTotal: Float!
+    montoPagado: Float
     moneda: Moneda!
     formaPago: FormaPago
     estado: SolicitudPagoEstado!

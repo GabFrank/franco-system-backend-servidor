@@ -2,23 +2,7 @@ enum FuentePago {
     CAJA_MAYOR
     CUENTA_BANCARIA
     CHEQUE
-}
-
-type MovimientoProveedor {
-    id: ID!
-    tipo: String
-    monto: Float
-    saldoAnterior: Float
-    saldoPosterior: Float
-    solicitudPagoId: Int
-    descripcion: String
-    anulado: Boolean
-    creadoEn: Date
-}
-
-type MovimientoProveedorPage {
-    getTotalElements: Int
-    getContent: [MovimientoProveedor]
+    AJUSTE
 }
 
 input LineaPagoInput {
@@ -29,12 +13,28 @@ input LineaPagoInput {
     monto: Float!
     cotizacion: Float
     montoSolicitud: Float
+    descuento: Boolean
+    aumento: Boolean
+}
+
+input PagoLoteInput {
+    solicitudId: ID!
+    monedaId: ID!
+    monto: Float!
+}
+
+input SolicitudConLineasInput {
+    solicitudId: ID!
+    lineas: [LineaPagoInput!]!
 }
 
 extend type Query {
-    movimientosProveedor(proveedorId: ID!, page: Int = 0, size: Int = 10): MovimientoProveedorPage
+    solicitudesPagoPendientes(proveedorId: ID): [SolicitudPago]
 }
 
 extend type Mutation {
     pagarSolicitud(solicitudId: ID!, lineas: [LineaPagoInput!]!): SolicitudPago!
+    pagarSolicitudesLoteCajaMayor(cajaVirtualId: ID!, pagos: [PagoLoteInput!]!): Pago
+    pagarSolicitudesMixto(pagos: [SolicitudConLineasInput!]!): Pago
+    anularPagoCpp(pagoId: ID!, motivo: String): Pago!
 }

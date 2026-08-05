@@ -54,6 +54,7 @@ extend type Query {
 extend type Mutation {
     saveRetiro(retiro:RetiroInput!, retiroDetalleInputList: [RetiroDetalleInput], printerName: String, local: String):Retiro!
     deleteRetiro(id:ID!, sucId: ID):Boolean!
+    cancelarRetiro(id:ID!, sucId: ID):Boolean!
 }
 
 enum EstadoRetiro {
@@ -62,6 +63,7 @@ enum EstadoRetiro {
     NECESITA_VERIFICACION,
     EN_VERIFICACION,
     VERIFICADO_CONCLUIDO_SIN_PROBLEMA,
-    VERIFICADO_CONCLUIDO_CON_PROBLEMA
+    VERIFICADO_CONCLUIDO_CON_PROBLEMA,
+    CANCELADO
 }
 

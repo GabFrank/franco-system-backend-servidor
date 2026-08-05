@@ -5,6 +5,8 @@ import com.franco.dev.domain.operaciones.Venta;
 import com.franco.dev.domain.operaciones.VentaItem;
 import com.franco.dev.graphql.operaciones.dto.ProductoVendidoEstadistica;
 import com.franco.dev.graphql.operaciones.dto.ProductoCompraPorPeriodo;
+import com.franco.dev.graphql.operaciones.dto.EvolucionCostoResponse;
+import com.franco.dev.graphql.operaciones.dto.RankingInflacionItem;
 import com.franco.dev.graphql.operaciones.dto.ProductoVentaPorPeriodo;
 import com.franco.dev.graphql.operaciones.input.VentaItemInput;
 import com.franco.dev.service.operaciones.VentaItemService;
@@ -189,5 +191,35 @@ public class VentaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         }
 
         return service.obtenerComprasProductoPorMes(fechaInicio, fechaFin, productoId, sucursalId);
+    }
+
+    public EvolucionCostoResponse evolucionCostoProducto(String inicio, String fin, Long productoId,
+            Long sucursalId, String agrupacion) {
+        LocalDateTime fechaInicio = null;
+        LocalDateTime fechaFin = null;
+
+        if (inicio != null && !inicio.isEmpty()) {
+            fechaInicio = LocalDateTime.parse(inicio, DATE_FORMATTER);
+        }
+        if (fin != null && !fin.isEmpty()) {
+            fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
+        }
+
+        return service.obtenerEvolucionCostoProducto(fechaInicio, fechaFin, productoId, sucursalId, agrupacion);
+    }
+
+    public List<RankingInflacionItem> rankingInflacionCosto(String inicio, String fin, Long sucursalId,
+            Long familiaId, Integer limit, String orden) {
+        LocalDateTime fechaInicio = null;
+        LocalDateTime fechaFin = null;
+
+        if (inicio != null && !inicio.isEmpty()) {
+            fechaInicio = LocalDateTime.parse(inicio, DATE_FORMATTER);
+        }
+        if (fin != null && !fin.isEmpty()) {
+            fechaFin = LocalDateTime.parse(fin, DATE_FORMATTER);
+        }
+
+        return service.obtenerRankingInflacionCosto(fechaInicio, fechaFin, sucursalId, familiaId, limit, orden);
     }
 }

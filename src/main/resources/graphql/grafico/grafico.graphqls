@@ -13,6 +13,7 @@ enum GraficoExcelTipo {
     PRODUCTOS_VENDIDOS
     INGRESO_GASTO
     VENTAS_HORA
+    DELIVERY_SUCURSAL
 }
 
 input GraficoExcelExportInput {
@@ -87,6 +88,10 @@ extend type Query {
     ): [GastoPorCategoria!]!
 
     ventasPorSucursalMulti(
+        periodos: [PeriodoGraficoInput!]!
+    ): [VentaPorSucursal!]!
+
+    deliveryPorSucursalMulti(
         periodos: [PeriodoGraficoInput!]!
     ): [VentaPorSucursal!]!
 

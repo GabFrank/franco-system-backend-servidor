@@ -58,6 +58,40 @@ type ProductoCompraPorPeriodo {
     cantidadCompras: Int
 }
 
+type ProductoCostoPorPeriodo {
+    periodo: String
+    costoPromedio: Float
+    costoMinimo: Float
+    costoMaximo: Float
+    cantidad: Float
+    cantidadCompras: Int
+}
+
+type EvolucionCostoResumen {
+    costoInicial: Float
+    costoFinal: Float
+    variacionPorcentual: Float
+    costoPromedioPonderado: Float
+    periodoConMayorCosto: String
+    totalCompras: Int
+    hayDatos: Boolean
+}
+
+type EvolucionCostoResponse {
+    periodos: [ProductoCostoPorPeriodo]
+    resumen: EvolucionCostoResumen
+}
+
+type RankingInflacionItem {
+    productoId: ID
+    descripcion: String
+    costoInicial: Float
+    costoFinal: Float
+    variacionPorcentual: Float
+    periodos: Int
+    totalCompras: Int
+}
+
 extend type Query {
     ventaItem(id:ID!, sucId: ID):VentaItem
     ventaItems(page:Int = 0, size:Int = 10, sucId: ID):[VentaItem]!
@@ -68,6 +102,8 @@ extend type Query {
     ventasProductoPorMes(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoVentaPorPeriodo]
     comprasProductoPorDia(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoCompraPorPeriodo]
     comprasProductoPorMes(inicio: String, fin: String, productoId: ID!, sucursalId: ID): [ProductoCompraPorPeriodo]
+    evolucionCostoProducto(inicio: String, fin: String, productoId: ID!, sucursalId: ID, agrupacion: String): EvolucionCostoResponse
+    rankingInflacionCosto(inicio: String, fin: String, sucursalId: ID, familiaId: ID, limit: Int, orden: String): [RankingInflacionItem]
 }
 
 extend type Mutation {

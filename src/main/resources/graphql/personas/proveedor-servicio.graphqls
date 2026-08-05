@@ -1,0 +1,41 @@
+type ProveedorServicio {
+    id:ID!
+    persona: Persona
+    cuentaBancaria: CuentaBancaria
+    nombreContacto: String
+    numeroContacto: String
+    creadoEn: Date
+    usuario: Usuario
+}
+
+input ProveedorServicioInput {
+    id:ID
+    personaId: Int
+    cuentaBancariaId: Int
+    nombreContacto: String
+    numeroContacto: String
+    usuarioId: Int
+}
+
+type ProveedorServicioPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ProveedorServicio]
+}
+
+extend type Query {
+    proveedorServicio(id:ID!): ProveedorServicio
+    proveedorServicioPorPersona(personaId:ID): ProveedorServicio
+    proveedorServicioSearchPage(texto: String, page: Int = 0, size: Int = 10): ProveedorServicioPage
+    countProveedorServicio: Int
+}
+
+extend type Mutation {
+    saveProveedorServicio(proveedorServicio:ProveedorServicioInput!): ProveedorServicio!
+    deleteProveedorServicio(id:ID!): Boolean!
+}

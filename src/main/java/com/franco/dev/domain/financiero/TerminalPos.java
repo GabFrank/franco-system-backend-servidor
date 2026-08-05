@@ -1,6 +1,7 @@
 package com.franco.dev.domain.financiero;
 
 import com.franco.dev.config.Identifiable;
+import com.franco.dev.domain.personas.ProveedorServicio;
 import com.franco.dev.domain.personas.Usuario;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -42,6 +43,10 @@ public class TerminalPos implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "proveedor_servicio_id", nullable = true)
+    private ProveedorServicio proveedorServicio;
 
     private Boolean activo;
 

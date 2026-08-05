@@ -200,7 +200,11 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
     }
 
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
-        if (sucId != null) {
+        // Ruteo a la filial SOLO cuando el caller no especifica impresora (frc-mobile envia
+        // printerName=null y la filial resuelve su propia config). El desktop siempre envia
+        // su printerName local y debe imprimir con esa config, igual que reimprimirVenta.
+        boolean sinImpresora = printerName == null || printerName.isBlank();
+        if (sucId != null && sinImpresora) {
             Sucursal sucursal = sucursalService.findById(sucId).orElse(null);
             if (sucursal != null && sucursal.getIp() != null && !sucursal.getIp().isBlank()) {
                 return filialCajaProxyService.imprimirBalanceEnFilial(id, sucId, printerName, local);
@@ -369,6 +373,57 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
             log.error("[{}] Excepcion inesperada en proxy abrirCajaDesdeServidor (sucursalId={}). Detalle: {}",
                     logPrefix, input.getSucursalId(), e.getMessage(), e);
             return CajaFilialOperacionResult.fail();
+        }
+    }
+
+    /**
+     * Corrige los montos de un conteo de apertura o cierre ya cargado. Solo para rol ADMIN.
+     * <p>
+     * La escritura se delega a la filial, que es la duena del dato: alli se crea una nueva version
+     * del conteo enlazada a la anterior y el central la recibe por replicacion. Si la filial rechaza
+     * la operacion, su mensaje se propaga tal cual para que el usuario sepa por que.
+     */
+    public CajaFilialOperacionResult editarConteoCajaDesdeServidor(Long cajaId, Long sucursalId, Long conteoAnteriorId,
+                                                                  Boolean apertura, ConteoInput conteoInput,
+                                                                  List<ConteoMonedaInput> conteoMonedaInputList) {
+        String logPrefix = "EDITAR CONTEO CAJA";
+        long inicioMs = System.currentTimeMillis();
+        log.info("====== [{}] INICIO -> cajaId={}, sucursalId={}, conteoAnteriorId={}, apertura={} ======",
+                logPrefix, cajaId, sucursalId, conteoAnteriorId, apertura);
+
+        if (conteoInput == null || conteoInput.getUsuarioId() == null) {
+            throw new GraphQLException("No se recibio el usuario que realiza la edicion");
+        }
+        if (sucursalId == null) {
+            throw new GraphQLException("No se recibio la sucursal de la caja");
+        }
+        Long usuarioId = conteoInput.getUsuarioId();
+        if (!usuarioService.tieneRol(usuarioId, "ADMIN")) {
+            log.warn("[{}] Usuario id={} sin rol ADMIN intento editar el conteo de la caja id={}", logPrefix, usuarioId, cajaId);
+            throw new GraphQLException("Solo un usuario ADMIN puede editar los montos de una caja");
+        }
+        // Chequeo temprano contra la copia replicada, para no salir a la red si la caja ya esta congelada.
+        PdvCaja cajaLocal = service.findById(cajaId, sucursalId);
+        if (cajaLocal != null && Boolean.TRUE.equals(cajaLocal.getVerificado())) {
+            throw new GraphQLException("La caja ya fue verificada, no se pueden editar sus montos");
+        }
+
+        try {
+            Long nuevoConteoId = filialCajaProxyService.editarConteoEnFilial(cajaId, sucursalId, conteoAnteriorId,
+                    apertura, conteoInput, conteoMonedaInputList, usuarioId);
+            log.info("[{}] ====== EXITO. cajaId={}, nuevoConteoId={}, tiempo={}ms ======",
+                    logPrefix, cajaId, nuevoConteoId, (System.currentTimeMillis() - inicioMs));
+            return CajaFilialOperacionResult.ok(cajaId);
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("[{}] FALLO DE CONEXION con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
+            throw new GraphQLException("No se pudo conectar con la sucursal. No se modifico ningun monto.");
+        } catch (org.springframework.web.client.RestClientException e) {
+            log.error("[{}] Error de cliente REST con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
+            throw new GraphQLException("Error de comunicacion con la sucursal. No se modifico ningun monto.");
+        } catch (Exception e) {
+            log.error("[{}] No se pudo editar el conteo (cajaId={}, sucursalId={}). Detalle: {}",
+                    logPrefix, cajaId, sucursalId, e.getMessage(), e);
+            throw new GraphQLException(e.getMessage());
         }
     }
 

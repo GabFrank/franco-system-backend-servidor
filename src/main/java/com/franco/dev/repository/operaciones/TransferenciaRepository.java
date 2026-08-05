@@ -64,6 +64,28 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
                         LocalDateTime creadoEnHasta,
                         Pageable pageable);
 
+        @Query("SELECT t FROM Transferencia t WHERE "
+                        + "(:sucursalOrigenId IS NULL OR t.sucursalOrigen.id = :sucursalOrigenId) AND "
+                        + "(:sucursalDestinoId IS NULL OR t.sucursalDestino.id = :sucursalDestinoId) AND "
+                        + "t.estado IN :estados AND "
+                        + "(t.tipo = :tipo or cast(:tipo as com.franco.dev.domain.operaciones.enums.TipoTransferencia) IS NULL) AND "
+                        + "(t.etapa = :etapa OR cast(:etapa as com.franco.dev.domain.operaciones.enums.EtapaTransferencia) IS NULL) AND "
+                        + "(:isOrigen IS NULL OR t.isOrigen = :isOrigen) AND "
+                        + "(:isDestino IS NULL OR t.isDestino = :isDestino) AND "
+                        + "(t.creadoEn >= :creadoEnDesde or cast(:creadoEnDesde as timestamp) IS NULL) AND "
+                        + "(t.creadoEn <= :creadoEnHasta or cast(:creadoEnHasta as timestamp) IS NULL ) order by t.id desc")
+        Page<Transferencia> findByFilterEstadoIn(
+                        @Param("sucursalOrigenId") Long sucursalOrigenId,
+                        @Param("sucursalDestinoId") Long sucursalDestinoId,
+                        @Param("estados") List<TransferenciaEstado> estados,
+                        @Param("tipo") TipoTransferencia tipo,
+                        @Param("etapa") EtapaTransferencia etapa,
+                        @Param("isOrigen") Boolean isOrigen,
+                        @Param("isDestino") Boolean isDestino,
+                        @Param("creadoEnDesde") LocalDateTime creadoEnDesde,
+                        @Param("creadoEnHasta") LocalDateTime creadoEnHasta,
+                        Pageable pageable);
+
         @Query("SELECT new com.franco.dev.domain.operaciones.dto.VencimientoProductoDto(" +
                         "t, " +
                         "p, " +

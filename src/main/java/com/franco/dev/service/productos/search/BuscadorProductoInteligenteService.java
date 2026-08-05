@@ -7,7 +7,6 @@ import com.franco.dev.domain.productos.enums.TipoCoincidenciaBuscador;
 import com.franco.dev.repository.productos.ProductoProveedorRepository;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.productos.ProductoService;
-import com.franco.dev.utilitarios.BarcodeSearchUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -59,7 +58,7 @@ public class BuscadorProductoInteligenteService {
         LinkedHashMap<Long, BuscadorProductoResultado> ordenados = new LinkedHashMap<>();
 
         agregarCoincidenciaExacta(texto, ordenados);
-        agregarCoincidenciasPrefijoCodigo(texto, fetchLimit, ordenados);
+        agregarCoincidenciasCodigo(texto, fetchLimit, ordenados);
         agregarCoincidenciaPorId(texto, ordenados);
         agregarCoincidenciasTexto(texto, fetchLimit, activoFiltro, ordenados);
 
@@ -90,7 +89,12 @@ public class BuscadorProductoInteligenteService {
         }
     }
 
-    private void agregarCoincidenciasPrefijoCodigo(
+    /**
+     * Coincidencia parcial de código en cualquier posición: encuentra el producto tanto por el
+     * código completo como omitiendo los ceros a la izquierda o escribiendo solo un tramo
+     * interno o la terminación.
+     */
+    private void agregarCoincidenciasCodigo(
             String texto,
             int fetchLimit,
             Map<Long, BuscadorProductoResultado> destino) {
@@ -98,24 +102,14 @@ public class BuscadorProductoInteligenteService {
             return;
         }
 
-        Set<String> prefijos = new LinkedHashSet<>();
-        prefijos.add(texto.toUpperCase());
-        for (String candidato : BarcodeSearchUtils.codigosParaBuscar(texto)) {
-            if (candidato.length() >= MIN_CODIGO_PREFIJO) {
-                prefijos.add(candidato.toUpperCase());
+        String fragmento = texto.toUpperCase();
+        for (Long id : codigoSearchService.buscarProductoIdsPorCoincidencia(texto, fetchLimit)) {
+            if (id == null || destino.containsKey(id)) {
+                continue;
             }
-        }
-
-        for (String prefijo : prefijos) {
-            List<Long> ids = codigoSearchService.buscarProductoIdsPorPrefijo(prefijo, fetchLimit);
-            for (Long id : ids) {
-                if (id == null || destino.containsKey(id)) {
-                    continue;
-                }
-                productoRepository.findById(id).ifPresent(producto -> destino.put(
-                        id,
-                        new BuscadorProductoResultado(producto, prefijo, TipoCoincidenciaBuscador.CODIGO_PREFIJO)));
-            }
+            productoRepository.findById(id).ifPresent(producto -> destino.put(
+                    id,
+                    new BuscadorProductoResultado(producto, fragmento, TipoCoincidenciaBuscador.CODIGO_PARCIAL)));
         }
     }
 

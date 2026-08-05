@@ -1,0 +1,866 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Jaspersoft Studio version 6.21.5.final using JasperReports Library version 6.21.5-74d586df47b25dbd05bd0957999819196e59934a  -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="reporte-ventas-detallado" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" isFloatColumnFooter="true" uuid="b2c3d4e5-f6a7-8901-bcde-f12345678901">
+	<subDataset name="ItemsDataset" uuid="c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b01">
+		<field name="producto" class="java.lang.String"/>
+		<field name="presentacion" class="java.lang.String"/>
+		<field name="cantidad" class="java.lang.Double"/>
+		<field name="precio" class="java.lang.Double"/>
+		<field name="precioCosto" class="java.lang.Double"/>
+		<field name="costoTotal" class="java.lang.Double"/>
+		<field name="total" class="java.lang.Double"/>
+	</subDataset>
+	<subDataset name="MovimientosDataset" uuid="c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b02">
+		<field name="operacion" class="java.lang.String"/>
+		<field name="formaPago" class="java.lang.String"/>
+		<field name="moneda" class="java.lang.String"/>
+		<field name="valorEnMoneda" class="java.lang.Double"/>
+		<field name="valorEnGs" class="java.lang.Double"/>
+	</subDataset>
+	<subDataset name="ObservacionesDataset" uuid="c1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b03">
+		<field name="fecha" class="java.lang.String"/>
+		<field name="descripcion" class="java.lang.String"/>
+		<field name="motivo" class="java.lang.String"/>
+	</subDataset>
+	<parameter name="fechaReporte" class="java.lang.String"/>
+	<parameter name="usuario" class="java.lang.String"/>
+	<parameter name="logo" class="java.lang.String"/>
+	<parameter name="filtroFechaInicio" class="java.lang.String"/>
+	<parameter name="filtroFechaFin" class="java.lang.String"/>
+	<parameter name="filtroSucursal" class="java.lang.String"/>
+	<parameter name="filtroFormaPago" class="java.lang.String"/>
+	<parameter name="filtroMoneda" class="java.lang.String"/>
+	<parameter name="filtroEstado" class="java.lang.String"/>
+	<parameter name="filtroCliente" class="java.lang.String"/>
+	<parameter name="filtroModo" class="java.lang.String"/>
+	<parameter name="filtroConObservacion" class="java.lang.String"/>
+	<parameter name="filtroConDescuento" class="java.lang.String"/>
+	<parameter name="filtroConAumento" class="java.lang.String"/>
+	<parameter name="totalGeneral" class="java.lang.Double"/>
+	<parameter name="totalEfectivo" class="java.lang.Double"/>
+	<parameter name="totalTarjeta" class="java.lang.Double"/>
+	<parameter name="totalConvenio" class="java.lang.Double"/>
+	<parameter name="totalTransferencia" class="java.lang.Double"/>
+	<parameter name="totalOtros" class="java.lang.Double"/>
+	<parameter name="cantidadVentas" class="java.lang.Long"/>
+	<parameter name="filtroIdVenta" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[]]>
+	</queryString>
+	<field name="ventaId" class="java.lang.Long"/>
+	<field name="sucursal" class="java.lang.String"/>
+	<field name="cliente" class="java.lang.String"/>
+	<field name="fecha" class="java.lang.String"/>
+	<field name="formaPago" class="java.lang.String"/>
+	<field name="moneda" class="java.lang.String"/>
+	<field name="estado" class="java.lang.String"/>
+	<field name="responsable" class="java.lang.String"/>
+	<field name="totalGs" class="java.lang.Double"/>
+	<field name="totalRecibidoGs" class="java.lang.Double"/>
+	<field name="totalRecibidoRs" class="java.lang.Double"/>
+	<field name="totalRecibidoDs" class="java.lang.Double"/>
+	<field name="totalRecibido" class="java.lang.Double"/>
+	<field name="totalDescuento" class="java.lang.Double"/>
+	<field name="totalAumento" class="java.lang.Double"/>
+	<field name="totalFinal" class="java.lang.Double"/>
+	<field name="costoTotalVenta" class="java.lang.Double"/>
+	<field name="itemsDataSource" class="net.sf.jasperreports.engine.JRDataSource"/>
+	<field name="movimientosDataSource" class="net.sf.jasperreports.engine.JRDataSource"/>
+	<field name="observacionesDataSource" class="net.sf.jasperreports.engine.JRDataSource"/>
+	<title>
+		<band height="148" splitType="Stretch">
+			<image hAlign="Center">
+				<reportElement x="10" y="51" width="100" height="76" uuid="11111111-1111-1111-1111-111111111101"/>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="0" y="0" width="802" height="20" uuid="11111111-1111-1111-1111-111111111102"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="14" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Reporte Detallado de Ventas]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement x="120" y="32" width="449" height="100" uuid="11111111-1111-1111-1111-111111111107"/>
+				<graphicElement>
+					<pen lineColor="#808080"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement x="130" y="41" width="48" height="12" uuid="d2efc4a7-d380-4522-bb04-242ad853d7e3"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[ID:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="188" y="41" width="120" height="12" uuid="11111111-1111-1111-1111-111111111145"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroIdVenta}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="130" y="53" width="58" height="12" uuid="11111111-1111-1111-1111-111111111109"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Fecha inicio:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="188" y="53" width="120" height="12" uuid="11111111-1111-1111-1111-111111111110"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroFechaInicio}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="130" y="65" width="48" height="12" uuid="11111111-1111-1111-1111-111111111111"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Fecha fin:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="188" y="65" width="120" height="12" uuid="11111111-1111-1111-1111-111111111112"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroFechaFin}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="130" y="77" width="48" height="12" uuid="11111111-1111-1111-1111-111111111113"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Sucursal:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="188" y="77" width="202" height="12" uuid="11111111-1111-1111-1111-111111111114"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroSucursal}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="390" y="41" width="75" height="12" uuid="11111111-1111-1111-1111-111111111115"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Forma de pago:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="475" y="41" width="84" height="12" uuid="11111111-1111-1111-1111-111111111116"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroFormaPago}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="426" y="53" width="39" height="12" uuid="11111111-1111-1111-1111-111111111133"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Moneda:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="475" y="53" width="84" height="12" uuid="11111111-1111-1111-1111-111111111134"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroMoneda}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="426" y="65" width="39" height="12" uuid="11111111-1111-1111-1111-111111111117"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Estado:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="475" y="65" width="84" height="12" uuid="11111111-1111-1111-1111-111111111118"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroEstado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="130" y="89" width="48" height="12" uuid="11111111-1111-1111-1111-111111111119"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Cliente:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="188" y="89" width="212" height="12" uuid="11111111-1111-1111-1111-111111111120"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroCliente}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="130" y="101" width="48" height="12" uuid="11111111-1111-1111-1111-111111111135"/>
+				<textElement textAlignment="Left">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Modo:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="188" y="101" width="38" height="12" uuid="11111111-1111-1111-1111-111111111136"/>
+				<textElement>
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroModo}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="380" y="101" width="85" height="12" uuid="11111111-1111-1111-1111-111111111137"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Con observación:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="475" y="101" width="84" height="12" uuid="11111111-1111-1111-1111-111111111138"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroConObservacion}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="391" y="77" width="74" height="12" uuid="11111111-1111-1111-1111-111111111139"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Con descuento:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="475" y="77" width="84" height="12" uuid="11111111-1111-1111-1111-111111111140"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroConDescuento}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="400" y="89" width="65" height="12" uuid="11111111-1111-1111-1111-111111111141"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Con aumento:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="475" y="89" width="84" height="12" uuid="11111111-1111-1111-1111-111111111142"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{filtroConAumento}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="580" y="32" width="222" height="100" uuid="11111111-1111-1111-1111-111111111121"/>
+				<graphicElement>
+					<pen lineColor="#808080"/>
+				</graphicElement>
+			</rectangle>
+			<staticText>
+				<reportElement mode="Opaque" x="640" y="25" width="100" height="13" uuid="11111111-1111-1111-1111-111111111122">
+					<property name="com.jaspersoft.studio.unit.height" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Resumen General]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="590" y="41" width="110" height="12" uuid="11111111-1111-1111-1111-111111111123"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Cant. ventas:]]></text>
+			</staticText>
+			<textField pattern="#,##0">
+				<reportElement x="704" y="41" width="86" height="12" uuid="11111111-1111-1111-1111-111111111124"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{cantidadVentas}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="590" y="53" width="110" height="12" uuid="11111111-1111-1111-1111-111111111125"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Efectivo (Gs.):]]></text>
+			</staticText>
+			<textField pattern="#,###">
+				<reportElement x="704" y="53" width="86" height="12" uuid="11111111-1111-1111-1111-111111111126"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{totalEfectivo}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="590" y="65" width="110" height="12" uuid="11111111-1111-1111-1111-111111111127"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Tarjeta (Gs.):]]></text>
+			</staticText>
+			<textField pattern="#,###">
+				<reportElement x="704" y="65" width="86" height="12" uuid="11111111-1111-1111-1111-111111111128"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{totalTarjeta}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="590" y="77" width="110" height="12" uuid="11111111-1111-1111-1111-111111111129"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Convenio (Gs.):]]></text>
+			</staticText>
+			<textField pattern="#,###">
+				<reportElement x="704" y="77" width="86" height="12" uuid="11111111-1111-1111-1111-111111111130"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{totalConvenio}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="590" y="89" width="110" height="12" uuid="11111111-1111-1111-1111-111111111131"/>
+				<textElement>
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Transferencia (Gs.):]]></text>
+			</staticText>
+			<textField pattern="#,###">
+				<reportElement x="704" y="89" width="86" height="12" uuid="11111111-1111-1111-1111-111111111132"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{totalTransferencia}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="590" y="113" width="110" height="12" uuid="11111111-1111-1111-1111-111111111143"/>
+				<textElement>
+					<font fontName="Verdana" size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[TOTAL (Gs.):]]></text>
+			</staticText>
+			<textField pattern="#,###">
+				<reportElement x="704" y="113" width="86" height="12" uuid="11111111-1111-1111-1111-111111111144"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="9" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{totalGeneral}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="130" y="113" width="58" height="12" uuid="11111111-1111-1111-1111-111111111103"/>
+				<textElement textAlignment="Left" verticalAlignment="Top">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[Creado en:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="188" y="113" width="77" height="12" uuid="11111111-1111-1111-1111-111111111104"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{fechaReporte}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="265" y="113" width="27" height="12" uuid="11111111-1111-1111-1111-111111111105"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="Verdana" size="9"/>
+				</textElement>
+				<text><![CDATA[por:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="292" y="113" width="146" height="12" uuid="11111111-1111-1111-1111-111111111106"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{usuario}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="291" y="25" width="100" height="13" backcolor="#FFFFFF" uuid="11111111-1111-1111-1111-111111111108"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Filtros aplicados]]></text>
+			</staticText>
+		</band>
+	</title>
+	<detail>
+		<band height="165" splitType="Stretch">
+			<rectangle>
+				<reportElement mode="Opaque" x="0" y="0" width="802" height="14" backcolor="#EDEDED" uuid="33333333-1111-1111-1111-333333333301"/>
+				<graphicElement>
+					<pen lineColor="#A3A3A3"/>
+				</graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="0" y="0" width="90" height="14" uuid="33333333-1111-1111-1111-333333333302"/>
+				<box leftPadding="5"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["Venta #" + $F{ventaId}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="90" y="0" width="185" height="14" uuid="33333333-1111-1111-1111-333333333303"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{sucursal}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="276" y="0" width="150" height="14" uuid="33333333-1111-1111-1111-333333333304"/>
+				<textElement textAlignment="Left" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{cliente}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="426" y="0" width="85" height="14" uuid="33333333-1111-1111-1111-333333333305"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{fecha}]]></textFieldExpression>
+			</textField>
+			<textField isBlankWhenNull="true">
+				<reportElement x="511" y="0" width="129" height="14" uuid="33333333-1111-1111-1111-333333333306">
+					<property name="com.jaspersoft.studio.unit.width" value="px"/>
+				</reportElement>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{estado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="640" y="0" width="55" height="14" uuid="33333333-1111-1111-1111-333333333307"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Total:]]></text>
+			</staticText>
+			<textField pattern="#,###" isBlankWhenNull="true">
+				<reportElement x="695" y="0" width="107" height="14" uuid="33333333-1111-1111-1111-333333333308"/>
+				<box rightPadding="5"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{totalGs}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="16" width="802" height="12" backcolor="#37474F" uuid="33333333-2222-1111-1111-300900000001"/>
+			</rectangle>
+			<staticText>
+				<reportElement positionType="Float" mode="Transparent" x="0" y="16" width="802" height="12" forecolor="#FFFFFF" uuid="33333333-2222-1111-1111-333333333309"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+					<paragraph lineSpacing="Single"/>
+				</textElement>
+				<text><![CDATA[PRODUCTOS]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="29" width="220" height="9" uuid="33333333-2222-1111-1111-333333333310"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Producto]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="220" y="29" width="120" height="9" uuid="33333333-2222-1111-1111-333333333311"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Presentación]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="340" y="29" width="70" height="9" uuid="33333333-2222-1111-1111-333333333312"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Cantidad]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="410" y="29" width="90" height="9" uuid="33333333-2222-1111-1111-333333333313"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Precio]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="500" y="29" width="90" height="9" uuid="33333333-2222-1111-1111-333333333314"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Costo Unit.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="590" y="29" width="100" height="9" uuid="33333333-2222-1111-1111-333333333315"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Costo Total]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="690" y="29" width="112" height="9" uuid="33333333-2222-1111-1111-333333333316"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Total]]></text>
+			</staticText>
+			<componentElement>
+				<reportElement positionType="Float" x="0" y="38" width="802" height="11" uuid="33333333-3333-1111-1111-333333333317"/>
+				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
+					<datasetRun subDataset="ItemsDataset" uuid="c2a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b21">
+						<dataSourceExpression><![CDATA[$F{itemsDataSource}]]></dataSourceExpression>
+					</datasetRun>
+					<jr:listContents height="11" width="802">
+						<textField isBlankWhenNull="true">
+							<reportElement x="0" y="0" width="220" height="11" uuid="33333333-4444-1111-1111-333333333318"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{producto}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement x="220" y="0" width="120" height="11" uuid="33333333-4444-1111-1111-333333333319"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{presentacion}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0.##" isBlankWhenNull="true">
+							<reportElement x="340" y="0" width="70" height="11" uuid="33333333-4444-1111-1111-333333333320"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0" isBlankWhenNull="true">
+							<reportElement x="410" y="0" width="90" height="11" uuid="33333333-4444-1111-1111-333333333321"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{precio}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0" isBlankWhenNull="true">
+							<reportElement x="500" y="0" width="90" height="11" uuid="33333333-4444-1111-1111-333333333322"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{precioCosto}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0" isBlankWhenNull="true">
+							<reportElement x="590" y="0" width="100" height="11" uuid="33333333-4444-1111-1111-333333333323"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{costoTotal}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0" isBlankWhenNull="true">
+							<reportElement x="690" y="0" width="112" height="11" uuid="33333333-4444-1111-1111-333333333324"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{total}]]></textFieldExpression>
+						</textField>
+					</jr:listContents>
+				</jr:list>
+			</componentElement>
+			<rectangle>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="49" width="802" height="12" backcolor="#37474F" uuid="33333333-2222-1111-1111-300900000002"/>
+			</rectangle>
+			<staticText>
+				<reportElement positionType="Float" mode="Transparent" x="0" y="49" width="802" height="12" forecolor="#FFFFFF" uuid="33333333-2222-1111-1111-333333333330"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[MOVIMIENTOS]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="62" width="200" height="9" uuid="33333333-2222-1111-1111-333333333331"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Operación]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="200" y="62" width="180" height="9" uuid="33333333-2222-1111-1111-333333333332"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Forma de Pago]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="380" y="62" width="100" height="9" uuid="33333333-2222-1111-1111-333333333333"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Moneda]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="480" y="62" width="150" height="9" uuid="33333333-2222-1111-1111-333333333334"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Valor en Moneda]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="630" y="62" width="172" height="9" uuid="33333333-2222-1111-1111-333333333335"/>
+				<textElement textAlignment="Right">
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Valor en Gs]]></text>
+			</staticText>
+			<componentElement>
+				<reportElement positionType="Float" x="0" y="71" width="802" height="11" uuid="33333333-3333-1111-1111-333333333336"/>
+				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
+					<datasetRun subDataset="MovimientosDataset" uuid="c2a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b22">
+						<dataSourceExpression><![CDATA[$F{movimientosDataSource}]]></dataSourceExpression>
+					</datasetRun>
+					<jr:listContents height="11" width="802">
+						<textField isBlankWhenNull="true">
+							<reportElement x="0" y="0" width="200" height="11" uuid="33333333-4444-1111-1111-333333333337"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{operacion}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement x="200" y="0" width="180" height="11" uuid="33333333-4444-1111-1111-333333333338"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{formaPago}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement x="380" y="0" width="100" height="11" uuid="33333333-4444-1111-1111-333333333339"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{moneda}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0.##" isBlankWhenNull="true">
+							<reportElement x="480" y="0" width="150" height="11" uuid="33333333-4444-1111-1111-333333333340"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{valorEnMoneda}]]></textFieldExpression>
+						</textField>
+						<textField pattern="#,##0" isBlankWhenNull="true">
+							<reportElement x="630" y="0" width="172" height="11" uuid="33333333-4444-1111-1111-333333333341"/>
+							<textElement textAlignment="Right" verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{valorEnGs}]]></textFieldExpression>
+						</textField>
+					</jr:listContents>
+				</jr:list>
+			</componentElement>
+			<rectangle>
+				<reportElement positionType="Float" mode="Opaque" x="0" y="82" width="802" height="12" backcolor="#37474F" uuid="33333333-2222-1111-1111-300900000003"/>
+			</rectangle>
+			<staticText>
+				<reportElement positionType="Float" mode="Transparent" x="0" y="82" width="802" height="12" forecolor="#FFFFFF" uuid="33333333-2222-1111-1111-333333333350"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="Verdana" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[OBSERVACIONES]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="0" y="95" width="100" height="9" uuid="33333333-2222-1111-1111-333333333351"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Fecha]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="100" y="95" width="500" height="9" uuid="33333333-2222-1111-1111-333333333352"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Descripción]]></text>
+			</staticText>
+			<staticText>
+				<reportElement positionType="Float" x="600" y="95" width="202" height="9" uuid="33333333-2222-1111-1111-333333333353"/>
+				<textElement>
+					<font fontName="Verdana" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Motivo]]></text>
+			</staticText>
+			<componentElement>
+				<reportElement positionType="Float" x="0" y="104" width="802" height="11" uuid="33333333-3333-1111-1111-333333333354"/>
+				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
+					<datasetRun subDataset="ObservacionesDataset" uuid="c2a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b23">
+						<dataSourceExpression><![CDATA[$F{observacionesDataSource}]]></dataSourceExpression>
+					</datasetRun>
+					<jr:listContents height="11" width="802">
+						<textField isBlankWhenNull="true">
+							<reportElement x="0" y="0" width="100" height="11" uuid="33333333-4444-1111-1111-333333333355"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{fecha}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement x="100" y="0" width="500" height="11" uuid="33333333-4444-1111-1111-333333333356"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{descripcion} == null || $F{descripcion}.trim().isEmpty() ? "Sin observaciones" : $F{descripcion}]]></textFieldExpression>
+						</textField>
+						<textField isBlankWhenNull="true">
+							<reportElement x="600" y="0" width="202" height="11" uuid="33333333-4444-1111-1111-333333333357"/>
+							<textElement verticalAlignment="Middle">
+								<font fontName="Verdana" size="7"/>
+							</textElement>
+							<textFieldExpression><![CDATA[$F{motivo} == null || $F{motivo}.trim().isEmpty() ? "Sin motivos" : $F{motivo}]]></textFieldExpression>
+						</textField>
+					</jr:listContents>
+				</jr:list>
+			</componentElement>
+			<frame>
+				<reportElement positionType="Float" x="0" y="115" width="802" height="40" uuid="33333333-5555-1111-1111-333333333360"/>
+				<staticText>
+					<reportElement x="0" y="0" width="150" height="10" uuid="33333333-5555-1111-1111-333333333375"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Responsable:]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="150" y="0" width="120" height="10" uuid="33333333-5555-1111-1111-333333333376"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{responsable}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="0" y="10" width="150" height="10" uuid="33333333-5555-1111-1111-333333333361"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Costo total venta (Gs.):]]></text>
+				</staticText>
+				<textField pattern="#,##0" isBlankWhenNull="true">
+					<reportElement x="150" y="10" width="120" height="10" uuid="33333333-5555-1111-1111-333333333362"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{costoTotalVenta}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="0" y="20" width="150" height="10" uuid="33333333-5555-1111-1111-333333333363"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Total recibido Gs:]]></text>
+				</staticText>
+				<textField pattern="#,##0" isBlankWhenNull="true">
+					<reportElement x="150" y="20" width="120" height="10" uuid="33333333-5555-1111-1111-333333333364"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{totalRecibidoGs}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="0" y="30" width="150" height="10" uuid="33333333-5555-1111-1111-333333333365"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Total recibido Rs:]]></text>
+				</staticText>
+				<textField pattern="#,##0.##" isBlankWhenNull="true">
+					<reportElement x="150" y="30" width="120" height="10" uuid="33333333-5555-1111-1111-333333333366"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{totalRecibidoRs}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="532" y="0" width="150" height="10" uuid="33333333-5555-1111-1111-333333333367"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Total recibido Ds:]]></text>
+				</staticText>
+				<textField pattern="#,##0.##" isBlankWhenNull="true">
+					<reportElement x="682" y="0" width="120" height="10" uuid="33333333-5555-1111-1111-333333333368"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{totalRecibidoDs}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="532" y="10" width="150" height="10" uuid="33333333-5555-1111-1111-333333333369"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Total descuento (Gs.):]]></text>
+				</staticText>
+				<textField pattern="#,##0" isBlankWhenNull="true">
+					<reportElement x="682" y="10" width="120" height="10" uuid="33333333-5555-1111-1111-333333333370"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{totalDescuento}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="532" y="20" width="150" height="10" uuid="33333333-5555-1111-1111-333333333371"/>
+					<textElement>
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<text><![CDATA[Total aumento (Gs.):]]></text>
+				</staticText>
+				<textField pattern="#,##0" isBlankWhenNull="true">
+					<reportElement x="682" y="20" width="120" height="10" uuid="33333333-5555-1111-1111-333333333372"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{totalAumento}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement x="532" y="30" width="150" height="10" uuid="33333333-5555-1111-1111-333333333373"/>
+					<textElement>
+						<font fontName="Verdana" size="7" isBold="true"/>
+					</textElement>
+					<text><![CDATA[Total final (Gs.):]]></text>
+				</staticText>
+				<textField pattern="#,##0" isBlankWhenNull="true">
+					<reportElement x="682" y="30" width="120" height="10" uuid="33333333-5555-1111-1111-333333333374"/>
+					<textElement textAlignment="Right">
+						<font fontName="Verdana" size="7" isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{totalFinal}]]></textFieldExpression>
+				</textField>
+			</frame>
+			<line>
+				<reportElement positionType="Float" x="0" y="155" width="802" height="1" uuid="33333333-6666-1111-1111-333333333380"/>
+				<graphicElement>
+					<pen lineWidth="1.0" lineColor="#000000"/>
+				</graphicElement>
+			</line>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="20">
+			<staticText>
+				<reportElement x="0" y="0" width="40" height="10" uuid="44444444-4444-4444-4444-444444444406"/>
+				<textElement>
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<text><![CDATA[Página:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="42" y="0" width="30" height="10" uuid="44444444-4444-4444-4444-444444444407"/>
+				<textElement>
+					<font fontName="Verdana" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnFooter>
+</jasperReport>

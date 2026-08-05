@@ -99,35 +99,75 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Long oldSucursalDestinoId = null;
         Long newSucursalOrigenId = null;
         Long newSucursalDestinoId = null;
-        Transferencia transferencia = null;
+        // La entidad se arma desde el input y se persiste con merge, por lo que toda
+        // columna ausente en el input se guardaria como null. Se carga la transferencia
+        // existente para preservar los campos que el cliente no envia.
+        Transferencia transferencia = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+
         if (input.getUsuarioPreTransferenciaId() != null)
             e.setUsuarioPreTransferencia(usuarioService.findById(input.getUsuarioPreTransferenciaId()).orElse(null));
+        else if (transferencia != null)
+            e.setUsuarioPreTransferencia(transferencia.getUsuarioPreTransferencia());
         if (input.getUsuarioPreparacionId() != null)
             e.setUsuarioPreparacion(usuarioService.findById(input.getUsuarioPreparacionId()).orElse(null));
+        else if (transferencia != null)
+            e.setUsuarioPreparacion(transferencia.getUsuarioPreparacion());
         if (input.getUsuarioTransporteId() != null)
             e.setUsuarioTransporte(usuarioService.findById(input.getUsuarioTransporteId()).orElse(null));
+        else if (transferencia != null)
+            e.setUsuarioTransporte(transferencia.getUsuarioTransporte());
         if (input.getUsuarioRecepcionId() != null)
             e.setUsuarioRecepcion(usuarioService.findById(input.getUsuarioRecepcionId()).orElse(null));
-        e.setSucursalOrigen(sucursalService.findById(input.getSucursalOrigenId()).orElse(null));
-        e.setSucursalDestino(sucursalService.findById(input.getSucursalDestinoId()).orElse(null));
-        if (input.getId() != null) {
-            transferencia = service.findById(input.getId()).orElse(null);
-            if (!transferencia.getSucursalOrigen().getId().equals(input.getSucursalOrigenId())) {
+        else if (transferencia != null)
+            e.setUsuarioRecepcion(transferencia.getUsuarioRecepcion());
+
+        if (input.getSucursalOrigenId() != null)
+            e.setSucursalOrigen(sucursalService.findById(input.getSucursalOrigenId()).orElse(null));
+        else if (transferencia != null)
+            e.setSucursalOrigen(transferencia.getSucursalOrigen());
+        if (input.getSucursalDestinoId() != null)
+            e.setSucursalDestino(sucursalService.findById(input.getSucursalDestinoId()).orElse(null));
+        else if (transferencia != null)
+            e.setSucursalDestino(transferencia.getSucursalDestino());
+
+        if (transferencia != null) {
+            Long sucursalOrigenActualId = transferencia.getSucursalOrigen() != null
+                    ? transferencia.getSucursalOrigen().getId()
+                    : null;
+            Long sucursalDestinoActualId = transferencia.getSucursalDestino() != null
+                    ? transferencia.getSucursalDestino().getId()
+                    : null;
+            if (input.getSucursalOrigenId() != null
+                    && !input.getSucursalOrigenId().equals(sucursalOrigenActualId)) {
                 newSucursalOrigenId = input.getSucursalOrigenId();
-                oldSucursalOrigenId = transferencia.getSucursalOrigen().getId();
+                oldSucursalOrigenId = sucursalOrigenActualId;
             }
-            if (!transferencia.getSucursalDestino().getId().equals(input.getSucursalDestinoId())) {
+            if (input.getSucursalDestinoId() != null
+                    && !input.getSucursalDestinoId().equals(sucursalDestinoActualId)) {
                 newSucursalDestinoId = input.getSucursalDestinoId();
-                oldSucursalDestinoId = transferencia.getSucursalDestino().getId();
+                oldSucursalDestinoId = sucursalDestinoActualId;
             }
-            if (input.getCreadoEn() == null && transferencia != null) {
+            if (input.getCreadoEn() == null)
                 e.setCreadoEn(transferencia.getCreadoEn());
-            }
+            if (input.getEstado() == null)
+                e.setEstado(transferencia.getEstado());
+            if (input.getTipo() == null)
+                e.setTipo(transferencia.getTipo());
+            if (input.getEtapa() == null)
+                e.setEtapa(transferencia.getEtapa());
+            if (input.getObservacion() == null)
+                e.setObservacion(transferencia.getObservacion());
+            if (input.getIsOrigen() == null)
+                e.setIsOrigen(transferencia.getIsOrigen());
+            if (input.getIsDestino() == null)
+                e.setIsDestino(transferencia.getIsDestino());
         }
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
         if (input.getHojaRutaId() != null) {
             e.setHojaRuta(hojaRutaService.findById(input.getHojaRutaId()).orElse(null));
+        } else if (transferencia != null) {
+            e.setHojaRuta(transferencia.getHojaRuta());
         }
         boolean isNewTransferencia = (input.getId() == null);
 
@@ -316,7 +356,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     public Page<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,
-            TransferenciaEstado estado, TipoTransferencia tipo,
+            TransferenciaEstado estado, List<TransferenciaEstado> estados, TipoTransferencia tipo,
             EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
             String creadoDesde, String creadoHasta, Integer page, Integer size) {
         if (page == null)
@@ -324,7 +364,14 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (size == null)
             size = 20;
         Pageable pageable = PageRequest.of(page, size);
-        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estado, tipo, etapa, isOrigen, isDestino,
+        // `estado` (singular) se mantiene por compatibilidad con clientes viejos: si
+        // viene, se suma a la lista de estados a filtrar.
+        List<TransferenciaEstado> estadoList = new ArrayList<>();
+        if (estados != null)
+            estadoList.addAll(estados);
+        if (estado != null && !estadoList.contains(estado))
+            estadoList.add(estado);
+        return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estadoList, tipo, etapa, isOrigen, isDestino,
                 stringToDate(creadoDesde), stringToDate(creadoHasta), pageable);
     }
 

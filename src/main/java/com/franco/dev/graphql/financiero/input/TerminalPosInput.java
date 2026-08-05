@@ -16,6 +16,8 @@ public class TerminalPosInput {
 
     private Long monedaId;
 
+    private Long proveedorServicioId;
+
     private Boolean activo;
 
     private LocalDateTime creadoEn;

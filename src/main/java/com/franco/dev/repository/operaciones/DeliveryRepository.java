@@ -26,6 +26,23 @@ public interface DeliveryRepository extends HelperRepository<Delivery, EmbebedPr
 
     Delivery findByIdAndSucursalId(Long id, Long sucId);
 
+    /**
+     * Total facturado en delivery por sucursal (gráfico "Ventas con Delivery").
+     * Suma el valor del precio de delivery de los deliveries CONCLUIDOS en el rango.
+     * Devuelve: [sucursalId, nombreSucursal, totalGs, cantidadDeliveries].
+     */
+    @Query(value = "SELECT d.sucursal_id, s.nombre, COALESCE(SUM(pd.valor), 0), COUNT(DISTINCT d.id) " +
+            "FROM operaciones.delivery d " +
+            "JOIN operaciones.precio_delivery pd ON d.precio_delivery_id = pd.id " +
+            "JOIN empresarial.sucursal s ON s.id = d.sucursal_id " +
+            "WHERE cast(d.estado as text) = 'CONCLUIDO' " +
+            "AND d.creado_en BETWEEN :startDate AND :endDate " +
+            "GROUP BY d.sucursal_id, s.nombre " +
+            "ORDER BY COALESCE(SUM(pd.valor), 0) DESC", nativeQuery = true)
+    List<Object[]> findTotalDeliveryPorSucursal(
+            @org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate,
+            @org.springframework.data.repository.query.Param("endDate") java.time.LocalDateTime endDate);
+
 //    @Query("select p from Delivery p left outer join p.proveedor as pro left outer join pro.persona as per where LOWER(per.nombre) like %?1%")
 //    public List<Delivery> findByProveedor(String texto);
 

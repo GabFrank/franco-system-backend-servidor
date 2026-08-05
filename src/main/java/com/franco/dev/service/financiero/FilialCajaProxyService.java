@@ -145,6 +145,46 @@ public class FilialCajaProxyService {
         }
     }
 
+    /**
+     * Reenvia a la filial la edicion de los montos de un conteo de apertura o cierre.
+     * La escritura ocurre siempre en la filial; el central recibe el cambio por replicacion.
+     *
+     * @return id de la nueva version del conteo creada en la filial
+     */
+    public Long editarConteoEnFilial(Long cajaId, Long sucursalId, Long conteoAnteriorId, Boolean apertura,
+                                     Object conteoInput, List<?> conteoMonedaInputList, Long usuarioId) throws Exception {
+        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+        if (sucursal == null || sucursal.getIp() == null || sucursal.getIp().isBlank()) {
+            log.error("[EDITAR CONTEO FILIAL] Sucursal id={} inexistente o sin IP configurada", sucursalId);
+            throw new Exception("La sucursal no tiene IP configurada, no se puede editar el conteo");
+        }
+        String url = buildFilialUrl(sucursal);
+        String query = "mutation($conteo: ConteoInput!, $conteoMonedaInputList: [ConteoMonedaInput], "
+                + "$cajaId: Int!, $conteoAnteriorId: ID!, $apertura: Boolean!, $usuarioId: Int!) { "
+                + "editarConteoCaja(conteo: $conteo, conteoMonedaInputList: $conteoMonedaInputList, "
+                + "cajaId: $cajaId, conteoAnteriorId: $conteoAnteriorId, apertura: $apertura, usuarioId: $usuarioId) "
+                + "{ id conteoAnteriorId } }";
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("conteo", objectMapper.convertValue(conteoInput, Map.class));
+        variables.put("conteoMonedaInputList", conteoMonedaInputList);
+        variables.put("cajaId", cajaId);
+        variables.put("conteoAnteriorId", conteoAnteriorId);
+        variables.put("apertura", apertura);
+        variables.put("usuarioId", usuarioId);
+
+        log.info("[EDITAR CONTEO FILIAL] >>> Enviando editarConteoCaja a {} -> cajaId={}, conteoAnteriorId={}, apertura={}, usuarioId={}",
+                url, cajaId, conteoAnteriorId, apertura, usuarioId);
+        Map<String, Object> data = executeGraphQLOrThrow(url, buildAuthHeaders(), query, variables);
+        Map<String, Object> conteo = data != null ? (Map<String, Object>) data.get("editarConteoCaja") : null;
+        if (conteo == null || conteo.get("id") == null) {
+            throw new Exception("La filial no devolvio el conteo editado");
+        }
+        Long nuevoConteoId = Long.valueOf(conteo.get("id").toString());
+        log.info("[EDITAR CONTEO FILIAL] <<< Conteo editado en filial -> nuevoConteoId={}, reemplaza a {}",
+                nuevoConteoId, conteoAnteriorId);
+        return nuevoConteoId;
+    }
+
     public String buildFilialUrl(Sucursal sucursal) {
         Integer puerto = sucursal.getPuertoServidor() != null ? sucursal.getPuertoServidor() : DEFAULT_FILIAL_PORT;
         return "http://" + sucursal.getIp() + ":" + puerto + "/graphql";
@@ -192,6 +232,33 @@ public class FilialCajaProxyService {
         if (response.getBody() == null || response.getBody().containsKey("errors")) {
             log.warn("Error GraphQL en filial {}: {}", url, response.getBody());
             return null;
+        }
+        return (Map<String, Object>) response.getBody().get("data");
+    }
+
+    /**
+     * Igual que {@link #executeGraphQL} pero propaga el mensaje de error de la filial en vez de
+     * devolver null. Se usa en operaciones donde el motivo del rechazo ("la caja ya fue verificada",
+     * "el conteo fue editado por otro usuario") tiene que llegar al usuario.
+     */
+    private Map<String, Object> executeGraphQLOrThrow(String url, HttpHeaders headers, String query,
+                                                      Map<String, Object> variables) throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("query", query);
+        body.put("variables", variables);
+        HttpEntity<String> request = new HttpEntity<>(objectMapper.writeValueAsString(body), headers);
+        ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
+        if (response.getBody() == null) {
+            throw new Exception("La filial no devolvio respuesta");
+        }
+        Object errors = response.getBody().get("errors");
+        if (errors instanceof List && !((List<?>) errors).isEmpty()) {
+            Object primerError = ((List<?>) errors).get(0);
+            String mensaje = primerError instanceof Map && ((Map<?, ?>) primerError).get("message") != null
+                    ? ((Map<?, ?>) primerError).get("message").toString()
+                    : errors.toString();
+            log.warn("Error GraphQL en filial {}: {}", url, mensaje);
+            throw new Exception(mensaje);
         }
         return (Map<String, Object>) response.getBody().get("data");
     }

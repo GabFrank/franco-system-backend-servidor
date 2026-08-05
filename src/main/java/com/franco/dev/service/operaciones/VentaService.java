@@ -588,7 +588,15 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             VentaEstado estado,
             Pageable pageable, Boolean isDelivery, Long monedaId, Boolean isAsc, Boolean conDescuento,
             Boolean conAumento, Boolean conObservacion, Long clienteId, String fechaInicio, String fechaFin) {
-        Sort sort = isAsc == false ? Sort.by("id").descending() : Sort.by("id").ascending();
+        // Al filtrar por nro. de venta todas las filas comparten el id (la PK es
+        // compuesta: id + sucursal_id), por eso se desempata por creadoEn desc para
+        // que la venta mas reciente quede primera. sucursalId cierra el orden para
+        // que la paginacion sea determinista.
+        Sort sort = isAsc == Boolean.TRUE
+                ? Sort.by(Sort.Order.asc("id"), Sort.Order.desc("creadoEn").nullsLast(),
+                        Sort.Order.desc("sucursalId"))
+                : Sort.by(Sort.Order.desc("id"), Sort.Order.desc("creadoEn").nullsLast(),
+                        Sort.Order.desc("sucursalId"));
         Pageable newPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), sort);
 
         return this.repository.findAll((root, query, cb) -> {

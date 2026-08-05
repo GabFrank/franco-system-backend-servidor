@@ -38,6 +38,8 @@ public class GraficoExcelExportService {
                 return exportarCiudad(filtros, periodos);
             case VENTA_SUCURSAL:
                 return exportarSucursal(filtros, periodos);
+            case DELIVERY_SUCURSAL:
+                return exportarDeliverySucursal(filtros, periodos);
             case VENTA_FUNCIONARIO:
                 return exportarFuncionario(filtros, input, periodos);
             case FORMA_PAGO:
@@ -82,6 +84,22 @@ public class GraficoExcelExportService {
                 "Sucursal",
                 "Detalle por sucursal",
                 "Ventas por Sucursal",
+                filas,
+                GraficoExcelFormatoVisual.BARRAS_VERTICALES
+        );
+    }
+
+    private byte[] exportarDeliverySucursal(GraficoExcelFiltrosContext filtros, List<PeriodoGraficoInput> periodos)
+            throws IOException {
+        List<GraficoDesgloseFila> filas = graficoAggregationService.deliveryPorSucursalMulti(periodos).stream()
+                .map(GraficoDesgloseFila::desdeSucursal)
+                .collect(Collectors.toList());
+        return desgloseBarraExcelExporter.exportar(
+                filtros,
+                "Ventas con Delivery",
+                "Sucursal",
+                "Detalle por sucursal",
+                "Ventas con Delivery",
                 filas,
                 GraficoExcelFormatoVisual.BARRAS_VERTICALES
         );
@@ -233,6 +251,9 @@ public class GraficoExcelExportService {
                 break;
             case VENTA_SUCURSAL:
                 titulo = "Ventas por Sucursal";
+                break;
+            case DELIVERY_SUCURSAL:
+                titulo = "Ventas con Delivery";
                 break;
             case VENTA_FUNCIONARIO:
                 titulo = "Ventas por Funcionario";

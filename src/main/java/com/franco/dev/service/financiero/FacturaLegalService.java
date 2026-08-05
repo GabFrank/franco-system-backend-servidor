@@ -83,10 +83,11 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
 
     public Page<FacturaLegal> findByAll(Integer page, Integer size, String fechaInicio, String fechaFin,
             List<Long> sucId, String ruc, String nombre, Boolean iva5, Boolean iva10, Boolean isElectronico,
-            Boolean activo, Boolean sinNombre) {
+            Boolean activo, Boolean sinNombre, Long ventaId) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").ascending());
         Page<FacturaLegal> response = repository.findAll(
-                withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre), pageable);
+                withFilters(fechaInicio, fechaFin, sucId, ruc, nombre, isElectronico, activo, sinNombre, ventaId),
+                pageable);
         return response;
     }
 

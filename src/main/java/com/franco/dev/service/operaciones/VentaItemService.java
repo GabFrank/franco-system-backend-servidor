@@ -8,6 +8,10 @@ import com.franco.dev.domain.productos.CostoPorProducto;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.dto.ProductoVendidoEstadistica;
 import com.franco.dev.graphql.operaciones.dto.ProductoCompraPorPeriodo;
+import com.franco.dev.graphql.operaciones.dto.ProductoCostoPorPeriodo;
+import com.franco.dev.graphql.operaciones.dto.EvolucionCostoResponse;
+import com.franco.dev.graphql.operaciones.dto.EvolucionCostoResumen;
+import com.franco.dev.graphql.operaciones.dto.RankingInflacionItem;
 import com.franco.dev.graphql.operaciones.dto.ProductoVentaPorPeriodo;
 import com.franco.dev.repository.operaciones.VentaItemRepository;
 import com.franco.dev.service.CrudService;
@@ -432,6 +436,207 @@ public class VentaItemService extends CrudService<VentaItem, VentaItemRepository
             periodos.add(new ProductoCompraPorPeriodo(periodo, cantidad, cantidadCompras));
         }
         return periodos;
+    }
+
+    /**
+     * Evolucion del costo unitario de compra de un producto: serie por periodo + resumen calculado.
+     * Fuente: operaciones.compra_item (precio_unitario real de factura) unido a compra.
+     * Solo compras ACTIVAS (interfieren en stock), con precio > 0 y excluyendo bonificaciones
+     * (items regalados con precio 0 que distorsionarian el promedio).
+     *
+     * @param agrupacion "dia" agrupa por fecha; cualquier otro valor (por defecto) agrupa por mes.
+     */
+    public EvolucionCostoResponse obtenerEvolucionCostoProducto(LocalDateTime inicio, LocalDateTime fin,
+            Long productoId, Long sucursalId, String agrupacion) {
+        // El costo de compra se lleva de forma global (no por sucursal), por eso sucursalId no se usa.
+        List<ProductoCostoPorPeriodo> periodos =
+                obtenerCostoCompraProductoPorPeriodo(inicio, fin, productoId, agrupacion);
+        return new EvolucionCostoResponse(periodos, calcularResumenCosto(periodos));
+    }
+
+    /** Calcula los indicadores agregados de la evolucion de costo (variacion, promedio ponderado, pico). */
+    private EvolucionCostoResumen calcularResumenCosto(List<ProductoCostoPorPeriodo> periodos) {
+        List<ProductoCostoPorPeriodo> conDato = new ArrayList<>();
+        for (ProductoCostoPorPeriodo p : periodos) {
+            if (p.getCostoPromedio() != null && p.getCostoPromedio() > 0) {
+                conDato.add(p);
+            }
+        }
+
+        if (conDato.isEmpty()) {
+            return new EvolucionCostoResumen(0.0, 0.0, 0.0, 0.0, "-", 0, false);
+        }
+
+        double costoInicial = conDato.get(0).getCostoPromedio();
+        double costoFinal = conDato.get(conDato.size() - 1).getCostoPromedio();
+        double variacion = costoInicial > 0 ? ((costoFinal - costoInicial) / costoInicial) * 100.0 : 0.0;
+
+        double sumaPonderada = 0.0;
+        double sumaCantidad = 0.0;
+        String periodoPico = conDato.get(0).getPeriodo();
+        double costoPico = -1.0;
+        int totalCompras = 0;
+        for (ProductoCostoPorPeriodo p : conDato) {
+            double cantidad = p.getCantidad() != null ? p.getCantidad() : 0.0;
+            sumaPonderada += p.getCostoPromedio() * cantidad;
+            sumaCantidad += cantidad;
+            if (p.getCostoPromedio() > costoPico) {
+                costoPico = p.getCostoPromedio();
+                periodoPico = p.getPeriodo();
+            }
+        }
+        for (ProductoCostoPorPeriodo p : periodos) {
+            totalCompras += p.getCantidadCompras() != null ? p.getCantidadCompras() : 0;
+        }
+        double promedioPonderado = sumaCantidad > 0 ? sumaPonderada / sumaCantidad : costoFinal;
+
+        return new EvolucionCostoResumen(costoInicial, costoFinal, variacion, promedioPonderado,
+                periodoPico, totalCompras, true);
+    }
+
+    /**
+     * Serie de costo de compra por periodo. El costo real se registra de forma global (no por sucursal)
+     * en productos.costo_por_producto, tabla que guarda el ultimo_precio_compra cada vez que se
+     * actualiza el costo de un producto. Las cantidades compradas y el numero de compras se toman de
+     * los movimientos de stock tipo COMPRA. El precio se normaliza a guaranies multiplicando por la
+     * cotizacion (1 para moneda local).
+     */
+    private List<ProductoCostoPorPeriodo> obtenerCostoCompraProductoPorPeriodo(LocalDateTime inicio, LocalDateTime fin,
+            Long productoId, String agrupacion) {
+        boolean porDia = "dia".equalsIgnoreCase(agrupacion);
+        String periodoCosto = porDia ? "CAST(cpp.creado_en AS DATE)" : "TO_CHAR(cpp.creado_en, 'YYYY-MM')";
+        String periodoCompra = porDia ? "CAST(ms.creado_en AS DATE)" : "TO_CHAR(ms.creado_en, 'YYYY-MM')";
+        String costoGs = "cpp.ultimo_precio_compra * COALESCE(NULLIF(cpp.cotizacion, 0), 1)";
+
+        StringBuilder filtroCosto = new StringBuilder();
+        StringBuilder filtroCompra = new StringBuilder();
+        if (inicio != null) {
+            filtroCosto.append("AND cpp.creado_en >= :inicio ");
+            filtroCompra.append("AND ms.creado_en >= :inicio ");
+        }
+        if (fin != null) {
+            filtroCosto.append("AND cpp.creado_en < :fin ");
+            filtroCompra.append("AND ms.creado_en < :fin ");
+        }
+
+        String sql = "WITH costos AS ( " +
+                "  SELECT " + periodoCosto + " AS periodo, " +
+                "         AVG(" + costoGs + ") AS costo_promedio, " +
+                "         MIN(" + costoGs + ") AS costo_minimo, " +
+                "         MAX(" + costoGs + ") AS costo_maximo " +
+                "  FROM productos.costo_por_producto cpp " +
+                "  WHERE cpp.producto_id = :productoId AND cpp.ultimo_precio_compra > 0 " +
+                filtroCosto.toString() +
+                "  GROUP BY " + periodoCosto + " " +
+                "), compras AS ( " +
+                // Se considera compra tanto un movimiento COMPRA como una TRANSFERENCIA cuyo origen es
+                // la sucursal COMPRAS (asi funcionaba el abastecimiento antes del modulo de compras).
+                "  SELECT " + periodoCompra + " AS periodo, " +
+                "         SUM(ms.cantidad) AS cantidad, " +
+                "         COUNT(*) AS cantidad_compras " +
+                "  FROM operaciones.movimiento_stock ms " +
+                "  WHERE ms.producto_id = :productoId AND " + sqlCondicionEntradasStock() + " " +
+                filtroCompra.toString() +
+                "  GROUP BY " + periodoCompra + " " +
+                ") " +
+                "SELECT c.periodo, c.costo_promedio, c.costo_minimo, c.costo_maximo, " +
+                "       COALESCE(cm.cantidad, 0) AS cantidad, COALESCE(cm.cantidad_compras, 0) AS cantidad_compras " +
+                "FROM costos c LEFT JOIN compras cm ON cm.periodo = c.periodo " +
+                "ORDER BY c.periodo ASC";
+
+        javax.persistence.Query query = em.createNativeQuery(sql);
+        query.setParameter("productoId", productoId);
+        if (inicio != null) query.setParameter("inicio", inicio);
+        if (fin != null) query.setParameter("fin", fin);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> resultados = query.getResultList();
+        return mapearCostoPeriodos(resultados);
+    }
+
+    private List<ProductoCostoPorPeriodo> mapearCostoPeriodos(List<Object[]> resultados) {
+        List<ProductoCostoPorPeriodo> periodos = new ArrayList<>();
+        for (Object[] fila : resultados) {
+            String periodo = fila[0] != null ? fila[0].toString() : "";
+            Double costoPromedio = fila[1] != null ? ((Number) fila[1]).doubleValue() : 0.0;
+            Double costoMinimo = fila[2] != null ? ((Number) fila[2]).doubleValue() : 0.0;
+            Double costoMaximo = fila[3] != null ? ((Number) fila[3]).doubleValue() : 0.0;
+            Double cantidad = fila[4] != null ? ((Number) fila[4]).doubleValue() : 0.0;
+            Integer cantidadCompras = fila[5] != null ? ((Number) fila[5]).intValue() : 0;
+            periodos.add(new ProductoCostoPorPeriodo(periodo, costoPromedio, costoMinimo, costoMaximo, cantidad,
+                    cantidadCompras));
+        }
+        return periodos;
+    }
+
+    /**
+     * Ranking de productos por variacion de costo de compra entre el primer y ultimo mes con compras
+     * dentro del periodo. Sirve para detectar inflacion de proveedores de un vistazo.
+     * Solo considera productos con al menos 2 meses distintos de compras (para que exista variacion).
+     *
+     * @param orden "baja" ordena por mayor reduccion; cualquier otro valor (default) por mayor suba.
+     */
+    public List<RankingInflacionItem> obtenerRankingInflacionCosto(LocalDateTime inicio, LocalDateTime fin,
+            Long sucursalId, Long familiaId, Integer limit, String orden) {
+        // El costo se registra de forma global (no por sucursal) en productos.costo_por_producto,
+        // por eso sucursalId no se usa. El precio se normaliza a guaranies con la cotizacion.
+        StringBuilder filtros = new StringBuilder();
+        if (inicio != null) filtros.append("AND cpp.creado_en >= :inicio ");
+        if (fin != null) filtros.append("AND cpp.creado_en < :fin ");
+        if (familiaId != null && familiaId > 0) filtros.append("AND sf.familia_id = :familiaId ");
+
+        String sql = "WITH costos_mes AS ( " +
+                "  SELECT cpp.producto_id AS producto_id, p.descripcion AS descripcion, " +
+                "         TO_CHAR(cpp.creado_en, 'YYYY-MM') AS periodo, " +
+                "         AVG(cpp.ultimo_precio_compra * COALESCE(NULLIF(cpp.cotizacion, 0), 1)) AS costo, " +
+                "         COUNT(*) AS compras " +
+                "  FROM productos.costo_por_producto cpp " +
+                "  JOIN productos.producto p ON p.id = cpp.producto_id " +
+                "  LEFT JOIN productos.subfamilia sf ON p.sub_familia_id = sf.id " +
+                "  WHERE cpp.ultimo_precio_compra > 0 " +
+                filtros.toString() +
+                "  GROUP BY cpp.producto_id, p.descripcion, TO_CHAR(cpp.creado_en, 'YYYY-MM') " +
+                "), ranked AS ( " +
+                "  SELECT producto_id, descripcion, costo, compras, " +
+                "         ROW_NUMBER() OVER (PARTITION BY producto_id ORDER BY periodo ASC) AS rn_asc, " +
+                "         ROW_NUMBER() OVER (PARTITION BY producto_id ORDER BY periodo DESC) AS rn_desc, " +
+                "         COUNT(*) OVER (PARTITION BY producto_id) AS n_periodos " +
+                "  FROM costos_mes " +
+                ") " +
+                "SELECT producto_id, MAX(descripcion) AS descripcion, " +
+                "       MAX(CASE WHEN rn_asc = 1 THEN costo END) AS costo_inicial, " +
+                "       MAX(CASE WHEN rn_desc = 1 THEN costo END) AS costo_final, " +
+                "       MAX(n_periodos) AS periodos, SUM(compras) AS total_compras " +
+                "FROM ranked GROUP BY producto_id HAVING MAX(n_periodos) >= 2";
+
+        javax.persistence.Query query = em.createNativeQuery(sql);
+        if (inicio != null) query.setParameter("inicio", inicio);
+        if (fin != null) query.setParameter("fin", fin);
+        if (familiaId != null && familiaId > 0) query.setParameter("familiaId", familiaId);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> resultados = query.getResultList();
+
+        List<RankingInflacionItem> items = new ArrayList<>();
+        for (Object[] fila : resultados) {
+            Long productoId = fila[0] != null ? ((Number) fila[0]).longValue() : null;
+            String descripcion = fila[1] != null ? fila[1].toString() : "";
+            Double costoInicial = fila[2] != null ? ((Number) fila[2]).doubleValue() : 0.0;
+            Double costoFinal = fila[3] != null ? ((Number) fila[3]).doubleValue() : 0.0;
+            Integer periodos = fila[4] != null ? ((Number) fila[4]).intValue() : 0;
+            Integer totalCompras = fila[5] != null ? ((Number) fila[5]).intValue() : 0;
+            Double variacion = costoInicial > 0 ? ((costoFinal - costoInicial) / costoInicial) * 100.0 : 0.0;
+            items.add(new RankingInflacionItem(productoId, descripcion, costoInicial, costoFinal, variacion,
+                    periodos, totalCompras));
+        }
+
+        boolean ascendente = "baja".equalsIgnoreCase(orden);
+        items.sort((a, b) -> ascendente
+                ? Double.compare(a.getVariacionPorcentual(), b.getVariacionPorcentual())
+                : Double.compare(b.getVariacionPorcentual(), a.getVariacionPorcentual()));
+
+        int tope = (limit != null && limit > 0) ? limit : 20;
+        return items.size() > tope ? new ArrayList<>(items.subList(0, tope)) : items;
     }
 
     private List<ProductoVentaPorPeriodo> mapearPeriodos(List<Object[]> resultados) {

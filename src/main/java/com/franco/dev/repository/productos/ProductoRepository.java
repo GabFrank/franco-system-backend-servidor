@@ -217,11 +217,11 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         @Param("endDate") LocalDateTime endDate);
 
         @Query("select distinct p from Producto p " +
-                        "left join Presentacion pres on pres.producto.id = p.id " +
-                        "left join Codigo cod on cod.presentacion.id = pres.id " +
-                        "where  (CAST(p.id as string) like CONCAT('%', :texto, '%') or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') "
-                        +
-                        "or UPPER(p.descripcionFactura) like CONCAT('%', UPPER(:texto), '%')) " +
+                        "where  ((:soloCodigo) = true or CAST(p.id as string) like CONCAT('%', :texto, '%') " +
+                        "or UPPER(p.descripcion) like CONCAT('%', UPPER(:texto), '%') " +
+                        "or UPPER(p.descripcionFactura) like CONCAT('%', UPPER(:texto), '%') " +
+                        "or p.id in (:idsCodigo)) " +
+                        "and ((:soloCodigo) = false or p.id in (:idsCodigo)) " +
                         "and ((:activo) is null or p.activo = :activo) " +
                         "and ((:stock) is null or p.stock = :stock) " +
                         "and ((:balanza) is null or p.balanza = :balanza) " +
@@ -252,6 +252,8 @@ public interface ProductoRepository extends HelperRepository<Producto, Long> {
                         "order by p.id asc")
         public Page<Producto> searchWithFilters(
                         @Param("texto") String texto,
+                        @Param("idsCodigo") List<Long> idsCodigo,
+                        @Param("soloCodigo") boolean soloCodigo,
                         @Param("activo") Boolean activo,
                         @Param("stock") Boolean stock,
                         @Param("balanza") Boolean balanza,

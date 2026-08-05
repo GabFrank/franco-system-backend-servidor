@@ -14,6 +14,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.productos.input.ProductoInput;
 import com.franco.dev.repository.productos.ProductoRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.productos.search.CodigoSearchService;
 import com.franco.dev.service.productos.search.ProductoSearchIndexSyncService;
 import com.franco.dev.service.productos.search.ProductoSearchService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
@@ -80,9 +81,14 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     private final ProductoSearchService productoSearchService;
     @Autowired
     private final ProductoSearchIndexSyncService productoSearchIndexSyncService;
+    @Autowired
+    private final CodigoSearchService codigoSearchService;
 
     @Value("${app.search.producto.enabled:true}")
     private boolean productoSearchEnabled;
+
+    /** Tope de productos a resolver por coincidencia de código de barras. */
+    private static final int LIMITE_IDS_CODIGO = 200;
 
     @Override
     public ProductoRepository getRepository() {
@@ -128,7 +134,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             String conStockStr,
             Boolean activo) {
         int fetchSize = Math.min(Math.max(offset + 10, 50), 200);
-        List<Long> ids = productoSearchService.buscarIdsPorTexto(texto, fetchSize, activo, false, null, null);
+        // Lucene solo indexa descripción: el código de barras se resuelve aparte y se antepone.
+        List<Long> ids = unirIds(
+                codigoSearchService.buscarProductoIdsPorCoincidencia(texto, fetchSize),
+                productoSearchService.buscarIdsPorTexto(texto, fetchSize, activo, false, null, null));
         if (ids.isEmpty()) {
             return Collections.emptyList();
         }
@@ -148,7 +157,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             encontrados = repository.searchWithFiltersByIds(
                     ids, activo, null, null, null, null, null, null, null, sucursalId);
         } else {
-            encontrados = new ArrayList<>(repository.findAllById(ids));
+            // Los ids que llegan por código no pasaron por el filtro de activo de Lucene.
+            encontrados = repository.findAllById(ids).stream()
+                    .filter(p -> activo == null || activo.equals(p.getActivo()))
+                    .collect(Collectors.toList());
         }
 
         Map<Long, Producto> porId = encontrados.stream()
@@ -192,17 +204,56 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
     public Page<Producto> findWithFilters(String texto, Boolean activo, Boolean stock, Boolean balanza,
             Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
             Pageable page) {
-        if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
-            return buscarConFiltrosLucene(texto, activo, stock, balanza, subfamiliaId, familiaId, vencimiento,
+        return findWithFilters(texto, null, activo, stock, balanza, subfamiliaId, familiaId, vencimiento, costoCero,
+                stockFiltro, sucursalId, page);
+    }
+
+    /**
+     * Búsqueda de la lista de productos. El texto libre matchea id / descripción y además
+     * código de barras por coincidencia parcial (con o sin ceros a la izquierda, o solo un
+     * tramo del código). Si viene {@code codigo}, la búsqueda se restringe a códigos.
+     */
+    public Page<Producto> findWithFilters(String texto, String codigo, Boolean activo, Boolean stock, Boolean balanza,
+            Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro, Long sucursalId,
+            Pageable page) {
+        boolean soloCodigo = codigo != null && !codigo.trim().isEmpty();
+        String fragmentoCodigo = soloCodigo ? codigo : texto;
+        List<Long> idsCodigo = codigoSearchService.buscarProductoIdsPorCoincidencia(fragmentoCodigo, LIMITE_IDS_CODIGO);
+
+        if (!soloCodigo && productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
+            return buscarConFiltrosLucene(texto, idsCodigo, activo, stock, balanza, subfamiliaId, familiaId, vencimiento,
                     costoCero, stockFiltro, sucursalId, page);
         }
         String textoSql = texto != null ? texto.replace(" ", "%").toUpperCase() : "";
-        return repository.searchWithFilters(textoSql, activo, stock, balanza, subfamiliaId, familiaId, vencimiento,
-                costoCero, stockFiltro, sucursalId, page);
+        return repository.searchWithFilters(textoSql, idsParaConsulta(idsCodigo), soloCodigo, activo, stock, balanza,
+                subfamiliaId, familiaId, vencimiento, costoCero, stockFiltro, sucursalId, page);
     }
 
-    private Page<Producto> buscarConFiltrosLucene(String texto, Boolean activo, Boolean stock, Boolean balanza,
-            Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro,
+    /**
+     * JPQL no admite {@code in ()} vacío; se usa un id inexistente como centinela.
+     */
+    private List<Long> idsParaConsulta(List<Long> ids) {
+        return (ids == null || ids.isEmpty()) ? Collections.singletonList(-1L) : ids;
+    }
+
+    /**
+     * Une los ids resueltos por código (primero, por ser la coincidencia más precisa) con
+     * los de Lucene, sin repetir.
+     */
+    private List<Long> unirIds(List<Long> prioritarios, List<Long> resto) {
+        LinkedHashSet<Long> unidos = new LinkedHashSet<>();
+        if (prioritarios != null) {
+            unidos.addAll(prioritarios);
+        }
+        if (resto != null) {
+            unidos.addAll(resto);
+        }
+        unidos.remove(null);
+        return new ArrayList<>(unidos);
+    }
+
+    private Page<Producto> buscarConFiltrosLucene(String texto, List<Long> idsCodigo, Boolean activo, Boolean stock,
+            Boolean balanza, Long subfamiliaId, Long familiaId, Boolean vencimiento, Boolean costoCero, String stockFiltro,
             Long sucursalId, Pageable page) {
         final int overFetch;
         if (page.isUnpaged()) {
@@ -213,8 +264,10 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             overFetch = Math.max(Math.min(2000, (page.getPageNumber() + 1) * page.getPageSize() * 8), 100);
         }
 
-        List<Long> ids = productoSearchService.buscarIdsPorTexto(
-                texto, overFetch, activo, null, familiaId, subfamiliaId);
+        // Los matches por código van primero: son la coincidencia más precisa y Lucene solo
+        // indexa descripción, así que un código de barras nunca llegaría por esa vía.
+        List<Long> ids = unirIds(idsCodigo, productoSearchService.buscarIdsPorTexto(
+                texto, overFetch, activo, null, familiaId, subfamiliaId));
         if (ids.isEmpty()) {
             return new PageImpl<>(Collections.emptyList(), page, 0);
         }
@@ -459,8 +512,11 @@ public class ProductoService extends CrudService<Producto, ProductoRepository, L
             boolean puedeVerStockCompras,
             boolean puedeVerCostos) throws FileNotFoundException {
 
+        // `codigo` es el check "Buscar por código" de la lista: el término viaja en `texto`.
+        boolean buscarPorCodigo = Boolean.TRUE.equals(codigo);
         Page<Producto> productoPage = findWithFilters(
-                texto,
+                buscarPorCodigo ? null : texto,
+                buscarPorCodigo ? texto : null,
                 activo,
                 stock,
                 balanza,

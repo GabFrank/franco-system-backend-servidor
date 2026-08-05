@@ -234,7 +234,12 @@ public class TesoreriaService {
         contra.setOrigenId(orig.getId());
         contra.setDescripcion("ANULACION: " + (motivo != null ? motivo : "") + " (mov #" + orig.getId() + ")");
         contra.setActivo(true);
-        return registrar(contra);
+        MovimientoCajaVirtual posteado = registrar(contra);
+        // Marca el original como inactivo (consistente con banco, que marca anulado) → la UI lo
+        // tacha y el filtro "solo activos" lo oculta. No afecta el saldo (ya lo revirtió el contra).
+        orig.setActivo(false);
+        movimientoRepository.save(orig);
+        return posteado;
     }
 
     /**

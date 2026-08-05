@@ -54,6 +54,11 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         return service.findAll(PageRequest.of(page, size));
     }
 
+    public OperacionFinanciera operacionFinanciera(Long id) {
+        seg.requireVer();
+        return service.porId(id);
+    }
+
     public Page<MovimientoBancario> movimientosBancarios(Long cuentaBancariaId, int page, int size) {
         seg.requireVer();
         return movimientoBancarioRepository.findByCuentaBancariaIdOrderByCreadoEnDesc(cuentaBancariaId, PageRequest.of(page, size));

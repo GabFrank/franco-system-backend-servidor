@@ -86,6 +86,7 @@ type MovimientoBancarioPage {
 
 extend type Query {
     operacionesFinancieras(page: Int = 0, size: Int = 10): OperacionFinancieraPage
+    operacionFinanciera(id: ID!): OperacionFinanciera
     operacionFinancieraCategorias: [OperacionFinancieraCategoria]
     movimientosBancarios(cuentaBancariaId: ID!, page: Int = 0, size: Int = 10): MovimientoBancarioPage
 }

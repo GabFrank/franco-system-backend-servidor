@@ -124,6 +124,11 @@ public class OperacionFinancieraService {
      * con su contra-movimiento (ledger inmutable). Idempotente por el flag {@code anulado}.
      */
     @Transactional
+    /** Trae una operación financiera por id (para el detalle read-only en caja mayor). */
+    public OperacionFinanciera porId(Long id) {
+        return id != null ? repository.findById(id).orElse(null) : null;
+    }
+
     public OperacionFinanciera anular(Long operacionId, String motivo, Usuario usuario) {
         OperacionFinanciera op = repository.findById(operacionId)
                 .orElseThrow(() -> new GraphQLException("Operación financiera no encontrada: " + operacionId));

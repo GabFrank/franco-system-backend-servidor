@@ -54,6 +54,15 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.findByAll(texto);
     }
 
+    /** Chequeras de una cuenta bancaria (para ofrecer cheque como forma de pago). soloActivas por default. */
+    public List<Chequera> chequerasPorCuenta(Long cuentaBancariaId, Boolean soloActivas) {
+        if (Boolean.FALSE.equals(soloActivas)) {
+            return service.getRepository().findByCuentaBancariaIdOrderByIdDesc(cuentaBancariaId);
+        }
+        return service.getRepository().findByCuentaBancariaIdAndEstadoOrderByIdDesc(
+                cuentaBancariaId, com.franco.dev.domain.financiero.enums.EstadoChequera.ACTIVA);
+    }
+
     public Boolean deleteChequera(Long id) {
         Boolean ok = service.deleteById(id);
         return ok;

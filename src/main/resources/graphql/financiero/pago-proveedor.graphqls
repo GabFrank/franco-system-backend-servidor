@@ -15,6 +15,14 @@ input LineaPagoInput {
     montoSolicitud: Float
     descuento: Boolean
     aumento: Boolean
+    # Fuente CHEQUE (1 cheque por chequeRef, aunque el FIFO reparta la línea entre notas)
+    chequeRef: Int
+    chequeraId: Int
+    diferido: Boolean
+    fechaEmision: String
+    fechaPago: String
+    beneficiario: String
+    nominal: Boolean
 }
 
 input PagoLoteInput {

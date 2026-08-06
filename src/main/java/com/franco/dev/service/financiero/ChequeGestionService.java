@@ -32,6 +32,7 @@ public class ChequeGestionService {
     private final ChequeraService chequeraService;
     private final com.franco.dev.repository.financiero.ChequeRepository chequeRepository;
     private final com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
+    private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final BancoLedgerService bancoLedgerService;
 
     /** Emite un cheque. Avanza el correlativo de la chequera; agota la chequera si corresponde. */
@@ -108,6 +109,31 @@ public class ChequeGestionService {
             throw new GraphQLException("No se puede anular un cheque ya cobrado");
         }
         if (Boolean.TRUE.equals(cheque.getDiferido()) && cheque.getEstado() == EstadoCheque.DIFERIDO
+                && cheque.getCuentaBancaria() != null) {
+            BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
+            bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());
+        }
+        cheque.setEstado(EstadoCheque.ANULADO);
+        cheque.setMotivoAnulacion(motivo);
+        return chequeService.save(cheque);
+    }
+
+    /**
+     * Anula un cheque como parte de la reversión de un pago CPP. A diferencia de {@link #anular},
+     * también revierte los cheques al contado (COBRADO): revierte su movimiento bancario en vez de
+     * bloquear. Diferido no cobrado → libera la reserva. Idempotente si ya está anulado.
+     */
+    @Transactional
+    public Cheque anularPorPago(Long chequeId, String motivo, Usuario usuario) {
+        Cheque cheque = chequeRepository.lockById(chequeId).orElseThrow(
+                () -> new GraphQLException("Cheque no encontrado: " + chequeId));
+        if (cheque.getEstado() == EstadoCheque.ANULADO) return cheque;
+        if (cheque.getEstado() == EstadoCheque.COBRADO) {
+            if (cheque.getMovimientoBancarioId() != null) {
+                movimientoBancarioRepository.findById(cheque.getMovimientoBancarioId())
+                        .ifPresent(mb -> bancoLedgerService.revertir(mb, motivo, usuario));
+            }
+        } else if (Boolean.TRUE.equals(cheque.getDiferido()) && cheque.getEstado() == EstadoCheque.DIFERIDO
                 && cheque.getCuentaBancaria() != null) {
             BigDecimal monto = BigDecimal.valueOf(cheque.getTotal() != null ? cheque.getTotal() : 0.0);
             bancoLedgerService.ajustarReservado(cheque.getCuentaBancaria().getId(), monto.negate());

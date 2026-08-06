@@ -38,8 +38,10 @@ class ChequeGestionServiceTest {
         chequeraService = mock(ChequeraService.class);
         chequeRepository = mock(com.franco.dev.repository.financiero.ChequeRepository.class);
         chequeraRepository = mock(com.franco.dev.repository.financiero.ChequeraRepository.class);
+        com.franco.dev.repository.financiero.MovimientoBancarioRepository movBancarioRepo =
+                mock(com.franco.dev.repository.financiero.MovimientoBancarioRepository.class);
         bancoLedgerService = mock(BancoLedgerService.class);
-        service = new ChequeGestionService(chequeService, chequeraService, chequeRepository, chequeraRepository, bancoLedgerService);
+        service = new ChequeGestionService(chequeService, chequeraService, chequeRepository, chequeraRepository, movBancarioRepo, bancoLedgerService);
 
         cuenta = new CuentaBancaria(); cuenta.setId(4L);
         chequera = new Chequera(); chequera.setId(1L); chequera.setSiguienteNumero(100L);

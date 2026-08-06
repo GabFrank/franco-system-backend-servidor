@@ -134,12 +134,15 @@ class TesoreriaServiceTest {
         service.anular(99L, "error de carga", null);
 
         ArgumentCaptor<MovimientoCajaVirtual> cap = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
-        verify(movimientoRepository).save(cap.capture());
-        MovimientoCajaVirtual contra = cap.getValue();
+        // Ahora revertir guarda 2 veces: el contra-movimiento y el original marcado inactivo.
+        verify(movimientoRepository, times(2)).save(cap.capture());
+        MovimientoCajaVirtual contra = cap.getAllValues().get(0);
         assertEquals(CajaVirtualTipoMovimiento.AJUSTE, contra.getTipoMovimiento());
         assertEquals(OrigenMovimientoTipo.ANULACION, contra.getOrigenTipo());
         assertEquals(99L, contra.getReferenciaId());
         assertEquals(300.0, contra.getCantidad()); // revierte el egreso: +300 (AJUSTE firmado)
+        // El original queda inactivo (consistente con banco; la UI lo tacha).
+        assertEquals(Boolean.FALSE, cap.getAllValues().get(1).getActivo());
     }
 
     @Test

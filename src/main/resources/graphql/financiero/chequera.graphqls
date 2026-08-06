@@ -1,8 +1,14 @@
+enum EstadoChequera { ACTIVA AGOTADA ANULADA }
+
 type Chequera {
     id: ID!
     cuentaBancaria: CuentaBancaria
+    nombre: String
     rangoDesde: Float
     rangoHasta: Float
+    siguienteNumero: Float
+    estado: EstadoChequera
+    hojasDisponibles: Int
     fechaRetiro: Date
     creadoEn: Date
     usuario: Usuario
@@ -12,8 +18,11 @@ type Chequera {
 input ChequeraInput {
     id: ID
     cuentaBancariaId: Int
+    nombre: String
     rangoDesde: Float
     rangoHasta: Float
+    siguienteNumero: Float
+    estado: EstadoChequera
     fechaRetiro: Date
     usuarioId: Int
 }
@@ -34,6 +43,7 @@ extend type Query {
     chequera(id: ID!): Chequera
     chequeras(page: Int = 0, size: Int = 10): [Chequera]!
     chequerasSearch(texto: String): [Chequera]
+    chequerasPorCuenta(cuentaBancariaId: ID!, soloActivas: Boolean = true): [Chequera]
     countChequera: Int
 }
 

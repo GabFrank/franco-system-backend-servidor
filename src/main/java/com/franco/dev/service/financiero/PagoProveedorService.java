@@ -1,6 +1,8 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.CajaVirtual;
+import com.franco.dev.domain.financiero.Cheque;
+import com.franco.dev.domain.financiero.Chequera;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.financiero.MovimientoBancario;
 import com.franco.dev.domain.financiero.MovimientoCajaVirtual;
@@ -53,6 +55,8 @@ public class PagoProveedorService {
     private final PagoService pagoService;
     private final TesoreriaService tesoreriaService;
     private final BancoLedgerService bancoLedgerService;
+    private final ChequeGestionService chequeGestionService;
+    private final com.franco.dev.repository.financiero.ChequeraRepository chequeraRepository;
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepository;
@@ -70,6 +74,14 @@ public class PagoProveedorService {
         private BigDecimal montoSolicitud; // monto convertido a la moneda de la solicitud (magnitud)
         private Boolean descuento;         // ajuste Fx a favor (pagó de menos): suma a la deuda saldada
         private Boolean aumento;           // ajuste Fx en contra (pagó de más): resta de la deuda saldada
+        // --- Fuente CHEQUE: 1 cheque físico por chequeRef (aunque el FIFO lo reparta entre notas) ---
+        private Long chequeRef;                      // agrupa las partes de un mismo cheque
+        private Long chequeraId;
+        private Boolean diferido;
+        private java.time.LocalDateTime fechaEmision; // fecha de emisión (fechaEntrega del cheque)
+        private java.time.LocalDateTime fechaPago;    // vencimiento del cheque
+        private String beneficiario;                  // default = nombre del proveedor
+        private Boolean nominal;                       // true nominal, false al portador
     }
 
     /** Una línea de pago en lote desde la caja mayor (misma moneda, efectivo). */
@@ -174,6 +186,11 @@ public class PagoProveedorService {
             if (sp.getEstado() == SolicitudPagoEstado.CONCLUIDO || sp.getEstado() == SolicitudPagoEstado.CANCELADO) {
                 throw new GraphQLException("La solicitud #" + sp.getId() + " ya está " + sp.getEstado());
             }
+            if (spById.containsKey(sp.getId())) throw new GraphQLException("La solicitud #" + sp.getId() + " está repetida en el pago");
+            if (proveedor != null && sp.getProveedor() != null && proveedor.getId() != null
+                    && !proveedor.getId().equals(sp.getProveedor().getId())) {
+                throw new GraphQLException("Todas las notas del pago deben ser del mismo proveedor");
+            }
             if (p.getLineas() == null || p.getLineas().isEmpty()) throw new GraphQLException("Debe indicar al menos una línea de pago");
 
             BigDecimal total = BigDecimal.valueOf(sp.getMontoTotal() != null ? sp.getMontoTotal() : 0.0);
@@ -183,6 +200,16 @@ public class PagoProveedorService {
             for (LineaPago l : p.getLineas()) {
                 BigDecimal montoSol = l.getMontoSolicitud() != null ? l.getMontoSolicitud() : l.getMonto();
                 if (montoSol == null || montoSol.signum() <= 0) throw new GraphQLException("Monto de línea inválido");
+                // El monto aplicado a la deuda debe corresponder al físico movido: montoSolicitud ≈ monto × cotización.
+                if (l.getFuente() != FuentePago.AJUSTE) {
+                    BigDecimal cotiz = l.getCotizacion() != null ? l.getCotizacion() : BigDecimal.ONE;
+                    BigDecimal monto = l.getMonto() != null ? l.getMonto() : BigDecimal.ZERO;
+                    BigDecimal esperado = monto.multiply(cotiz);
+                    BigDecimal permitido = cotiz.abs().max(BigDecimal.ONE); // ~1 unidad de la línea, por redondeo cross-rate
+                    if (montoSol.subtract(esperado).abs().compareTo(permitido) > 0) {
+                        throw new GraphQLException("Línea de pago inconsistente: el monto aplicado no corresponde al monto × cotización");
+                    }
+                }
                 aplicado = aplicado.add(aporte(montoSol, l.getAumento()));
             }
             if (aplicado.subtract(restante).compareTo(TOLERANCIA) > 0) {
@@ -207,7 +234,8 @@ public class PagoProveedorService {
         LinkedHashMap<String, GrupoMov> grupos = new LinkedHashMap<>();
         for (SolicitudConLineas p : pagos) {
             for (LineaPago l : p.getLineas()) {
-                if (l.getFuente() == FuentePago.AJUSTE) continue;
+                // AJUSTE no mueve efectivo; CHEQUE emite 1 cheque por línea (no se consolida).
+                if (l.getFuente() == FuentePago.AJUSTE || l.getFuente() == FuentePago.CHEQUE) continue;
                 GrupoMov g = grupos.computeIfAbsent(claveGrupo(l), k -> {
                     GrupoMov ng = new GrupoMov();
                     ng.fuente = l.getFuente();
@@ -241,8 +269,27 @@ public class PagoProveedorService {
                         g.suma, "Pago a " + provNombre, OrigenMovimientoTipo.PAGO_CPP.name(), pago.getId(), usuario);
                 g.movimientoId = mb != null ? mb.getId() : null;
             } else {
-                throw new GraphQLException("Pago con cheque disponible en la fase de cheques (F7)");
+                throw new GraphQLException("Fuente de pago no soportada para movimiento consolidado");
             }
+        }
+
+        // 3b) Emitir cheques: 1 cheque por chequeRef (total = Σ de sus partes), aunque el FIFO lo reparta entre notas.
+        java.util.IdentityHashMap<LineaPago, Long> refDeLinea = new java.util.IdentityHashMap<>();
+        Map<Long, BigDecimal> sumaChequeRef = new LinkedHashMap<>();
+        Map<Long, LineaPago> primeraLineaCheque = new LinkedHashMap<>();
+        long synthRef = -1;
+        for (SolicitudConLineas p : pagos) {
+            for (LineaPago l : p.getLineas()) {
+                if (l.getFuente() != FuentePago.CHEQUE) continue;
+                Long ref = l.getChequeRef() != null ? l.getChequeRef() : synthRef--;
+                refDeLinea.put(l, ref);
+                sumaChequeRef.merge(ref, l.getMonto() != null ? l.getMonto() : BigDecimal.ZERO, BigDecimal::add);
+                primeraLineaCheque.putIfAbsent(ref, l);
+            }
+        }
+        Map<Long, Cheque> chequePorRef = new LinkedHashMap<>();
+        for (Map.Entry<Long, LineaPago> e : primeraLineaCheque.entrySet()) {
+            chequePorRef.put(e.getKey(), emitirCheque(e.getValue(), sumaChequeRef.get(e.getKey()), provNombre, usuario));
         }
 
         // 4) Detalles (uno por línea) apuntando al movimiento consolidado + evento, y saldar cada solicitud.
@@ -265,6 +312,14 @@ public class PagoProveedorService {
 
                 if (l.getFuente() == FuentePago.AJUSTE) {
                     det.setMonto(l.getMonto() != null ? l.getMonto() : BigDecimal.ZERO);
+                } else if (l.getFuente() == FuentePago.CHEQUE) {
+                    det.setMonto(l.getMonto());
+                    if (det.getMontoSolicitud() == null) det.setMontoSolicitud(l.getMonto());
+                    Cheque cheque = chequePorRef.get(refDeLinea.get(l));
+                    if (cheque != null) {
+                        det.setChequeId(cheque.getId());
+                        det.setMovimientoBancarioId(cheque.getMovimientoBancarioId()); // no null solo si contado
+                    }
                 } else {
                     det.setMonto(l.getMonto());
                     if (det.getMontoSolicitud() == null) det.setMontoSolicitud(l.getMonto());
@@ -291,6 +346,24 @@ public class PagoProveedorService {
         return pagoService.save(pago);
     }
 
+    /** Emite un cheque físico (total = suma de sus partes). Diferido reserva saldo; contado debita. */
+    private Cheque emitirCheque(LineaPago l, BigDecimal total, String provNombre, Usuario usuario) {
+        if (l.getChequeraId() == null) throw new GraphQLException("La forma de pago con cheque requiere una chequera");
+        Chequera chequera = chequeraRepository.findById(l.getChequeraId())
+                .orElseThrow(() -> new GraphQLException("Chequera no encontrada"));
+        Cheque cheque = new Cheque();
+        cheque.setChequera(chequera);
+        if (l.getMonedaId() != null) cheque.setMoneda(monedaRepository.findById(l.getMonedaId()).orElse(null));
+        cheque.setTotal(total != null ? total.doubleValue() : 0.0);
+        cheque.setDiferido(Boolean.TRUE.equals(l.getDiferido()));
+        cheque.setFechaPago(l.getFechaPago());
+        cheque.setFechaEntrega(l.getFechaEmision() != null ? l.getFechaEmision() : java.time.LocalDateTime.now());
+        cheque.setBeneficiario(l.getBeneficiario() != null ? l.getBeneficiario() : provNombre);
+        cheque.setNominal(l.getNominal() != null ? l.getNominal() : Boolean.TRUE);
+        cheque.setConcepto("Pago a " + provNombre);
+        return chequeGestionService.emitir(cheque, usuario);
+    }
+
     // ── Anulación por evento ──
 
     /**
@@ -313,7 +386,10 @@ public class PagoProveedorService {
         Set<Long> bancoRevertidas = new HashSet<>();
         Map<Long, BigDecimal> revertidoPorSolicitud = new HashMap<>();
         for (PagoSolicitudDetalle d : detalles) {
-            if (d.getMovimientoCajaVirtualId() != null && cajaRevertidas.add(d.getMovimientoCajaVirtualId())) {
+            if (d.getChequeId() != null) {
+                // Cheque: diferido libera la reserva; contado revierte su movimiento bancario (no bloquea).
+                chequeGestionService.anularPorPago(d.getChequeId(), razon, usuario);
+            } else if (d.getMovimientoCajaVirtualId() != null && cajaRevertidas.add(d.getMovimientoCajaVirtualId())) {
                 tesoreriaService.revertir(tesoreriaService.findMovimiento(d.getMovimientoCajaVirtualId()), razon, usuario);
             } else if (d.getMovimientoBancarioId() != null && bancoRevertidas.add(d.getMovimientoBancarioId())) {
                 movimientoBancarioRepository.findById(d.getMovimientoBancarioId())

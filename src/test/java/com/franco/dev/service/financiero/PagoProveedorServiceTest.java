@@ -29,6 +29,8 @@ class PagoProveedorServiceTest {
     private BancoLedgerService bancoLedgerService;
     private CajaVirtualRepository cajaVirtualRepository;
     private MonedaRepository monedaRepository;
+    private ChequeGestionService chequeGestionService;
+    private com.franco.dev.repository.financiero.ChequeraRepository chequeraRepo;
     private PagoProveedorService service;
 
     private SolicitudPago sp;
@@ -46,11 +48,13 @@ class PagoProveedorServiceTest {
         when(detalleRepo.save(any())).thenAnswer(i -> i.getArgument(0));
         com.franco.dev.repository.financiero.MovimientoBancarioRepository movBancarioRepo =
                 mock(com.franco.dev.repository.financiero.MovimientoBancarioRepository.class);
+        chequeGestionService = mock(ChequeGestionService.class);
+        chequeraRepo = mock(com.franco.dev.repository.financiero.ChequeraRepository.class);
         com.franco.dev.domain.operaciones.Pago pagoEvento = new com.franco.dev.domain.operaciones.Pago();
         pagoEvento.setId(500L);
         when(pagoService.save(any())).thenReturn(pagoEvento);
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
-                cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo);
+                chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo);
 
         com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
         Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);
@@ -138,9 +142,48 @@ class PagoProveedorServiceTest {
     }
 
     @Test
+    void pago_con_cheque_emite_cheque_y_liga_detalle() {
+        // Una línea CHEQUE emite 1 cheque (vía ChequeGestionService) y no se consolida como banco.
+        com.franco.dev.domain.financiero.Chequera chq = new com.franco.dev.domain.financiero.Chequera();
+        chq.setId(3L);
+        when(chequeraRepo.findById(3L)).thenReturn(Optional.of(chq));
+        com.franco.dev.domain.financiero.Cheque emitido = new com.franco.dev.domain.financiero.Cheque();
+        emitido.setId(77L);
+        when(chequeGestionService.emitir(any(), any())).thenReturn(emitido);
+
+        PagoProveedorService.LineaPago l = new PagoProveedorService.LineaPago();
+        l.setFuente(FuentePago.CHEQUE); l.setChequeraId(3L); l.setDiferido(true);
+        l.setMonto(BigDecimal.valueOf(100000)); l.setMontoSolicitud(BigDecimal.valueOf(100000));
+
+        service.pagar(1L, Collections.singletonList(l), null);
+
+        assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+        verify(chequeGestionService, times(1)).emitir(any(), any());
+        verify(tesoreriaService, never()).registrar(any());          // no toca caja
+        verify(bancoLedgerService, never()).registrar(anyLong(), any(), any(), any(), any(), any(), any()); // el banco lo toca emitir, no el pago
+    }
+
+    @Test
     void pago_mayor_al_saldo_falla() {
         assertThrows(GraphQLException.class,
                 () -> service.pagar(1L, Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 150000)), null));
+    }
+
+    @Test
+    void solicitud_repetida_en_el_evento_falla() {
+        PagoProveedorService.SolicitudConLineas s1 = new PagoProveedorService.SolicitudConLineas();
+        s1.setSolicitudId(1L); s1.setLineas(Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 50000)));
+        PagoProveedorService.SolicitudConLineas s2 = new PagoProveedorService.SolicitudConLineas();
+        s2.setSolicitudId(1L); s2.setLineas(Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 50000)));
+        assertThrows(GraphQLException.class, () -> service.pagarLoteMixto(Arrays.asList(s1, s2), null));
+    }
+
+    @Test
+    void linea_con_monto_inconsistente_falla() {
+        // monto 40000 × cotiz 1 = 40000, pero montoSolicitud dice 100000 → inconsistente.
+        PagoProveedorService.LineaPago l = linea(FuentePago.CAJA_MAYOR, 40000);
+        l.setCotizacion(BigDecimal.ONE); l.setMontoSolicitud(BigDecimal.valueOf(100000));
+        assertThrows(GraphQLException.class, () -> service.pagar(1L, Collections.singletonList(l), null));
     }
 
     @Test

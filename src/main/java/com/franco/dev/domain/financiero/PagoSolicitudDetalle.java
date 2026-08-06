@@ -65,6 +65,10 @@ public class PagoSolicitudDetalle implements Serializable {
     @Column(name = "movimiento_bancario_id")
     private Long movimientoBancarioId;
 
+    /** Cheque emitido (fuente CHEQUE): ancla para anular/trazar el cheque de esta línea. */
+    @Column(name = "cheque_id")
+    private Long chequeId;
+
     /** Línea de ajuste (fuente AJUSTE): diferencia de cambio a favor (pagó de menos). */
     private Boolean descuento;
 

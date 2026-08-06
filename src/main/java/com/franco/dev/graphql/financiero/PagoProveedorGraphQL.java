@@ -77,6 +77,17 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
             l.setMontoSolicitud(w.getMontoSolicitud() != null ? BigDecimal.valueOf(w.getMontoSolicitud()) : null);
             l.setDescuento(Boolean.TRUE.equals(w.getDescuento()));
             l.setAumento(Boolean.TRUE.equals(w.getAumento()));
+            l.setChequeRef(w.getChequeRef());
+            l.setChequeraId(w.getChequeraId());
+            l.setDiferido(w.getDiferido());
+            l.setNominal(w.getNominal());
+            l.setBeneficiario(w.getBeneficiario());
+            if (w.getFechaPago() != null && !w.getFechaPago().isEmpty()) {
+                l.setFechaPago(com.franco.dev.utilitarios.DateUtils.stringToDate(w.getFechaPago()));
+            }
+            if (w.getFechaEmision() != null && !w.getFechaEmision().isEmpty()) {
+                l.setFechaEmision(com.franco.dev.utilitarios.DateUtils.stringToDate(w.getFechaEmision()));
+            }
             ls.add(l);
         }
         return ls;
@@ -106,5 +117,13 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         private Double montoSolicitud;
         private Boolean descuento;   // línea de ajuste Fx: pagó de menos (ganancia)
         private Boolean aumento;     // línea de ajuste Fx: pagó de más (pérdida)
+        // Fuente CHEQUE
+        private Long chequeRef;
+        private Long chequeraId;
+        private Boolean diferido;
+        private String fechaEmision;
+        private String fechaPago;
+        private String beneficiario;
+        private Boolean nominal;
     }
 }

@@ -78,6 +78,12 @@ public class Cheque implements Identifiable<Long> {
     @Column(name = "movimiento_bancario_id")
     private Long movimientoBancarioId;
 
+    /** Nombre del beneficiario/destinatario (editable; default = nombre del proveedor). */
+    private String beneficiario;
+
+    /** true = nominal (a nombre del beneficiario); false = al portador. */
+    private Boolean nominal;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "firmante", nullable = true)
     private Persona firmante;

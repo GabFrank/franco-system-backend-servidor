@@ -8,8 +8,11 @@ import java.time.LocalDateTime;
 public class ChequeraInput {
     private Long id;
     private Long cuentaBancariaId;
+    private String nombre;
     private Double rangoDesde;
     private Double rangoHasta;
+    private Long siguienteNumero;
+    private com.franco.dev.domain.financiero.enums.EstadoChequera estado;
     private LocalDateTime fechaRetiro;
     private LocalDateTime creadoEn;
     private Long usuarioId;

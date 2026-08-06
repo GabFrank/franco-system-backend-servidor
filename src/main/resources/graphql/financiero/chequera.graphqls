@@ -4,6 +4,7 @@ type Chequera {
     id: ID!
     cuentaBancaria: CuentaBancaria
     nombre: String
+    firmantes: String
     rangoDesde: Float
     rangoHasta: Float
     siguienteNumero: Float
@@ -19,6 +20,7 @@ input ChequeraInput {
     id: ID
     cuentaBancariaId: Int
     nombre: String
+    firmantes: String
     rangoDesde: Float
     rangoHasta: Float
     siguienteNumero: Float

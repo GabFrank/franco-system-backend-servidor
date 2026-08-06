@@ -46,6 +46,16 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getCuentaBancariaId() != null) {
             e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
         }
+        // Update: preservar campos que el input no envia (el save es un merge y los
+        // dejaria en null): creado_en, fecha_retiro y usuario creador.
+        if (input.getId() != null) {
+            Chequera existente = service.findById(input.getId()).orElse(null);
+            if (existente != null) {
+                if (e.getCreadoEn() == null) e.setCreadoEn(existente.getCreadoEn());
+                if (e.getFechaRetiro() == null) e.setFechaRetiro(existente.getFechaRetiro());
+                if (e.getUsuario() == null) e.setUsuario(existente.getUsuario());
+            }
+        }
         e = service.save(e);
         return e;
     }

@@ -74,3 +74,25 @@ El backend de cheques ya tiene emitir/cobrar/anular y CRUD de chequera. Falta **
 - **D2 ✅** — Estado default del filtro: **Diferidos** (pendientes).
 - **D3 ✅** — "Pendiente hasta la fecha" del card = hasta la `fecha hasta` del rango; el consolidado muestra el total.
 - **D4 ✅** — **Incluir emitir cheque manual** (cheque suelto, no ligado a CPP) reutilizando `emitirCheque` — como acción del dashboard.
+
+## 7. Estado de implementación (2026-08-06)
+
+**F1–F4 completas** y probadas end-to-end sirviendo la app como web + extensión (ver frc-desktop skill → build-deploy.md):
+- **F1 backend**: `ChequeDashboardService` (filtrar / resumenPorDia / saldosPorChequera) + resolver + schema + test. Central `d8fcb969`.
+- **F2/F3 UI + gráfico**: dashboard `cheque/cheques-dashboard/` (header filtro, sidebar KPI/posición/cards por chequera, gráfico echarts por fecha de pago con clic→enfoca, tabla Cobrar/Anular). Desktop `2109dda6`.
+- **F4**: emitir cheque manual (`emitir-cheque-dialog`) + gestión de chequeras (`gestionar-chequeras-dialog` + `edit-chequera-dialog`) + entrada de menú y acceso rápido en `financiero-dashboard`.
+
+**Fixes/decisiones surgidos al probar:**
+- **Apollo congela resultados en dev** → `toRow` clona antes de agregar props de display (si no, la tabla quedaba vacía). Regla general: [[feedback_apollo_congela_resultados]].
+- **Estado/monto en texto plano** en la tabla (no chips de color) — alineado a `solicitud-pago-dashboard`; el color por estado no era semántico para cheques.
+- **Login web** requería `WEB`/`WEB_MOBILE` en el enum `tipo_dispositivo` (typo `WEBWEB_MOBILE` en V0) → migración `V192.5`.
+- Diálogos alineados a la convención `transferencia-caja-virtual-dialog` (título centrado, `fxLayoutGap`, `mat-label` flotante, `matSuffix`).
+
+**Adiciones post-plan (pedidas al probar):**
+- **Campo `firmantes`** (texto libre) en chequera — backend `V193.5` + `saveChequera` endurecido (preserva `creado_en`/`fecha_retiro`/`usuario` al actualizar); frontend textarea en editar chequera.
+- **Diálogo lista de chequeras**: tamaño **fijo** (scroll interno, no crece con la lista), filtros (buscar + estado), paginación, mat-menu por fila (Editar · Vincular formato *(próximamente)* · Desactivar).
+- **Dashboard**: filtro de fechas con **date-range picker** único, preset **Próx. semana**, foco de día por **clic en barra** (se quitó el 2º picker que se pisaba con el del filtro), botón **reset de filtros**.
+
+**Pendiente:**
+- Impresión real del cheque: "Vincular formato" (hoy stub) e `imprimirCheques` en pagar-compras.
+- Prueba manual de flujos que mutan (emitir real, cobrar, anular, desactivar).

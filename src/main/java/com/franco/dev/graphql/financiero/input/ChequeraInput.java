@@ -9,6 +9,7 @@ public class ChequeraInput {
     private Long id;
     private Long cuentaBancariaId;
     private String nombre;
+    private String firmantes;
     private Double rangoDesde;
     private Double rangoHasta;
     private Long siguienteNumero;

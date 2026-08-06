@@ -43,6 +43,9 @@ public class Chequera implements Identifiable<Long> {
 
     private String nombre;
 
+    @Column(name = "firmantes", columnDefinition = "text")
+    private String firmantes;
+
     @Column(name = "siguiente_numero")
     private Long siguienteNumero;
 

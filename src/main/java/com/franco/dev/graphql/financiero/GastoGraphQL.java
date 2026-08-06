@@ -129,6 +129,15 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         }
     }
 
+    public Boolean cancelarGasto(Long id, Long sucId) {
+        Gasto gasto = service.findByIdAndSucursalId(id, sucId);
+        if (gasto != null) {
+            return service.cancelarGasto(gasto);
+        } else {
+            throw new GraphQLException("No se pudo cancelar el gasto");
+        }
+    }
+
     public Long countGasto() {
         return service.count();
     }

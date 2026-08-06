@@ -24,6 +24,8 @@ public interface ChequeraRepository extends HelperRepository<Chequera, Long> {
     @Query("select e from Chequera e where e.id = :id")
     Optional<Chequera> lockById(@Param("id") Long id);
 
+    List<Chequera> findByEstadoOrderByIdDesc(com.franco.dev.domain.financiero.enums.EstadoChequera estado);
+
     List<Chequera> findByCuentaBancariaIdOrderByIdDesc(Long cuentaBancariaId);
 
     List<Chequera> findByCuentaBancariaIdAndEstadoOrderByIdDesc(Long cuentaBancariaId, com.franco.dev.domain.financiero.enums.EstadoChequera estado);

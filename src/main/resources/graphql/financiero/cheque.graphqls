@@ -62,4 +62,26 @@ extend type Query {
 extend type Mutation {
     saveCheque(entity: ChequeInput!): Cheque!
     deleteCheque(id: ID!): Boolean!
-} 
+}
+
+# ── Dashboard de cheques (todo por fecha de pago) ──
+type ChequeResumenDia {
+    fecha: String
+    total: Float
+    cantidad: Int
+}
+
+type ChequeSaldoChequera {
+    chequera: Chequera
+    cuentaBancaria: CuentaBancaria
+    pendienteHastaFecha: Float
+    saldoCuenta: Float
+    saldoReservado: Float
+    hojasDisponibles: Int
+}
+
+extend type Query {
+    chequesDashboard(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque): [Cheque]
+    chequesResumenPorDia(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque): [ChequeResumenDia]
+    chequesSaldosPorChequera(hasta: String!, estado: EstadoCheque): [ChequeSaldoChequera]
+}

@@ -11,6 +11,7 @@ type Gasto {
     gastoDetalleList: [GastoDetalle]
     activo: Boolean
     finalizado: Boolean
+    cancelado: Boolean
     retiroGs: Float
     retiroRs: Float
     retiroDs: Float
@@ -84,5 +85,6 @@ type GastoPorCategoria {
 extend type Mutation {
     saveGasto(entity:GastoInput!, printerName: String, local: String):Gasto!
     deleteGasto(id:ID!, sucId: ID):Boolean!
+    cancelarGasto(id:ID!, sucId: ID):Boolean!
 }
 

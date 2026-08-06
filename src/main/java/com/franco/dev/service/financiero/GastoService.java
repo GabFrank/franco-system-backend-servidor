@@ -4,10 +4,12 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.*;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.CrudService;
+import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.text.DecimalFormat;
 import java.util.List;
@@ -55,6 +57,30 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
         Gasto e = super.save(entity);
         publisher.publishEvent(new com.franco.dev.fmc.event.GastoRealizadoEvent(this, e));
         return e;
+    }
+
+    /**
+     * Cancela o rehabilita un gasto, igual que RetiroService.cancelarRetiro: es un
+     * toggle cancelado <-> no cancelado.
+     *
+     * No recalcula ningun balance. El monto vuelve a la caja porque
+     * PdvCajaService.generarBalance ignora los gastos cancelados, y la filial hace
+     * lo mismo cuando el flag le llega por replicacion.
+     *
+     * Persiste con repository.save() a proposito, y no con this.save(): el override
+     * de save() publica GastoRealizadoEvent, que dispara la push notification de
+     * gasto realizado. Cancelar no es realizar un gasto.
+     */
+    @Transactional
+    public Boolean cancelarGasto(Gasto gasto) {
+        try {
+            gasto.setCancelado(!Boolean.TRUE.equals(gasto.getCancelado()));
+            repository.save(gasto);
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new GraphQLException("No se pudo cancelar el gasto");
+        }
     }
 
     public List<com.franco.dev.domain.financiero.GastoPorCategoria> gastosPorCategoria(String inicio, String fin,

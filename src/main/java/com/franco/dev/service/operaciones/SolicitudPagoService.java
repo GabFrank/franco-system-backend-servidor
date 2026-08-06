@@ -481,14 +481,22 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      * Validate state transitions
      */
     private boolean isValidStateTransition(SolicitudPagoEstado estadoActual, SolicitudPagoEstado nuevoEstado) {
-        // Define valid transitions
+        // Define valid transitions.
+        // PENDIENTE (borrador) → SOLICITADO (solicitar) o CANCELADO.
+        // SOLICITADO (validada) → PENDIENTE (reabrir), o pagos/cancelación.
         switch (estadoActual) {
             case PENDIENTE:
-                return nuevoEstado == SolicitudPagoEstado.PARCIAL || 
+                return nuevoEstado == SolicitudPagoEstado.SOLICITADO ||
+                       nuevoEstado == SolicitudPagoEstado.PARCIAL ||
+                       nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
+                       nuevoEstado == SolicitudPagoEstado.CANCELADO;
+            case SOLICITADO:
+                return nuevoEstado == SolicitudPagoEstado.PENDIENTE ||
+                       nuevoEstado == SolicitudPagoEstado.PARCIAL ||
                        nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case PARCIAL:
-                return nuevoEstado == SolicitudPagoEstado.CONCLUIDO || 
+                return nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case CONCLUIDO:
             case CANCELADO:

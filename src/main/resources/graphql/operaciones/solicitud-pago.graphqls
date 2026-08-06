@@ -181,6 +181,7 @@ extend type Mutation {
 
 enum SolicitudPagoEstado {
     PENDIENTE
+    SOLICITADO
     PARCIAL
     CONCLUIDO
     CANCELADO

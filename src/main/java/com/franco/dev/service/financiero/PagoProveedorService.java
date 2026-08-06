@@ -159,10 +159,11 @@ public class PagoProveedorService {
         return procesarEvento(ls, usuario);
     }
 
-    /** Solicitudes de pago pendientes o parciales (para el diálogo de pago). Filtra por proveedor si se indica. */
+    /** Solicitudes de pago pagables (SOLICITADO o PARCIAL) para el diálogo de pago. PENDIENTE es
+     *  borrador y NO es pagable. Filtra por proveedor si se indica. */
     public List<SolicitudPago> listarPendientes(Long proveedorId) {
         List<SolicitudPago> list = solicitudPagoService.getRepository()
-                .findByEstadoIn(List.of(SolicitudPagoEstado.PENDIENTE, SolicitudPagoEstado.PARCIAL));
+                .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL));
         if (proveedorId != null) {
             list = list.stream()
                     .filter(s -> s.getProveedor() != null && proveedorId.equals(s.getProveedor().getId()))
@@ -408,7 +409,8 @@ public class PagoProveedorService {
             BigDecimal nuevoPagado = (sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO).subtract(e.getValue());
             if (nuevoPagado.signum() < 0) nuevoPagado = BigDecimal.ZERO;
             sp.setMontoPagado(nuevoPagado);
-            sp.setEstado(nuevoPagado.signum() <= 0 ? SolicitudPagoEstado.PENDIENTE : SolicitudPagoEstado.PARCIAL);
+            // Al anular el pago vuelve a SOLICITADO (estaba validada), no a PENDIENTE (borrador).
+            sp.setEstado(nuevoPagado.signum() <= 0 ? SolicitudPagoEstado.SOLICITADO : SolicitudPagoEstado.PARCIAL);
             solicitudPagoService.save(sp);
         }
 

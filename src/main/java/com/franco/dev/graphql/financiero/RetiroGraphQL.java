@@ -128,6 +128,15 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         }
     }
 
+    public Boolean cancelarRetiro(Long id, Long sucId) {
+        Retiro retiro = retiro(id, sucId);
+        if (retiro != null) {
+            return service.cancelarRetiro(retiro);
+        } else {
+            throw new GraphQLException("No se pudo cancelar el retiro");
+        }
+    }
+
     public Long countRetiro() {
         return service.count();
     }

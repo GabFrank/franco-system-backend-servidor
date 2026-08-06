@@ -5,6 +5,7 @@ import com.franco.dev.graphql.financiero.input.TerminalPosInput;
 import com.franco.dev.service.financiero.CuentaBancariaService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.TerminalPosService;
+import com.franco.dev.service.personas.ProveedorServicioService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -30,6 +31,9 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     @Autowired
     private MonedaService monedaService;
+
+    @Autowired
+    private ProveedorServicioService proveedorServicioService;
 
     public Optional<TerminalPos> terminalPos(Long id) {
         return service.findById(id);
@@ -63,6 +67,11 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
         if (input.getMonedaId() != null) {
             e.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }
+        // Se setea siempre (no solo cuando viene != null) para poder desvincular el
+        // proveedor de servicio de una terminal desde el desktop.
+        e.setProveedorServicio(input.getProveedorServicioId() != null
+                ? proveedorServicioService.findById(input.getProveedorServicioId()).orElse(null)
+                : null);
         return service.save(e);
     }
 

@@ -22,6 +22,10 @@ public class TerminalPosService extends CrudService<TerminalPos, TerminalPosRepo
         return repository;
     }
 
+    public Long countByProveedorServicioId(Long proveedorServicioId) {
+        return repository.countByProveedorServicioId(proveedorServicioId);
+    }
+
     public TerminalPos findByCodigo(String codigo) {
         return repository.findByCodigoIgnoreCase(codigo);
     }

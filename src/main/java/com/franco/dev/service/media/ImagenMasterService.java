@@ -120,8 +120,7 @@ public class ImagenMasterService {
         if (configuredPath != null && !configuredPath.isEmpty()) {
             return configuredPath;
         }
-        String homePath = env.getProperty("homepath");
-        return homePath + "/FRC/";
+        return imageService.getHomePath() + "/FRC/";
     }
     
     public String getEntityPath(TipoReferencia tipoReferencia) {

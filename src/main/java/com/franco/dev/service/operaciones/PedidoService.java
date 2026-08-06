@@ -134,6 +134,17 @@ public class PedidoService extends CrudService<Pedido, PedidoRepository, Long> {
     }
 
     /**
+     * Obtiene el monto total del pedido (suma de cantidad solicitada × precio unitario de cada ítem)
+     * @param pedidoId ID del pedido
+     * @return Monto total del pedido, 0.0 si no tiene ítems
+     */
+    public Double getMontoTotal(Long pedidoId) {
+        if (pedidoId == null) return 0.0;
+        Double montoTotal = repository.getValorTotalByPedidoId(pedidoId);
+        return montoTotal != null ? montoTotal : 0.0;
+    }
+
+    /**
      * Obtiene el resumen del pedido con información actualizada
      * @param pedidoId ID del pedido
      * @return PedidoResumen con etapa actual, cantidad de ítems, valor total y estadísticas de distribución

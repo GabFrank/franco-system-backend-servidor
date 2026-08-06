@@ -4,6 +4,8 @@ type Conteo {
     observacion: String
     creadoEn: Date
     usuario: Usuario
+    conteoAnteriorId: ID
+    conteoAnterior: Conteo
     conteoMonedaList: [ConteoMoneda]
     totalGs: Float
     totalRs: Float
@@ -19,6 +21,7 @@ input ConteoInput {
     totalRs: Float
     totalDs: Float
     sucursalId: Int
+    conteoAnteriorId: ID
 }
 
 extend type Query {

@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
@@ -16,8 +17,10 @@ import com.franco.dev.service.operaciones.ProductosVencidosService;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
+import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.utilitarios.DateUtils;
+import com.franco.dev.utilitarios.IdUtils;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import net.sf.jasperreports.engine.*;
@@ -37,6 +40,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.util.function.Function;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -72,6 +76,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private ProductoService productoService;
 
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final String DEFAULT_SORT_FIELD = "vencimiento";
@@ -261,7 +268,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         parameters.put("filtroSucursales", nombresDeSucursales(sucursalIdList));
         parameters.put("filtroSectores", sectorIdList != null ? sectorIdList.toString() : "Todos");
         parameters.put("filtroZonas", zonaIdList != null ? zonaIdList.toString() : "Todos");
-        parameters.put("filtroProductos", productoIdList != null ? productoIdList.toString() : "Todos");
+        parameters.put("filtroProductos", nombresDeProductos(productoIdList));
         parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
         parameters.put("usuario", nickname);
         parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
@@ -273,14 +280,34 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
      * Convierte los ids de sucursal del filtro en sus nombres, para que la cabecera
      * del reporte no muestre "[1, 2]". Si algun id no se encuentra, se deja el id.
      */
-    private String nombresDeSucursales(@Nullable List<Long> sucursalIdList) {
-        if (sucursalIdList == null || sucursalIdList.isEmpty()) {
+    private String nombresDeSucursales(@Nullable List<?> sucursalIdList) {
+        return nombresDeFiltro(sucursalIdList,
+                id -> sucursalService.findById(id).map(Sucursal::getNombre).orElse(null));
+    }
+
+    /**
+     * Idem para el filtro de productos, usando la descripcion del producto.
+     */
+    private String nombresDeProductos(@Nullable List<?> productoIdList) {
+        return nombresDeFiltro(productoIdList,
+                id -> productoService.findById(id).map(Producto::getDescripcion).orElse(null));
+    }
+
+    /**
+     * Resuelve los ids de un filtro a nombres legibles. Los ids llegan de GraphQL
+     * como Integer o String, asi que se normalizan con IdUtils antes de buscarlos.
+     * Si un id no resuelve a nombre, se muestra el id para no perder informacion.
+     */
+    private String nombresDeFiltro(@Nullable List<?> idList, Function<Long, String> resolverNombre) {
+        List<Long> ids = IdUtils.toLongList(idList);
+        if (ids == null) {
             return "Todos";
         }
-        return sucursalIdList.stream()
-                .map(id -> sucursalService.findById(id)
-                        .map(Sucursal::getNombre)
-                        .orElse(String.valueOf(id)))
+        return ids.stream()
+                .map(id -> {
+                    String nombre = resolverNombre.apply(id);
+                    return nombre != null && !nombre.trim().isEmpty() ? nombre : String.valueOf(id);
+                })
                 .collect(Collectors.joining(", "));
     }
 

@@ -29,6 +29,9 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
         public Funcionario findByUsuarioId(Long id);
 
+        @Query("select f.activo from Funcionario f where f.id = :id")
+        Boolean findActivoById(@Param("id") Long id);
+
         @Query("select u from Funcionario u " +
                         "join u.persona p " +
                         "left join u.sucursal s where " +

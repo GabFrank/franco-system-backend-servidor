@@ -1,21 +1,31 @@
 package com.franco.dev.service.personas;
 
+import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
+import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.personas.FuncionarioRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepository, Long> {
 
     private final FuncionarioRepository repository;
+    private final UsuarioService usuarioService;
+    private final ClienteService clienteService;
 
     @Override
     public FuncionarioRepository getRepository() {
@@ -39,12 +49,58 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
     }
 
     @Override
+    @Transactional
     public Funcionario save(Funcionario entity) {
-        if (entity.getId() == null) {
+        boolean esNuevo = entity.getId() == null;
+
+        // Se lee ANTES de persistir. La entity viene detached del resolver (ModelMapper),
+        // así que no hay estado sucio que Hibernate pueda flushear antes de esta consulta.
+        Boolean activoAnterior = esNuevo ? null : repository.findActivoById(entity.getId());
+
+        if (esNuevo) {
             entity.setCreadoEn(LocalDateTime.now());
             entity.setActivo(true);
         }
+        if (Boolean.FALSE.equals(entity.getActivo())) {
+            // El resolver re-sincroniza cliente.credito desde funcionario.credito después
+            // de este save; sin esto el cliente recuperaría el crédito que la cascada borró.
+            entity.setCredito(0f);
+        }
+
         Funcionario e = repository.save(entity);
+
+        if (!esNuevo && !Objects.equals(activoAnterior, e.getActivo())) {
+            aplicarCascadaEstado(e);
+        }
         return e;
+    }
+
+    /**
+     * Propaga el estado activo/inactivo del funcionario a su usuario y a su cliente.
+     * Al inactivar, el cliente pierde el beneficio de funcionario: pasa a NORMAL con crédito 0.
+     * Al reactivar vuelve a FUNCIONARIO, pero el crédito NO se restaura: se carga a mano.
+     */
+    private void aplicarCascadaEstado(Funcionario f) {
+        Persona persona = f.getPersona();
+        if (persona == null || persona.getId() == null) {
+            log.warn("Funcionario {} sin persona: no se cascadea el estado activo", f.getId());
+            return;
+        }
+        boolean activo = Boolean.TRUE.equals(f.getActivo());
+
+        Usuario usuario = usuarioService.findByPersonaId(persona.getId());
+        if (usuario == null) usuario = f.getUsuario();
+        if (usuario != null) {
+            usuario.setActivo(activo);
+            usuarioService.save(usuario);
+        }
+
+        Cliente cliente = clienteService.findByPersonaId(persona.getId());
+        if (cliente != null) {
+            cliente.setActivo(activo);
+            cliente.setTipo(activo ? TipoCliente.FUNCIONARIO : TipoCliente.NORMAL);
+            cliente.setCredito(0f);
+            clienteService.save(cliente);
+        }
     }
 }

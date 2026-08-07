@@ -166,7 +166,9 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
                     usuario.setNickname(palabras.get(0) + " " + palabras.get(2));
                     break;
             }
-            usuario.setActivo(true);
+            // Mismo criterio que el cliente: un funcionario inactivo no puede estrenar
+            // un usuario habilitado (y encima con la password por defecto).
+            usuario.setActivo(Boolean.TRUE.equals(e.getActivo()));
             usuario = usuarioService.save(usuario);
 
         }

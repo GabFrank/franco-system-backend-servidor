@@ -165,24 +165,21 @@
             </staticText>
             <staticText>
                 <reportElement x="215" y="6" width="55" height="16" forecolor="#333333" uuid="1390f0d3-0245-44fa-b476-4e032e81147c"/>
-                <box rightPadding="6"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="8" isBold="true"/>
                 </textElement>
                 <text><![CDATA[C. Sistema]]></text>
             </staticText>
             <staticText>
                 <reportElement x="270" y="6" width="55" height="16" forecolor="#333333" uuid="32104080-de65-405b-ac44-90afcc0bd89b"/>
-                <box rightPadding="6"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="8" isBold="true"/>
                 </textElement>
                 <text><![CDATA[C. Física]]></text>
             </staticText>
             <staticText>
                 <reportElement x="325" y="6" width="50" height="16" forecolor="#333333" uuid="a56b1324-6c08-4b9d-83b0-ad22d831e02c"/>
-                <box rightPadding="6"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="8" isBold="true"/>
                 </textElement>
                 <text><![CDATA[Saldo]]></text>
@@ -229,24 +226,21 @@
             </textField>
             <textField pattern="#,##0" isBlankWhenNull="true">
                 <reportElement x="215" y="0" width="55" height="13" uuid="fa6e9a7b-de74-4cca-b879-4452285fb0fd"/>
-                <box rightPadding="6"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{cantidadSistema}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0" isBlankWhenNull="true">
                 <reportElement x="270" y="0" width="55" height="13" uuid="ba6ca274-d746-4bae-b288-7fda7c15d59e"/>
-                <box rightPadding="6"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="8"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{cantidadEncontrada}]]></textFieldExpression>
             </textField>
             <textField pattern="#,##0" isBlankWhenNull="true">
                 <reportElement x="325" y="0" width="50" height="13" uuid="c5a62a97-1e0e-439e-9a38-bc2a099fd94c"/>
-                <box rightPadding="6"/>
-                <textElement textAlignment="Right" verticalAlignment="Middle">
+                                <textElement textAlignment="Center" verticalAlignment="Middle">
                     <font size="8" isBold="true"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$F{saldo}]]></textFieldExpression>

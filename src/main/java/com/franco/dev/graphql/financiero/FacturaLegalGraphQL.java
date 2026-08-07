@@ -82,7 +82,7 @@ import static com.franco.dev.utilitarios.CalcularVerificadorRuc.getDigitoVerific
 
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
-import org.springframework.util.ResourceUtils;
+import org.springframework.core.io.ClassPathResource;
 import com.franco.dev.utilitarios.DateUtils;
 
 @Component
@@ -1535,11 +1535,14 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             Double tipoCambio = factura.getTipoCambio() != null ? factura.getTipoCambio() : 1.0;
 
             // Cargar y compilar el template Jasper (KUDE electrónico o réplica legal sin SIFEN)
-            String reportClasspath = facturaElectronica
-                    ? "classpath:reports/factura-electronica-kude.jrxml"
-                    : "classpath:reports/factura-legal.jrxml";
-            File file = ResourceUtils.getFile(reportClasspath);
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            // Se lee como stream: dentro del JAR empaquetado el .jrxml no tiene ruta de filesystem
+            String reportResourcePath = facturaElectronica
+                    ? "reports/factura-electronica-kude.jrxml"
+                    : "reports/factura-legal.jrxml";
+            JasperReport jasperReport;
+            try (InputStream jrxmlStream = new ClassPathResource(reportResourcePath).getInputStream()) {
+                jasperReport = JasperCompileManager.compileReport(jrxmlStream);
+            }
 
             // Preparar datasource con items
             List<FacturaItemDto> itemDtoList = new ArrayList<>();

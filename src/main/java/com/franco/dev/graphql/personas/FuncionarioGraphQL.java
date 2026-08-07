@@ -18,7 +18,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -59,12 +61,26 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.findAll(pageable);
     }
 
-    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre, List<Long> sucursalList) {
+    // sucursalIdList se declara como [Int] en el schema, por lo que graphql-java-tools
+    // entrega la lista con Integer sin convertirla al tipo generico del parametro. Se
+    // recibe como List<Integer> y se convierte a Long, que es lo que espera la consulta.
+    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre,
+            List<Integer> sucursalList) {
         Pageable pageable = PageRequest.of(page, size);
         if (nombre != null) {
             nombre = nombre.replace(" ", "%");
         }
-        Page<Funcionario> result = service.findAllWithPage(id, nombre, sucursalList, pageable);
+        List<Long> sucursalIdList = null;
+        if (sucursalList != null && !sucursalList.isEmpty()) {
+            sucursalIdList = sucursalList.stream()
+                    .filter(Objects::nonNull)
+                    .map(Number::longValue)
+                    .collect(Collectors.toList());
+            if (sucursalIdList.isEmpty()) {
+                sucursalIdList = null;
+            }
+        }
+        Page<Funcionario> result = service.findAllWithPage(id, nombre, sucursalIdList, pageable);
         return result;
     }
 

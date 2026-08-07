@@ -64,6 +64,9 @@ public class TokenController {
         if(usuario!=null){
             Boolean matches = jwtUser.getPassword().toUpperCase().equals(usuario.getPassword().toUpperCase());
             if(matches){
+                if(Boolean.FALSE.equals(usuario.getActivo())){
+                    throw new GraphQLException("Usuario inactivo, contacte al administrador");
+                }
                 jwtUser.setRoles(service.getRoles(usuario.getId()));
             } else {
                 throw new GraphQLException("Ups!! Contraseña inválida.");
@@ -102,6 +105,9 @@ public class TokenController {
         Usuario usuarioToken = service.findByNickname(tokenPayload.getNickname()).orElse(null);
         if (usuarioToken == null || !usuarioToken.getId().equals(biometricOwnerId)) {
             throw new GraphQLException("El token biométrico no corresponde al usuario.");
+        }
+        if (Boolean.FALSE.equals(usuarioToken.getActivo())) {
+            throw new GraphQLException("Usuario inactivo, contacte al administrador");
         }
 
         boolean existeSesionDelOwnerEnDispositivo = inicioSesionRepository

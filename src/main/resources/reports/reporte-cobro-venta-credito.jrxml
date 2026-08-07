@@ -16,6 +16,7 @@
     <field name="nombreCliente" class="java.lang.String"/>
     <field name="documentoCliente" class="java.lang.String"/>
     <field name="direccionCliente" class="java.lang.String"/>
+    <field name="sucursalCliente" class="java.lang.String"/>
     <variable name="TotalCliente" class="java.lang.Double" resetType="Group" resetGroup="GrupoCliente" calculation="Sum">
         <variableExpression><![CDATA[$F{totalGs}]]></variableExpression>
         <initialValueExpression><![CDATA[0.0]]></initialValueExpression>
@@ -88,28 +89,47 @@
                     <textFieldExpression><![CDATA[$F{direccionCliente}]]></textFieldExpression>
                 </textField>
                 <staticText>
-                    <reportElement x="136" y="67" width="64" height="12" uuid="4c91f639-4e4b-4bb2-965f-156eaed3a91c"/>
+                    <reportElement x="136" y="64" width="54" height="14" uuid="e3f4a5b6-c7d8-4901-e2f3-a4b5c6d7e8f9">
+                        <property name="com.jaspersoft.studio.unit.height" value="px"/>
+                        <property name="com.jaspersoft.studio.unit.width" value="px"/>
+                        <printWhenExpression><![CDATA[$F{sucursalCliente} != null && !$F{sucursalCliente}.trim().isEmpty()]]></printWhenExpression>
+                    </reportElement>
+                    <box rightPadding="4"/>
+                    <textElement textAlignment="Left">
+                        <font size="10"/>
+                    </textElement>
+                    <text><![CDATA[Sucursal:]]></text>
+                </staticText>
+                <textField isBlankWhenNull="true">
+                    <reportElement x="190" y="64" width="365" height="14" uuid="f4a5b6c7-d8e9-4012-f3a4-b5c6d7e8f9a0"/>
+                    <textElement textAlignment="Left">
+                        <font size="10"/>
+                    </textElement>
+                    <textFieldExpression><![CDATA[$F{sucursalCliente}]]></textFieldExpression>
+                </textField>
+                <staticText>
+                    <reportElement x="136" y="82" width="64" height="12" uuid="4c91f639-4e4b-4bb2-965f-156eaed3a91c"/>
                     <textElement>
                         <font size="7"/>
                     </textElement>
                     <text><![CDATA[Reporte creado en]]></text>
                 </staticText>
                 <textField>
-                    <reportElement x="200" y="67" width="70" height="12" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6"/>
+                    <reportElement x="200" y="82" width="70" height="12" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6"/>
                     <textElement>
                         <font size="7"/>
                     </textElement>
                     <textFieldExpression><![CDATA[$P{fechaReporte}]]></textFieldExpression>
                 </textField>
                 <staticText>
-                    <reportElement x="270" y="67" width="60" height="12" uuid="186428af-f5d4-4389-8c9b-cadb45c47034"/>
+                    <reportElement x="270" y="82" width="60" height="12" uuid="186428af-f5d4-4389-8c9b-cadb45c47034"/>
                     <textElement>
                         <font size="7"/>
                     </textElement>
                     <text><![CDATA[por el usuario]]></text>
                 </staticText>
                 <textField>
-                    <reportElement x="330" y="67" width="85" height="12" uuid="09ce4efd-2860-4013-b158-a83a2fdcc811"/>
+                    <reportElement x="330" y="82" width="85" height="12" uuid="09ce4efd-2860-4013-b158-a83a2fdcc811"/>
                     <textElement>
                         <font size="7"/>
                     </textElement>

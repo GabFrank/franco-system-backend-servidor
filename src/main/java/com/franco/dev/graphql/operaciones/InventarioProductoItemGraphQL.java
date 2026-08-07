@@ -29,10 +29,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ResourceUtils;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -220,8 +220,11 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 reporteInventarioDtoList.add(dto);
             }
 
-            File file = ResourceUtils.getFile("classpath:reports/reporte-inventario.jrxml");
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+            // Se lee como stream: dentro del JAR empaquetado el .jrxml no tiene ruta de filesystem
+            JasperReport jasperReport;
+            try (InputStream jrxmlStream = new ClassPathResource("reports/reporte-inventario.jrxml").getInputStream()) {
+                jasperReport = JasperCompileManager.compileReport(jrxmlStream);
+            }
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(reporteInventarioDtoList);
 
             Map<String, Object> parameters = createReportParameters(
@@ -231,7 +234,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
             return Base64.getEncoder().encodeToString(pdfBytes);
 
-        } catch (FileNotFoundException | JRException e) {
+        } catch (IOException | JRException e) {
             e.printStackTrace();
             return null;
         }

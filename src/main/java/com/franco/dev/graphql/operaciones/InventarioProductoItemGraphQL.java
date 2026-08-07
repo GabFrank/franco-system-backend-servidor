@@ -1,6 +1,8 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
@@ -12,10 +14,13 @@ import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.ProductosVencidosService;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
+import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.utilitarios.DateUtils;
+import com.franco.dev.utilitarios.IdUtils;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import net.sf.jasperreports.engine.*;
@@ -35,6 +40,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
+import java.util.function.Function;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -67,6 +73,12 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
     @Autowired
     private ProductosVencidosService productosVencidosService;
+
+    @Autowired
+    private SucursalService sucursalService;
+
+    @Autowired
+    private ProductoService productoService;
 
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final String DEFAULT_SORT_FIELD = "vencimiento";
@@ -185,7 +197,10 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             String nickname) {
 
         try {
-            Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : DEFAULT_PAGE_SIZE);
+            // El reporte lista todo lo que matchea los filtros: la paginacion de la
+            // pantalla (page/size) no debe recortarlo. Se reciben por compatibilidad
+            // con el schema, pero se ignoran a proposito.
+            Pageable pageable = Pageable.unpaged();
             Page<InventarioProductoItem> inventarioProductoItemPage = service.findAllWithFilters(
                     sucursalIdList, sectorIdList, zonaIdList, stringToDate(startDate), stringToDate(endDate),
                     usuarioIdList, productoIdList, null, pageable);
@@ -253,15 +268,50 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         parameters.put("filtroFechaInicio", startDate != null ? startDate : "Todos");
         parameters.put("filtroFechaFin", endDate != null ? endDate : "Todos");
         parameters.put("codigoBarra", "");
-        parameters.put("filtroSucursales", sucursalIdList != null ? sucursalIdList.toString() : "Todos");
+        parameters.put("filtroSucursales", nombresDeSucursales(sucursalIdList));
         parameters.put("filtroSectores", sectorIdList != null ? sectorIdList.toString() : "Todos");
         parameters.put("filtroZonas", zonaIdList != null ? zonaIdList.toString() : "Todos");
-        parameters.put("filtroProductos", productoIdList != null ? productoIdList.toString() : "Todos");
+        parameters.put("filtroProductos", nombresDeProductos(productoIdList));
         parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
         parameters.put("usuario", nickname);
         parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
 
         return parameters;
+    }
+
+    /**
+     * Convierte los ids de sucursal del filtro en sus nombres, para que la cabecera
+     * del reporte no muestre "[1, 2]". Si algun id no se encuentra, se deja el id.
+     */
+    private String nombresDeSucursales(@Nullable List<?> sucursalIdList) {
+        return nombresDeFiltro(sucursalIdList,
+                id -> sucursalService.findById(id).map(Sucursal::getNombre).orElse(null));
+    }
+
+    /**
+     * Idem para el filtro de productos, usando la descripcion del producto.
+     */
+    private String nombresDeProductos(@Nullable List<?> productoIdList) {
+        return nombresDeFiltro(productoIdList,
+                id -> productoService.findById(id).map(Producto::getDescripcion).orElse(null));
+    }
+
+    /**
+     * Resuelve los ids de un filtro a nombres legibles. Los ids llegan de GraphQL
+     * como Integer o String, asi que se normalizan con IdUtils antes de buscarlos.
+     * Si un id no resuelve a nombre, se muestra el id para no perder informacion.
+     */
+    private String nombresDeFiltro(@Nullable List<?> idList, Function<Long, String> resolverNombre) {
+        List<Long> ids = IdUtils.toLongList(idList);
+        if (ids == null) {
+            return "Todos";
+        }
+        return ids.stream()
+                .map(id -> {
+                    String nombre = resolverNombre.apply(id);
+                    return nombre != null && !nombre.trim().isEmpty() ? nombre : String.valueOf(id);
+                })
+                .collect(Collectors.joining(", "));
     }
 
     public Page<ProductoSaldoDto> productosConCantidadPositiva(Long sucursalId, Long productoId, Integer page, Integer size) {

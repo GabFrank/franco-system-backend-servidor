@@ -53,8 +53,12 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
     public Funcionario save(Funcionario entity) {
         boolean esNuevo = entity.getId() == null;
 
-        // Se lee ANTES de persistir. La entity viene detached del resolver (ModelMapper),
-        // así que no hay estado sucio que Hibernate pueda flushear antes de esta consulta.
+        // Se lee ANTES de persistir. En el path de update la entity NO viene detached:
+        // el resolver la obtiene con findById y la muta, así que está managed y sucia
+        // dentro del EntityManager de la request (OpenEntityManagerInViewFilter).
+        // Por eso findActivoById lleva el hint flushMode=COMMIT: sin él Hibernate
+        // auto-flushea el UPDATE antes del SELECT y activoAnterior vendría ya con el
+        // valor nuevo, salteando la cascada en ambos sentidos.
         Boolean activoAnterior = esNuevo ? null : repository.findActivoById(entity.getId());
 
         if (esNuevo) {

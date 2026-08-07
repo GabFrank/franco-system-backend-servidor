@@ -8,8 +8,14 @@ import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.personas.FuncionarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.jpa.repository.QueryHints;
+
+import javax.persistence.QueryHint;
+import java.lang.reflect.Method;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -139,5 +145,25 @@ class FuncionarioServiceCascadaEstadoTest {
         verify(repository, never()).findActivoById(any());
         verify(usuarioService, never()).save(any(Usuario.class));
         verify(clienteService, never()).save(any(Cliente.class));
+    }
+
+    /**
+     * Regresion del bug de auto-flush: en el path real de update la entity está managed
+     * y sucia con el nuevo 'activo'. Sin flushMode=COMMIT, Hibernate flushea el UPDATE
+     * antes de este SELECT y activoAnterior vuelve igual al nuevo valor, salteando la
+     * cascada. Los tests de arriba mockean el repository y no pueden verlo, por eso acá
+     * se verifica el contrato de la consulta: debe declarar el hint que evita el flush.
+     */
+    @Test
+    void findActivoById_debeDeclararFlushModeCommitParaNoAutoFlushear() throws Exception {
+        Method metodo = FuncionarioRepository.class.getMethod("findActivoById", Long.class);
+        QueryHints hints = metodo.getAnnotation(QueryHints.class);
+        assertNotNull(hints, "findActivoById debe declarar @QueryHints");
+        QueryHint flushMode = Arrays.stream(hints.value())
+                .filter(h -> "org.hibernate.flushMode".equals(h.name()))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(flushMode, "falta el hint org.hibernate.flushMode");
+        assertEquals("COMMIT", flushMode.value());
     }
 }

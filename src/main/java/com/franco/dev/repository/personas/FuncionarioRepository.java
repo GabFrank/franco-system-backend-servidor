@@ -7,8 +7,10 @@ import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.QueryHints;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.QueryHint;
 import java.util.List;
 
 public interface FuncionarioRepository extends HelperRepository<Funcionario, Long> {
@@ -29,6 +31,11 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
 
         public Funcionario findByUsuarioId(Long id);
 
+        // FlushMode COMMIT: en el path de update la entity está managed y sucia con el
+        // nuevo 'activo'. Sin este hint Hibernate auto-flushea antes de la consulta (el
+        // query space coincide con personas.funcionario) y devolvería el valor nuevo,
+        // dejando sin efecto la comparación previa que dispara la cascada de estado.
+        @QueryHints(@QueryHint(name = "org.hibernate.flushMode", value = "COMMIT"))
         @Query("select f.activo from Funcionario f where f.id = :id")
         Boolean findActivoById(@Param("id") Long id);
 

@@ -8,8 +8,12 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/login")
@@ -140,6 +144,20 @@ public class TokenController {
                 .map(inicioSesion -> inicioSesion.getUsuario() != null ? inicioSesion.getUsuario().getId() : null)
                 .orElse(null);
         return ResponseEntity.ok(biometricOwnerId);
+    }
+
+    /**
+     * Sin este handler el GraphQLException lanzado desde este @RestController termina
+     * en el error page por defecto: HTTP 500 y, con server.error.include-message=never
+     * (default en Boot 2.7), sin el texto del motivo. El desktop mostraba entonces un
+     * error generico de servidor en vez de "Usuario inactivo, contacte al administrador".
+     * Se limita a este controller a proposito: no se agrega un @ControllerAdvice global.
+     */
+    @ExceptionHandler(GraphQLException.class)
+    public ResponseEntity<Map<String, String>> handleLoginError(GraphQLException ex) {
+        String mensaje = ex.getMessage() != null ? ex.getMessage() : "No se pudo iniciar sesión.";
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Collections.singletonMap("message", mensaje));
     }
 
     private boolean isBlank(String value) {

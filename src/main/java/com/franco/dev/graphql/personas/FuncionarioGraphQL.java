@@ -101,9 +101,18 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             e.setSucursal(null);
             e.setUsuario(null);
             e.setSupervisadoPor(null);
+            Boolean activoPrevio = e.getActivo();
             m.map(input, e);
+            if (input.getActivo() == null) {
+                // caller no envió 'activo': preservar el valor actual. 'activo' dispara la
+                // cascada de estado, un null accidental inactivaría usuario y cliente.
+                e.setActivo(activoPrevio != null ? activoPrevio : true);
+            }
         } else {
             e = m.map(input, Funcionario.class);
+            if (input.getActivo() == null) {
+                e.setActivo(true);
+            }
         }
         if (input.getFechaIngreso() != null)
             e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
@@ -131,7 +140,11 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         } else {
             cliente = new Cliente();
             cliente.setPersona(e.getPersona());
-            cliente.setTipo(TipoCliente.FUNCIONARIO);
+            // Un funcionario inactivo no puede estrenar un cliente activo de tipo
+            // FUNCIONARIO: sin esto la desactivación terminaba creando justo eso.
+            boolean activo = Boolean.TRUE.equals(e.getActivo());
+            cliente.setActivo(activo);
+            cliente.setTipo(activo ? TipoCliente.FUNCIONARIO : TipoCliente.NORMAL);
             cliente.setUsuario(e.getUsuario());
             cliente.setCredito(e.getCredito());
             cliente.setSucursal(e.getSucursal());
@@ -153,7 +166,9 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
                     usuario.setNickname(palabras.get(0) + " " + palabras.get(2));
                     break;
             }
-            usuario.setActivo(true);
+            // Mismo criterio que el cliente: un funcionario inactivo no puede estrenar
+            // un usuario habilitado (y encima con la password por defecto).
+            usuario.setActivo(Boolean.TRUE.equals(e.getActivo()));
             usuario = usuarioService.save(usuario);
 
         }

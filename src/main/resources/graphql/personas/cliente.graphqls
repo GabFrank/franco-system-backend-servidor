@@ -12,6 +12,7 @@ type Cliente {
     sucursal: Sucursal
     tributa: Boolean
     verificadoSet: Boolean
+    activo: Boolean
 }
 
 input ClienteInput {
@@ -29,6 +30,7 @@ input ClienteInput {
     sucursalId: Int
     tributa: Boolean
     verificadoSet: Boolean
+    activo: Boolean
 }
 
 type ClientePage {

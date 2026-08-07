@@ -59,13 +59,13 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.findAll(pageable);
     }
 
-    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre, List<Long> sucursalList) {
+    public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre, List<Long> sucursalList,
+            Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba) {
         Pageable pageable = PageRequest.of(page, size);
         if (nombre != null) {
             nombre = nombre.replace(" ", "%");
         }
-        Page<Funcionario> result = service.findAllWithPage(id, nombre, sucursalList, pageable);
-        return result;
+        return service.findAllWithPage(id, nombre, sucursalList, activo, cargoId, diarista, fasePrueba, pageable);
     }
 
     public List<Funcionario> funcionariosSearch(String texto) {
@@ -75,8 +75,17 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public Funcionario saveFuncionario(FuncionarioInput input) {
         ModelMapper m = new ModelMapper();
         Funcionario e;
+        // Se guardan las relaciones actuales para restaurarlas si el input no las trae:
+        // en un update parcial (sin personaId) no hay que perder la persona ya vinculada,
+        // sino el save NPEa al buscar el cliente por persona.
+        com.franco.dev.domain.personas.Persona personaActual = null;
+        com.franco.dev.domain.empresarial.Cargo cargoActual = null;
+        com.franco.dev.domain.empresarial.Sucursal sucursalActual = null;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Funcionario());
+            personaActual = e.getPersona();
+            cargoActual = e.getCargo();
+            sucursalActual = e.getSucursal();
             // Evitamos que ModelMapper intente mapear relaciones automáticamente y cause
             // errores de Hibernate
             e.setHorario(null);
@@ -86,11 +95,23 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             e.setUsuario(null);
             e.setSupervisadoPor(null);
             m.map(input, e);
+            // restaurar lo que el input no reemplaza explicitamente
+            if (input.getPersonaId() == null) e.setPersona(personaActual);
+            if (input.getCargoId() == null) e.setCargo(cargoActual);
+            if (input.getSucursalId() == null) e.setSucursal(sucursalActual);
         } else {
             e = m.map(input, Funcionario.class);
         }
         if (input.getFechaIngreso() != null)
             e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
+        // ModelMapper no convierte String->LocalDate; el resto (ips, cuenta, contacto)
+        // son String/Boolean y los mapea por nombre automaticamente.
+        if (input.getFechaIngresoIps() != null) {
+            java.time.LocalDateTime d = stringToDate(input.getFechaIngresoIps());
+            e.setFechaIngresoIps(d != null ? d.toLocalDate() : null);
+        } else if (input.getId() != null) {
+            e.setFechaIngresoIps(null);
+        }
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getPersonaId() != null)
@@ -108,7 +129,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         e = service.save(e);
         Cliente cliente = clienteService.findByPersonaId(e.getPersona().getId());
         if (cliente != null) {
-            if (!cliente.getCredito().equals(e.getCredito())) {
+            if (!java.util.Objects.equals(cliente.getCredito(), e.getCredito())) {
                 cliente.setCredito(e.getCredito());
                 cliente = clienteService.save(cliente);
             }

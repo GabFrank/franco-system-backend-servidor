@@ -1,0 +1,25 @@
+type ProductoVencimiento {
+    id: ID
+    producto: Producto
+    presentacion: Presentacion
+    sucursal: Sucursal
+    fechaVencimiento: Date
+    cantidad: Float
+    tipoOrigen: TipoOrigenVencimiento
+    origenId: Int
+    usuario: Usuario
+    fechaCreacion: Date
+}
+
+enum TipoOrigenVencimiento {
+    RECEPCION_MERCADERIA,
+    AJUSTE_STOCK,
+    VENTA,
+    TRANSFERENCIA,
+    DEVOLUCION_CANJE
+}
+
+extend type Query {
+    productoVencimiento(id: ID!): ProductoVencimiento
+    productoVencimientosPorProductoYSucursal(productoId: ID!, sucursalId: ID!): [ProductoVencimiento]
+}

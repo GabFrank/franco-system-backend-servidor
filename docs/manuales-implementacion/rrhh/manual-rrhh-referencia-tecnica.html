@@ -1,0 +1,674 @@
+<title>Manual RRHH · Franco Systems</title>
+<style>
+  :root {
+    --paper: #f7f4ef;
+    --paper-2: #efeae2;
+    --card: #fffdfa;
+    --ink: #24201c;
+    --ink-2: #5c554e;
+    --ink-3: #8a817a;
+    --line: #e2dcd2;
+    --line-2: #d3ccbf;
+    --accent: #b40000;
+    --accent-soft: #f3e0dd;
+    --ok: #2f7d52;
+    --ok-soft: #e3efe7;
+    --warn: #b0781a;
+    --warn-soft: #f4ead4;
+    --defer: #7a7168;
+    --defer-soft: #ece7df;
+    --repo-be: #3a5ca8;
+    --repo-dk: #7a3fa0;
+    --repo-mo: #1f7a70;
+    --shadow: 0 1px 2px rgba(40,32,24,.05), 0 6px 20px rgba(40,32,24,.06);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #1a1512; --paper-2: #211b17; --card: #241d18; --ink: #f2ece4;
+      --ink-2: #c3b9ac; --ink-3: #948a7e; --line: #362c25; --line-2: #453930;
+      --accent: #e0564a; --accent-soft: #3a221e;
+      --ok: #63c48c; --ok-soft: #1e2f25; --warn: #e0aa4e; --warn-soft: #322a1a;
+      --defer: #a89e92; --defer-soft: #29231d;
+      --repo-be: #8fabe8; --repo-dk: #c79ae0; --repo-mo: #6fcabf;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #f7f4ef; --paper-2: #efeae2; --card: #fffdfa; --ink: #24201c; --ink-2: #5c554e;
+    --ink-3: #8a817a; --line: #e2dcd2; --line-2: #d3ccbf; --accent: #b40000; --accent-soft: #f3e0dd;
+    --ok: #2f7d52; --ok-soft: #e3efe7; --warn: #b0781a; --warn-soft: #f4ead4; --defer: #7a7168; --defer-soft: #ece7df;
+    --repo-be: #3a5ca8; --repo-dk: #7a3fa0; --repo-mo: #1f7a70;
+    --shadow: 0 1px 2px rgba(40,32,24,.05), 0 6px 20px rgba(40,32,24,.06);
+  }
+  :root[data-theme="dark"] {
+    --paper: #1a1512; --paper-2: #211b17; --card: #241d18; --ink: #f2ece4; --ink-2: #c3b9ac;
+    --ink-3: #948a7e; --line: #362c25; --line-2: #453930; --accent: #e0564a; --accent-soft: #3a221e;
+    --ok: #63c48c; --ok-soft: #1e2f25; --warn: #e0aa4e; --warn-soft: #322a1a; --defer: #a89e92; --defer-soft: #29231d;
+    --repo-be: #8fabe8; --repo-dk: #c79ae0; --repo-mo: #6fcabf;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 26px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .doc {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  a { color: inherit; }
+  ::selection { background: var(--accent-soft); }
+
+  /* ---------- shell ---------- */
+  .shell { display: grid; grid-template-columns: 264px minmax(0,1fr); gap: 0; max-width: 1220px; margin: 0 auto; }
+  .side {
+    position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto;
+    border-right: 1px solid var(--line); padding: 26px 18px 40px 22px;
+  }
+  .main { padding: 40px 40px 96px; min-width: 0; }
+
+  /* ---------- sidebar ---------- */
+  .brand { display: flex; align-items: baseline; gap: 9px; margin-bottom: 4px; }
+  .brand .mark {
+    font-family: var(--mono); font-weight: 700; font-size: 13px; letter-spacing: .5px;
+    color: #fff; background: var(--accent); padding: 3px 7px; border-radius: 5px; align-self: center;
+  }
+  @media (prefers-color-scheme: dark) { .brand .mark { color: #1a1512; } }
+  :root[data-theme="dark"] .brand .mark { color: #1a1512; }
+  :root[data-theme="light"] .brand .mark { color: #fff; }
+  .brand .who { font-weight: 700; font-size: 15px; letter-spacing: -.2px; }
+  .side .tagline { color: var(--ink-3); font-size: 12px; margin: 0 0 20px 1px; }
+
+  .toc { list-style: none; margin: 0; padding: 0; }
+  .toc .grp { font-family: var(--mono); font-size: 10.5px; letter-spacing: .8px; text-transform: uppercase;
+    color: var(--ink-3); margin: 18px 0 6px 8px; }
+  .toc a {
+    display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink-2);
+    font-size: 13.5px; padding: 5px 8px; border-radius: 7px; border-left: 2px solid transparent; margin-left: 2px;
+  }
+  .toc a:hover { background: var(--paper-2); color: var(--ink); }
+  .toc a.active { color: var(--accent); background: var(--accent-soft); border-left-color: var(--accent); font-weight: 600; }
+  .toc a .ic { width: 16px; text-align: center; font-size: 13px; opacity: .85; }
+
+  /* ---------- hero ---------- */
+  .hero { border-bottom: 1px solid var(--line); padding-bottom: 26px; margin-bottom: 8px; }
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 12px; }
+  h1 { font-size: clamp(30px, 4.5vw, 44px); line-height: 1.04; letter-spacing: -1.1px; margin: 0 0 14px;
+    text-wrap: balance; font-weight: 800; }
+  .lede { font-size: 17px; color: var(--ink-2); max-width: 64ch; margin: 0 0 22px; }
+  .stats { display: flex; flex-wrap: wrap; gap: 10px 26px; }
+  .stat { display: flex; flex-direction: column; }
+  .stat b { font-family: var(--mono); font-size: 22px; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .6px; }
+
+  /* ---------- toolbar ---------- */
+  .toolbar { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(8px); padding: 16px 0 12px; margin: 20px 0 4px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+  .search { position: relative; flex: 1; min-width: 220px; }
+  .search input { width: 100%; font-family: var(--sans); font-size: 14px; color: var(--ink);
+    background: var(--card); border: 1px solid var(--line-2); border-radius: 9px; padding: 10px 12px 10px 34px; }
+  .search input::placeholder { color: var(--ink-3); }
+  .search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  .search .mag { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--ink-3); font-size: 14px; }
+  .themebtn { font-family: var(--mono); font-size: 12px; color: var(--ink-2); background: var(--card);
+    border: 1px solid var(--line-2); border-radius: 9px; padding: 9px 13px; cursor: pointer; }
+  .themebtn:hover { border-color: var(--accent); color: var(--accent); }
+  .count { font-family: var(--mono); font-size: 12px; color: var(--ink-3); white-space: nowrap; }
+
+  /* legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 16px 0 4px; font-size: 12px; color: var(--ink-2); }
+  .legend .li { display: inline-flex; align-items: center; gap: 5px; }
+  .legend .sw { font-size: 12px; }
+
+  /* ---------- group heading ---------- */
+  .group { scroll-margin-top: 74px; padding-top: 30px; }
+  .group > h2 { font-size: 13px; font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 2px; display: flex; align-items: center; gap: 9px; }
+  .group > h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+  .group > .gdesc { color: var(--ink-2); font-size: 14px; margin: 6px 0 18px; max-width: 70ch; }
+
+  /* ---------- cards ---------- */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 18px 18px 16px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 11px; scroll-margin-top: 80px; }
+  .card.hidden { display: none; }
+  .card .top { display: flex; align-items: flex-start; gap: 11px; }
+  .card .ico { font-size: 20px; line-height: 1; margin-top: 1px; }
+  .card h3 { font-size: 16.5px; letter-spacing: -.3px; margin: 0; font-weight: 700; flex: 1; }
+  .card .desc { font-size: 13.5px; color: var(--ink-2); margin: 0; }
+
+  .pill { font-family: var(--mono); font-size: 10px; letter-spacing: .3px; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 20px; white-space: nowrap; font-weight: 600; }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.defer { background: var(--defer-soft); color: var(--defer); }
+
+  .path { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-2);
+    background: var(--paper-2); border: 1px solid var(--line); border-radius: 7px; padding: 5px 9px; align-self: flex-start; }
+  .path .k { color: var(--ink-3); font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+  .path .v { font-weight: 600; }
+
+  .mech { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .mech li { font-size: 12.5px; color: var(--ink-2); padding-left: 15px; position: relative; }
+  .mech li::before { content: "▸"; position: absolute; left: 0; color: var(--accent); font-size: 10px; top: 1px; }
+  .mech li code, .desc code, .gdesc code, .path code { font-family: var(--mono); font-size: 11.5px;
+    background: var(--paper-2); padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+
+  .links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; padding-top: 12px; border-top: 1px dashed var(--line-2); }
+  .chip { display: inline-flex; align-items: center; gap: 5px; text-decoration: none; font-family: var(--mono);
+    font-size: 11px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line-2); color: var(--ink-2);
+    background: var(--card); transition: transform .08s ease, border-color .08s ease; }
+  .chip:hover { transform: translateY(-1px); border-color: var(--accent); color: var(--accent); }
+  .chip .rp { font-size: 9px; font-weight: 700; letter-spacing: .4px; padding: 1px 4px; border-radius: 4px; color: #fff; }
+  :root[data-theme="dark"] .chip .rp, .chip .rp { color: #fff; }
+  @media (prefers-color-scheme: dark) { .chip .rp { color: #17120f; } }
+  :root[data-theme="dark"] .chip .rp { color: #17120f; }
+  :root[data-theme="light"] .chip .rp { color: #fff; }
+  .rp.be { background: var(--repo-be); } .rp.dk { background: var(--repo-dk); } .rp.mo { background: var(--repo-mo); }
+
+  .noresult { color: var(--ink-3); font-size: 14px; padding: 40px 0; text-align: center; display: none; }
+  .noresult.show { display: block; }
+
+  footer { margin-top: 60px; padding-top: 22px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12.5px; }
+  footer code { font-family: var(--mono); }
+
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    .side { display: none; }
+    .main { padding: 26px 20px 80px; }
+    .cards { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  html { scroll-behavior: smooth; }
+</style>
+
+<div class="doc">
+<div class="shell">
+  <nav class="side">
+    <div class="brand"><span class="mark">RRHH</span><span class="who">Franco Systems</span></div>
+    <p class="tagline">Manual del módulo de Recursos Humanos</p>
+    <ul class="toc" id="toc"></ul>
+  </nav>
+
+  <main class="main">
+    <header class="hero">
+      <p class="eyebrow">Guía interactiva · 3 repos · v3.0.9</p>
+      <h1>Módulo de Recursos Humanos</h1>
+      <p class="lede">Legajo, asistencia, anticipos, beneficios y liquidaciones — de punta a punta. Cada tarjeta explica qué hace la función, cómo llegar a ella en la app y abre el código fuente del componente en GitHub.</p>
+      <div class="stats">
+        <div class="stat"><b>9</b><span>Migraciones Flyway</span></div>
+        <div class="stat"><b>18</b><span>Resolvers GraphQL</span></div>
+        <div class="stat"><b>8</b><span>Calculadoras · 40 tests</span></div>
+        <div class="stat"><b>4</b><span>Jobs programados</span></div>
+        <div class="stat"><b>18</b><span>Pantallas desktop</span></div>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="search">
+        <span class="mag">⌕</span>
+        <input id="q" type="search" placeholder="Buscar función, archivo o concepto…  (vale, finiquito, scheduler, V145…)" autocomplete="off" />
+      </div>
+      <span class="count" id="count"></span>
+      <button class="themebtn" id="theme">◑ Tema</button>
+    </div>
+
+    <div class="legend">
+      <span class="li"><span class="rp be" style="font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:4px;color:#fff;background:var(--repo-be)">BE</span>&nbsp;backend</span>
+      <span class="li"><span class="rp dk" style="font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:4px;color:#fff;background:var(--repo-dk)">DK</span>&nbsp;desktop</span>
+      <span class="li"><span class="rp mo" style="font-family:var(--mono);font-size:9px;padding:1px 5px;border-radius:4px;color:#fff;background:var(--repo-mo)">MO</span>&nbsp;mobile</span>
+      <span class="li"><span class="sw">🖥️</span> pantalla</span>
+      <span class="li"><span class="sw">⚙️</span> servicio</span>
+      <span class="li"><span class="sw">🔌</span> resolver</span>
+      <span class="li"><span class="sw">🗄️</span> entidad</span>
+      <span class="li"><span class="sw">🧮</span> cálculo</span>
+      <span class="li"><span class="sw">⏰</span> job</span>
+      <span class="li"><span class="sw">📄</span> reporte</span>
+      <span class="li"><span class="sw">🧬</span> schema/migración</span>
+    </div>
+
+    <div id="content"></div>
+    <p class="noresult" id="noresult">Sin resultados. Probá con otra palabra.</p>
+
+    <footer>
+      Generado desde el código real de <code>franco-system-backend-servidor</code>, <code>frc-sistemas-integrados-angular</code> y <code>frc-mobile</code>.
+      Los enlaces apuntan a las ramas <code>feature/rrhh-fase-8-dashboard-reportes</code> (backend/desktop) y <code>claude/hr-module-audit-plan-h40p3r</code> (mobile).
+      Estado general: <b>compila + tests de lógica pura en verde</b>; falta la verificación runtime en un dev real.
+    </footer>
+  </main>
+</div>
+</div>
+
+<script>
+(function () {
+  var BR_BEDK = "feature/rrhh-fase-8-dashboard-reportes";
+  var BR_MO = "claude/hr-module-audit-plan-h40p3r";
+  var REPO = {
+    be: { base: "https://github.com/GabFrank/franco-system-backend-servidor/blob/" + BR_BEDK + "/", tag: "BE", cls: "be" },
+    dk: { base: "https://github.com/GabFrank/frc-sistemas-integrados-angular/blob/" + BR_BEDK + "/", tag: "DK", cls: "dk" },
+    mo: { base: "https://github.com/GabFrank/frc-mobile/blob/" + BR_MO + "/", tag: "MO", cls: "mo" }
+  };
+  var KIND = {
+    pantalla: "🖥️", servicio: "⚙️", resolver: "🔌", entidad: "🗄️", calc: "🧮",
+    job: "⏰", reporte: "📄", schema: "🧬", mobile: "📱", modulo: "📦"
+  };
+  // shorthand builders
+  function L(repo, kind, path, label) { return { repo: repo, kind: kind, path: path, label: label || path.split("/").pop() }; }
+  var DK = "src/app/modules/rrhh/", BES = "src/main/java/com/franco/dev/service/rrhh/",
+      BEB = "src/main/java/com/franco/dev/service/rrhh/builder/", BEG = "src/main/java/com/franco/dev/graphql/rrhh/",
+      BEE = "src/main/java/com/franco/dev/domain/rrhh/", GQL = "src/main/resources/graphql/rrhh/",
+      MIG = "src/main/resources/db/migration/", REP = "src/main/resources/reports/";
+
+  var GROUPS = [
+    { id: "panorama", ic: "◇", name: "Panorama",
+      desc: "Cómo está organizado el módulo y las piezas transversales que todo lo demás usa." },
+    { id: "funcionario", ic: "◇", name: "Gestión del funcionario",
+      desc: "El legajo digital: histórico de cargos y salarios, documentos, egreso y su asistencia." },
+    { id: "jornada", ic: "◇", name: "Jornada y asistencia",
+      desc: "Feriados, novedades, penalizaciones por tardanza y horas extra — con valorización automática." },
+    { id: "anticipos", ic: "◇", name: "Anticipos y crédito",
+      desc: "Vales/adelantos y préstamos con cuotas; todo pasa por Caja Mayor y el ledger del empleado." },
+    { id: "beneficios", ic: "◇", name: "Beneficios",
+      desc: "Vacaciones (devengamiento, goce, venta), aguinaldo anual y bonos." },
+    { id: "liquidaciones", ic: "◇", name: "Liquidaciones",
+      desc: "El motor de nómina y el finiquito, con sus recibos PDF." },
+    { id: "analisis", ic: "◇", name: "Análisis y configuración",
+      desc: "Dashboard de KPIs, reportes Jasper y los ~22 parámetros configurables." },
+    { id: "automatizacion", ic: "◇", name: "Automatizaciones",
+      desc: "Los 4 jobs diarios y el motor de notificaciones RRHH." },
+    { id: "mobile", ic: "◇", name: "Autoservicio mobile",
+      desc: "Lo que el empleado y el aprobador ven desde la app Bodega Franco." }
+  ];
+
+  var F = [
+    // ---------- PANORAMA ----------
+    { g:"panorama", ic:"🧭", t:"Arquitectura y navegación", st:"ok",
+      menu:"Sidenav ▸ R.R.H.H.",
+      d:"El módulo vive en un menú propio del desktop y en el schema <code>rrhh</code> de Postgres. La navegación es por tabs; cada opción del sidenav abre una pantalla.",
+      m:["Módulo Angular único (<code>rrhh.module.ts</code>) — no se crean módulos por pantalla.",
+         "Roles: <code>RRHH VER / GESTIONAR / LIQUIDAR / APROBAR / PAGAR / CONFIG</code>.",
+         "Backend GraphQL (no REST); 10 archivos <code>.graphqls</code> por dominio."],
+      links:[ L("dk","modulo",DK+"rrhh.module.ts"),
+              L("dk","pantalla","src/app/shared/components/side-mini-variant/side-mini-variant.component.ts","side-mini-variant (menú RRHH)"),
+              L("be","schema",MIG+"V141.0__crear_schema_rrhh_fundaciones.sql","V141.0 fundaciones") ] },
+
+    { g:"panorama", ic:"🏦", t:"Integración con Caja Mayor", st:"ok",
+      menu:"Transversal (fd-93)",
+      d:"Todo movimiento de dinero (vales, préstamos, pago de sueldos y finiquitos) se registra en la <code>CajaVirtual</code> tipo CAJA_MAYOR y en el ledger del empleado.",
+      m:["<code>MovimientoCajaVirtualService</code> valida saldo antes de registrar.",
+         "Doble registro: caja + <code>MovimientoPersonas</code> (ANTICIPO/PAGO_SALARIO/…).",
+         "Anular siempre genera contra-asiento AJUSTE."],
+      links:[ L("dk","pantalla",DK+"caja-virtual/","caja-virtual (desktop)") ] },
+
+    { g:"panorama", ic:"🧮", t:"Calculadoras puras + tests", st:"ok",
+      menu:"service/rrhh/builder",
+      d:"Toda la lógica de dinero está en 8 clases puras (sin Spring/DB) con <b>40 tests JUnit5 en verde</b>. Es el corazón auditable del módulo.",
+      m:["Liquidacion · LiquidacionFinal · Penalizacion · Aguinaldo",
+         "Cuota · Jornalero · HoraExtra · VacacionDevengamiento",
+         "Parámetros inyectados desde la config (no hardcode)."],
+      links:[ L("be","calc",BEB+"LiquidacionCalculator.java"),
+              L("be","calc",BEB+"LiquidacionFinalCalculator.java"),
+              L("be","calc",BEB+"HoraExtraCalculator.java"),
+              L("be","calc",BEB+"JornaleroCalculator.java"),
+              L("be","calc",BEB+"CuotaCalculator.java"),
+              L("be","calc",BEB+"VacacionDevengamientoCalculator.java") ] },
+
+    // ---------- FUNCIONARIO ----------
+    { g:"funcionario", ic:"📇", t:"Legajo del funcionario", st:"ok",
+      menu:"R.R.H.H. ▸ Legajo funcionario",
+      d:"Pantalla central del empleado: cargo/salario/estado, históricos, documentos y las acciones de cambio de cargo, cambio de salario, egreso y liquidación final.",
+      m:["Documentos: subir (archivo→base64), ver inline, anular. Tipos: cédula, contrato, CV, carnet de salud, título…",
+         "Cambiar salario avisa el mínimo legal y confirma si queda por debajo.",
+         "Mutaciones dedicadas — <b>no</b> tocan <code>saveFuncionario</code> (retrocompatibilidad)."],
+      links:[ L("dk","pantalla",DK+"legajo/legajo-funcionario/legajo-funcionario.component.ts"),
+              L("dk","pantalla",DK+"legajo/cambio-cargo-dialog/cambio-cargo-dialog.component.ts"),
+              L("dk","pantalla",DK+"legajo/cambio-salario-dialog/cambio-salario-dialog.component.ts"),
+              L("dk","pantalla",DK+"legajo/subir-documento-dialog/subir-documento-dialog.component.ts"),
+              L("be","servicio",BES+"FuncionarioRrhhService.java"),
+              L("be","servicio",BES+"FuncionarioDocumentoService.java"),
+              L("be","resolver",BEG+"FuncionarioRrhhGraphQL.java"),
+              L("be","entidad",BEE+"FuncionarioDocumento.java"),
+              L("be","schema",MIG+"V146.0__rrhh_fase1_funcionario_historicos_documentos.sql","V146.0") ] },
+
+    { g:"funcionario", ic:"🕐", t:"Historial de marcaciones", st:"ok",
+      menu:"R.R.H.H. ▸ Historial de marcaciones",
+      d:"Acceso al historial de entradas/salidas por funcionario y rango de fechas, con impresión. Reutiliza la pantalla existente de <code>administrativo</code> (sin duplicar).",
+      m:["Reusa <code>ListMarcacionComponent</code>; el acceso RRHH se registra en el sidenav.",
+         "Backend: query <code>marcaciones</code> / <code>marcacionesPorUsuario</code> ya existentes.",
+         "Reporte imprimible <code>marcaciones.jrxml</code>."],
+      links:[ L("dk","pantalla","src/app/modules/administrativo/marcacion/pages/list-marcacion/list-marcacion.component.ts","list-marcacion"),
+              L("be","reporte",REP+"marcaciones.jrxml") ] },
+
+    // ---------- JORNADA ----------
+    { g:"jornada", ic:"📅", t:"Feriados", st:"ok",
+      menu:"R.R.H.H. ▸ Feriados",
+      d:"ABM de feriados que alimenta el recargo de horas extra en feriado y el cálculo de jornadas.",
+      m:["CRUD simple con pantalla de lista + diálogo de edición."],
+      links:[ L("dk","pantalla",DK+"feriado/list-feriado/list-feriado.component.ts"),
+              L("be","servicio",BES+"FeriadoService.java"),
+              L("be","resolver",BEG+"FeriadoGraphQL.java"),
+              L("be","entidad",BEE+"Feriado.java") ] },
+
+    { g:"jornada", ic:"📝", t:"Novedades de jornada", st:"ok",
+      menu:"R.R.H.H. ▸ Novedades",
+      d:"Justificaciones sobre la jornada (justificado, vacación, permiso…). Las vacaciones gozadas generan novedades VACACION automáticas.",
+      m:["Una novedad justificada evita que el job de penalización marque tardanza."],
+      links:[ L("dk","pantalla",DK+"jornada-novedad/list-jornada-novedad/list-jornada-novedad.component.ts"),
+              L("be","servicio",BES+"JornadaNovedadService.java"),
+              L("be","resolver",BEG+"JornadaNovedadGraphQL.java"),
+              L("be","entidad",BEE+"JornadaNovedad.java") ] },
+
+    { g:"jornada", ic:"⚖️", t:"Penalizaciones por tardanza", st:"ok",
+      menu:"R.R.H.H. ▸ Penalizaciones",
+      d:"ABM + generación automática diaria. Un job recorre jornadas con llegada tardía sin novedad justificada y crea la penalización.",
+      m:["Fórmula <code>monto = fijo + porMinuto × minutos</code> en <code>PenalizacionCalculator</code>.",
+         "Respeta <code>TOLERANCIA_TARDANZA_MIN</code> (corrige un bug previo).",
+         "Job diario 5:00 AM (cron parametrizable). Anular / justificar."],
+      links:[ L("dk","pantalla",DK+"penalizacion/list-penalizacion/list-penalizacion.component.ts"),
+              L("be","servicio",BES+"PenalizacionService.java"),
+              L("be","job",BES+"PenalizacionScheduler.java"),
+              L("be","calc",BEB+"PenalizacionCalculator.java"),
+              L("be","resolver",BEG+"PenalizacionGraphQL.java"),
+              L("be","entidad",BEE+"Penalizacion.java"),
+              L("be","schema",MIG+"V142.0__rrhh_fase2_feriados_penalizaciones_he.sql","V142.0") ] },
+
+    { g:"jornada", ic:"⏱️", t:"Horas extra", st:"ok",
+      menu:"R.R.H.H. ▸ Horas extra",
+      d:"Registro de HE con valorización automática al guardar según el tipo (diurna/nocturna/feriado) y las horas de jornada configuradas.",
+      m:["<code>monto = (sueldo/30/horasJornada) × horas × (1 + recargo/100)</code>.",
+         "Recargos por config: diurna 50%, nocturna/feriado 100%.",
+         "Se consolidan como ítem HORA_EXTRA en la liquidación del período."],
+      links:[ L("dk","pantalla",DK+"hora-extra/list-hora-extra/list-hora-extra.component.ts"),
+              L("be","servicio",BES+"HoraExtraService.java"),
+              L("be","calc",BEB+"HoraExtraCalculator.java"),
+              L("be","resolver",BEG+"HoraExtraGraphQL.java"),
+              L("be","entidad",BEE+"HoraExtra.java") ] },
+
+    // ---------- ANTICIPOS ----------
+    { g:"anticipos", ic:"🏷️", t:"Motivos de vale", st:"ok",
+      menu:"R.R.H.H. ▸ Motivos de vale",
+      d:"Catálogo de motivos que clasifican los vales/adelantos.",
+      m:["CRUD simple; requiere rol GESTIONAR."],
+      links:[ L("dk","pantalla",DK+"motivo-vale/list-motivo-vale/list-motivo-vale.component.ts"),
+              L("be","servicio",BES+"MotivoValeService.java"),
+              L("be","resolver",BEG+"MotivoValeGraphQL.java"),
+              L("be","entidad",BEE+"MotivoVale.java") ] },
+
+    { g:"anticipos", ic:"💵", t:"Vales / adelantos", st:"ok",
+      menu:"R.R.H.H. ▸ Vales",
+      d:"Ciclo SOLICITADO → CONFIRMADO → DESCONTADO/ANULADO. Al confirmar egresa dinero real de Caja Mayor; al liquidar el sueldo se descuenta.",
+      m:["Confirmar: <code>MovimientoPersonas(ANTICIPO)</code> + EGRESO en Caja Mayor (transaccional).",
+         "Anular genera contra-asiento.",
+         "Se puede originar desde el mobile (queda SOLICITADO)."],
+      links:[ L("dk","pantalla",DK+"vale/list-vale/list-vale.component.ts"),
+              L("dk","pantalla",DK+"vale/confirmar-vale-dialog/confirmar-vale-dialog.component.ts"),
+              L("be","servicio",BES+"ValeService.java"),
+              L("be","resolver",BEG+"ValeGraphQL.java"),
+              L("be","entidad",BEE+"Vale.java"),
+              L("be","schema",MIG+"V143.0__rrhh_fase3_vales_prestamos.sql","V143.0") ] },
+
+    { g:"anticipos", ic:"🏦", t:"Préstamos con cuotas", st:"ok",
+      menu:"R.R.H.H. ▸ Préstamos",
+      d:"Préstamo con N cuotas y desembolso; cobro directo de cuota o descuento en nómina. Un job marca cuotas vencidas.",
+      m:["Plan de cuotas con <code>CuotaCalculator</code> (la última absorbe el redondeo).",
+         "Desembolso = EGRESO; cobro de cuota = INGRESO en Caja Mayor.",
+         "Job diario 6:00 AM marca cuotas vencidas."],
+      links:[ L("dk","pantalla",DK+"prestamo/list-prestamo/list-prestamo.component.ts"),
+              L("dk","pantalla",DK+"prestamo/prestamo-cuotas-dialog/prestamo-cuotas-dialog.component.ts"),
+              L("be","servicio",BES+"PrestamoService.java"),
+              L("be","job",BES+"PrestamoCuotaScheduler.java"),
+              L("be","calc",BEB+"CuotaCalculator.java"),
+              L("be","resolver",BEG+"PrestamoGraphQL.java"),
+              L("be","entidad",BEE+"Prestamo.java") ] },
+
+    // ---------- BENEFICIOS ----------
+    { g:"beneficios", ic:"🏖️", t:"Vacaciones", st:"ok",
+      menu:"R.R.H.H. ▸ Vacaciones",
+      d:"Devengamiento por antigüedad, goce por período (genera novedades VACACION por día) y venta de días. Un job maneja la prescripción.",
+      m:["Días por antigüedad: <5 años 12 · 5–10 años 18 · >10 años 30 (parametrizable).",
+         "<code>VacacionDevengamientoCalculator</code>; período GOZADO → jornadas VACACION.",
+         "Job diario 4:00 AM de prescripción."],
+      links:[ L("dk","pantalla",DK+"vacacion/list-vacacion/list-vacacion.component.ts"),
+              L("dk","pantalla",DK+"vacacion/gestion-vacacion-dialog/gestion-vacacion-dialog.component.ts"),
+              L("be","servicio",BES+"VacacionService.java"),
+              L("be","job",BES+"VacacionPrescripcionScheduler.java"),
+              L("be","calc",BEB+"VacacionDevengamientoCalculator.java"),
+              L("be","resolver",BEG+"VacacionGraphQL.java"),
+              L("be","entidad",BEE+"Vacacion.java"),
+              L("be","schema",MIG+"V144.0__rrhh_fase4_vacaciones_aguinaldo_bonos.sql","V144.0") ] },
+
+    { g:"beneficios", ic:"🎁", t:"Aguinaldo", st:"ok",
+      menu:"R.R.H.H. ▸ Aguinaldos",
+      d:"Cálculo anual idempotente por (funcionario, año) y aprobación. Entra como HABER en la liquidación.",
+      m:["<code>sueldo × meses / 12</code> en <code>AguinaldoCalculator</code>.",
+         "Idempotente: recalcular no duplica."],
+      links:[ L("dk","pantalla",DK+"aguinaldo/list-aguinaldo/list-aguinaldo.component.ts"),
+              L("be","servicio",BES+"AguinaldoService.java"),
+              L("be","calc",BEB+"AguinaldoCalculator.java"),
+              L("be","resolver",BEG+"AguinaldoGraphQL.java"),
+              L("be","entidad",BEE+"Aguinaldo.java") ] },
+
+    { g:"beneficios", ic:"⭐", t:"Bonos", st:"ok",
+      menu:"R.R.H.H. ▸ Bonos",
+      d:"Bonos puntuales y recurrentes que se suman como HABER en la nómina del período.",
+      m:["CRUD con soporte de recurrencia."],
+      links:[ L("dk","pantalla",DK+"bono/list-bono/list-bono.component.ts"),
+              L("be","servicio",BES+"BonoService.java"),
+              L("be","resolver",BEG+"BonoGraphQL.java"),
+              L("be","entidad",BEE+"Bono.java") ] },
+
+    // ---------- LIQUIDACIONES ----------
+    { g:"liquidaciones", ic:"🧾", t:"Liquidación de sueldo (motor)", st:"ok",
+      menu:"R.R.H.H. ▸ Liquidaciones",
+      d:"El motor arma automáticamente los ítems del período y calcula el neto. Ciclo BORRADOR → APROBADA → PAGADA/ANULADA, con recibo PDF.",
+      m:["Ítems auto: SALARIO_BASE, IPS, HORA_EXTRA, PENALIZACION, BONO, VALE, PRESTAMO_CUOTA, AGUINALDO, VACACION_VENTA.",
+         "Jornaleros: base = <code>valor_jornal × días</code> (<code>JornaleroCalculator</code>).",
+         "Pagar dispara efectos cruzados (VALE→DESCONTADO, CUOTA→PAGADA…). Generación masiva mensual.",
+         "Recibo <code>recibo-liquidacion.jrxml</code> vía <code>imprimirReciboLiquidacion</code>."],
+      links:[ L("dk","pantalla",DK+"liquidacion/list-liquidacion/list-liquidacion.component.ts"),
+              L("dk","pantalla",DK+"liquidacion/generar-liquidacion-dialog/generar-liquidacion-dialog.component.ts"),
+              L("dk","pantalla",DK+"liquidacion/liquidacion-detalle-dialog/liquidacion-detalle-dialog.component.ts"),
+              L("be","servicio",BES+"LiquidacionSueldoService.java"),
+              L("be","servicio",BES+"ReciboLiquidacionService.java"),
+              L("be","calc",BEB+"LiquidacionCalculator.java"),
+              L("be","resolver",BEG+"LiquidacionSueldoGraphQL.java"),
+              L("be","entidad",BEE+"LiquidacionSueldo.java"),
+              L("be","reporte",REP+"recibo-liquidacion.jrxml"),
+              L("be","schema",MIG+"V145.0__rrhh_fase5_liquidacion_sueldo.sql","V145.0") ] },
+
+    { g:"liquidaciones", ic:"📤", t:"Liquidación final / finiquito", st:"ok",
+      menu:"Legajo ▸ Liquidación final",
+      d:"Calcula antigüedad, indemnización, vacaciones no gozadas y aguinaldo proporcional. Al pagar deja al funcionario inactivo. Con recibo PDF.",
+      m:["Indemnización solo en DESPIDO_INJUSTIFICADO con antigüedad ≥ mínimo config.",
+         "Salario promedio = últimas 6 liquidaciones (parámetro <code>MESES_PROMEDIO…</code>).",
+         "Botón <b>Imprimir recibo</b> (estados APROBADA/PAGADA) → <code>recibo-finiquito.jrxml</code>."],
+      links:[ L("dk","pantalla",DK+"liquidacion-final/liquidacion-final-dialog/liquidacion-final-dialog.component.ts"),
+              L("dk","servicio",DK+"liquidacion-final/liquidacion-final.service.ts"),
+              L("be","servicio",BES+"LiquidacionFinalService.java"),
+              L("be","calc",BEB+"LiquidacionFinalCalculator.java"),
+              L("be","resolver",BEG+"LiquidacionFinalGraphQL.java"),
+              L("be","entidad",BEE+"LiquidacionFinal.java"),
+              L("be","reporte",REP+"recibo-finiquito.jrxml"),
+              L("be","schema",MIG+"V147.0__rrhh_fase6_liquidacion_final.sql","V147.0") ] },
+
+    // ---------- ANALISIS ----------
+    { g:"analisis", ic:"📊", t:"Dashboard RRHH", st:"ok",
+      menu:"R.R.H.H. ▸ Dashboard RRHH",
+      d:"Tarjetas de KPIs del período: funcionarios activos, nómina, liquidaciones pendientes, vales/préstamos abiertos, penalizaciones, HE, cuotas vencidas, aguinaldo estimado, cumpleaños del mes y vacaciones por vencer.",
+      m:["<code>dashboardRrhhKpis(periodo)</code> agrega sobre los repos existentes.",
+         "Cumpleaños y vacaciones por vencer usan los días de aviso configurables."],
+      links:[ L("dk","pantalla",DK+"dashboard/dashboard-rrhh.component.ts"),
+              L("be","servicio",BES+"DashboardRrhhService.java"),
+              L("be","resolver",BEG+"DashboardRrhhGraphQL.java"),
+              L("be","schema",GQL+"dashboard-rrhh.graphqls") ] },
+
+    { g:"analisis", ic:"📄", t:"Reportes RRHH", st:"warn",
+      menu:"R.R.H.H. ▸ Reportes RRHH",
+      d:"Genera y abre PDFs: nómina del mes, resumen IPS, vales pendientes, préstamos activos y aguinaldo anual.",
+      m:["Vales/préstamos/aguinaldo reusan una plantilla genérica de 4 columnas.",
+         "Fuente SansSerif (lógica, sin riesgo de instalación).",
+         "Compilan y hacen fill OK; <b>falta ver el PDF final en dev</b>."],
+      links:[ L("dk","pantalla",DK+"reportes/reportes-rrhh.component.ts"),
+              L("dk","servicio",DK+"reportes/reportes-rrhh.service.ts"),
+              L("be","servicio",BES+"ReporteRrhhService.java"),
+              L("be","resolver",BEG+"ReporteRrhhGraphQL.java"),
+              L("be","reporte",REP+"reporte-rrhh-generico.jrxml"),
+              L("be","schema",GQL+"reportes-rrhh.graphqls") ] },
+
+    { g:"analisis", ic:"⚙️", t:"Configuración RRHH", st:"ok",
+      menu:"R.R.H.H. ▸ Configuración RRHH",
+      d:"Administra ~22 parámetros key/value tipados. Un diálogo de info explica cada uno (descripción, ejemplo, impacto).",
+      m:["IPS 9%/16.5%, recargos HE, horas de jornada, días de vacaciones, indemnización…",
+         "<code>TOLERANCIA_TARDANZA_MIN</code>, <code>DIA_CIERRE_MES</code>, <code>MESES_PROMEDIO_LIQUIDACION_FINAL</code>, días de aviso.",
+         "Requiere rol CONFIG."],
+      links:[ L("dk","pantalla",DK+"configuracion-rrhh/list-configuracion-rrhh/list-configuracion-rrhh.component.ts"),
+              L("dk","pantalla",DK+"configuracion-rrhh/config-info-dialog/config-info-dialog.component.ts"),
+              L("be","servicio",BES+"ConfiguracionRrhhService.java"),
+              L("be","resolver",BEG+"ConfiguracionRrhhGraphQL.java"),
+              L("be","entidad",BEE+"ConfiguracionRrhh.java"),
+              L("be","schema",MIG+"V148.0__rrhh_config_flexibilidad.sql","V148.0"),
+              L("be","schema",MIG+"V150.0__rrhh_config_avisos.sql","V150.0") ] },
+
+    // ---------- AUTOMATIZACION ----------
+    { g:"automatizacion", ic:"⏰", t:"Jobs programados", st:"ok",
+      menu:"scheduler (@Scheduled)",
+      d:"Cuatro tareas diarias con cron parametrizable por properties.",
+      m:["4:00 — prescripción de vacaciones",
+         "5:00 — penalizaciones por tardanza",
+         "6:00 — cuotas de préstamo vencidas",
+         "+ notificaciones RRHH (abajo)"],
+      links:[ L("be","job",BES+"VacacionPrescripcionScheduler.java"),
+              L("be","job",BES+"PenalizacionScheduler.java"),
+              L("be","job",BES+"PrestamoCuotaScheduler.java") ] },
+
+    { g:"automatizacion", ic:"🔔", t:"Notificaciones RRHH", st:"ok",
+      menu:"RrhhNotificacionScheduler",
+      d:"Genera alertas diarias y resuelve destinatarios por rol, empujando por FCM. Cubre cuota vencida, cumpleaños del día, documento por vencer y vacación por prescribir.",
+      m:["Destinatarios vía <code>NotificacionPreferenciaService</code> (rol → usuarios).",
+         "Días de aviso configurables (<code>DOCUMENTO_AVISO_VENCIMIENTO_DIAS</code> 30, <code>VACACION_AVISO_PRESCRIPCION_DIAS</code> 60).",
+         "Pendiente: push al aprobador cuando el mobile crea una solicitud."],
+      links:[ L("be","job",BES+"RrhhNotificacionScheduler.java"),
+              L("be","schema",MIG+"V149.0__rrhh_notificacion_tipo_solicitud.sql","V149.0"),
+              L("be","schema",MIG+"V150.0__rrhh_config_avisos.sql","V150.0") ] },
+
+    // ---------- MOBILE ----------
+    { g:"mobile", ic:"📱", t:"Mis RRHH (empleado)", st:"warn",
+      menu:"App Bodega Franco ▸ Mis RRHH",
+      d:"Autoservicio del empleado: resumen (saldo de vacaciones, vales pendientes, último recibo) y segmentos Recibos / Vales / Vacaciones / Marcaciones. Puede solicitar vale y vacaciones.",
+      m:["Ver recibo en PDF desde el base64 del backend.",
+         "Solicitudes quedan SOLICITADO/SOLICITADA (aprobación en desktop/aprobaciones).",
+         "Build verde; falta prueba en device/emulador."],
+      links:[ L("mo","mobile","src/app/pages/mis-rrhh/mis-rrhh-dashboard/mis-rrhh-dashboard.component.ts","mis-rrhh-dashboard"),
+              L("mo","mobile","src/app/graphql/rrhh/rrhh-mobile.service.ts","rrhh-mobile.service"),
+              L("mo","modulo","src/app/pages/mis-rrhh/mis-rrhh.module.ts","mis-rrhh.module"),
+              L("be","servicio",BES+"RrhhMobileService.java"),
+              L("be","resolver",BEG+"RrhhMobileGraphQL.java"),
+              L("be","schema",GQL+"rrhh-mobile.graphqls") ] },
+
+    { g:"mobile", ic:"✅", t:"Aprobaciones RRHH", st:"warn",
+      menu:"App ▸ Aprobaciones (rol DIRECTIVO/ADMIN)",
+      d:"El aprobador ve vacaciones pendientes y las aprueba; los vales pendientes quedan en solo lectura (la confirmación/pago se hace en desktop por requerir Caja Mayor).",
+      m:["<code>aprobarVacacionMobile</code> — sin movimiento de dinero.",
+         "Acceso gateado por rol desde el home.",
+         "Solo código Angular → se propaga por OTA (CapacitorUpdater)."],
+      links:[ L("mo","mobile","src/app/pages/mis-rrhh/aprobaciones-rrhh/aprobaciones-rrhh.component.ts","aprobaciones-rrhh"),
+              L("be","servicio",BES+"RrhhMobileService.java"),
+              L("be","resolver",BEG+"RrhhMobileGraphQL.java") ] }
+  ];
+
+  var ST = { ok:{c:"ok",t:"Compila + tests"}, warn:{c:"warn",t:"Pendiente runtime"}, defer:{c:"defer",t:"Diferido"} };
+
+  // ---- build TOC ----
+  var toc = document.getElementById("toc");
+  GROUPS.forEach(function (g) {
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = "#g-" + g.id; a.dataset.g = g.id;
+    a.innerHTML = '<span class="ic">' + g.ic + '</span>' + g.name;
+    li.appendChild(a); toc.appendChild(li);
+  });
+
+  // ---- build content ----
+  var content = document.getElementById("content");
+  GROUPS.forEach(function (g) {
+    var sec = document.createElement("section");
+    sec.className = "group"; sec.id = "g-" + g.id;
+    sec.innerHTML = '<h2>' + g.name + '</h2><p class="gdesc">' + g.desc + '</p>';
+    var wrap = document.createElement("div"); wrap.className = "cards";
+    F.filter(function (f) { return f.g === g.id; }).forEach(function (f) {
+      var card = document.createElement("article");
+      card.className = "card";
+      var st = ST[f.st];
+      var linkHtml = f.links.map(function (l) {
+        var r = REPO[l.repo];
+        return '<a class="chip" href="' + r.base + l.path + '" target="_blank" rel="noopener">' +
+          '<span class="rp ' + r.cls + '">' + r.tag + '</span>' + (KIND[l.kind] || "•") + ' ' +
+          l.label + '</a>';
+      }).join("");
+      var mechHtml = f.m.map(function (x) { return "<li>" + x + "</li>"; }).join("");
+      card.innerHTML =
+        '<div class="top"><span class="ico">' + f.ic + '</span>' +
+          '<h3>' + f.t + '</h3><span class="pill ' + st.c + '">' + st.t + '</span></div>' +
+        '<span class="path"><span class="k">cómo llegar</span><span class="v">' + f.menu + '</span></span>' +
+        '<p class="desc">' + f.d + '</p>' +
+        '<ul class="mech">' + mechHtml + '</ul>' +
+        '<div class="links">' + linkHtml + '</div>';
+      card.dataset.text = (f.t + " " + f.d + " " + f.menu + " " + f.m.join(" ") + " " +
+        f.links.map(function (l) { return l.path + " " + l.label; }).join(" ")).toLowerCase();
+      wrap.appendChild(card);
+    });
+    sec.appendChild(wrap);
+    content.appendChild(sec);
+  });
+
+  // ---- search filter ----
+  var q = document.getElementById("q");
+  var countEl = document.getElementById("count");
+  var noresult = document.getElementById("noresult");
+  var allCards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+  var total = allCards.length;
+  function refresh() {
+    var term = q.value.trim().toLowerCase();
+    var shown = 0;
+    allCards.forEach(function (c) {
+      var hit = !term || c.dataset.text.indexOf(term) !== -1;
+      c.classList.toggle("hidden", !hit);
+      if (hit) shown++;
+    });
+    document.querySelectorAll(".group").forEach(function (sec) {
+      var any = sec.querySelector(".card:not(.hidden)");
+      sec.style.display = any ? "" : "none";
+    });
+    countEl.textContent = shown === total ? (total + " funciones") : (shown + " / " + total);
+    noresult.classList.toggle("show", shown === 0);
+  }
+  q.addEventListener("input", refresh);
+  refresh();
+
+  // ---- scroll-spy ----
+  var links = Array.prototype.slice.call(document.querySelectorAll("#toc a"));
+  var secs = links.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); });
+  var spy = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) {
+        var id = e.target.id;
+        links.forEach(function (a) { a.classList.toggle("active", a.getAttribute("href") === "#" + id); });
+      }
+    });
+  }, { rootMargin: "-20% 0px -70% 0px", threshold: 0 });
+  secs.forEach(function (s) { if (s) spy.observe(s); });
+
+  // ---- theme toggle ----
+  var root = document.documentElement;
+  document.getElementById("theme").addEventListener("click", function () {
+    var cur = root.getAttribute("data-theme");
+    if (!cur) cur = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    root.setAttribute("data-theme", cur === "dark" ? "light" : "dark");
+  });
+})();
+</script>

@@ -1,0 +1,134 @@
+package com.franco.dev.graphql.rrhh;
+
+import com.franco.dev.domain.rrhh.Justificativo;
+import com.franco.dev.domain.rrhh.Penalizacion;
+import com.franco.dev.domain.rrhh.enums.PenalizacionTipo;
+import com.franco.dev.graphql.rrhh.input.JustificarJornadaInput;
+import com.franco.dev.graphql.rrhh.input.PenalizacionInput;
+import com.franco.dev.service.personas.FuncionarioService;
+import com.franco.dev.service.personas.UsuarioService;
+import com.franco.dev.service.rrhh.JustificativoService;
+import com.franco.dev.service.rrhh.TipoJustificativoService;
+import com.franco.dev.service.rrhh.PenalizacionService;
+import graphql.kickstart.tools.GraphQLMutationResolver;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
+import static com.franco.dev.utilitarios.DateUtils.stringToLocalDate;
+
+@Component
+public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired
+    private PenalizacionService service;
+
+    @Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+    @Autowired
+    private JustificativoService justificativoService;
+
+    @Autowired
+    private TipoJustificativoService tipoJustificativoService;
+
+    @Autowired
+    private FuncionarioService funcionarioService;
+
+    @Autowired
+    private UsuarioService usuarioService;
+
+    public Optional<Penalizacion> penalizacion(Long id) {
+        seg.requireVer();
+        return service.findById(id);
+    }
+
+    public List<Penalizacion> penalizacionesPorFuncionario(Long funcionarioId) {
+        seg.requireVer();
+        return service.findByFuncionarioId(funcionarioId);
+    }
+
+    public List<Penalizacion> penalizacionesPorFuncionarioYRango(Long funcionarioId, String desde, String hasta) {
+        seg.requireVer();
+        return service.findByFuncionarioIdAndFechaBetween(
+                funcionarioId,
+                stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null,
+                stringToDate(hasta) != null ? stringToDate(hasta).toLocalDate() : null);
+    }
+
+    public List<Penalizacion> penalizacionesPorJornada(Long jornadaId, Long sucursalId) {
+        seg.requireVer();
+        return service.findByJornada(jornadaId, sucursalId);
+    }
+
+    /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
+    public Page<Penalizacion> penalizacionesPage(int page, int size, Long funcionarioId, String desde, String hasta,
+                                                 PenalizacionTipo tipo) {
+        seg.requireVer();
+        return service.findPage(funcionarioId, stringToLocalDate(desde), stringToLocalDate(hasta), tipo,
+                PageRequest.of(page, size));
+    }
+
+    public Penalizacion savePenalizacion(PenalizacionInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
+        Penalizacion e = input.getId() != null
+                ? service.findById(input.getId()).orElse(new Penalizacion())
+                : new Penalizacion();
+        if (input.getFuncionarioId() != null)
+            e.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
+        e.setJornadaId(input.getJornadaId());
+        e.setSucursalId(input.getSucursalId());
+        e.setTipo(input.getTipo());
+        e.setDescripcion(input.getDescripcion());
+        e.setMonto(input.getMonto());
+        if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
+            e.setFecha(stringToDate(input.getFecha()).toLocalDate());
+        if (input.getAutoGenerada() != null) e.setAutoGenerada(input.getAutoGenerada());
+        if (input.getAnulada() != null) e.setAnulada(input.getAnulada());
+        if (input.getRegistradoPorId() != null)
+            e.setRegistradoPor(usuarioService.findById(input.getRegistradoPorId()).orElse(null));
+        return service.save(e);
+    }
+
+    public Penalizacion anularPenalizacion(Long id) {
+        seg.requireAnyRole(seg.GESTIONAR);
+        return service.anular(id);
+    }
+
+    /** Genera las penalizaciones automaticas por tardanza de la fecha dada. Devuelve la cantidad generada. */
+    public Integer generarPenalizacionesAuto(String fecha) {
+        seg.requireAnyRole(seg.GESTIONAR);
+        LocalDate f = stringToDate(fecha) != null ? stringToDate(fecha).toLocalDate() : LocalDate.now().minusDays(1);
+        return service.generarPenalizacionesAuto(f);
+    }
+
+    /**
+     * Justifica una jornada: crea una novedad JUSTIFICADO y anula las
+     * penalizaciones auto-generadas de esa jornada.
+     */
+    public Boolean justificarJornada(JustificarJornadaInput input) {
+        seg.requireAnyRole(seg.GESTIONAR);
+        Justificativo n = new Justificativo();
+        if (input.getFuncionarioId() != null)
+            n.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
+        if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
+            n.setFecha(stringToDate(input.getFecha()).toLocalDate());
+        // el tipo sale del catalogo, ya no de un enum
+        n.setTipo(tipoJustificativoService.findByNombre("JUSTIFICADO"));
+        n.setJornadaId(input.getJornadaId());
+        n.setSucursalId(input.getSucursalId());
+        n.setObservacion(input.getObservacion());
+        if (input.getRegistradoPorId() != null)
+            n.setRegistradoPor(usuarioService.findById(input.getRegistradoPorId()).orElse(null));
+        justificativoService.save(n);
+        service.anularAutoDeJornada(input.getJornadaId(), input.getSucursalId());
+        return true;
+    }
+}

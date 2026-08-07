@@ -197,7 +197,10 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             String nickname) {
 
         try {
-            Pageable pageable = PageRequest.of(page != null ? page : 0, size != null ? size : DEFAULT_PAGE_SIZE);
+            // El reporte lista todo lo que matchea los filtros: la paginacion de la
+            // pantalla (page/size) no debe recortarlo. Se reciben por compatibilidad
+            // con el schema, pero se ignoran a proposito.
+            Pageable pageable = Pageable.unpaged();
             Page<InventarioProductoItem> inventarioProductoItemPage = service.findAllWithFilters(
                     sucursalIdList, sectorIdList, zonaIdList, stringToDate(startDate), stringToDate(endDate),
                     usuarioIdList, productoIdList, null, pageable);

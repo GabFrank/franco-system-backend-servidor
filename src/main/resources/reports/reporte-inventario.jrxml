@@ -250,7 +250,7 @@
                 </textElement>
                 <textFieldExpression><![CDATA[$F{descripcion}]]></textFieldExpression>
             </textField>
-            <textField>
+            <textField pattern="#,##0">
                 <reportElement x="180" y="0" width="50" height="12" uuid="fa6e9a7b-de74-4cca-b879-4452285fb0fd">
                     <property name="com.jaspersoft.studio.spreadsheet.connectionID" value="e74c448e-86a4-4ea0-a253-144c060ddd2c"/>
                 </reportElement>
@@ -259,7 +259,7 @@
                 </textElement>
                 <textFieldExpression><![CDATA[$F{cantidadSistema}]]></textFieldExpression>
             </textField>
-            <textField>
+            <textField pattern="#,##0">
                 <reportElement x="230" y="0" width="50" height="12" uuid="ba6ca274-d746-4bae-b288-7fda7c15d59e">
                     <property name="com.jaspersoft.studio.spreadsheet.connectionID" value="239577d0-bd84-4bb7-8dda-f598ed4e7fd0"/>
                 </reportElement>
@@ -268,7 +268,7 @@
                 </textElement>
                 <textFieldExpression><![CDATA[$F{cantidadEncontrada}]]></textFieldExpression>
             </textField>
-            <textField>
+            <textField pattern="#,##0">
                 <reportElement x="280" y="0" width="50" height="12" uuid="c5a62a97-1e0e-439e-9a38-bc2a099fd94c">
                     <property name="com.jaspersoft.studio.spreadsheet.connectionID" value="f98fc71e-6ed4-485f-8963-18c73e56e181"/>
                 </reportElement>

@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.config.multitenant.MultiTenantService;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
@@ -12,6 +13,7 @@ import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.ProductosVencidosService;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.utils.ImageService;
@@ -67,6 +69,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
     @Autowired
     private ProductosVencidosService productosVencidosService;
+
+    @Autowired
+    private SucursalService sucursalService;
 
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final String DEFAULT_SORT_FIELD = "vencimiento";
@@ -253,7 +258,7 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         parameters.put("filtroFechaInicio", startDate != null ? startDate : "Todos");
         parameters.put("filtroFechaFin", endDate != null ? endDate : "Todos");
         parameters.put("codigoBarra", "");
-        parameters.put("filtroSucursales", sucursalIdList != null ? sucursalIdList.toString() : "Todos");
+        parameters.put("filtroSucursales", nombresDeSucursales(sucursalIdList));
         parameters.put("filtroSectores", sectorIdList != null ? sectorIdList.toString() : "Todos");
         parameters.put("filtroZonas", zonaIdList != null ? zonaIdList.toString() : "Todos");
         parameters.put("filtroProductos", productoIdList != null ? productoIdList.toString() : "Todos");
@@ -262,6 +267,21 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
 
         return parameters;
+    }
+
+    /**
+     * Convierte los ids de sucursal del filtro en sus nombres, para que la cabecera
+     * del reporte no muestre "[1, 2]". Si algun id no se encuentra, se deja el id.
+     */
+    private String nombresDeSucursales(@Nullable List<Long> sucursalIdList) {
+        if (sucursalIdList == null || sucursalIdList.isEmpty()) {
+            return "Todos";
+        }
+        return sucursalIdList.stream()
+                .map(id -> sucursalService.findById(id)
+                        .map(Sucursal::getNombre)
+                        .orElse(String.valueOf(id)))
+                .collect(Collectors.joining(", "));
     }
 
     public Page<ProductoSaldoDto> productosConCantidadPositiva(Long sucursalId, Long productoId, Integer page, Integer size) {

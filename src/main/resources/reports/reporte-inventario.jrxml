@@ -38,7 +38,7 @@
                 <imageExpression><![CDATA[$P{logo}]]></imageExpression>
             </image>
             <staticText>
-                <reportElement x="102" y="14" width="228" height="14" uuid="b61efa33-0ea0-4fed-9d78-a768de817cb3">
+                <reportElement x="102" y="12" width="228" height="14" uuid="b61efa33-0ea0-4fed-9d78-a768de817cb3">
                     <property name="com.jaspersoft.studio.unit.height" value="px"/>
                     <property name="com.jaspersoft.studio.unit.width" value="px"/>
                 </reportElement>
@@ -49,7 +49,7 @@
                 <text><![CDATA[Filtros]]></text>
             </staticText>
             <staticText>
-                <reportElement x="80" y="-2" width="400" height="16" uuid="c0c9f5b8-f0b7-4503-9428-2d7be98aa4e6"/>
+                <reportElement x="80" y="0" width="400" height="17" uuid="c0c9f5b8-f0b7-4503-9428-2d7be98aa4e6"/>
                 <textElement textAlignment="Center">
                     <font size="12" isBold="true"/>
                 </textElement>
@@ -58,88 +58,100 @@
             <textField>
                 <reportElement x="175" y="78" width="70" height="9" uuid="7e8c778b-0e6c-4e04-a4c7-de5b9f3403f6"/>
                 <textElement>
-                    <font size="7"/>
+                    <font size="6"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{fechaReporte}]]></textFieldExpression>
             </textField>
             <staticText>
                 <reportElement x="111" y="78" width="64" height="9" uuid="4c91f639-4e4b-4bb2-965f-156eaed3a91c"/>
                 <textElement>
-                    <font size="7"/>
+                    <font size="6"/>
                 </textElement>
                 <text><![CDATA[Reporte creado en]]></text>
             </staticText>
             <staticText>
                 <reportElement x="245" y="78" width="60" height="9" uuid="186428af-f5d4-4389-8c9b-cadb45c47034"/>
                 <textElement>
-                    <font size="7"/>
+                    <font size="6"/>
                 </textElement>
                 <text><![CDATA[por el usuario]]></text>
             </staticText>
             <textField>
                 <reportElement x="305" y="78" width="85" height="9" uuid="09ce4efd-2860-4013-b158-a83a2fdcc811"/>
                 <textElement>
-                    <font size="7"/>
+                    <font size="6"/>
                 </textElement>
                 <textFieldExpression><![CDATA[$P{usuario}]]></textFieldExpression>
             </textField>
             <staticText>
-                <reportElement x="113" y="21" width="61" height="12" uuid="952a2b7b-2b18-4daa-823e-3241f57c0708">
+                <reportElement x="113" y="27" width="61" height="12" uuid="952a2b7b-2b18-4daa-823e-3241f57c0708">
                     <property name="com.jaspersoft.studio.unit.height" value="px"/>
                     <property name="com.jaspersoft.studio.unit.width" value="px"/>
                 </reportElement>
                 <box rightPadding="4"/>
                 <textElement textAlignment="Left">
-                    <font size="9"/>
+                    <font size="8"/>
                 </textElement>
                 <text><![CDATA[Fecha inicio:]]></text>
             </staticText>
             <staticText>
-                <reportElement x="113" y="33" width="61" height="12" uuid="d6c50cb5-67d5-41eb-8304-19f12525266e">
+                <reportElement x="113" y="39" width="61" height="12" uuid="d6c50cb5-67d5-41eb-8304-19f12525266e">
                     <property name="com.jaspersoft.studio.unit.height" value="px"/>
                     <property name="com.jaspersoft.studio.unit.width" value="px"/>
                 </reportElement>
                 <box rightPadding="4"/>
                 <textElement textAlignment="Left">
-                    <font size="9"/>
+                    <font size="8"/>
                 </textElement>
                 <text><![CDATA[Fecha fin:]]></text>
             </staticText>
             <textField>
-                <reportElement x="174" y="33" width="154" height="12" uuid="de978e8e-d9c0-41b3-92c5-845bf8bbf604"/>
+                <reportElement x="174" y="39" width="154" height="12" uuid="de978e8e-d9c0-41b3-92c5-845bf8bbf604"/>
+                <textElement>
+                    <font size="8"/>
+                </textElement>
                 <textFieldExpression><![CDATA[$P{filtroFechaFin}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="174" y="21" width="154" height="12" uuid="9fea43b1-2dec-48a2-907d-79ceeb4c8b82"/>
+                <reportElement x="174" y="27" width="154" height="12" uuid="9fea43b1-2dec-48a2-907d-79ceeb4c8b82"/>
+                <textElement>
+                    <font size="8"/>
+                </textElement>
                 <textFieldExpression><![CDATA[$P{filtroFechaInicio}]]></textFieldExpression>
             </textField>
             <staticText>
-                <reportElement x="114" y="46" width="61" height="12" uuid="c72b73f6-2ce5-40cd-8ef7-ba4bd75022ad">
+                <reportElement x="114" y="51" width="61" height="12" uuid="c72b73f6-2ce5-40cd-8ef7-ba4bd75022ad">
                     <property name="com.jaspersoft.studio.unit.height" value="px"/>
                     <property name="com.jaspersoft.studio.unit.width" value="px"/>
                 </reportElement>
                 <box rightPadding="4"/>
                 <textElement textAlignment="Left">
-                    <font size="9"/>
+                    <font size="8"/>
                 </textElement>
                 <text><![CDATA[Sucursal(es):]]></text>
             </staticText>
             <textField>
-                <reportElement x="175" y="45" width="154" height="30" uuid="a5e1ae18-89be-4a96-a29c-10298aca4de6"/>
+                <reportElement x="175" y="51" width="154" height="23" uuid="a5e1ae18-89be-4a96-a29c-10298aca4de6"/>
+                <textElement>
+                    <font size="8"/>
+                </textElement>
                 <textFieldExpression><![CDATA[$P{filtroSucursales}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="390" y="20" width="158" height="54" uuid="d600e083-880b-48ce-bfb3-01dbb72ca132"/>
+                <reportElement x="390" y="27" width="158" height="47" uuid="d600e083-880b-48ce-bfb3-01dbb72ca132"/>
+                <textElement>
+                    <font size="8"/>
+                </textElement>
                 <textFieldExpression><![CDATA[$P{filtroProductos}]]></textFieldExpression>
             </textField>
             <staticText>
-                <reportElement x="330" y="21" width="61" height="12" uuid="60ed71d6-e25c-42ce-871c-320543ca25cd">
+                <reportElement x="330" y="27" width="61" height="12" uuid="60ed71d6-e25c-42ce-871c-320543ca25cd">
                     <property name="com.jaspersoft.studio.unit.height" value="px"/>
                     <property name="com.jaspersoft.studio.unit.width" value="px"/>
                 </reportElement>
                 <box rightPadding="4"/>
                 <textElement textAlignment="Left">
-                    <font size="9"/>
+                    <font size="8"/>
                 </textElement>
                 <text><![CDATA[Producto(s):]]></text>
             </staticText>
@@ -167,7 +179,7 @@
                     <property name="com.jaspersoft.studio.spreadsheet.connectionID" value="e74c448e-86a4-4ea0-a253-144c060ddd2c"/>
                 </reportElement>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="7"/>
+                    <font size="6"/>
                 </textElement>
                 <text><![CDATA[Cant. Sistema]]></text>
             </staticText>
@@ -176,7 +188,7 @@
                     <property name="com.jaspersoft.studio.spreadsheet.connectionID" value="239577d0-bd84-4bb7-8dda-f598ed4e7fd0"/>
                 </reportElement>
                 <textElement textAlignment="Center" verticalAlignment="Middle">
-                    <font size="7"/>
+                    <font size="6"/>
                 </textElement>
                 <text><![CDATA[Cant. Física]]></text>
             </staticText>

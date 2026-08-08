@@ -102,6 +102,19 @@ extend type Query {
         size: Int
     ): ProductoVencidoViewPage
 
+    reporteProductosVencidos(
+        startDate: String,
+        endDate: String,
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        fuenteVerdadList: [FuenteVerdadVencimiento],
+        soloRealmenteVencidos: Boolean,
+        usuarioResponsableId: ID
+    ): String
+
     productosVencidosPorSucursal(
         sucursalId: ID!,
         page: Int,

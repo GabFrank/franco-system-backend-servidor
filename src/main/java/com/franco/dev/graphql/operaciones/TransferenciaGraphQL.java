@@ -357,7 +357,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     public Page<Transferencia> transferenciasWithFilters(Long sucursalOrigenId, Long sucursalDestinoId,
             TransferenciaEstado estado, List<TransferenciaEstado> estados, TipoTransferencia tipo,
-            EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino,
+            EtapaTransferencia etapa, Boolean isOrigen, Boolean isDestino, Long ultimoResponsableId,
             String creadoDesde, String creadoHasta, Integer page, Integer size) {
         if (page == null)
             page = 0;
@@ -372,7 +372,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (estado != null && !estadoList.contains(estado))
             estadoList.add(estado);
         return service.findByFilter(sucursalOrigenId, sucursalDestinoId, estadoList, tipo, etapa, isOrigen, isDestino,
-                stringToDate(creadoDesde), stringToDate(creadoHasta), pageable);
+                ultimoResponsableId, stringToDate(creadoDesde), stringToDate(creadoHasta), pageable);
     }
 
     public String imprimirTransferencia(Long id, Boolean ticket, String printerName) {

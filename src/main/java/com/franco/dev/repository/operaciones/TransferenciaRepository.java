@@ -16,6 +16,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface TransferenciaRepository extends HelperRepository<Transferencia, Long> {
+        /**
+         * El "ultimo responsable" es el usuario de la etapa mas avanzada que ya tiene
+         * responsable asignado, por eso el COALESCE va en orden inverso al flujo:
+         * recepcion -> transporte -> preparacion -> pre transferencia.
+         */
+        String ULTIMO_RESPONSABLE_FILTER = "(:ultimoResponsableId IS NULL OR COALESCE("
+                        + "t.usuarioRecepcion.id, t.usuarioTransporte.id, t.usuarioPreparacion.id, t.usuarioPreTransferencia.id"
+                        + ") = :ultimoResponsableId) AND ";
+
         default Class<Transferencia> getEntityClass() {
                 return Transferencia.class;
         }
@@ -50,6 +59,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
                         + "(t.etapa = :etapa OR cast(:etapa as com.franco.dev.domain.operaciones.enums.EtapaTransferencia) IS NULL) AND "
                         + "(:isOrigen IS NULL OR t.isOrigen = :isOrigen) AND "
                         + "(:isDestino IS NULL OR t.isDestino = :isDestino) AND "
+                        + ULTIMO_RESPONSABLE_FILTER
                         + "(t.creadoEn >= :creadoEnDesde or cast(:creadoEnDesde as timestamp) IS NULL) AND "
                         + "(t.creadoEn <= :creadoEnHasta or cast(:creadoEnHasta as timestamp) IS NULL ) order by t.id desc")
         Page<Transferencia> findByFilter(
@@ -60,6 +70,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
                         EtapaTransferencia etapa,
                         Boolean isOrigen,
                         Boolean isDestino,
+                        Long ultimoResponsableId,
                         LocalDateTime creadoEnDesde,
                         LocalDateTime creadoEnHasta,
                         Pageable pageable);
@@ -72,6 +83,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
                         + "(t.etapa = :etapa OR cast(:etapa as com.franco.dev.domain.operaciones.enums.EtapaTransferencia) IS NULL) AND "
                         + "(:isOrigen IS NULL OR t.isOrigen = :isOrigen) AND "
                         + "(:isDestino IS NULL OR t.isDestino = :isDestino) AND "
+                        + ULTIMO_RESPONSABLE_FILTER
                         + "(t.creadoEn >= :creadoEnDesde or cast(:creadoEnDesde as timestamp) IS NULL) AND "
                         + "(t.creadoEn <= :creadoEnHasta or cast(:creadoEnHasta as timestamp) IS NULL ) order by t.id desc")
         Page<Transferencia> findByFilterEstadoIn(
@@ -82,6 +94,7 @@ public interface TransferenciaRepository extends HelperRepository<Transferencia,
                         @Param("etapa") EtapaTransferencia etapa,
                         @Param("isOrigen") Boolean isOrigen,
                         @Param("isDestino") Boolean isDestino,
+                        @Param("ultimoResponsableId") Long ultimoResponsableId,
                         @Param("creadoEnDesde") LocalDateTime creadoEnDesde,
                         @Param("creadoEnHasta") LocalDateTime creadoEnHasta,
                         Pageable pageable);

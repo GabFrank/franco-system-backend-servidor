@@ -1613,6 +1613,8 @@ public class ImpresionService {
             Double totalConvenio,
             Double totalTransferencia,
             Double totalOtros,
+            Double totalDescuentos,
+            Double totalCanceladas,
             Usuario usuario) {
         try {
             ClassPathResource resource = new ClassPathResource("reports/reporte-ventas.jrxml");
@@ -1637,6 +1639,8 @@ public class ImpresionService {
             parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
             parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
             parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalDescuentos", totalDescuentos != null ? totalDescuentos : 0.0);
+            parameters.put("totalCanceladas", totalCanceladas != null ? totalCanceladas : 0.0);
             parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
             parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
             parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);
@@ -1675,6 +1679,8 @@ public class ImpresionService {
             Double totalConvenio,
             Double totalTransferencia,
             Double totalOtros,
+            Double totalDescuentos,
+            Double totalCanceladas,
             Usuario usuario) {
         try {
             JasperReport jasperReport = compileReportFromClasspath("reports/reporte-ventas-detallado.jrxml");
@@ -1697,6 +1703,8 @@ public class ImpresionService {
             parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
             parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
             parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalDescuentos", totalDescuentos != null ? totalDescuentos : 0.0);
+            parameters.put("totalCanceladas", totalCanceladas != null ? totalCanceladas : 0.0);
             parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
             parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
             parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);

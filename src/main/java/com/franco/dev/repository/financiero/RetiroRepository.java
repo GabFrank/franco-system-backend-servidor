@@ -9,6 +9,7 @@ import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 
@@ -60,5 +61,23 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
             "(u.id = :cajeroId or :cajeroId is null) " +
             "order by r.id desc")
     Page<Retiro> findByAllPage(Long id, Long cajaId, Long sucId, Long responsableId, Long cajeroId, Pageable pageable);
+
+    /**
+     * Retiros "flotantes": replicados desde el PDV pero aún NO asignados a una caja mayor
+     * ({@code cajaVirtualId IS NULL}) y sin postear ({@code movimientoCajaVirtualId IS NULL}).
+     * Se excluyen los EN_PROCESO (retiro todavía abierto en el PDV). Filtrable por sucursal,
+     * caja de salida (PdvCaja) y rango de fechas (creado_en).
+     */
+    @Query("select r from Retiro r " +
+            "where r.cajaVirtualId is null and r.movimientoCajaVirtualId is null " +
+            "and (r.estado is null or r.estado <> com.franco.dev.domain.financiero.enums.EstadoRetiro.EN_PROCESO) " +
+            "and (:sucId is null or r.sucursalId = :sucId) " +
+            "and (:cajaId is null or r.cajaSalidaId = :cajaId) " +
+            "and (cast(:desde as timestamp) is null or r.creadoEn >= :desde) " +
+            "and (cast(:hasta as timestamp) is null or r.creadoEn <= :hasta) " +
+            "order by r.creadoEn desc")
+    Page<Retiro> findFlotantes(@Param("sucId") Long sucId, @Param("cajaId") Long cajaId,
+                               @Param("desde") java.time.LocalDateTime desde,
+                               @Param("hasta") java.time.LocalDateTime hasta, Pageable pageable);
 
 }

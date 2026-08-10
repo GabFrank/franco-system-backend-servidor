@@ -47,7 +47,7 @@ public class RetiroTesoreriaScheduler {
             int ok = 0;
             for (Retiro r : pendientes) {
                 try {
-                    if (procesador.procesar(r.getId(), r.getSucursalId())) ok++;
+                    if (procesador.procesar(r.getId(), r.getSucursalId(), null)) ok++;
                 } catch (Exception e) {
                     log.warn("RetiroTesoreriaScheduler: retiro {}/{} no procesado: {}",
                             r.getId(), r.getSucursalId(), e.getMessage());

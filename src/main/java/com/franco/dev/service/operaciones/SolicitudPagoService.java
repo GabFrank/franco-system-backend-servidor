@@ -368,6 +368,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         solicitud.setObservaciones(observaciones);
         solicitud.setUsuario(usuario);
         solicitud.setEstado(SolicitudPagoEstado.PENDIENTE);
+        solicitud.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.COMPRA);
 
         SolicitudPago solicitudGuardada = save(solicitud);
 
@@ -389,6 +390,32 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         }
         
         return solicitudGuardada;
+    }
+
+    /**
+     * Crea una SolicitudPago de tipo GASTO, lista para pagar (estado SOLICITADO). El proveedor
+     * (beneficiario) es opcional. Es la obligación de pago de un gasto (el documento del gasto
+     * vive en PreGasto). Reutiliza el mismo motor de pago que las compras.
+     */
+    @Transactional
+    public SolicitudPago crearSolicitudGasto(com.franco.dev.domain.personas.Proveedor beneficiario,
+                                             com.franco.dev.domain.financiero.TipoGasto categoria,
+                                             Moneda moneda, Double montoTotal, String observaciones,
+                                             java.time.LocalDateTime fechaVencimiento,
+                                             com.franco.dev.domain.personas.Usuario usuario) {
+        SolicitudPago solicitud = new SolicitudPago();
+        solicitud.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO);
+        solicitud.setTipoGasto(categoria);
+        solicitud.setProveedor(beneficiario); // puede ser null
+        solicitud.setMoneda(moneda);
+        solicitud.setMontoTotal(montoTotal);
+        solicitud.setObservaciones(observaciones);
+        solicitud.setFechaPagoPropuesta(fechaVencimiento);
+        solicitud.setUsuario(usuario);
+        // save() fuerza PENDIENTE en el alta; se re-marca SOLICITADO (lista para pagar directo).
+        SolicitudPago guardada = save(solicitud);
+        guardada.setEstado(SolicitudPagoEstado.SOLICITADO);
+        return save(guardada);
     }
 
     /**

@@ -1,6 +1,8 @@
 type SolicitudPago {
     id: ID!
-    proveedor: Proveedor!
+    proveedor: Proveedor
+    tipo: TipoSolicitudPago
+    tipoGasto: TipoGasto
     numeroSolicitud: String!
     fechaSolicitud: String!
     fechaPagoPropuesta: String
@@ -15,6 +17,12 @@ type SolicitudPago {
     pago: Pago
     notasRecepcion: [SolicitudPagoNotaRecepcion]
     detalles: [SolicitudPagoDetalle]
+}
+
+enum TipoSolicitudPago {
+    COMPRA
+    GASTO
+    RRHH
 }
 
 type SolicitudPagoDetalle {

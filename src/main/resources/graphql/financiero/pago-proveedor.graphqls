@@ -36,8 +36,20 @@ input SolicitudConLineasInput {
     lineas: [LineaPagoInput!]!
 }
 
+input GastoParaPagoInput {
+    tipoGastoId: ID
+    descripcion: String
+    monedaId: ID!
+    monto: Float!
+    beneficiarioProveedorId: ID
+    beneficiarioPersonaId: ID
+    fechaVencimiento: String
+    sucursalId: ID
+}
+
 extend type Query {
     solicitudesPagoPendientes(proveedorId: ID): [SolicitudPago]
+    gastosPendientes: [SolicitudPago]
 }
 
 extend type Mutation {
@@ -45,4 +57,5 @@ extend type Mutation {
     pagarSolicitudesLoteCajaMayor(cajaVirtualId: ID!, pagos: [PagoLoteInput!]!): Pago
     pagarSolicitudesMixto(pagos: [SolicitudConLineasInput!]!): Pago
     anularPagoCpp(pagoId: ID!, motivo: String): Pago!
+    crearGastoParaPago(input: GastoParaPagoInput!): SolicitudPago!
 }

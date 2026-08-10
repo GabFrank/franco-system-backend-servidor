@@ -3,6 +3,7 @@ package com.franco.dev.graphql.financiero;
 import com.franco.dev.domain.financiero.enums.FuentePago;
 import com.franco.dev.domain.operaciones.Pago;
 import com.franco.dev.domain.operaciones.SolicitudPago;
+import com.franco.dev.service.financiero.GastoTesoreriaService;
 import com.franco.dev.service.financiero.PagoProveedorService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -20,11 +21,29 @@ import java.util.List;
 public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
     private final PagoProveedorService service;
+    private final GastoTesoreriaService gastoTesoreriaService;
     private final TesoreriaSecurityService seg;
 
     public List<SolicitudPago> solicitudesPagoPendientes(Long proveedorId) {
         seg.requireVer();
         return service.listarPendientes(proveedorId);
+    }
+
+    /** Gastos pagables (SolicitudPago tipo GASTO en SOLICITADO/PARCIAL) para el diálogo de gastos. */
+    public List<SolicitudPago> gastosPendientes() {
+        seg.requireVer();
+        return service.listarGastosPendientes();
+    }
+
+    /** Crea un gasto (PreGasto liviano) + su obligación de pago (SolicitudPago GASTO, SOLICITADO). */
+    public SolicitudPago crearGastoParaPago(GastoParaPagoWrapper input) {
+        seg.requireGestionar();
+        java.time.LocalDateTime venc = (input.getFechaVencimiento() != null && !input.getFechaVencimiento().isEmpty())
+                ? com.franco.dev.utilitarios.DateUtils.stringToDate(input.getFechaVencimiento()) : null;
+        return gastoTesoreriaService.crearGastoParaPago(
+                input.getTipoGastoId(), input.getDescripcion(), input.getMonedaId(), input.getMonto(),
+                input.getBeneficiarioProveedorId(), input.getBeneficiarioPersonaId(), venc,
+                input.getSucursalId(), seg.currentUsuario());
     }
 
     public Pago pagarSolicitudesLoteCajaMayor(Long cajaVirtualId, List<PagoLoteWrapper> pagos) {
@@ -91,6 +110,18 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
             ls.add(l);
         }
         return ls;
+    }
+
+    @Data
+    public static class GastoParaPagoWrapper {
+        private Long tipoGastoId;
+        private String descripcion;
+        private Long monedaId;
+        private Double monto;
+        private Long beneficiarioProveedorId;
+        private Long beneficiarioPersonaId;
+        private String fechaVencimiento;
+        private Long sucursalId;
     }
 
     @Data

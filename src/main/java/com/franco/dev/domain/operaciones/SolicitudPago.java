@@ -4,6 +4,7 @@ import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
+import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.utilitarios.PostgreSQLEnumType;
@@ -44,8 +45,18 @@ public class SolicitudPago implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "proveedor_id", nullable = false)
+    @JoinColumn(name = "proveedor_id")
     private Proveedor proveedor;
+
+    /** Origen de la deuda: COMPRA (default) | GASTO | RRHH. Deuda pagable unificada (Opción B). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo")
+    private TipoSolicitudPago tipo;
+
+    /** Categoría del gasto (solo tipo=GASTO). Obligatoria para no perder el gasto en reportes. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tipo_gasto_id")
+    private com.franco.dev.domain.financiero.TipoGasto tipoGasto;
 
     @Column(name = "numero_solicitud", nullable = false)
     private String numeroSolicitud;

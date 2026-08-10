@@ -159,17 +159,30 @@ public class PagoProveedorService {
         return procesarEvento(ls, usuario);
     }
 
-    /** Solicitudes de pago pagables (SOLICITADO o PARCIAL) para el diálogo de pago. PENDIENTE es
-     *  borrador y NO es pagable. Filtra por proveedor si se indica. */
+    /** Solicitudes de pago de COMPRA pagables (SOLICITADO o PARCIAL) para el diálogo de compras.
+     *  PENDIENTE es borrador y NO es pagable. Excluye GASTO (tienen su propio diálogo). Filtra por
+     *  proveedor si se indica. */
     public List<SolicitudPago> listarPendientes(Long proveedorId) {
         List<SolicitudPago> list = solicitudPagoService.getRepository()
-                .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL));
+                .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))
+                .stream()
+                .filter(s -> s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO)
+                .collect(Collectors.toList());
         if (proveedorId != null) {
             list = list.stream()
                     .filter(s -> s.getProveedor() != null && proveedorId.equals(s.getProveedor().getId()))
                     .collect(Collectors.toList());
         }
         return list;
+    }
+
+    /** Solicitudes de pago de GASTO pagables (SOLICITADO o PARCIAL) para el diálogo de gastos. */
+    public List<SolicitudPago> listarGastosPendientes() {
+        return solicitudPagoService.getRepository()
+                .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))
+                .stream()
+                .filter(s -> s.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO)
+                .collect(Collectors.toList());
     }
 
     // ── Núcleo: procesar un evento de pago consolidado ──
@@ -230,8 +243,20 @@ public class PagoProveedorService {
         pago = pagoService.save(pago);
 
         // 3) Consolidar líneas físicas por (fuente, caja/cuenta, moneda) y postear un movimiento por grupo.
-        String provNombre = (proveedor != null && proveedor.getPersona() != null && proveedor.getPersona().getNombre() != null)
-                ? proveedor.getPersona().getNombre() : "proveedor";
+        boolean tieneProveedor = proveedor != null && proveedor.getPersona() != null && proveedor.getPersona().getNombre() != null;
+        String provNombre = tieneProveedor ? proveedor.getPersona().getNombre() : "proveedor";
+        // Un gasto puede no tener beneficiario proveedor → etiqueta genérica en el movimiento/cheque.
+        String etiquetaPago = tieneProveedor ? ("Pago a " + provNombre) : "Pago de gasto";
+        // Gasto: descripción rica en el movimiento → "#id - categoría - proveedor - descripción".
+        SolicitudPago gastoSol = spById.values().stream()
+                .filter(s -> s.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO)
+                .findFirst().orElse(null);
+        if (gastoSol != null) {
+            String cat = gastoSol.getTipoGasto() != null ? gastoSol.getTipoGasto().getDescripcion() : "Sin categoría";
+            String benef = tieneProveedor ? provNombre : "—";
+            String desc = gastoSol.getObservaciones() != null ? gastoSol.getObservaciones() : "";
+            etiquetaPago = "#" + gastoSol.getId() + " - " + cat + " - " + benef + " - " + desc;
+        }
         LinkedHashMap<String, GrupoMov> grupos = new LinkedHashMap<>();
         for (SolicitudConLineas p : pagos) {
             for (LineaPago l : p.getLineas()) {
@@ -260,14 +285,14 @@ public class PagoProveedorService {
                 m.setCantidad(g.suma.doubleValue());
                 m.setMoneda(moneda);
                 m.setUsuario(usuario);
-                m.setDescripcion("Pago a " + provNombre);
+                m.setDescripcion(etiquetaPago);
                 m.setReferenciaId(pago.getId());
                 m.setOrigenTipo(OrigenMovimientoTipo.PAGO_CPP);
                 m.setOrigenId(pago.getId());
                 g.movimientoId = tesoreriaService.registrar(m).getId();
             } else if (g.fuente == FuentePago.CUENTA_BANCARIA) {
                 MovimientoBancario mb = bancoLedgerService.registrar(g.cuentaBancariaId, MovimientoBancarioTipo.SALIDA_MANUAL,
-                        g.suma, "Pago a " + provNombre, OrigenMovimientoTipo.PAGO_CPP.name(), pago.getId(), usuario);
+                        g.suma, etiquetaPago, OrigenMovimientoTipo.PAGO_CPP.name(), pago.getId(), usuario);
                 g.movimientoId = mb != null ? mb.getId() : null;
             } else {
                 throw new GraphQLException("Fuente de pago no soportada para movimiento consolidado");
@@ -290,7 +315,7 @@ public class PagoProveedorService {
         }
         Map<Long, Cheque> chequePorRef = new LinkedHashMap<>();
         for (Map.Entry<Long, LineaPago> e : primeraLineaCheque.entrySet()) {
-            chequePorRef.put(e.getKey(), emitirCheque(e.getValue(), sumaChequeRef.get(e.getKey()), provNombre, usuario));
+            chequePorRef.put(e.getKey(), emitirCheque(e.getValue(), sumaChequeRef.get(e.getKey()), provNombre, etiquetaPago, usuario));
         }
 
         // 4) Detalles (uno por línea) apuntando al movimiento consolidado + evento, y saldar cada solicitud.
@@ -348,7 +373,7 @@ public class PagoProveedorService {
     }
 
     /** Emite un cheque físico (total = suma de sus partes). Diferido reserva saldo; contado debita. */
-    private Cheque emitirCheque(LineaPago l, BigDecimal total, String provNombre, Usuario usuario) {
+    private Cheque emitirCheque(LineaPago l, BigDecimal total, String provNombre, String etiquetaPago, Usuario usuario) {
         if (l.getChequeraId() == null) throw new GraphQLException("La forma de pago con cheque requiere una chequera");
         Chequera chequera = chequeraRepository.findById(l.getChequeraId())
                 .orElseThrow(() -> new GraphQLException("Chequera no encontrada"));
@@ -361,7 +386,7 @@ public class PagoProveedorService {
         cheque.setFechaEntrega(l.getFechaEmision() != null ? l.getFechaEmision() : java.time.LocalDateTime.now());
         cheque.setBeneficiario(l.getBeneficiario() != null ? l.getBeneficiario() : provNombre);
         cheque.setNominal(l.getNominal() != null ? l.getNominal() : Boolean.TRUE);
-        cheque.setConcepto("Pago a " + provNombre);
+        cheque.setConcepto(etiquetaPago);
         return chequeGestionService.emitir(cheque, usuario);
     }
 

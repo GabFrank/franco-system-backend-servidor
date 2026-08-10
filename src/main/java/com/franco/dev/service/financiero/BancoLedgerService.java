@@ -43,10 +43,11 @@ public class BancoLedgerService {
         BigDecimal delta = esEgreso(tipo) ? monto.abs().negate() : monto.abs();
         BigDecimal nuevo = anterior.add(delta);
         boolean permiteNegativo = Boolean.TRUE.equals(cuenta.getPermiteSaldoNegativo());
-        // El descubierto se controla contra el disponible (saldo − reservado por cheques diferidos).
-        BigDecimal reservado = cuenta.getSaldoReservado() != null ? cuenta.getSaldoReservado() : BigDecimal.ZERO;
-        if (!permiteNegativo && esEgreso(tipo) && nuevo.subtract(reservado).compareTo(BigDecimal.ZERO) < 0) {
-            throw new GraphQLException("Saldo insuficiente en la cuenta bancaria (disponible = saldo − reservado)");
+        // El descubierto se controla contra el SALDO REAL de la cuenta, no contra el reservado:
+        // los cheques diferidos son a futuro (se cobran en su fecha), el comercio suma saldo cada día,
+        // así que el reservado es información para la decisión, no un bloqueante del pago de hoy.
+        if (!permiteNegativo && esEgreso(tipo) && nuevo.compareTo(BigDecimal.ZERO) < 0) {
+            throw new GraphQLException("Saldo insuficiente en la cuenta bancaria");
         }
         cuenta.setSaldo(nuevo);
         cuentaRepository.save(cuenta);

@@ -61,6 +61,7 @@ public class PagoProveedorService {
     private final MonedaRepository monedaRepository;
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepository;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
+    private final PreGastoService preGastoService;
 
     /** Una línea de pago (pago mixto). Puede ser fuente AJUSTE (diferencia de cambio). */
     @Data
@@ -365,6 +366,8 @@ public class PagoProveedorService {
             sp.setEstado(concluido ? SolicitudPagoEstado.CONCLUIDO : SolicitudPagoEstado.PARCIAL);
             sp.setPago(pago);
             solicitudPagoService.save(sp);
+            // Si el gasto vino de un PreGasto (workflow de aprobación), sincronizar su estado.
+            preGastoService.sincronizarDesdeSolicitudPago(sp);
         }
 
         // PagoService.save fuerza ABIERTO en el alta; marcar el evento como CONCLUIDO ya con id.
@@ -437,6 +440,8 @@ public class PagoProveedorService {
             // Al anular el pago vuelve a SOLICITADO (estaba validada), no a PENDIENTE (borrador).
             sp.setEstado(nuevoPagado.signum() <= 0 ? SolicitudPagoEstado.SOLICITADO : SolicitudPagoEstado.PARCIAL);
             solicitudPagoService.save(sp);
+            // Si es un gasto con PreGasto, revertir su estado (PAGADO → ENVIADO_A_TESORERIA).
+            preGastoService.sincronizarDesdeSolicitudPago(sp);
         }
 
         pago.setEstado(PagoEstado.CANCELADO);

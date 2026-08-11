@@ -53,8 +53,10 @@ class PagoProveedorServiceTest {
         com.franco.dev.domain.operaciones.Pago pagoEvento = new com.franco.dev.domain.operaciones.Pago();
         pagoEvento.setId(500L);
         when(pagoService.save(any())).thenReturn(pagoEvento);
+        PreGastoService preGastoService = mock(PreGastoService.class);
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
-                chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo);
+                chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo,
+                preGastoService);
 
         com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
         Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);
@@ -67,6 +69,16 @@ class PagoProveedorServiceTest {
         when(spRepo.lockById(1L)).thenReturn(Optional.of(sp));
         when(spRepo.findById(1L)).thenReturn(Optional.of(sp));
         when(solicitudPagoService.save(any())).thenAnswer(i -> i.getArgument(0));
+        // FIX #1: la conclusión del pago delega en actualizarEstado (que en prod fija el estado
+        // y marca las notas como pagadas). El mock reproduce el efecto de estado sobre la solicitud
+        // resuelta por id (lockById cubre sp y sp2), para que las aserciones de estado sigan valiendo.
+        when(solicitudPagoService.actualizarEstado(anyLong(), any())).thenAnswer(inv -> {
+            Long id = inv.getArgument(0);
+            SolicitudPagoEstado est = inv.getArgument(1);
+            SolicitudPago target = spRepo.lockById(id).orElseGet(() -> spRepo.findById(id).orElse(null));
+            if (target != null) target.setEstado(est);
+            return target;
+        });
         com.franco.dev.domain.financiero.MovimientoCajaVirtual mcv = new com.franco.dev.domain.financiero.MovimientoCajaVirtual();
         mcv.setId(888L);
         when(tesoreriaService.registrar(any())).thenReturn(mcv);
@@ -103,6 +115,21 @@ class PagoProveedorServiceTest {
         assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
         assertEquals(0, sp.getMontoPagado().compareTo(new BigDecimal("100000")));
         verify(tesoreriaService, times(1)).registrar(any()); // solo la línea física
+    }
+
+    @Test
+    void pago_total_delega_en_actualizar_estado() {
+        // FIX #1: al concluir, el pago pasa por actualizarEstado(CONCLUIDO), que marca las
+        // notas de recepción como pagadas. Sin esto, las notas quedaban "disponibles para pago".
+        service.pagar(1L, Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 100000)), null);
+        verify(solicitudPagoService).actualizarEstado(1L, SolicitudPagoEstado.CONCLUIDO);
+    }
+
+    @Test
+    void pago_parcial_no_delega_en_actualizar_estado() {
+        // FIX #1: la rama parcial NO pasa por actualizarEstado (PARCIAL→PARCIAL no es transición válida).
+        service.pagar(1L, Collections.singletonList(linea(FuentePago.CUENTA_BANCARIA, 40000)), null);
+        verify(solicitudPagoService, never()).actualizarEstado(anyLong(), any());
     }
 
     @Test

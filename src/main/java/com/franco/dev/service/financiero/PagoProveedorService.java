@@ -361,11 +361,19 @@ public class PagoProveedorService {
             BigDecimal pagado = sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO;
             BigDecimal nuevoPagado = pagado.add(aplicadoById.get(sp.getId()));
             sp.setMontoPagado(nuevoPagado);
+            sp.setPago(pago);
             boolean concluido = nuevoPagado.subtract(total).abs().compareTo(TOLERANCIA) <= 0
                     || nuevoPagado.compareTo(total) >= 0;
-            sp.setEstado(concluido ? SolicitudPagoEstado.CONCLUIDO : SolicitudPagoEstado.PARCIAL);
-            sp.setPago(pago);
-            solicitudPagoService.save(sp);
+            if (concluido) {
+                // Persistir monto/pago y delegar la transición a CONCLUIDO en el servicio, que
+                // además marca las notas de recepción como pagadas (marcarNotasComoPagadas).
+                // La rama PARCIAL NO pasa por actualizarEstado: PARCIAL→PARCIAL no es transición válida.
+                solicitudPagoService.save(sp);
+                solicitudPagoService.actualizarEstado(sp.getId(), SolicitudPagoEstado.CONCLUIDO);
+            } else {
+                sp.setEstado(SolicitudPagoEstado.PARCIAL);
+                solicitudPagoService.save(sp);
+            }
             // Si el gasto vino de un PreGasto (workflow de aprobación), sincronizar su estado.
             preGastoService.sincronizarDesdeSolicitudPago(sp);
         }
@@ -440,6 +448,9 @@ public class PagoProveedorService {
             // Al anular el pago vuelve a SOLICITADO (estaba validada), no a PENDIENTE (borrador).
             sp.setEstado(nuevoPagado.signum() <= 0 ? SolicitudPagoEstado.SOLICITADO : SolicitudPagoEstado.PARCIAL);
             solicitudPagoService.save(sp);
+            // El pago se revierte: las notas de recepción dejan de estar pagadas
+            // (inverso de marcarNotasComoPagadas, aplicado al reabrir la solicitud).
+            solicitudPagoService.desmarcarNotasComoPagadas(sp.getId());
             // Si es un gasto con PreGasto, revertir su estado (PAGADO → ENVIADO_A_TESORERIA).
             preGastoService.sincronizarDesdeSolicitudPago(sp);
         }

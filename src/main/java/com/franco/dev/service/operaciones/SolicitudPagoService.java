@@ -458,7 +458,11 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
             if (!idsActuales.contains(notaId)) {
                 NotaRecepcion nota = notaRecepcionRepository.findById(notaId)
                     .orElseThrow(() -> new IllegalArgumentException("Nota no encontrada: " + notaId));
-                if (!nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
+                // Solicitudes de GASTO/RRHH no tienen proveedor: solo validar la coincidencia
+                // cuando ambos lados lo tienen (evita NPE con proveedor nullable).
+                if (solicitud.getProveedor() != null && nota.getPedido() != null
+                        && nota.getPedido().getProveedor() != null
+                        && !nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
                     throw new IllegalArgumentException("La nota debe pertenecer al mismo proveedor");
                 }
                 Double monto = calcularMontoNotaEnMoneda(nota, solicitud.getMoneda());
@@ -562,13 +566,33 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      * Mark all notas as paid when solicitud is paid
      */
     private void marcarNotasComoPagadas(Long solicitudId) {
-        List<SolicitudPagoNotaRecepcion> relaciones = 
+        List<SolicitudPagoNotaRecepcion> relaciones =
             solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudId);
-        
+
         for (SolicitudPagoNotaRecepcion relacion : relaciones) {
             NotaRecepcion nota = relacion.getNotaRecepcion();
             nota.setPagado(true);
             notaRecepcionRepository.save(nota);
+        }
+    }
+
+    /**
+     * Inverso de {@link #marcarNotasComoPagadas}: al anular un pago y reabrir la solicitud
+     * (CONCLUIDO → SOLICITADO/PARCIAL), las notas de recepción vuelven a estado no pagado.
+     * Idempotente: si la nota ya está en false, es un no-op. Público porque lo invoca
+     * PagoProveedorService desde el flujo de anulación de pago CPP.
+     */
+    @Transactional
+    public void desmarcarNotasComoPagadas(Long solicitudId) {
+        List<SolicitudPagoNotaRecepcion> relaciones =
+            solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudId);
+
+        for (SolicitudPagoNotaRecepcion relacion : relaciones) {
+            NotaRecepcion nota = relacion.getNotaRecepcion();
+            if (nota != null) {
+                nota.setPagado(false);
+                notaRecepcionRepository.save(nota);
+            }
         }
     }
     

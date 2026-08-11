@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,15 +94,14 @@ public class TesoreriaReporteService {
         LocalDateTime hasta = ahora.plusDays(dias);
         List<Vencimiento> out = new ArrayList<>();
 
-        for (SolicitudPago sp : solicitudPagoRepository.findByEstadoIn(
-                Arrays.asList(SolicitudPagoEstado.PENDIENTE, SolicitudPagoEstado.PARCIAL))) {
+        for (SolicitudPago sp : solicitudPagoRepository.findByEstadoIn(SolicitudPagoEstado.DEUDA_ABIERTA)) {
             LocalDateTime f = sp.getFechaPagoPropuesta();
             if (f == null || f.isAfter(hasta)) continue;
             BigDecimal total = BigDecimal.valueOf(sp.getMontoTotal() != null ? sp.getMontoTotal() : 0.0);
             BigDecimal pagado = sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO;
             Vencimiento v = new Vencimiento();
             v.setTipo("CPP"); v.setReferenciaId(sp.getId());
-            v.setDescripcion("Solicitud #" + sp.getId() + (sp.getProveedor() != null ? "" : ""));
+            v.setDescripcion("Solicitud #" + sp.getId());
             v.setMonto(total.subtract(pagado)); v.setFecha(f);
             v.setDiasRestantes(ChronoUnit.DAYS.between(ahora.toLocalDate(), f.toLocalDate()));
             out.add(v);
@@ -132,8 +130,7 @@ public class TesoreriaReporteService {
     public Aging agingCpp() {
         LocalDateTime ahora = LocalDateTime.now();
         Aging a = new Aging();
-        for (SolicitudPago sp : solicitudPagoRepository.findByEstadoIn(
-                Arrays.asList(SolicitudPagoEstado.PENDIENTE, SolicitudPagoEstado.PARCIAL))) {
+        for (SolicitudPago sp : solicitudPagoRepository.findByEstadoIn(SolicitudPagoEstado.DEUDA_ABIERTA)) {
             BigDecimal total = BigDecimal.valueOf(sp.getMontoTotal() != null ? sp.getMontoTotal() : 0.0);
             BigDecimal pagado = sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO;
             BigDecimal saldo = total.subtract(pagado);

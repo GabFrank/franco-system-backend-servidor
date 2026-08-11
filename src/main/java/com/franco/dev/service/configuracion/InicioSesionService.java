@@ -63,6 +63,7 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         }
 
         cerrarOtrasSesionesActivasDelDispositivo(entity, now);
+        liberarTokenDeOtrasSesionesDelDispositivo(entity);
 
         if (entity.getHoraFin() != null) {
             entity.setToken(null);
@@ -87,22 +88,16 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
     }
 
     /**
-     * El dispositivo pertenece al ultimo que inicio sesion en el: al abrirse una
-     * sesion se cierran todas las demas de ese aparato, sean del mismo usuario o
-     * de otro.
-     *
-     * Antes solo se cerraban las del mismo usuario, asi que cuando otra persona
-     * entraba en la misma terminal la sesion anterior quedaba viva y su dueño
-     * seguia recibiendo las notificaciones ahi. La exclusividad del token tapaba
-     * el caso solo cuando el token FCM era identico; si habia rotado, las dos
-     * sesiones quedaban con token vivo.
+     * Cierra las sesiones previas del mismo usuario en ese aparato. Solo toca
+     * sesiones propias: cerrar la de otra persona es una decision del ciclo de
+     * vida de login/logout, no del ruteo de notificaciones.
      */
     void cerrarOtrasSesionesActivasDelDispositivo(InicioSesion entity, LocalDateTime now) {
         if (entity.getIdDispositivo() == null || entity.getUsuario() == null) {
             return;
         }
-        List<InicioSesion> sesionesPrevias = repository.findByIdDispositivoAndHoraFinIsNull(
-                entity.getIdDispositivo());
+        List<InicioSesion> sesionesPrevias = repository.findByUsuarioIdAndIdDispositivoAndHoraFinIsNull(
+                entity.getUsuario().getId(), entity.getIdDispositivo());
         for (InicioSesion previa : sesionesPrevias) {
             if (esLaMismaSesion(entity, previa)) {
                 continue;
@@ -110,6 +105,34 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             previa.setHoraFin(now);
             previa.setToken(null);
             repository.save(previa);
+        }
+    }
+
+    /**
+     * El push de un aparato va al ultimo que inicio sesion en el: al abrirse una
+     * sesion, las demas sesiones de ese dispositivo dejan de ser destino.
+     *
+     * Libera unicamente el token y NO toca hora_fin. Cerrarle la sesion a otra
+     * persona porque compartio la terminal seria un efecto lateral fuera del
+     * alcance de las notificaciones, y dejaria sesiones cerrandose solas.
+     *
+     * Hace falta ademas de liberarTokenDeOtrasSesiones porque aquella solo actua
+     * cuando el token FCM es identico. Si el token roto entre un login y otro,
+     * las dos sesiones del mismo aparato quedaban con token vivo y la persona
+     * anterior seguia recibiendo notificaciones ahi.
+     */
+    void liberarTokenDeOtrasSesionesDelDispositivo(InicioSesion entity) {
+        if (entity.getIdDispositivo() == null) {
+            return;
+        }
+        List<InicioSesion> sesionesDelDispositivo = repository.findByIdDispositivoAndHoraFinIsNull(
+                entity.getIdDispositivo());
+        for (InicioSesion otra : sesionesDelDispositivo) {
+            if (esLaMismaSesion(entity, otra) || otra.getToken() == null) {
+                continue;
+            }
+            otra.setToken(null);
+            repository.save(otra);
         }
     }
 

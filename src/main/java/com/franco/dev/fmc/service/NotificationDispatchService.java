@@ -117,10 +117,12 @@ public class NotificationDispatchService {
         return "[" + result.getErrorCode() + "] " + result.getMessage();
     }
 
-    private void handleResult(NotificacionEnvioLog target, Notificacion notificacion, DeliveryResult result) {
+    void handleResult(NotificacionEnvioLog target, Notificacion notificacion, DeliveryResult result) {
         LocalDateTime now = LocalDateTime.now();
         String detalle = detalleError(result);
         notificacion.setIntentosEnvio(Optional.ofNullable(notificacion.getIntentosEnvio()).orElse(0) + 1);
+        int intentosDelDestino = Optional.ofNullable(target.getIntentos()).orElse(0) + 1;
+        target.setIntentos(intentosDelDestino);
         switch (result.getOutcome()) {
             case SUCCESS:
                 target.setEstadoEnvio(EstadoEnvio.ENVIADO);
@@ -135,10 +137,13 @@ public class NotificationDispatchService {
                 inicioSesionService.clearToken(target.getTokenFcm());
                 break;
             case TRANSIENT_ERROR:
-                if (notificacion.getIntentosEnvio() >= maxAttempts) {
-                    target.setEstadoEnvio(EstadoEnvio.FALLO_ENVIO);
+                // El presupuesto es del destino, no de la notificacion: contarlo
+                // en la notificacion lo repartia entre todos sus tokens y dejaba
+                // a la mayoria sin ningun reintento real.
+                if (intentosDelDestino >= maxAttempts) {
+                    target.setEstadoEnvio(EstadoEnvio.CANCELADA);
                     target.setMensajeError(detalle);
-                    meter("notifications.failure.max-attempts");
+                    meter("notifications.cancelled.max-attempts");
                 } else {
                     target.setEstadoEnvio(EstadoEnvio.PENDIENTE);
                     target.setMensajeError(detalle);

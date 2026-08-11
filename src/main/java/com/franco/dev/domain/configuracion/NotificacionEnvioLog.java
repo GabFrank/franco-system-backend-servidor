@@ -37,6 +37,13 @@ public class NotificacionEnvioLog {
 
     @Column(name = "mensaje_error")
     private String mensajeError;
+
+    /**
+     * Intentos de envio de esta fila. Es por destino y no por notificacion:
+     * cada token agota su propio presupuesto de reintentos.
+     */
+    @Column(name = "intentos")
+    private Integer intentos;
     
     @Column(name = "fecha_envio")
     private LocalDateTime fechaEnvio;

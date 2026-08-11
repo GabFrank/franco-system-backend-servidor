@@ -106,8 +106,20 @@ public class NotificationDispatchService {
         });
     }
 
+    /**
+     * Antepone el codigo de FCM al mensaje. Sin el codigo, mensaje_error queda
+     * como texto libre y no hay forma de filtrar ni alertar por tipo de fallo.
+     */
+    private static String detalleError(DeliveryResult result) {
+        if (result.getErrorCode() == null) {
+            return result.getMessage();
+        }
+        return "[" + result.getErrorCode() + "] " + result.getMessage();
+    }
+
     private void handleResult(NotificacionEnvioLog target, Notificacion notificacion, DeliveryResult result) {
         LocalDateTime now = LocalDateTime.now();
+        String detalle = detalleError(result);
         notificacion.setIntentosEnvio(Optional.ofNullable(notificacion.getIntentosEnvio()).orElse(0) + 1);
         switch (result.getOutcome()) {
             case SUCCESS:
@@ -118,28 +130,28 @@ public class NotificationDispatchService {
                 break;
             case INVALID_TOKEN:
                 target.setEstadoEnvio(EstadoEnvio.FALLO_DESTINO);
-                target.setMensajeError(result.getMessage());
+                target.setMensajeError(detalle);
                 meter("notifications.invalid-token");
                 inicioSesionService.clearToken(target.getTokenFcm());
                 break;
             case TRANSIENT_ERROR:
                 if (notificacion.getIntentosEnvio() >= maxAttempts) {
                     target.setEstadoEnvio(EstadoEnvio.FALLO_ENVIO);
-                    target.setMensajeError(result.getMessage());
+                    target.setMensajeError(detalle);
                     meter("notifications.failure.max-attempts");
                 } else {
                     target.setEstadoEnvio(EstadoEnvio.PENDIENTE);
-                    target.setMensajeError(result.getMessage());
+                    target.setMensajeError(detalle);
                     meter("notifications.transient-error");
                 }
                 break;
             case FAILURE:
                 target.setEstadoEnvio(EstadoEnvio.FALLO_ENVIO);
-                target.setMensajeError(result.getMessage());
+                target.setMensajeError(detalle);
                 meter("notifications.failure");
                 break;
         }
-        notificacion.setUltimoError(result.getMessage());
+        notificacion.setUltimoError(detalle);
         if (EstadoEnvio.ENVIADO.equals(target.getEstadoEnvio())) {
             maybeFinalizeNotification(notificacion);
         }

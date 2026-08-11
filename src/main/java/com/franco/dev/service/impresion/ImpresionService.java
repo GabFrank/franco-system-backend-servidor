@@ -17,6 +17,7 @@ import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaDetalladoDto;
 import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
@@ -97,6 +98,8 @@ public class ImpresionService {
     private PrecioPorSucursalService precioPorSucursalService;
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private com.franco.dev.service.personas.FuncionarioService funcionarioService;
     @Autowired
     private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
 
@@ -968,6 +971,7 @@ public class ImpresionService {
         } else {
             try {
                 List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
+                String sucursalCliente = getSucursalDelCliente(cliente);
                 for (VentaCredito ti : ventaCreditoList) {
                     VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
                     Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
@@ -979,6 +983,7 @@ public class ImpresionService {
                     tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
                     tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
                     tiDto.setDireccionCliente(cliente.getPersona().getDireccion());
+                    tiDto.setSucursalCliente(sucursalCliente);
                     ventaCreditoItemDtoList.add(tiDto);
                 }
                 // file =
@@ -1136,6 +1141,7 @@ public class ImpresionService {
                 List<VentaCredito> ventaCreditoList = ventaCreditoMap.get(cliente.getId());
                 if (ventaCreditoList != null && !ventaCreditoList.isEmpty()) {
                     Double totalCliente = 0.0;
+                    String sucursalCliente = getSucursalDelCliente(cliente);
                     for (VentaCredito ti : ventaCreditoList) {
                         VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
                         Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
@@ -1147,6 +1153,7 @@ public class ImpresionService {
                         tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
                         tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
                         tiDto.setDireccionCliente(cliente.getPersona().getDireccion());
+                        tiDto.setSucursalCliente(sucursalCliente);
                         ventaCreditoItemDtoList.add(tiDto);
                         totalCliente += ti.getValorTotal();
                         totalGeneral += ti.getValorTotal();
@@ -1345,6 +1352,21 @@ public class ImpresionService {
         private Double precio;
     }
 
+    /**
+     * Nombre de la sucursal a la que pertenece el cliente. La mayoria de las
+     * ventas a credito son de funcionarios, asi que la sucursal se toma de su
+     * ficha en personas.funcionario (sucursal_id), buscada por la persona del
+     * cliente. Un cliente que no es funcionario no tiene sucursal: devuelve "".
+     */
+    private String getSucursalDelCliente(Cliente cliente) {
+        if (cliente == null || cliente.getPersona() == null || cliente.getPersona().getId() == null)
+            return "";
+        Funcionario funcionario = funcionarioService.findByPersonaId(cliente.getPersona().getId());
+        if (funcionario == null || funcionario.getSucursal() == null)
+            return "";
+        return sucursalService.findById(funcionario.getSucursal().getId()).map(Sucursal::getNombre).orElse("");
+    }
+
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
@@ -1357,6 +1379,7 @@ public class ImpresionService {
         private String nombreCliente;
         private String documentoCliente;
         private String direccionCliente;
+        private String sucursalCliente;
     }
 
     @Data
@@ -1590,6 +1613,8 @@ public class ImpresionService {
             Double totalConvenio,
             Double totalTransferencia,
             Double totalOtros,
+            Double totalDescuentos,
+            Double totalCanceladas,
             Usuario usuario) {
         try {
             ClassPathResource resource = new ClassPathResource("reports/reporte-ventas.jrxml");
@@ -1614,6 +1639,8 @@ public class ImpresionService {
             parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
             parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
             parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalDescuentos", totalDescuentos != null ? totalDescuentos : 0.0);
+            parameters.put("totalCanceladas", totalCanceladas != null ? totalCanceladas : 0.0);
             parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
             parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
             parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);
@@ -1652,6 +1679,8 @@ public class ImpresionService {
             Double totalConvenio,
             Double totalTransferencia,
             Double totalOtros,
+            Double totalDescuentos,
+            Double totalCanceladas,
             Usuario usuario) {
         try {
             JasperReport jasperReport = compileReportFromClasspath("reports/reporte-ventas-detallado.jrxml");
@@ -1674,6 +1703,8 @@ public class ImpresionService {
             parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
             parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
             parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalDescuentos", totalDescuentos != null ? totalDescuentos : 0.0);
+            parameters.put("totalCanceladas", totalCanceladas != null ? totalCanceladas : 0.0);
             parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
             parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
             parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);

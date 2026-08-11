@@ -69,6 +69,7 @@ public class Cliente implements Identifiable<Long> {
 
     private Boolean tributa;
     private Boolean verificadoSet;
+    private Boolean activo;
 }
 
 

@@ -70,6 +70,9 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     
     @Autowired
     private MovimientoStockService movimientoStockService;
+
+    @Autowired
+    private MovimientoStockLoteService movimientoStockLoteService;
     
     @Autowired
     private CostosPorProductoService costoPorProductoService;
@@ -301,8 +304,16 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         
         // Note: MovimientoStock doesn't have precioUnitario, vencimiento, lote, or observacion fields
         // These would need to be stored in a separate related entity if needed
-        
-        movimientoStockService.save(movimiento);
+
+        MovimientoStock movimientoGuardado = movimientoStockService.save(movimiento);
+
+        // Desglose por lote (ledger hijo). Solo para productos marcados con control de lote:
+        // el resto del flujo queda exactamente igual que antes.
+        // La reversión no necesita código: la FK (movimiento_stock_id, sucursal_id) tiene
+        // ON DELETE CASCADE, así que al borrarse este movimiento el desglose se elimina solo.
+        if (item.getProducto() != null && Boolean.TRUE.equals(item.getProducto().getLote())) {
+            movimientoStockLoteService.registrarEntradaCompra(item, movimientoGuardado);
+        }
     }
 
     /**

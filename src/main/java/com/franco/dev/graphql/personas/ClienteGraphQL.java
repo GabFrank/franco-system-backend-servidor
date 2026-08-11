@@ -96,6 +96,12 @@ public class ClienteGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         Boolean modifPersona = false;
         ModelMapper m = new ModelMapper();
         Cliente e = m.map(input, Cliente.class);
+        if (input.getActivo() == null) {
+            // caller no envió 'activo': preservar el valor actual (o true si es nuevo)
+            e.setActivo(input.getId() != null
+                    ? service.findById(input.getId()).map(Cliente::getActivo).orElse(true)
+                    : true);
+        }
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getSucursalId() != null)

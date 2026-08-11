@@ -61,6 +61,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.sucursal_id = :sucId " +
                         "AND g.activo = true " +
+                        "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY tg.descripcion " +
                         "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
         List<Object[]> gastosPorCategoria(
@@ -74,6 +75,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "LEFT JOIN financiero.tipo_gasto tg ON g.tipo_gasto_id = tg.id " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.activo = true " +
+                        "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY tg.descripcion " +
                         "ORDER BY SUM(g.retiro_gs) DESC", nativeQuery = true)
         List<Object[]> gastosPorCategoriaSinSucursal(
@@ -86,6 +88,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.sucursal_id = :sucId " +
                         "AND g.activo = true " +
+                        "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY extract(month from g.creado_en) " +
                         "ORDER BY extract(month from g.creado_en)", nativeQuery = true)
         List<Object[]> gastosPorMes(@Param("inicio") LocalDateTime inicio,
@@ -96,6 +99,7 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
                         "FROM financiero.gasto g " +
                         "WHERE g.creado_en BETWEEN :inicio AND :fin " +
                         "AND g.activo = true " +
+                        "AND (g.cancelado IS NOT TRUE) " +
                         "GROUP BY extract(month from g.creado_en) " +
                         "ORDER BY extract(month from g.creado_en)", nativeQuery = true)
         List<Object[]> gastosPorMesSinSucursal(@Param("inicio") LocalDateTime inicio,

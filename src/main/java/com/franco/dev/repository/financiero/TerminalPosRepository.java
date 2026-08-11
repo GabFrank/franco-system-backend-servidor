@@ -35,5 +35,7 @@ public interface TerminalPosRepository extends HelperRepository<TerminalPos, Lon
 
     TerminalPos findByCodigoIgnoreCase(String codigo);
 
+    Long countByProveedorServicioId(Long proveedorServicioId);
+
     Page<TerminalPos> findAll(Pageable pageable);
 }

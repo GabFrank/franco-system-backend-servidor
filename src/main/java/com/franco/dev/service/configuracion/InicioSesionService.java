@@ -181,18 +181,19 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
     }
 
     /**
-     * Deja un solo destino push por usuario (sesión más reciente) y deduplica
-     * tokens huérfanos sin usuario asociado.
+     * Deja un solo destino push por dispositivo del usuario (sesión más reciente)
+     * y deduplica tokens huérfanos sin usuario asociado. Un usuario con varios
+     * dispositivos activos recibe la notificación en todos.
      */
     private List<InicioSesion> deduplicarSesionesParaEnvio(List<InicioSesion> sesiones) {
-        Set<Long> usuariosVistos = new LinkedHashSet<>();
+        Set<String> destinosVistos = new LinkedHashSet<>();
         Set<String> tokensHuerfanos = new LinkedHashSet<>();
         List<InicioSesion> resultado = new ArrayList<>();
         for (InicioSesion sesion : sesiones) {
             Long usuarioId = sesion.getUsuario() != null ? sesion.getUsuario().getId() : null;
             String token = sesion.getToken();
             if (usuarioId != null) {
-                if (usuariosVistos.add(usuarioId)) {
+                if (destinosVistos.add(usuarioId + "|" + claveDispositivo(sesion))) {
                     resultado.add(sesion);
                 }
             } else if (token != null && tokensHuerfanos.add(token)) {
@@ -200,6 +201,23 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             }
         }
         return resultado;
+    }
+
+    /**
+     * Identifica el dispositivo destino. Sin id_dispositivo el token es lo único
+     * que distingue un aparato de otro, y si tampoco hay token se cae a la sesión
+     * para no colapsar destinos distintos.
+     */
+    private String claveDispositivo(InicioSesion sesion) {
+        String idDispositivo = sesion.getIdDispositivo();
+        if (idDispositivo != null && !idDispositivo.trim().isEmpty()) {
+            return "d:" + idDispositivo.trim();
+        }
+        String token = sesion.getToken();
+        if (token != null && !token.trim().isEmpty()) {
+            return "t:" + token.trim();
+        }
+        return "s:" + sesion.getId();
     }
 
     @org.springframework.transaction.annotation.Transactional

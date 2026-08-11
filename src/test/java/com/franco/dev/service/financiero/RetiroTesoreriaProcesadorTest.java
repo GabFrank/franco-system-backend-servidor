@@ -35,7 +35,10 @@ class RetiroTesoreriaProcesadorTest {
         retiroDetalleService = mock(RetiroDetalleService.class);
         cajaVirtualService = mock(CajaVirtualService.class);
         tesoreriaService = mock(TesoreriaService.class);
-        procesador = new RetiroTesoreriaProcesador(retiroRepository, retiroDetalleService, cajaVirtualService, tesoreriaService);
+        com.franco.dev.service.empresarial.SucursalService sucursalService =
+                mock(com.franco.dev.service.empresarial.SucursalService.class);
+        procesador = new RetiroTesoreriaProcesador(retiroRepository, retiroDetalleService, cajaVirtualService,
+                tesoreriaService, sucursalService);
 
         caja = new CajaVirtual(); caja.setId(5L);
         gs = new Moneda(); gs.setId(10L); gs.setDenominacion("GUARANIES");
@@ -64,7 +67,7 @@ class RetiroTesoreriaProcesadorTest {
         when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
         when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Arrays.asList(detalle(100000), detalle(50000)));
 
-        assertTrue(procesador.procesar(1L, 2L));
+        assertTrue(procesador.procesar(1L, 2L, null));
 
         ArgumentCaptor<MovimientoCajaVirtual> cap = ArgumentCaptor.forClass(MovimientoCajaVirtual.class);
         verify(tesoreriaService).registrar(cap.capture());
@@ -78,7 +81,7 @@ class RetiroTesoreriaProcesadorTest {
     void ya_procesado_no_reingresa() {
         Retiro r = retiro(777L);
         when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
-        assertFalse(procesador.procesar(1L, 2L));
+        assertFalse(procesador.procesar(1L, 2L, null));
         verify(tesoreriaService, never()).registrar(any());
     }
 
@@ -87,7 +90,7 @@ class RetiroTesoreriaProcesadorTest {
         Retiro r = retiro(null);
         when(retiroRepository.findByIdAndSucursalId(1L, 2L)).thenReturn(r);
         when(retiroDetalleService.findByRetiroId(1L, 2L)).thenReturn(Collections.emptyList());
-        assertTrue(procesador.procesar(1L, 2L));
+        assertTrue(procesador.procesar(1L, 2L, null));
         verify(tesoreriaService, never()).registrar(any());
         assertEquals(-1L, r.getMovimientoCajaVirtualId());
     }

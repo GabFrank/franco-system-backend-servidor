@@ -1,6 +1,7 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.repository.operaciones.InventarioProductoItemRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.configuraciones.ModificacionService;
@@ -21,6 +22,11 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class InventarioProductoItemService
         extends CrudService<InventarioProductoItem, InventarioProductoItemRepository, Long> {
+
+    private static final int DIAS_POR_VENCER_DEFAULT = 30;
+    /** Bordes del rango de vencimiento cuando el usuario deja un extremo vacio. */
+    private static final LocalDateTime RANGO_VENCIMIENTO_MIN = LocalDateTime.of(1900, 1, 1, 0, 0);
+    private static final LocalDateTime RANGO_VENCIMIENTO_MAX = LocalDateTime.of(9999, 12, 31, 23, 59, 59);
 
     private final InventarioProductoItemRepository repository;
 
@@ -74,7 +80,16 @@ public class InventarioProductoItemService
             @Nullable List<Long> usuarioIdList,
             @Nullable List<Long> productoIdList,
             @Nullable String estado,
+            @Nullable String vencimientoFiltro,
+            @Nullable Integer diasPorVencer,
+            @Nullable LocalDateTime vencimientoDesde,
+            @Nullable LocalDateTime vencimientoHasta,
             Pageable pageable) {
+
+        LocalDateTime ahora = LocalDateTime.now();
+        int dias = diasPorVencer != null && diasPorVencer > 0 ? diasPorVencer : DIAS_POR_VENCER_DEFAULT;
+        boolean filtrarRango = vencimientoDesde != null || vencimientoHasta != null;
+
         return repository.findAllWithFilters(
                 toLongList(sucursalIdList),
                 toLongList(sectorIdList),
@@ -84,7 +99,27 @@ public class InventarioProductoItemService
                 toLongList(usuarioIdList),
                 toLongList(productoIdList),
                 estado,
+                normalizarVencimientoFiltro(vencimientoFiltro),
+                ahora,
+                ahora.plusDays(dias),
+                filtrarRango,
+                vencimientoDesde != null ? vencimientoDesde : RANGO_VENCIMIENTO_MIN,
+                vencimientoHasta != null ? vencimientoHasta : RANGO_VENCIMIENTO_MAX,
+                InventarioProductoEstado.VENCIDO,
                 pageable);
+    }
+
+    /**
+     * "TODOS" y el vacio son lo mismo que no filtrar: se normalizan a null para que
+     * la query saltee el predicado.
+     */
+    @Nullable
+    private String normalizarVencimientoFiltro(@Nullable String vencimientoFiltro) {
+        if (vencimientoFiltro == null || vencimientoFiltro.trim().isEmpty()
+                || "TODOS".equalsIgnoreCase(vencimientoFiltro.trim())) {
+            return null;
+        }
+        return vencimientoFiltro.trim().toUpperCase();
     }
 
     public Page<InventarioProductoItem> findProductosVencidos(

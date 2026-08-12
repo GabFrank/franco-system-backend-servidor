@@ -16,6 +16,7 @@ import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.ProductosVencidosService;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.PresentacionService;
 import com.franco.dev.service.productos.ProductoService;
@@ -81,8 +82,14 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     @Autowired
     private ProductoService productoService;
 
+    @Autowired
+    private ImpresionService impresionService;
+
     private static final int DEFAULT_PAGE_SIZE = 50;
     private static final String DEFAULT_SORT_FIELD = "vencimiento";
+
+    /** Tope de filas del PDF de productos vencidos, para no traer todo a memoria. */
+    private static final int LIMITE_REPORTE_VENCIDOS = 5000;
 
     public Optional<InventarioProductoItem> inventarioProductoItem(Long id) {
         return service.findById(id);
@@ -459,6 +466,87 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 fuenteVerdadNombres,
                 soloRealmenteVencidos,
                 pageable);
+    }
+
+    /**
+     * PDF del listado de productos vencidos, con los mismos filtros que la
+     * pantalla pero sin paginar: el reporte trae todo lo que matchea, no la
+     * pagina visible. Devuelve el PDF en base64, o null si el filtro no dio
+     * resultados (el front avisa al usuario en ese caso).
+     */
+    public String reporteProductosVencidos(
+            @Nullable String startDate,
+            @Nullable String endDate,
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
+            @Nullable List<FuenteVerdadVencimiento> fuenteVerdadList,
+            @Nullable Boolean soloRealmenteVencidos,
+            @Nullable Long usuarioResponsableId) {
+
+        List<String> fuenteVerdadNombres = fuenteVerdadList == null ? null
+                : fuenteVerdadList.stream().map(FuenteVerdadVencimiento::name).collect(Collectors.toList());
+
+        // Se pide una fila mas que el tope para saber si quedo truncado, sin pagar un
+        // COUNT aparte sobre una consulta que ya es cara.
+        List<ProductoVencidoViewDTO> vencidoList = productosVencidosService.listarProductosVencidosParaReporte(
+                stringToDate(startDate),
+                stringToDate(endDate),
+                sucursalIdList,
+                sectorIdList,
+                zonaIdList,
+                usuarioIdList,
+                productoIdList,
+                fuenteVerdadNombres,
+                soloRealmenteVencidos,
+                LIMITE_REPORTE_VENCIDOS + 1);
+
+        if (vencidoList.isEmpty()) {
+            return null;
+        }
+
+        String aviso = "";
+        if (vencidoList.size() > LIMITE_REPORTE_VENCIDOS) {
+            vencidoList = new ArrayList<>(vencidoList.subList(0, LIMITE_REPORTE_VENCIDOS));
+            aviso = "Resultado truncado: se muestran los primeros " + LIMITE_REPORTE_VENCIDOS + " registros";
+        }
+
+        com.franco.dev.domain.personas.Usuario responsable = usuarioResponsableId != null
+                ? usuarioService.findById(usuarioResponsableId).orElse(null)
+                : null;
+
+        return impresionService.imprimirProductosVencidos(
+                vencidoList,
+                fechaLegible(startDate),
+                fechaLegible(endDate),
+                fuenteVerdadNombres != null && !fuenteVerdadNombres.isEmpty()
+                        ? String.join(", ", fuenteVerdadNombres)
+                        : "TODAS",
+                nombresDeSucursales(sucursalIdList),
+                nombresDeProductos(productoIdList),
+                nombresDeUsuarios(usuarioIdList),
+                aviso,
+                responsable);
+    }
+
+    /**
+     * Las fechas llegan del front como "yyyy-MM-dd HH:mm"; para la cabecera del
+     * reporte se muestran en el formato legible del sistema.
+     */
+    private String fechaLegible(@Nullable String fecha) {
+        LocalDateTime parsed = stringToDate(fecha);
+        return parsed != null ? DateUtils.toString(parsed) : "-";
+    }
+
+    /**
+     * Idem {@link #nombresDeSucursales}, usando el nickname del usuario.
+     */
+    private String nombresDeUsuarios(@Nullable List<?> usuarioIdList) {
+        return nombresDeFiltro(usuarioIdList,
+                id -> usuarioService.findById(id).map(com.franco.dev.domain.personas.Usuario::getNickname)
+                        .orElse(null));
     }
 
     public Page<InventarioProductoItem> productosVencidosPorSucursal(

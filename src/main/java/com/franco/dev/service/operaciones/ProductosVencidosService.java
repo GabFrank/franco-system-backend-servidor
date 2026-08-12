@@ -75,6 +75,46 @@ public class ProductosVencidosService {
         return new PageImpl<>(content, pageable, total);
     }
 
+    /**
+     * Version sin paginar de {@link #buscarProductosVencidos}, usada por el PDF.
+     * El reporte agrupa por sucursal, asi que el dataset sale ordenado por
+     * sucursal y recien despues por vencimiento (del mas vencido al menos).
+     *
+     * El limite es un tope de seguridad: un filtro amplio podria traer cientos de
+     * miles de filas a memoria. Quien llama pide limite+1 y, si recibe esa
+     * cantidad, sabe que el resultado quedo truncado.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductoVencidoViewDTO> listarProductosVencidosParaReporte(
+            @Nullable LocalDateTime startDate,
+            @Nullable LocalDateTime endDate,
+            @Nullable List<Long> sucursalIdList,
+            @Nullable List<Long> sectorIdList,
+            @Nullable List<Long> zonaIdList,
+            @Nullable List<Long> usuarioIdList,
+            @Nullable List<Long> productoIdList,
+            @Nullable List<String> fuenteVerdadList,
+            @Nullable Boolean soloRealmenteVencidos,
+            int limite) {
+
+        FiltrosProductosVencidos filtros = new FiltrosProductosVencidos(
+                startDate, endDate, sucursalIdList, sectorIdList, zonaIdList, usuarioIdList, productoIdList,
+                fuenteVerdadList, soloRealmenteVencidos);
+
+        String sql = construirSqlBase(filtros) + " ORDER BY sucursal_nombre ASC, vencimiento ASC LIMIT :limite";
+        Query dataQuery = entityManager.createNativeQuery(sql);
+        aplicarParametros(dataQuery, filtros.parametros());
+        dataQuery.setParameter("limite", limite);
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = dataQuery.getResultList();
+        List<ProductoVencidoViewDTO> content = new ArrayList<>();
+        for (Object[] row : rows) {
+            content.add(enriquecer(mapearFila(row)));
+        }
+        return content;
+    }
+
     private String construirSqlBase(FiltrosProductosVencidos filtros) {
         return ""
                 + "WITH ultimo_inv AS ( "

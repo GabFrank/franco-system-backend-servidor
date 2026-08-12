@@ -3,6 +3,7 @@ package com.franco.dev.domain.personas;
 import com.franco.dev.config.Identifiable;
 import com.franco.dev.domain.empresarial.Cargo;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.Moneda;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -81,4 +82,40 @@ public class Funcionario implements Identifiable<Long> {
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "horario_id", nullable = true)
         private com.franco.dev.domain.administrativo.Horario horario;
+
+        // --- RRHH Fase 0: columnas aditivas (todas nullable) ---
+
+        @Column(name = "fecha_egreso")
+        private LocalDateTime fechaEgreso;
+
+        @Column(name = "motivo_egreso")
+        private String motivoEgreso;
+
+        @Column(name = "codigo_interno")
+        private String codigoInterno;
+
+        @Column(name = "ips_activo")
+        private Boolean ipsActivo;
+
+        @Column(name = "numero_ips")
+        private String numeroIps;
+
+        @Column(name = "valor_jornal")
+        private Double valorJornal;
+
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "moneda_id", nullable = true)
+        private Moneda moneda;
+
+        @Column(name = "cuenta_bancaria")
+        private String cuentaBancaria;
+
+        @Column(name = "fecha_ingreso_ips")
+        private java.time.LocalDate fechaIngresoIps;
+
+        @Column(name = "contacto_emergencia_nombre")
+        private String contactoEmergenciaNombre;
+
+        @Column(name = "contacto_emergencia_telefono")
+        private String contactoEmergenciaTelefono;
 }

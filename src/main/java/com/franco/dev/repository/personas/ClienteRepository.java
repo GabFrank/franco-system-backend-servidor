@@ -5,9 +5,13 @@ import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 
 public interface ClienteRepository extends HelperRepository<Cliente, Long> {
 
@@ -16,6 +20,11 @@ public interface ClienteRepository extends HelperRepository<Cliente, Long> {
     }
 
     Cliente findByPersonaId(Long id);
+
+    /** Toma el cliente con lock pesimista para mutar su saldo de cuenta corriente. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select c from Cliente c where c.id = :id")
+    Optional<Cliente> lockById(@Param("id") Long id);
 
     @Query("select c from Cliente c " +
             "left join c.persona per " +

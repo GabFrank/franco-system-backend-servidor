@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="resumen-ips" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e01">
+	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="periodo" class="java.lang.String"/>
+	<parameter name="fecha" class="java.lang.String"/>
+	<parameter name="porcentajeFuncionario" class="java.lang.String"/>
+	<parameter name="porcentajePatronal" class="java.lang.String"/>
+	<parameter name="totalFuncionario" class="java.lang.String"/>
+	<parameter name="totalPatronal" class="java.lang.String"/>
+	<field name="funcionario" class="java.lang.String"/>
+	<field name="salarioBase" class="java.lang.String"/>
+	<field name="ipsFuncionario" class="java.lang.String"/>
+	<field name="ipsPatronal" class="java.lang.String"/>
+	<title>
+		<band height="66" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="20" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e02"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="12" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="0" y="22" width="555" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e03"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<text><![CDATA[RESUMEN IPS]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="0" y="44" width="360" height="16" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e04"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Periodo: " + ($P{periodo} != null ? $P{periodo} : "") + "   Aporte funcionario: " + ($P{porcentajeFuncionario} != null ? $P{porcentajeFuncionario} : "") + "%   Patronal: " + ($P{porcentajePatronal} != null ? $P{porcentajePatronal} : "") + "%"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="360" y="44" width="195" height="16" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e05"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA["Fecha: " + ($P{fecha} != null ? $P{fecha} : "")]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="20" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="0" width="205" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e06"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[FUNCIONARIO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="205" y="0" width="115" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e07"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[SALARIO BASE]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="320" y="0" width="115" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e08"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[IPS FUNCIONARIO]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="435" y="0" width="120" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e09"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[IPS PATRONAL]]></text>
+			</staticText>
+			<line><reportElement x="0" y="18" width="555" height="1" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e0a"/></line>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="16" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="205" height="15" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e0b"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[$F{funcionario} != null ? $F{funcionario} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="205" y="0" width="115" height="15" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e0c"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[$F{salarioBase} != null ? $F{salarioBase} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="320" y="0" width="115" height="15" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e0d"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[$F{ipsFuncionario} != null ? $F{ipsFuncionario} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="435" y="0" width="120" height="15" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e0e"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[$F{ipsPatronal} != null ? $F{ipsPatronal} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="40" splitType="Stretch">
+			<line><reportElement x="0" y="4" width="555" height="1" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e0f"/></line>
+			<staticText>
+				<reportElement x="0" y="10" width="205" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e10"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<text><![CDATA[TOTALES]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="320" y="10" width="115" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e11"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{totalFuncionario} != null ? $P{totalFuncionario} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="435" y="10" width="120" height="18" uuid="c1d2e3f4-a5b6-4c7d-8e9f-2a3b4c5d6e12"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{totalPatronal} != null ? $P{totalPatronal} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

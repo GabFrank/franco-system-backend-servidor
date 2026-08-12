@@ -1,0 +1,26 @@
+type MotivoAveria {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    generaGasto: Boolean
+    aplicaProveedor: Boolean
+}
+
+input MotivoAveriaInput {
+    id: ID
+    descripcion: String
+    activo: Boolean
+    generaGasto: Boolean
+    aplicaProveedor: Boolean
+}
+
+extend type Query {
+    motivoAveria(id: ID!): MotivoAveria
+    motivosAveria: [MotivoAveria]
+    motivosAveriaActivos: [MotivoAveria]
+}
+
+extend type Mutation {
+    saveMotivoAveria(entity: MotivoAveriaInput!): MotivoAveria!
+    deleteMotivoAveria(id: ID!): Boolean!
+}

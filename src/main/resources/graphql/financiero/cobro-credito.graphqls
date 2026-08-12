@@ -1,0 +1,28 @@
+type MovimientoCliente {
+    id: ID!
+    tipo: String
+    monto: Float
+    saldoAnterior: Float
+    saldoPosterior: Float
+    ventaCreditoId: Int
+    ventaCreditoCuotaId: Int
+    descripcion: String
+    anulado: Boolean
+    creadoEn: Date
+}
+
+type MovimientoClientePage {
+    getTotalElements: Int
+    getContent: [MovimientoCliente]
+}
+
+extend type Query {
+    movimientosCliente(clienteId: ID!, page: Int = 0, size: Int = 10): MovimientoClientePage
+}
+
+extend type Mutation {
+    cobrarCuotaCreditoBanco(
+        cuotaId: ID!, sucursalId: Int!, montoCobrar: Float!,
+        cuentaBancariaId: Int!, montoBanco: Float, cotizacion: Float
+    ): VentaCreditoCuota!
+}

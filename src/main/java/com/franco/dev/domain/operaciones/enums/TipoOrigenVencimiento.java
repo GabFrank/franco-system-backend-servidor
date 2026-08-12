@@ -4,6 +4,7 @@ public enum TipoOrigenVencimiento {
     RECEPCION_MERCADERIA,
     AJUSTE_STOCK,
     VENTA,
-    TRANSFERENCIA
+    TRANSFERENCIA,
+    DEVOLUCION_CANJE
 }
 

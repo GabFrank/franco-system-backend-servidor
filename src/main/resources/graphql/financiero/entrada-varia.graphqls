@@ -1,0 +1,65 @@
+type EntradaVariaCategoria {
+    id: ID!
+    nombre: String
+    padre: EntradaVariaCategoria
+    icono: String
+    activo: Boolean
+    creadoEn: Date
+}
+
+input EntradaVariaCategoriaInput {
+    id: ID
+    nombre: String
+    padreId: Int
+    icono: String
+    activo: Boolean
+}
+
+type EntradaVaria {
+    id: ID!
+    descripcion: String
+    monto: Float
+    esIngreso: Boolean
+    cajaVirtual: CajaVirtual
+    moneda: Moneda
+    categoria: EntradaVariaCategoria
+    formaPago: FormaPago
+    numeroComprobante: String
+    movimientoCajaVirtualId: Int
+    usuario: Usuario
+    anulado: Boolean
+    creadoEn: Date
+}
+
+input EntradaVariaInput {
+    descripcion: String
+    monto: Float!
+    esIngreso: Boolean!
+    cajaVirtualId: Int!
+    monedaId: Int
+    categoriaId: Int
+    formaPagoId: Int
+    numeroComprobante: String
+}
+
+type EntradaVariaPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [EntradaVaria]
+}
+
+extend type Query {
+    entradaVariaCategorias: [EntradaVariaCategoria]
+    entradasVarias(cajaVirtualId: ID!, page: Int = 0, size: Int = 10): EntradaVariaPage
+}
+
+extend type Mutation {
+    saveEntradaVariaCategoria(input: EntradaVariaCategoriaInput!): EntradaVariaCategoria!
+    registrarEntradaVaria(input: EntradaVariaInput!): EntradaVaria!
+    anularEntradaVaria(id: ID!, motivo: String): EntradaVaria!
+}

@@ -1,3 +1,5 @@
+enum EstadoCheque { EMITIDO DIFERIDO COBRADO ANULADO }
+
 type Cheque {
     id: ID!
     chequera: Chequera
@@ -9,7 +11,14 @@ type Cheque {
     concepto: String
     diferido: Boolean
     total: Float
+    beneficiario: String
+    nominal: Boolean
     firmante: Persona
+    estado: EstadoCheque
+    moneda: Moneda
+    cuentaBancaria: CuentaBancaria
+    fechaCobro: Date
+    motivoAnulacion: String
     creadoEn: Date
     usuario: Usuario
 }
@@ -53,4 +62,26 @@ extend type Query {
 extend type Mutation {
     saveCheque(entity: ChequeInput!): Cheque!
     deleteCheque(id: ID!): Boolean!
-} 
+}
+
+# ── Dashboard de cheques (todo por fecha de pago) ──
+type ChequeResumenDia {
+    fecha: String
+    total: Float
+    cantidad: Int
+}
+
+type ChequeSaldoChequera {
+    chequera: Chequera
+    cuentaBancaria: CuentaBancaria
+    pendienteHastaFecha: Float
+    saldoCuenta: Float
+    saldoReservado: Float
+    hojasDisponibles: Int
+}
+
+extend type Query {
+    chequesDashboard(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque): [Cheque]
+    chequesResumenPorDia(desde: String!, hasta: String!, cuentaBancariaId: ID, chequeraId: ID, estado: EstadoCheque): [ChequeResumenDia]
+    chequesSaldosPorChequera(hasta: String!, estado: EstadoCheque): [ChequeSaldoChequera]
+}

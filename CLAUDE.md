@@ -84,7 +84,7 @@ Una migracion mal hecha puede dejar el sistema inoperativo. **El rollback automa
 
 **Eliminar o renombrar columnas:** estrategia de 2 versiones. Version N: crear columna nueva, codigo deja de usar la vieja. Version N+1 (solo cuando N esta estable en produccion): eliminar la vieja.
 
-**Naming:** `V{numero}__{descripcion_con_underscores}.sql`. Numeracion secuencial y unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo VXX (no crear una nueva para arreglar la anterior).
+**Naming:** `V{numero}.5__{descripcion_con_underscores}.sql`. **Usar sufijo `.5` en migraciones nuevas** (ej. `V176.5__...`), **nunca `.0` ni entero pelado**: Flyway normaliza el `.0` (`V176` == `V176.0`), asi que un `V176.0` de una rama colisiona con un `V176` de otra al mergear (paso al integrar develop: `V151` vs `V151.0`). El `.5` no se normaliza y slotea entre los enteros de develop (out-of-order lo soporta). Numeracion unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo (no crear una nueva para arreglar la anterior). Detalle: [../../frc-cicd/guia-desarrollo-cicd.md](../../frc-cicd/guia-desarrollo-cicd.md) §5.
 
 ## Overrides locales: NO tocar `application-dev.properties`
 
@@ -111,6 +111,25 @@ La clase `com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor` (regi
 - **Google Drive:** Upload/storage de imagenes
 - **Reportes:** JasperReports 6.20.0, iTextPDF, Apache POI, ZXing (QR/barcode)
 - **Async:** `@EnableAsync` + `@EnableScheduling`
+
+## Reportes (JasperReports) -- reglas de plantillas `.jrxml`
+
+Las plantillas viven en `src/main/resources/reports/*.jrxml` y se compilan **en runtime** (`JasperCompileManager.compileReport` en el request), por lo que un error de plantilla NO se ve en el build ni en CI: revienta recien al generar el reporte en produccion. Cuidados:
+
+### Fuentes: NUNCA introducir una fuente nueva
+
+Un `.jrxml` que referencia una fuente **no instalada en el servidor** falla (o cae a un fallback impredecible) al generar el PDF en produccion. Reglas:
+
+1. **Usar solo fuentes ya en uso en el repo.** Hoy son dos: `SansSerif` y `Verdana` (ver `grep -rhoE 'fontName="[^"]*"' src/main/resources/reports/*.jrxml`).
+2. **Preferir `fontName="SansSerif"`** para plantillas nuevas: es una fuente **logica de Java** (la JVM siempre la mapea a una fisica disponible), asi que **no depende de nada instalado en el server** -- cero riesgo. `Verdana` es fisica: se usa, pero solo replicarla en un reporte que ya la use.
+3. **Siempre setear `fontName` explicito** en cada `<font>` (no dejarlo implicito). El default de Jasper es `SansSerif`, pero explicitarlo evita sorpresas.
+4. **No usar font extensions** (jars de fuentes embebidas) salvo que ya exista una en el classpath y este desplegada en todos los servers.
+5. Si un requerimiento pide una tipografia especifica que no esta en la lista, **avisar al lider tecnico ANTES**: hay que instalarla en todos los servidores (alpha/beta/prod) antes de desplegar el reporte, o embeberla como font extension coordinadamente.
+
+### Otros cuidados de `.jrxml`
+
+- **Validar la plantilla localmente** compilando + haciendo `fillReport` con datos dummy antes de pushear (el build no la valida). Patron de referencia: `service/rrhh/ReciboLiquidacionService` y `graphql/.../imprimirReporteMarcaciones`.
+- El export a PDF usa **iText** (`com.lowagie`): ya es dependencia, no agregar otra libreria de PDF.
 
 ## CI/CD
 

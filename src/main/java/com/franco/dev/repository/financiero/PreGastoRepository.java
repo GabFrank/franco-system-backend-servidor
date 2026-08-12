@@ -15,6 +15,9 @@ public interface PreGastoRepository extends HelperRepository<PreGasto, EmbebedPr
 
     PreGasto findByIdAndSucursalId(Long id, Long sucursalId);
 
+    /** PreGasto cuyo pago se hace vía esta SolicitudPago (para sincronizar estado al pagar/anular). */
+    PreGasto findBySolicitudPagoId(Long solicitudPagoId);
+
     default Class<PreGasto> getEntityClass() {
         return PreGasto.class;
     }

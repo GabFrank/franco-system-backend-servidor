@@ -368,6 +368,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         solicitud.setObservaciones(observaciones);
         solicitud.setUsuario(usuario);
         solicitud.setEstado(SolicitudPagoEstado.PENDIENTE);
+        solicitud.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.COMPRA);
 
         SolicitudPago solicitudGuardada = save(solicitud);
 
@@ -389,6 +390,32 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         }
         
         return solicitudGuardada;
+    }
+
+    /**
+     * Crea una SolicitudPago de tipo GASTO, lista para pagar (estado SOLICITADO). El proveedor
+     * (beneficiario) es opcional. Es la obligación de pago de un gasto (el documento del gasto
+     * vive en PreGasto). Reutiliza el mismo motor de pago que las compras.
+     */
+    @Transactional
+    public SolicitudPago crearSolicitudGasto(com.franco.dev.domain.personas.Proveedor beneficiario,
+                                             com.franco.dev.domain.financiero.TipoGasto categoria,
+                                             Moneda moneda, Double montoTotal, String observaciones,
+                                             java.time.LocalDateTime fechaVencimiento,
+                                             com.franco.dev.domain.personas.Usuario usuario) {
+        SolicitudPago solicitud = new SolicitudPago();
+        solicitud.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO);
+        solicitud.setTipoGasto(categoria);
+        solicitud.setProveedor(beneficiario); // puede ser null
+        solicitud.setMoneda(moneda);
+        solicitud.setMontoTotal(montoTotal);
+        solicitud.setObservaciones(observaciones);
+        solicitud.setFechaPagoPropuesta(fechaVencimiento);
+        solicitud.setUsuario(usuario);
+        // save() fuerza PENDIENTE en el alta; se re-marca SOLICITADO (lista para pagar directo).
+        SolicitudPago guardada = save(solicitud);
+        guardada.setEstado(SolicitudPagoEstado.SOLICITADO);
+        return save(guardada);
     }
 
     /**
@@ -431,7 +458,11 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
             if (!idsActuales.contains(notaId)) {
                 NotaRecepcion nota = notaRecepcionRepository.findById(notaId)
                     .orElseThrow(() -> new IllegalArgumentException("Nota no encontrada: " + notaId));
-                if (!nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
+                // Solicitudes de GASTO/RRHH no tienen proveedor: solo validar la coincidencia
+                // cuando ambos lados lo tienen (evita NPE con proveedor nullable).
+                if (solicitud.getProveedor() != null && nota.getPedido() != null
+                        && nota.getPedido().getProveedor() != null
+                        && !nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
                     throw new IllegalArgumentException("La nota debe pertenecer al mismo proveedor");
                 }
                 Double monto = calcularMontoNotaEnMoneda(nota, solicitud.getMoneda());
@@ -481,14 +512,22 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      * Validate state transitions
      */
     private boolean isValidStateTransition(SolicitudPagoEstado estadoActual, SolicitudPagoEstado nuevoEstado) {
-        // Define valid transitions
+        // Define valid transitions.
+        // PENDIENTE (borrador) → SOLICITADO (solicitar) o CANCELADO.
+        // SOLICITADO (validada) → PENDIENTE (reabrir), o pagos/cancelación.
         switch (estadoActual) {
             case PENDIENTE:
-                return nuevoEstado == SolicitudPagoEstado.PARCIAL || 
+                return nuevoEstado == SolicitudPagoEstado.SOLICITADO ||
+                       nuevoEstado == SolicitudPagoEstado.PARCIAL ||
+                       nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
+                       nuevoEstado == SolicitudPagoEstado.CANCELADO;
+            case SOLICITADO:
+                return nuevoEstado == SolicitudPagoEstado.PENDIENTE ||
+                       nuevoEstado == SolicitudPagoEstado.PARCIAL ||
                        nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case PARCIAL:
-                return nuevoEstado == SolicitudPagoEstado.CONCLUIDO || 
+                return nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case CONCLUIDO:
             case CANCELADO:
@@ -527,13 +566,33 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      * Mark all notas as paid when solicitud is paid
      */
     private void marcarNotasComoPagadas(Long solicitudId) {
-        List<SolicitudPagoNotaRecepcion> relaciones = 
+        List<SolicitudPagoNotaRecepcion> relaciones =
             solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudId);
-        
+
         for (SolicitudPagoNotaRecepcion relacion : relaciones) {
             NotaRecepcion nota = relacion.getNotaRecepcion();
             nota.setPagado(true);
             notaRecepcionRepository.save(nota);
+        }
+    }
+
+    /**
+     * Inverso de {@link #marcarNotasComoPagadas}: al anular un pago y reabrir la solicitud
+     * (CONCLUIDO → SOLICITADO/PARCIAL), las notas de recepción vuelven a estado no pagado.
+     * Idempotente: si la nota ya está en false, es un no-op. Público porque lo invoca
+     * PagoProveedorService desde el flujo de anulación de pago CPP.
+     */
+    @Transactional
+    public void desmarcarNotasComoPagadas(Long solicitudId) {
+        List<SolicitudPagoNotaRecepcion> relaciones =
+            solicitudPagoNotaRecepcionService.getNotasDeSolicitud(solicitudId);
+
+        for (SolicitudPagoNotaRecepcion relacion : relaciones) {
+            NotaRecepcion nota = relacion.getNotaRecepcion();
+            if (nota != null) {
+                nota.setPagado(false);
+                notaRecepcionRepository.save(nota);
+            }
         }
     }
     

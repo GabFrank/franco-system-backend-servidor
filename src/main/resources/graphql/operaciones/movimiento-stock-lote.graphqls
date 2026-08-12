@@ -222,6 +222,23 @@ extend type Query {
     # Lotes registrados de un producto, ordenados por FEFO. Incluye los bloqueados.
     lotesPorProducto(productoId: ID!): [Lote]
 
+    # Las tres cuentas del producto en una sucursal: existencia, atribuido a lotes reales y sin
+    # trazar. Es lo que la pantalla de ajuste muestra para que el operador vea el efecto de lo que
+    # esta por confirmar.
+    resumenStockLote(productoId: ID!, sucursalId: ID!): ResumenStockLote
+
+    # Buscador paginado de lotes de un producto, con el saldo de cada uno en la sucursal.
+    # A diferencia de buscarStockPorLote, parte del MAESTRO: incluye los lotes con saldo cero en esa
+    # sucursal, que son los que hacen falta para trazar mercaderia que ya estaba sin lote asignado.
+    # texto filtra por numero de lote, por coincidencia parcial.
+    buscarLotesDeProducto(
+        productoId: ID!
+        sucursalId: ID
+        texto: String
+        page: Int = 0
+        size: Int = 10
+    ): LoteDeProductoPage
+
     # Desglose por lote de un movimiento de stock agregado.
     movimientoStockLotePorMovimiento(movimientoStockId: ID!, sucursalId: ID!): [MovimientoStockLote]
 
@@ -255,4 +272,86 @@ extend type Mutation {
     # Cambia el estado de un lote. Es el mecanismo de recall: pasar a BLOQUEADO lo saca de FEFO y
     # del mostrador en todas las sucursales, sin tocar el stock fisico.
     cambiarEstadoLote(loteId: ID!, estado: EstadoLote!, observacion: String, usuarioId: ID): Lote
+
+    # Ajusta el stock de UN lote en UNA sucursal. Escribe el movimiento agregado y su desglose por
+    # lote en la misma transaccion, con lo que la existencia total y el stock por lote nunca quedan
+    # contando cosas distintas.
+    ajustarStockLote(input: AjusteStockLoteInput!): AjusteStockLoteResultado
+}
+
+# Que esta haciendo el operador. Decide si la existencia total cambia o no, y se elige de forma
+# explicita en la pantalla en vez de inferirse del saldo sin trazar.
+enum ModoAjusteLote {
+    # El stock ya estaba contado pero no atribuido a ningun lote. El total NO cambia: se mueve del
+    # bucket sin trazar al lote. El movimiento agregado que lo ancla va en cero.
+    ATRIBUIR
+    # La existencia estaba mal (rotura, faltante, mercaderia encontrada). El total SI cambia.
+    CORREGIR
+}
+
+input AjusteStockLoteInput {
+    productoId: ID!
+    sucursalId: ID!
+    modo: ModoAjusteLote!
+    # Cuantas unidades de ESE lote hay realmente, EN UNIDADES BASE. No es la diferencia: es el
+    # total contado. El backend saca la diferencia contra el saldo actual.
+    cantidadFinal: Float!
+    # Opcional. Si viene, queda en el registro de modificaciones junto con el ajuste.
+    motivo: String
+    usuarioId: ID
+    # Lote existente. Excluyente con numeroLote.
+    loteId: ID
+    # Numero del lote a resolver o crear. Es el unico camino de alta manual de lote del sistema.
+    numeroLote: String
+    # Solo al crear el lote. Formato yyyy-MM-dd.
+    fechaVencimiento: String
+    # Solo al crear el lote. Sin esto se deriva de los dias de vencimiento del producto.
+    fechaRetiro: String
+}
+
+# Un lote de un producto con el saldo que tiene en una sucursal. saldo es 0 cuando el lote nunca
+# entro ahi, y esos lotes se listan igual: son los que hacen falta para trazar mercaderia existente.
+type LoteDeProducto {
+    loteId: ID
+    numeroLote: String
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    estado: EstadoLote
+    saldo: Float
+    # Saldo del lote en toda la red. Distingue "aca no hay" de "no hay en ningun lado": con solo
+    # saldo por sucursal los dos casos se ven iguales, en cero.
+    saldoTotal: Float
+}
+
+type LoteDeProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LoteDeProducto]
+}
+
+# Las tres cuentas de un producto en una sucursal, en unidades base. sinTrazar se deriva
+# (existencia - enLotes) y puede ser negativo: eso es deuda de trazabilidad, no un error.
+type ResumenStockLote {
+    productoId: ID
+    sucursalId: ID
+    existencia: Float
+    enLotes: Float
+    sinTrazar: Float
+}
+
+type AjusteStockLoteResultado {
+    # Movimiento agregado que ancla el ajuste. En una atribucion su cantidad es 0.
+    movimientoStockId: ID
+    sucursalId: ID
+    loteId: ID
+    numeroLote: String
+    cantidadMovimiento: Float
+    # Saldo del lote en esa sucursal despues del ajuste.
+    saldoLote: Float
+    resumen: ResumenStockLote
 }

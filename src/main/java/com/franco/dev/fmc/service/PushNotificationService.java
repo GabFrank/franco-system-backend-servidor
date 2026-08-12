@@ -153,7 +153,7 @@ public class PushNotificationService {
 
                 if (usuarioId != null) {
                     if (!blockedUsers.contains(usuarioId)) {
-                        String dedupKey = "u:" + usuarioId;
+                        String dedupKey = "u:" + usuarioId + "|" + token;
                         if (token != null && dedup.add(dedupKey)) {
                             targets.add(new Target(usuarioId, token));
                         }

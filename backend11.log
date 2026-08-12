@@ -1,0 +1,422 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.franco.dev:franco-dev-systems >------------------
+[INFO] Building Franco Systems 3.0.9
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:2.7.18:run (default-cli) > test-compile @ franco-dev-systems >>>
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (auto-clean) @ franco-dev-systems ---
+[INFO] Deleting /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (default-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 468 resources
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (copy-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 468 resources
+[INFO] 
+[INFO] --- exec-maven-plugin:3.0.0:exec (cleanup-duplicate-migrations) @ franco-dev-systems ---
+Scanning for duplicate migration files in ./target/classes/db/migration...
+Duplicate migration cleanup complete.
+[INFO] 
+[INFO] --- flyway-maven-plugin:8.5.13:validate (default) @ franco-dev-systems ---
+[INFO] Skipping Flyway execution
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:compile (default-compile) @ franco-dev-systems ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 1601 source files to /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Some input files use or override a deprecated API.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Recompile with -Xlint:deprecation for details.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java: /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java uses or overrides a deprecated API that is marked for removal.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java: Recompile with -Xlint:removal for details.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Some input files use unchecked or unsafe operations.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:testResources (default-testResources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] skip non existing resourceDirectory /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:testCompile (default-testCompile) @ franco-dev-systems ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 18 source files to /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/test-classes
+[INFO] 
+[INFO] <<< spring-boot-maven-plugin:2.7.18:run (default-cli) < test-compile @ franco-dev-systems <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot-maven-plugin:2.7.18:run (default-cli) @ franco-dev-systems ---
+[INFO] Attaching agents: []
+Iniciando sistema
+16:42:02.151 [Thread-0] DEBUG org.springframework.boot.devtools.restart.classloader.RestartClassLoader - Created RestartClassLoader org.springframework.boot.devtools.restart.classloader.RestartClassLoader@43229358
+Iniciando sistema
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.18)
+
+2026-07-22 16:42:02.569  INFO 30947 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : Starting FrancoSystemsApplication using Java 17.0.17 on IMACs-iMac.local with PID 30947 (/Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes started by gabfranck in /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central)
+2026-07-22 16:42:02.570  INFO 30947 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : The following 1 profile is active: "dev"
+2026-07-22 16:42:02.616  INFO 30947 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-22 16:42:02.617  INFO 30947 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-22 16:42:04.216  INFO 30947 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-22 16:42:05.063  INFO 30947 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 841 ms. Found 221 JPA repository interfaces.
+2026-07-22 16:42:06.663  INFO 30947 --- [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8081 (http)
+2026-07-22 16:42:06.673  INFO 30947 --- [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-22 16:42:06.673  INFO 30947 --- [  restartedMain] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.83]
+2026-07-22 16:42:06.785  INFO 30947 --- [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-22 16:42:06.785  INFO 30947 --- [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 4168 ms
+2026-07-22 16:42:07.069  INFO 30947 --- [  restartedMain] c.f.d.c.RetryableDatabasePostProcessor   : -----> configuring a retryable datasource for beanName = dataSource
+2026-07-22 16:42:07.114  INFO 30947 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Scanning for duplicate migrations in: target/classes/db/migration
+2026-07-22 16:42:07.129  INFO 30947 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Duplicate migration cleanup complete
+2026-07-22 16:42:07.174  INFO 30947 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-22 16:42:07.175  INFO 30947 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-22 16:42:07.175  INFO 30947 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-22 16:42:07.201  INFO 30947 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-22 16:42:07.202  INFO 30947 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-22 16:42:07.290  INFO 30947 --- [  restartedMain] o.f.c.i.database.base.BaseDatabaseType   : Database: jdbc:postgresql://localhost:5551/bodega_producto_devoluciones (PostgreSQL 16.4)
+2026-07-22 16:42:07.300  WARN 30947 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-22 16:42:07.333  INFO 30947 --- [  restartedMain] o.f.c.i.s.JdbcTableSchemaHistory         : Repair of failed migration in Schema History table "public"."flyway_schema_history" not necessary. No failed migration detected.
+2026-07-22 16:42:07.450  INFO 30947 --- [  restartedMain] o.f.core.internal.command.DbRepair       : Successfully repaired schema history table "public"."flyway_schema_history" (execution time 00:00.138s).
+2026-07-22 16:42:07.454  INFO 30947 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-22 16:42:07.454  INFO 30947 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-22 16:42:07.454  INFO 30947 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-22 16:42:07.459  INFO 30947 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-22 16:42:07.459  INFO 30947 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-22 16:42:07.469  WARN 30947 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-22 16:42:07.559  INFO 30947 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 166.0
+2026-07-22 16:42:07.559  WARN 30947 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : outOfOrder mode is active. Migration of schema "public" may not be reproducible.
+2026-07-22 16:42:07.560  INFO 30947 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-07-22 16:42:07.716  INFO 30947 --- [  restartedMain] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-22 16:42:07.767  INFO 30947 --- [  restartedMain] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 5.6.15.Final
+2026-07-22 16:42:07.932  INFO 30947 --- [  restartedMain] o.hibernate.annotations.common.Version   : HCANN000001: Hibernate Commons Annotations {5.1.2.Final}
+2026-07-22 16:42:08.042  INFO 30947 --- [  restartedMain] org.hibernate.dialect.Dialect            : HHH000400: Using dialect: org.hibernate.dialect.PostgreSQLDialect
+2026-07-22 16:42:08.601  INFO 30947 --- [  restartedMain] b.i.HibernateSearchPreIntegrationService : HSEARCH000034: Hibernate Search version 6.2.5.Final
+2026-07-22 16:42:10.945  INFO 30947 --- [  restartedMain] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000490: Using JtaPlatform implementation: [org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform]
+2026-07-22 16:42:11.647  WARN 30947 --- [  restartedMain] o.h.s.b.l.impl.LuceneBackendFactory      : HSEARCH000075: Missing value for configuration property 'hibernate.search.backend.lucene_version': using LATEST (currently '8.11.2'). Context: default backend
+2026-07-22 16:42:12.017  WARN 30947 --- [  restartedMain] o.h.s.e.c.s.ConfigurationPropertyChecker : HSEARCH000568: Invalid configuration passed to Hibernate Search: some properties in the given configuration are not used. There might be misspelled property keys in your configuration. Unused properties: [hibernate.search.indexing.automatic.enabled]. To disable this warning, set the property 'hibernate.search.configuration_property_checking.strategy' to 'ignore'.
+2026-07-22 16:42:12.019  INFO 30947 --- [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-22 16:42:12.543  WARN 30947 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:42:12.803  WARN 30947 --- [  restartedMain] c.franco.dev.service.utils.ImageService  : Mac OS X
+2026-07-22 16:42:12.848  INFO 30947 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-22 16:42:12.866  INFO 30947 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-22 16:42:13.033  INFO 30947 --- [  restartedMain] c.f.d.s.p.UsuarioEmbeddingCacheService   : Caché de embeddings faciales: 0 usuarios activos con galería
+2026-07-22 16:42:16.508  INFO 30947 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Initializing Firebase using config path: file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-22 16:42:16.508 ERROR 30947 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Error initializing Firebase: config file not found at file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-22 16:42:19.589  WARN 30947 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:42:19.589  WARN 30947 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:42:19.589  WARN 30947 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:42:19.589  WARN 30947 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:42:35.194  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estado: EstadoDE' on input type 'DocumentoElectronicoInput' -> com.franco.dev.graphql.financiero.input.DocumentoElectronicoInput. Try adding it manually to the dictionary
+2026-07-22 16:42:35.545  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'BarrioInput' -> com.franco.dev.graphql.general.input.BarrioInput. Try adding it manually to the dictionary
+2026-07-22 16:42:35.560  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ContactoInput' -> com.franco.dev.graphql.general.input.ContactoInput. Try adding it manually to the dictionary
+2026-07-22 16:42:35.568  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'PaisInput' -> com.franco.dev.graphql.general.input.PaisInput. Try adding it manually to the dictionary
+2026-07-22 16:42:36.086  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estadoVerificacion: EstadoVerificacion' on input type 'RecepcionMercaderiaItemInput' -> com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput. Try adding it manually to the dictionary
+2026-07-22 16:42:36.408  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ClienteInput' -> com.franco.dev.graphql.personas.input.ClienteInput. Try adding it manually to the dictionary
+2026-07-22 16:42:36.451  WARN 30947 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ProveedorDiasVisitaInput' -> com.franco.dev.graphql.personas.input.ProveedorDiasVisitaInput. Try adding it manually to the dictionary
+2026-07-22 16:42:37.922 ERROR 30947 --- [  restartedMain] o.s.b.web.embedded.tomcat.TomcatStarter  : Error starting Tomcat context. Exception: org.springframework.beans.factory.UnsatisfiedDependencyException. Message: Error creating bean with name 'graphQLServletRegistrationBean' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLServletRegistrationBean' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLHttpServlet' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLHttpServlet' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLServletConfiguration' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLServletConfiguration' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'invocationInputFactory' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'invocationInputFactory' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchemaProvider' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchemaProvider' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+2026-07-22 16:42:37.951  INFO 30947 --- [  restartedMain] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-07-22 16:42:37.954  WARN 30947 --- [  restartedMain] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [Hibernate Search - Engine - Timing thread - 0] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:252)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:1679)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1182)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 16:42:37.954  WARN 30947 --- [  restartedMain] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [Hibernate Search - default backend - Worker thread - 0] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1170)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 16:42:37.954  WARN 30947 --- [  restartedMain] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [Hibernate Search - default backend - Worker thread - 1] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1170)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 16:42:37.955  WARN 30947 --- [  restartedMain] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [HikariPool-1 housekeeper] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:252)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:1679)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1182)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 16:42:37.955  WARN 30947 --- [  restartedMain] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Unable to start web server; nested exception is org.springframework.boot.web.server.WebServerException: Unable to start embedded Tomcat
+2026-07-22 16:42:38.132  INFO 30947 --- [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-22 16:42:38.142  INFO 30947 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-07-22 16:42:38.147  INFO 30947 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-07-22 16:42:38.166  INFO 30947 --- [  restartedMain] ConditionEvaluationReportLoggingListener : 
+
+Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+2026-07-22 16:42:38.192 ERROR 30947 --- [  restartedMain] o.s.boot.SpringApplication               : Application run failed
+
+org.springframework.context.ApplicationContextException: Unable to start web server; nested exception is org.springframework.boot.web.server.WebServerException: Unable to start embedded Tomcat
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:165) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:585) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:147) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:732) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:409) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:308) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1300) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1289) ~[spring-boot-2.7.18.jar:2.7.18]
+	at com.franco.dev.FrancoSystemsApplication.main(FrancoSystemsApplication.java:45) ~[classes/:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[na:na]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569) ~[na:na]
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50) ~[spring-boot-devtools-2.7.18.jar:2.7.18]
+Caused by: org.springframework.boot.web.server.WebServerException: Unable to start embedded Tomcat
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:142) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:104) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:481) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:211) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:184) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:162) ~[spring-boot-2.7.18.jar:2.7.18]
+	... 13 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLServletRegistrationBean' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLServletRegistrationBean' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLHttpServlet' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLHttpServlet' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLServletConfiguration' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLServletConfiguration' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'invocationInputFactory' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'invocationInputFactory' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchemaProvider' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchemaProvider' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:801) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:536) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:213) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:213) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.getOrderedBeansOfType(ServletContextInitializerBeans.java:204) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.addServletContextInitializerBeans(ServletContextInitializerBeans.java:98) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.ServletContextInitializerBeans.<init>(ServletContextInitializerBeans.java:86) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.getServletContextInitializerBeans(ServletWebServerApplicationContext.java:262) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.selfInitialize(ServletWebServerApplicationContext.java:236) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.web.embedded.tomcat.TomcatStarter.onStartup(TomcatStarter.java:53) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4904) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1332) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1322) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264) ~[na:na]
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:75) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145) ~[na:na]
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:866) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:794) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1332) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1322) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:264) ~[na:na]
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:75) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145) ~[na:na]
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:866) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:248) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:433) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:921) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:171) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:489) ~[tomcat-embed-core-9.0.83.jar:9.0.83]
+	at org.springframework.boot.web.embedded.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:123) ~[spring-boot-2.7.18.jar:2.7.18]
+	... 18 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLHttpServlet' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLHttpServlet' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLServletConfiguration' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLServletConfiguration' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'invocationInputFactory' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'invocationInputFactory' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchemaProvider' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchemaProvider' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:801) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:536) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:911) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:788) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 58 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLServletConfiguration' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLServletConfiguration' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'invocationInputFactory' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'invocationInputFactory' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchemaProvider' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchemaProvider' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:801) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:536) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:911) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:788) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 72 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'invocationInputFactory' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'invocationInputFactory' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchemaProvider' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchemaProvider' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:801) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:536) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:911) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:788) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 86 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchemaProvider' defined in class path resource [graphql/kickstart/spring/web/boot/GraphQLWebAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchemaProvider' parameter 0; nested exception is org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:801) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:536) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:911) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:788) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 100 common frames omitted
+Caused by: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'graphQLSchema' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Unsatisfied dependency expressed through method 'graphQLSchema' parameter 0; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:801) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:536) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:911) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:788) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 114 common frames omitted
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'schemaParser' defined in class path resource [graphql/kickstart/tools/boot/GraphQLJavaToolsAutoConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:653) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiateUsingFactoryMethod(ConstructorResolver.java:633) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.instantiateUsingFactoryMethod(AbstractAutowireCapableBeanFactory.java:1352) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBeanInstance(AbstractAutowireCapableBeanFactory.java:1195) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:582) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:542) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.lambda$doGetBean$0(AbstractBeanFactory.java:335) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.getSingleton(DefaultSingletonBeanRegistry.java:234) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:333) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:208) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.config.DependencyDescriptor.resolveCandidate(DependencyDescriptor.java:276) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.doResolveDependency(DefaultListableBeanFactory.java:1391) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.resolveDependency(DefaultListableBeanFactory.java:1311) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.resolveAutowiredArgument(ConstructorResolver.java:911) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.createArgumentArray(ConstructorResolver.java:788) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 128 common frames omitted
+Caused by: org.springframework.beans.BeanInstantiationException: Failed to instantiate [graphql.kickstart.tools.SchemaParser]: Factory method 'schemaParser' threw exception; nested exception is graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:185) ~[spring-beans-5.3.31.jar:5.3.31]
+	at org.springframework.beans.factory.support.ConstructorResolver.instantiate(ConstructorResolver.java:648) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 142 common frames omitted
+Caused by: graphql.kickstart.tools.resolver.FieldResolverError: No method or field found as defined in schema <unknown>:10927 with any of the following signatures (with or without one of [interface graphql.schema.DataFetchingEnvironment] as the last argument), in priority order:
+
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.getMovimientoPersonaId()
+  com.franco.dev.domain.rrhh.Vale.movimientoPersonaId
+	at graphql.kickstart.tools.resolver.FieldResolverScanner.missingFieldResolver(FieldResolverScanner.kt:71) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.resolver.FieldResolverScanner.findFieldResolver(FieldResolverScanner.kt:40) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.SchemaClassScanner.scanResolverInfoForPotentialMatches(SchemaClassScanner.kt:269) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.SchemaClassScanner.scanQueueItemForPotentialMatches(SchemaClassScanner.kt:264) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.SchemaClassScanner.scanQueue(SchemaClassScanner.kt:113) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.SchemaClassScanner.scanForClasses(SchemaClassScanner.kt:74) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.SchemaParserBuilder.scan(SchemaParserBuilder.kt:154) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.SchemaParserBuilder.build(SchemaParserBuilder.kt:195) ~[graphql-java-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.boot.GraphQLJavaToolsAutoConfiguration.schemaParser(GraphQLJavaToolsAutoConfiguration.java:125) ~[graphql-kickstart-spring-boot-autoconfigure-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.boot.GraphQLJavaToolsAutoConfiguration$$EnhancerBySpringCGLIB$$8e47cb52.CGLIB$schemaParser$2(<generated>) ~[graphql-kickstart-spring-boot-autoconfigure-tools-11.1.0.jar:na]
+	at graphql.kickstart.tools.boot.GraphQLJavaToolsAutoConfiguration$$EnhancerBySpringCGLIB$$8e47cb52$$FastClassBySpringCGLIB$$201d2640.invoke(<generated>) ~[graphql-kickstart-spring-boot-autoconfigure-tools-11.1.0.jar:na]
+	at org.springframework.cglib.proxy.MethodProxy.invokeSuper(MethodProxy.java:244) ~[spring-core-5.3.31.jar:5.3.31]
+	at org.springframework.context.annotation.ConfigurationClassEnhancer$BeanMethodInterceptor.intercept(ConfigurationClassEnhancer.java:331) ~[spring-context-5.3.31.jar:5.3.31]
+	at graphql.kickstart.tools.boot.GraphQLJavaToolsAutoConfiguration$$EnhancerBySpringCGLIB$$8e47cb52.schemaParser(<generated>) ~[graphql-kickstart-spring-boot-autoconfigure-tools-11.1.0.jar:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[na:na]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569) ~[na:na]
+	at org.springframework.beans.factory.support.SimpleInstantiationStrategy.instantiate(SimpleInstantiationStrategy.java:154) ~[spring-beans-5.3.31.jar:5.3.31]
+	... 143 common frames omitted
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:13 min
+[INFO] Finished at: 2026-07-22T16:42:38-03:00
+[INFO] ------------------------------------------------------------------------

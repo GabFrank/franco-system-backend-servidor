@@ -57,6 +57,33 @@ public class Cheque implements Identifiable<Long> {
 
     private Double total;
 
+    @javax.persistence.Enumerated(javax.persistence.EnumType.STRING)
+    @Column(name = "estado", length = 20)
+    private com.franco.dev.domain.financiero.enums.EstadoCheque estado;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @javax.persistence.JoinColumn(name = "moneda_id", nullable = true)
+    private Moneda moneda;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @javax.persistence.JoinColumn(name = "cuenta_bancaria_id", nullable = true)
+    private CuentaBancaria cuentaBancaria;
+
+    @Column(name = "fecha_cobro")
+    private LocalDateTime fechaCobro;
+
+    @Column(name = "motivo_anulacion")
+    private String motivoAnulacion;
+
+    @Column(name = "movimiento_bancario_id")
+    private Long movimientoBancarioId;
+
+    /** Nombre del beneficiario/destinatario (editable; default = nombre del proveedor). */
+    private String beneficiario;
+
+    /** true = nominal (a nombre del beneficiario); false = al portador. */
+    private Boolean nominal;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "firmante", nullable = true)
     private Persona firmante;

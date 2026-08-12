@@ -1,0 +1,41 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.franco.dev:franco-dev-systems >------------------
+[INFO] Building Franco Systems 3.0.9
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:2.7.18:run (default-cli) > test-compile @ franco-dev-systems >>>
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (auto-clean) @ franco-dev-systems ---
+[INFO] Deleting /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (default-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 468 resources
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (copy-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 468 resources
+[INFO] 
+[INFO] --- exec-maven-plugin:3.0.0:exec (cleanup-duplicate-migrations) @ franco-dev-systems ---
+Scanning for duplicate migration files in ./target/classes/db/migration...
+Duplicate migration cleanup complete.
+[INFO] 
+[INFO] --- flyway-maven-plugin:8.5.13:validate (default) @ franco-dev-systems ---
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  7.987 s
+[INFO] Finished at: 2026-07-22T16:41:04-03:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.flywaydb:flyway-maven-plugin:8.5.13:validate (default) on project franco-dev-systems: org.flywaydb.core.api.FlywayException: Unable to connect to the database. Configure the url, user and password! -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

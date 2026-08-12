@@ -1,0 +1,25 @@
+type ResumenRrhhMobile {
+    funcionarioId: ID
+    nombre: String
+    saldoVacacionesDias: Int
+    valesPendientesCantidad: Int
+    valesPendientesMonto: Float
+    ultimoReciboPeriodo: String
+    ultimoReciboNeto: Float
+}
+
+extend type Query {
+    misRecibosMobile(usuarioId: ID!): [LiquidacionSueldo]
+    misValesMobile(usuarioId: ID!): [Vale]
+    misVacacionesMobile(usuarioId: ID!): [Vacacion]
+    misMarcacionesMobile(usuarioId: ID!): [Jornada]
+    miResumenRrhhMobile(usuarioId: ID!): ResumenRrhhMobile
+    valesPendientesAprobacionMobile: [Vale]
+    vacacionesPendientesAprobacionMobile: [VacacionPeriodo]
+}
+
+extend type Mutation {
+    solicitarValeMobile(usuarioId: ID!, motivoId: ID, monto: Float!, esAdelanto: Boolean): Vale
+    solicitarVacacionMobile(usuarioId: ID!, desde: String!, hasta: String!): VacacionPeriodo
+    aprobarVacacionMobile(periodoId: ID!, aprobadorUsuarioId: ID): VacacionPeriodo
+}

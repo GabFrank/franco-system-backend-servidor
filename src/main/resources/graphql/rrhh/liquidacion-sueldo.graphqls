@@ -1,0 +1,81 @@
+enum LiquidacionSueldoEstado {
+    BORRADOR
+    APROBADA
+    PAGADA
+    ANULADA
+}
+
+enum LiquidacionItemTipo {
+    HABER
+    DESCUENTO
+}
+
+type LiquidacionItem {
+    id: ID!
+    codigo: String
+    descripcion: String
+    monto: Float
+    tipo: LiquidacionItemTipo
+    referenciaId: Int
+    referenciaTipo: String
+    manual: Boolean
+    editado: Boolean
+    editadoPor: Usuario
+    editadoEn: Date
+    montoOriginal: Float
+}
+
+type LiquidacionSueldo {
+    id: ID!
+    funcionario: Funcionario
+    periodo: String
+    fechaInicio: String
+    fechaFin: String
+    salarioBase: Float
+    totalHaberes: Float
+    totalDescuentos: Float
+    totalNeto: Float
+    moneda: Moneda
+    estado: LiquidacionSueldoEstado
+    aprobadoPor: Usuario
+    fechaAprobacion: Date
+    fechaPago: Date
+    cajaVirtualId: Int
+    observacion: String
+    items: [LiquidacionItem]
+    creadoEn: Date
+}
+
+type LiquidacionSueldoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LiquidacionSueldo]
+    getPageable: Pageable
+}
+
+extend type Query {
+    liquidacionSueldo(id: ID!): LiquidacionSueldo
+    liquidacionesPorFuncionario(funcionarioId: ID!): [LiquidacionSueldo]
+    liquidacionesPorPeriodo(periodo: String!): [LiquidacionSueldo]
+    liquidacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, periodo: String, estado: LiquidacionSueldoEstado): LiquidacionSueldoPage
+    liquidacionItems(liquidacionId: ID!): [LiquidacionItem]
+    imprimirReciboLiquidacion(id: ID!, anchoMm: Int, escpos: Boolean): String
+}
+
+extend type Mutation {
+    generarLiquidacionBorrador(funcionarioId: ID!, periodo: String!, monedaId: ID): LiquidacionSueldo
+    agregarItemLiquidacion(liquidacionId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo): LiquidacionItem
+    editarItemLiquidacion(itemId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo, usuarioId: ID): LiquidacionItem
+    eliminarItemLiquidacion(itemId: ID!): Boolean
+    aprobarLiquidacion(id: ID!, aprobadoPorId: ID): LiquidacionSueldo
+    volverBorradorLiquidacion(id: ID!): LiquidacionSueldo
+    pagarLiquidacion(id: ID!, cajaVirtualId: ID!): LiquidacionSueldo
+    anularLiquidacion(id: ID!): LiquidacionSueldo
+    generarLiquidacionesMes(periodo: String!, monedaId: ID): Int
+    generarLiquidacionesLote(funcionarioIds: [Int], periodo: String!, monedaId: ID): Int
+}

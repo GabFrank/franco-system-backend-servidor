@@ -5,9 +5,13 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.util.List;
+import java.util.Optional;
 
 public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
 
@@ -16,6 +20,11 @@ public interface ProveedorRepository extends HelperRepository<Proveedor, Long> {
     }
 
     Proveedor findByPersonaId(Long id);
+
+    /** Toma el proveedor con lock pesimista para mutar su saldo de cuenta corriente. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Proveedor p where p.id = :id")
+    Optional<Proveedor> lockById(@Param("id") Long id);
 
     @Query("select distinct p from Proveedor p " +
             "left outer join p.persona as per " +

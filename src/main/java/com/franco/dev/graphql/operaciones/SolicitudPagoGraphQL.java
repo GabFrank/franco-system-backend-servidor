@@ -102,6 +102,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         PageRequest pageRequest = PageRequest.of(page, size);
         Specification<SolicitudPago> spec = (root, query, cb) -> {
             java.util.List<Predicate> predicates = new java.util.ArrayList<>();
+            // Esta lista es la vista de Compras: excluir GASTO/RRHH (tienen su propia query
+            // gastosPendientes). Sin esto, las solicitudes de tesorería se filtran en Compras.
+            predicates.add(cb.equal(root.get("tipo"), com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.COMPRA));
             if (proveedorId != null) {
                 predicates.add(cb.equal(root.get("proveedor").get("id"), proveedorId));
             }

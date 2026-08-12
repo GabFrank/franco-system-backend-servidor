@@ -1,0 +1,38 @@
+---
+description: create or modify a JasperReports .jrxml template / PDF report
+globs: src/main/resources/reports/*.jrxml
+---
+# Reportes JasperReports (.jrxml)
+
+Las plantillas `src/main/resources/reports/*.jrxml` se compilan EN RUNTIME
+(`JasperCompileManager.compileReport` durante el request). Un error de
+plantilla NO aparece en el build ni en CI: revienta al generar el PDF en
+produccion. Por eso:
+
+## Fuentes: NUNCA introducir una fuente nueva
+
+Una fuente no instalada en el servidor hace fallar (o degradar de forma
+impredecible) la generacion del PDF en produccion.
+
+1. Usar SOLO fuentes ya en uso en el repo. Hoy: `SansSerif` y `Verdana`.
+   Verificar con: `grep -rhoE 'fontName="[^"]*"' src/main/resources/reports/*.jrxml`
+2. Para plantillas NUEVAS preferir `fontName="SansSerif"` (fuente logica de
+   Java: la JVM siempre la mapea a una fisica disponible -> cero riesgo de
+   "font no instalada"). `Verdana` es fisica: solo replicarla donde ya se usa.
+3. Setear SIEMPRE `fontName` explicito en cada `<font>` (no dejarlo implicito).
+4. No usar font extensions (jars de fuentes) salvo que ya exista una desplegada
+   en todos los servers.
+5. Si piden una tipografia que no esta en la lista: avisar al lider tecnico
+   ANTES de pushear (hay que instalarla en alpha/beta/prod o embeberla
+   coordinadamente).
+
+## Validar antes de pushear
+
+El build NO valida la plantilla. Antes de pushear, compilar + `fillReport`
+con datos dummy localmente. Patron de referencia:
+`service/rrhh/ReciboLiquidacionService`.
+
+## PDF
+
+El export a PDF usa iText (`com.lowagie`) -- ya es dependencia. No agregar
+otra libreria de PDF.

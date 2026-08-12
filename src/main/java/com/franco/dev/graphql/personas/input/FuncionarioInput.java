@@ -20,4 +20,11 @@ public class FuncionarioInput {
     private LocalDateTime creadoEn;
     private Long usuarioId;
     private Long horarioId;
+    private String codigoInterno;
+    private Boolean ipsActivo;
+    private String numeroIps;
+    private String fechaIngresoIps;
+    private String cuentaBancaria;
+    private String contactoEmergenciaNombre;
+    private String contactoEmergenciaTelefono;
 }

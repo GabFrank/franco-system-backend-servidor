@@ -13,6 +13,8 @@ type Retiro {
     retiroDs: Float
     sucursalId: Int
     sucursal: Sucursal
+    cajaVirtualId: Int
+    movimientoCajaVirtualId: Int
 }
 
 input RetiroInput {
@@ -49,11 +51,13 @@ extend type Query {
     retiroListPorCajaSalidaId(id:ID!, sucId: ID):[Retiro]!
     countRetiro: Int
     filterRetiros(id:ID, cajaId:ID, sucId:ID, responsableId:ID, cajeroId:ID, page:Int, size:Int):RetiroPage
+    retirosFlotantes(sucId:ID, cajaId:ID, desde:String, hasta:String, page:Int = 0, size:Int = 20):RetiroPage
 }
 
 extend type Mutation {
     saveRetiro(retiro:RetiroInput!, retiroDetalleInputList: [RetiroDetalleInput], printerName: String, local: String):Retiro!
     deleteRetiro(id:ID!, sucId: ID):Boolean!
+    ingresarRetiroACajaMayor(retiroId:ID!, sucId:ID!, cajaVirtualId:ID!):Retiro!
     cancelarRetiro(id:ID!, sucId: ID):Boolean!
 }
 

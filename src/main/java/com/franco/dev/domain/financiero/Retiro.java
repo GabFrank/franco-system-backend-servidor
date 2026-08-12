@@ -63,6 +63,18 @@ public class Retiro extends EmbeddedEntity implements Serializable {
     })
     private PdvCaja cajaEntrada;
 
+    /** FK escalar de la caja de salida (solo lectura, para filtrar sin join sobre la asociación por fórmula). */
+    @Column(name = "caja_salida_id", insertable = false, updatable = false)
+    private Long cajaSalidaId;
+
+    /** Caja mayor destino: si está seteada, el retiro ingresa a tesorería (poller F3). */
+    @Column(name = "caja_virtual_id")
+    private Long cajaVirtualId;
+
+    /** Marcador de procesado por el poller de tesorería (idempotencia + guard anti doble-ingreso). */
+    @Column(name = "movimiento_caja_virtual_id")
+    private Long movimientoCajaVirtualId;
+
     @CreationTimestamp
     private LocalDateTime creadoEn;
 

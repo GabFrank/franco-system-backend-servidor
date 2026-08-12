@@ -1,0 +1,53 @@
+# Operaciones de devolucion: cabeceras de retiro (a proveedor) y colecta (interna).
+
+type RetiroDevolucion {
+    id: ID
+    fecha: Date
+    usuario: Usuario
+    proveedor: Proveedor
+    nroComprobante: String
+    observacion: String
+    estado: String
+    creadoEn: Date
+    devoluciones: [Devolucion]
+    notaCredito: NotaCreditoDevolucion
+}
+
+type ColectaDevolucion {
+    id: ID
+    fecha: Date
+    usuario: Usuario
+    sucursalOrigen: Sucursal
+    sucursalDestino: Sucursal
+    observacion: String
+    estado: String
+    creadoEn: Date
+    devoluciones: [Devolucion]
+}
+
+type RetiroDevolucionPage {
+    getContent: [RetiroDevolucion]
+    getTotalElements: Int
+    getTotalPages: Int
+    hasNext: Boolean
+}
+
+type ColectaDevolucionPage {
+    getContent: [ColectaDevolucion]
+    getTotalElements: Int
+    getTotalPages: Int
+    hasNext: Boolean
+}
+
+extend type Query {
+    retirosDevolucion(proveedorId: ID, fechaInicio: String, fechaFin: String, page: Int, size: Int): RetiroDevolucionPage
+    colectasDevolucion(sucursalOrigenId: ID, sucursalDestinoId: ID, fechaInicio: String, fechaFin: String, page: Int, size: Int): ColectaDevolucionPage
+    retiroDevolucion(id: ID!): RetiroDevolucion
+    colectaDevolucion(id: ID!): ColectaDevolucion
+    remitoRetiro(retiroId: ID!): String
+}
+
+extend type Mutation {
+    revertirRetiroDevolucion(retiroId: ID!, usuarioId: ID): RetiroDevolucion
+    revertirColectaDevolucion(colectaId: ID!, usuarioId: ID): ColectaDevolucion
+}

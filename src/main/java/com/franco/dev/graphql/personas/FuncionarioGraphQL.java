@@ -65,7 +65,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     // entrega la lista con Integer sin convertirla al tipo generico del parametro. Se
     // recibe como List<Integer> y se convierte a Long, que es lo que espera la consulta.
     public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre,
-            List<Integer> sucursalList) {
+            List<Integer> sucursalList, Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba) {
         Pageable pageable = PageRequest.of(page, size);
         if (nombre != null) {
             nombre = nombre.replace(" ", "%");
@@ -80,8 +80,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
                 sucursalIdList = null;
             }
         }
-        Page<Funcionario> result = service.findAllWithPage(id, nombre, sucursalIdList, pageable);
-        return result;
+        return service.findAllWithPage(id, nombre, sucursalIdList, activo, cargoId, diarista, fasePrueba, pageable);
     }
 
     public List<Funcionario> funcionariosSearch(String texto) {
@@ -91,8 +90,17 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public Funcionario saveFuncionario(FuncionarioInput input) {
         ModelMapper m = new ModelMapper();
         Funcionario e;
+        // Se guardan las relaciones actuales para restaurarlas si el input no las trae:
+        // en un update parcial (sin personaId) no hay que perder la persona ya vinculada,
+        // sino el save NPEa al buscar el cliente por persona.
+        com.franco.dev.domain.personas.Persona personaActual = null;
+        com.franco.dev.domain.empresarial.Cargo cargoActual = null;
+        com.franco.dev.domain.empresarial.Sucursal sucursalActual = null;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Funcionario());
+            personaActual = e.getPersona();
+            cargoActual = e.getCargo();
+            sucursalActual = e.getSucursal();
             // Evitamos que ModelMapper intente mapear relaciones automáticamente y cause
             // errores de Hibernate
             e.setHorario(null);
@@ -103,6 +111,10 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
             e.setSupervisadoPor(null);
             Boolean activoPrevio = e.getActivo();
             m.map(input, e);
+            // restaurar lo que el input no reemplaza explicitamente
+            if (input.getPersonaId() == null) e.setPersona(personaActual);
+            if (input.getCargoId() == null) e.setCargo(cargoActual);
+            if (input.getSucursalId() == null) e.setSucursal(sucursalActual);
             if (input.getActivo() == null) {
                 // caller no envió 'activo': preservar el valor actual. 'activo' dispara la
                 // cascada de estado, un null accidental inactivaría usuario y cliente.
@@ -116,6 +128,14 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         }
         if (input.getFechaIngreso() != null)
             e.setFechaIngreso(stringToDate(input.getFechaIngreso()));
+        // ModelMapper no convierte String->LocalDate; el resto (ips, cuenta, contacto)
+        // son String/Boolean y los mapea por nombre automaticamente.
+        if (input.getFechaIngresoIps() != null) {
+            java.time.LocalDateTime d = stringToDate(input.getFechaIngresoIps());
+            e.setFechaIngresoIps(d != null ? d.toLocalDate() : null);
+        } else if (input.getId() != null) {
+            e.setFechaIngresoIps(null);
+        }
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         if (input.getPersonaId() != null)
@@ -133,7 +153,7 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         e = service.save(e);
         Cliente cliente = clienteService.findByPersonaId(e.getPersona().getId());
         if (cliente != null) {
-            if (!cliente.getCredito().equals(e.getCredito())) {
+            if (!java.util.Objects.equals(cliente.getCredito(), e.getCredito())) {
                 cliente.setCredito(e.getCredito());
                 cliente = clienteService.save(cliente);
             }

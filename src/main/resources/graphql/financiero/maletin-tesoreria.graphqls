@@ -1,0 +1,14 @@
+type ValorMaletinItem {
+    moneda: Moneda
+    total: Float
+}
+
+extend type Query {
+    valorMaletin(maletinId: ID!): [ValorMaletinItem]
+}
+
+extend type Mutation {
+    ingresarMaletinCajaMayor(cajaVirtualId: ID!, maletinId: ID!, monedaId: ID!, monto: Float!, descripcion: String): MovimientoCajaVirtual!
+    ingresarMaletinCierre(cajaVirtualId: ID!, maletinId: ID!, monedaIds: [ID], descripcion: String): [MovimientoCajaVirtual]
+    egresarMaletinCajaMayor(cajaVirtualId: ID!, maletinId: ID!, monedaId: ID!, monto: Float!, descripcion: String): MovimientoCajaVirtual!
+}

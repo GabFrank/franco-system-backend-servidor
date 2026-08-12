@@ -1,0 +1,97 @@
+enum ConfiguracionRrhhTipo {
+    NUMBER
+    STRING
+    BOOLEAN
+    DATE
+}
+
+type ConfiguracionRrhh {
+    id: ID!
+    clave: String
+    valor: String
+    tipo: ConfiguracionRrhhTipo
+    descripcion: String
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input ConfiguracionRrhhInput {
+    id: ID
+    clave: String
+    valor: String
+    tipo: ConfiguracionRrhhTipo
+    descripcion: String
+    activo: Boolean
+    creadoEn: Date
+    usuarioId: Int
+}
+
+type LiquidacionConcepto {
+    id: ID!
+    codigo: String
+    descripcion: String
+    esHaber: Boolean
+    esCalculadoAuto: Boolean
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input LiquidacionConceptoInput {
+    id: ID
+    codigo: String
+    descripcion: String
+    esHaber: Boolean
+    esCalculadoAuto: Boolean
+    activo: Boolean
+    creadoEn: Date
+    usuarioId: Int
+}
+
+type ConfiguracionRrhhPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ConfiguracionRrhh]
+    getPageable: Pageable
+}
+
+type ConfiguracionRrhhHistorico {
+    id: ID!
+    configuracionRrhhId: Int
+    clave: String
+    valorAnterior: String
+    valorNuevo: String
+    usuario: Usuario
+    creadoEn: Date
+}
+
+extend type Query {
+    configuracionRrhh(id: ID!): ConfiguracionRrhh
+    configuracionRrhhPorClave(clave: String!): ConfiguracionRrhh
+    configuracionesRrhh(page: Int = 0, size: Int = 50): [ConfiguracionRrhh]!
+    configuracionesRrhhSearch(texto: String): [ConfiguracionRrhh]
+    configuracionesRrhhPage(page: Int = 0, size: Int = 20, texto: String, tipo: ConfiguracionRrhhTipo): ConfiguracionRrhhPage
+    countConfiguracionRrhh: Int
+
+    # TODO-8: impacto de un cambio de configuracion sobre datos ya materializados
+    funcionariosBajoSalarioMinimo(minimo: Float!): [Funcionario]
+    configuracionRrhhHistorico(clave: String!): [ConfiguracionRrhhHistorico]
+    liquidacionConcepto(id: ID!): LiquidacionConcepto
+    liquidacionConceptoPorCodigo(codigo: String!): LiquidacionConcepto
+    liquidacionConceptos(page: Int = 0, size: Int = 50): [LiquidacionConcepto]!
+    countLiquidacionConcepto: Int
+}
+
+extend type Mutation {
+    saveConfiguracionRrhh(configuracionRrhh: ConfiguracionRrhhInput!): ConfiguracionRrhh!
+    deleteConfiguracionRrhh(id: ID!): Boolean!
+    ajustarSalariosAlMinimo(funcionarioIds: [Int], minimo: Float!, usuarioId: ID): Int
+    saveLiquidacionConcepto(liquidacionConcepto: LiquidacionConceptoInput!): LiquidacionConcepto!
+    deleteLiquidacionConcepto(id: ID!): Boolean!
+}

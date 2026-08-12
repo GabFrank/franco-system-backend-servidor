@@ -39,6 +39,23 @@ public class Moneda implements Identifiable<Long> {
 
     private String simbolo;
 
+    /** Baja lógica del catálogo. */
+    private Boolean activo;
+
+    /** Moneda base del sistema. A lo sumo una (unique partial index, CN1). */
+    private Boolean principal;
+
+    /** Decimales de formateo (0 para Gs, 2 para USD/BRL). */
+    private Integer decimales;
+
+    /** Regla de redondeo de vueltos (NINGUNO, MULTIPLO, ...). CN7. */
+    @Column(name = "regla_redondeo")
+    private String reglaRedondeo;
+
+    /** Múltiplo al que se redondea si reglaRedondeo = MULTIPLO (ej. 50, 100 Gs). */
+    @Column(name = "redondeo_multiplo")
+    private java.math.BigDecimal redondeoMultiplo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pais_id", nullable = true)
     private Pais pais;

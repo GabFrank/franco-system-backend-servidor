@@ -9,6 +9,7 @@ import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.dto.ReporteInventarioDto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoItemInput;
 import com.franco.dev.domain.operaciones.enums.FuenteVerdadVencimiento;
+import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.graphql.operaciones.dto.ProductoVencidoViewDTO;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
@@ -174,7 +175,11 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             @Nullable List<Long> usuarioIdList,
             @Nullable List<Long> productoIdList,
             Integer page, Integer size, @Nullable String orderBy, @Nullable String tipoOrder,
-            @Nullable String estado) {
+            @Nullable String estado,
+            @Nullable String vencimientoFiltro,
+            @Nullable Integer diasPorVencer,
+            @Nullable String vencimientoDesde,
+            @Nullable String vencimientoHasta) {
 
         Pageable pageable = createPageable(page, size, orderBy, tipoOrder);
         return service.findAllWithFilters(
@@ -186,6 +191,10 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
                 usuarioIdList,
                 productoIdList,
                 estado,
+                vencimientoFiltro,
+                diasPorVencer,
+                stringToDate(vencimientoDesde),
+                DateUtils.stringToDateEndOfDay(vencimientoHasta),
                 pageable);
     }
 
@@ -201,7 +210,12 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             Integer size,
             @Nullable String orderBy,
             @Nullable String tipoOrder,
-            String nickname) {
+            String nickname,
+            @Nullable String estado,
+            @Nullable String vencimientoFiltro,
+            @Nullable Integer diasPorVencer,
+            @Nullable String vencimientoDesde,
+            @Nullable String vencimientoHasta) {
 
         try {
             // El reporte lista todo lo que matchea los filtros: la paginacion de la
@@ -210,20 +224,25 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             Pageable pageable = Pageable.unpaged();
             Page<InventarioProductoItem> inventarioProductoItemPage = service.findAllWithFilters(
                     sucursalIdList, sectorIdList, zonaIdList, stringToDate(startDate), stringToDate(endDate),
-                    usuarioIdList, productoIdList, null, pageable);
+                    usuarioIdList, productoIdList, estado,
+                    vencimientoFiltro, diasPorVencer,
+                    stringToDate(vencimientoDesde), DateUtils.stringToDateEndOfDay(vencimientoHasta),
+                    pageable);
 
             List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemPage.getContent();
             if (inventarioProductoItemList.isEmpty()) {
                 return null;
             }
 
+            LocalDateTime ahora = LocalDateTime.now();
             List<ReporteInventarioDto> reporteInventarioDtoList = new ArrayList<>();
             for (InventarioProductoItem item : inventarioProductoItemList) {
                 ReporteInventarioDto dto = new ReporteInventarioDto();
                 dto.setProductoId(item.getPresentacion().getProducto().getId());
                 dto.setDescripcion(item.getPresentacion().getProducto().getDescripcion());
-                dto.setCantidadEncontrada(item.getCantidadFisica());
-                dto.setCantidadSistema(item.getCantidad());
+                // cantidad = lo contado, cantidadFisica = lo que tenia el sistema.
+                dto.setCantidadSistema(item.getCantidadFisica());
+                dto.setCantidadEncontrada(item.getCantidad());
                 Double cantidad = item.getCantidad() != null ? item.getCantidad() : 0.0;
                 Double cantidadFisica = item.getCantidadFisica() != null ? item.getCantidadFisica() : 0.0;
                 Double saldo = cantidad - cantidadFisica;
@@ -239,8 +258,20 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
                 dto.setFecha(DateUtils.toString(item.getCreadoEn()));
                 dto.setResponsable(item.getUsuario().getNickname());
+                dto.setSucursal(nombreDeSucursalDelItem(item));
+                dto.setVencimiento(
+                        item.getVencimiento() != null ? DateUtils.toStringOnlyDate(item.getVencimiento()) : null);
+                dto.setVencido(esVencido(item, ahora));
                 reporteInventarioDtoList.add(dto);
             }
+
+            // Jasper agrupa por corte de valor: la lista tiene que venir ordenada por
+            // sucursal. Dentro de cada sucursal, alfabetico por producto.
+            reporteInventarioDtoList.sort(
+                    Comparator.comparing(ReporteInventarioDto::getSucursal,
+                            Comparator.nullsLast(Comparator.naturalOrder()))
+                            .thenComparing(ReporteInventarioDto::getDescripcion,
+                                    Comparator.nullsLast(Comparator.naturalOrder())));
 
             // Se lee como stream: dentro del JAR empaquetado el .jrxml no tiene ruta de filesystem
             JasperReport jasperReport;
@@ -250,7 +281,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(reporteInventarioDtoList);
 
             Map<String, Object> parameters = createReportParameters(
-                    startDate, endDate, sucursalIdList, sectorIdList, zonaIdList, productoIdList, nickname);
+                    startDate, endDate, sucursalIdList, sectorIdList, zonaIdList, productoIdList, nickname,
+                    estado, descripcionFiltroVencimiento(vencimientoFiltro, diasPorVencer, vencimientoDesde,
+                            vencimientoHasta));
 
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
@@ -269,7 +302,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
             @Nullable List<Long> sectorIdList,
             @Nullable List<Long> zonaIdList,
             @Nullable List<Long> productoIdList,
-            String nickname) {
+            String nickname,
+            @Nullable String estado,
+            String filtroVencimiento) {
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("filtroFechaInicio", startDate != null ? startDate : "Todos");
@@ -279,11 +314,77 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         parameters.put("filtroSectores", sectorIdList != null ? sectorIdList.toString() : "Todos");
         parameters.put("filtroZonas", zonaIdList != null ? zonaIdList.toString() : "Todos");
         parameters.put("filtroProductos", nombresDeProductos(productoIdList));
+        parameters.put("filtroEstado", estado != null && !estado.trim().isEmpty() ? estado : "Todos");
+        parameters.put("filtroVencimiento", filtroVencimiento);
         parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
         parameters.put("usuario", nickname);
         parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
 
         return parameters;
+    }
+
+    /**
+     * Nombre de la sucursal del inventario al que pertenece el item; es el corte de
+     * grupo del PDF, asi que nunca puede quedar null.
+     */
+    private String nombreDeSucursalDelItem(InventarioProductoItem item) {
+        if (item.getInventarioProducto() == null
+                || item.getInventarioProducto().getInventario() == null
+                || item.getInventarioProducto().getInventario().getSucursal() == null
+                || item.getInventarioProducto().getInventario().getSucursal().getNombre() == null) {
+            return "Sin sucursal";
+        }
+        return item.getInventarioProducto().getInventario().getSucursal().getNombre();
+    }
+
+    /**
+     * Mismo criterio que el filtro VENCIDOS de la lista: vencido contra hoy, o
+     * marcado como VENCIDO al momento de contarlo.
+     */
+    private boolean esVencido(InventarioProductoItem item, LocalDateTime ahora) {
+        if (InventarioProductoEstado.VENCIDO.equals(item.getEstado())) {
+            return true;
+        }
+        return item.getVencimiento() != null && item.getVencimiento().isBefore(ahora);
+    }
+
+    /**
+     * Texto del filtro de vencimiento para la cabecera del PDF, para que quede
+     * asentado con que criterio se genero.
+     */
+    private String descripcionFiltroVencimiento(
+            @Nullable String vencimientoFiltro,
+            @Nullable Integer diasPorVencer,
+            @Nullable String vencimientoDesde,
+            @Nullable String vencimientoHasta) {
+
+        String filtro = vencimientoFiltro != null ? vencimientoFiltro.trim().toUpperCase() : "";
+        String texto;
+        switch (filtro) {
+            case "VENCIDOS":
+                texto = "Vencidos";
+                break;
+            case "POR_VENCER":
+                texto = "Por vencer (" + (diasPorVencer != null && diasPorVencer > 0 ? diasPorVencer : 30) + " dias)";
+                break;
+            case "VIGENTES":
+                texto = "Vigentes";
+                break;
+            case "SIN_VENCIMIENTO":
+                texto = "Sin vencimiento";
+                break;
+            default:
+                texto = "Todos";
+                break;
+        }
+
+        if (vencimientoDesde != null && !vencimientoDesde.trim().isEmpty()) {
+            texto += " | desde " + vencimientoDesde;
+        }
+        if (vencimientoHasta != null && !vencimientoHasta.trim().isEmpty()) {
+            texto += " | hasta " + vencimientoHasta;
+        }
+        return texto;
     }
 
     /**

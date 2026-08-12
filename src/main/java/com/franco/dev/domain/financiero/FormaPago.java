@@ -39,6 +39,12 @@ public class FormaPago implements Identifiable<Long> {
     @Column(name = "movimiento_caja")
     private Boolean movimientoCaja;
 
+    /** Orden de aparición en los selectores. */
+    private Integer orden;
+
+    /** Forma de pago preseleccionada por defecto. */
+    private Boolean principal;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cuenta_bancaria_id", nullable = true)
     private CuentaBancaria cuentaBancaria;

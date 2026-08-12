@@ -1,0 +1,62 @@
+# Nota de credito consolidada por retiro a proveedor.
+
+type NotaCreditoDevolucion {
+    id: ID
+    retiro: RetiroDevolucion
+    proveedor: Proveedor
+    nroNotaCredito: String
+    fecha: Date
+    montoTotal: Float
+    saldo: Float
+    estado: String
+    usuario: Usuario
+    creadoEn: Date
+    items: [NotaCreditoDevolucionItem]
+}
+
+type NotaCreditoDevolucionItem {
+    id: ID
+    producto: Producto
+    presentacion: Presentacion
+    cantidad: Float
+    costoUnitario: Float
+    cantidadBase: Float
+    total: Float
+}
+
+# Preview de consolidacion (por producto, a costo medio) antes de confirmar.
+type AcreditacionPreview {
+    retiroId: ID
+    proveedor: Proveedor
+    lineas: [AcreditacionPreviewLinea]
+    montoTotal: Float
+}
+
+type AcreditacionPreviewLinea {
+    productoId: ID
+    productoDescripcion: String
+    cantidadBase: Float
+    costoMedio: Float
+    total: Float
+    presentaciones: [Presentacion]
+}
+
+input NotaCreditoDevolucionItemInput {
+    productoId: ID!
+    presentacionId: ID
+    cantidad: Float!
+    costoUnitario: Float!
+    cantidadBase: Float!
+    total: Float!
+}
+
+extend type Query {
+    acreditacionPreview(retiroId: ID!): AcreditacionPreview
+    notaCreditoPorRetiro(retiroId: ID!): NotaCreditoDevolucion
+    notaCreditoDevolucion(id: ID!): NotaCreditoDevolucion
+}
+
+extend type Mutation {
+    acreditarRetiro(retiroId: ID!, nroNotaCredito: String, fecha: String, items: [NotaCreditoDevolucionItemInput!]!, usuarioId: ID): NotaCreditoDevolucion
+    revertirNotaCreditoDevolucion(id: ID!, usuarioId: ID): Boolean
+}

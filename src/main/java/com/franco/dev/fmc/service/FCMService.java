@@ -24,7 +24,7 @@ import org.springframework.stereotype.Service;
 public class FCMService {
 
     private static final String DEFAULT_DATA_PATH = "/";
-    private final Logger logger = LoggerFactory.getLogger(FCMService.class);
+    private static final Logger logger = LoggerFactory.getLogger(FCMService.class);
     private final Gson gson;
     @SuppressWarnings("unused")
     private final FCMInitializer fcmInitializer;
@@ -47,18 +47,41 @@ public class FCMService {
             FirebaseMessaging.getInstance().send(message);
             return DeliveryResult.success();
         } catch (FirebaseMessagingException ex) {
-            MessagingErrorCode code = ex.getMessagingErrorCode();
-
-            if (code == MessagingErrorCode.INVALID_ARGUMENT || code == MessagingErrorCode.UNREGISTERED) {
-                return DeliveryResult.invalidToken(ex.getMessage(), code);
-            }
-            if (code == MessagingErrorCode.UNAVAILABLE || code == MessagingErrorCode.INTERNAL) {
-                return DeliveryResult.transientError(ex.getMessage(), code);
-            }
-            return DeliveryResult.failure(ex.getMessage(), code);
+            return clasificarError(ex.getMessagingErrorCode(), ex.getMessage());
         } catch (Exception ex) {
             return DeliveryResult.failure(ex.getMessage(), null);
         }
+    }
+
+    /**
+     * Traduce el error de FCM a una decision: limpiar el token, reintentar, o
+     * descartar el envio.
+     *
+     * Un codigo permanente clasificado como fallo generico deja el token muerto
+     * en inicio_sesion reintentandose en cada notificacion, para siempre. Uno
+     * transitorio clasificado como permanente descarta una notificacion valida.
+     */
+    static DeliveryResult clasificarError(MessagingErrorCode code, String message) {
+        if (code == MessagingErrorCode.INVALID_ARGUMENT
+                || code == MessagingErrorCode.UNREGISTERED
+                || code == MessagingErrorCode.SENDER_ID_MISMATCH) {
+            return DeliveryResult.invalidToken(message, code);
+        }
+        if (code == MessagingErrorCode.THIRD_PARTY_AUTH_ERROR) {
+            // La suscripcion web se creo contra otra clave VAPID y no se recupera.
+            // Se avisa aparte porque si el error se vuelve masivo la causa deja de
+            // ser la suscripcion y pasa a ser la credencial webpush del servidor,
+            // y en ese caso esto estaria limpiando tokens sanos.
+            logger.warn("FCM rechazo la suscripcion webpush ({}). Si se repite masivamente,"
+                    + " revisar la clave VAPID del proyecto antes que los tokens: {}", code, message);
+            return DeliveryResult.invalidToken(message, code);
+        }
+        if (code == MessagingErrorCode.UNAVAILABLE
+                || code == MessagingErrorCode.INTERNAL
+                || code == MessagingErrorCode.QUOTA_EXCEEDED) {
+            return DeliveryResult.transientError(message, code);
+        }
+        return DeliveryResult.failure(message, code);
     }
 
     public DeliveryResult sendToTopic(PushNotificationRequest request) {

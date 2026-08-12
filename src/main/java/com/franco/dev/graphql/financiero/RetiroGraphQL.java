@@ -6,7 +6,9 @@ import com.franco.dev.graphql.financiero.input.RetiroDetalleInput;
 import com.franco.dev.graphql.financiero.input.RetiroInput;
 import com.franco.dev.service.financiero.MovimientoCajaService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.RetiroIngresoService;
 import com.franco.dev.service.financiero.RetiroService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.personas.FuncionarioService;
@@ -53,6 +55,12 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private MultiTenantService multiTenantService;
+
+    @Autowired
+    private RetiroIngresoService retiroIngresoService;
+
+    @Autowired
+    private TesoreriaSecurityService seg;
 
     public Retiro retiro(Long id, Long sucId) {
         return service.findByIdAndSucursalId(id, sucId);
@@ -139,6 +147,29 @@ public class RetiroGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     public Long countRetiro() {
         return service.count();
+    }
+
+    /** Retiros flotantes (replicados del PDV, sin caja mayor asignada). Filtro por sucursal, caja y fechas. */
+    public Page<Retiro> retirosFlotantes(Long sucId, Long cajaId, String desde, String hasta,
+                                         Integer page, Integer size) {
+        seg.requireVer();
+        if (page == null) page = 0;
+        if (size == null) size = 20;
+        java.time.LocalDateTime desdeDt = (desde != null && !desde.isEmpty())
+                ? com.franco.dev.utilitarios.DateUtils.stringToDate(desde) : null;
+        java.time.LocalDateTime hastaDt = (hasta != null && !hasta.isEmpty())
+                ? com.franco.dev.utilitarios.DateUtils.stringToDate(hasta) : null;
+        // "hasta" inclusivo: si viene solo la fecha (00:00), extender al fin del día.
+        if (hastaDt != null && hastaDt.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
+            hastaDt = hastaDt.toLocalDate().atTime(java.time.LocalTime.MAX);
+        }
+        return service.findFlotantes(sucId, cajaId, desdeDt, hastaDt, PageRequest.of(page, size));
+    }
+
+    /** Asigna una caja mayor a un retiro flotante y lo postea (INGRESO) de inmediato. */
+    public Retiro ingresarRetiroACajaMayor(Long retiroId, Long sucId, Long cajaVirtualId) {
+        seg.requireGestionar();
+        return retiroIngresoService.ingresarACajaMayor(retiroId, sucId, cajaVirtualId, seg.currentUsuario());
     }
 
 }

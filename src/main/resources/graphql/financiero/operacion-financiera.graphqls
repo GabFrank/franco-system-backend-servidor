@@ -1,0 +1,97 @@
+enum TipoOperacionFinanciera {
+    CAMBIO_DIVISA
+    DEPOSITO_BANCARIO
+    RETIRO_BANCARIO
+    TRANSFERENCIA_ENTRE_CAJAS
+    TRANSFERENCIA_BANCARIA
+}
+
+type OperacionFinancieraCategoria {
+    id: ID!
+    nombre: String
+    padre: OperacionFinancieraCategoria
+    icono: String
+    activo: Boolean
+}
+
+type OperacionFinanciera {
+    id: ID!
+    tipoOperacion: TipoOperacionFinanciera
+    categoria: OperacionFinancieraCategoria
+    descripcion: String
+    cajaMayorOrigen: CajaVirtual
+    cuentaBancariaOrigen: CuentaBancaria
+    monedaOrigen: Moneda
+    montoOrigen: Float
+    cajaMayorDestino: CajaVirtual
+    cuentaBancariaDestino: CuentaBancaria
+    monedaDestino: Moneda
+    montoDestino: Float
+    cotizacion: Float
+    numeroComprobante: String
+    diferencia: Float
+    diferenciaDestinoTipo: DiferenciaDestinoTipo
+    diferenciaObservacion: String
+    anulado: Boolean
+    creadoEn: Date
+}
+
+enum DiferenciaDestinoTipo {
+    IGNORAR
+    GASTO
+    VALE
+}
+
+input OperacionFinancieraInput {
+    tipoOperacion: TipoOperacionFinanciera!
+    descripcion: String
+    categoriaId: Int
+    cajaMayorOrigenId: Int
+    cuentaBancariaOrigenId: Int
+    monedaOrigenId: Int
+    montoOrigen: Float
+    cajaMayorDestinoId: Int
+    cuentaBancariaDestinoId: Int
+    monedaDestinoId: Int
+    montoDestino: Float
+    cotizacion: Float
+    numeroComprobante: String
+    diferencia: Float
+    diferenciaDestinoTipo: DiferenciaDestinoTipo
+    diferenciaObservacion: String
+}
+
+type OperacionFinancieraPage {
+    getTotalElements: Int
+    getContent: [OperacionFinanciera]
+}
+
+type MovimientoBancario {
+    id: ID!
+    cuentaBancaria: CuentaBancaria
+    tipoMovimiento: String
+    monto: Float
+    saldoAnterior: Float
+    saldoPosterior: Float
+    descripcion: String
+    anulado: Boolean
+    creadoEn: Date
+    usuario: Usuario
+}
+
+type MovimientoBancarioPage {
+    getTotalElements: Int
+    getContent: [MovimientoBancario]
+}
+
+extend type Query {
+    operacionesFinancieras(page: Int = 0, size: Int = 10): OperacionFinancieraPage
+    operacionFinanciera(id: ID!): OperacionFinanciera
+    operacionFinancieraCategorias: [OperacionFinancieraCategoria]
+    movimientosBancarios(cuentaBancariaId: ID!, page: Int = 0, size: Int = 10): MovimientoBancarioPage
+}
+
+extend type Mutation {
+    registrarOperacionFinanciera(input: OperacionFinancieraInput!): OperacionFinanciera!
+    anularOperacionFinanciera(id: ID!, motivo: String): OperacionFinanciera!
+}

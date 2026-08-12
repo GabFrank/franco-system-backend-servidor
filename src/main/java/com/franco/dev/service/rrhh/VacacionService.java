@@ -1,0 +1,281 @@
+package com.franco.dev.service.rrhh;
+
+import com.franco.dev.domain.personas.Funcionario;
+import com.franco.dev.domain.rrhh.Justificativo;
+import com.franco.dev.domain.rrhh.TipoJustificativo;
+import com.franco.dev.domain.rrhh.Vacacion;
+import com.franco.dev.domain.rrhh.VacacionPeriodo;
+import com.franco.dev.domain.rrhh.VacacionVenta;
+import com.franco.dev.domain.rrhh.enums.VacacionPeriodoEstado;
+import com.franco.dev.domain.rrhh.enums.VacacionVentaEstado;
+import com.franco.dev.repository.rrhh.VacacionPeriodoRepository;
+import com.franco.dev.repository.rrhh.VacacionRepository;
+import com.franco.dev.repository.rrhh.VacacionVentaRepository;
+import com.franco.dev.service.CrudService;
+import com.franco.dev.service.personas.FuncionarioService;
+import graphql.GraphQLException;
+import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@AllArgsConstructor
+public class VacacionService extends CrudService<Vacacion, VacacionRepository, Long> {
+
+    private final VacacionRepository repository;
+    private final VacacionPeriodoRepository periodoRepository;
+    private final VacacionVentaRepository ventaRepository;
+    private final FuncionarioService funcionarioService;
+    private final ConfiguracionRrhhService configuracionRrhhService;
+    private final JustificativoService justificativoService;
+    private final TipoJustificativoService tipoJustificativoService;
+    private final com.franco.dev.service.personas.UsuarioService usuarioService;
+
+    @Override
+    public VacacionRepository getRepository() {
+        return repository;
+    }
+
+    public List<Vacacion> findByFuncionarioId(Long funcionarioId) {
+        return repository.findByFuncionarioIdOrderByAnioServicioDesc(funcionarioId);
+    }
+
+    public Page<Vacacion> findPage(Long funcionarioId, Integer anio, Pageable pageable) {
+        return repository.findPage(funcionarioId, anio, pageable);
+    }
+
+    public List<VacacionPeriodo> findPeriodos(Long vacacionId) {
+        return periodoRepository.findByVacacionIdOrderByFechaDesdeAsc(vacacionId);
+    }
+
+    public List<VacacionPeriodo> findPeriodosPorEstado(VacacionPeriodoEstado estado) {
+        return periodoRepository.findByEstadoOrderByFechaDesdeAsc(estado);
+    }
+
+    public List<VacacionVenta> findVentas(Long vacacionId) {
+        return ventaRepository.findByVacacionIdOrderByFechaDesc(vacacionId);
+    }
+
+    /** Dias de vacaciones segun antiguedad (ley PY, parametrizable). */
+    private int diasPorAntiguedad(int anios) {
+        int dias5 = configuracionRrhhService.getNumber("DIAS_VACACIONES_HASTA_5A", new BigDecimal("12")).intValue();
+        int dias10 = configuracionRrhhService.getNumber("DIAS_VACACIONES_5_10A", new BigDecimal("18")).intValue();
+        int diasMas = configuracionRrhhService.getNumber("DIAS_VACACIONES_MAS_10A", new BigDecimal("30")).intValue();
+        return com.franco.dev.service.rrhh.builder.VacacionDevengamientoCalculator
+                .diasPorAntiguedad(anios, dias5, dias10, diasMas);
+    }
+
+    /**
+     * Devenga (genera) la vacacion del anio de servicio corriente del funcionario
+     * segun su antiguedad. Idempotente: si ya existe la del anio, la devuelve.
+     */
+    @Transactional
+    public Vacacion devengar(Long funcionarioId) {
+        Funcionario f = funcionarioService.findById(funcionarioId).orElse(null);
+        if (f == null || f.getFechaIngreso() == null) {
+            throw new GraphQLException("Funcionario o fecha de ingreso no disponible");
+        }
+        LocalDate ingreso = f.getFechaIngreso().toLocalDate();
+        int anioServicio = (int) Math.max(1, ChronoUnit.YEARS.between(ingreso, LocalDate.now()) + 1);
+
+        Optional<Vacacion> existente = repository.findByFuncionarioIdAndAnioServicio(funcionarioId, anioServicio);
+        if (existente.isPresent()) return existente.get();
+
+        int dias = diasPorAntiguedad(anioServicio - 1);
+        Vacacion v = new Vacacion();
+        v.setFuncionario(f);
+        v.setAnioServicio(anioServicio);
+        v.setDiasGenerados(dias);
+        v.setDiasGozados(0);
+        v.setFechaCorte(ingreso.plusYears(anioServicio));
+        v.setPrescrita(false);
+        v.setCreadoEn(LocalDateTime.now());
+        return repository.save(v);
+    }
+
+    /** Programa un periodo de vacaciones (SOLICITADA por defecto para self-service). */
+    @Transactional
+    public VacacionPeriodo programarPeriodo(Long vacacionId, LocalDate desde, LocalDate hasta,
+                                            VacacionPeriodoEstado estado, String observacion) {
+        Vacacion v = repository.findById(vacacionId)
+                .orElseThrow(() -> new GraphQLException("Vacacion no encontrada"));
+        int dias = (int) (ChronoUnit.DAYS.between(desde, hasta) + 1);
+        // Contra el disponible real: los dias ya vendidos tampoco se pueden gozar.
+        int disponibles = diasDisponibles(v);
+        if (dias > disponibles) {
+            throw new GraphQLException("Los dias del periodo superan los dias disponibles: " + disponibles);
+        }
+        VacacionPeriodo p = new VacacionPeriodo();
+        p.setVacacion(v);
+        p.setFechaDesde(desde);
+        p.setFechaHasta(hasta);
+        p.setDiasUsados(dias);
+        p.setEstado(estado != null ? estado : VacacionPeriodoEstado.SOLICITADA);
+        p.setNovedadesGeneradas(false);
+        p.setObservacion(observacion != null ? observacion.toUpperCase() : null);
+        p.setCreadoEn(LocalDateTime.now());
+        return periodoRepository.save(p);
+    }
+
+    @Transactional
+    public VacacionPeriodo aprobarPeriodo(Long periodoId, Long autorizadoPorId) {
+        VacacionPeriodo p = periodoRepository.findById(periodoId)
+                .orElseThrow(() -> new GraphQLException("Periodo no encontrado"));
+        p.setEstado(VacacionPeriodoEstado.PROGRAMADA);
+        // autorizadoPor es un Usuario, no un Funcionario: antes se buscaba el
+        // funcionario con el id del usuario y se descartaba el resultado, asi que
+        // la aprobacion de un permiso laboral no dejaba rastro de quien la dio.
+        if (autorizadoPorId != null) {
+            p.setAutorizadoPor(usuarioService.findById(autorizadoPorId).orElse(null));
+        }
+        return periodoRepository.save(p);
+    }
+
+    /**
+     * Marca un periodo como GOZADA: genera una novedad de jornada VACACION por
+     * cada dia del rango (idempotente por el flag novedades_generadas) y suma
+     * los dias gozados a la vacacion.
+     */
+    @Transactional
+    public VacacionPeriodo marcarGozada(Long periodoId) {
+        VacacionPeriodo p = periodoRepository.findById(periodoId)
+                .orElseThrow(() -> new GraphQLException("Periodo no encontrado"));
+        Vacacion v = p.getVacacion();
+
+        if (!Boolean.TRUE.equals(p.getNovedadesGeneradas())) {
+            // El tipo sale del catalogo (marcado como generado_por_sistema), no de un enum.
+            TipoJustificativo tipoVacacion = tipoJustificativoService.findByNombre("VACACION");
+            Long funcionarioId = v.getFuncionario() != null ? v.getFuncionario().getId() : null;
+            LocalDate d = p.getFechaDesde();
+            while (funcionarioId != null && d != null && !d.isAfter(p.getFechaHasta())) {
+                Justificativo j = new Justificativo();
+                j.setFuncionario(v.getFuncionario());
+                j.setFecha(d);
+                j.setTipo(tipoVacacion);
+                j.setObservacion("VACACION (PERIODO #" + p.getId() + ")");
+                justificativoService.save(j);
+                d = d.plusDays(1);
+            }
+            p.setNovedadesGeneradas(true);
+            int gozados = v.getDiasGozados() != null ? v.getDiasGozados() : 0;
+            v.setDiasGozados(gozados + (p.getDiasUsados() != null ? p.getDiasUsados() : 0));
+            repository.save(v);
+        }
+        p.setEstado(VacacionPeriodoEstado.GOZADA);
+        return periodoRepository.save(p);
+    }
+
+    /**
+     * Vende dias de vacaciones no gozados: crea una VacacionVenta PENDIENTE
+     * valorizada a salarioDiario x dias. Se cobra como HABER en la liquidacion.
+     */
+    @Transactional
+    /**
+     * Dias que todavia se pueden usar: los generados menos los gozados y menos los
+     * YA VENDIDOS (sin contar las ventas anuladas).
+     *
+     * Antes solo restaba los gozados, asi que las ventas no consumian saldo y se podia
+     * vender el mismo dia infinitas veces: cada venta se cobra como HABER en la
+     * liquidacion. Verificado: con 7 disponibles se vendieron 23 dias.
+     */
+    public int diasDisponibles(Vacacion v) {
+        int generados = v.getDiasGenerados() != null ? v.getDiasGenerados() : 0;
+        int gozados = v.getDiasGozados() != null ? v.getDiasGozados() : 0;
+        int vendidos = ventaRepository.findByVacacionIdOrderByFechaDesc(v.getId()).stream()
+                .filter(x -> x.getEstado() != VacacionVentaEstado.ANULADO)
+                .mapToInt(x -> x.getDias() != null ? x.getDias() : 0)
+                .sum();
+        return generados - gozados - vendidos;
+    }
+
+    /** Autoriza una venta: recien ahi queda PENDIENTE de cobro y la liquidacion la paga. */
+    @Transactional
+    public VacacionVenta aprobarVenta(Long ventaId, Long autorizadoPorId) {
+        VacacionVenta venta = ventaRepository.findById(ventaId)
+                .orElseThrow(() -> new GraphQLException("Venta no encontrada"));
+        if (venta.getEstado() != VacacionVentaEstado.SOLICITADA) {
+            throw new GraphQLException("Solo se puede aprobar una venta SOLICITADA");
+        }
+        venta.setEstado(VacacionVentaEstado.PENDIENTE);
+        if (autorizadoPorId != null) {
+            venta.setAutorizadoPor(usuarioService.findById(autorizadoPorId).orElse(null));
+        }
+        return ventaRepository.save(venta);
+    }
+
+    /** Anula una venta no pagada; libera los dias. */
+    @Transactional
+    public VacacionVenta anularVenta(Long ventaId) {
+        VacacionVenta venta = ventaRepository.findById(ventaId)
+                .orElseThrow(() -> new GraphQLException("Venta no encontrada"));
+        if (venta.getEstado() == VacacionVentaEstado.PAGADO) {
+            throw new GraphQLException("No se puede anular una venta ya pagada");
+        }
+        venta.setEstado(VacacionVentaEstado.ANULADO);
+        return ventaRepository.save(venta);
+    }
+
+    public VacacionVenta venderDias(Long vacacionId, Integer dias, String observacion) {
+        Vacacion v = repository.findById(vacacionId)
+                .orElseThrow(() -> new GraphQLException("Vacacion no encontrada"));
+        int disponibles = diasDisponibles(v);
+        if (dias == null || dias <= 0 || dias > disponibles) {
+            throw new GraphQLException("Cantidad de dias a vender invalida. Disponibles: " + disponibles);
+        }
+        BigDecimal diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30"));
+        BigDecimal salarioDiario = BigDecimal.ZERO;
+        if (v.getFuncionario() != null && v.getFuncionario().getSueldo() != null) {
+            salarioDiario = new BigDecimal(v.getFuncionario().getSueldo().toString())
+                    .divide(diasMes, 2, RoundingMode.HALF_UP);
+        }
+        VacacionVenta venta = new VacacionVenta();
+        venta.setVacacion(v);
+        venta.setDias(dias);
+        venta.setMonto(salarioDiario.multiply(new BigDecimal(dias)));
+        venta.setFecha(LocalDate.now());
+        // Nace SOLICITADA: la liquidacion solo paga las PENDIENTE (ya autorizadas).
+        venta.setEstado(VacacionVentaEstado.SOLICITADA);
+        venta.setObservacion(observacion != null ? observacion.toUpperCase() : null);
+        venta.setCreadoEn(LocalDateTime.now());
+        return ventaRepository.save(venta);
+    }
+
+    /** Marca prescritas las vacaciones cuyo corte supero los meses configurados. */
+    @Transactional
+    public int prescribir() {
+        int meses = configuracionRrhhService.getNumber("PRESCRIPCION_VACACIONES_MESES", new BigDecimal("24")).intValue();
+        LocalDate limite = LocalDate.now().minusMonths(meses);
+        int n = 0;
+        for (Vacacion v : findAll2()) {
+            if (!Boolean.TRUE.equals(v.getPrescrita()) && v.getFechaCorte() != null && v.getFechaCorte().isBefore(limite)) {
+                int disponibles = (v.getDiasGenerados() != null ? v.getDiasGenerados() : 0)
+                        - (v.getDiasGozados() != null ? v.getDiasGozados() : 0);
+                if (disponibles > 0) {
+                    v.setPrescrita(true);
+                    repository.save(v);
+                    n++;
+                }
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public Vacacion save(Vacacion entity) {
+        if (entity.getId() == null && entity.getCreadoEn() == null)
+            entity.setCreadoEn(LocalDateTime.now());
+        if (entity.getDiasGozados() == null) entity.setDiasGozados(0);
+        if (entity.getPrescrita() == null) entity.setPrescrita(false);
+        return super.save(entity);
+    }
+}

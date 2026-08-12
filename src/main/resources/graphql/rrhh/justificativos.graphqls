@@ -1,0 +1,105 @@
+# =====================================================================
+# RRHH — Justificativos (ex "novedades de jornada") y su catalogo de tipos.
+# El comportamiento (evitar penalizacion, descontar salario) lo define el
+# TIPO, no el justificativo: por eso se pueden agregar tipos sin desplegar.
+# =====================================================================
+
+enum DescuentoJustificativo {
+    NO
+    MEDIO_DIA
+    DIA_COMPLETO
+}
+
+type TipoJustificativo {
+    id: ID!
+    nombre: String
+    descripcion: String
+    evitaPenalizacion: Boolean
+    descuentaSalario: DescuentoJustificativo
+    requiereDocumento: Boolean
+    generadoPorSistema: Boolean
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input TipoJustificativoInput {
+    id: ID
+    nombre: String
+    descripcion: String
+    evitaPenalizacion: Boolean
+    descuentaSalario: DescuentoJustificativo
+    requiereDocumento: Boolean
+    generadoPorSistema: Boolean
+    activo: Boolean
+    usuarioId: Int
+}
+
+type Justificativo {
+    id: ID!
+    funcionario: Funcionario
+    fecha: String
+    tipo: TipoJustificativo
+    jornadaId: Int
+    sucursalId: Int
+    observacion: String
+    documento: FuncionarioDocumento
+    registradoPor: Usuario
+    creadoEn: Date
+}
+
+input JustificativoInput {
+    id: ID
+    funcionarioId: Int
+    fecha: String
+    tipoId: Int
+    jornadaId: Int
+    sucursalId: Int
+    observacion: String
+    documentoId: Int
+    registradoPorId: Int
+}
+
+type JustificativoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Justificativo]
+    getPageable: Pageable
+}
+
+type TipoJustificativoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [TipoJustificativo]
+    getPageable: Pageable
+}
+
+extend type Query {
+    justificativo(id: ID!): Justificativo
+    justificativosPorFuncionario(funcionarioId: ID!): [Justificativo]
+    justificativosPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [Justificativo]
+    justificativosPage(page: Int = 0, size: Int = 20, funcionarioId: ID, desde: String, hasta: String, tipoId: ID): JustificativoPage
+
+    tipoJustificativo(id: ID!): TipoJustificativo
+    tiposJustificativo: [TipoJustificativo]
+    tiposJustificativoActivos: [TipoJustificativo]
+    tiposJustificativoPage(page: Int = 0, size: Int = 20, nombre: String, activo: Boolean): TipoJustificativoPage
+}
+
+extend type Mutation {
+    saveJustificativo(justificativo: JustificativoInput!): Justificativo!
+    deleteJustificativo(id: ID!): Boolean!
+
+    saveTipoJustificativo(tipoJustificativo: TipoJustificativoInput!): TipoJustificativo!
+    deleteTipoJustificativo(id: ID!): Boolean!
+}

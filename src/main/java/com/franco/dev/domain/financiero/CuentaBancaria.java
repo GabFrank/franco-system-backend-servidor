@@ -44,6 +44,13 @@ public class CuentaBancaria implements Identifiable<Long> {
 
     private String numero;
 
+    /** Nombre de la cuenta (p.ej. "FRANCO AREVALOS S.A."); distinto de titular/firmantes. */
+    private String nombre;
+
+    /** Si la cuenta puede usarse en caja mayor / operaciones financieras (cuentas propias vs de terceros). */
+    @Column(name = "disponible_operaciones_financieras")
+    private Boolean disponibleOperacionesFinancieras;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "persona_id", nullable = true)
     private Persona persona;
@@ -55,6 +62,23 @@ public class CuentaBancaria implements Identifiable<Long> {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;
+
+    /** Saldo disponible de la cuenta. */
+    @Column(name = "saldo")
+    private java.math.BigDecimal saldo;
+
+    /** Comprometido por cheques diferidos emitidos no cobrados. */
+    @Column(name = "saldo_reservado")
+    private java.math.BigDecimal saldoReservado;
+
+    private String titular;
+
+    private String alias;
+
+    private Boolean activo;
+
+    @Column(name = "permite_saldo_negativo")
+    private Boolean permiteSaldoNegativo;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_cuenta")

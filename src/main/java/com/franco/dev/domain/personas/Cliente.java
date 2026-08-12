@@ -46,6 +46,10 @@ public class Cliente implements Identifiable<Long> {
 
     private Float credito;
 
+    /** Saldo de cuenta corriente (deuda del cliente). Actualizado por el ledger de cliente (CPC). */
+    @Column(name = "saldo_actual")
+    private java.math.BigDecimal saldoActual;
+
     private String codigo;
 
     @ManyToOne(fetch = FetchType.EAGER)

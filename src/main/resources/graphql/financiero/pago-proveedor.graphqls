@@ -1,0 +1,61 @@
+enum FuentePago {
+    CAJA_MAYOR
+    CUENTA_BANCARIA
+    CHEQUE
+    AJUSTE
+}
+
+input LineaPagoInput {
+    fuente: FuentePago!
+    cajaVirtualId: Int
+    cuentaBancariaId: Int
+    monedaId: Int
+    monto: Float!
+    cotizacion: Float
+    montoSolicitud: Float
+    descuento: Boolean
+    aumento: Boolean
+    # Fuente CHEQUE (1 cheque por chequeRef, aunque el FIFO reparta la línea entre notas)
+    chequeRef: Int
+    chequeraId: Int
+    diferido: Boolean
+    fechaEmision: String
+    fechaPago: String
+    beneficiario: String
+    nominal: Boolean
+}
+
+input PagoLoteInput {
+    solicitudId: ID!
+    monedaId: ID!
+    monto: Float!
+}
+
+input SolicitudConLineasInput {
+    solicitudId: ID!
+    lineas: [LineaPagoInput!]!
+}
+
+input GastoParaPagoInput {
+    tipoGastoId: ID
+    descripcion: String
+    monedaId: ID!
+    monto: Float!
+    beneficiarioProveedorId: ID
+    beneficiarioPersonaId: ID
+    fechaVencimiento: String
+    sucursalId: ID
+}
+
+extend type Query {
+    solicitudesPagoPendientes(proveedorId: ID): [SolicitudPago]
+    gastosPendientes: [SolicitudPago]
+}
+
+extend type Mutation {
+    pagarSolicitud(solicitudId: ID!, lineas: [LineaPagoInput!]!): SolicitudPago!
+    pagarSolicitudesLoteCajaMayor(cajaVirtualId: ID!, pagos: [PagoLoteInput!]!): Pago
+    pagarSolicitudesMixto(pagos: [SolicitudConLineasInput!]!): Pago
+    anularPagoCpp(pagoId: ID!, motivo: String): Pago!
+    crearGastoParaPago(input: GastoParaPagoInput!): SolicitudPago!
+}

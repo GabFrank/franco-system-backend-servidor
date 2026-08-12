@@ -63,6 +63,7 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         }
 
         cerrarOtrasSesionesActivasDelDispositivo(entity, now);
+        liberarTokenDeOtrasSesionesDelDispositivo(entity);
 
         if (entity.getHoraFin() != null) {
             entity.setToken(null);
@@ -86,20 +87,67 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
         return e;
     }
 
-    private void cerrarOtrasSesionesActivasDelDispositivo(InicioSesion entity, LocalDateTime now) {
+    /**
+     * Cierra las sesiones previas del mismo usuario en ese aparato. Solo toca
+     * sesiones propias: cerrar la de otra persona es una decision del ciclo de
+     * vida de login/logout, no del ruteo de notificaciones.
+     */
+    void cerrarOtrasSesionesActivasDelDispositivo(InicioSesion entity, LocalDateTime now) {
         if (entity.getIdDispositivo() == null || entity.getUsuario() == null) {
             return;
         }
         List<InicioSesion> sesionesPrevias = repository.findByUsuarioIdAndIdDispositivoAndHoraFinIsNull(
                 entity.getUsuario().getId(), entity.getIdDispositivo());
         for (InicioSesion previa : sesionesPrevias) {
-            if (entity.getId() != null && entity.getId().equals(previa.getId())) {
+            if (esLaMismaSesion(entity, previa)) {
                 continue;
             }
             previa.setHoraFin(now);
             previa.setToken(null);
             repository.save(previa);
         }
+    }
+
+    /**
+     * El push de un aparato va al ultimo que inicio sesion en el: al abrirse una
+     * sesion, las demas sesiones de ese dispositivo dejan de ser destino.
+     *
+     * Libera unicamente el token y NO toca hora_fin. Cerrarle la sesion a otra
+     * persona porque compartio la terminal seria un efecto lateral fuera del
+     * alcance de las notificaciones, y dejaria sesiones cerrandose solas.
+     *
+     * Hace falta ademas de liberarTokenDeOtrasSesiones porque aquella solo actua
+     * cuando el token FCM es identico. Si el token roto entre un login y otro,
+     * las dos sesiones del mismo aparato quedaban con token vivo y la persona
+     * anterior seguia recibiendo notificaciones ahi.
+     */
+    void liberarTokenDeOtrasSesionesDelDispositivo(InicioSesion entity) {
+        if (entity.getIdDispositivo() == null) {
+            return;
+        }
+        List<InicioSesion> sesionesDelDispositivo = repository.findByIdDispositivoAndHoraFinIsNull(
+                entity.getIdDispositivo());
+        for (InicioSesion otra : sesionesDelDispositivo) {
+            if (esLaMismaSesion(entity, otra) || otra.getToken() == null) {
+                continue;
+            }
+            otra.setToken(null);
+            repository.save(otra);
+        }
+    }
+
+    /**
+     * La clave primaria de inicio_sesion es (id, sucursal_id) y el id se genera
+     * por sucursal, asi que comparar solo el id confundiria sesiones de
+     * sucursales distintas.
+     */
+    private boolean esLaMismaSesion(InicioSesion entity, InicioSesion otra) {
+        if (entity.getId() == null || !entity.getId().equals(otra.getId())) {
+            return false;
+        }
+        return entity.getSucursalId() == null
+                ? otra.getSucursalId() == null
+                : entity.getSucursalId().equals(otra.getSucursalId());
     }
 
     private boolean tieneTokenValido(String token) {
@@ -181,18 +229,19 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
     }
 
     /**
-     * Deja un solo destino push por usuario (sesión más reciente) y deduplica
-     * tokens huérfanos sin usuario asociado.
+     * Deja un solo destino push por dispositivo del usuario (sesión más reciente)
+     * y deduplica tokens huérfanos sin usuario asociado. Un usuario con varios
+     * dispositivos activos recibe la notificación en todos.
      */
     private List<InicioSesion> deduplicarSesionesParaEnvio(List<InicioSesion> sesiones) {
-        Set<Long> usuariosVistos = new LinkedHashSet<>();
+        Set<String> destinosVistos = new LinkedHashSet<>();
         Set<String> tokensHuerfanos = new LinkedHashSet<>();
         List<InicioSesion> resultado = new ArrayList<>();
         for (InicioSesion sesion : sesiones) {
             Long usuarioId = sesion.getUsuario() != null ? sesion.getUsuario().getId() : null;
             String token = sesion.getToken();
             if (usuarioId != null) {
-                if (usuariosVistos.add(usuarioId)) {
+                if (destinosVistos.add(usuarioId + "|" + claveDispositivo(sesion))) {
                     resultado.add(sesion);
                 }
             } else if (token != null && tokensHuerfanos.add(token)) {
@@ -200,6 +249,23 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             }
         }
         return resultado;
+    }
+
+    /**
+     * Identifica el dispositivo destino. Sin id_dispositivo el token es lo único
+     * que distingue un aparato de otro, y si tampoco hay token se cae a la sesión
+     * para no colapsar destinos distintos.
+     */
+    private String claveDispositivo(InicioSesion sesion) {
+        String idDispositivo = sesion.getIdDispositivo();
+        if (idDispositivo != null && !idDispositivo.trim().isEmpty()) {
+            return "d:" + idDispositivo.trim();
+        }
+        String token = sesion.getToken();
+        if (token != null && !token.trim().isEmpty()) {
+            return "t:" + token.trim();
+        }
+        return "s:" + sesion.getId();
     }
 
     @org.springframework.transaction.annotation.Transactional

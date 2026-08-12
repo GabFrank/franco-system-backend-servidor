@@ -1,0 +1,184 @@
+enum PenalizacionTipo {
+    TARDANZA
+    AUSENCIA
+    QUEJA_CLIENTE
+    AMBIENTE_LABORAL
+    DANIO_MATERIAL
+    COMISION_DESCUENTO
+    OTRO
+}
+
+enum HoraExtraTipo {
+    DIURNA
+    NOCTURNA
+    FERIADO
+}
+
+enum HoraExtraOrigen {
+    JORNADA
+    MANUAL
+}
+
+type Feriado {
+    id: ID!
+    fecha: String
+    descripcion: String
+    esNacional: Boolean
+    recargoPorcentaje: Float
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input FeriadoInput {
+    id: ID
+    fecha: String
+    descripcion: String
+    esNacional: Boolean
+    recargoPorcentaje: Float
+    activo: Boolean
+    usuarioId: Int
+}
+
+type FeriadoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Feriado]
+    getPageable: Pageable
+}
+
+type Penalizacion {
+    id: ID!
+    funcionario: Funcionario
+    jornadaId: Int
+    sucursalId: Int
+    tipo: PenalizacionTipo
+    descripcion: String
+    monto: Float
+    fecha: String
+    autoGenerada: Boolean
+    anulada: Boolean
+    registradoPor: Usuario
+    creadoEn: Date
+}
+
+input PenalizacionInput {
+    id: ID
+    funcionarioId: Int
+    jornadaId: Int
+    sucursalId: Int
+    tipo: PenalizacionTipo
+    descripcion: String
+    monto: Float
+    fecha: String
+    autoGenerada: Boolean
+    anulada: Boolean
+    registradoPorId: Int
+}
+
+type PenalizacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Penalizacion]
+    getPageable: Pageable
+}
+
+type HoraExtra {
+    id: ID!
+    funcionario: Funcionario
+    fecha: String
+    jornadaId: Int
+    sucursalId: Int
+    minutos: Float
+    tipo: HoraExtraTipo
+    recargoPorcentaje: Float
+    montoCalculado: Float
+    origen: HoraExtraOrigen
+    anulada: Boolean
+    autorizadoPor: Usuario
+    observacion: String
+    creadoEn: Date
+}
+
+input HoraExtraInput {
+    id: ID
+    funcionarioId: Int
+    fecha: String
+    jornadaId: Int
+    sucursalId: Int
+    minutos: Float
+    tipo: HoraExtraTipo
+    recargoPorcentaje: Float
+    montoCalculado: Float
+    origen: HoraExtraOrigen
+    anulada: Boolean
+    autorizadoPorId: Int
+    observacion: String
+}
+
+type HoraExtraPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [HoraExtra]
+    getPageable: Pageable
+}
+
+input JustificarJornadaInput {
+    jornadaId: Int
+    sucursalId: Int
+    funcionarioId: Int
+    fecha: String
+    observacion: String
+    registradoPorId: Int
+}
+
+extend type Query {
+    feriado(id: ID!): Feriado
+    feriados(page: Int = 0, size: Int = 100): [Feriado]!
+    feriadosPorRango(desde: String, hasta: String): [Feriado]
+    feriadosActivos: [Feriado]
+    countFeriado: Int
+    feriadosPage(page: Int = 0, size: Int = 20, desde: String, hasta: String, descripcion: String, activo: Boolean): FeriadoPage
+
+
+    penalizacion(id: ID!): Penalizacion
+    penalizacionesPorFuncionario(funcionarioId: ID!): [Penalizacion]
+    penalizacionesPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [Penalizacion]
+    penalizacionesPorJornada(jornadaId: ID!, sucursalId: ID!): [Penalizacion]
+    penalizacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, desde: String, hasta: String, tipo: PenalizacionTipo): PenalizacionPage
+
+    horaExtra(id: ID!): HoraExtra
+    horasExtraPorFuncionario(funcionarioId: ID!): [HoraExtra]
+    horasExtraPorFuncionarioYRango(funcionarioId: ID!, desde: String, hasta: String): [HoraExtra]
+    horasExtraPage(page: Int = 0, size: Int = 20, funcionarioId: ID, desde: String, hasta: String, tipo: HoraExtraTipo): HoraExtraPage
+}
+
+extend type Mutation {
+    saveFeriado(feriado: FeriadoInput!): Feriado!
+    deleteFeriado(id: ID!): Boolean!
+
+
+    savePenalizacion(penalizacion: PenalizacionInput!): Penalizacion!
+    anularPenalizacion(id: ID!): Penalizacion
+    generarPenalizacionesAuto(fecha: String): Int
+    justificarJornada(input: JustificarJornadaInput!): Boolean
+
+    saveHoraExtra(horaExtra: HoraExtraInput!): HoraExtra!
+    anularHoraExtra(id: ID!): HoraExtra
+    deleteHoraExtra(id: ID!): Boolean!
+}

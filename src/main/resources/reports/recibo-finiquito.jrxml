@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="recibo-finiquito" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="d1e2f3a4-b5c6-4d7e-8f90-3a4b5c6d7e01">
+	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="trabajador" class="java.lang.String"/>
+	<parameter name="documento" class="java.lang.String"/>
+	<parameter name="motivo" class="java.lang.String"/>
+	<parameter name="entrada" class="java.lang.String"/>
+	<parameter name="salida" class="java.lang.String"/>
+	<parameter name="antiguedad" class="java.lang.String"/>
+	<parameter name="salario" class="java.lang.String"/>
+	<parameter name="jornalDiario" class="java.lang.String"/>
+	<parameter name="fecha" class="java.lang.String"/>
+	<parameter name="total" class="java.lang.String"/>
+	<parameter name="totalEnLetras" class="java.lang.String"/>
+	<field name="concepto" class="java.lang.String"/>
+	<field name="monto" class="java.lang.String"/>
+	<title>
+		<band height="238" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="380" height="22"/>
+				<textElement><font fontName="SansSerif" size="13" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["LIQUIDACION FINAL DE HABERES"]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="27" width="555" height="1"/>
+			</line>
+			<!-- Tabla de datos: 7 filas Empresa/Trabajador/Entrada/Salida/Antiguedad/Salario/Jornal -->
+			<textField>
+				<reportElement x="0" y="38" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Empresa"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="38" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="60" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Trabajador"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="60" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{trabajador} != null ? $P{trabajador} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="82" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Entrada"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="82" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{entrada} != null ? $P{entrada} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="104" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Salida"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="104" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{salida} != null ? $P{salida} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="126" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Antiguedad"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="126" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{antiguedad} != null ? $P{antiguedad} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="148" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Salario"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="148" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{salario} != null ? $P{salario} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="170" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Jornal diario"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="170" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{jornalDiario} != null ? $P{jornalDiario} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="22" splitType="Stretch">
+			<line>
+				<reportElement x="0" y="0" width="555" height="1"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="2" width="400" height="18"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[Concepto]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="400" y="2" width="155" height="18"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[Monto]]></text>
+			</staticText>
+			<line>
+				<reportElement x="0" y="21" width="555" height="1"/>
+			</line>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="400" height="16"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA[$F{concepto} != null ? $F{concepto} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="400" y="0" width="155" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA[$F{monto} != null ? $F{monto} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="180" splitType="Stretch">
+			<line>
+				<reportElement x="0" y="2" width="555" height="1"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="6" width="400" height="18"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<text><![CDATA[TOTAL A LIQUIDAR]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="400" y="6" width="155" height="18"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["Gs. " + ($P{total} != null ? $P{total} : "")]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="0" y="36" width="555" height="44"/>
+				<textElement textAlignment="Justified"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Recibi de la empresa " + ($P{empresa} != null ? $P{empresa} : "") + " la suma de " + ($P{totalEnLetras} != null ? $P{totalEnLetras} : "") + " (Gs. " + ($P{total} != null ? $P{total} : "") + ") en concepto de liquidacion final de haberes laborales."]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="180" y="120" width="220" height="1"/>
+			</line>
+			<textField>
+				<reportElement x="120" y="124" width="340" height="16"/>
+				<textElement textAlignment="Center"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Nombre y Apellido: " + ($P{trabajador} != null ? $P{trabajador} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="120" y="140" width="340" height="16"/>
+				<textElement textAlignment="Center"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["C.I. N: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

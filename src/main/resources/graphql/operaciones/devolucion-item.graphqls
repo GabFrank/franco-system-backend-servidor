@@ -2,19 +2,32 @@ type DevolucionItem {
     id: ID
     devolucion: Devolucion
     producto: Producto
+    presentacion: Presentacion
+    motivoAveria: MotivoAveria
     recepcionMercaderiaItem: RecepcionMercaderiaItem
     cantidad: Float
     lote: String
+    motivo: String
+    vencimiento: Date
+    costoUnitario: Float
+    cantidadReingresada: Float
+    vencimientoReingreso: Date
 }
 
 input DevolucionItemInput {
     id: ID
     devolucionId: Int
     productoId: Int
+    presentacionId: Int
+    motivoAveriaId: Int
     recepcionMercaderiaItemId: Int
     cantidad: Float
     motivo: String
     lote: String
+    vencimiento: String
+    costoUnitario: Float
+    cantidadReingresada: Float
+    vencimientoReingreso: String
     creadoEn: String
 }
 
@@ -29,4 +42,4 @@ extend type Query {
 extend type Mutation {
     saveDevolucionItem(entity: DevolucionItemInput!): DevolucionItem!
     deleteDevolucionItem(id: ID!): Boolean!
-} 
+}

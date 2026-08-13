@@ -18,4 +18,12 @@ public class ChequeraResolver implements GraphQLResolver<Chequera> {
     public List<Cheque> cheques(Chequera chequera) {
         return chequeService.findByChequeraId(chequera.getId());
     }
+
+    /** Hojas restantes en la chequera: rangoHasta − siguienteNumero + 1 (0 si está agotada/nula). */
+    public Integer hojasDisponibles(Chequera c) {
+        if (c.getRangoHasta() == null) return 0;
+        double sig = c.getSiguienteNumero() != null ? c.getSiguienteNumero() : (c.getRangoDesde() != null ? c.getRangoDesde() : 0);
+        long libres = (long) Math.floor(c.getRangoHasta() - sig + 1);
+        return (int) Math.max(0, libres);
+    }
 } 

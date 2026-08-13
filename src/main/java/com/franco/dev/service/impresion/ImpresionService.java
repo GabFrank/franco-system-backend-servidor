@@ -22,6 +22,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
+import com.franco.dev.graphql.operaciones.dto.ProductoVencidoViewDTO;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
 import com.franco.dev.service.impresion.dto.GastoDto;
@@ -1251,6 +1252,70 @@ public class ImpresionService {
         }
     }
 
+    /**
+     * Reporte PDF del listado de productos vencidos.
+     *
+     * La lista ya viene ordenada por sucursal desde
+     * {@link com.franco.dev.service.operaciones.ProductosVencidosService#listarProductosVencidosParaReporte}:
+     * el jrxml agrupa por ese campo, asi que reordenarla aca romperia los
+     * subtotales por sucursal.
+     */
+    public String imprimirProductosVencidos(
+            List<ProductoVencidoViewDTO> productoVencidoList,
+            String fechaInicio,
+            String fechaFin,
+            String fuentes,
+            String sucursales,
+            String filtroProducto,
+            String filtroUsuario,
+            String aviso,
+            Usuario usuario) {
+        try {
+            List<ProductoVencidoItemDto> itemDtoList = new ArrayList<>();
+            for (ProductoVencidoViewDTO vencido : productoVencidoList) {
+                ProductoVencidoItemDto dto = new ProductoVencidoItemDto();
+                dto.setProductoDescripcion(defaultTexto(vencido.getProductoDescripcion(), ""));
+                dto.setCodigoBarras(defaultTexto(vencido.getCodigoBarras(), "-"));
+                dto.setCantidad(vencido.getCantidad());
+                dto.setVencimiento(vencido.getVencimiento() != null
+                        ? DateUtils.toStringOnlyDate(vencido.getVencimiento())
+                        : "-");
+                dto.setEstadoVencimiento(defaultTexto(vencido.getDiasVencimientoTexto(), "-"));
+                dto.setFuenteVerdad(vencido.getFuenteVerdad() != null ? vencido.getFuenteVerdad().toString() : "-");
+                dto.setSucursalNombre(defaultTexto(vencido.getSucursalNombre(), "SIN SUCURSAL"));
+                dto.setSectorDescripcion(defaultTexto(vencido.getSectorDescripcion(), "-"));
+                dto.setZonaDescripcion(defaultTexto(vencido.getZonaDescripcion(), "-"));
+                itemDtoList.add(dto);
+            }
+
+            JasperReport jasperReport = compileReportFromClasspath("reports/productos-vencidos.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(itemDtoList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("fechaInicio", defaultTexto(fechaInicio, "-"));
+            parameters.put("fechaFin", defaultTexto(fechaFin, "-"));
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario",
+                    usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "");
+            parameters.put("fuentes", defaultTexto(fuentes, "TODAS"));
+            parameters.put("sucursales", defaultTexto(sucursales, "TODAS"));
+            parameters.put("filtroProducto", defaultTexto(filtroProducto, "TODOS"));
+            parameters.put("filtroUsuario", defaultTexto(filtroUsuario, "TODOS"));
+            parameters.put("aviso", defaultTexto(aviso, ""));
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
+            log.error("Error generando el reporte de productos vencidos", e);
+            return null;
+        }
+    }
+
+    private String defaultTexto(String valor, String porDefecto) {
+        return valor != null && !valor.trim().isEmpty() ? valor : porDefecto;
+    }
+
     public void imprimirCodigoDeBarra(Codigo codigo) {
         try {
             selectedPrintService = printingService.getPrintService("adesivo");
@@ -1395,6 +1460,21 @@ public class ImpresionService {
         private String llegadaTardia;
         private String horaExtra;
         private String turno;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class ProductoVencidoItemDto {
+        private String productoDescripcion;
+        private String codigoBarras;
+        private Double cantidad;
+        private String vencimiento;
+        private String estadoVencimiento;
+        private String fuenteVerdad;
+        private String sucursalNombre;
+        private String sectorDescripcion;
+        private String zonaDescripcion;
     }
 
     @Data

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="recibo-rrhh" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c2d3e4f5-a6b7-4c8d-9e01-2b3c4d5e6f02">
+	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="titulo" class="java.lang.String"/>
+	<parameter name="funcionario" class="java.lang.String"/>
+	<parameter name="documento" class="java.lang.String"/>
+	<parameter name="fecha" class="java.lang.String"/>
+	<parameter name="clausula" class="java.lang.String"/>
+	<parameter name="total" class="java.lang.String"/>
+	<parameter name="totalEnLetras" class="java.lang.String"/>
+	<field name="concepto" class="java.lang.String"/>
+	<field name="monto" class="java.lang.String"/>
+	<title>
+		<band height="150" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="18"/>
+				<textElement><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="22" width="400" height="22"/>
+				<textElement><font fontName="SansSerif" size="13" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{titulo} != null ? $P{titulo} : "RECIBO"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="400" y="22" width="155" height="22"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Fecha: " + ($P{fecha} != null ? $P{fecha} : "")]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="0" y="49" width="555" height="1"/>
+			</line>
+			<textField>
+				<reportElement x="0" y="60" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["Funcionario"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="60" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{funcionario} != null ? $P{funcionario} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="82" width="150" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA["C.I. N"]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="82" width="405" height="22"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/><paragraph leftIndent="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{documento} != null ? $P{documento} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="22" splitType="Stretch">
+			<line>
+				<reportElement x="0" y="0" width="555" height="1"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="2" width="400" height="18"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[Concepto]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="400" y="2" width="155" height="18"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[Monto]]></text>
+			</staticText>
+			<line>
+				<reportElement x="0" y="21" width="555" height="1"/>
+			</line>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="400" height="16"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA[$F{concepto} != null ? $F{concepto} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="400" y="0" width="155" height="16"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA[$F{monto} != null ? $F{monto} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<summary>
+		<band height="180" splitType="Stretch">
+			<line>
+				<reportElement x="0" y="2" width="555" height="1"/>
+			</line>
+			<staticText>
+				<reportElement x="0" y="6" width="400" height="18"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<text><![CDATA[TOTAL]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="400" y="6" width="155" height="18"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["Gs. " + ($P{total} != null ? $P{total} : "")]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="0" y="36" width="555" height="44"/>
+				<textElement textAlignment="Justified"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA[($P{clausula} != null ? $P{clausula} : "") + " La suma de " + ($P{totalEnLetras} != null ? $P{totalEnLetras} : "") + " (Gs. " + ($P{total} != null ? $P{total} : "") + ")."]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="180" y="120" width="220" height="1"/>
+			</line>
+			<textField>
+				<reportElement x="120" y="124" width="340" height="16"/>
+				<textElement textAlignment="Center"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Nombre y Apellido: " + ($P{funcionario} != null ? $P{funcionario} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="120" y="140" width="340" height="16"/>
+				<textElement textAlignment="Center"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["C.I. N: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

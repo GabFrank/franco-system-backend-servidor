@@ -1,5 +1,6 @@
 package com.franco.dev.utilitarios;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAdjusters;
@@ -26,6 +27,15 @@ public class DateUtils {
 
     public static String toStringOnlyDate(LocalDateTime d) {
         return formatter2.format(d);
+    }
+
+    /**
+     * Convierte un parametro de fecha de GraphQL a LocalDate, tolerando null.
+     * Lo usan los filtros paginados: un filtro vacio tiene que llegar como null al JPQL.
+     */
+    public static LocalDate stringToLocalDate(String s) {
+        LocalDateTime d = stringToDate(s);
+        return d != null ? d.toLocalDate() : null;
     }
 
     public static LocalDateTime stringToDate(String s) {

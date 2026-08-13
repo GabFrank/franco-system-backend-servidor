@@ -15,10 +15,21 @@ public interface NotificacionEnvioLogRepository extends HelperRepository<Notific
         return NotificacionEnvioLog.class;
     }
 
+    /**
+     * Cola de despacho, en orden FIFO por id.
+     *
+     * No ordenar por fechaEnvio: esa columna solo se completa cuando el envio
+     * sale bien, asi que es NULL en todas las filas PENDIENTE que esta query
+     * selecciona. Ordenar por una clave constante obliga a materializar y
+     * ordenar la cola entera para devolver un lote, y cuando el backlog pasa a
+     * ser la mayoria de la tabla el planner abandona el indice de estadoEnvio y
+     * cae en seq scan. Por id el recorrido es indexado y corta al completar el
+     * lote.
+     */
     @Query("SELECT nel FROM NotificacionEnvioLog nel " +
            "JOIN FETCH nel.notificacion n " +
            "WHERE nel.estadoEnvio = :estado " +
-           "ORDER BY nel.fechaEnvio ASC")
+           "ORDER BY nel.id ASC")
     List<NotificacionEnvioLog> findBatchByEstado(@Param("estado") EstadoEnvio estado, Pageable pageable);
 
     @Query("SELECT nel FROM NotificacionEnvioLog nel WHERE nel.notificacion.id = :notificacionId")

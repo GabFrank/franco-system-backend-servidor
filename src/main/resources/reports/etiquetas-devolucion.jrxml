@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Etiquetas de separado de devolucion. Cards cortables en 2 columnas. -->
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+    name="etiquetas-devolucion" pageWidth="595" pageHeight="842"
+    columnCount="2" printOrder="Horizontal" columnWidth="268" columnSpacing="19"
+    leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20"
+    whenNoDataType="AllSectionsNoDetail"
+    uuid="c1e2d3f4-a5b6-47c8-9d0e-1f2a3b4c5d6e">
+    <property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+    <field name="identificador" class="java.lang.String"/>
+    <field name="codigo" class="java.lang.String"/>
+    <field name="producto" class="java.lang.String"/>
+    <field name="cantidad" class="java.lang.String"/>
+    <field name="motivo" class="java.lang.String"/>
+    <field name="qr" class="java.lang.String"/>
+    <detail>
+        <band height="132" splitType="Prevent">
+            <!-- Borde punteado para recortar -->
+            <rectangle radius="4">
+                <reportElement x="0" y="2" width="268" height="126" uuid="d0000001-0000-0000-0000-000000000001"/>
+                <graphicElement>
+                    <pen lineWidth="0.8" lineStyle="Dashed" lineColor="#888888"/>
+                </graphicElement>
+            </rectangle>
+            <!-- Identificador (grande) -->
+            <textField>
+                <reportElement x="8" y="8" width="180" height="18" uuid="d0000001-0000-0000-0000-000000000002"/>
+                <textElement><font size="12" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$F{identificador}]]></textFieldExpression>
+            </textField>
+            <!-- QR arriba a la derecha -->
+            <componentElement>
+                <reportElement x="196" y="6" width="64" height="64" uuid="d0000001-0000-0000-0000-000000000003"/>
+                <jr:QRCode xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components"
+                    xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd">
+                    <jr:codeExpression><![CDATA[$F{qr}]]></jr:codeExpression>
+                </jr:QRCode>
+            </componentElement>
+            <!-- Codigo -->
+            <textField isBlankWhenNull="true">
+                <reportElement x="8" y="28" width="180" height="12" uuid="d0000001-0000-0000-0000-000000000004"/>
+                <textElement><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$F{codigo}]]></textFieldExpression>
+            </textField>
+            <!-- Producto (id + descripcion) -->
+            <textField>
+                <reportElement x="8" y="44" width="252" height="26" uuid="d0000001-0000-0000-0000-000000000005"/>
+                <textElement><font size="9" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$F{producto}]]></textFieldExpression>
+            </textField>
+            <!-- Cantidad -->
+            <textField>
+                <reportElement x="8" y="76" width="252" height="16" uuid="d0000001-0000-0000-0000-000000000006"/>
+                <textElement><font size="10" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
+            </textField>
+            <!-- Motivo -->
+            <textField isBlankWhenNull="true">
+                <reportElement x="8" y="96" width="252" height="24" uuid="d0000001-0000-0000-0000-000000000007"/>
+                <textElement><font size="8"/></textElement>
+                <textFieldExpression><![CDATA[$F{motivo} == null || $F{motivo}.isEmpty() ? null : "Motivo: " + $F{motivo}]]></textFieldExpression>
+            </textField>
+        </band>
+    </detail>
+</jasperReport>

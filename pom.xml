@@ -24,7 +24,19 @@
 		<graphql-java.version>18.5</graphql-java.version>
 		<graphql-java-extended-scalars.version>18.3</graphql-java-extended-scalars.version>
 		<jar.finalName>${project.name}</jar.finalName>
-		<skipFlyway>false</skipFlyway>
+		<!--
+			El flyway-maven-plugin corre 'validate' en process-resources, pero no tiene
+			url/user/password: Maven no lee application*.properties, asi que siempre
+			fallaba con "Unable to connect to the database" y habia que pasar
+			-DskipFlyway=true en cada build (incluido el de CI). La validacion real la
+			hace Flyway dentro de Spring al arrancar, contra el datasource configurado.
+
+			Para correr el plugin a mano hay que darle las credenciales:
+			./mvnw flyway:validate -DskipFlyway=false \
+			  -Dflyway.url=jdbc:postgresql://localhost:5551/mi_base \
+			  -Dflyway.user=franco -Dflyway.password=franco
+		-->
+		<skipFlyway>true</skipFlyway>
 	</properties>
 
 	<dependencies>

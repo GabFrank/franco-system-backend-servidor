@@ -46,12 +46,31 @@ public class ChequeraGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getCuentaBancariaId() != null) {
             e.setCuentaBancaria(cuentaBancariaService.findById(input.getCuentaBancariaId()).orElse(null));
         }
+        // Update: preservar campos que el input no envia (el save es un merge y los
+        // dejaria en null): creado_en, fecha_retiro y usuario creador.
+        if (input.getId() != null) {
+            Chequera existente = service.findById(input.getId()).orElse(null);
+            if (existente != null) {
+                if (e.getCreadoEn() == null) e.setCreadoEn(existente.getCreadoEn());
+                if (e.getFechaRetiro() == null) e.setFechaRetiro(existente.getFechaRetiro());
+                if (e.getUsuario() == null) e.setUsuario(existente.getUsuario());
+            }
+        }
         e = service.save(e);
         return e;
     }
 
     public List<Chequera> chequerasSearch(String texto) {
         return service.findByAll(texto);
+    }
+
+    /** Chequeras de una cuenta bancaria (para ofrecer cheque como forma de pago). soloActivas por default. */
+    public List<Chequera> chequerasPorCuenta(Long cuentaBancariaId, Boolean soloActivas) {
+        if (Boolean.FALSE.equals(soloActivas)) {
+            return service.getRepository().findByCuentaBancariaIdOrderByIdDesc(cuentaBancariaId);
+        }
+        return service.getRepository().findByCuentaBancariaIdAndEstadoOrderByIdDesc(
+                cuentaBancariaId, com.franco.dev.domain.financiero.enums.EstadoChequera.ACTIVA);
     }
 
     public Boolean deleteChequera(Long id) {

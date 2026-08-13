@@ -81,6 +81,15 @@ public class NotaCreditoDevolucionService {
         return 0.0;
     }
 
+    /**
+     * Costo por unidad base a partir del valor declarado en los items de la
+     * devolucion. Fallback para productos sin CostoPorProducto.
+     */
+    private double costoDeclaradoBase(Double valorDeclarado, double cantidadBase) {
+        if (valorDeclarado == null || valorDeclarado <= 0.0 || cantidadBase <= 0.0) return 0.0;
+        return valorDeclarado / cantidadBase;
+    }
+
     private double factor(DevolucionItem item) {
         if (item.getPresentacion() != null && item.getPresentacion().getCantidad() != null) {
             return item.getPresentacion().getCantidad();
@@ -103,12 +112,18 @@ public class NotaCreditoDevolucionService {
         List<Devolucion> devoluciones = devolucionService.findByRetiroId(retiroId);
         // productoId -> cantidad base acumulada
         Map<Long, Double> cantidadPorProducto = new LinkedHashMap<>();
+        // productoId -> valor declarado acumulado (cantidad * costo cargado en el item)
+        Map<Long, Double> valorDeclaradoPorProducto = new LinkedHashMap<>();
         for (Devolucion d : devoluciones) {
             for (DevolucionItem item : devolucionItemService.findByDevolucionId(d.getId())) {
                 Long prodId = item.getProducto() != null ? item.getProducto().getId() : null;
                 if (prodId == null) continue;
-                double cantidadBase = (item.getCantidad() != null ? item.getCantidad() : 0.0) * factor(item);
+                double cantidad = item.getCantidad() != null ? item.getCantidad() : 0.0;
+                double cantidadBase = cantidad * factor(item);
                 cantidadPorProducto.merge(prodId, cantidadBase, Double::sum);
+                if (item.getCostoUnitario() != null && item.getCostoUnitario() > 0.0) {
+                    valorDeclaradoPorProducto.merge(prodId, cantidad * item.getCostoUnitario(), Double::sum);
+                }
             }
         }
 
@@ -117,7 +132,12 @@ public class NotaCreditoDevolucionService {
         for (Map.Entry<Long, Double> e : cantidadPorProducto.entrySet()) {
             Long prodId = e.getKey();
             double cantidadBase = e.getValue();
+            // Sin CostoPorProducto la linea salia en 0 y el operador tenia que
+            // retipear el costo: se usa entonces el declarado en los items.
             double costoMedio = costoMedioBase(prodId);
+            if (costoMedio <= 0.0) {
+                costoMedio = costoDeclaradoBase(valorDeclaradoPorProducto.get(prodId), cantidadBase);
+            }
             double total = cantidadBase * costoMedio;
             montoTotal += total;
 

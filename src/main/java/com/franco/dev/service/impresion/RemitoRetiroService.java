@@ -82,10 +82,12 @@ public class RemitoRetiroService {
             List<DevolucionItem> items = devolucionItemService.findByDevolucionId(id);
             for (DevolucionItem item : items) {
                 Presentacion pres = item.getPresentacion();
-                String codigo = null;
+                // Vacio (no "null") cuando la presentacion no tiene codigo principal:
+                // el remito lo firma el proveedor.
+                String codigo = "";
                 if (pres != null && pres.getId() != null) {
                     Codigo cod = codigoService.findPrincipalByPresentacionId(pres.getId());
-                    if (cod != null) codigo = cod.getCodigo();
+                    if (cod != null && cod.getCodigo() != null) codigo = cod.getCodigo();
                 }
                 RemitoRetiroFilaDto fila = new RemitoRetiroFilaDto();
                 fila.setSucursal(sucNombre);

@@ -1,10 +1,13 @@
 type SolicitudPago {
     id: ID!
-    proveedor: Proveedor!
+    proveedor: Proveedor
+    tipo: TipoSolicitudPago
+    tipoGasto: TipoGasto
     numeroSolicitud: String!
     fechaSolicitud: String!
     fechaPagoPropuesta: String
     montoTotal: Float!
+    montoPagado: Float
     moneda: Moneda!
     formaPago: FormaPago
     estado: SolicitudPagoEstado!
@@ -14,6 +17,12 @@ type SolicitudPago {
     pago: Pago
     notasRecepcion: [SolicitudPagoNotaRecepcion]
     detalles: [SolicitudPagoDetalle]
+}
+
+enum TipoSolicitudPago {
+    COMPRA
+    GASTO
+    RRHH
 }
 
 type SolicitudPagoDetalle {
@@ -180,6 +189,7 @@ extend type Mutation {
 
 enum SolicitudPagoEstado {
     PENDIENTE
+    SOLICITADO
     PARCIAL
     CONCLUIDO
     CANCELADO

@@ -1,0 +1,24 @@
+extend type Mutation {
+    emitirCheque(
+        chequeraId: Int!, total: Float!, diferido: Boolean!,
+        monedaId: Int, cuentaBancariaId: Int, fechaPago: String, concepto: String
+    ): Cheque!
+    cobrarCheque(chequeId: ID!): Cheque!
+    anularCheque(chequeId: ID!, motivo: String): Cheque!
+
+    crearAcreditacionPos(terminalPosId: Int!, montoOriginal: Float!, ventaId: Int): AcreditacionPos!
+    verificarAcreditacionPos(id: ID!, montoReal: Float!): AcreditacionPos!
+    procesarAcreditacionesPos: Int!
+}
+
+type AcreditacionPos {
+    id: ID!
+    montoOriginal: Float
+    montoComision: Float
+    montoEsperado: Float
+    montoAcreditado: Float
+    estado: String
+    diferencia: Float
+    fechaEsperadaAcreditacion: Date
+    creadoEn: Date
+}

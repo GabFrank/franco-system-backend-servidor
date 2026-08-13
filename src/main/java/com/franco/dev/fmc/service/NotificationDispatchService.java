@@ -106,9 +106,23 @@ public class NotificationDispatchService {
         });
     }
 
-    private void handleResult(NotificacionEnvioLog target, Notificacion notificacion, DeliveryResult result) {
+    /**
+     * Antepone el codigo de FCM al mensaje. Sin el codigo, mensaje_error queda
+     * como texto libre y no hay forma de filtrar ni alertar por tipo de fallo.
+     */
+    private static String detalleError(DeliveryResult result) {
+        if (result.getErrorCode() == null) {
+            return result.getMessage();
+        }
+        return "[" + result.getErrorCode() + "] " + result.getMessage();
+    }
+
+    void handleResult(NotificacionEnvioLog target, Notificacion notificacion, DeliveryResult result) {
         LocalDateTime now = LocalDateTime.now();
+        String detalle = detalleError(result);
         notificacion.setIntentosEnvio(Optional.ofNullable(notificacion.getIntentosEnvio()).orElse(0) + 1);
+        int intentosDelDestino = Optional.ofNullable(target.getIntentos()).orElse(0) + 1;
+        target.setIntentos(intentosDelDestino);
         switch (result.getOutcome()) {
             case SUCCESS:
                 target.setEstadoEnvio(EstadoEnvio.ENVIADO);
@@ -118,28 +132,31 @@ public class NotificationDispatchService {
                 break;
             case INVALID_TOKEN:
                 target.setEstadoEnvio(EstadoEnvio.FALLO_DESTINO);
-                target.setMensajeError(result.getMessage());
+                target.setMensajeError(detalle);
                 meter("notifications.invalid-token");
                 inicioSesionService.clearToken(target.getTokenFcm());
                 break;
             case TRANSIENT_ERROR:
-                if (notificacion.getIntentosEnvio() >= maxAttempts) {
-                    target.setEstadoEnvio(EstadoEnvio.FALLO_ENVIO);
-                    target.setMensajeError(result.getMessage());
-                    meter("notifications.failure.max-attempts");
+                // El presupuesto es del destino, no de la notificacion: contarlo
+                // en la notificacion lo repartia entre todos sus tokens y dejaba
+                // a la mayoria sin ningun reintento real.
+                if (intentosDelDestino >= maxAttempts) {
+                    target.setEstadoEnvio(EstadoEnvio.CANCELADA);
+                    target.setMensajeError(detalle);
+                    meter("notifications.cancelled.max-attempts");
                 } else {
                     target.setEstadoEnvio(EstadoEnvio.PENDIENTE);
-                    target.setMensajeError(result.getMessage());
+                    target.setMensajeError(detalle);
                     meter("notifications.transient-error");
                 }
                 break;
             case FAILURE:
                 target.setEstadoEnvio(EstadoEnvio.FALLO_ENVIO);
-                target.setMensajeError(result.getMessage());
+                target.setMensajeError(detalle);
                 meter("notifications.failure");
                 break;
         }
-        notificacion.setUltimoError(result.getMessage());
+        notificacion.setUltimoError(detalle);
         if (EstadoEnvio.ENVIADO.equals(target.getEstadoEnvio())) {
             maybeFinalizeNotification(notificacion);
         }

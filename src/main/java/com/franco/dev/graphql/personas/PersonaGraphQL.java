@@ -6,6 +6,7 @@ import com.franco.dev.config.multitenant.CustomPage;
 import com.franco.dev.config.multitenant.CustomPageImpl;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.personas.input.PersonaInput;
+import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -29,6 +30,9 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
     @Autowired
     private UsuarioService usuarioService;
+
+    @Autowired
+    private CiudadService ciudadService;
 
 
     @Autowired
@@ -85,6 +89,8 @@ public class PersonaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
 
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
+        if (input.getCiudadId() != null)
+            e.setCiudad(ciudadService.findById(input.getCiudadId()).orElse(null));
         if (input.getNacimiento() != null)
             e.setNacimiento(stringToDate(input.getNacimiento()));
 

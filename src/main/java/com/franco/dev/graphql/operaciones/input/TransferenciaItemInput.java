@@ -9,6 +9,7 @@ import org.hibernate.annotations.Type;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class TransferenciaItemInput {
@@ -43,5 +44,18 @@ public class TransferenciaItemInput {
     private String creadoEn;
     private Long usuarioId;
     private Boolean vencimientoVerificado;
+
+    /**
+     * Lotes elegidos a mano para este item.
+     *
+     * Semantica deliberada, para no romper a los clientes que no saben de lotes:
+     *   - null  -> no tocar la asignacion existente. Es lo que manda todo el codigo anterior.
+     *   - []    -> borrar la asignacion de esa etapa; el item vuelve a resolverse por FEFO.
+     *   - lista -> reemplazar la asignacion de esa etapa.
+     */
+    private List<TransferenciaItemLoteInput> lotesAsignados;
+
+    /** Etapa a la que corresponde {@link #lotesAsignados}. Se ignora si la lista viene null. */
+    private EtapaAsignacionLote etapaAsignacionLote;
 
 }

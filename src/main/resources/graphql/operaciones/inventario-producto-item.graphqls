@@ -64,7 +64,11 @@ extend type Query {
         size: Int,
         orderBy: String,
         tipoOrder: String,
-        estado: String
+        estado: String,
+        vencimientoFiltro: String,
+        diasPorVencer: Int,
+        vencimientoDesde: String,
+        vencimientoHasta: String
     ): InventarioProductoItemPage
 
     reporteInventario(
@@ -79,7 +83,12 @@ extend type Query {
         size: Int,
         orderBy: String,
         tipoOrder: String,
-        nickname: String
+        nickname: String,
+        estado: String,
+        vencimientoFiltro: String,
+        diasPorVencer: Int,
+        vencimientoDesde: String,
+        vencimientoHasta: String
     ): String
 
     getInventarioItemsParaRevisar(
@@ -101,6 +110,19 @@ extend type Query {
         page: Int,
         size: Int
     ): ProductoVencidoViewPage
+
+    reporteProductosVencidos(
+        startDate: String,
+        endDate: String,
+        sucursalIdList: [Int],
+        sectorIdList: [Int],
+        zonaIdList: [Int],
+        usuarioIdList: [ID],
+        productoIdList: [ID],
+        fuenteVerdadList: [FuenteVerdadVencimiento],
+        soloRealmenteVencidos: Boolean,
+        usuarioResponsableId: ID
+    ): String
 
     productosVencidosPorSucursal(
         sucursalId: ID!,

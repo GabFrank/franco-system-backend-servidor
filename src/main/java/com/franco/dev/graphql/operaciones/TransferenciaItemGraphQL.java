@@ -6,15 +6,19 @@ import com.franco.dev.domain.financiero.MovimientoCaja;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
+import com.franco.dev.domain.operaciones.enums.EtapaAsignacionLote;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.productos.CostoPorProducto;
+import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.dto.TransferenciaItemAlertaDTO;
 import com.franco.dev.graphql.operaciones.input.TransferenciaItemInput;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.operaciones.ConversionPresentacion;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.TransferenciaItemAlertaService;
+import com.franco.dev.service.operaciones.TransferenciaItemLoteService;
 import com.franco.dev.service.operaciones.TransferenciaItemService;
 import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -32,6 +36,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -46,6 +51,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     @Autowired
     private TransferenciaService transferenciaService;
+
+    @Autowired
+    private TransferenciaItemLoteService transferenciaItemLoteService;
 
     @Autowired
     private PresentacionService presentacionService;
@@ -118,6 +126,9 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         if (input.getVencimientoVerificado() == null)
             e.setVencimientoVerificado(false);
         e = service.save(e);
+        // Antes de generar el movimiento: el desglose por lote lee esta asignacion para decidir
+        // de que lotes sale la mercaderia. Si se guardara despues, la primera vez saldria por FEFO.
+        guardarAsignacionDeLotes(input, e);
         movimientoStockService.createMovimientoFromTransferenciaItem(e);
 
         // El costo SOLO se actualiza cuando la transferencia proviene de la sucursal COMPRAS:
@@ -144,6 +155,50 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             }
         }
         return e;
+    }
+
+    /**
+     * Persiste los lotes que el operador eligio a mano, si es que los mando.
+     *
+     * La semantica de {@code lotesAsignados} es la que mantiene la compatibilidad hacia atras:
+     * cuando viene null no se toca nada, que es lo que hace todo cliente que no conoce esta
+     * funcionalidad. Una lista vacia si borra la asignacion, para poder volver a FEFO.
+     *
+     * La etapa por defecto es PRE_TRANSFERENCIA, que es donde se cargan los items.
+     */
+    private void guardarAsignacionDeLotes(TransferenciaItemInput input, TransferenciaItem e) {
+        if (input.getLotesAsignados() == null || e == null || e.getId() == null) {
+            return;
+        }
+        EtapaAsignacionLote etapa = input.getEtapaAsignacionLote() != null
+                ? input.getEtapaAsignacionLote()
+                : EtapaAsignacionLote.PRE_TRANSFERENCIA;
+
+        // Las cantidades llegan en PRESENTACIONES, que es lo que carga el operador, y el ledger
+        // las guarda en UNIDADES. La conversion se hace aca para que sea la misma regla con la
+        // que se le mostro el saldo disponible (stockPorLoteEnPresentacion).
+        double unidadesPorPresentacion = ConversionPresentacion.unidadesPorPresentacion(
+                presentacionDeLaEtapa(e, etapa));
+
+        List<TransferenciaItemLoteService.AsignacionSolicitada> solicitadas = input.getLotesAsignados()
+                .stream()
+                .filter(l -> l != null && l.getLoteId() != null)
+                .map(l -> new TransferenciaItemLoteService.AsignacionSolicitada(
+                        l.getLoteId(),
+                        ConversionPresentacion.aUnidades(l.getCantidad(), unidadesPorPresentacion)))
+                .collect(Collectors.toList());
+        transferenciaItemLoteService.reemplazarAsignacion(e, etapa, solicitadas, e.getUsuario());
+    }
+
+    /**
+     * Presentacion contra la que se expresaron las cantidades elegidas. En preparacion puede
+     * diferir de la de creacion, porque el item se prepara con otra presentacion.
+     */
+    private Presentacion presentacionDeLaEtapa(TransferenciaItem e, EtapaAsignacionLote etapa) {
+        if (etapa == EtapaAsignacionLote.PREPARACION && e.getPresentacionPreparacion() != null) {
+            return e.getPresentacionPreparacion();
+        }
+        return e.getPresentacionPreTransferencia();
     }
 
     /** True si la transferencia sale de la pseudo-sucursal COMPRAS (carga manual de compra). */

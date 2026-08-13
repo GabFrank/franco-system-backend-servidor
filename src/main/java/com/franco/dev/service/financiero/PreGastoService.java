@@ -293,14 +293,22 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(id, sucId);
         if (preGasto == null)
             return null;
+        if (preGasto.getMontoSolicitado() == null || preGasto.getMontoSolicitado().signum() <= 0) {
+            throw new RuntimeException("El gasto no tiene un monto válido para enviar a tesorería.");
+        }
 
-        Proveedor proveedor = proveedorService.findByPersonaId(preGasto.getFuncionario().getId());
-        if (proveedor == null) {
-            proveedor = new Proveedor();
-            proveedor.setPersona(preGasto.getFuncionario());
-            proveedor.setCredito(false);
-            proveedor.setCreadoEn(LocalDateTime.now());
-            proveedor = proveedorService.save(proveedor);
+        // Beneficiario del gasto: proveedor > persona (find/create Proveedor) > null.
+        // Ya NO se secuestra al funcionario como beneficiario (un gasto puede no tener proveedor).
+        Proveedor beneficiario = preGasto.getBeneficiarioProveedor();
+        if (beneficiario == null && preGasto.getBeneficiarioPersona() != null) {
+            beneficiario = proveedorService.findByPersonaId(preGasto.getBeneficiarioPersona().getId());
+            if (beneficiario == null) {
+                beneficiario = new Proveedor();
+                beneficiario.setPersona(preGasto.getBeneficiarioPersona());
+                beneficiario.setCredito(false);
+                beneficiario.setCreadoEn(LocalDateTime.now());
+                beneficiario = proveedorService.save(beneficiario);
+            }
         }
 
         Usuario usuario = null;
@@ -308,15 +316,37 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
             usuario = usuarioService.findById(usuarioId).orElse(null);
         }
 
-        SolicitudPago solicitudPago = solicitudPagoService.crearSolicitudPago(proveedor, null, preGasto.getMoneda(),
-                null, LocalDateTime.now(), "Generado desde PreGasto " + preGasto.getId(), usuario);
-
-        solicitudPago.setMontoTotal(preGasto.getMontoSolicitado().doubleValue());
-        solicitudPago = solicitudPagoService.save(solicitudPago);
+        // Crea la deuda pagable unificada como GASTO/SOLICITADO (aparece en 'Pagar Gasto'),
+        // llevando categoría, descripción y vencimiento del PreGasto.
+        String descripcion = (preGasto.getDescripcion() != null && !preGasto.getDescripcion().isEmpty())
+                ? preGasto.getDescripcion() : ("Gasto PreGasto #" + preGasto.getId());
+        SolicitudPago solicitudPago = solicitudPagoService.crearSolicitudGasto(
+                beneficiario, preGasto.getTipoGasto(), preGasto.getMoneda(),
+                preGasto.getMontoSolicitado().doubleValue(), descripcion,
+                preGasto.getFechaVencimiento(), usuario);
 
         preGasto.setEstado(EstadoPreGasto.ENVIADO_A_TESORERIA);
         preGasto.setSolicitudPagoId(solicitudPago.getId());
         return save(preGasto);
+    }
+
+    /**
+     * Sincroniza el estado del PreGasto según su SolicitudPago de tipo GASTO (si existe uno vinculado).
+     * Lo invoca el motor de pago: al pagar (CONCLUIDO) → PAGADO; al anular (reabre la solicitud) →
+     * vuelve a ENVIADO_A_TESORERIA. No-op para gastos directos de tesorería (sin PreGasto).
+     */
+    @Transactional
+    public void sincronizarDesdeSolicitudPago(com.franco.dev.domain.operaciones.SolicitudPago sp) {
+        if (sp == null || sp.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO) return;
+        PreGasto pg = repository.findBySolicitudPagoId(sp.getId());
+        if (pg == null) return;
+        EstadoPreGasto destino = (sp.getEstado() == com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.CONCLUIDO)
+                ? EstadoPreGasto.PAGADO
+                : EstadoPreGasto.ENVIADO_A_TESORERIA;
+        if (pg.getEstado() != destino) {
+            pg.setEstado(destino);
+            repository.save(pg);
+        }
     }
 
     public PreGasto completar(Long id, Long sucId, Boolean rindioGasto, Double montoGastadoInformado,
@@ -1085,6 +1115,7 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
                 new PreGastoStatusMetadataDTO("TRAMITE", "En Trámite", "swap_horiz", "#42a5f5"),
                 new PreGastoStatusMetadataDTO("AUTORIZADO", "Autorizado", "check_circle", "#66bb6a"),
                 new PreGastoStatusMetadataDTO("ENVIADO_A_TESORERIA", "Enviado a Tesorería", "send", "#26a69a"),
+                new PreGastoStatusMetadataDTO("PAGADO", "Pagado", "paid", "#4caf50"),
                 new PreGastoStatusMetadataDTO("RECHAZADO", "Rechazado", "cancel", "#ef5350"),
                 new PreGastoStatusMetadataDTO("COMPLETADO", "Completado", "task_alt", "#78909c"));
     }

@@ -2,6 +2,11 @@ type Moneda {
     id:ID!
     denominacion: String
     simbolo: String
+    activo: Boolean
+    principal: Boolean
+    decimales: Int
+    reglaRedondeo: String
+    redondeoMultiplo: Float
     pais: Pais
     creadoEn: Date
     usuario: Usuario
@@ -13,6 +18,11 @@ input MonedaInput {
     id:Int
     denominacion: String
     simbolo: String
+    activo: Boolean
+    principal: Boolean
+    decimales: Int
+    reglaRedondeo: String
+    redondeoMultiplo: Float
     paisId: Int
     usuarioId: Int
 }

@@ -17,10 +17,12 @@ import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaItemDto;
 import com.franco.dev.domain.operaciones.dto.ReporteVentaDetalladoDto;
 import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.PrecioPorSucursal;
 import com.franco.dev.graphql.financiero.input.PdvCajaBalanceDto;
+import com.franco.dev.graphql.operaciones.dto.ProductoVencidoViewDTO;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.PreGastoDetalleFinanzasService;
 import com.franco.dev.service.impresion.dto.GastoDto;
@@ -97,6 +99,8 @@ public class ImpresionService {
     private PrecioPorSucursalService precioPorSucursalService;
     @Autowired
     private SucursalService sucursalService;
+    @Autowired
+    private com.franco.dev.service.personas.FuncionarioService funcionarioService;
     @Autowired
     private PreGastoDetalleFinanzasService preGastoDetalleFinanzasService;
 
@@ -968,6 +972,7 @@ public class ImpresionService {
         } else {
             try {
                 List<VentaCreditoItemDto> ventaCreditoItemDtoList = new ArrayList<>();
+                String sucursalCliente = getSucursalDelCliente(cliente);
                 for (VentaCredito ti : ventaCreditoList) {
                     VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
                     Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
@@ -979,6 +984,7 @@ public class ImpresionService {
                     tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
                     tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
                     tiDto.setDireccionCliente(cliente.getPersona().getDireccion());
+                    tiDto.setSucursalCliente(sucursalCliente);
                     ventaCreditoItemDtoList.add(tiDto);
                 }
                 // file =
@@ -1136,6 +1142,7 @@ public class ImpresionService {
                 List<VentaCredito> ventaCreditoList = ventaCreditoMap.get(cliente.getId());
                 if (ventaCreditoList != null && !ventaCreditoList.isEmpty()) {
                     Double totalCliente = 0.0;
+                    String sucursalCliente = getSucursalDelCliente(cliente);
                     for (VentaCredito ti : ventaCreditoList) {
                         VentaCreditoItemDto tiDto = new VentaCreditoItemDto();
                         Sucursal sucursal = sucursalService.findById(ti.getSucursalId()).orElse(null);
@@ -1147,6 +1154,7 @@ public class ImpresionService {
                         tiDto.setNombreCliente(cliente.getPersona().getNombre().toUpperCase());
                         tiDto.setDocumentoCliente(cliente.getPersona().getDocumento());
                         tiDto.setDireccionCliente(cliente.getPersona().getDireccion());
+                        tiDto.setSucursalCliente(sucursalCliente);
                         ventaCreditoItemDtoList.add(tiDto);
                         totalCliente += ti.getValorTotal();
                         totalGeneral += ti.getValorTotal();
@@ -1242,6 +1250,70 @@ public class ImpresionService {
             e.printStackTrace();
             return null;
         }
+    }
+
+    /**
+     * Reporte PDF del listado de productos vencidos.
+     *
+     * La lista ya viene ordenada por sucursal desde
+     * {@link com.franco.dev.service.operaciones.ProductosVencidosService#listarProductosVencidosParaReporte}:
+     * el jrxml agrupa por ese campo, asi que reordenarla aca romperia los
+     * subtotales por sucursal.
+     */
+    public String imprimirProductosVencidos(
+            List<ProductoVencidoViewDTO> productoVencidoList,
+            String fechaInicio,
+            String fechaFin,
+            String fuentes,
+            String sucursales,
+            String filtroProducto,
+            String filtroUsuario,
+            String aviso,
+            Usuario usuario) {
+        try {
+            List<ProductoVencidoItemDto> itemDtoList = new ArrayList<>();
+            for (ProductoVencidoViewDTO vencido : productoVencidoList) {
+                ProductoVencidoItemDto dto = new ProductoVencidoItemDto();
+                dto.setProductoDescripcion(defaultTexto(vencido.getProductoDescripcion(), ""));
+                dto.setCodigoBarras(defaultTexto(vencido.getCodigoBarras(), "-"));
+                dto.setCantidad(vencido.getCantidad());
+                dto.setVencimiento(vencido.getVencimiento() != null
+                        ? DateUtils.toStringOnlyDate(vencido.getVencimiento())
+                        : "-");
+                dto.setEstadoVencimiento(defaultTexto(vencido.getDiasVencimientoTexto(), "-"));
+                dto.setFuenteVerdad(vencido.getFuenteVerdad() != null ? vencido.getFuenteVerdad().toString() : "-");
+                dto.setSucursalNombre(defaultTexto(vencido.getSucursalNombre(), "SIN SUCURSAL"));
+                dto.setSectorDescripcion(defaultTexto(vencido.getSectorDescripcion(), "-"));
+                dto.setZonaDescripcion(defaultTexto(vencido.getZonaDescripcion(), "-"));
+                itemDtoList.add(dto);
+            }
+
+            JasperReport jasperReport = compileReportFromClasspath("reports/productos-vencidos.jrxml");
+            JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(itemDtoList);
+            Map<String, Object> parameters = new HashMap<>();
+            parameters.put("fechaInicio", defaultTexto(fechaInicio, "-"));
+            parameters.put("fechaFin", defaultTexto(fechaFin, "-"));
+            parameters.put("fechaReporte", DateUtils.toString(LocalDateTime.now()));
+            parameters.put("usuario",
+                    usuario != null && usuario.getPersona() != null ? usuario.getPersona().getNombre() : "");
+            parameters.put("fuentes", defaultTexto(fuentes, "TODAS"));
+            parameters.put("sucursales", defaultTexto(sucursales, "TODAS"));
+            parameters.put("filtroProducto", defaultTexto(filtroProducto, "TODOS"));
+            parameters.put("filtroUsuario", defaultTexto(filtroUsuario, "TODOS"));
+            parameters.put("aviso", defaultTexto(aviso, ""));
+            parameters.put("logo", imageService.getImagePath() + File.separator + "logo.png");
+
+            JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, dataSource);
+            byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
+            return Base64.getEncoder().encodeToString(pdfBytes);
+        } catch (JRException e) {
+            log.error("Error generando el reporte de productos vencidos", e);
+            return null;
+        }
+    }
+
+    private String defaultTexto(String valor, String porDefecto) {
+        return valor != null && !valor.trim().isEmpty() ? valor : porDefecto;
     }
 
     public void imprimirCodigoDeBarra(Codigo codigo) {
@@ -1345,6 +1417,21 @@ public class ImpresionService {
         private Double precio;
     }
 
+    /**
+     * Nombre de la sucursal a la que pertenece el cliente. La mayoria de las
+     * ventas a credito son de funcionarios, asi que la sucursal se toma de su
+     * ficha en personas.funcionario (sucursal_id), buscada por la persona del
+     * cliente. Un cliente que no es funcionario no tiene sucursal: devuelve "".
+     */
+    private String getSucursalDelCliente(Cliente cliente) {
+        if (cliente == null || cliente.getPersona() == null || cliente.getPersona().getId() == null)
+            return "";
+        Funcionario funcionario = funcionarioService.findByPersonaId(cliente.getPersona().getId());
+        if (funcionario == null || funcionario.getSucursal() == null)
+            return "";
+        return sucursalService.findById(funcionario.getSucursal().getId()).map(Sucursal::getNombre).orElse("");
+    }
+
     @Data
     @AllArgsConstructor
     @NoArgsConstructor
@@ -1357,6 +1444,7 @@ public class ImpresionService {
         private String nombreCliente;
         private String documentoCliente;
         private String direccionCliente;
+        private String sucursalCliente;
     }
 
     @Data
@@ -1372,6 +1460,21 @@ public class ImpresionService {
         private String llegadaTardia;
         private String horaExtra;
         private String turno;
+    }
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public class ProductoVencidoItemDto {
+        private String productoDescripcion;
+        private String codigoBarras;
+        private Double cantidad;
+        private String vencimiento;
+        private String estadoVencimiento;
+        private String fuenteVerdad;
+        private String sucursalNombre;
+        private String sectorDescripcion;
+        private String zonaDescripcion;
     }
 
     @Data
@@ -1590,6 +1693,8 @@ public class ImpresionService {
             Double totalConvenio,
             Double totalTransferencia,
             Double totalOtros,
+            Double totalDescuentos,
+            Double totalCanceladas,
             Usuario usuario) {
         try {
             ClassPathResource resource = new ClassPathResource("reports/reporte-ventas.jrxml");
@@ -1614,6 +1719,8 @@ public class ImpresionService {
             parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
             parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
             parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalDescuentos", totalDescuentos != null ? totalDescuentos : 0.0);
+            parameters.put("totalCanceladas", totalCanceladas != null ? totalCanceladas : 0.0);
             parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
             parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
             parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);
@@ -1652,6 +1759,8 @@ public class ImpresionService {
             Double totalConvenio,
             Double totalTransferencia,
             Double totalOtros,
+            Double totalDescuentos,
+            Double totalCanceladas,
             Usuario usuario) {
         try {
             JasperReport jasperReport = compileReportFromClasspath("reports/reporte-ventas-detallado.jrxml");
@@ -1674,6 +1783,8 @@ public class ImpresionService {
             parameters.put("filtroConDescuento", filtroConDescuento != null ? filtroConDescuento : "");
             parameters.put("filtroConAumento", filtroConAumento != null ? filtroConAumento : "");
             parameters.put("totalGeneral", totalGeneral != null ? totalGeneral : 0.0);
+            parameters.put("totalDescuentos", totalDescuentos != null ? totalDescuentos : 0.0);
+            parameters.put("totalCanceladas", totalCanceladas != null ? totalCanceladas : 0.0);
             parameters.put("totalEfectivo", totalEfectivo != null ? totalEfectivo : 0.0);
             parameters.put("totalTarjeta", totalTarjeta != null ? totalTarjeta : 0.0);
             parameters.put("totalConvenio", totalConvenio != null ? totalConvenio : 0.0);

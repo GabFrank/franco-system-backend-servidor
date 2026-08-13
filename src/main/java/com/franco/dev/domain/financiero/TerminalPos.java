@@ -44,6 +44,11 @@ public class TerminalPos implements Identifiable<Long> {
     @JoinColumn(name = "moneda_id", nullable = true)
     private Moneda moneda;
 
+    @Column(name = "porcentaje_comision")
+    private java.math.BigDecimal porcentajeComision;
+
+    @Column(name = "minutos_acreditacion")
+    private Integer minutosAcreditacion;
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "proveedor_servicio_id", nullable = true)
     private ProveedorServicio proveedorServicio;

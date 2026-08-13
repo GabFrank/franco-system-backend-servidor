@@ -61,8 +61,12 @@ public class SolicitudPagoNotaRecepcionService extends CrudService<SolicitudPago
         NotaRecepcion nota = notaRecepcionRepository.findById(notaId)
             .orElseThrow(() -> new IllegalArgumentException("Nota de recepción no encontrada: " + notaId));
         
-        // Validate that the nota belongs to the same proveedor
-        if (!nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
+        // Validate that the nota belongs to the same proveedor.
+        // Solicitudes de GASTO/RRHH no tienen proveedor: solo validar cuando ambos lados lo tienen
+        // (proveedor es nullable desde V195.5, evitar NPE).
+        if (solicitud.getProveedor() != null && nota.getPedido() != null
+                && nota.getPedido().getProveedor() != null
+                && !nota.getPedido().getProveedor().getId().equals(solicitud.getProveedor().getId())) {
             throw new IllegalArgumentException("La nota de recepción debe pertenecer al mismo proveedor");
         }
         

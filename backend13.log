@@ -1,0 +1,611 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.franco.dev:franco-dev-systems >------------------
+[INFO] Building Franco Systems 3.0.9
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:2.7.18:run (default-cli) > test-compile @ franco-dev-systems >>>
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (auto-clean) @ franco-dev-systems ---
+[INFO] Deleting /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (default-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 468 resources
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (copy-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 468 resources
+[INFO] 
+[INFO] --- exec-maven-plugin:3.0.0:exec (cleanup-duplicate-migrations) @ franco-dev-systems ---
+Scanning for duplicate migration files in ./target/classes/db/migration...
+Duplicate migration cleanup complete.
+[INFO] 
+[INFO] --- flyway-maven-plugin:8.5.13:validate (default) @ franco-dev-systems ---
+[INFO] Skipping Flyway execution
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:compile (default-compile) @ franco-dev-systems ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 1601 source files to /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Some input files use or override a deprecated API.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Recompile with -Xlint:deprecation for details.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java: /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java uses or overrides a deprecated API that is marked for removal.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java: Recompile with -Xlint:removal for details.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Some input files use unchecked or unsafe operations.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:testResources (default-testResources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] skip non existing resourceDirectory /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:testCompile (default-testCompile) @ franco-dev-systems ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 18 source files to /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/test-classes
+[INFO] 
+[INFO] <<< spring-boot-maven-plugin:2.7.18:run (default-cli) < test-compile @ franco-dev-systems <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot-maven-plugin:2.7.18:run (default-cli) @ franco-dev-systems ---
+[INFO] Attaching agents: []
+Iniciando sistema
+16:56:00.452 [Thread-0] DEBUG org.springframework.boot.devtools.restart.classloader.RestartClassLoader - Created RestartClassLoader org.springframework.boot.devtools.restart.classloader.RestartClassLoader@43229358
+Iniciando sistema
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.18)
+
+2026-07-22 16:56:01.015  INFO 40782 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : Starting FrancoSystemsApplication using Java 17.0.17 on IMACs-iMac.local with PID 40782 (/Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes started by gabfranck in /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central)
+2026-07-22 16:56:01.017  INFO 40782 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : The following 1 profile is active: "dev"
+2026-07-22 16:56:01.070  INFO 40782 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-22 16:56:01.070  INFO 40782 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-22 16:56:02.958  INFO 40782 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-22 16:56:03.986  INFO 40782 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 1019 ms. Found 221 JPA repository interfaces.
+2026-07-22 16:56:05.920  INFO 40782 --- [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8081 (http)
+2026-07-22 16:56:05.933  INFO 40782 --- [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-22 16:56:05.933  INFO 40782 --- [  restartedMain] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.83]
+2026-07-22 16:56:06.070  INFO 40782 --- [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-22 16:56:06.070  INFO 40782 --- [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 4999 ms
+2026-07-22 16:56:06.460  INFO 40782 --- [  restartedMain] c.f.d.c.RetryableDatabasePostProcessor   : -----> configuring a retryable datasource for beanName = dataSource
+2026-07-22 16:56:06.522  INFO 40782 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Scanning for duplicate migrations in: target/classes/db/migration
+2026-07-22 16:56:06.540  INFO 40782 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Duplicate migration cleanup complete
+2026-07-22 16:56:06.587  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-22 16:56:06.587  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-22 16:56:06.588  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-22 16:56:06.619  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-22 16:56:06.619  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-22 16:56:06.734  INFO 40782 --- [  restartedMain] o.f.c.i.database.base.BaseDatabaseType   : Database: jdbc:postgresql://localhost:5551/bodega_producto_devoluciones (PostgreSQL 16.4)
+2026-07-22 16:56:06.743  WARN 40782 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-22 16:56:06.786  INFO 40782 --- [  restartedMain] o.f.c.i.s.JdbcTableSchemaHistory         : Repair of failed migration in Schema History table "public"."flyway_schema_history" not necessary. No failed migration detected.
+2026-07-22 16:56:06.920  INFO 40782 --- [  restartedMain] o.f.core.internal.command.DbRepair       : Successfully repaired schema history table "public"."flyway_schema_history" (execution time 00:00.162s).
+2026-07-22 16:56:06.925  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-22 16:56:06.925  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-22 16:56:06.925  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-22 16:56:06.932  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-22 16:56:06.932  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-22 16:56:06.941  WARN 40782 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-22 16:56:07.057  INFO 40782 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 166.0
+2026-07-22 16:56:07.058  WARN 40782 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : outOfOrder mode is active. Migration of schema "public" may not be reproducible.
+2026-07-22 16:56:07.060  INFO 40782 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-07-22 16:56:07.264  INFO 40782 --- [  restartedMain] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-22 16:56:07.321  INFO 40782 --- [  restartedMain] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 5.6.15.Final
+2026-07-22 16:56:07.542  INFO 40782 --- [  restartedMain] o.hibernate.annotations.common.Version   : HCANN000001: Hibernate Commons Annotations {5.1.2.Final}
+2026-07-22 16:56:07.671  INFO 40782 --- [  restartedMain] org.hibernate.dialect.Dialect            : HHH000400: Using dialect: org.hibernate.dialect.PostgreSQLDialect
+2026-07-22 16:56:08.447  INFO 40782 --- [  restartedMain] b.i.HibernateSearchPreIntegrationService : HSEARCH000034: Hibernate Search version 6.2.5.Final
+2026-07-22 16:56:11.352  INFO 40782 --- [  restartedMain] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000490: Using JtaPlatform implementation: [org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform]
+2026-07-22 16:56:12.232  WARN 40782 --- [  restartedMain] o.h.s.b.l.impl.LuceneBackendFactory      : HSEARCH000075: Missing value for configuration property 'hibernate.search.backend.lucene_version': using LATEST (currently '8.11.2'). Context: default backend
+2026-07-22 16:56:12.737  WARN 40782 --- [  restartedMain] o.h.s.e.c.s.ConfigurationPropertyChecker : HSEARCH000568: Invalid configuration passed to Hibernate Search: some properties in the given configuration are not used. There might be misspelled property keys in your configuration. Unused properties: [hibernate.search.indexing.automatic.enabled]. To disable this warning, set the property 'hibernate.search.configuration_property_checking.strategy' to 'ignore'.
+2026-07-22 16:56:12.739  INFO 40782 --- [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-22 16:56:13.411  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:56:13.690  WARN 40782 --- [  restartedMain] c.franco.dev.service.utils.ImageService  : Mac OS X
+2026-07-22 16:56:13.744  INFO 40782 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-22 16:56:13.767  INFO 40782 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-22 16:56:13.975  INFO 40782 --- [  restartedMain] c.f.d.s.p.UsuarioEmbeddingCacheService   : Caché de embeddings faciales: 0 usuarios activos con galería
+2026-07-22 16:56:18.431  INFO 40782 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Initializing Firebase using config path: file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-22 16:56:18.433 ERROR 40782 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Error initializing Firebase: config file not found at file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-22 16:56:22.172  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:56:22.172  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:56:22.172  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:56:22.173  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 16:56:41.109  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estado: EstadoDE' on input type 'DocumentoElectronicoInput' -> com.franco.dev.graphql.financiero.input.DocumentoElectronicoInput. Try adding it manually to the dictionary
+2026-07-22 16:56:41.537  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'BarrioInput' -> com.franco.dev.graphql.general.input.BarrioInput. Try adding it manually to the dictionary
+2026-07-22 16:56:41.558  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ContactoInput' -> com.franco.dev.graphql.general.input.ContactoInput. Try adding it manually to the dictionary
+2026-07-22 16:56:41.567  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'PaisInput' -> com.franco.dev.graphql.general.input.PaisInput. Try adding it manually to the dictionary
+2026-07-22 16:56:42.168  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estadoVerificacion: EstadoVerificacion' on input type 'RecepcionMercaderiaItemInput' -> com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput. Try adding it manually to the dictionary
+2026-07-22 16:56:42.542  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ClienteInput' -> com.franco.dev.graphql.personas.input.ClienteInput. Try adding it manually to the dictionary
+2026-07-22 16:56:42.593  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ProveedorDiasVisitaInput' -> com.franco.dev.graphql.personas.input.ProveedorDiasVisitaInput. Try adding it manually to the dictionary
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: DateTime
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: NotificacionPush
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ChequePage
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ChequeraPage
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoCancelacionDEInput
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoNominacionDEInput
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoInutilizacionDEInput
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: Meses
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: DeliveryUpdate
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ResumenMovimientoStock
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PagoDetallePage
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PagoPage
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: SolicitudPagoMultipleRecepcionesInput
+2026-07-22 16:56:44.749  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: SolicitudPagoNotaRecepcionInput
+2026-07-22 16:56:44.750  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PrintData
+2026-07-22 16:56:44.750  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ExistenciaCostoPorSucursal
+2026-07-22 16:56:44.750  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ProductoExistenciaCostos
+2026-07-22 16:56:44.750  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: MultiPageInput
+2026-07-22 16:56:44.760  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.financiero.FacturaLegalItemGraphQL@4bd57338
+2026-07-22 16:56:44.760  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.operaciones.RecepcionMercaderiaItemVariacionGraphQL@65d54a1d
+2026-07-22 16:56:44.760  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL@78815d83
+2026-07-22 16:56:44.761  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.financiero.FacturaLegalItemGraphQL@4bd57338
+2026-07-22 16:56:44.761  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.print.PrintGraphQL@71ca8b85
+2026-07-22 16:56:44.761  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL@78815d83
+2026-07-22 16:56:46.047  WARN 40782 --- [  restartedMain] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-22 16:56:47.024  INFO 40782 --- [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8081 (http) with context path ''
+2026-07-22 16:56:47.033  INFO 40782 --- [  restartedMain] o.s.b.d.a.OptionalLiveReloadServer       : LiveReload server is running on port 35729
+2026-07-22 16:56:47.035  INFO 40782 --- [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-07-22 16:56:47.036  INFO 40782 --- [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@30387bcc]]
+2026-07-22 16:56:47.036  INFO 40782 --- [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-07-22 16:56:47.075  INFO 40782 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : Started FrancoSystemsApplication in 46.611 seconds (JVM running for 47.363)
+2026-07-22 16:57:00.491  INFO 40782 --- [0.0-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-22 16:57:00.491  INFO 40782 --- [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-22 16:57:00.850  INFO 40782 --- [0.0-8081-exec-1] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoint(s) beneath base path '/actuator'
+2026-07-22 16:57:01.014  INFO 40782 --- [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 522 ms
+2026-07-22 16:57:01.153  INFO 40782 --- [0.0-8081-exec-1] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@4792b987, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@2e972020, org.springframework.security.web.context.SecurityContextPersistenceFilter@407dd33a, org.springframework.security.web.header.HeaderWriterFilter@765e909d, org.springframework.web.filter.CorsFilter@40dc9395, org.springframework.security.web.authentication.logout.LogoutFilter@174c4d25, com.franco.dev.security.JwtAuthenticationTokenFilter@4069da99, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@2bef5ff0, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@62e3efdb, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@6883f3d2, org.springframework.security.web.session.SessionManagementFilter@335b722b, org.springframework.security.web.access.ExceptionTranslationFilter@59daf3d5, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@737512ae]
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-22 16:57:47.064  INFO 40782 --- [MessageBroker-1] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-22 16:57:48.517  INFO 40782 --- [MessageBroker-1] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-22 16:57:48.638  INFO 40782 --- [MessageBroker-1] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-22 17:07:48.622  INFO 40782 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-22 17:07:49.982  INFO 40782 --- [MessageBroker-4] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-22 17:07:49.992  INFO 40782 --- [MessageBroker-4] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+Successfully Authentication
+2026-07-22 17:11:12.581  INFO 40782 --- [   File Watcher] rtingClassPathChangeChangedEventListener : Restarting due to 2150 class path changes (0 additions, 1678 deletions, 472 modifications)
+2026-07-22 17:11:12.588  INFO 40782 --- [       Thread-5] o.s.m.s.b.SimpleBrokerMessageHandler     : Stopping...
+2026-07-22 17:11:12.588  INFO 40782 --- [       Thread-5] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@30387bcc]]
+2026-07-22 17:11:12.588  INFO 40782 --- [       Thread-5] o.s.m.s.b.SimpleBrokerMessageHandler     : Stopped.
+2026-07-22 17:11:12.595  INFO 40782 --- [       Thread-5] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-07-22 17:11:12.596  INFO 40782 --- [       Thread-5] o.a.c.c.C.[Tomcat].[localhost].[/]       : Destroying Spring FrameworkServlet 'dispatcherServlet'
+2026-07-22 17:11:12.599  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [Hibernate Search - Engine - Timing thread - 0] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:252)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:1679)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1182)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.599  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [Hibernate Search - default backend - Worker thread - 0] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1170)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.600  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [Hibernate Search - default backend - Worker thread - 1] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1170)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.600  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [HikariPool-1 housekeeper] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:252)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:1679)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1182)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.600  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-1] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.601  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-2] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.601  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-3] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.parkNanos(LockSupport.java:252)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.awaitNanos(AbstractQueuedSynchronizer.java:1679)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1182)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.602  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-4] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.602  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-5] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.602  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-6] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.603  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-7] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.603  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-8] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.604  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-9] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.604  WARN 40782 --- [       Thread-5] o.a.c.loader.WebappClassLoaderBase       : The web application [ROOT] appears to have started a thread named [pool-1-thread-10] but has failed to stop it. This is very likely to create a memory leak. Stack trace of thread:
+ java.base@17.0.17/jdk.internal.misc.Unsafe.park(Native Method)
+ java.base@17.0.17/java.util.concurrent.locks.LockSupport.park(LockSupport.java:341)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionNode.block(AbstractQueuedSynchronizer.java:506)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.unmanagedBlock(ForkJoinPool.java:3465)
+ java.base@17.0.17/java.util.concurrent.ForkJoinPool.managedBlock(ForkJoinPool.java:3436)
+ java.base@17.0.17/java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject.await(AbstractQueuedSynchronizer.java:1630)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:1177)
+ java.base@17.0.17/java.util.concurrent.ScheduledThreadPoolExecutor$DelayedWorkQueue.take(ScheduledThreadPoolExecutor.java:899)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.getTask(ThreadPoolExecutor.java:1062)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1122)
+ java.base@17.0.17/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:635)
+ java.base@17.0.17/java.lang.Thread.run(Thread.java:840)
+2026-07-22 17:11:12.999  INFO 40782 --- [       Thread-5] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-22 17:11:13.012  INFO 40782 --- [       Thread-5] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-07-22 17:11:13.024  INFO 40782 --- [       Thread-5] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+Iniciando sistema
+2026-07-22 17:11:13.339 ERROR 40782 --- [  restartedMain] o.s.boot.SpringApplication               : Application run failed
+
+java.lang.IllegalArgumentException: Unable to instantiate com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor [org.springframework.boot.env.EnvironmentPostProcessor]
+	at org.springframework.boot.util.Instantiator.lambda$static$0(Instantiator.java:53) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:153) ~[spring-boot-2.7.18.jar:2.7.18]
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197) ~[na:na]
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197) ~[na:na]
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1625) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499) ~[na:na]
+	at java.base/java.util.stream.ReduceOps$ReduceOp.evaluateSequential(ReduceOps.java:921) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234) ~[na:na]
+	at java.base/java.util.stream.ReferencePipeline.collect(ReferencePipeline.java:682) ~[na:na]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:141) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:126) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.ReflectionEnvironmentPostProcessorsFactory.getEnvironmentPostProcessors(ReflectionEnvironmentPostProcessorsFactory.java:72) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.EnvironmentPostProcessorApplicationListener.getEnvironmentPostProcessors(EnvironmentPostProcessorApplicationListener.java:122) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.EnvironmentPostProcessorApplicationListener.onApplicationEnvironmentPreparedEvent(EnvironmentPostProcessorApplicationListener.java:100) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.EnvironmentPostProcessorApplicationListener.onApplicationEvent(EnvironmentPostProcessorApplicationListener.java:87) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.doInvokeListener(SimpleApplicationEventMulticaster.java:178) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.invokeListener(SimpleApplicationEventMulticaster.java:171) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:145) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:133) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.boot.context.event.EventPublishingRunListener.environmentPrepared(EventPublishingRunListener.java:85) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplicationRunListeners.lambda$environmentPrepared$2(SpringApplicationRunListeners.java:66) ~[spring-boot-2.7.18.jar:2.7.18]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[na:na]
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:120) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:114) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplicationRunListeners.environmentPrepared(SpringApplicationRunListeners.java:65) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.prepareEnvironment(SpringApplication.java:344) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:302) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1300) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1289) ~[spring-boot-2.7.18.jar:2.7.18]
+	at com.franco.dev.FrancoSystemsApplication.main(FrancoSystemsApplication.java:45) ~[classes/:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[na:na]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569) ~[na:na]
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50) ~[spring-boot-devtools-2.7.18.jar:2.7.18]
+Caused by: java.lang.ClassNotFoundException: com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor
+	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641) ~[na:na]
+	at java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188) ~[na:na]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:525) ~[na:na]
+	at java.base/java.lang.Class.forName0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:469) ~[na:na]
+	at org.springframework.boot.devtools.restart.classloader.RestartClassLoader.loadClass(RestartClassLoader.java:145) ~[spring-boot-devtools-2.7.18.jar:2.7.18]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:525) ~[na:na]
+	at java.base/java.lang.Class.forName0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:469) ~[na:na]
+	at org.springframework.util.ClassUtils.forName(ClassUtils.java:291) ~[spring-core-5.3.31.jar:5.3.31]
+	at org.springframework.boot.util.Instantiator$TypeSupplier$1.get(Instantiator.java:233) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:148) ~[spring-boot-2.7.18.jar:2.7.18]
+	... 34 common frames omitted
+
+Iniciando sistema
+2026-07-22 17:11:49.940 ERROR 40782 --- [  restartedMain] o.s.boot.SpringApplication               : Application run failed
+
+java.lang.IllegalArgumentException: Unable to instantiate com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor [org.springframework.boot.env.EnvironmentPostProcessor]
+	at org.springframework.boot.util.Instantiator.lambda$static$0(Instantiator.java:53) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:153) ~[spring-boot-2.7.18.jar:2.7.18]
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197) ~[na:na]
+	at java.base/java.util.stream.ReferencePipeline$3$1.accept(ReferencePipeline.java:197) ~[na:na]
+	at java.base/java.util.ArrayList$ArrayListSpliterator.forEachRemaining(ArrayList.java:1625) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.copyInto(AbstractPipeline.java:509) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.wrapAndCopyInto(AbstractPipeline.java:499) ~[na:na]
+	at java.base/java.util.stream.ReduceOps$ReduceOp.evaluateSequential(ReduceOps.java:921) ~[na:na]
+	at java.base/java.util.stream.AbstractPipeline.evaluate(AbstractPipeline.java:234) ~[na:na]
+	at java.base/java.util.stream.ReferencePipeline.collect(ReferencePipeline.java:682) ~[na:na]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:141) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:126) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.ReflectionEnvironmentPostProcessorsFactory.getEnvironmentPostProcessors(ReflectionEnvironmentPostProcessorsFactory.java:72) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.EnvironmentPostProcessorApplicationListener.getEnvironmentPostProcessors(EnvironmentPostProcessorApplicationListener.java:122) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.EnvironmentPostProcessorApplicationListener.onApplicationEnvironmentPreparedEvent(EnvironmentPostProcessorApplicationListener.java:100) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.env.EnvironmentPostProcessorApplicationListener.onApplicationEvent(EnvironmentPostProcessorApplicationListener.java:87) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.doInvokeListener(SimpleApplicationEventMulticaster.java:178) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.invokeListener(SimpleApplicationEventMulticaster.java:171) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:145) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.context.event.SimpleApplicationEventMulticaster.multicastEvent(SimpleApplicationEventMulticaster.java:133) ~[spring-context-5.3.31.jar:5.3.31]
+	at org.springframework.boot.context.event.EventPublishingRunListener.environmentPrepared(EventPublishingRunListener.java:85) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplicationRunListeners.lambda$environmentPrepared$2(SpringApplicationRunListeners.java:66) ~[spring-boot-2.7.18.jar:2.7.18]
+	at java.base/java.util.ArrayList.forEach(ArrayList.java:1511) ~[na:na]
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:120) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplicationRunListeners.doWithListeners(SpringApplicationRunListeners.java:114) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplicationRunListeners.environmentPrepared(SpringApplicationRunListeners.java:65) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.prepareEnvironment(SpringApplication.java:344) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:302) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1300) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1289) ~[spring-boot-2.7.18.jar:2.7.18]
+	at com.franco.dev.FrancoSystemsApplication.main(FrancoSystemsApplication.java:45) ~[classes/:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77) ~[na:na]
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569) ~[na:na]
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:50) ~[spring-boot-devtools-2.7.18.jar:2.7.18]
+Caused by: java.lang.ClassNotFoundException: com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor
+	at java.base/jdk.internal.loader.BuiltinClassLoader.loadClass(BuiltinClassLoader.java:641) ~[na:na]
+	at java.base/jdk.internal.loader.ClassLoaders$AppClassLoader.loadClass(ClassLoaders.java:188) ~[na:na]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:525) ~[na:na]
+	at java.base/java.lang.Class.forName0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:469) ~[na:na]
+	at org.springframework.boot.devtools.restart.classloader.RestartClassLoader.loadClass(RestartClassLoader.java:145) ~[spring-boot-devtools-2.7.18.jar:2.7.18]
+	at java.base/java.lang.ClassLoader.loadClass(ClassLoader.java:525) ~[na:na]
+	at java.base/java.lang.Class.forName0(Native Method) ~[na:na]
+	at java.base/java.lang.Class.forName(Class.java:469) ~[na:na]
+	at org.springframework.util.ClassUtils.forName(ClassUtils.java:291) ~[spring-core-5.3.31.jar:5.3.31]
+	at org.springframework.boot.util.Instantiator$TypeSupplier$1.get(Instantiator.java:233) ~[spring-boot-2.7.18.jar:2.7.18]
+	at org.springframework.boot.util.Instantiator.instantiate(Instantiator.java:148) ~[spring-boot-2.7.18.jar:2.7.18]
+	... 34 common frames omitted
+
+Iniciando sistema
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.18)
+
+2026-07-22 17:12:05.402  INFO 40782 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : Starting FrancoSystemsApplication using Java 17.0.17 on IMACs-iMac.local with PID 40782 (/Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes started by gabfranck in /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central)
+2026-07-22 17:12:05.402  INFO 40782 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : The following 1 profile is active: "dev"
+2026-07-22 17:12:06.576  INFO 40782 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-22 17:12:07.654  INFO 40782 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 1077 ms. Found 221 JPA repository interfaces.
+2026-07-22 17:12:08.261  INFO 40782 --- [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8081 (http)
+2026-07-22 17:12:08.261  INFO 40782 --- [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-22 17:12:08.261  INFO 40782 --- [  restartedMain] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.83]
+2026-07-22 17:12:08.290  INFO 40782 --- [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-22 17:12:08.290  INFO 40782 --- [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2883 ms
+2026-07-22 17:12:08.615  INFO 40782 --- [  restartedMain] c.f.d.c.RetryableDatabasePostProcessor   : -----> configuring a retryable datasource for beanName = dataSource
+2026-07-22 17:12:08.644  INFO 40782 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Scanning for duplicate migrations in: target/classes/db/migration
+2026-07-22 17:12:08.651  INFO 40782 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Duplicate migration cleanup complete
+2026-07-22 17:12:08.663  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-22 17:12:08.663  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-22 17:12:08.663  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-22 17:12:08.680  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-22 17:12:08.680  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-22 17:12:08.695  INFO 40782 --- [  restartedMain] o.f.c.i.database.base.BaseDatabaseType   : Database: jdbc:postgresql://localhost:5551/bodega_producto_devoluciones (PostgreSQL 16.4)
+2026-07-22 17:12:08.696  WARN 40782 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-22 17:12:08.712  INFO 40782 --- [  restartedMain] o.f.c.i.s.JdbcTableSchemaHistory         : Repair of failed migration in Schema History table "public"."flyway_schema_history" not necessary. No failed migration detected.
+2026-07-22 17:12:08.860  INFO 40782 --- [  restartedMain] o.f.core.internal.command.DbRepair       : Successfully repaired schema history table "public"."flyway_schema_history" (execution time 00:00.162s).
+2026-07-22 17:12:08.863  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-22 17:12:08.863  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-22 17:12:08.863  INFO 40782 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-22 17:12:08.869  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-22 17:12:08.869  INFO 40782 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-22 17:12:08.893  WARN 40782 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-22 17:12:09.049  INFO 40782 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 166.0
+2026-07-22 17:12:09.049  WARN 40782 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : outOfOrder mode is active. Migration of schema "public" may not be reproducible.
+2026-07-22 17:12:09.050  INFO 40782 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-07-22 17:12:09.253  INFO 40782 --- [  restartedMain] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-22 17:12:09.278  INFO 40782 --- [  restartedMain] org.hibernate.dialect.Dialect            : HHH000400: Using dialect: org.hibernate.dialect.PostgreSQLDialect
+2026-07-22 17:12:09.828  INFO 40782 --- [  restartedMain] b.i.HibernateSearchPreIntegrationService : HSEARCH000034: Hibernate Search version 6.2.5.Final
+2026-07-22 17:12:11.720  INFO 40782 --- [  restartedMain] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000490: Using JtaPlatform implementation: [org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform]
+2026-07-22 17:12:12.461  WARN 40782 --- [  restartedMain] o.h.s.b.l.impl.LuceneBackendFactory      : HSEARCH000075: Missing value for configuration property 'hibernate.search.backend.lucene_version': using LATEST (currently '8.11.2'). Context: default backend
+2026-07-22 17:12:12.478  WARN 40782 --- [  restartedMain] o.h.s.e.c.s.ConfigurationPropertyChecker : HSEARCH000568: Invalid configuration passed to Hibernate Search: some properties in the given configuration are not used. There might be misspelled property keys in your configuration. Unused properties: [hibernate.search.indexing.automatic.enabled]. To disable this warning, set the property 'hibernate.search.configuration_property_checking.strategy' to 'ignore'.
+2026-07-22 17:12:12.478  INFO 40782 --- [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-22 17:12:12.730  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 17:12:12.936  WARN 40782 --- [  restartedMain] c.franco.dev.service.utils.ImageService  : Mac OS X
+2026-07-22 17:12:12.962  INFO 40782 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Starting...
+2026-07-22 17:12:12.969  INFO 40782 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Start completed.
+2026-07-22 17:12:13.037  INFO 40782 --- [  restartedMain] c.f.d.s.p.UsuarioEmbeddingCacheService   : Caché de embeddings faciales: 0 usuarios activos con galería
+2026-07-22 17:12:18.388  INFO 40782 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Initializing Firebase using config path: file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-22 17:12:18.388 ERROR 40782 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Error initializing Firebase: config file not found at file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-22 17:12:37.724  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 17:12:37.726  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 17:12:37.726  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 17:12:37.726  WARN 40782 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-22 17:13:07.969  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estado: EstadoDE' on input type 'DocumentoElectronicoInput' -> com.franco.dev.graphql.financiero.input.DocumentoElectronicoInput. Try adding it manually to the dictionary
+2026-07-22 17:13:08.391  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'BarrioInput' -> com.franco.dev.graphql.general.input.BarrioInput. Try adding it manually to the dictionary
+2026-07-22 17:13:08.416  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ContactoInput' -> com.franco.dev.graphql.general.input.ContactoInput. Try adding it manually to the dictionary
+2026-07-22 17:13:08.433  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'PaisInput' -> com.franco.dev.graphql.general.input.PaisInput. Try adding it manually to the dictionary
+2026-07-22 17:13:09.042  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estadoVerificacion: EstadoVerificacion' on input type 'RecepcionMercaderiaItemInput' -> com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput. Try adding it manually to the dictionary
+2026-07-22 17:13:09.421  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ClienteInput' -> com.franco.dev.graphql.personas.input.ClienteInput. Try adding it manually to the dictionary
+2026-07-22 17:13:09.468  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ProveedorDiasVisitaInput' -> com.franco.dev.graphql.personas.input.ProveedorDiasVisitaInput. Try adding it manually to the dictionary
+2026-07-22 17:13:11.925  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: DateTime
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: NotificacionPush
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ChequePage
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ChequeraPage
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoCancelacionDEInput
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoNominacionDEInput
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoInutilizacionDEInput
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: Meses
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: DeliveryUpdate
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ResumenMovimientoStock
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PagoDetallePage
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PagoPage
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: SolicitudPagoMultipleRecepcionesInput
+2026-07-22 17:13:11.926  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: SolicitudPagoNotaRecepcionInput
+2026-07-22 17:13:11.927  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PrintData
+2026-07-22 17:13:11.927  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ExistenciaCostoPorSucursal
+2026-07-22 17:13:11.927  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ProductoExistenciaCostos
+2026-07-22 17:13:11.927  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: MultiPageInput
+2026-07-22 17:13:11.934  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.financiero.FacturaLegalItemGraphQL@2f7ac4c3
+2026-07-22 17:13:11.934  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.operaciones.RecepcionMercaderiaItemVariacionGraphQL@67329dc5
+2026-07-22 17:13:11.934  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL@4dba467f
+2026-07-22 17:13:11.935  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.financiero.FacturaLegalItemGraphQL@2f7ac4c3
+2026-07-22 17:13:11.935  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.print.PrintGraphQL@5bbd1196
+2026-07-22 17:13:11.935  WARN 40782 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL@4dba467f
+2026-07-22 17:13:12.921  WARN 40782 --- [  restartedMain] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-22 17:13:13.488  INFO 40782 --- [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8081 (http) with context path ''
+2026-07-22 17:13:13.493  INFO 40782 --- [  restartedMain] o.s.b.d.a.OptionalLiveReloadServer       : LiveReload server is running on port 35729
+2026-07-22 17:13:13.494  INFO 40782 --- [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-07-22 17:13:13.495  INFO 40782 --- [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@508de727]]
+2026-07-22 17:13:13.495  INFO 40782 --- [  restartedMain] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-07-22 17:13:13.516  INFO 40782 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : Started FrancoSystemsApplication in 68.153 seconds (JVM running for 1033.834)
+2026-07-22 17:13:13.531  INFO 40782 --- [  restartedMain] .ConditionEvaluationDeltaLoggingListener : Condition evaluation unchanged
+2026-07-22 17:13:20.640  INFO 40782 --- [0.0-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-22 17:13:20.641  INFO 40782 --- [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-07-22 17:13:20.902  INFO 40782 --- [0.0-8081-exec-1] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoint(s) beneath base path '/actuator'
+2026-07-22 17:13:21.000  INFO 40782 --- [0.0-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 359 ms
+2026-07-22 17:13:21.062  INFO 40782 --- [0.0-8081-exec-1] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@22a1c20e, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@653968c6, org.springframework.security.web.context.SecurityContextPersistenceFilter@64977348, org.springframework.security.web.header.HeaderWriterFilter@338af8c7, org.springframework.web.filter.CorsFilter@58aef645, org.springframework.security.web.authentication.logout.LogoutFilter@54fa12fd, com.franco.dev.security.JwtAuthenticationTokenFilter@d373418, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@36cdb2a7, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@52e53879, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@680623a2, org.springframework.security.web.session.SessionManagementFilter@e8af3dd, org.springframework.security.web.access.ExceptionTranslationFilter@7a2505b8, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@7fa9f624]
+2026-07-22 17:14:13.517  INFO 40782 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : Actualizacion automatica de cotizaciones de mercado
+2026-07-22 17:14:14.983  INFO 40782 --- [MessageBroker-2] c.f.d.s.financiero.NorteCambiosScraper   : NorteCambiosScraper: 3 monedas obtenidas de nortecambios
+2026-07-22 17:14:15.756  INFO 40782 --- [MessageBroker-2] c.f.d.s.f.CotizacionMercadoScheduler     : CotizacionMercadoScheduler: 3 monedas actualizadas
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  21:12 min
+[INFO] Finished at: 2026-07-22T17:16:21-03:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:2.7.18:run (default-cli) on project franco-dev-systems: Application finished with exit code: 137 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

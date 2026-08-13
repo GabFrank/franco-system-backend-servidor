@@ -1,21 +1,43 @@
 type Devolucion {
     id: ID
+    tipo: TipoDevolucion
     proveedor: Proveedor
     sucursalOrigen: Sucursal
+    sucursalUbicacion: Sucursal
+    colectadoEn: Date
     fecha: Date
     motivo: String
     estado: DevolucionEstado
+    identificador: String
+    resolucion: TipoResolucionDevolucion
+    nroNotaCredito: String
+    montoAcreditado: Float
+    gastoId: Int
+    gastoSucursalId: Int
+    cajaVirtualId: Int
+    observacion: String
+    creadoEn: Date
+    finalizado: Boolean
     usuario: Usuario
     items: [DevolucionItem]
+    retiro: RetiroDevolucion
+    colecta: ColectaDevolucion
 }
 
 input DevolucionInput {
     id: ID
+    tipo: TipoDevolucion
     proveedorId: Int
     sucursalOrigenId: Int
     fecha: String
     motivo: String
     estado: DevolucionEstado
+    identificador: String
+    resolucion: TipoResolucionDevolucion
+    nroNotaCredito: String
+    montoAcreditado: Float
+    cajaVirtualId: Int
+    observacion: String
     usuarioId: Int
     creadoEn: String
     items: [DevolucionItemInput]
@@ -41,11 +63,13 @@ extend type Query {
         estado: DevolucionEstado,
         fechaInicio: String,
         fechaFin: String,
+        usuarioId: ID,
         page: Int = 0,
         size: Int = 20
     ): DevolucionPage
     devolucionesPorProveedor(proveedorId: ID!): [Devolucion]
     devolucionesPorEstado(estado: DevolucionEstado!): [Devolucion]
+    devolucionesPendientesPorProveedor(proveedorId: ID!): [Devolucion]
 }
 
 extend type Mutation {
@@ -58,10 +82,28 @@ extend type Mutation {
     ): Devolucion!
     confirmarDevolucion(devolucionId: ID!): Devolucion!
     cancelarDevolucion(devolucionId: ID!, motivoCancelacion: String): Devolucion!
+    avanzarEstadoDevolucion(devolucionId: ID!, estado: DevolucionEstado!, usuarioId: ID): Devolucion!
+    revertirEstadoDevolucion(devolucionId: ID!, usuarioId: ID): Devolucion!
+    acreditarDevolucion(devolucionId: ID!, nroNotaCredito: String, montoAcreditado: Float, usuarioId: ID): Devolucion!
 }
 
 enum DevolucionEstado {
-    EN_PROCESO,
-    FINALIZADA,
+    PENDIENTE,
+    SEPARADO,
+    COLECTADO,
+    RETIRADO,
+    CANJEADO,
+    ACREDITADO,
+    DESCARTADO,
     CANCELADA
-} 
+}
+
+enum TipoDevolucion {
+    SIN_PROVEEDOR,
+    CON_PROVEEDOR
+}
+
+enum TipoResolucionDevolucion {
+    NOTA_CREDITO,
+    CANJE
+}

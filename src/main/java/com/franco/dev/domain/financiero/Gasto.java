@@ -65,6 +65,12 @@ public class Gasto extends EmbeddedEntity implements Serializable {
 
     private Boolean finalizado;
 
+    /**
+     * NULL = no cancelado. Un gasto cancelado no descuenta del balance de la caja
+     * ni suma en los reportes agregados de gastos.
+     */
+    private Boolean cancelado;
+
     private Double retiroGs;
     private Double retiroRs;
     private Double retiroDs;

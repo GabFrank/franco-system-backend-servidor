@@ -1,0 +1,177 @@
+enum ValeEstado {
+    SOLICITADO
+    CONFIRMADO
+    DESCONTADO
+    ANULADO
+}
+
+enum PrestamoEstado {
+    ACTIVO
+    PAGADO
+    CANCELADO
+}
+
+enum PrestamoCuotaEstado {
+    PENDIENTE
+    PARCIAL
+    PAGADA
+    VENCIDA
+    CANCELADA
+}
+
+type MotivoVale {
+    id: ID!
+    nombre: String
+    descripcion: String
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input MotivoValeInput {
+    id: ID
+    nombre: String
+    descripcion: String
+    activo: Boolean
+    usuarioId: Int
+}
+
+type Vale {
+    id: ID!
+    funcionario: Funcionario
+    motivo: MotivoVale
+    monto: Float
+    moneda: Moneda
+    fecha: String
+    estado: ValeEstado
+    esAdelanto: Boolean
+    liquidacionId: Int
+    cajaVirtualId: Int
+    movimientoCajaVirtualId: Int
+    autorizadoPor: Usuario
+    observacion: String
+    comprobanteUrl: String
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input ValeRrhhInput {
+    id: ID
+    funcionarioId: Int
+    motivoId: Int
+    monto: Float
+    monedaId: Int
+    fecha: String
+    estado: ValeEstado
+    esAdelanto: Boolean
+    observacion: String
+    comprobanteUrl: String
+    autorizadoPorId: Int
+    usuarioId: Int
+}
+
+type PrestamoCuota {
+    id: ID!
+    numero: Int
+    fechaVencimiento: String
+    monto: Float
+    montoPagado: Float
+    estado: PrestamoCuotaEstado
+    fechaPago: String
+    creadoEn: Date
+}
+
+type Prestamo {
+    id: ID!
+    funcionario: Funcionario
+    descripcion: String
+    montoTotal: Float
+    montoPagado: Float
+    moneda: Moneda
+    fechaInicio: String
+    cantidadCuotas: Int
+    estado: PrestamoEstado
+    observacion: String
+    cajaVirtualId: Int
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input PrestamoInput {
+    id: ID
+    funcionarioId: Int
+    descripcion: String
+    montoTotal: Float
+    monedaId: Int
+    fechaInicio: String
+    cantidadCuotas: Int
+    observacion: String
+    usuarioId: Int
+}
+
+type ValePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Vale]
+    getPageable: Pageable
+}
+
+type PrestamoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [Prestamo]
+    getPageable: Pageable
+}
+
+type MotivoValePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [MotivoVale]
+    getPageable: Pageable
+}
+
+extend type Query {
+    motivoVale(id: ID!): MotivoVale
+    motivosVale(page: Int = 0, size: Int = 100): [MotivoVale]!
+    motivosValeActivos: [MotivoVale]
+    motivosValePage(page: Int = 0, size: Int = 20, descripcion: String, activo: Boolean): MotivoValePage
+
+    vale(id: ID!): Vale
+    valesPorFuncionario(funcionarioId: ID!): [Vale]
+    valesPorEstado(estado: ValeEstado): [Vale]
+    valesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, estado: ValeEstado, desde: String, hasta: String): ValePage
+
+    prestamo(id: ID!): Prestamo
+    prestamosPorFuncionario(funcionarioId: ID!): [Prestamo]
+    prestamosPorEstado(estado: PrestamoEstado): [Prestamo]
+    prestamoCuotas(prestamoId: ID!): [PrestamoCuota]
+    prestamosPage(page: Int = 0, size: Int = 20, funcionarioId: ID, estado: PrestamoEstado): PrestamoPage
+}
+
+extend type Mutation {
+    saveMotivoVale(motivoVale: MotivoValeInput!): MotivoVale!
+    deleteMotivoVale(id: ID!): Boolean!
+
+    saveVale(vale: ValeRrhhInput!): Vale!
+    confirmarVale(id: ID!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
+    crearValeConfirmado(vale: ValeRrhhInput!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
+    anularVale(id: ID!): Vale
+
+    crearPrestamo(prestamo: PrestamoInput!, cajaVirtualId: ID!): Prestamo
+    cobrarCuota(cuotaId: ID!, cajaVirtualId: ID!, montoPago: Float): PrestamoCuota
+}

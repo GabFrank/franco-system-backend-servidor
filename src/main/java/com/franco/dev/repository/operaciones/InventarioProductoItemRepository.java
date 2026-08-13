@@ -62,7 +62,21 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         "AND (:estado IS NULL OR " +
                         "     (:estado = 'SOBRA' AND (i.cantidad - i.cantidadFisica) > 0) OR " +
                         "     (:estado = 'FALTA' AND (i.cantidad - i.cantidadFisica) < 0) OR " +
-                        "     (:estado = 'OK' AND (i.cantidad - i.cantidadFisica) = 0))")
+                        "     (:estado = 'OK' AND (i.cantidad - i.cantidadFisica) = 0)) " +
+                        // El vencimiento se evalua contra :ahora (no CURRENT_TIMESTAMP) para que
+                        // la pagina de resultados y su count usen el mismo instante.
+                        "AND (:vencimientoFiltro IS NULL OR " +
+                        "     (:vencimientoFiltro = 'VENCIDOS' AND (i.vencimiento < :ahora OR i.estado = :estadoVencido)) OR "
+                        +
+                        "     (:vencimientoFiltro = 'POR_VENCER' AND i.vencimiento >= :ahora AND i.vencimiento <= :limiteProximo AND (i.estado IS NULL OR i.estado <> :estadoVencido)) OR "
+                        +
+                        "     (:vencimientoFiltro = 'VIGENTES' AND i.vencimiento >= :ahora AND (i.estado IS NULL OR i.estado <> :estadoVencido)) OR "
+                        +
+                        "     (:vencimientoFiltro = 'SIN_VENCIMIENTO' AND i.vencimiento IS NULL)) " +
+                        // El rango se activa con un flag para no bindear fechas nulas: sin rango,
+                        // los items sin vencimiento tienen que seguir apareciendo.
+                        "AND (:filtrarRangoVencimiento = false OR " +
+                        "     (i.vencimiento IS NOT NULL AND i.vencimiento >= :vencimientoDesde AND i.vencimiento <= :vencimientoHasta))")
         Page<InventarioProductoItem> findAllWithFilters(
                         @Param("sucursalIdList") @Nullable List<Long> sucursalIdList,
                         @Param("sectorIdList") @Nullable List<Long> sectorIdList,
@@ -72,6 +86,13 @@ public interface InventarioProductoItemRepository extends HelperRepository<Inven
                         @Param("usuarioIdList") @Nullable List<Long> usuarioIdList,
                         @Param("productoIdList") @Nullable List<Long> productoIdList,
                         @Param("estado") @Nullable String estado,
+                        @Param("vencimientoFiltro") @Nullable String vencimientoFiltro,
+                        @Param("ahora") LocalDateTime ahora,
+                        @Param("limiteProximo") LocalDateTime limiteProximo,
+                        @Param("filtrarRangoVencimiento") boolean filtrarRangoVencimiento,
+                        @Param("vencimientoDesde") LocalDateTime vencimientoDesde,
+                        @Param("vencimientoHasta") LocalDateTime vencimientoHasta,
+                        @Param("estadoVencido") InventarioProductoEstado estadoVencido,
                         Pageable pageable);
 
         @Query(value = "SELECT ipi.* FROM operaciones.inventario_producto_item ipi " +

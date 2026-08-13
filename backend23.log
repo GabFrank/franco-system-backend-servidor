@@ -1,0 +1,178 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.franco.dev:franco-dev-systems >------------------
+[INFO] Building Franco Systems 3.0.9
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot-maven-plugin:2.7.18:run (default-cli) > test-compile @ franco-dev-systems >>>
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (auto-clean) @ franco-dev-systems ---
+[INFO] Deleting /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (default-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 470 resources
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:resources (copy-resources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] Copying 4 resources
+[INFO] Copying 470 resources
+[INFO] 
+[INFO] --- exec-maven-plugin:3.0.0:exec (cleanup-duplicate-migrations) @ franco-dev-systems ---
+Scanning for duplicate migration files in ./target/classes/db/migration...
+Duplicate migration cleanup complete.
+[INFO] 
+[INFO] --- flyway-maven-plugin:8.5.13:validate (default) @ franco-dev-systems ---
+[INFO] Skipping Flyway execution
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:compile (default-compile) @ franco-dev-systems ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 1602 source files to /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Some input files use or override a deprecated API.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Recompile with -Xlint:deprecation for details.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java: /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java uses or overrides a deprecated API that is marked for removal.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/graphql/financiero/resolver/GastoResolver.java: Recompile with -Xlint:removal for details.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Some input files use unchecked or unsafe operations.
+[INFO] /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/main/java/com/franco/dev/service/CrudService.java: Recompile with -Xlint:unchecked for details.
+[INFO] 
+[INFO] --- maven-resources-plugin:3.2.0:testResources (default-testResources) @ franco-dev-systems ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Using 'UTF-8' encoding to copy filtered properties files.
+[INFO] skip non existing resourceDirectory /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.10.1:testCompile (default-testCompile) @ franco-dev-systems ---
+[INFO] Changes detected - recompiling the module!
+[INFO] Compiling 18 source files to /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/test-classes
+[INFO] 
+[INFO] <<< spring-boot-maven-plugin:2.7.18:run (default-cli) < test-compile @ franco-dev-systems <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot-maven-plugin:2.7.18:run (default-cli) @ franco-dev-systems ---
+[INFO] Attaching agents: []
+Iniciando sistema
+13:32:22.523 [Thread-0] DEBUG org.springframework.boot.devtools.restart.classloader.RestartClassLoader - Created RestartClassLoader org.springframework.boot.devtools.restart.classloader.RestartClassLoader@fd6f9aa
+Iniciando sistema
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::               (v2.7.18)
+
+2026-07-23 13:32:23.341  INFO 28492 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : Starting FrancoSystemsApplication using Java 17.0.17 on IMACs-iMac.local with PID 28492 (/Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central/target/classes started by gabfranck in /Users/gabfranck/workspace/frc-sistemas-informaticos/frc-comercial/central)
+2026-07-23 13:32:23.342  INFO 28492 --- [  restartedMain] com.franco.dev.FrancoSystemsApplication  : The following 1 profile is active: "dev"
+2026-07-23 13:32:23.401  INFO 28492 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-23 13:32:23.401  INFO 28492 --- [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-23 13:32:26.285  INFO 28492 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-23 13:32:28.042  INFO 28492 --- [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 1748 ms. Found 221 JPA repository interfaces.
+2026-07-23 13:32:31.381  INFO 28492 --- [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8081 (http)
+2026-07-23 13:32:31.399  INFO 28492 --- [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-23 13:32:31.399  INFO 28492 --- [  restartedMain] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.83]
+2026-07-23 13:32:31.547  INFO 28492 --- [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-07-23 13:32:31.547  INFO 28492 --- [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 8145 ms
+2026-07-23 13:32:32.236  INFO 28492 --- [  restartedMain] c.f.d.c.RetryableDatabasePostProcessor   : -----> configuring a retryable datasource for beanName = dataSource
+2026-07-23 13:32:32.305  INFO 28492 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Scanning for duplicate migrations in: target/classes/db/migration
+2026-07-23 13:32:32.358  INFO 28492 --- [  restartedMain] c.f.dev.config.multitenant.FlywayConfig  : Duplicate migration cleanup complete
+2026-07-23 13:32:32.668  INFO 28492 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-23 13:32:32.668  INFO 28492 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-23 13:32:32.668  INFO 28492 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-23 13:32:32.778  INFO 28492 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-23 13:32:32.778  INFO 28492 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-23 13:32:32.896  INFO 28492 --- [  restartedMain] o.f.c.i.database.base.BaseDatabaseType   : Database: jdbc:postgresql://localhost:5551/bodega_producto_devoluciones (PostgreSQL 16.4)
+2026-07-23 13:32:32.906  WARN 28492 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-23 13:32:32.965  INFO 28492 --- [  restartedMain] o.f.c.i.s.JdbcTableSchemaHistory         : Repair of failed migration in Schema History table "public"."flyway_schema_history" not necessary. No failed migration detected.
+2026-07-23 13:32:33.156  INFO 28492 --- [  restartedMain] o.f.core.internal.command.DbRepair       : Successfully repaired schema history table "public"."flyway_schema_history" (execution time 00:00.232s).
+2026-07-23 13:32:33.164  INFO 28492 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 8.5.13 by Redgate
+2026-07-23 13:32:33.164  INFO 28492 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-07-23 13:32:33.164  INFO 28492 --- [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-07-23 13:32:33.167  INFO 28492 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : 1 SQL migrations were detected but not run because they did not follow the filename convention.
+2026-07-23 13:32:33.167  INFO 28492 --- [  restartedMain] o.f.c.i.resource.ResourceNameValidator   : If this is in error, enable debug logging or 'validateMigrationNaming' to fail fast and see a list of the invalid file names.
+2026-07-23 13:32:33.180  WARN 28492 --- [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 16.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 14.
+2026-07-23 13:32:33.329  INFO 28492 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 168.0
+2026-07-23 13:32:33.329  WARN 28492 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : outOfOrder mode is active. Migration of schema "public" may not be reproducible.
+2026-07-23 13:32:33.330  INFO 28492 --- [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-07-23 13:32:33.542  INFO 28492 --- [  restartedMain] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-07-23 13:32:33.605  INFO 28492 --- [  restartedMain] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 5.6.15.Final
+2026-07-23 13:32:34.370  INFO 28492 --- [  restartedMain] o.hibernate.annotations.common.Version   : HCANN000001: Hibernate Commons Annotations {5.1.2.Final}
+2026-07-23 13:32:34.507  INFO 28492 --- [  restartedMain] org.hibernate.dialect.Dialect            : HHH000400: Using dialect: org.hibernate.dialect.PostgreSQLDialect
+2026-07-23 13:32:35.683  INFO 28492 --- [  restartedMain] b.i.HibernateSearchPreIntegrationService : HSEARCH000034: Hibernate Search version 6.2.5.Final
+2026-07-23 13:32:40.349  INFO 28492 --- [  restartedMain] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000490: Using JtaPlatform implementation: [org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform]
+2026-07-23 13:32:41.606  WARN 28492 --- [  restartedMain] o.h.s.b.l.impl.LuceneBackendFactory      : HSEARCH000075: Missing value for configuration property 'hibernate.search.backend.lucene_version': using LATEST (currently '8.11.2'). Context: default backend
+2026-07-23 13:32:42.102  WARN 28492 --- [  restartedMain] o.h.s.e.c.s.ConfigurationPropertyChecker : HSEARCH000568: Invalid configuration passed to Hibernate Search: some properties in the given configuration are not used. There might be misspelled property keys in your configuration. Unused properties: [hibernate.search.indexing.automatic.enabled]. To disable this warning, set the property 'hibernate.search.configuration_property_checking.strategy' to 'ignore'.
+2026-07-23 13:32:42.106  INFO 28492 --- [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-23 13:32:43.093  WARN 28492 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-23 13:32:43.429  WARN 28492 --- [  restartedMain] c.franco.dev.service.utils.ImageService  : Mac OS X
+2026-07-23 13:32:43.487  INFO 28492 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-23 13:32:43.508  INFO 28492 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-23 13:32:43.916  INFO 28492 --- [  restartedMain] c.f.d.s.p.UsuarioEmbeddingCacheService   : Caché de embeddings faciales: 0 usuarios activos con galería
+2026-07-23 13:32:50.038  INFO 28492 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Initializing Firebase using config path: file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-23 13:32:50.039 ERROR 28492 --- [  restartedMain] c.franco.dev.fmc.service.FCMInitializer  : Error initializing Firebase: config file not found at file:/opt/frc-backend-central/central/secrets/bodega-franco-frc-18e8c6ef35cf.json
+2026-07-23 13:32:56.307  WARN 28492 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-23 13:32:56.308  WARN 28492 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-23 13:32:56.311  WARN 28492 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-23 13:32:56.311  WARN 28492 --- [  restartedMain] o.h.dialect.function.TemplateRenderer    : HHH000174: Function template anticipated 4 arguments, but 1 arguments encountered
+2026-07-23 13:33:27.910  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estado: EstadoDE' on input type 'DocumentoElectronicoInput' -> com.franco.dev.graphql.financiero.input.DocumentoElectronicoInput. Try adding it manually to the dictionary
+2026-07-23 13:33:28.340  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'BarrioInput' -> com.franco.dev.graphql.general.input.BarrioInput. Try adding it manually to the dictionary
+2026-07-23 13:33:28.358  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ContactoInput' -> com.franco.dev.graphql.general.input.ContactoInput. Try adding it manually to the dictionary
+2026-07-23 13:33:28.366  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'PaisInput' -> com.franco.dev.graphql.general.input.PaisInput. Try adding it manually to the dictionary
+2026-07-23 13:33:29.257  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'estadoVerificacion: EstadoVerificacion' on input type 'RecepcionMercaderiaItemInput' -> com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemInput. Try adding it manually to the dictionary
+2026-07-23 13:33:29.630  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ClienteInput' -> com.franco.dev.graphql.personas.input.ClienteInput. Try adding it manually to the dictionary
+2026-07-23 13:33:29.676  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Cannot find definition for field 'creadoEn: Date' on input type 'ProveedorDiasVisitaInput' -> com.franco.dev.graphql.personas.input.ProveedorDiasVisitaInput. Try adding it manually to the dictionary
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: DateTime
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: NotificacionPush
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ChequePage
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ChequeraPage
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoCancelacionDEInput
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoNominacionDEInput
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: EventoInutilizacionDEInput
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: Meses
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: DeliveryUpdate
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ResumenMovimientoStock
+2026-07-23 13:33:32.040  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PagoDetallePage
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PagoPage
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: SolicitudPagoMultipleRecepcionesInput
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: SolicitudPagoNotaRecepcionInput
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: PrintData
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ExistenciaCostoPorSucursal
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: ProductoExistenciaCostos
+2026-07-23 13:33:32.041  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Schema type was defined but can never be accessed, and can be safely deleted: MultiPageInput
+2026-07-23 13:33:32.046  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.financiero.FacturaLegalItemGraphQL@504c3edc
+2026-07-23 13:33:32.047  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.operaciones.RecepcionMercaderiaItemVariacionGraphQL@10d29969
+2026-07-23 13:33:32.047  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root query resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Query'!  Either remove the graphql.kickstart.tools.GraphQLQueryResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL@38ef0e2a
+2026-07-23 13:33:32.047  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.financiero.FacturaLegalItemGraphQL@504c3edc
+2026-07-23 13:33:32.047  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.print.PrintGraphQL@39111b9b
+2026-07-23 13:33:32.047  WARN 28492 --- [  restartedMain] g.kickstart.tools.SchemaClassScanner     : Root mutation resolver was provided but no methods on it were used in data fetchers for GraphQL type 'Mutation'!  Either remove the graphql.kickstart.tools.GraphQLMutationResolver interface from the resolver or remove the resolver entirely: com.franco.dev.graphql.productos.ProductoExistenciaCostoGraphQL@38ef0e2a
+2026-07-23 13:33:33.712  WARN 28492 --- [  restartedMain] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-23 13:33:35.230  WARN 28492 --- [  restartedMain] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'; nested exception is org.springframework.boot.web.server.PortInUseException: Port 8081 is already in use
+2026-07-23 13:33:35.750  INFO 28492 --- [  restartedMain] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-23 13:33:35.767  INFO 28492 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-07-23 13:33:35.776  INFO 28492 --- [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-07-23 13:33:35.780  INFO 28492 --- [  restartedMain] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-07-23 13:33:35.810  INFO 28492 --- [  restartedMain] ConditionEvaluationReportLoggingListener : 
+
+Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+2026-07-23 13:33:35.840 ERROR 28492 --- [  restartedMain] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8081 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8081 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  02:11 min
+[INFO] Finished at: 2026-07-23T13:33:35-03:00
+[INFO] ------------------------------------------------------------------------

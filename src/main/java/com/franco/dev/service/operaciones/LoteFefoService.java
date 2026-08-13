@@ -25,6 +25,15 @@ import java.util.Set;
 @AllArgsConstructor
 public class LoteFefoService {
 
+    /**
+     * Bucket del stock que existe en el agregado pero no está atribuido a ningún lote. No es un
+     * lote real: no se persiste como maestro y se deriva de existencia - suma de lotes reales.
+     *
+     * Debe ser idéntica a la del servicio espejo de la filial: las dos puntas escriben filas con
+     * este número y una diferencia de texto las convertiría en dos buckets distintos.
+     */
+    public static final String NUMERO_LOTE_SIN_TRAZAR = "SIN LOTE";
+
     private final MovimientoStockLoteService movimientoStockLoteService;
 
     /**

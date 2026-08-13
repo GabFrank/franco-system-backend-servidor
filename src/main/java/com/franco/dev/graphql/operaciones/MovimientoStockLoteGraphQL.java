@@ -2,14 +2,19 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStockLote;
+import com.franco.dev.domain.operaciones.dto.AjusteStockLoteResultadoDto;
 import com.franco.dev.domain.operaciones.dto.ClienteLoteDto;
+import com.franco.dev.domain.operaciones.dto.LoteDeProductoDto;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
+import com.franco.dev.domain.operaciones.dto.ResumenStockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLotePresentacionDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteSucursalDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.graphql.operaciones.input.AjusteStockLoteInput;
+import com.franco.dev.service.operaciones.AjusteStockLoteService;
 import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.MovimientoStockLoteService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -42,6 +47,9 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
 
     @Autowired
     private UsuarioService usuarioService;
+
+    @Autowired
+    private AjusteStockLoteService ajusteStockLoteService;
 
     /**
      * Saldo por lote de un producto en una sucursal, ordenado por FEFO.
@@ -126,6 +134,42 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
                                                 int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 20);
         return service.clientesPorLote(loteId, sucursalId, rastreable, pageable);
+    }
+
+    /**
+     * Buscador paginado de lotes de un producto, con el saldo de cada uno en la sucursal.
+     *
+     * Alimenta el buscador genérico del ajuste de stock. Incluye los lotes con saldo cero en esa
+     * sucursal: son los que hacen falta para trazar mercadería que ya estaba sin lote asignado.
+     */
+    public Page<LoteDeProductoDto> buscarLotesDeProducto(Long productoId, Long sucursalId,
+                                                          String texto, int page, int size) {
+        Pageable pageable = PageRequest.of(Math.max(page, 0), size > 0 ? size : 10);
+        return loteService.buscarLotesDeProducto(productoId, sucursalId, texto, pageable);
+    }
+
+    /**
+     * Las tres cuentas del producto en una sucursal: existencia, lo atribuido a lotes reales y lo
+     * que quedó sin trazar. Es lo que la pantalla de ajuste muestra antes de confirmar.
+     */
+    public ResumenStockLoteDto resumenStockLote(Long productoId, Long sucursalId) {
+        return ajusteStockLoteService.resumen(productoId, sucursalId);
+    }
+
+    /**
+     * Ajusta el stock de UN lote en UNA sucursal, escribiendo el movimiento agregado y su desglose
+     * en la misma transacción.
+     *
+     * Es el camino que faltaba para que una corrección manual de stock de un producto con control
+     * de lote no rompa la correspondencia entre las dos cuentas. Ver
+     * {@link AjusteStockLoteService} para las dos operaciones que soporta.
+     */
+    public AjusteStockLoteResultadoDto ajustarStockLote(AjusteStockLoteInput input) {
+        try {
+            return ajusteStockLoteService.ajustar(input);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
     }
 
     /**

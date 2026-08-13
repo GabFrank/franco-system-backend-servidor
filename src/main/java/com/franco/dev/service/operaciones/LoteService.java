@@ -1,6 +1,7 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.Lote;
+import com.franco.dev.domain.operaciones.dto.LoteDeProductoDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
@@ -8,6 +9,8 @@ import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.repository.operaciones.LoteRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -152,5 +155,46 @@ public class LoteService extends CrudService<Lote, LoteRepository, Long> {
 
     public List<Lote> findByProductoId(Long productoId) {
         return repository.findByProductoId(productoId);
+    }
+
+    /**
+     * Buscador paginado de lotes de un producto, con el saldo de cada uno en una sucursal.
+     *
+     * Va paginado desde el backend porque un producto de rotación alta acumula un lote por
+     * recepción: traerlos todos para que la pantalla filtre en memoria deja de funcionar apenas
+     * pasan unas decenas.
+     *
+     * El texto filtra por número de lote y se normaliza igual que al crearlo, así que buscar
+     * "l-20" encuentra "L-2026-88".
+     */
+    public Page<LoteDeProductoDto> buscarLotesDeProducto(Long productoId, Long sucursalId,
+                                                          String texto, Pageable pageable) {
+        if (productoId == null) {
+            return Page.empty(pageable);
+        }
+        return repository.buscarLotesDeProducto(productoId, sucursalId, normalizarFiltro(texto), pageable)
+                .map(p -> new LoteDeProductoDto(
+                        p.getLoteId(),
+                        p.getNumeroLote(),
+                        p.getFechaVencimiento(),
+                        p.getFechaRetiro(),
+                        p.getEstado() != null ? EstadoLote.valueOf(p.getEstado()) : null,
+                        p.getSaldo() != null ? p.getSaldo() : 0d,
+                        p.getSaldoTotal() != null ? p.getSaldoTotal() : 0d));
+    }
+
+    /**
+     * Un filtro vacío no filtra. El buscador genérico manda '%' cuando el usuario no escribió nada,
+     * y ese comodín tiene que traer todo en vez de buscar un lote llamado literalmente "%".
+     */
+    private String normalizarFiltro(String texto) {
+        if (texto == null) {
+            return null;
+        }
+        String limpio = texto.trim();
+        if (limpio.isEmpty() || "%".equals(limpio)) {
+            return null;
+        }
+        return limpio.toUpperCase();
     }
 }

@@ -1,26 +1,36 @@
 package com.franco.dev.service.productos.search;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.franco.dev.domain.productos.Codigo;
+import com.franco.dev.domain.productos.Producto;
+import org.hibernate.search.mapper.orm.Search;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.stream.Stream;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 
 /**
  * Detecta si los índices Lucene de productos y códigos están listos.
  * Usado para reindexación automática al arrancar, sin intervención manual.
+ *
+ * El estado se resuelve contando documentos indexados, NO mirando el directorio.
+ * Con `hibernate.search.schema_management.strategy=create-or-update` Hibernate Search
+ * crea el índice vacío -- con su archivo `segments_N` -- durante el bootstrap, o sea
+ * antes del ApplicationReadyEvent que dispara la reindexacion. Un chequeo por archivos
+ * no distingue ese indice recien creado de uno poblado, asi que la reindexacion
+ * automatica nunca se dispara y el buscador queda mudo sin un solo error en el log.
  */
 @Service
 public class ProductoSearchIndexEstadoService {
 
-    private static final String ENTIDAD_PRODUCTO = "Producto";
-    private static final String ENTIDAD_CODIGO = "Codigo";
+    private static final Logger log = LoggerFactory.getLogger(ProductoSearchIndexEstadoService.class);
 
-    @Value("${spring.jpa.properties.hibernate.search.backend.directory.root:./data/lucene/productos}")
-    private String luceneDirectory;
+    private final EntityManagerFactory entityManagerFactory;
+
+    public ProductoSearchIndexEstadoService(EntityManagerFactory entityManagerFactory) {
+        this.entityManagerFactory = entityManagerFactory;
+    }
 
     /**
      * @deprecated Usar {@link #requiereReindexacionAutomatica()}.
@@ -31,58 +41,48 @@ public class ProductoSearchIndexEstadoService {
     }
 
     /**
-     * Verdadero si falta el índice general, el de productos o el de códigos.
+     * Verdadero si el indice de productos o el de codigos esta vacio.
      */
     public boolean requiereReindexacionAutomatica() {
-        Path root = Paths.get(luceneDirectory);
-        if (!Files.isDirectory(root)) {
-            return true;
-        }
-        if (!indiceEntidadPresente(root, ENTIDAD_PRODUCTO)) {
-            return true;
-        }
-        return !indiceEntidadPresente(root, ENTIDAD_CODIGO);
+        return !indiceProductoPresente() || !indiceCodigoPresente();
     }
 
     /**
-     * Verdadero cuando productos ya están indexados pero códigos aún no
-     * (por ejemplo, tras agregar el índice de códigos en una versión nueva).
+     * Verdadero cuando productos ya estan indexados pero codigos aun no
+     * (por ejemplo, tras agregar el indice de codigos en una version nueva).
      */
     public boolean requiereReindexacionSoloCodigos() {
-        Path root = Paths.get(luceneDirectory);
-        if (!Files.isDirectory(root)) {
-            return false;
-        }
-        return indiceEntidadPresente(root, ENTIDAD_PRODUCTO)
-                && !indiceEntidadPresente(root, ENTIDAD_CODIGO);
+        return indiceProductoPresente() && !indiceCodigoPresente();
     }
 
     public boolean indiceProductoPresente() {
-        Path root = Paths.get(luceneDirectory);
-        return Files.isDirectory(root) && indiceEntidadPresente(root, ENTIDAD_PRODUCTO);
+        return tieneDocumentos(Producto.class);
     }
 
     public boolean indiceCodigoPresente() {
-        Path root = Paths.get(luceneDirectory);
-        return Files.isDirectory(root) && indiceEntidadPresente(root, ENTIDAD_CODIGO);
+        return tieneDocumentos(Codigo.class);
     }
 
-    private boolean indiceEntidadPresente(Path root, String nombreEntidad) {
-        try (Stream<Path> directorios = Files.walk(root, 4)) {
-            return directorios
-                    .filter(Files::isDirectory)
-                    .filter(path -> path.getFileName().toString().contains(nombreEntidad))
-                    .anyMatch(this::directorioTieneSegmentos);
-        } catch (IOException e) {
+    /**
+     * Ante cualquier error al consultar el indice devuelve false, o sea "hay que reindexar".
+     * Reindexar de mas cuesta unos segundos al arrancar; no reindexar deja al buscador
+     * devolviendo cero resultados en silencio, que es mucho peor.
+     */
+    private boolean tieneDocumentos(Class<?> entidad) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        try {
+            long documentos = Search.session(entityManager)
+                    .search(entidad)
+                    .where(f -> f.matchAll())
+                    .fetchTotalHitCount();
+            log.debug("Indice Lucene de {}: {} documentos", entidad.getSimpleName(), documentos);
+            return documentos > 0;
+        } catch (RuntimeException e) {
+            log.warn("No se pudo consultar el indice Lucene de {} ({}). Se asume vacio y se reindexa.",
+                    entidad.getSimpleName(), e.getMessage());
             return false;
-        }
-    }
-
-    private boolean directorioTieneSegmentos(Path directorio) {
-        try (Stream<Path> archivos = Files.list(directorio)) {
-            return archivos.anyMatch(path -> path.getFileName().toString().startsWith("segments"));
-        } catch (IOException e) {
-            return false;
+        } finally {
+            entityManager.close();
         }
     }
 }

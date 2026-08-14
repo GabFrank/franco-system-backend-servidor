@@ -17,4 +17,5 @@ public class ClienteInput {
     private Boolean tributa;
     private Boolean verificadoSet;
     private String documento;
+    private Boolean activo;
 }

@@ -1,0 +1,357 @@
+# Control de lotes.
+#
+# operaciones.lote (V155.3) es el maestro: unicidad (producto, numero_lote), y ahi viven las
+# fechas y el estado. operaciones.movimiento_stock_lote es el ledger: el saldo por lote se deriva
+# sumando sus filas, igual que el stock normal se deriva de movimiento_stock.
+
+enum EstadoLote {
+    # Disponible para la venta. Estado por defecto al recibir mercaderia.
+    LIBERADO
+    # Retenido a la espera de una definicion (control de calidad). No se vende.
+    CUARENTENA
+    # Bloqueado definitivamente (recall del proveedor, producto danado). No se vende.
+    BLOQUEADO
+}
+
+type Lote {
+    id: ID
+    producto: Producto
+    numeroLote: String
+    fechaVencimiento: Date
+    # Fecha por la que ordena FEFO: se calcula restando producto.diasVencimiento al vencimiento.
+    fechaRetiro: Date
+    fechaFabricacion: Date
+    proveedor: Proveedor
+    estado: EstadoLote
+    observacion: String
+    usuario: Usuario
+    creadoEn: Date
+    actualizadoEn: Date
+}
+
+type MovimientoStockLote {
+    id: ID
+    sucursalId: ID
+    movimientoStockId: ID
+    lote: Lote
+    producto: Producto
+    presentacion: Presentacion
+    numeroLote: String
+    cantidad: Float
+    referencia: ID
+    estado: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+# Saldo disponible de un lote (agregado del ledger + datos del maestro).
+type StockLote {
+    loteId: ID
+    productoId: ID
+    # Solo lo completa buscarStockPorLote; stockPorLote lo deja null porque el llamador ya
+    # conoce el producto.
+    productoDescripcion: String
+    # Solo los completa stockPorLote, que consulta una sucursal puntual. buscarStockPorLote
+    # agrupa por lote y los deja null: el desglose se pide con stockLotePorSucursal.
+    sucursalId: ID
+    sucursalNombre: String
+    numeroLote: String
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    estado: EstadoLote
+    # De quien vino el lote. Solo lo completa buscarStockPorLote.
+    proveedorNombre: String
+    cantidadDisponible: Float
+}
+
+# Saldo de un lote expresado en la presentacion con la que carga el operador.
+# El ledger lleva UNIDADES y las pantallas de transferencia cargan PRESENTACIONES; la conversion
+# se resuelve en el backend para que sea la misma regla que se aplica al guardar la asignacion.
+type StockLotePresentacion {
+    loteId: ID
+    numeroLote: String
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    estado: EstadoLote
+    # Saldo en unidades.
+    cantidadDisponible: Float
+    # Presentaciones COMPLETAS que entran en el saldo: una caja de 6 es indivisible, asi que de
+    # 65 unidades salen 10 cajas y no 10,833.
+    cantidadDisponiblePresentacion: Float
+    # Unidades que quedan fuera de esas presentaciones completas.
+    unidadesSobrantes: Float
+    unidadesPorPresentacion: Float
+    presentacionDescripcion: String
+}
+
+type StockLotePresentacionPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [StockLotePresentacion]
+}
+
+# Saldo de un lote en una sucursal puntual. Es el desglose de una fila de StockLote.
+type StockLoteSucursal {
+    sucursalId: ID
+    sucursalNombre: String
+    cantidadDisponible: Float
+}
+
+# Un movimiento del historial de un lote. Es la lectura inversa del ledger: en vez de "que lotes
+# tiene este movimiento", responde "que movimientos tocaron este lote".
+type MovimientoLote {
+    # Id de la fila del ledger. No es unico por si solo: la clave es (id, sucursalId).
+    id: ID
+    sucursalId: ID
+    fecha: Date
+    sucursalNombre: String
+    # COMPRA, VENTA, AJUSTE o TRANSFERENCIA. Nulo si el movimiento padre ya no esta.
+    tipoMovimiento: String
+    # OJO: no es el documento, es el ITEM del documento, porque el ledger se escribe por item.
+    # Para VENTA apunta a venta_item, para COMPRA a recepcion_mercaderia_item y para
+    # TRANSFERENCIA a transferencia_item. Mostrarlo como documento manda a buscar un id que no
+    # existe en la tabla que el operador va a abrir: para eso esta documentoId.
+    referencia: ID
+    # El documento al que pertenece ese item: la venta, la recepcion o la transferencia. Nulo
+    # cuando el tipo no tiene documento resoluble o cuando el item ya no esta.
+    documentoId: ID
+    # Positiva si entro al lote, negativa si salio.
+    cantidad: Float
+    usuarioNombre: String
+}
+
+# Una venta de un lote a un cliente identificado. Va una fila por VENTA y no una por cliente,
+# aunque eso repita al que compro varias veces: cada fila tiene que poder abrir su venta, y un
+# cliente agrupado no tiene un unico numero al que apuntar.
+# NO es la venta completa del lote: la venta de mostrador va contra el cliente generico y no
+# identifica a nadie, asi que queda afuera y su total se pide con resumenMostradorLote.
+type ClienteLote {
+    ventaId: ID
+    # La clave de venta es (id, sucursal_id): sin la sucursal el numero es ambiguo.
+    sucursalId: ID
+    sucursalNombre: String
+    fecha: Date
+    clienteId: ID
+    clienteNombre: String
+    clienteDocumento: String
+    # Donde ubicarlo si hay que avisarle por un recall. Nula cuando la persona no la tiene cargada.
+    clienteDireccion: String
+    # Unidades que se llevo en esa venta, en positivo: el ledger las guarda negativas.
+    cantidad: Float
+}
+
+type ClienteLotePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [ClienteLote]
+}
+
+
+type MovimientoLotePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [MovimientoLote]
+}
+
+type StockLotePage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [StockLote]
+}
+
+extend type Query {
+    # Saldo por lote de un producto en una sucursal, ordenado por FEFO
+    # (fecha de retiro mas proxima primero, lotes sin fecha al final).
+    stockPorLote(productoId: ID!, sucursalId: ID!): [StockLote]
+
+    # Mismo saldo que stockPorLote, pero convertido a la presentacion con la que carga el
+    # operador y paginado. Con presentacionId nulo devuelve las cantidades en unidades, sin
+    # convertir. numeroLote filtra por coincidencia parcial.
+    stockPorLoteEnPresentacion(
+        productoId: ID!
+        sucursalId: ID!
+        presentacionId: ID
+        numeroLote: String
+        page: Int = 0
+        size: Int = 10
+    ): StockLotePresentacionPage
+
+    # Consulta general "donde tengo que": todos los filtros son opcionales. Devuelve una fila por
+    # LOTE, con el saldo sumado de todas las sucursales; con sucursalId el total queda restringido
+    # a esa sucursal.
+    # vencimientoDesde y vencimientoHasta acotan COALESCE(fecha_retiro, fecha_vencimiento) por
+    # abajo y por arriba. Son independientes: solo hasta responde "que se me vence antes de tal
+    # fecha", los dos juntos acotan una ventana. Formato yyyy-MM-dd.
+    buscarStockPorLote(
+        productoId: ID
+        sucursalId: ID
+        proveedorId: ID
+        estado: EstadoLote
+        numeroLote: String
+        texto: String
+        vencimientoDesde: String
+        vencimientoHasta: String
+        page: Int = 0
+        size: Int = 20
+    ): StockLotePage
+
+    # Desglose por sucursal del saldo de un lote, para expandir una fila de "Stock por lotes".
+    # Devuelve todas las sucursales ACTIVAS, con cantidad 0 en las que no tienen ese lote.
+    stockLotePorSucursal(loteId: ID!): [StockLoteSucursal]
+
+    # Lotes registrados de un producto, ordenados por FEFO. Incluye los bloqueados.
+    lotesPorProducto(productoId: ID!): [Lote]
+
+    # Las tres cuentas del producto en una sucursal: existencia, atribuido a lotes reales y sin
+    # trazar. Es lo que la pantalla de ajuste muestra para que el operador vea el efecto de lo que
+    # esta por confirmar.
+    resumenStockLote(productoId: ID!, sucursalId: ID!): ResumenStockLote
+
+    # Buscador paginado de lotes de un producto, con el saldo de cada uno en la sucursal.
+    # A diferencia de buscarStockPorLote, parte del MAESTRO: incluye los lotes con saldo cero en esa
+    # sucursal, que son los que hacen falta para trazar mercaderia que ya estaba sin lote asignado.
+    # texto filtra por numero de lote, por coincidencia parcial.
+    buscarLotesDeProducto(
+        productoId: ID!
+        sucursalId: ID
+        texto: String
+        page: Int = 0
+        size: Int = 10
+    ): LoteDeProductoPage
+
+    # Desglose por lote de un movimiento de stock agregado.
+    movimientoStockLotePorMovimiento(movimientoStockId: ID!, sucursalId: ID!): [MovimientoStockLote]
+
+    # Historial de un lote: los movimientos que lo tocaron, del mas reciente al mas viejo.
+    # Con sucursalId nulo devuelve el recorrido completo del lote por toda la red, que es lo que
+    # hace falta en un recall: la compra que lo trajo, las transferencias que lo repartieron y las
+    # ventas que lo sacaron.
+    movimientosPorLote(
+        loteId: ID!
+        sucursalId: ID
+        tipoMovimiento: TipoMovimiento
+        page: Int = 0
+        size: Int = 20
+    ): MovimientoLotePage
+
+    # A que clientes se le vendio el lote, una fila por venta, de la mas reciente a la mas vieja.
+    # Es lo que hace accionable el recall: bloquear el lote lo saca del mostrador, pero avisar
+    # exige saber a quien llamar.
+    # rastreable parte el resultado en dos conjuntos que no se solapan: en true las ventas con
+    # cliente identificado, en false las de mostrador.
+    clientesPorLote(
+        loteId: ID!
+        sucursalId: ID
+        rastreable: Boolean = true
+        page: Int = 0
+        size: Int = 20
+    ): ClienteLotePage
+}
+
+extend type Mutation {
+    # Cambia el estado de un lote. Es el mecanismo de recall: pasar a BLOQUEADO lo saca de FEFO y
+    # del mostrador en todas las sucursales, sin tocar el stock fisico.
+    cambiarEstadoLote(loteId: ID!, estado: EstadoLote!, observacion: String, usuarioId: ID): Lote
+
+    # Ajusta el stock de UN lote en UNA sucursal. Escribe el movimiento agregado y su desglose por
+    # lote en la misma transaccion, con lo que la existencia total y el stock por lote nunca quedan
+    # contando cosas distintas.
+    ajustarStockLote(input: AjusteStockLoteInput!): AjusteStockLoteResultado
+}
+
+# Que esta haciendo el operador. Decide si la existencia total cambia o no, y se elige de forma
+# explicita en la pantalla en vez de inferirse del saldo sin trazar.
+enum ModoAjusteLote {
+    # El stock ya estaba contado pero no atribuido a ningun lote. El total NO cambia: se mueve del
+    # bucket sin trazar al lote. El movimiento agregado que lo ancla va en cero.
+    ATRIBUIR
+    # La existencia estaba mal (rotura, faltante, mercaderia encontrada). El total SI cambia.
+    CORREGIR
+}
+
+input AjusteStockLoteInput {
+    productoId: ID!
+    sucursalId: ID!
+    modo: ModoAjusteLote!
+    # Cuantas unidades de ESE lote hay realmente, EN UNIDADES BASE. No es la diferencia: es el
+    # total contado. El backend saca la diferencia contra el saldo actual.
+    cantidadFinal: Float!
+    # Opcional. Si viene, queda en el registro de modificaciones junto con el ajuste.
+    motivo: String
+    usuarioId: ID
+    # Lote existente. Excluyente con numeroLote.
+    loteId: ID
+    # Numero del lote a resolver o crear. Es el unico camino de alta manual de lote del sistema.
+    numeroLote: String
+    # Solo al crear el lote. Formato yyyy-MM-dd.
+    fechaVencimiento: String
+    # Solo al crear el lote. Sin esto se deriva de los dias de vencimiento del producto.
+    fechaRetiro: String
+}
+
+# Un lote de un producto con el saldo que tiene en una sucursal. saldo es 0 cuando el lote nunca
+# entro ahi, y esos lotes se listan igual: son los que hacen falta para trazar mercaderia existente.
+type LoteDeProducto {
+    loteId: ID
+    numeroLote: String
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    estado: EstadoLote
+    saldo: Float
+    # Saldo del lote en toda la red. Distingue "aca no hay" de "no hay en ningun lado": con solo
+    # saldo por sucursal los dos casos se ven iguales, en cero.
+    saldoTotal: Float
+}
+
+type LoteDeProductoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [LoteDeProducto]
+}
+
+# Las tres cuentas de un producto en una sucursal, en unidades base. sinTrazar se deriva
+# (existencia - enLotes) y puede ser negativo: eso es deuda de trazabilidad, no un error.
+type ResumenStockLote {
+    productoId: ID
+    sucursalId: ID
+    existencia: Float
+    enLotes: Float
+    sinTrazar: Float
+}
+
+type AjusteStockLoteResultado {
+    # Movimiento agregado que ancla el ajuste. En una atribucion su cantidad es 0.
+    movimientoStockId: ID
+    sucursalId: ID
+    loteId: ID
+    numeroLote: String
+    cantidadMovimiento: Float
+    # Saldo del lote en esa sucursal despues del ajuste.
+    saldoLote: Float
+    resumen: ResumenStockLote
+}

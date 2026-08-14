@@ -18,6 +18,9 @@ public interface MonedaRepository extends HelperRepository<Moneda, Long> {
 
     public Moneda findByDenominacion(String texto);
 
+    /** Primera moneda cuya denominación contiene el texto (case-insensitive). Usado como fallback (ej. Guaraníes). */
+    Moneda findFirstByDenominacionContainingIgnoreCaseOrderByIdAsc(String texto);
+
     List<Moneda> findAllByOrderByIdAsc();
 
     //    Moneda findByPaisId(Long id);

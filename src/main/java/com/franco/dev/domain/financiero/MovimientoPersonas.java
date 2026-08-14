@@ -15,6 +15,20 @@ import javax.persistence.*;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * @deprecated Tabla write-only: se escribe pero ningun flujo la lee. El unico calculo
+ * agregado (getSaldoPorPersona -> getTotalCredito) tiene su unico llamador comentado en
+ * ClienteResolver; el saldo del cliente sale de VentaCredito con estado ABIERTO.
+ *
+ * RRHH se desvinculo en 2026-07 (vale, prestamo, liquidacion y finiquito ya no la
+ * escriben): la deuda viva del prestamo sale de rrhh.prestamo_cuota, que es la misma
+ * fuente que gobierna el cobro y que lee la liquidacion. Ademas mezclaba criterios de
+ * signo — VENTA_CREDITO guarda negativo y los tipos de RRHH positivo, en la misma columna.
+ *
+ * Hoy solo la escribe VentaCredito. Candidata a eliminarse: ver issue #159.
+ * No agregar escrituras nuevas.
+ */
+@Deprecated
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

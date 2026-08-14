@@ -4,7 +4,15 @@ type CuentaBancaria {
     banco: Banco,
     moneda: Moneda,
     numero: String,
+    nombre: String,
     tipoCuenta: TipoCuenta,
+    saldo: Float,
+    saldoReservado: Float,
+    titular: String,
+    alias: String,
+    activo: Boolean,
+    disponibleOperacionesFinancieras: Boolean,
+    permiteSaldoNegativo: Boolean,
     creadoEn: Date
     usuario: Usuario
 }
@@ -15,13 +23,20 @@ input CuentaBancariaInput {
     bancoId: Int,
     monedaId: Int,
     numero: String,
+    nombre: String,
     tipoCuenta: TipoCuenta,
+    titular: String,
+    alias: String,
+    activo: Boolean,
+    disponibleOperacionesFinancieras: Boolean,
+    permiteSaldoNegativo: Boolean,
     usuarioId: Int
 }
 
 extend type Query {
     cuentaBancaria(id:ID!):CuentaBancaria
     cuentasBancarias(page:Int = 0, size:Int = 10):[CuentaBancaria]!
+    cuentasBancariasOperables:[CuentaBancaria]!
     countCuentaBancaria: Int
 }
 

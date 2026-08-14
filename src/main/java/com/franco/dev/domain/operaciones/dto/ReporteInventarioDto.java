@@ -17,4 +17,8 @@ public class ReporteInventarioDto {
     private String estado;
     private String responsable;
     private String fecha;
+    private String sucursal;
+    private String vencimiento;
+    /** Vencido al momento de generar el reporte: alimenta los subtotales del PDF. */
+    private Boolean vencido;
 }

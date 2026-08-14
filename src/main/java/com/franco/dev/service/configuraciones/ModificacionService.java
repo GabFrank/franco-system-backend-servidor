@@ -52,10 +52,28 @@ public class ModificacionService extends CrudService<ModificacionRegistro, Modif
     @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
     public ModificacionRegistro registrarInsercion(Object entidad, String tipoEntidad, String schemaNombre,
             String tablaNombre) {
+        return registrarInsercion(entidad, tipoEntidad, schemaNombre, tablaNombre, null);
+    }
+
+    /**
+     * Igual que {@link #registrarInsercion(Object, String, String, String)}, pero deja escrito el
+     * motivo que dio el usuario.
+     *
+     * Hace falta para las operaciones donde el "por qué" es el dato importante y no vive en ninguna
+     * columna de la entidad, como el ajuste de stock por lote: la tabla del ledger se replica entre
+     * central y filiales, así que agregarle una columna de texto obligaría a migrar las dos puntas
+     * en orden por un dato que es de auditoría, no de operación.
+     */
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public ModificacionRegistro registrarInsercion(Object entidad, String tipoEntidad, String schemaNombre,
+            String tablaNombre, String observacion) {
         try {
 
             ModificacionRegistro registro = crearRegistroBase(entidad, tipoEntidad, schemaNombre, tablaNombre,
                     TipoOperacion.INSERT);
+            if (observacion != null && !observacion.trim().isEmpty()) {
+                registro.setObservacion(observacion.trim());
+            }
 
             List<ModificacionDetalle> detalles = obtenerDetallesInsercion(entidad);
 

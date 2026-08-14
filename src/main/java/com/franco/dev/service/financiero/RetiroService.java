@@ -55,6 +55,12 @@ public class RetiroService extends CrudService<Retiro, RetiroRepository, Embebed
         return repository.findByIdAndSucursalId(id, sucId);
     }
 
+    /** Retiros flotantes (replicados del PDV, sin caja mayor asignada); filtro por sucursal, caja y fechas. */
+    public Page<Retiro> findFlotantes(Long sucId, Long cajaId, java.time.LocalDateTime desde,
+                                      java.time.LocalDateTime hasta, Pageable pageable) {
+        return repository.findFlotantes(sucId, cajaId, desde, hasta, pageable);
+    }
+
     @Override
     public Retiro save(Retiro entity) {
         Retiro e = super.save(entity);

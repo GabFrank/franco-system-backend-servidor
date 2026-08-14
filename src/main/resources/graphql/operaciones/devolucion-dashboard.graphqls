@@ -1,0 +1,67 @@
+# Dashboard del modulo de devoluciones (aditivo). Todas las queries filtran por
+# rango de fecha (obligatorio, formato del resto del modulo) y sucursal opcional.
+
+type ResumenDevoluciones {
+    total: Int
+    conProveedor: Int
+    sinProveedor: Int
+    # CON_PROVEEDOR en PENDIENTE o SEPARADO: lo que falta retirar.
+    pendientesRetiro: Int
+    valorTotal: Float
+    # Valor de las devoluciones SIN_PROVEEDOR (merma).
+    valorMerma: Float
+}
+
+type DevolucionPorEstado {
+    estado: String
+    cantidad: Int
+}
+
+type TopProductoDevuelto {
+    productoId: ID
+    descripcion: String
+    cantidad: Float
+    valor: Float
+}
+
+type TopMotivoDevolucion {
+    motivoId: ID
+    descripcion: String
+    items: Int
+    cantidad: Float
+}
+
+type TopProveedorDevolucion {
+    proveedorId: ID
+    nombre: String
+    devoluciones: Int
+    valor: Float
+}
+
+type DevolucionSeriePunto {
+    fecha: String
+    cantidad: Int
+    valor: Float
+}
+
+type DevolucionEstancada {
+    devolucionId: ID
+    identificador: String
+    producto: String
+    sucursal: String
+    estado: String
+    fecha: String
+    dias: Int
+}
+
+extend type Query {
+    resumenDevoluciones(fechaInicio: String!, fechaFin: String!, sucursalId: ID): ResumenDevoluciones
+    devolucionesPorEstadoResumen(fechaInicio: String!, fechaFin: String!, sucursalId: ID): [DevolucionPorEstado]
+    topProductosDevueltos(fechaInicio: String!, fechaFin: String!, sucursalId: ID, limite: Int): [TopProductoDevuelto]
+    topMotivosDevolucion(fechaInicio: String!, fechaFin: String!, sucursalId: ID, limite: Int): [TopMotivoDevolucion]
+    topProveedoresDevolucion(fechaInicio: String!, fechaFin: String!, sucursalId: ID, limite: Int): [TopProveedorDevolucion]
+    devolucionesSeriePorDia(fechaInicio: String!, fechaFin: String!, sucursalId: ID): [DevolucionSeriePunto]
+    devolucionesSeriePorMes(fechaInicio: String!, fechaFin: String!, sucursalId: ID): [DevolucionSeriePunto]
+    # diasMinimos: antiguedad minima en PENDIENTE/SEPARADO (default 30). limite: tope de filas.
+    devolucionesEstancadas(diasMinimos: Int, sucursalId: ID, limite: Int): [DevolucionEstancada]
+}

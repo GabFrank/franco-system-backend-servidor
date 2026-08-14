@@ -1,0 +1,67 @@
+type DashboardRrhhKpis {
+    periodo: String
+    funcionariosActivos: Int
+    nominaDelMes: Float
+    liquidacionesPendientes: Int
+    valesPendientesCantidad: Int
+    valesPendientesMonto: Float
+    prestamosActivosCantidad: Int
+    prestamosActivosSaldo: Float
+    penalizacionesMesCantidad: Int
+    penalizacionesMesMonto: Float
+    horasExtraMesCantidad: Int
+    horasExtraMesMonto: Float
+    cuotasVencidasCantidad: Int
+    aguinaldoEstimadoAnio: Float
+    cumpleanosDelMes: Int
+    vacacionesPorVencer: Int
+}
+
+type RrhhSeriePunto {
+    periodo: String
+    cantidad: Int
+    monto: Float
+}
+
+type RrhhRankingItem {
+    funcionarioId: ID
+    nombre: String
+    principal: Float
+    secundario: Int
+}
+
+type RrhhCumpleanos {
+    funcionarioId: ID
+    nombre: String
+    dia: Int
+    cargo: String
+}
+
+type RrhhFuncionarioIncompleto {
+    funcionarioId: ID
+    nombre: String
+    cargo: String
+    # 1..10 (1 = poco/nada configurado, 10 = completo).
+    score: Int
+    # Etiquetas de los datos que faltan cargar, separadas por coma.
+    faltantes: String
+}
+
+type RrhhIncompletosPage {
+    total: Int
+    items: [RrhhFuncionarioIncompleto]
+}
+
+extend type Query {
+    dashboardRrhhKpis(periodo: String!): DashboardRrhhKpis
+    # Serie de nómina por mes entre dos períodos 'YYYY-MM' (para el chart de tendencia).
+    nominaSeriePorMes(periodoInicio: String!, periodoFin: String!): [RrhhSeriePunto]
+    # Top funcionarios por exposición financiera (vales + saldo préstamo).
+    rrhhTopExposicion(limite: Int): [RrhhRankingItem]
+    # Top funcionarios por monto de horas extra del mes del período.
+    rrhhTopHorasExtra(periodo: String!, limite: Int): [RrhhRankingItem]
+    # Cumpleaños de funcionarios activos en el mes del período.
+    rrhhCumpleanosDelMes(periodo: String!): [RrhhCumpleanos]
+    # Funcionarios con legajo incompleto (peores primero), paginado.
+    rrhhFuncionariosIncompletos(page: Int, size: Int): RrhhIncompletosPage
+}

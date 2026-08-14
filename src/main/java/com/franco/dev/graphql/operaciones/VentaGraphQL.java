@@ -493,6 +493,136 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 fechaInicio, fechaFin);
     }
 
+    /**
+     * Acumulador de totales por forma de pago para los reportes de ventas.
+     * Cada venta reparte su neto entre las formas de pago que realmente se
+     * usaron, de modo que una venta mixta (parte efectivo, parte tarjeta) no
+     * se imputa entera a la forma de pago del primer movimiento de cobro.
+     */
+    static class TotalesPorFormaPago {
+        double general       = 0.0;
+        double efectivo      = 0.0;
+        double tarjeta       = 0.0;
+        double convenio      = 0.0;
+        double transferencia = 0.0;
+        double otros         = 0.0;
+
+        void acumular(String claveFormaPago, double valorGs) {
+            general += valorGs;
+            String desc = claveFormaPago != null ? claveFormaPago : "";
+            if (desc.contains("EFECTIVO")) {
+                efectivo += valorGs;
+            } else if (desc.contains("TARJETA")) {
+                tarjeta += valorGs;
+            } else if (desc.contains("CONVENIO")) {
+                convenio += valorGs;
+            } else if (desc.contains("TRANSFERENCIA")) {
+                transferencia += valorGs;
+            } else {
+                otros += valorGs;
+            }
+        }
+    }
+
+    /** Descuento y aumento (en Gs.) registrados en los movimientos de un cobro. */
+    static class AjustesCobro {
+        double descuento = 0.0;
+        double aumento   = 0.0;
+    }
+
+    private static boolean esVerdadero(Boolean valor) {
+        return valor != null && valor;
+    }
+
+    private static double valorEnGs(CobroDetalle cd) {
+        double valor = cd.getValor() != null ? cd.getValor() : 0.0;
+        double cambio = cd.getCambio() != null ? cd.getCambio() : 1.0;
+        return valor * cambio;
+    }
+
+    private static String claveFormaPago(FormaPago fp) {
+        return fp != null && fp.getDescripcion() != null
+                ? fp.getDescripcion().toUpperCase() : "";
+    }
+
+    /**
+     * Suma los descuentos y aumentos aplicados a una venta.
+     *
+     * No se usan los movimientos de PAGO para reconstruir el neto: hay cobros
+     * que quedaron con dos juegos de movimientos (un recobro posterior sobre
+     * el mismo cobro_id), asi que sumarlos duplica lo cobrado en alrededor del
+     * 5% de las ventas. El descuento y el aumento, en cambio, son un unico
+     * movimiento por cobro en mas del 99,8% de los casos.
+     */
+    static AjustesCobro ajustesDe(List<CobroDetalle> cobroDetalleList) {
+        AjustesCobro ajustes = new AjustesCobro();
+        if (cobroDetalleList == null) {
+            return ajustes;
+        }
+        for (CobroDetalle cd : cobroDetalleList) {
+            if (esVerdadero(cd.getPago()) || esVerdadero(cd.getVuelto())) {
+                continue;
+            }
+            if (esVerdadero(cd.getDescuento())) {
+                ajustes.descuento += valorEnGs(cd);
+            } else if (esVerdadero(cd.getAumento())) {
+                ajustes.aumento += valorEnGs(cd);
+            }
+        }
+        return ajustes;
+    }
+
+    /**
+     * Reparte el neto de una venta entre las formas de pago efectivamente
+     * usadas, en proporcion a lo pagado con cada una. Las proporciones salen
+     * de los movimientos de cobro, pero el monto repartido es siempre el neto
+     * de la venta, de modo que un cobro con movimientos duplicados desvia el
+     * reparto entre columnas pero nunca el total.
+     */
+    static void repartirPorFormaPago(List<CobroDetalle> cobroDetalleList,
+                                      FormaPago formaPagoVenta,
+                                      double netoVenta,
+                                      TotalesPorFormaPago totales) {
+        Map<String, Double> pagadoPorFormaPago = new LinkedHashMap<>();
+        double totalPagos = 0.0;
+        if (cobroDetalleList != null) {
+            for (CobroDetalle cd : cobroDetalleList) {
+                if (!esVerdadero(cd.getPago()) && !esVerdadero(cd.getVuelto())) {
+                    continue;
+                }
+                double valorGs = valorEnGs(cd);
+                String clave = cd.getFormaPago() != null
+                        ? claveFormaPago(cd.getFormaPago())
+                        : claveFormaPago(formaPagoVenta);
+                pagadoPorFormaPago.merge(clave, valorGs, Double::sum);
+                totalPagos += valorGs;
+            }
+        }
+
+        // Sin movimientos de pago utilizables, todo va a la forma de pago de la venta.
+        if (pagadoPorFormaPago.size() <= 1 || totalPagos == 0.0) {
+            String clave = pagadoPorFormaPago.isEmpty()
+                    ? claveFormaPago(formaPagoVenta)
+                    : pagadoPorFormaPago.keySet().iterator().next();
+            totales.acumular(clave, netoVenta);
+            return;
+        }
+
+        List<String> claves = new ArrayList<>(pagadoPorFormaPago.keySet());
+        String ultima = claves.get(claves.size() - 1);
+        double asignado = 0.0;
+        for (String clave : claves) {
+            if (clave.equals(ultima)) {
+                continue;
+            }
+            double parte = netoVenta * (pagadoPorFormaPago.get(clave) / totalPagos);
+            totales.acumular(clave, parte);
+            asignado += parte;
+        }
+        // La ultima forma de pago absorbe el redondeo para que el reparto cierre.
+        totales.acumular(ultima, netoVenta - asignado);
+    }
+
     public String reporteGenericVentas(
             Long idVenta,
             Long idCaja,
@@ -520,28 +650,26 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         List<Venta> ventas = ventaPage.getContent();
 
         // Acumuladores de totales por forma de pago (en Gs.)
-        double totalGeneral       = 0.0;
-        double totalEfectivo      = 0.0;
-        double totalTarjeta       = 0.0;
-        double totalConvenio      = 0.0;
-        double totalTransferencia = 0.0;
-        double totalOtros         = 0.0;
+        TotalesPorFormaPago totales = new TotalesPorFormaPago();
+        double totalDescuentos = 0.0;
+        double totalCanceladas = 0.0;
 
         List<ReporteVentaItemDto> itemList = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         for (Venta v : ventas) {
             double ventaTotalGs = v.getTotalGs() != null ? v.getTotalGs() : 0.0;
-            totalGeneral += ventaTotalGs;
 
             // Resolver forma de pago y moneda usando la lógica del VentaResolver:
             // si la venta no tiene formaPago directo, buscar en el cobro
             FormaPago fp = v.getFormaPago();
             Moneda moneda = null;
+            List<CobroDetalle> cobroDetalleList = new ArrayList<>();
             if (v.getCobro() != null) {
                 List<CobroDetalle> detalles = cobroDetalleService.findByCobroId(
                         v.getCobro().getId(), v.getSucursalId());
                 if (detalles != null && !detalles.isEmpty()) {
+                    cobroDetalleList = detalles;
                     CobroDetalle primerDetalle = detalles.get(0);
                     if (fp == null) {
                         fp = primerDetalle.getFormaPago();
@@ -550,19 +678,15 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 }
             }
 
-            String fpDesc = fp != null && fp.getDescripcion() != null
-                    ? fp.getDescripcion().toUpperCase() : "";
-
-            if (fpDesc.contains("EFECTIVO")) {
-                totalEfectivo += ventaTotalGs;
-            } else if (fpDesc.contains("TARJETA")) {
-                totalTarjeta += ventaTotalGs;
-            } else if (fpDesc.contains("CONVENIO")) {
-                totalConvenio += ventaTotalGs;
-            } else if (fpDesc.contains("TRANSFERENCIA")) {
-                totalTransferencia += ventaTotalGs;
+            // Las ventas canceladas se siguen listando, pero no suman al total:
+            // se acumulan aparte para mostrarlas como línea propia del resumen.
+            if (v.getEstado() == VentaEstado.CANCELADA) {
+                totalCanceladas += ventaTotalGs;
             } else {
-                totalOtros += ventaTotalGs;
+                AjustesCobro ajustes = ajustesDe(cobroDetalleList);
+                totalDescuentos += ajustes.descuento;
+                repartirPorFormaPago(cobroDetalleList, fp,
+                        ventaTotalGs - ajustes.descuento + ajustes.aumento, totales);
             }
 
             // Construir fila para el reporte
@@ -639,8 +763,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 filtroSucursalStr, filtroFpStr, filtroMonedaStr,
                 filtroEstadoStr, filtroClienteStr,
                 filtroModoStr, filtroConObsStr, filtroConDescStr, filtroConAumStr,
-                totalGeneral, totalEfectivo, totalTarjeta,
-                totalConvenio, totalTransferencia, totalOtros,
+                totales.general, totales.efectivo, totales.tarjeta,
+                totales.convenio, totales.transferencia, totales.otros,
+                totalDescuentos, totalCanceladas,
                 usuario);
     }
 
@@ -671,19 +796,15 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         List<Venta> ventas = ventaPage.getContent();
 
         // Acumuladores de totales por forma de pago (en Gs.)
-        double totalGeneral       = 0.0;
-        double totalEfectivo      = 0.0;
-        double totalTarjeta       = 0.0;
-        double totalConvenio      = 0.0;
-        double totalTransferencia = 0.0;
-        double totalOtros         = 0.0;
+        TotalesPorFormaPago totales = new TotalesPorFormaPago();
+        double totalDescuentos = 0.0;
+        double totalCanceladas = 0.0;
 
         List<ReporteVentaDetalladoDto> itemList = new ArrayList<>();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
         for (Venta v : ventas) {
             double ventaTotalGs = v.getTotalGs() != null ? v.getTotalGs() : 0.0;
-            totalGeneral += ventaTotalGs;
 
             // Resolver forma de pago y moneda usando la lógica del VentaResolver:
             // si la venta no tiene formaPago directo, buscar en el cobro
@@ -702,19 +823,15 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 }
             }
 
-            String fpDesc = fp != null && fp.getDescripcion() != null
-                    ? fp.getDescripcion().toUpperCase() : "";
-
-            if (fpDesc.contains("EFECTIVO")) {
-                totalEfectivo += ventaTotalGs;
-            } else if (fpDesc.contains("TARJETA")) {
-                totalTarjeta += ventaTotalGs;
-            } else if (fpDesc.contains("CONVENIO")) {
-                totalConvenio += ventaTotalGs;
-            } else if (fpDesc.contains("TRANSFERENCIA")) {
-                totalTransferencia += ventaTotalGs;
+            // Las ventas canceladas se siguen listando, pero no suman al total:
+            // se acumulan aparte para mostrarlas como línea propia del resumen.
+            if (v.getEstado() == VentaEstado.CANCELADA) {
+                totalCanceladas += ventaTotalGs;
             } else {
-                totalOtros += ventaTotalGs;
+                AjustesCobro ajustes = ajustesDe(cobroDetalleList);
+                totalDescuentos += ajustes.descuento;
+                repartirPorFormaPago(cobroDetalleList, fp,
+                        ventaTotalGs - ajustes.descuento + ajustes.aumento, totales);
             }
 
             // Items de la venta (producto, presentación, cantidad, precio, costo unitario/total)
@@ -904,8 +1021,9 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 filtroSucursalStr, filtroFpStr, filtroMonedaStr,
                 filtroEstadoStr, filtroClienteStr,
                 filtroModoStr, filtroConObsStr, filtroConDescStr, filtroConAumStr,
-                totalGeneral, totalEfectivo, totalTarjeta,
-                totalConvenio, totalTransferencia, totalOtros,
+                totales.general, totales.efectivo, totales.tarjeta,
+                totales.convenio, totales.transferencia, totales.otros,
+                totalDescuentos, totalCanceladas,
                 usuario);
     }
 

@@ -11,6 +11,7 @@ type RecepcionMercaderiaItem {
     cantidadRecibida: Float
     cantidadRechazada: Float
     vencimientoRecibido: Date
+    fechaRetiro: Date
     lote: String
     esBonificacion: Boolean
     motivoRechazo: MotivoRechazoFisico
@@ -44,6 +45,7 @@ input RecepcionMercaderiaItemInput {
     cantidadRecibida: Float
     cantidadRechazada: Float
     vencimientoRecibido: String
+    fechaRetiro: String
     lote: String
     esBonificacion: Boolean
     motivoRechazo: MotivoRechazoFisico

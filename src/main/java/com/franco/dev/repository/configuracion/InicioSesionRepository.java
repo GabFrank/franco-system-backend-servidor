@@ -31,6 +31,13 @@ public interface InicioSesionRepository extends HelperRepository<InicioSesion, E
     boolean existsByUsuarioIdAndIdDispositivo(Long usuarioId, String idDispositivo);
     boolean existsByUsuarioIdAndIdDispositivoAndHoraFinIsNull(Long usuarioId, String idDispositivo);
     List<InicioSesion> findByUsuarioIdAndIdDispositivoAndHoraFinIsNull(Long usuarioId, String idDispositivo);
+
+    /**
+     * Sesiones abiertas de un dispositivo, sin importar de que usuario sean. El
+     * ultimo que inicia sesion en un aparato se queda con el: las anteriores,
+     * propias o ajenas, tienen que cerrarse.
+     */
+    List<InicioSesion> findByIdDispositivoAndHoraFinIsNull(String idDispositivo);
     Optional<InicioSesion> findFirstByIdDispositivoAndUsuarioIsNotNullOrderByIdAsc(String idDispositivo);
 
     @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)

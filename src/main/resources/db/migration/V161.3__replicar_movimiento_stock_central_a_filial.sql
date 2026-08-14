@@ -1,0 +1,75 @@
+-- operaciones.movimiento_stock pasa a bajar del central a la filial, igual que ya lo hace su tabla
+-- hija operaciones.movimiento_stock_lote.
+--
+-- ============================================================================
+-- QUE ESTABA MAL
+-- ============================================================================
+-- V113 activo replicate_central_to_branch_with_filter para una lista explicita de 5 tablas
+-- (factura_legal, factura_legal_item, venta, venta_item, stock_por_producto_sucursal).
+-- operaciones.movimiento_stock quedo afuera de esa lista.
+--
+-- V154.3 registro la tabla hija movimiento_stock_lote con el flag en true, afirmando en su
+-- comentario que copiaba "exactamente la misma configuracion que operaciones.movimiento_stock".
+-- Esa premisa era falsa: el padre tiene el flag en false. Quedaron en regimenes distintos.
+--
+-- Consecuencia: el desglose por lote baja a la filial pero el movimiento agregado que lo origino
+-- no. Como los apply workers de replicacion logica corren con session_replication_role = 'replica',
+-- la FK fk_msl_movimiento no se dispara y las filas hijas entran igual, sin padre.
+--
+-- Medido en el par bodega3 (central) / general6 (filial 24) al 2026-08-12:
+--   - 7 filas de movimiento_stock_lote huerfanas en la filial.
+--   - existencia divergente: HALLS CEREZA suc 24 = 113 en el central y 14 en la filial.
+--   - "sin trazar" negativo en la filial (existencia - suma de lotes), o sea el ledger por lote
+--     afirmando mas mercaderia de la que el agregado reconoce.
+--   - 43 filas de desglose de origen central repartidas en 9 sucursales, con el mismo problema.
+--
+-- ============================================================================
+-- POR QUE SE ARREGLA DEL LADO DEL PADRE Y NO DEL HIJO
+-- ============================================================================
+-- La tentacion es la inversa: apagar el flag del hijo para que siga al padre. Rompe la filial.
+--
+-- El ledger por lote de la filial se compone SOLO de dos cosas: las entradas que bajan del central
+-- (compras y transferencias) y las salidas de sus propias ventas. No existe una sola entrada de
+-- origen local. En general6 al 2026-08-12: 7 filas positivas, todas bajadas del central, contra 26
+-- filas negativas de venta.
+--
+-- LoteFefoService lee esa tabla en el momento de la venta. Sin las entradas del central no encuentra
+-- lotes y todas las ventas caen al bucket SIN LOTE: hoy 24 de las 26 ventas de la filial estan
+-- atribuidas a un lote real, y pasarian a cero. Se perderia la trazabilidad en el punto de venta,
+-- que es para lo que existe el control de lote.
+--
+-- Padre e hijo se consumen distinto: la filial no calcula el agregado localmente, pero si resuelve
+-- FEFO localmente. Por eso el hijo tiene que bajar, y por eso el padre tiene que acompanarlo.
+--
+-- ============================================================================
+-- QUE PASA AL APLICARLA
+-- ============================================================================
+-- ReplicationPublicationSyncScheduler (cada hora, replication.sync.enabled=true en produccion)
+-- llama a LogicalReplicationService.syncPublicationsWithReplicationTable, que:
+--   - paso 2: agrega operaciones.movimiento_stock a cada central_<db>_filialN_pub con
+--     WHERE (sucursal_id = N).
+--   - paso 4: refresca las suscripciones para que la filial recoja la tabla nueva.
+-- No hay que tocar publicaciones a mano.
+--
+-- Riesgos evaluados, todos descartados:
+--   - REPLICA IDENTITY: movimiento_stock ya esta en 'f'. ensureReplicaIdentityFull no cambia nada y
+--     no hay costo nuevo de escritura.
+--   - Eco entre las dos direcciones: PostgreSQL 18.4 con origin = 'none' en las suscripciones. El
+--     mismo patron bidireccional ya corre para operaciones.venta, con 6,3 M de filas.
+--   - Volumen: el filtro WHERE sucursal_id = N acota cada filial a su propia sucursal.
+--
+-- Orden de despliegue: a diferencia de V154.3, no hay riesgo de romper un subscriber por tabla
+-- inexistente. movimiento_stock es tabla core y existe en todas las filiales desde siempre.
+--
+-- ============================================================================
+-- LO QUE ESTA MIGRACION NO HACE
+-- ============================================================================
+-- El REFRESH PUBLICATION usa copy_data = false, asi que nada historico baja. Las filas que ya
+-- faltan en cada filial siguen faltando (6.245 en la sucursal 24 al momento de escribir esto) y las
+-- huerfanas ya bajadas siguen sin padre. Corregir solo de aca en adelante fue una decision
+-- explicita: lo que importa es que el desvio deje de crecer. Un backfill, si se decide, va como
+-- script aparte contra cada base de filial, no como migracion de este repo.
+
+UPDATE configuraciones.replication_table
+SET replicate_central_to_branch_with_filter = true
+WHERE table_name = 'operaciones.movimiento_stock';

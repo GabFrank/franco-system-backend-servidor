@@ -7,16 +7,26 @@ import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import javax.persistence.LockModeType;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago, Long>, JpaSpecificationExecutor<SolicitudPago> {
     default Class<SolicitudPago> getEntityClass() {
         return SolicitudPago.class;
     }
+
+    /** Toma la solicitud con lock pesimista para el pago (serializa pagos parciales concurrentes). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from SolicitudPago s where s.id = :id")
+    Optional<SolicitudPago> lockById(@Param("id") Long id);
+
+    java.util.List<SolicitudPago> findByEstadoIn(java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados);
 
     public List<SolicitudPago> findByUsuarioId(Long id);
     

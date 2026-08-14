@@ -35,6 +35,9 @@ public class Proveedor implements Identifiable<Long> {
 
     private Boolean credito;
 
+    // Nota: la columna personas.proveedor.saldo_actual quedó legacy (el ledger de proveedor
+    // se jubiló; la deuda se deriva de SolicitudPago). Pendiente DROP en migración futura.
+
     @Column(name = "tipo_credito")
     private String tipoCredito;
 

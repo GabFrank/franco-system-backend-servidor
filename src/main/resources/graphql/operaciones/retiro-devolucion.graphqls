@@ -1,0 +1,63 @@
+# Retiro consolidado de devoluciones por proveedor + remito PDF (FASE A).
+# Todo aditivo: no modifica types/queries/mutations existentes de devolucion.
+
+type RetiroLineaConsolidada {
+    productoId: ID
+    codigo: String
+    descripcion: String
+    presentacion: String
+    cantidadTotal: Float
+}
+
+type RetiroCaja {
+    identificador: String
+    devolucionId: ID
+    productoId: ID
+    descripcion: String
+    cantidad: Float
+    lote: String
+    vencimiento: Date
+}
+
+type RetiroSucursalGrupo {
+    sucursalId: ID
+    sucursalNombre: String
+    lineas: [RetiroLineaConsolidada]
+    cajas: [RetiroCaja]
+    devolucionIds: [ID]
+}
+
+type RetiroProveedorConsolidado {
+    proveedorId: ID
+    proveedorNombre: String
+    fecha: Date
+    grupos: [RetiroSucursalGrupo]
+}
+
+type RetiroDevolucionResultado {
+    id: ID
+    ok: Boolean
+    mensaje: String
+}
+
+type RetiroBloqueResultado {
+    resultados: [RetiroDevolucionResultado]
+}
+
+extend type Query {
+    retiroProveedorConsolidado(proveedorId: ID!, sucursalId: ID): RetiroProveedorConsolidado
+    remitoRetiroProveedor(devolucionIds: [ID!]!): String
+    # PDF A4 (Base64) con las etiquetas de separado de una devolucion.
+    etiquetasSeparadoPdf(devolucionId: ID!): String
+}
+
+extend type Mutation {
+    retirarDevolucionesEnBloque(devolucionIds: [ID!]!, usuarioId: ID): RetiroBloqueResultado
+    # Colecta interna: envia devoluciones SEPARADAS a un deposito (pasan a COLECTADO).
+    colectarDevolucion(devolucionId: ID!, sucursalDestinoId: ID!, usuarioId: ID): Devolucion
+    colectarDevolucionesEnBloque(devolucionIds: [ID!]!, sucursalDestinoId: ID!, usuarioId: ID): RetiroBloqueResultado
+    # anchoMm: ancho del papel termico (58 u 80). Null asume 58.
+    imprimirTicketRetiroProveedor(devolucionIds: [ID!]!, printerName: String, anchoMm: Int): Boolean
+    # Etiquetas de separado (una por item, con QR del identificador).
+    imprimirEtiquetasSeparado(devolucionId: ID!, printerName: String, anchoMm: Int): Boolean
+}

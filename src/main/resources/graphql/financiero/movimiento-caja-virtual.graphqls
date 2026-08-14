@@ -1,0 +1,86 @@
+type MovimientoCajaVirtual {
+    id: ID!
+    cajaVirtual: CajaVirtual
+    tipoMovimiento: CajaVirtualTipoMovimiento
+    cantidad: Float
+    saldoAnterior: Float
+    saldoPosterior: Float
+    moneda: Moneda
+    referenciaId: Int
+    descripcion: String
+    usuario: Usuario
+    cajaOrigen: CajaVirtual
+    cajaDestino: CajaVirtual
+    activo: Boolean
+    creadoEn: Date
+    origenTipo: OrigenMovimientoTipo
+}
+
+enum OrigenMovimientoTipo {
+    MANUAL
+    ANULACION
+    RRHH_VALE
+    RRHH_PRESTAMO
+    RRHH_AGUINALDO
+    RRHH_LIQUIDACION_SUELDO
+    RRHH_LIQUIDACION_FINAL
+    RETIRO_CAJA
+    VENTA_CREDITO_COBRO
+    DEVOLUCION
+    GASTO
+    ENTRADA_VARIA
+    OPERACION_FINANCIERA
+    PAGO_CPP
+    CHEQUE
+    ACREDITACION_POS
+    MALETIN
+}
+
+input MovimientoCajaVirtualInput {
+    id: ID
+    cajaVirtualId: Int!
+    tipoMovimiento: CajaVirtualTipoMovimiento!
+    cantidad: Float!
+    saldoAnterior: Float
+    saldoPosterior: Float
+    monedaId: Int
+    referenciaId: Int
+    descripcion: String
+    usuarioId: Int
+    cajaOrigenId: Int
+    cajaDestinoId: Int
+    activo: Boolean
+}
+
+type MovimientoCajaVirtualPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [MovimientoCajaVirtual]
+}
+
+extend type Query {
+    movimientoCajaVirtual(id: ID!): MovimientoCajaVirtual
+    movimientosCajaVirtual(cajaVirtualId: ID!, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
+    movimientosCajaVirtualPorFecha(cajaVirtualId: ID!, inicio: String, fin: String, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
+    movimientosCajaVirtualFilter(cajaVirtualId: ID!, desde: String, fin: String, tipo: CajaVirtualTipoMovimiento, soloActivos: Boolean, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
+}
+
+extend type Mutation {
+    saveMovimientoCajaVirtual(input: MovimientoCajaVirtualInput!): MovimientoCajaVirtual!
+    realizarTransferenciaCajaVirtual(origenId: ID!, destinoId: ID!, cantidad: Float!, monedaId: ID!, descripcion: String, usuarioId: ID): Boolean!
+    anularMovimientoCajaVirtual(id: ID!, motivo: String): MovimientoCajaVirtual!
+}
+
+enum CajaVirtualTipoMovimiento {
+    INGRESO
+    EGRESO
+    TRANSFERENCIA_ENTRADA
+    TRANSFERENCIA_SALIDA
+    PAGO_PROVEEDOR
+    AJUSTE
+}

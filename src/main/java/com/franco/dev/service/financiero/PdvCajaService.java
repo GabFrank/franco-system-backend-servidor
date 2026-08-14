@@ -310,6 +310,14 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
                 }
             }
             for (Gasto gasto : gastoList) {
+                // Un gasto cancelado no descuenta de la caja: la plata volvio. Mismo
+                // mecanismo que el filtro de RetiroDetalle mas arriba en este metodo.
+                // La comparacion va en Java y no en la query a proposito: en SQL un
+                // "cancelado <> true" descartaria tambien las filas con cancelado NULL,
+                // que son todos los gastos historicos.
+                if (Boolean.TRUE.equals(gasto.getCancelado())) {
+                    continue;
+                }
                 totalGastoGs += (gasto.getRetiroGs() - gasto.getVueltoGs());
                 totalGastoRs += (gasto.getRetiroRs() - gasto.getVueltoRs());
                 totalGastoDs += (gasto.getRetiroDs() - gasto.getVueltoDs());

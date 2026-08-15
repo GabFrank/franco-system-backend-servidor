@@ -41,20 +41,35 @@ public class RrhhMobileGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     // ----- Consulta -----
 
-    public List<LiquidacionSueldo> misRecibosMobile(Long usuarioId) {
-        return service.misRecibos(miId());
+    public List<LiquidacionSueldo> misRecibosMobile(Long usuarioId, Integer page, Integer size) {
+        if (page == null && size == null) {
+            return service.misRecibos(miId());
+        }
+        return service.misRecibos(miId(), page, size);
     }
 
-    public List<Vale> misValesMobile(Long usuarioId) {
-        return service.misVales(miId());
+    public List<Vale> misValesMobile(Long usuarioId, Integer page, Integer size) {
+        if (page == null && size == null) {
+            return service.misVales(miId());
+        }
+        return service.misVales(miId(), page, size);
     }
 
     public List<Vacacion> misVacacionesMobile(Long usuarioId) {
         return service.misVacaciones(miId());
     }
 
-    public List<Jornada> misMarcacionesMobile(Long usuarioId) {
-        return service.misMarcaciones(miId());
+    /**
+     * ⚠️ `page` y `size` son opcionales para no romper a los clientes que ya
+     * llaman sin ellos, pero el mobile SIEMPRE los manda: sin paginar, esto
+     * devuelve una fila por cada dia trabajado desde que el funcionario
+     * entro.
+     */
+    public List<Jornada> misMarcacionesMobile(Long usuarioId, Integer page, Integer size) {
+        if (page == null && size == null) {
+            return service.misMarcaciones(miId());
+        }
+        return service.misMarcaciones(miId(), page, size);
     }
 
     public ResumenRrhhMobileDto miResumenRrhhMobile(Long usuarioId) {

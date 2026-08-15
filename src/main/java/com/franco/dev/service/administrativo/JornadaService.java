@@ -5,6 +5,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.repository.administrativo.JornadaRepository;
 import com.franco.dev.service.CrudService;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -23,6 +24,14 @@ public class JornadaService extends CrudService<Jornada, JornadaRepository, Embe
 
     public List<Jornada> findByUsuarioId(Long usuarioId) {
         return repository.findByUsuarioId(usuarioId);
+    }
+
+    /** Pagina las jornadas de un usuario, de la mas reciente a la mas antigua. */
+    public List<Jornada> findByUsuarioId(Long usuarioId, Integer page, Integer size) {
+        int pagina = page != null && page >= 0 ? page : 0;
+        int tamano = size != null && size > 0 ? size : 20;
+        return repository.findByUsuarioIdOrderByFechaDescIdDesc(
+                usuarioId, PageRequest.of(pagina, tamano));
     }
 
     public List<Jornada> findByUsuarioIdAndFechaRange(Long usuarioId, String fechaInicio, String fechaFin) {

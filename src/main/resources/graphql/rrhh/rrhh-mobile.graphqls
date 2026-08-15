@@ -9,10 +9,10 @@ type ResumenRrhhMobile {
 }
 
 extend type Query {
-    misRecibosMobile(usuarioId: ID!): [LiquidacionSueldo]
-    misValesMobile(usuarioId: ID!): [Vale]
+    misRecibosMobile(usuarioId: ID!, page: Int, size: Int): [LiquidacionSueldo]
+    misValesMobile(usuarioId: ID!, page: Int, size: Int): [Vale]
     misVacacionesMobile(usuarioId: ID!): [Vacacion]
-    misMarcacionesMobile(usuarioId: ID!): [Jornada]
+    misMarcacionesMobile(usuarioId: ID!, page: Int, size: Int): [Jornada]
     miResumenRrhhMobile(usuarioId: ID!): ResumenRrhhMobile
     valesPendientesAprobacionMobile: [Vale]
     vacacionesPendientesAprobacionMobile: [VacacionPeriodo]

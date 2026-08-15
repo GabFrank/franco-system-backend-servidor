@@ -73,7 +73,17 @@ public class VentaCreditoService extends CrudService<VentaCredito, VentaCreditoR
                 inicio, fin);
     }
 
+    /**
+     * Convenios del cliente, paginados. `estado` nulo = todos los estados.
+     *
+     * Antes se delegaba siempre en la consulta con `AndEstado`, que con un
+     * estado nulo busca `estado IS NULL` y devuelve una pagina vacia. Los
+     * llamadores que pasan un estado concreto no cambian de comportamiento.
+     */
     public Page<VentaCredito> findByClienteId(Long id, EstadoVentaCredito estado, Pageable pageable) {
+        if (estado == null) {
+            return repository.findAllByClienteIdOrderByCreadoEnDesc(id, pageable);
+        }
         return repository.findAllByClienteIdAndEstadoOrderByCreadoEnDesc(id, estado, pageable);
     }
 

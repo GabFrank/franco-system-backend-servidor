@@ -22,6 +22,16 @@ public interface VentaCreditoRepository extends HelperRepository<VentaCredito, E
 
     public Page<VentaCredito> findAllByClienteIdAndEstadoOrderByCreadoEnDesc(Long id, EstadoVentaCredito estado, Pageable pageable);
 
+    /**
+     * Todos los convenios del cliente, sin filtrar por estado.
+     *
+     * La consulta derivada con `AndEstado` traduce un estado nulo a
+     * `estado IS NULL`, asi que pedir "todos" devolvia cero filas. El schema
+     * declara `estado` opcional en `ventaCreditoPorClientePage`, pero sin
+     * este metodo esa opcionalidad no existia en la practica.
+     */
+    public Page<VentaCredito> findAllByClienteIdOrderByCreadoEnDesc(Long id, Pageable pageable);
+
     @Query(value = "SELECT vc FROM VentaCredito vc " +
             "WHERE vc.cliente.id = (:clienteId) " +
             "AND (vc.estado = (:estado) or cast(:estado as com.franco.dev.domain.financiero.enums.EstadoVentaCredito) IS NULL) " +

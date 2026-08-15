@@ -419,6 +419,24 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     }
 
     /**
+     * Crea la obligacion de pago de un vale de RRHH (tipo RRHH), lista para pagar
+     * (estado SOLICITADO). No tiene proveedor ni notas: el documento es el vale.
+     */
+    public SolicitudPago crearSolicitudVale(Moneda moneda, Double montoTotal, String observaciones,
+                                            com.franco.dev.domain.personas.Usuario usuario) {
+        SolicitudPago solicitud = new SolicitudPago();
+        solicitud.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH);
+        solicitud.setMoneda(moneda);
+        solicitud.setMontoTotal(montoTotal);
+        solicitud.setObservaciones(observaciones);
+        solicitud.setUsuario(usuario);
+        // save() fuerza PENDIENTE en el alta; se re-marca SOLICITADO (lista para pagar directo).
+        SolicitudPago guardada = save(solicitud);
+        guardada.setEstado(SolicitudPagoEstado.SOLICITADO);
+        return save(guardada);
+    }
+
+    /**
      * Update solicitud pago (solo cuando estado es PENDIENTE).
      * Actualiza moneda, formaPago, fechaPagoPropuesta, observaciones y sincroniza notas.
      * Usado en: Desktop Sí (editar pago desde lista).

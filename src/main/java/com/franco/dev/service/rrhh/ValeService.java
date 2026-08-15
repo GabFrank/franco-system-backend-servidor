@@ -44,6 +44,7 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
     private final UsuarioService usuarioService;
+    private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
 
     @Override
     public ValeRepository getRepository() {
@@ -124,11 +125,61 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
         if (vale.getEstado() == ValeEstado.DESCONTADO) {
             throw new GraphQLException("No se puede anular un vale ya descontado en liquidacion");
         }
+        // Vale pagado desde tesoreria: la plata salio por un evento de pago consolidado
+        // (PAGO_CPP), no por el egreso directo de este servicio. Revertirlo aca dejaria el
+        // dinero fuera de la caja (revertirEgresoCaja hace return si no hay cajaVirtualId) o
+        // duplicaria la reversion. Se anula el pago, y el hook de sincronizacion devuelve el
+        // vale a SOLICITADO.
+        if (vale.getEstado() == ValeEstado.CONFIRMADO && vale.getSolicitudPagoId() != null) {
+            throw new GraphQLException("Este vale se pago desde tesoreria: anula el pago desde el "
+                    + "movimiento de caja (Anular pago) y el vale vuelve a quedar pendiente");
+        }
         if (vale.getEstado() == ValeEstado.CONFIRMADO) {
             revertirEgresoCaja(vale);
         }
         vale.setEstado(ValeEstado.ANULADO);
         return repository.save(vale);
+    }
+
+    /**
+     * Sincroniza el vale con el estado de su obligacion de pago (SolicitudPago tipo RRHH).
+     * Espejo de {@code PreGastoService.sincronizarDesdeSolicitudPago}: lo llama el motor de
+     * pago tanto al pagar como al anular un evento.
+     *
+     * <p>Solicitud CONCLUIDA ⇒ el vale queda CONFIRMADO (es lo que mira la liquidacion para
+     * descontarlo) y se linkean caja + movimiento consolidado, que es el FK inverso que usa
+     * la trazabilidad del ledger. <b>No postea nada en caja</b>: el movimiento ya lo genero
+     * el motor de pago. Cualquier otro estado (se anulo el pago) ⇒ vuelve a SOLICITADO.</p>
+     */
+    @Transactional
+    public void sincronizarDesdeSolicitudPago(com.franco.dev.domain.operaciones.SolicitudPago sp) {
+        if (sp == null || sp.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) return;
+        Vale vale = repository.findBySolicitudPagoId(sp.getId());
+        if (vale == null || vale.getEstado() == ValeEstado.ANULADO
+                || vale.getEstado() == ValeEstado.DESCONTADO) return;
+
+        boolean pagado = sp.getEstado() == com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.CONCLUIDO;
+        ValeEstado destino = pagado ? ValeEstado.CONFIRMADO : ValeEstado.SOLICITADO;
+        if (pagado) {
+            // Linkear el movimiento de caja del pago (si lo hubo: un pago 100% bancario o con
+            // cheque no genera fila de caja).
+            for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
+                    : pagoSolicitudDetalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(sp.getId())) {
+                if (Boolean.TRUE.equals(d.getAnulado())) continue;
+                if (d.getMovimientoCajaVirtualId() != null) {
+                    vale.setMovimientoCajaVirtualId(d.getMovimientoCajaVirtualId());
+                    vale.setCajaVirtualId(d.getCajaVirtualId());
+                    break;
+                }
+            }
+        } else {
+            vale.setMovimientoCajaVirtualId(null);
+            vale.setCajaVirtualId(null);
+        }
+        if (vale.getEstado() != destino || pagado) {
+            vale.setEstado(destino);
+            repository.save(vale);
+        }
     }
 
     // ---- helpers ----

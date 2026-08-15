@@ -83,7 +83,8 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.anularPagoCpp(pagoId, motivo, seg.currentUsuario());
     }
 
-    private List<PagoProveedorService.LineaPago> mapLineas(List<LineaPagoInputWrapper> lineas) {
+    /** Mapeo del input de líneas al modelo del motor de pago. Compartido con el pago de vales. */
+    public static List<PagoProveedorService.LineaPago> mapLineas(List<LineaPagoInputWrapper> lineas) {
         List<PagoProveedorService.LineaPago> ls = new ArrayList<>();
         for (LineaPagoInputWrapper w : lineas) {
             PagoProveedorService.LineaPago l = new PagoProveedorService.LineaPago();

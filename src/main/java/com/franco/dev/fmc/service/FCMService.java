@@ -16,6 +16,8 @@ import com.google.firebase.messaging.WebpushConfig;
 import com.google.firebase.messaging.WebpushNotification;
 import com.google.gson.Gson;
 import java.time.Duration;
+import java.util.HashMap;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -112,13 +114,51 @@ public class FCMService {
                         .build());
     }
 
+    /**
+     * Config del canal web.
+     *
+     * El destino va DOS veces y no es redundante:
+     *
+     * - En el `data` del mensaje, que es lo que recibe la app cuando esta
+     *   abierta.
+     * - Dentro del `notification`, como `onActionClick`, que es lo unico que
+     *   sobrevive cuando la app esta cerrada.
+     *
+     * El service worker de Angular arma la notificacion copiando campos de
+     * `payload.notification` y abre lo que encuentre en
+     * `notification.data.onActionClick`. El `data` del mensaje es HERMANO de
+     * `notification`, no hijo, asi que sin esto la notificacion aparece y
+     * tocarla no hace nada: con la app cerrada ni siquiera la abre.
+     *
+     * `navigateLastFocusedOrOpen` reusa la pestana que ya este abierta y solo
+     * abre una nueva si no hay ninguna. Con `openWindow` cada notificacion
+     * dejaria otra pestana de la app.
+     *
+     * Esto no toca Android ni iOS: `WebpushConfig` solo lo lee el navegador.
+     */
     private WebpushConfig getWebpushConfig(PushNotificationRequest request) {
+        String path = request.getData() != null ? request.getData() : DEFAULT_DATA_PATH;
+
+        Map<String, Object> alTocar = new HashMap<>();
+        alTocar.put("operation", "navigateLastFocusedOrOpen");
+        alTocar.put("url", path);
+
+        Map<String, Object> acciones = new HashMap<>();
+        // "default" es la clave que usa el service worker para el toque sobre
+        // el cuerpo de la notificacion, por oposicion a un boton de accion.
+        acciones.put("default", alTocar);
+
+        Map<String, Object> datos = new HashMap<>();
+        datos.put("onActionClick", acciones);
+        datos.put("path", path);
+
         return WebpushConfig.builder()
                 .putHeader("Urgency", "high")
                 .setNotification(WebpushNotification.builder()
                         .setBody(request.getMessage())
                         .setTitle(request.getTitle())
                         .setRequireInteraction(true)
+                        .putCustomData("data", datos)
                         .build())
                 .build();
     }

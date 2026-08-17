@@ -92,6 +92,20 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.findByDate(start, end);
     }
 
+    /**
+     * Una transferencia solo avanza. Sin esta validacion, un cliente con una copia vieja del header
+     * lo pisa hacia atras y reabre etapas ya cerradas: es lo que dejo a las transferencias 6284 y
+     * 6290 en PRE_TRANSFERENCIA_ORIGEN despues de haberse recepcionado y movido el stock.
+     */
+    private void validarAvanceDeEtapa(Transferencia actual, EtapaTransferencia destino) {
+        if (actual == null || actual.getEtapa() == null || destino == null) return;
+        if (!actual.getEtapa().puedeAvanzarA(destino)) {
+            throw new GraphQLException("La transferencia " + actual.getId() + " esta en etapa "
+                    + actual.getEtapa() + " y no puede volver a " + destino
+                    + ": una transferencia solo avanza.");
+        }
+    }
+
     public Transferencia saveTransferencia(TransferenciaInput input) {
         ModelMapper m = new ModelMapper();
         Transferencia e = m.map(input, Transferencia.class);
@@ -103,6 +117,10 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         // columna ausente en el input se guardaria como null. Se carga la transferencia
         // existente para preservar los campos que el cliente no envia.
         Transferencia transferencia = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+
+        // El cliente reenvia la etapa en cada save (ver Transferencia.toInput en el desktop), asi
+        // que un input viejo alcanza para retroceder el header si no se valida aca.
+        validarAvanceDeEtapa(transferencia, input.getEtapa());
 
         if (input.getUsuarioPreTransferenciaId() != null)
             e.setUsuarioPreTransferencia(usuarioService.findById(input.getUsuarioPreTransferenciaId()).orElse(null));
@@ -258,6 +276,7 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Boolean ok = false;
         Transferencia transferencia = transferencia(id).orElse(null);
         if (transferencia != null) {
+            validarAvanceDeEtapa(transferencia, etapa);
             Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService
                     .findByTransferenciaId(transferencia.getId());

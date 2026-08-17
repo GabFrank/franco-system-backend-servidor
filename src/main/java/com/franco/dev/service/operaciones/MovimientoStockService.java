@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.dto.StockPorSucursalDto;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.TransferenciaItemLote;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
@@ -57,6 +58,16 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         if (stock == null)
             stock = Float.valueOf(0);
         return Double.valueOf(stock);
+    }
+
+    /**
+     * Existencia del producto en cada sucursal, en una sola consulta.
+     *
+     * Las sucursales sin movimientos no vienen en el resultado: no hay filas
+     * que sumar. El llamador decide como mostrarlas — cero, normalmente.
+     */
+    public List<StockPorSucursalDto> stockPorSucursales(Long proId) {
+        return repository.stockPorSucursales(proId);
     }
 
     public Double stockByProductoId(Long proId) {

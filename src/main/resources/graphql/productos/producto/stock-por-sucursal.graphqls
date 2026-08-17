@@ -1,0 +1,8 @@
+# Existencia de un producto en una sucursal.
+#
+# Solo la sucursal y la cantidad: el consumidor ya tiene los nombres de las
+# sucursales por su cuenta y no necesita que viajen de nuevo por cada fila.
+type StockPorSucursal {
+    sucursalId: ID
+    cantidad: Float
+}

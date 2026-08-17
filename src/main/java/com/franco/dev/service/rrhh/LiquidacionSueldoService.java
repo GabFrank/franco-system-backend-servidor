@@ -35,6 +35,24 @@ import java.util.Optional;
 @AllArgsConstructor
 public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, LiquidacionSueldoRepository, Long> {
 
+    /**
+     * Liquidaciones de un funcionario en un estado, paginadas.
+     *
+     * El estado se filtra en la consulta y no despues: paginar y filtrar
+     * luego devuelve paginas incompletas sin forma de distinguirlas del fin
+     * de la lista.
+     */
+    public java.util.List<com.franco.dev.domain.rrhh.LiquidacionSueldo> findByFuncionarioIdAndEstado(
+            Long funcionarioId,
+            com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado estado,
+            Integer page, Integer size) {
+        int pagina = page != null && page >= 0 ? page : 0;
+        int tamano = size != null && size > 0 ? size : 12;
+        return repository.findByFuncionarioIdAndEstadoOrderByPeriodoDesc(
+                funcionarioId, estado, org.springframework.data.domain.PageRequest.of(pagina, tamano));
+    }
+
+
     private final LiquidacionSueldoRepository repository;
     private final LiquidacionItemRepository itemRepository;
     private final FuncionarioService funcionarioService;

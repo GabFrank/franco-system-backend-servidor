@@ -84,6 +84,11 @@ extend type Query {
     productoSearch(texto:String, offset:Int, sucursalId: ID, conStock: Boolean, isEnvase: Boolean, activo: Boolean):[Producto]
     productoPorProveedorId(id: ID!, texto: String): [Producto]
     productoPorSucursalStock(proId: ID!, sucId: ID!): Float
+    # Existencia en TODAS las sucursales, en una sola consulta.
+    # Preferir esta sobre llamar productoPorSucursalStock una vez por
+    # sucursal: son 18 sucursales y el navegador abre 6 conexiones por
+    # origen. Las que no tienen movimientos no vienen en la lista.
+    stockPorSucursales(proId: ID!): [StockPorSucursal]!
     productoPorCodigo(texto:String):Producto
     printProducto(id: ID!):Producto
     exportarReporte(texto: String): String

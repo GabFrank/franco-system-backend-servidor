@@ -30,6 +30,16 @@ import java.util.Optional;
 @AllArgsConstructor
 public class ValeService extends CrudService<Vale, ValeRepository, Long> {
 
+    /** Vales de un funcionario, del mas reciente al mas antiguo, paginados. */
+    public java.util.List<com.franco.dev.domain.rrhh.Vale> findByFuncionarioId(
+            Long funcionarioId, Integer page, Integer size) {
+        int pagina = page != null && page >= 0 ? page : 0;
+        int tamano = size != null && size > 0 ? size : 10;
+        return repository.findByFuncionarioIdOrderByFechaDescIdDesc(
+                funcionarioId, org.springframework.data.domain.PageRequest.of(pagina, tamano));
+    }
+
+
     private final ValeRepository repository;
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;

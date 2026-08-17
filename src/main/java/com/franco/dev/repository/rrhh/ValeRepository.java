@@ -32,6 +32,9 @@ public interface ValeRepository extends HelperRepository<Vale, Long> {
 
     List<Vale> findByFuncionarioIdOrderByFechaDesc(Long funcionarioId);
 
+    /** Vales de un funcionario, del mas reciente al mas antiguo, paginados. */
+    List<Vale> findByFuncionarioIdOrderByFechaDescIdDesc(Long funcionarioId, Pageable pageable);
+
     List<Vale> findByEstadoOrderByFechaDesc(ValeEstado estado);
 
     List<Vale> findByFuncionarioIdAndEstado(Long funcionarioId, ValeEstado estado);

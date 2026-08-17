@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.productos;
 
+import com.franco.dev.domain.operaciones.dto.StockPorSucursalDto;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.dto.LucroPorProductosDto;
@@ -149,6 +150,23 @@ public class ProductoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
     public Double productoPorSucursalStock(Long proId, Long sucId) {
         Double stock = movimientoStockService.stockByProductoIdAndSucursalId(proId, sucId);
         return stock != null ? stock : 0.0;
+    }
+
+    /**
+     * Existencia del producto en todas las sucursales, en una sola consulta.
+     *
+     * Alternativa a llamar {@link #productoPorSucursalStock} una vez por
+     * sucursal, que es lo que hacen hoy el desktop y el mobile. Con 18
+     * sucursales eso son 18 requests, y el navegador abre 6 conexiones por
+     * origen: salen en tandas y ocupan todo el pool mientras dura. En
+     * `gestion-compras` del desktop el problema es peor —una llamada por cada
+     * producto y sucursal— y esta resuelto espaciando los pedidos con
+     * setTimeout, que reparte el costo pero no lo baja.
+     *
+     * Las sucursales sin movimientos no aparecen en la lista.
+     */
+    public List<StockPorSucursalDto> stockPorSucursales(Long proId) {
+        return movimientoStockService.stockPorSucursales(proId);
     }
 
     public Boolean deleteProducto(Long id) {

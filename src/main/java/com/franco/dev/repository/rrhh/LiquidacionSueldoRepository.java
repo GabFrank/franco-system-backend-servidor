@@ -19,6 +19,17 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
 
     List<LiquidacionSueldo> findByFuncionarioIdOrderByPeriodoDesc(Long funcionarioId);
 
+    /**
+     * Liquidaciones de un funcionario EN UN ESTADO, paginadas.
+     *
+     * ⚠️ El estado va en la consulta, no se filtra despues en memoria. El
+     * mobile solo muestra las PAGADA: si se paginara sin filtrar y el filtro
+     * quedara en Java, una pagina de 10 filas podria devolver 2 —o ninguna—,
+     * y el cliente no tendria forma de saber si eso significa "no hay mas".
+     */
+    List<LiquidacionSueldo> findByFuncionarioIdAndEstadoOrderByPeriodoDesc(
+            Long funcionarioId, LiquidacionSueldoEstado estado, Pageable pageable);
+
     Optional<LiquidacionSueldo> findByFuncionarioIdAndPeriodo(Long funcionarioId, String periodo);
 
     List<LiquidacionSueldo> findByPeriodoOrderByIdAsc(String periodo);

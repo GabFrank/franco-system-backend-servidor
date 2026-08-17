@@ -13,11 +13,11 @@ import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.ResourceUtils;
 
-import java.io.File;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
@@ -416,9 +416,8 @@ public class ReporteRrhhService {
     }
 
     private String generar(String classpathReport, Map<String, Object> params, List<?> filas) {
-        try {
-            File file = ResourceUtils.getFile("classpath:" + classpathReport);
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+        try (InputStream jrxmlStream = new ClassPathResource(classpathReport).getInputStream()) {
+            JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlStream);
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(filas);
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);

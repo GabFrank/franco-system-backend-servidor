@@ -19,11 +19,11 @@ import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JasperReport;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.ResourceUtils;
 
-import java.io.File;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
@@ -115,9 +115,8 @@ public class ReciboLiquidacionService {
         params.put("totalNeto", formatear(liq.getTotalNeto()));
         params.put("montoEnLetras", enLetras(liq.getTotalNeto()));
 
-        try {
-            File file = ResourceUtils.getFile("classpath:reports/recibo-liquidacion.jrxml");
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+        try (InputStream jrxmlStream = new ClassPathResource("reports/recibo-liquidacion.jrxml").getInputStream()) {
+            JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlStream);
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(filas);
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);
@@ -167,9 +166,8 @@ public class ReciboLiquidacionService {
         params.put("totalEnLetras", enLetras(neto));
 
         String tpl = anchoMm >= 80 ? "reports/recibo-ticket-80.jrxml" : "reports/recibo-ticket-58.jrxml";
-        try {
-            File file = ResourceUtils.getFile("classpath:" + tpl);
-            JasperReport jasperReport = JasperCompileManager.compileReport(file.getAbsolutePath());
+        try (InputStream jrxmlStream = new ClassPathResource(tpl).getInputStream()) {
+            JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlStream);
             JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(filas);
             JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, params, dataSource);
             byte[] pdfBytes = JasperExportManager.exportReportToPdf(jasperPrint);

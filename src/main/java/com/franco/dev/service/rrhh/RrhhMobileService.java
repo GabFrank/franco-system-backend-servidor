@@ -79,9 +79,30 @@ public class RrhhMobileService {
         return res;
     }
 
+    /**
+     * Recibos paginados.
+     *
+     * ⚠️ El filtro por PAGADA va en la consulta, a diferencia de la variante
+     * sin paginar que lo aplica despues de traer todo. Paginar y filtrar
+     * luego devolveria paginas de menos de `size` filas y el cliente no
+     * podria distinguir eso del fin de la lista.
+     */
+    @Transactional(readOnly = true)
+    public List<LiquidacionSueldo> misRecibos(Long usuarioId, Integer page, Integer size) {
+        Funcionario f = funcionarioDe(usuarioId);
+        return liquidacionSueldoService.findByFuncionarioIdAndEstado(
+                f.getId(), LiquidacionSueldoEstado.PAGADA, page, size);
+    }
+
     @Transactional(readOnly = true)
     public List<Vale> misVales(Long usuarioId) {
         return valeService.findByFuncionarioId(funcionarioDe(usuarioId).getId());
+    }
+
+    /** Vales paginados, del mas reciente al mas antiguo. */
+    @Transactional(readOnly = true)
+    public List<Vale> misVales(Long usuarioId, Integer page, Integer size) {
+        return valeService.findByFuncionarioId(funcionarioDe(usuarioId).getId(), page, size);
     }
 
     @Transactional(readOnly = true)
@@ -92,6 +113,19 @@ public class RrhhMobileService {
     @Transactional(readOnly = true)
     public List<Jornada> misMarcaciones(Long usuarioId) {
         return jornadaService.findByUsuarioId(usuarioId);
+    }
+
+    /**
+     * Marcaciones paginadas, de la mas reciente a la mas antigua.
+     *
+     * La variante sin paginar devuelve TODAS las jornadas del funcionario:
+     * una por dia trabajado, ~250 al ano, creciendo para siempre. Para el
+     * mobile eso significaba que abrir la pestana de marcacion costaba mas
+     * cuanta mas antiguedad tuviera el empleado.
+     */
+    @Transactional(readOnly = true)
+    public List<Jornada> misMarcaciones(Long usuarioId, Integer page, Integer size) {
+        return jornadaService.findByUsuarioId(usuarioId, page, size);
     }
 
     @Transactional(readOnly = true)

@@ -7,6 +7,7 @@ import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.Transferencia;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.enums.EtapaAsignacionLote;
+import com.franco.dev.domain.operaciones.enums.EtapaTransferencia;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.productos.CostoPorProducto;
@@ -24,6 +25,7 @@ import com.franco.dev.service.operaciones.TransferenciaService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.productos.CostosPorProductoService;
 import com.franco.dev.service.productos.PresentacionService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -98,7 +100,63 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         return transferenciaItemAlertaService.calcularAlertas(transferenciaId, itemIds);
     }
 
+    /**
+     * Copia de {@code prev} todo campo que {@code e} no traiga, para que el save sea un PATCH.
+     *
+     * Sin esto el merge guarda como null cada columna ausente en el input. Es lo que borro las tres
+     * etapas y el creado_en del item 65830 de la transferencia 6290, y lo que mantiene
+     * vencimiento_verificado en false en toda la tabla: el desktop nunca manda ese campo.
+     *
+     * Para vaciar una etapa a proposito existe {@link #desconfirmarTransferenciaItem}: la ausencia
+     * de un campo significa "no lo toques", nunca "borralo".
+     */
+    private void preservarCamposAusentes(TransferenciaItem e, TransferenciaItem prev) {
+        if (e.getTransferencia() == null) e.setTransferencia(prev.getTransferencia());
+        if (e.getUsuario() == null) e.setUsuario(prev.getUsuario());
+
+        if (e.getPresentacionPreTransferencia() == null) e.setPresentacionPreTransferencia(prev.getPresentacionPreTransferencia());
+        if (e.getPresentacionPreparacion() == null) e.setPresentacionPreparacion(prev.getPresentacionPreparacion());
+        if (e.getPresentacionTransporte() == null) e.setPresentacionTransporte(prev.getPresentacionTransporte());
+        if (e.getPresentacionRecepcion() == null) e.setPresentacionRecepcion(prev.getPresentacionRecepcion());
+
+        if (e.getCantidadPreTransferencia() == null) e.setCantidadPreTransferencia(prev.getCantidadPreTransferencia());
+        if (e.getCantidadPreparacion() == null) e.setCantidadPreparacion(prev.getCantidadPreparacion());
+        if (e.getCantidadTransporte() == null) e.setCantidadTransporte(prev.getCantidadTransporte());
+        if (e.getCantidadRecepcion() == null) e.setCantidadRecepcion(prev.getCantidadRecepcion());
+
+        if (e.getObservacionPreTransferencia() == null) e.setObservacionPreTransferencia(prev.getObservacionPreTransferencia());
+        if (e.getObservacionPreparacion() == null) e.setObservacionPreparacion(prev.getObservacionPreparacion());
+        if (e.getObservacionTransporte() == null) e.setObservacionTransporte(prev.getObservacionTransporte());
+        if (e.getObservacionRecepcion() == null) e.setObservacionRecepcion(prev.getObservacionRecepcion());
+
+        if (e.getVencimientoPreTransferencia() == null) e.setVencimientoPreTransferencia(prev.getVencimientoPreTransferencia());
+        if (e.getVencimientoPreparacion() == null) e.setVencimientoPreparacion(prev.getVencimientoPreparacion());
+        if (e.getVencimientoTransporte() == null) e.setVencimientoTransporte(prev.getVencimientoTransporte());
+        if (e.getVencimientoRecepcion() == null) e.setVencimientoRecepcion(prev.getVencimientoRecepcion());
+
+        if (e.getMotivoModificacionPreTransferencia() == null) e.setMotivoModificacionPreTransferencia(prev.getMotivoModificacionPreTransferencia());
+        if (e.getMotivoModificacionPreparacion() == null) e.setMotivoModificacionPreparacion(prev.getMotivoModificacionPreparacion());
+        if (e.getMotivoModificacionTransporte() == null) e.setMotivoModificacionTransporte(prev.getMotivoModificacionTransporte());
+        if (e.getMotivoModificacionRecepcion() == null) e.setMotivoModificacionRecepcion(prev.getMotivoModificacionRecepcion());
+
+        if (e.getMotivoRechazoPreTransferencia() == null) e.setMotivoRechazoPreTransferencia(prev.getMotivoRechazoPreTransferencia());
+        if (e.getMotivoRechazoPreparacion() == null) e.setMotivoRechazoPreparacion(prev.getMotivoRechazoPreparacion());
+        if (e.getMotivoRechazoTransporte() == null) e.setMotivoRechazoTransporte(prev.getMotivoRechazoTransporte());
+        if (e.getMotivoRechazoRecepcion() == null) e.setMotivoRechazoRecepcion(prev.getMotivoRechazoRecepcion());
+
+        if (e.getActivo() == null) e.setActivo(prev.getActivo());
+        if (e.getPoseeVencimiento() == null) e.setPoseeVencimiento(prev.getPoseeVencimiento());
+        if (e.getVencimientoVerificado() == null) e.setVencimientoVerificado(prev.getVencimientoVerificado());
+        if (e.getCreadoEn() == null) e.setCreadoEn(prev.getCreadoEn());
+    }
+
     public TransferenciaItem saveTransferenciaItem(TransferenciaItemInput input, Double precioCosto) {
+        // usuario_id es NOT NULL en la base. Sin este chequeo, un input sin usuarioId reventaba con
+        // NullPointerException porque CrudService.findById devuelve null crudo cuando el id es null.
+        if (input.getUsuarioId() == null) {
+            throw new GraphQLException(
+                    "No se puede guardar el item de transferencia sin usuarioId: falta el responsable.");
+        }
         ModelMapper m = new ModelMapper();
         TransferenciaItem e = m.map(input, TransferenciaItem.class);
         e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
@@ -123,8 +181,16 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
             e.setPresentacionRecepcion(presentacionService.findById(input.getPresentacionRecepcionId()).orElse(null));
         if (input.getCreadoEn() != null)
             e.setCreadoEn(stringToDate(input.getCreadoEn()));
-        if (input.getVencimientoVerificado() == null)
+
+        // El save es un PATCH: lo que el input no trae se conserva de la fila existente.
+        TransferenciaItem existente = input.getId() != null
+                ? service.findById(input.getId()).orElse(null)
+                : null;
+        if (existente != null) {
+            preservarCamposAusentes(e, existente);
+        } else if (e.getVencimientoVerificado() == null) {
             e.setVencimientoVerificado(false);
+        }
         e = service.save(e);
         // Antes de generar el movimiento: el desglose por lote lee esta asignacion para decidir
         // de que lotes sale la mercaderia. Si se guardara despues, la primera vez saldria por FEFO.
@@ -212,6 +278,91 @@ public class TransferenciaItemGraphQL implements GraphQLQueryResolver, GraphQLMu
         TransferenciaItem ti = service.findById(id).orElse(null);
         Boolean ok = service.deleteById(id);
         return ok;
+    }
+
+    /**
+     * Vacia las columnas de una etapa de un item: es el "des-verificar" de la grilla.
+     *
+     * Existe como mutation propia porque en {@link #saveTransferenciaItem} la ausencia de un campo
+     * significa "no lo toques". Sin esta separacion, limpiar y preservar serian el mismo pedido y no
+     * habria forma de distinguirlos.
+     *
+     * El movimiento de stock de la etapa se desactiva en lugar de borrarse, igual que hace el flujo
+     * cuando un item se rechaza.
+     */
+    public TransferenciaItem desconfirmarTransferenciaItem(Long id, EtapaTransferencia etapa) {
+        Optional<TransferenciaItem> encontrado = id != null ? service.findById(id) : null;
+        TransferenciaItem ti = encontrado != null ? encontrado.orElse(null) : null;
+        if (ti == null) {
+            throw new GraphQLException("No existe el item de transferencia " + id);
+        }
+
+        Long sucursalDelMovimiento;
+        switch (etapa) {
+            case PREPARACION_MERCADERIA:
+                ti.setCantidadPreparacion(null);
+                ti.setPresentacionPreparacion(null);
+                ti.setVencimientoPreparacion(null);
+                ti.setMotivoModificacionPreparacion(null);
+                ti.setMotivoRechazoPreparacion(null);
+                sucursalDelMovimiento = sucursalOrigenId(ti);
+                break;
+            case TRANSPORTE_VERIFICACION:
+                ti.setCantidadTransporte(null);
+                ti.setPresentacionTransporte(null);
+                ti.setVencimientoTransporte(null);
+                ti.setMotivoModificacionTransporte(null);
+                ti.setMotivoRechazoTransporte(null);
+                sucursalDelMovimiento = sucursalOrigenId(ti);
+                break;
+            case RECEPCION_EN_VERIFICACION:
+                ti.setCantidadRecepcion(null);
+                ti.setPresentacionRecepcion(null);
+                ti.setVencimientoRecepcion(null);
+                ti.setMotivoModificacionRecepcion(null);
+                ti.setMotivoRechazoRecepcion(null);
+                sucursalDelMovimiento = sucursalDestinoId(ti);
+                break;
+            default:
+                throw new GraphQLException("En la etapa " + etapa
+                        + " no se verifican items, asi que no hay nada que des-verificar.");
+        }
+
+        desactivarMovimiento(ti, sucursalDelMovimiento);
+        return service.save(ti);
+    }
+
+    private Long sucursalOrigenId(TransferenciaItem ti) {
+        return ti.getTransferencia() != null && ti.getTransferencia().getSucursalOrigen() != null
+                ? ti.getTransferencia().getSucursalOrigen().getId()
+                : null;
+    }
+
+    private Long sucursalDestinoId(TransferenciaItem ti) {
+        return ti.getTransferencia() != null && ti.getTransferencia().getSucursalDestino() != null
+                ? ti.getTransferencia().getSucursalDestino().getId()
+                : null;
+    }
+
+    /**
+     * Deja inactivo el movimiento de stock del item en esa sucursal, si existe.
+     *
+     * La busqueda usa el producto de la presentacion de pre-transferencia, que es la misma clave con
+     * la que {@code createMovimientoFromTransferenciaItem} localiza sus movimientos.
+     */
+    private void desactivarMovimiento(TransferenciaItem ti, Long sucursalId) {
+        if (sucursalId == null
+                || ti.getPresentacionPreTransferencia() == null
+                || ti.getPresentacionPreTransferencia().getProducto() == null) {
+            return;
+        }
+        MovimientoStock ms = movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
+                TipoMovimiento.TRANSFERENCIA, ti.getId(), sucursalId,
+                ti.getPresentacionPreTransferencia().getProducto().getId());
+        if (ms != null && Boolean.TRUE.equals(ms.getEstado())) {
+            ms.setEstado(false);
+            movimientoStockService.save(ms);
+        }
     }
 
     public TransferenciaItem verificarProducto(Long id, Boolean vencimientoVerificado) {

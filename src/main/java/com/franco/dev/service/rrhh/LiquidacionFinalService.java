@@ -644,6 +644,15 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
 
 
     /**
+     * true si esta obligacion de pago pertenece a un liquidacionfinal. Lo usa el motor de pago para
+     * saber que concepto esta pagando y etiquetar el movimiento de caja con su origen real.
+     */
+    @Transactional(readOnly = true)
+    public boolean tieneSolicitud(Long solicitudPagoId) {
+        return solicitudPagoId != null && repository.findBySolicitudPagoId(solicitudPagoId) != null;
+    }
+
+    /**
      * Espejo de {@code ValeService.sincronizarDesdeSolicitudPago}: lo llama el motor de pago
      * cuando el finiquito se paga desde el hub de la caja en vez de con {@link #pagar}.
      *

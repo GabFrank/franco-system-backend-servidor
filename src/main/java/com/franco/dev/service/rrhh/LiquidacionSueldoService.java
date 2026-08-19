@@ -515,6 +515,15 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
 
 
     /**
+     * true si esta obligacion de pago pertenece a un liquidacionsueldo. Lo usa el motor de pago para
+     * saber que concepto esta pagando y etiquetar el movimiento de caja con su origen real.
+     */
+    @Transactional(readOnly = true)
+    public boolean tieneSolicitud(Long solicitudPagoId) {
+        return solicitudPagoId != null && repository.findBySolicitudPagoId(solicitudPagoId) != null;
+    }
+
+    /**
      * Espejo de {@code ValeService.sincronizarDesdeSolicitudPago}: lo llama el motor de pago
      * tanto al pagar como al anular un evento, cuando la liquidacion se paga desde el hub de
      * la caja en vez de con {@link #pagar}.

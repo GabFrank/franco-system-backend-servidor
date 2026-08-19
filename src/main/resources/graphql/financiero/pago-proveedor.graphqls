@@ -47,9 +47,29 @@ input GastoParaPagoInput {
     sucursalId: ID
 }
 
+# Una linea del desglose de un evento de pago. Existe porque el evento postea UN movimiento
+# consolidado en la caja: su descripcion no puede nombrar a los N documentos pagados.
+type DetallePagoItem {
+    solicitudPagoId: ID!
+    # COMPRA | GASTO | RRHH
+    tipo: String
+    descripcion: String
+    proveedorNombre: String
+    monedaDenominacion: String
+    monedaSimbolo: String
+    decimales: Int
+    # Monto imputado a este documento en este evento.
+    montoImputado: Float
+    montoTotal: Float
+    montoPagado: Float
+    estado: String
+}
+
 extend type Query {
     solicitudesPagoPendientes(proveedorId: ID): [SolicitudPago]
     gastosPendientes: [SolicitudPago]
+    # Desglose de un evento de pago: que documentos se pagaron y cuanto se imputo a cada uno.
+    detalleDePago(pagoId: ID!): [DetallePagoItem]
 }
 
 extend type Mutation {

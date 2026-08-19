@@ -142,6 +142,15 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
     }
 
     /**
+     * true si esta obligacion de pago pertenece a un vale. Lo usa el motor de pago para
+     * saber que concepto esta pagando y etiquetar el movimiento de caja con su origen real.
+     */
+    @Transactional(readOnly = true)
+    public boolean tieneSolicitud(Long solicitudPagoId) {
+        return solicitudPagoId != null && repository.findBySolicitudPagoId(solicitudPagoId) != null;
+    }
+
+    /**
      * Sincroniza el vale con el estado de su obligacion de pago (SolicitudPago tipo RRHH).
      * Espejo de {@code PreGastoService.sincronizarDesdeSolicitudPago}: lo llama el motor de
      * pago tanto al pagar como al anular un evento.

@@ -590,3 +590,48 @@ Todos se alimentan de `rrhh/caja-virtual/graphql/CajaVirtualesActivas.ts` →
 **Alcance:** es cambio de UI. Las mutations (`pagarAguinaldo`, `pagarLiquidacion`,
 `confirmarVale`, …) siguen expuestas en GraphQL — aceptable como paso intermedio; el ACL de cajas
 las cubre cuando entre.
+
+---
+
+## F6 🔴 Pago consolidado — la descripción del movimiento muestra solo el primer documento, y el `origenTipo` es siempre PAGO_CPP
+
+**Dónde:** cualquier pago desde el hub que seleccione **más de un** documento. Reportado con
+gastos; aplica igual a compras y vales.
+
+**Síntoma 1 — la etiqueta miente** (`PagoProveedorService.java:257-265`):
+
+```java
+SolicitudPago gastoSol = spById.values().stream()
+    .filter(s -> s.getTipo() == TipoSolicitudPago.GASTO)
+    .findFirst().orElse(null);          // <-- el PRIMERO
+etiquetaPago = "#" + gastoSol.getId() + " - " + cat + " - " + benef + " - " + desc;
+```
+
+Se paga N gastos, el movimiento consolidado queda descrito como si fuera solo el primero.
+**Los datos están bien**: cada documento tiene su fila en `PagoSolicitudDetalle`
+(`pago_id`, `solicitud_pago_id`, `monto_solicitud`). Es la etiqueta, no el asiento.
+
+Los vales ya lo tenían resuelto a medias (`:274` → `"Pago de vales (N)"`); a gastos y compras
+nunca se les aplicó.
+
+**Síntoma 2 — `origenTipo` incorrecto** (`:307`): todos los pagos por este motor postean
+`OrigenMovimientoTipo.PAGO_CPP`, sea gasto, vale, compra o (ahora) liquidación. Con **F4** ya
+aplicado, un pago de gasto se muestra como **"Compra"**. Regresión introducida por F4.
+
+**Fix (3 partes):**
+
+1. **`origenTipo` según el concepto real** del evento: `GASTO` para gastos, `RRHH_*` para los
+   documentos de RRHH, `PAGO_CPP` para compras. Un evento no mezcla conceptos (el diálogo
+   agrupa por modo), pero si llegara a mezclarse se cae a `PAGO_CPP`.
+2. **Descripción por cardinalidad:** 1 documento → descripción específica de siempre;
+   N documentos → `"Pago consolidado de N gastos"` (o vales / compras / liquidaciones).
+   Generaliza lo que los vales ya hacían.
+3. **Detalle navegable:** el dashboard ya tiene el registro genérico *"Ir al origen"*
+   (`caja-virtual-dashboard.component.ts:371`, `origenNav`), que mapea cada `origenTipo` a su
+   pantalla. Se agrega la entrada para los pagos → diálogo **"Detalle del pago"** que lista los
+   documentos del evento con su monto imputado. El movimiento ya lleva
+   `referenciaId = origenId = pago.id` y `PagoSolicitudDetalle` tiene todo por `pago_id`.
+
+**Por qué no basta con cambiar el título:** el asiento tiene que seguir siendo **un** movimiento
+consolidado (es lo contablemente correcto, y la anulación ya opera sobre el evento entero). El
+desglose va aparte, leído de datos reales, no embutido en un string.

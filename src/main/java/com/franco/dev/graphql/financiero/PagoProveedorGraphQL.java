@@ -30,6 +30,15 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /** Gastos pagables (SolicitudPago tipo GASTO en SOLICITADO/PARCIAL) para el diálogo de gastos. */
+    /**
+     * Desglose de un evento de pago: que documentos se pagaron y cuanto se imputo a cada uno.
+     * Lo consume el detalle del movimiento consolidado en el historial de la caja.
+     */
+    public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
+        seg.requireVer();
+        return service.detalleDePago(pagoId);
+    }
+
     public List<SolicitudPago> gastosPendientes() {
         seg.requireVer();
         return service.listarGastosPendientes();

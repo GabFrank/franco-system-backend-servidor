@@ -166,6 +166,15 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
 
 
     /**
+     * true si esta obligacion de pago pertenece a un aguinaldo. Lo usa el motor de pago para
+     * saber que concepto esta pagando y etiquetar el movimiento de caja con su origen real.
+     */
+    @Transactional(readOnly = true)
+    public boolean tieneSolicitud(Long solicitudPagoId) {
+        return solicitudPagoId != null && repository.findBySolicitudPagoId(solicitudPagoId) != null;
+    }
+
+    /**
      * Espejo de {@code ValeService.sincronizarDesdeSolicitudPago}: lo llama el motor de pago
      * cuando el aguinaldo se paga desde el hub de la caja en vez de con {@link #pagar}.
      *

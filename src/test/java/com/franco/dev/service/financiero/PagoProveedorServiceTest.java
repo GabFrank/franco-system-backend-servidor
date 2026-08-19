@@ -54,9 +54,10 @@ class PagoProveedorServiceTest {
         pagoEvento.setId(500L);
         when(pagoService.save(any())).thenReturn(pagoEvento);
         PreGastoService preGastoService = mock(PreGastoService.class);
+        com.franco.dev.service.rrhh.ValeService valeService = mock(com.franco.dev.service.rrhh.ValeService.class);
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
                 chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo,
-                preGastoService);
+                preGastoService, valeService);
 
         com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
         Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);

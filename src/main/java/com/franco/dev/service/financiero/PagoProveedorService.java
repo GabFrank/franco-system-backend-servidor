@@ -62,6 +62,8 @@ public class PagoProveedorService {
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepository;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final PreGastoService preGastoService;
+    // Sin ciclo: ValeService no conoce el motor de pago (el que sí lo usa es ValeTesoreriaService).
+    private final com.franco.dev.service.rrhh.ValeService valeService;
 
     /** Una línea de pago (pago mixto). Puede ser fuente AJUSTE (diferencia de cambio). */
     @Data
@@ -258,6 +260,17 @@ public class PagoProveedorService {
             String desc = gastoSol.getObservaciones() != null ? gastoSol.getObservaciones() : "";
             etiquetaPago = "#" + gastoSol.getId() + " - " + cat + " - " + benef + " - " + desc;
         }
+        // Vales de RRHH: la descripción del vale ya trae "VALE #id - FUNCIONARIO - MOTIVO".
+        // Con varios vales en el mismo evento, una sola de esas etiquetas sería engañosa.
+        List<SolicitudPago> valeSols = spById.values().stream()
+                .filter(s -> s.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH)
+                .collect(Collectors.toList());
+        if (valeSols.size() == 1) {
+            String desc = valeSols.get(0).getObservaciones();
+            if (desc != null && !desc.trim().isEmpty()) etiquetaPago = desc;
+        } else if (valeSols.size() > 1) {
+            etiquetaPago = "Pago de vales (" + valeSols.size() + ")";
+        }
         LinkedHashMap<String, GrupoMov> grupos = new LinkedHashMap<>();
         for (SolicitudConLineas p : pagos) {
             for (LineaPago l : p.getLineas()) {
@@ -376,6 +389,9 @@ public class PagoProveedorService {
             }
             // Si el gasto vino de un PreGasto (workflow de aprobación), sincronizar su estado.
             preGastoService.sincronizarDesdeSolicitudPago(sp);
+            // Si la obligación era de un vale de RRHH, dejarlo CONFIRMADO (es lo que mira la
+            // liquidación para descontarlo del sueldo).
+            valeService.sincronizarDesdeSolicitudPago(sp);
         }
 
         // PagoService.save fuerza ABIERTO en el alta; marcar el evento como CONCLUIDO ya con id.
@@ -453,6 +469,8 @@ public class PagoProveedorService {
             solicitudPagoService.desmarcarNotasComoPagadas(sp.getId());
             // Si es un gasto con PreGasto, revertir su estado (PAGADO → ENVIADO_A_TESORERIA).
             preGastoService.sincronizarDesdeSolicitudPago(sp);
+            // Si era el pago de un vale, vuelve a quedar pendiente de entrega (CONFIRMADO → SOLICITADO).
+            valeService.sincronizarDesdeSolicitudPago(sp);
         }
 
         pago.setEstado(PagoEstado.CANCELADO);

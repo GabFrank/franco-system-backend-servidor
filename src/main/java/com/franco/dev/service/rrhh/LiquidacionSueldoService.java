@@ -208,10 +208,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // SALARIO_BASE (HABER)
         items.add(item(liq, "SALARIO_BASE", "SALARIO BASE", salarioBase, LiquidacionItemTipo.HABER, null, null));
 
-        // IPS_DESCUENTO (DESC)
-        BigDecimal ipsPct = configuracionRrhhService.getNumber("IPS_PORCENTAJE_FUNCIONARIO", new BigDecimal("9"));
-        BigDecimal ips = salarioBase.multiply(ipsPct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        if (ips.signum() > 0) items.add(item(liq, "IPS_DESCUENTO", "DESCUENTO IPS", ips, LiquidacionItemTipo.DESCUENTO, null, null));
+        // IPS_DESCUENTO (DESC) — solo si el funcionario aporta. El null se trata como
+        // activo (mismo criterio que LiquidacionFinalService): solo un false explicito
+        // en el legajo desactiva el descuento.
+        if (!Boolean.FALSE.equals(f.getIpsActivo())) {
+            BigDecimal ipsPct = configuracionRrhhService.getNumber("IPS_PORCENTAJE_FUNCIONARIO", new BigDecimal("9"));
+            BigDecimal ips = salarioBase.multiply(ipsPct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            if (ips.signum() > 0) items.add(item(liq, "IPS_DESCUENTO", "DESCUENTO IPS", ips, LiquidacionItemTipo.DESCUENTO, null, null));
+        }
 
         // HORA_EXTRA (HABER)
         BigDecimal he = BigDecimal.ZERO;

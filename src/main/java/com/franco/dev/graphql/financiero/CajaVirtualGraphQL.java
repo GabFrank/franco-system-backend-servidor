@@ -171,6 +171,10 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public CajaVirtual saveCajaVirtual(CajaVirtualInput input) {
         seg.requireGestionar();
+        // Crear una caja queda con el rol; MODIFICAR una existente exige ser su responsable.
+        // Sin esto el modelo AND quedaba incoherente: alguien sin acceso de lectura no podia
+        // ver la caja pero si desactivarla o cambiarle el limite.
+        if (input.getId() != null) seg.requirePropietarioCaja(input.getId());
         CajaVirtual entity = new CajaVirtual();
         if (input.getId() != null) {
             entity = service.findById(input.getId())
@@ -201,6 +205,7 @@ public class CajaVirtualGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public Boolean deleteCajaVirtual(Long id) {
         seg.requireGestionar();
+        seg.requirePropietarioCaja(id);
         return service.deleteById(id);
     }
 }

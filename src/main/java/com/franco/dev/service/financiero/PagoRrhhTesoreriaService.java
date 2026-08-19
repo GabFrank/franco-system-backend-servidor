@@ -253,7 +253,9 @@ public class PagoRrhhTesoreriaService {
     private Long asegurarSolicitud(ConceptoRrhh concepto, Long id, Usuario usuario) {
         switch (concepto) {
             case LIQUIDACION: {
-                LiquidacionSueldo l = liquidacionRepository.findById(id)
+                // Lock pesimista: sin el, dos pedidos concurrentes leen los dos que no hay
+                // solicitud, crean una cada uno y el sueldo se paga dos veces.
+                LiquidacionSueldo l = liquidacionRepository.lockById(id)
                         .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada: " + id));
                 Long vigente = solicitudVigente(l.getSolicitudPagoId());
                 if (vigente != null) return vigente;
@@ -264,7 +266,7 @@ public class PagoRrhhTesoreriaService {
                 return nueva;
             }
             case FINIQUITO: {
-                LiquidacionFinal f = finiquitoRepository.findById(id)
+                LiquidacionFinal f = finiquitoRepository.lockById(id)
                         .orElseThrow(() -> new GraphQLException("Finiquito no encontrado: " + id));
                 Long vigente = solicitudVigente(f.getSolicitudPagoId());
                 if (vigente != null) return vigente;
@@ -275,7 +277,7 @@ public class PagoRrhhTesoreriaService {
                 return nueva;
             }
             case AGUINALDO: {
-                Aguinaldo a = aguinaldoRepository.findById(id)
+                Aguinaldo a = aguinaldoRepository.lockById(id)
                         .orElseThrow(() -> new GraphQLException("Aguinaldo no encontrado: " + id));
                 Long vigente = solicitudVigente(a.getSolicitudPagoId());
                 if (vigente != null) return vigente;

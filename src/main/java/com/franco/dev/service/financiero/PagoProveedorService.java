@@ -60,6 +60,7 @@ public class PagoProveedorService {
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepository;
+    private final TesoreriaSecurityService seguridad;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final PreGastoService preGastoService;
     // Sin ciclo: ValeService no conoce el motor de pago (el que sí lo usa es ValeTesoreriaService).
@@ -113,13 +114,24 @@ public class PagoProveedorService {
      * <p>Es lo que responde la pregunta que el movimiento consolidado no puede contestar solo.
      * Se arma desde {@code PagoSolicitudDetalle}, que ya guarda una fila por documento y linea:
      * se agrupan por solicitud y se suman los {@code montoSolicitud}.</p>
+     *
+     * <p><b>Acotado por el ACL de cajas.</b> Las observaciones de una solicitud de RRHH traen el
+     * nombre del funcionario y el concepto ("LIQUIDACION 2026-07 #123 - JUAN PEREZ"), asi que el
+     * detalle expone sueldos. Solo se devuelven los items pagados desde una caja que el usuario
+     * puede leer; los pagados 100% por banco o cheque no tienen caja y se muestran a quien ya
+     * puede ver el evento. Sin este filtro alcanzaba con iterar pagoId — que es correlativo —
+     * para leer la nomina entera.</p>
      */
     @Transactional(readOnly = true)
     public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
+        java.util.List<Long> visibles = seguridad.cajasVisiblesIds();   // null = ve todas
         java.util.LinkedHashMap<Long, java.math.BigDecimal> imputadoPorSolicitud = new java.util.LinkedHashMap<>();
         for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
                 : detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)) {
             if (Boolean.TRUE.equals(d.getAnulado())) continue;
+            if (visibles != null && d.getCajaVirtualId() != null && !visibles.contains(d.getCajaVirtualId())) {
+                continue;   // pagado desde una caja que este usuario no puede ver
+            }
             java.math.BigDecimal aporte = d.getMontoSolicitud() != null ? d.getMontoSolicitud() : java.math.BigDecimal.ZERO;
             imputadoPorSolicitud.merge(d.getSolicitudPagoId(), aporte, java.math.BigDecimal::add);
         }

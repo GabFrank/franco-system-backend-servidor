@@ -5,7 +5,10 @@ import com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
+
+import javax.persistence.LockModeType;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -62,4 +65,16 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
 
     /** Documento dueno de una obligacion de pago (puente tesoreria, V199.5). */
     LiquidacionSueldo findBySolicitudPagoId(Long solicitudPagoId);
+
+    /**
+     * Toma el documento con lock pesimista antes de resolver su obligacion de pago.
+     *
+     * <p>Sin esto, dos pedidos de pago concurrentes sobre el mismo documento (doble click,
+     * reintento de red) leen los dos {@code solicitud_pago_id == null}, crean una solicitud
+     * cada uno y terminan pagando dos veces el mismo sueldo. El indice unico no lo impide:
+     * evita que dos documentos compartan una solicitud, no que un documento reciba dos.</p>
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from LiquidacionSueldo e where e.id = :id")
+    java.util.Optional<LiquidacionSueldo> lockById(@org.springframework.data.repository.query.Param("id") Long id);
 }

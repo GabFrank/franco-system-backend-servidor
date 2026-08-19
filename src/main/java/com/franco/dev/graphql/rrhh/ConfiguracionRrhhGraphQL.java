@@ -87,11 +87,17 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
      * Sube al minimo los sueldos elegidos por el usuario. Nunca se dispara solo:
      * el desktop muestra la lista y el usuario tilda a quienes ajustar.
      */
-    public Integer ajustarSalariosAlMinimo(List<Long> funcionarioIds, java.math.BigDecimal minimo,
+    public Integer ajustarSalariosAlMinimo(List<Integer> funcionarioIds, java.math.BigDecimal minimo,
                                            Long usuarioId) {
         seg.requireAnyRole(seg.CONFIG);
+        // [Int] de GraphQL llega como List<Integer>; kickstart no convierte los elementos.
+        // Declarar List<Long> aca no sirve: el borrado de tipos deja pasar los Integer y el
+        // unboxing del for-each en ajustarAlMinimo tira ClassCastException. Mismo patron que
+        // LiquidacionSueldoGraphQL.generarLiquidacionesLote.
+        List<Long> ids = funcionarioIds == null ? null
+                : funcionarioIds.stream().map(Integer::longValue).collect(java.util.stream.Collectors.toList());
         Usuario u = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
-        return ajusteSalarioMinimoService.ajustarAlMinimo(funcionarioIds, minimo, u);
+        return ajusteSalarioMinimoService.ajustarAlMinimo(ids, minimo, u);
     }
 
     public ConfiguracionRrhh saveConfiguracionRrhh(ConfiguracionRrhhInput input) {

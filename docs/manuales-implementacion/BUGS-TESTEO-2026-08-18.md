@@ -24,10 +24,10 @@ Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido
 | B13 | Penalizaciones consolidadas en un ítem, sin detalle | 🔴 |
 | B14 | Aguinaldo sobre último sueldo, no sobre promedio percibido (INVESTIGADO) | 🔴 |
 | B15 | IPS del finiquito: sin prorrateo por días ni vacaciones en la base | 🔴 |
-| F1 | Ajuste de saldo en cuentas bancarias (solo existe en caja) | 🟠 |
-| F2 | Pagar liquidación/finiquito desde el hub de egreso de Caja Mayor | 🟠 |
+| F1 | Ajuste de saldo en cuentas bancarias (solo existe en caja) | ✅ **hecho** |
+| F2 | Pagar liquidación/finiquito desde el hub de egreso de Caja Mayor | ✅ **hecho** |
 | F3 | Retiro de PDV: recepción parcial + selección de monedas | 🟠 |
-| F4 | Todo pago figura "Pago Proveedor"; usar `origenTipo` para el label | 🔴 |
+| F4 | Todo pago figura "Pago Proveedor"; usar `origenTipo` para el label | ✅ **hecho** |
 | F5 | Premisa: pagos de caja mayor solo desde la caja mayor (ocultar en RRHH) | 🟠 |
 | **ACL** | **Acceso por caja: lista de usuarios R/W por caja virtual** — plan en `financiero/PLAN-ACL-CAJAS-VIRTUALES.md` | ⭐ **1ª** |
 
@@ -638,3 +638,54 @@ aplicado, un pago de gasto se muestra como **"Compra"**. Regresión introducida 
 **Por qué no basta con cambiar el título:** el asiento tiene que seguir siendo **un** movimiento
 consolidado (es lo contablemente correcto, y la anulación ya opera sobre el evento entero). El
 desglose va aparte, leído de datos reales, no embutido en un string.
+
+---
+
+## F7 🔴 REGRESIÓN (corregida) — el `origenTipo` real rompió la anulación del pago desde la caja
+
+**Cómo apareció:** probando el pago de liquidación en la UI. Al anular el movimiento desde el
+dashboard de la caja:
+
+> *"Este movimiento proviene de RRHH_LIQUIDACION_SUELDO; anúlelo desde su módulo de origen, no
+> desde la caja mayor."*
+
+**Causa:** la introdujo **F6**. Dos lugares decidían "esto es un pago del motor" mirando
+`origenTipo === 'PAGO_CPP'`:
+
+1. `caja-virtual-dashboard.onAnular` → elegía entre `anularPagoCpp(pagoId)` y el contra-movimiento simple.
+2. `TesoreriaService.anular` → bloquea todo origen que no sea `MANUAL`/`MALETIN`.
+
+Al pasar a postear el concepto real (`GASTO`, `RRHH_VALE`, `RRHH_LIQUIDACION_SUELDO`…), el front
+dejó de reconocer los pagos y los mandaba por el camino simple, que el backend rechaza. **Afectaba
+a todos los pagos hechos por el motor**, no solo a los de RRHH.
+
+**Por qué no alcanzaba con listar los orígenes nuevos en el front:** `RRHH_VALE`,
+`RRHH_LIQUIDACION_*` y `RRHH_AGUINALDO` los setean **tanto el motor de pago como los egresos
+directos viejos** de cada servicio de RRHH. El mismo valor significa dos cosas distintas, así que
+el `origenTipo` ya no puede responder la pregunta.
+
+**Fix:** lo contesta el backend. Campo nuevo `MovimientoCajaVirtual.esPagoConsolidado`, resuelto
+por `MovimientoCajaVirtualFieldResolver` desde `PagoSolicitudDetalle` (que apunta al movimiento
+del evento). El front lo usa para el ruteo de anulación **y** para ofrecer "Ver detalle del pago",
+lo que además eliminó la exclusión de `RRHH_VALE` que había puesto por esta misma ambigüedad.
+
+**Sin migración**: es un campo derivado.
+
+---
+
+## F8 🟠 PENDIENTE — los movimientos históricos siguen etiquetados como "Compra"
+
+**Dónde:** historial y dashboard de caja, movimientos **anteriores** a F6.
+
+**Síntoma:** un pago de vale hecho el 17/08 se muestra como **"Compra"**, y uno de gasto también.
+Verificado en la DB: esas filas tienen `origen_tipo = PAGO_CPP` porque se crearon antes del fix.
+
+F6 corrige los movimientos **nuevos**; no reescribe el pasado. Mientras no se corrija, el
+historial mezcla etiquetas correctas (lo nuevo) con incorrectas (lo viejo), que es más confuso
+que cuando todo decía "Pago Proveedor".
+
+**Fix propuesto:** script de backfill (a mano, como el del ACL) que corrija `origen_tipo` de los
+movimientos de pago, resolviendo el concepto por el tipo de la `SolicitudPago` asociada vía
+`pago_solicitud_detalle`, y para las de tipo RRHH por el documento dueño. Ojo: hay que **excluir
+los egresos directos viejos** (los que no tienen fila en `pago_solicitud_detalle`), que ya tienen
+su origen correcto.

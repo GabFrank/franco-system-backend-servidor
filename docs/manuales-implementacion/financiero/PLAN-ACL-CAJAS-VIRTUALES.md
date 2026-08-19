@@ -46,7 +46,7 @@ cambios: setearlo del usuario autenticado (no del input) y dejar de aceptarlo en
 | Punto | Gate hoy |
 |---|---|
 | `cajaVirtual(id)`, `cajaVirtuales`, `cajaVirtualesFilter`, `cajaVirtualesPorTipo`, `cajaVirtualesPorSucursal` | `seg.requireVer()` — rol global, sin filtro por caja |
-| `cajaVirtualesActivas()` (`CajaVirtualGraphQL:131`) | **🔴 SIN GATE** — hueco actual, no llama a `requireVer()` |
+| `cajaVirtualesActivas()` | `hasAnyRole(TESORERIA.TODOS)` **o** `RrhhSecurityService.TODOS` — la comparte RRHH para elegir la caja destino. Corregido 2026-08-19: en una lectura anterior figuraba como "sin gate"; sí lo tiene |
 | `cajaVirtualSaldos`, `cajaVirtualResumenBancario` | `seg.requireVer()` |
 | `movimientosCajaVirtual*` (3 queries) | `seg.requireVer()` |
 | `saveCajaVirtual`, `deleteCajaVirtual` | `seg.requireGestionar()` |
@@ -230,7 +230,7 @@ ninguna caja, pedíselo al responsable") en vez de una tabla vacía sin explicac
 | **Bypass por punto de entrada olvidado** | El choke point de `TesoreriaService` cubre escritura; para lectura hay que auditar los 43 puntos con `cajaVirtualId`. Un test que enumere resolvers sin gate ayuda |
 | Paginación mentirosa si se filtra en memoria | Filtro en el repositorio (§4.2) |
 | Corte de replicación por rechazar procesos de sistema | §7.4, con test explícito |
-| `cajaVirtualesActivas()` hoy sin gate | Se corrige en esta misma feature (fase E/F) |
+| Un punto de entrada de lectura sin acotar | El choke point cubre escritura; para lectura se auditaron los 43 puntos con `cajaVirtualId` |
 
 ## 9. Tamaño estimado
 
@@ -368,3 +368,44 @@ FASE 2 — ACL: A → C → D → E → F → B → G → H → I  (§6)
 
 **§7.3 resuelta 2026-08-19: modelo AND confirmado.** El rol habilita la capacidad, el ACL
 delimita el alcance.
+
+---
+
+# 11. Estado de implementación — 2026-08-19
+
+Rama `feat/pagos-hub-acl-cajas` en **central** y **desktop**.
+
+## Hecho
+
+| Fase | Qué se hizo | Dónde |
+|---|---|---|
+| **0** (hub) | Modos `LIQUIDACION` / `FINIQUITO` / `AGUINALDO` en el diálogo genérico + entradas en el hub de egresos. Puente `SolicitudPago` tipo RRHH para los tres, con `sincronizarDesdeSolicitudPago` por concepto | `PagoRrhhTesoreriaService`, `PagoRrhhTesoreriaGraphQL`, `V199.5`, `pagar-compras-dialog` |
+| **F4** | Etiqueta del movimiento desde `origenTipo` (el concepto real) en historial y dashboard | `caja-virtual.model.ts`, 2 componentes |
+| **F6** | `origenTipo` correcto por concepto del evento + etiqueta consolidada con N documentos + `detalleDePago(pagoId)` + diálogo "Detalle del pago" | `PagoProveedorService`, `detalle-pago-dialog` |
+| **A** | Migración `V200.5` (`financiero.caja_virtual_acceso`), entidad, repo, `CajaVirtualAccesoService` | central |
+| **C** | `esSuperusuario` · `esPropietario` · `puedeLeerCaja` · `puedeEscribirCaja` · `requireLecturaCaja` · `requireEscrituraCaja` · `requirePropietarioCaja` · `cajasVisiblesIds` · `esProcesoDeSistema` | `TesoreriaSecurityService` |
+| **D** | Escritura exigida en `registrar` / `transferir` / `anular` | `TesoreriaService` |
+| **E** | Lectura puntual en caja, saldos, resumen bancario, 3 queries de movimientos, entradas varias, configuración | resolvers de `financiero` |
+| **F** | Listados filtrados **en la consulta** (`findAllVisibles`, `filterVisibles`, `findByTipoAndIdIn`, `findBySucursalIdAndIdIn`, `findByActivoTrueAndIdIn`) | repo + service + resolver |
+| **G** | `cajaVirtualAccesos` · `otorgarAccesoCaja` · `revocarAccesoCaja` · `transferirPropiedadCaja`; propietario desde el `SecurityContext` y solo en el alta | schema + resolver |
+| **H** | Diálogo "Gestionar accesos" (alta con buscador, toggle de escritura, revocar, hacer responsable), visible solo al responsable o ADMIN | `gestionar-accesos-caja-dialog` |
+| **B** | Script de backfill con verificación previa y posterior — **se corre a mano** | `backfill-acl-cajas.sql` |
+
+## Decisiones de implementación que no estaban en el plan
+
+- **La lectura no puede apagarse desde la UI.** Un acceso con escritura y sin lectura sería mover
+  plata a ciegas; para sacar el acceso se revoca (borra la fila) en vez de dejar una inerte.
+- **Al responsable no se le puede otorgar una fila de acceso.** Ya tiene permisos implícitos, y
+  una fila sería revocable — dejaría la caja sin quien la administre.
+- **Transferir la propiedad borra el acceso explícito del nuevo responsable**, por lo mismo.
+- **`esProcesoDeSistema()` mira que no haya principal**, no que el usuario no tenga permisos. Un
+  usuario autenticado sin acceso es rechazado; solo pasa lo que corre sin sesión.
+
+## Pendiente
+
+| Qué | Por qué |
+|---|---|
+| **Fase I** — UI defensiva: que los selectores de caja no ofrezcan cajas que el backend va a rechazar | Depende de F5 |
+| **F5** — ocultar los 6 selectores de caja de RRHH | Necesita completar el hub |
+| **Hub: desembolso de préstamo y cobro de cuota** | El desembolso es alta directa (patrón vale); el **cobro de cuota es un ingreso** y no pasa por el motor de pago — necesita su propio camino y una query de cuotas pendientes |
+| **Correr el backfill** | Necesita la lista de cajas de prod revisada (§7.2) |

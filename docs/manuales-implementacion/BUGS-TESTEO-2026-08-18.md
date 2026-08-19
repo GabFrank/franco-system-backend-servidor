@@ -565,8 +565,11 @@ egreso, y 6 diálogos de RRHH que traen su propio selector de caja. Se unifica e
 | `rrhh/liquidacion-final/liquidacion-final-dialog` | finiquito |
 
 Todos se alimentan de `rrhh/caja-virtual/graphql/CajaVirtualesActivas.ts` →
-`cajaVirtualesActivas()`, **la única query de caja sin gate de seguridad**
-(`CajaVirtualGraphQL:131`). Ocultar estos selectores elimina su consumidor principal.
+`cajaVirtualesActivas()`, la query de caja compartida entre Tesorería y RRHH.
+
+> Corrección 2026-08-19: en una lectura anterior figuraba como "sin gate de seguridad". **Sí lo
+> tiene**: exige un rol de Tesorería *o* uno de RRHH. Lo que no tenía era acotamiento por caja
+> — eso lo resuelve el ACL, que ahora la filtra por las cajas visibles del usuario.
 
 **Por qué:**
 1. **Separación de funciones** — RRHH liquida y aprueba, tesorería paga. Que la misma persona

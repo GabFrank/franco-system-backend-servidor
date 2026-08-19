@@ -59,4 +59,7 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
             nativeQuery = true)
     List<Object[]> nominaSeriePorMesRaw(@Param("periodoInicio") String periodoInicio,
                                         @Param("periodoFin") String periodoFin);
+
+    /** Documento dueno de una obligacion de pago (puente tesoreria, V199.5). */
+    LiquidacionSueldo findBySolicitudPagoId(Long solicitudPagoId);
 }

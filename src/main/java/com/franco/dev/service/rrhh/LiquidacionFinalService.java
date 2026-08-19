@@ -62,6 +62,7 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 public class LiquidacionFinalService extends CrudService<LiquidacionFinal, LiquidacionFinalRepository, Long> {
 
     private final LiquidacionFinalRepository repository;
+    private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
     private final LiquidacionFinalItemRepository itemRepository;
     private final FuncionarioService funcionarioService;
     private final LiquidacionSueldoRepository liquidacionSueldoRepository;
@@ -639,6 +640,57 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     break;
             }
         }
+    }
+
+
+    /**
+     * Espejo de {@code ValeService.sincronizarDesdeSolicitudPago}: lo llama el motor de pago
+     * cuando el finiquito se paga desde el hub de la caja en vez de con {@link #pagar}.
+     *
+     * <p>Solicitud CONCLUIDA ⇒ finiquito PAGADA, se linkean caja + movimiento, el funcionario
+     * queda dado de baja y se saldan vales/cuotas. <b>No postea nada en caja</b>: el movimiento
+     * ya lo genero el motor de pago.</p>
+     *
+     * <p>Al revertirse el pago se deshacen los efectos cruzados pero <b>el funcionario NO se
+     * reactiva</b>, igual que en {@link #anular}: el egreso es un hecho del legajo, no del pago.
+     * Si hubo que reincorporarlo, se hace desde RRHH.</p>
+     */
+    @Transactional
+    public void sincronizarDesdeSolicitudPago(com.franco.dev.domain.operaciones.SolicitudPago sp) {
+        if (sp == null || sp.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) return;
+        LiquidacionFinal lf = repository.findBySolicitudPagoId(sp.getId());
+        if (lf == null || lf.getEstado() == LiquidacionFinalEstado.ANULADA) return;
+
+        boolean pagado = sp.getEstado() == com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.CONCLUIDO;
+        LiquidacionFinalEstado destino = pagado ? LiquidacionFinalEstado.PAGADA : LiquidacionFinalEstado.APROBADA;
+        if (lf.getEstado() == destino) return;   // idempotente: el motor puede reentrar
+
+        if (pagado) {
+            for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
+                    : pagoSolicitudDetalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(sp.getId())) {
+                if (Boolean.TRUE.equals(d.getAnulado())) continue;
+                if (d.getMovimientoCajaVirtualId() != null) {
+                    lf.setMovimientoCajaVirtualId(d.getMovimientoCajaVirtualId());
+                    lf.setCajaVirtualId(d.getCajaVirtualId());
+                    break;
+                }
+            }
+            lf.setFechaPago(LocalDateTime.now());
+            Funcionario f = lf.getFuncionario();
+            if (f != null) {
+                f.setActivo(false);
+                if (f.getFechaEgreso() == null && lf.getFechaEgreso() != null)
+                    f.setFechaEgreso(lf.getFechaEgreso().atStartOfDay());
+                funcionarioService.save(f);
+            }
+        } else {
+            lf.setMovimientoCajaVirtualId(null);
+            lf.setCajaVirtualId(null);
+            lf.setFechaPago(null);
+        }
+        aplicarEfectosCruzados(lf, pagado);
+        lf.setEstado(destino);
+        repository.save(lf);
     }
 
     /** Anula un finiquito PAGADO: contra-asiento AJUSTE en la caja. */

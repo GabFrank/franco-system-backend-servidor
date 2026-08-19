@@ -71,6 +71,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
     private final UsuarioService usuarioService;
+    private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
     private final com.franco.dev.service.administrativo.JornadaService jornadaService;
     private final CreditoConvenioService creditoConvenioService;
 
@@ -510,6 +511,50 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         }
         liq.setEstado(LiquidacionSueldoEstado.ANULADA);
         return repository.save(liq);
+    }
+
+
+    /**
+     * Espejo de {@code ValeService.sincronizarDesdeSolicitudPago}: lo llama el motor de pago
+     * tanto al pagar como al anular un evento, cuando la liquidacion se paga desde el hub de
+     * la caja en vez de con {@link #pagar}.
+     *
+     * <p>Solicitud CONCLUIDA ⇒ la liquidacion queda PAGADA, se linkean caja + movimiento y se
+     * aplican los efectos cruzados de los items (vale DESCONTADO, cuota PAGADA, aguinaldo
+     * PAGADO...). <b>No postea nada en caja</b>: el movimiento ya lo genero el motor de pago.
+     * Cualquier otro estado (se anulo el pago) ⇒ vuelve a APROBADA y los efectos se revierten.</p>
+     */
+    @Transactional
+    public void sincronizarDesdeSolicitudPago(com.franco.dev.domain.operaciones.SolicitudPago sp) {
+        if (sp == null || sp.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) return;
+        LiquidacionSueldo liq = repository.findBySolicitudPagoId(sp.getId());
+        if (liq == null || liq.getEstado() == LiquidacionSueldoEstado.ANULADA) return;
+
+        boolean pagado = sp.getEstado() == com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.CONCLUIDO;
+        LiquidacionSueldoEstado destino = pagado ? LiquidacionSueldoEstado.PAGADA : LiquidacionSueldoEstado.APROBADA;
+        if (liq.getEstado() == destino) return;   // idempotente: el motor puede reentrar
+
+        if (pagado) {
+            // Linkear el movimiento de caja del pago (un pago 100% bancario o con cheque no
+            // genera fila de caja: en ese caso los ids quedan nulos, que es correcto).
+            for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
+                    : pagoSolicitudDetalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(sp.getId())) {
+                if (Boolean.TRUE.equals(d.getAnulado())) continue;
+                if (d.getMovimientoCajaVirtualId() != null) {
+                    liq.setMovimientoCajaVirtualId(d.getMovimientoCajaVirtualId());
+                    liq.setCajaVirtualId(d.getCajaVirtualId());
+                    break;
+                }
+            }
+            liq.setFechaPago(LocalDateTime.now());
+        } else {
+            liq.setMovimientoCajaVirtualId(null);
+            liq.setCajaVirtualId(null);
+            liq.setFechaPago(null);
+        }
+        aplicarEfectosCruzados(liq, pagado);
+        liq.setEstado(destino);
+        repository.save(liq);
     }
 
     /** Aplica (pagar=true) o revierte (pagar=false) los efectos cruzados de los items. */

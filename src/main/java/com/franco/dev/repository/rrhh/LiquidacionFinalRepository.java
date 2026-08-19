@@ -18,4 +18,7 @@ public interface LiquidacionFinalRepository extends HelperRepository<Liquidacion
     Optional<LiquidacionFinal> findFirstByFuncionarioIdAndEstadoOrderByCreadoEnDesc(Long funcionarioId, LiquidacionFinalEstado estado);
 
     List<LiquidacionFinal> findByEstadoOrderByCreadoEnDesc(LiquidacionFinalEstado estado);
+
+    /** Documento dueno de una obligacion de pago (puente tesoreria, V199.5). */
+    LiquidacionFinal findBySolicitudPagoId(Long solicitudPagoId);
 }

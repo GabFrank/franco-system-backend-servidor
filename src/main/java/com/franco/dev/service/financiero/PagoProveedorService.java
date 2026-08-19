@@ -64,6 +64,9 @@ public class PagoProveedorService {
     private final PreGastoService preGastoService;
     // Sin ciclo: ValeService no conoce el motor de pago (el que sí lo usa es ValeTesoreriaService).
     private final com.franco.dev.service.rrhh.ValeService valeService;
+    private final com.franco.dev.service.rrhh.LiquidacionSueldoService liquidacionSueldoService;
+    private final com.franco.dev.service.rrhh.LiquidacionFinalService liquidacionFinalService;
+    private final com.franco.dev.service.rrhh.AguinaldoService aguinaldoService;
 
     /** Una línea de pago (pago mixto). Puede ser fuente AJUSTE (diferencia de cambio). */
     @Data
@@ -392,6 +395,12 @@ public class PagoProveedorService {
             // Si la obligación era de un vale de RRHH, dejarlo CONFIRMADO (es lo que mira la
             // liquidación para descontarlo del sueldo).
             valeService.sincronizarDesdeSolicitudPago(sp);
+            // Idem para los demas conceptos de RRHH pagables desde el hub de la caja
+            // (liquidacion mensual, finiquito, aguinaldo). Cada uno resuelve por su propio
+            // solicitud_pago_id y no hace nada si la obligacion no es suya.
+            liquidacionSueldoService.sincronizarDesdeSolicitudPago(sp);
+            liquidacionFinalService.sincronizarDesdeSolicitudPago(sp);
+            aguinaldoService.sincronizarDesdeSolicitudPago(sp);
         }
 
         // PagoService.save fuerza ABIERTO en el alta; marcar el evento como CONCLUIDO ya con id.
@@ -471,6 +480,12 @@ public class PagoProveedorService {
             preGastoService.sincronizarDesdeSolicitudPago(sp);
             // Si era el pago de un vale, vuelve a quedar pendiente de entrega (CONFIRMADO → SOLICITADO).
             valeService.sincronizarDesdeSolicitudPago(sp);
+            // Idem para los demas conceptos de RRHH pagables desde el hub de la caja
+            // (liquidacion mensual, finiquito, aguinaldo). Cada uno resuelve por su propio
+            // solicitud_pago_id y no hace nada si la obligacion no es suya.
+            liquidacionSueldoService.sincronizarDesdeSolicitudPago(sp);
+            liquidacionFinalService.sincronizarDesdeSolicitudPago(sp);
+            aguinaldoService.sincronizarDesdeSolicitudPago(sp);
         }
 
         pago.setEstado(PagoEstado.CANCELADO);

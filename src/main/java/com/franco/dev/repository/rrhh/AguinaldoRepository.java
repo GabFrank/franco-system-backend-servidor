@@ -30,4 +30,10 @@ public interface AguinaldoRepository extends HelperRepository<Aguinaldo, Long> {
     List<Aguinaldo> findByFuncionarioIdOrderByAnioDesc(Long funcionarioId);
 
     Optional<Aguinaldo> findByFuncionarioIdAndAnio(Long funcionarioId, Integer anio);
+
+    /** Documento dueno de una obligacion de pago (puente tesoreria, V199.5). */
+    Aguinaldo findBySolicitudPagoId(Long solicitudPagoId);
+
+    /** Aguinaldos en un estado dado (pagables = APROBADO). */
+    List<Aguinaldo> findByEstadoOrderByAnioDescIdDesc(com.franco.dev.domain.rrhh.enums.AguinaldoEstado estado);
 }

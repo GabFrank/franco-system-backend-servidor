@@ -36,12 +36,14 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
 
     public Page<MovimientoCajaVirtual> movimientosCajaVirtual(Long cajaVirtualId, int page, int size) {
         seg.requireVer();
+        seg.requireLecturaCaja(cajaVirtualId);
         Pageable pageable = PageRequest.of(page, size);
         return service.findByCajaVirtualId(cajaVirtualId, pageable);
     }
 
     public Page<MovimientoCajaVirtual> movimientosCajaVirtualPorFecha(Long cajaVirtualId, String inicio, String fin, int page, int size) {
         seg.requireVer();
+        seg.requireLecturaCaja(cajaVirtualId);
         Pageable pageable = PageRequest.of(page, size);
         return service.findByCajaVirtualIdAndFecha(cajaVirtualId, inicio, fin, pageable);
     }
@@ -51,6 +53,7 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
                                                                     com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento tipo,
                                                                     Boolean soloActivos, int page, int size) {
         seg.requireVer();
+        seg.requireLecturaCaja(cajaVirtualId);
         Pageable pageable = PageRequest.of(page, size);
         return service.filter(cajaVirtualId, desde, fin, tipo, soloActivos != null && soloActivos, pageable);
     }

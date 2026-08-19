@@ -35,6 +35,7 @@ class TesoreriaServiceTest {
     private MonedaRepository monedaRepository;
     private MovimientoCajaVirtualRepository movimientoRepository;
     private com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
+    private TesoreriaSecurityService seguridad;
     private TesoreriaService service;
 
     private CajaVirtual caja;
@@ -49,7 +50,11 @@ class TesoreriaServiceTest {
         movimientoRepository = mock(MovimientoCajaVirtualRepository.class);
         configRepository = mock(com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository.class);
         when(configRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        service = new TesoreriaService(saldoRepository, cajaVirtualRepository, monedaRepository, movimientoRepository, configRepository);
+        // El ACL de cajas se aplica en registrar/transferir/anular. Estos tests ejercitan la
+        // aritmetica de saldos, no los permisos: el mock deja pasar todo (requireEscrituraCaja
+        // es void y no hace nada por default en un mock).
+        seguridad = mock(TesoreriaSecurityService.class);
+        service = new TesoreriaService(saldoRepository, seguridad, cajaVirtualRepository, monedaRepository, movimientoRepository, configRepository);
 
         caja = new CajaVirtual();
         caja.setId(1L);

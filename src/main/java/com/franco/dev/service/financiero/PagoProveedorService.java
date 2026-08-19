@@ -60,10 +60,14 @@ public class PagoProveedorService {
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository detalleRepository;
+    private final TesoreriaSecurityService seguridad;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final PreGastoService preGastoService;
     // Sin ciclo: ValeService no conoce el motor de pago (el que sí lo usa es ValeTesoreriaService).
     private final com.franco.dev.service.rrhh.ValeService valeService;
+    private final com.franco.dev.service.rrhh.LiquidacionSueldoService liquidacionSueldoService;
+    private final com.franco.dev.service.rrhh.LiquidacionFinalService liquidacionFinalService;
+    private final com.franco.dev.service.rrhh.AguinaldoService aguinaldoService;
 
     /** Una línea de pago (pago mixto). Puede ser fuente AJUSTE (diferencia de cambio). */
     @Data
@@ -100,6 +104,151 @@ public class PagoProveedorService {
     public static class SolicitudConLineas {
         private Long solicitudId;
         private List<LineaPago> lineas;
+    }
+
+
+
+    /**
+     * Desglose de un evento de pago: que documentos se pagaron y cuanto se imputo a cada uno.
+     *
+     * <p>Es lo que responde la pregunta que el movimiento consolidado no puede contestar solo.
+     * Se arma desde {@code PagoSolicitudDetalle}, que ya guarda una fila por documento y linea:
+     * se agrupan por solicitud y se suman los {@code montoSolicitud}.</p>
+     *
+     * <p><b>Acotado por el ACL de cajas.</b> Las observaciones de una solicitud de RRHH traen el
+     * nombre del funcionario y el concepto ("LIQUIDACION 2026-07 #123 - JUAN PEREZ"), asi que el
+     * detalle expone sueldos. Solo se devuelven los items pagados desde una caja que el usuario
+     * puede leer; los pagados 100% por banco o cheque no tienen caja y se muestran a quien ya
+     * puede ver el evento. Sin este filtro alcanzaba con iterar pagoId — que es correlativo —
+     * para leer la nomina entera.</p>
+     */
+    @Transactional(readOnly = true)
+    public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
+        java.util.List<Long> visibles = seguridad.cajasVisiblesIds();   // null = ve todas
+        java.util.LinkedHashMap<Long, java.math.BigDecimal> imputadoPorSolicitud = new java.util.LinkedHashMap<>();
+        for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
+                : detalleRepository.findByPagoIdOrderByCreadoEnAsc(pagoId)) {
+            if (Boolean.TRUE.equals(d.getAnulado())) continue;
+            if (visibles != null && d.getCajaVirtualId() != null && !visibles.contains(d.getCajaVirtualId())) {
+                continue;   // pagado desde una caja que este usuario no puede ver
+            }
+            java.math.BigDecimal aporte = d.getMontoSolicitud() != null ? d.getMontoSolicitud() : java.math.BigDecimal.ZERO;
+            imputadoPorSolicitud.merge(d.getSolicitudPagoId(), aporte, java.math.BigDecimal::add);
+        }
+        List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> out = new ArrayList<>();
+        for (java.util.Map.Entry<Long, java.math.BigDecimal> e : imputadoPorSolicitud.entrySet()) {
+            SolicitudPago sp = solicitudPagoService.findById(e.getKey()).orElse(null);
+            if (sp == null) continue;
+            com.franco.dev.service.financiero.dto.DetallePagoItemDto i =
+                    new com.franco.dev.service.financiero.dto.DetallePagoItemDto();
+            i.setSolicitudPagoId(sp.getId());
+            i.setTipo(sp.getTipo() != null ? sp.getTipo().name() : null);
+            i.setDescripcion(sp.getObservaciones());
+            i.setProveedorNombre(sp.getProveedor() != null && sp.getProveedor().getPersona() != null
+                    ? sp.getProveedor().getPersona().getNombre() : null);
+            if (sp.getMoneda() != null) {
+                i.setMonedaDenominacion(sp.getMoneda().getDenominacion());
+                i.setMonedaSimbolo(sp.getMoneda().getSimbolo());
+                i.setDecimales(sp.getMoneda().getDecimales());
+            }
+            i.setMontoImputado(e.getValue());
+            i.setMontoTotal(sp.getMontoTotal() != null ? java.math.BigDecimal.valueOf(sp.getMontoTotal()) : null);
+            i.setMontoPagado(sp.getMontoPagado());
+            i.setEstado(sp.getEstado() != null ? sp.getEstado().name() : null);
+            out.add(i);
+        }
+        return out;
+    }
+
+    // ─────────────── Concepto del evento de pago: etiqueta + origen del movimiento ───────────────
+
+    /**
+     * Que se esta pagando en este evento. El dialogo agrupa por modo, asi que en la practica un
+     * evento tiene un solo concepto; MIXTO existe por defensa (llamadas por API).
+     */
+    private enum ConceptoEvento { COMPRA, GASTO, VALE, LIQUIDACION, FINIQUITO, AGUINALDO, MIXTO }
+
+    /**
+     * Clasifica el evento por el tipo de sus solicitudes. Las de tipo RRHH se desambiguan
+     * preguntandole a cada modulo cual es dueno de la obligacion: el tipo RRHH es uno solo para
+     * vale, liquidacion, finiquito y aguinaldo.
+     */
+    private ConceptoEvento clasificar(List<SolicitudPago> sols) {
+        ConceptoEvento unico = null;
+        for (SolicitudPago sp : sols) {
+            ConceptoEvento c;
+            if (sp.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO) {
+                c = ConceptoEvento.GASTO;
+            } else if (sp.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) {
+                c = conceptoRrhh(sp.getId());
+            } else {
+                c = ConceptoEvento.COMPRA;
+            }
+            if (unico == null) unico = c;
+            else if (unico != c) return ConceptoEvento.MIXTO;
+        }
+        return unico != null ? unico : ConceptoEvento.COMPRA;
+    }
+
+    /** Cual de los modulos de RRHH es dueno de la obligacion. Vale es el caso mas comun: se pregunta primero. */
+    private ConceptoEvento conceptoRrhh(Long solicitudPagoId) {
+        if (valeService.tieneSolicitud(solicitudPagoId)) return ConceptoEvento.VALE;
+        if (liquidacionSueldoService.tieneSolicitud(solicitudPagoId)) return ConceptoEvento.LIQUIDACION;
+        if (liquidacionFinalService.tieneSolicitud(solicitudPagoId)) return ConceptoEvento.FINIQUITO;
+        if (aguinaldoService.tieneSolicitud(solicitudPagoId)) return ConceptoEvento.AGUINALDO;
+        return ConceptoEvento.VALE;   // obligacion RRHH huerfana: se etiqueta como vale
+    }
+
+    /** Origen del movimiento, para que el historial de caja diga el concepto real y no "Compra". */
+    private OrigenMovimientoTipo origenDe(ConceptoEvento c) {
+        switch (c) {
+            case GASTO:       return OrigenMovimientoTipo.GASTO;
+            case VALE:        return OrigenMovimientoTipo.RRHH_VALE;
+            case LIQUIDACION: return OrigenMovimientoTipo.RRHH_LIQUIDACION_SUELDO;
+            case FINIQUITO:   return OrigenMovimientoTipo.RRHH_LIQUIDACION_FINAL;
+            case AGUINALDO:   return OrigenMovimientoTipo.RRHH_AGUINALDO;
+            default:          return OrigenMovimientoTipo.PAGO_CPP;
+        }
+    }
+
+    /**
+     * Descripcion del movimiento consolidado.
+     *
+     * <p>Con un solo documento se muestra su descripcion especifica. Con varios <b>no</b> se
+     * puede mostrar la de uno solo: seria informacion equivocada sobre un asiento que paga a
+     * todos. En ese caso se etiqueta el evento y el desglose se consulta con el detalle del
+     * pago (cada documento tiene su fila en {@code PagoSolicitudDetalle}).</p>
+     */
+    private String etiquetaDe(ConceptoEvento c, List<SolicitudPago> sols, boolean tieneProveedor, String provNombre) {
+        int n = sols.size();
+        if (n > 1) {
+            switch (c) {
+                case GASTO:       return "Pago consolidado de " + n + " gastos";
+                case VALE:        return "Pago consolidado de " + n + " vales";
+                case LIQUIDACION: return "Pago consolidado de " + n + " liquidaciones";
+                case FINIQUITO:   return "Pago consolidado de " + n + " finiquitos";
+                case AGUINALDO:   return "Pago consolidado de " + n + " aguinaldos";
+                case COMPRA:      return (tieneProveedor ? "Pago a " + provNombre : "Pago a proveedor")
+                                        + " (" + n + " notas)";
+                default:          return "Pago consolidado de " + n + " documentos";
+            }
+        }
+        SolicitudPago sp = sols.isEmpty() ? null : sols.get(0);
+        if (sp == null) return tieneProveedor ? ("Pago a " + provNombre) : "Pago";
+        if (c == ConceptoEvento.GASTO) {
+            // Gasto: descripcion rica → "#id - categoria - beneficiario - descripcion".
+            String cat = sp.getTipoGasto() != null ? sp.getTipoGasto().getDescripcion() : "Sin categoría";
+            String benef = tieneProveedor ? provNombre : "—";
+            String desc = sp.getObservaciones() != null ? sp.getObservaciones() : "";
+            return "#" + sp.getId() + " - " + cat + " - " + benef + " - " + desc;
+        }
+        if (c != ConceptoEvento.COMPRA) {
+            // RRHH: la observacion de la solicitud ya trae "VALE #id - FUNCIONARIO - MOTIVO",
+            // "LIQUIDACION 2026-07 #id - FUNCIONARIO", etc.
+            String desc = sp.getObservaciones();
+            if (desc != null && !desc.trim().isEmpty()) return desc;
+        }
+        return tieneProveedor ? ("Pago a " + provNombre) : "Pago de gasto";
     }
 
     /** Aporte firmado a la deuda saldada: aumento resta, todo lo demás suma. */
@@ -248,29 +397,10 @@ public class PagoProveedorService {
         // 3) Consolidar líneas físicas por (fuente, caja/cuenta, moneda) y postear un movimiento por grupo.
         boolean tieneProveedor = proveedor != null && proveedor.getPersona() != null && proveedor.getPersona().getNombre() != null;
         String provNombre = tieneProveedor ? proveedor.getPersona().getNombre() : "proveedor";
-        // Un gasto puede no tener beneficiario proveedor → etiqueta genérica en el movimiento/cheque.
-        String etiquetaPago = tieneProveedor ? ("Pago a " + provNombre) : "Pago de gasto";
-        // Gasto: descripción rica en el movimiento → "#id - categoría - proveedor - descripción".
-        SolicitudPago gastoSol = spById.values().stream()
-                .filter(s -> s.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO)
-                .findFirst().orElse(null);
-        if (gastoSol != null) {
-            String cat = gastoSol.getTipoGasto() != null ? gastoSol.getTipoGasto().getDescripcion() : "Sin categoría";
-            String benef = tieneProveedor ? provNombre : "—";
-            String desc = gastoSol.getObservaciones() != null ? gastoSol.getObservaciones() : "";
-            etiquetaPago = "#" + gastoSol.getId() + " - " + cat + " - " + benef + " - " + desc;
-        }
-        // Vales de RRHH: la descripción del vale ya trae "VALE #id - FUNCIONARIO - MOTIVO".
-        // Con varios vales en el mismo evento, una sola de esas etiquetas sería engañosa.
-        List<SolicitudPago> valeSols = spById.values().stream()
-                .filter(s -> s.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH)
-                .collect(Collectors.toList());
-        if (valeSols.size() == 1) {
-            String desc = valeSols.get(0).getObservaciones();
-            if (desc != null && !desc.trim().isEmpty()) etiquetaPago = desc;
-        } else if (valeSols.size() > 1) {
-            etiquetaPago = "Pago de vales (" + valeSols.size() + ")";
-        }
+        List<SolicitudPago> sols = new ArrayList<>(spById.values());
+        ConceptoEvento concepto = clasificar(sols);
+        String etiquetaPago = etiquetaDe(concepto, sols, tieneProveedor, provNombre);
+        OrigenMovimientoTipo origenPago = origenDe(concepto);
         LinkedHashMap<String, GrupoMov> grupos = new LinkedHashMap<>();
         for (SolicitudConLineas p : pagos) {
             for (LineaPago l : p.getLineas()) {
@@ -301,12 +431,12 @@ public class PagoProveedorService {
                 m.setUsuario(usuario);
                 m.setDescripcion(etiquetaPago);
                 m.setReferenciaId(pago.getId());
-                m.setOrigenTipo(OrigenMovimientoTipo.PAGO_CPP);
+                m.setOrigenTipo(origenPago);
                 m.setOrigenId(pago.getId());
                 g.movimientoId = tesoreriaService.registrar(m).getId();
             } else if (g.fuente == FuentePago.CUENTA_BANCARIA) {
                 MovimientoBancario mb = bancoLedgerService.registrar(g.cuentaBancariaId, MovimientoBancarioTipo.SALIDA_MANUAL,
-                        g.suma, etiquetaPago, OrigenMovimientoTipo.PAGO_CPP.name(), pago.getId(), usuario);
+                        g.suma, etiquetaPago, origenPago.name(), pago.getId(), usuario);
                 g.movimientoId = mb != null ? mb.getId() : null;
             } else {
                 throw new GraphQLException("Fuente de pago no soportada para movimiento consolidado");
@@ -392,6 +522,12 @@ public class PagoProveedorService {
             // Si la obligación era de un vale de RRHH, dejarlo CONFIRMADO (es lo que mira la
             // liquidación para descontarlo del sueldo).
             valeService.sincronizarDesdeSolicitudPago(sp);
+            // Idem para los demas conceptos de RRHH pagables desde el hub de la caja
+            // (liquidacion mensual, finiquito, aguinaldo). Cada uno resuelve por su propio
+            // solicitud_pago_id y no hace nada si la obligacion no es suya.
+            liquidacionSueldoService.sincronizarDesdeSolicitudPago(sp);
+            liquidacionFinalService.sincronizarDesdeSolicitudPago(sp);
+            aguinaldoService.sincronizarDesdeSolicitudPago(sp);
         }
 
         // PagoService.save fuerza ABIERTO en el alta; marcar el evento como CONCLUIDO ya con id.
@@ -471,6 +607,12 @@ public class PagoProveedorService {
             preGastoService.sincronizarDesdeSolicitudPago(sp);
             // Si era el pago de un vale, vuelve a quedar pendiente de entrega (CONFIRMADO → SOLICITADO).
             valeService.sincronizarDesdeSolicitudPago(sp);
+            // Idem para los demas conceptos de RRHH pagables desde el hub de la caja
+            // (liquidacion mensual, finiquito, aguinaldo). Cada uno resuelve por su propio
+            // solicitud_pago_id y no hace nada si la obligacion no es suya.
+            liquidacionSueldoService.sincronizarDesdeSolicitudPago(sp);
+            liquidacionFinalService.sincronizarDesdeSolicitudPago(sp);
+            aguinaldoService.sincronizarDesdeSolicitudPago(sp);
         }
 
         pago.setEstado(PagoEstado.CANCELADO);

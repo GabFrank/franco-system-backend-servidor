@@ -22,6 +22,21 @@ public interface CajaVirtualRepository extends JpaRepository<CajaVirtual, Long> 
 
     Page<CajaVirtual> findAll(Pageable pageable);
 
+    // ── Variantes acotadas por el ACL de cajas ──
+    //
+    // El filtro va en la consulta y no en memoria a proposito: filtrar despues de paginar
+    // deja getTotalElements contando cajas que el usuario no puede ver (paginacion mentirosa).
+    // Quien ve todas (superusuario, proceso de sistema) usa los metodos de arriba.
+
+    @Query("select c from CajaVirtual c where c.id in :ids")
+    Page<CajaVirtual> findAllVisibles(@Param("ids") List<Long> ids, Pageable pageable);
+
+    List<CajaVirtual> findByTipoAndIdIn(CajaVirtualTipo tipo, List<Long> ids);
+
+    List<CajaVirtual> findBySucursalIdAndIdIn(Long sucursalId, List<Long> ids);
+
+    List<CajaVirtual> findByActivoTrueAndIdIn(List<Long> ids);
+
     /**
      * Filtro combinado (todos opcionales) para la lista de cajas. {@code tipo} llega como
      * String (name del enum) y se compara contra la columna casteada a texto: el enum es un
@@ -38,4 +53,18 @@ public interface CajaVirtualRepository extends JpaRepository<CajaVirtual, Long> 
                              @Param("sucursalId") Long sucursalId,
                              @Param("activo") Boolean activo,
                              Pageable pageable);
+
+    /** Igual que {@link #filter}, acotado a las cajas visibles para el usuario. */
+    @Query("select c from CajaVirtual c where "
+            + "c.id in :ids and "
+            + "(:nombre is null or lower(c.nombre) like lower(concat('%', :nombre, '%'))) and "
+            + "(:tipo is null or cast(c.tipo as string) = :tipo) and "
+            + "(:sucursalId is null or c.sucursal.id = :sucursalId) and "
+            + "(:activo is null or c.activo = :activo)")
+    Page<CajaVirtual> filterVisibles(@Param("ids") List<Long> ids,
+                                     @Param("nombre") String nombre,
+                                     @Param("tipo") String tipo,
+                                     @Param("sucursalId") Long sucursalId,
+                                     @Param("activo") Boolean activo,
+                                     Pageable pageable);
 }

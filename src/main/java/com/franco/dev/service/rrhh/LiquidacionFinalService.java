@@ -692,7 +692,10 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     f.setFechaEgreso(lf.getFechaEgreso().atStartOfDay());
                 funcionarioService.save(f);
             }
-        } else {
+        } else if (sp.getMontoPagado() == null || sp.getMontoPagado().signum() <= 0) {
+            // Solo se sueltan los links cuando NO queda plata aplicada. Si la obligacion quedo
+            // PARCIAL (se pago en dos eventos y se anulo uno solo), parte del dinero sigue
+            // fuera de la caja: borrar la referencia al movimiento perderia su rastro.
             lf.setMovimientoCajaVirtualId(null);
             lf.setCajaVirtualId(null);
             lf.setFechaPago(null);

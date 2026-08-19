@@ -556,7 +556,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 }
             }
             liq.setFechaPago(LocalDateTime.now());
-        } else {
+        } else if (sp.getMontoPagado() == null || sp.getMontoPagado().signum() <= 0) {
+            // Solo se sueltan los links cuando NO queda plata aplicada. Si la obligacion quedo
+            // PARCIAL (se pago en dos eventos y se anulo uno solo), parte del dinero sigue
+            // fuera de la caja: borrar la referencia al movimiento perderia su rastro.
             liq.setMovimientoCajaVirtualId(null);
             liq.setCajaVirtualId(null);
             liq.setFechaPago(null);

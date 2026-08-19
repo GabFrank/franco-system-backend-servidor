@@ -113,9 +113,11 @@ La mutation de un solo funcionario abre transacción propia y está sana. Solo l
 
 Ese es el peor tipo de fix posible: compila, pasa un review a simple vista, y el bug sigue exactamente igual.
 
-**Fix real — extraer un bean aparte.** Un `@Component LiquidacionLoteWorker` con el trabajo por funcionario anotado `@Transactional(propagation = REQUIRES_NEW)`, inyectado en `LiquidacionSueldoService`. La llamada `worker.generarBorradorNuevaTx(...)` sí atraviesa el proxy del otro bean.
+**Fix real — `TransactionTemplate` con `PROPAGATION_REQUIRES_NEW`** dentro de `generarLote`, y sacarle el `@Transactional` a `generarLote` y a `generarMes` (ninguno de los dos hace trabajo de DB propio).
 
-Alternativas descartadas: auto-inyección `@Lazy` de la clase en sí misma (funciona, pero es un ciclo que oscurece el diseño) y `TransactionTemplate` programático (funciona, pero deja la semántica transaccional escondida en el cuerpo del loop en vez de declarada).
+*Corregido durante la implementación:* el plan decía extraer un `@Component LiquidacionLoteWorker`. No es viable acá — el worker necesitaría `LiquidacionSueldoService` para llamar a `generarBorrador`, y el servicio necesitaría al worker: dependencia circular que `@AllArgsConstructor` (inyección por constructor) no resuelve. Auto-inyección `@Lazy` de la clase en sí misma tampoco: Lombok no propaga la anotación al parámetro del constructor sin configurar `lombok.copyableAnnotations`.
+
+`TransactionTemplate` no tiene ninguno de esos problemas: solo pide `PlatformTransactionManager`, que es un bean del framework.
 
 **Beneficio colateral:** hoy `:661` tiene un `catch (Exception ignored)` que se traga los fallos individuales. Con transacción propia por funcionario, el fallo de uno deja de poder tumbar a los ya commiteados — hoy sí puede, porque comparten transacción.
 
@@ -123,7 +125,7 @@ Alternativas descartadas: auto-inyección `@Lazy` de la clase en sí misma (func
 
 **Verificación de que el fix funciona:** no alcanza con leer el código. Hay que probar en runtime — cambiar el sueldo de un funcionario y generar el lote en la misma sesión, confirmando que toma el valor nuevo. Si se hubiera aplicado solo la anotación, esta prueba habría fallado y el review no.
 
-**Archivos:** `service/rrhh/LiquidacionSueldoService.java` + `service/rrhh/LiquidacionLoteWorker.java` (nuevo). Sin migración.
+**Archivos:** `service/rrhh/LiquidacionSueldoService.java`. Sin migración.
 
 ## 5. B13 — una penalización, un ítem
 

@@ -21,7 +21,10 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -74,6 +77,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
     private final com.franco.dev.service.administrativo.JornadaService jornadaService;
     private final CreditoConvenioService creditoConvenioService;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public LiquidacionSueldoRepository getRepository() {
@@ -633,7 +637,6 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     }
 
     /** Genera borradores para todos los funcionarios activos en un periodo. */
-    @Transactional
     public int generarMes(String periodo, Long monedaId) {
         return generarLote(null, periodo, monedaId);
     }
@@ -643,24 +646,37 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
      * corre para todos los activos; si no, solo para los indicados. Los que ya estan
      * APROBADA/PAGADA se saltean en silencio (generarBorrador tira, se ignora).
      */
-    @Transactional
     public int generarLote(List<Long> funcionarioIds, String periodo, Long monedaId) {
-        List<Funcionario> objetivo;
+        List<Long> objetivo = new ArrayList<>();
         if (funcionarioIds == null || funcionarioIds.isEmpty()) {
-            objetivo = new ArrayList<>();
             for (Funcionario f : funcionarioService.findAll2()) {
-                if (Boolean.TRUE.equals(f.getActivo())) objetivo.add(f);
+                if (Boolean.TRUE.equals(f.getActivo())) objetivo.add(f.getId());
             }
         } else {
-            objetivo = new ArrayList<>();
             for (Long id : funcionarioIds) {
-                funcionarioService.findById(id).ifPresent(objetivo::add);
+                funcionarioService.findById(id).ifPresent(f -> objetivo.add(f.getId()));
             }
         }
+
+        // Una transaccion por funcionario, no una sola para el lote entero. Dos razones:
+        //
+        // 1. Con transaccion compartida, generarBorrador recibe del identity map de
+        //    Hibernate el Funcionario que este metodo ya cargo arriba, no la fila fresca:
+        //    si el sueldo cambio despues de esa lectura, la liquidacion sale con el viejo.
+        // 2. El catch de abajo se traga el fallo de un funcionario para seguir con los
+        //    demas, pero compartiendo transaccion ese fallo puede marcar rollback-only y
+        //    tumbar tambien a los que ya se procesaron bien.
+        //
+        // Va con TransactionTemplate y no con @Transactional(REQUIRES_NEW) sobre
+        // generarBorrador: la llamada de abajo es self-invocation (mismo bean), no pasa
+        // por el proxy de Spring y la anotacion se ignoraria en silencio.
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
         int n = 0;
-        for (Funcionario f : objetivo) {
+        for (Long id : objetivo) {
             try {
-                generarBorrador(f.getId(), periodo, monedaId);
+                tx.execute(status -> generarBorrador(id, periodo, monedaId));
                 n++;
             } catch (Exception ignored) {
             }

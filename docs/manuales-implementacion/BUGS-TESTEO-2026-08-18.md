@@ -29,6 +29,7 @@ Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido
 | F3 | Retiro de PDV: recepción parcial + selección de monedas | 🟠 |
 | F4 | Todo pago figura "Pago Proveedor"; usar `origenTipo` para el label | ✅ **hecho** |
 | F5 | Premisa: pagos de caja mayor solo desde la caja mayor (ocultar en RRHH) | 🟠 |
+| B16 | Liquidación: consolidar en un ítem las cuotas de ventas a crédito (configurable) | 🟠 |
 | **ACL** | **Acceso por caja: lista de usuarios R/W por caja virtual** — plan en `financiero/PLAN-ACL-CAJAS-VIRTUALES.md` | ⭐ **1ª** |
 
 ### Causas raíz agrupadas
@@ -689,3 +690,45 @@ movimientos de pago, resolviendo el concepto por el tipo de la `SolicitudPago` a
 `pago_solicitud_detalle`, y para las de tipo RRHH por el documento dueño. Ojo: hay que **excluir
 los egresos directos viejos** (los que no tienen fila en `pago_solicitud_detalle`), que ya tienen
 su origen correcto.
+
+---
+
+## B16 🟠 MEJORA — Liquidación: consolidar las cuotas de venta a crédito en un solo ítem (configurable)
+
+**Dónde:** generación de la liquidación mensual. Hoy **cada cuota de venta a crédito entra como un
+ítem de descuento propio**.
+
+**Problema:** hay funcionarios con muchas compras a crédito, y la hoja de liquidación se vuelve
+larguísima sin aportar nada — **el desglose de las ventas a crédito ya se le entrega por otra
+vía**, así que repetirlo cuota por cuota en el recibo es ruido.
+
+**Pedido:** una opción en **Configuración RRHH** para que la liquidación genere **un único ítem
+consolidado** con la suma de las cuotas provenientes de ventas a crédito.
+
+**Alcance exacto — solo las de venta a crédito.** Las cuotas de **préstamo** y cualquier otro tipo
+siguen desglosadas: son pocas por funcionario y ahí el detalle sí importa.
+
+Los dos tipos ya están separados en el código, así que el corte es limpio
+(`LiquidacionSueldoService`):
+
+| Origen | `referenciaTipo` | Se genera en |
+|---|---|---|
+| Venta a crédito (convenio) | `CREDITO_CONVENIO_CUOTA` | `:306-318` — **este es el que se consolida** |
+| Préstamo | `CPP_CUOTA` | `:272-284` — se deja como está |
+
+**A definir:**
+- **Nombre y alcance del parámetro** en `ConfiguracionRrhh`: booleano
+  (`LIQUIDACION_CONSOLIDAR_CUOTAS_CREDITO`) o algo más general si más adelante se quiere
+  consolidar otros grupos.
+- **Descripción del ítem consolidado**: algo como *"COMPRAS A CRÉDITO — N cuotas"*, para que el
+  funcionario sepa cuántas se le descontaron aunque no vea el detalle.
+- **Efectos cruzados:** hoy cada ítem lleva el `referenciaId` de su cuota, y al pagar la
+  liquidación eso es lo que marca cada cuota como PAGADA (`:617`, case
+  `CREDITO_CONVENIO_CUOTA`). **Un ítem consolidado pierde esa referencia.** Hay que resolverlo
+  antes de implementar: o el ítem guarda la lista de cuotas que lo componen, o el consolidado es
+  solo de presentación (el recibo agrupa) y por debajo se siguen guardando los ítems individuales.
+  **La segunda opción es la más segura** y probablemente la correcta: el problema es la hoja
+  impresa, no el modelo.
+- Relación con **B13** (que pide lo contrario para penalizaciones: desglosar en vez de
+  consolidar). Si se implementa como "agrupación de presentación", las dos se resuelven con el
+  mismo mecanismo y la configuración decide qué se agrupa y qué no.

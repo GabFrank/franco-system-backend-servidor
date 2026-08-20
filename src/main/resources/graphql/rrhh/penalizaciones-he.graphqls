@@ -176,6 +176,7 @@ extend type Mutation {
     savePenalizacion(penalizacion: PenalizacionInput!): Penalizacion!
     anularPenalizacion(id: ID!): Penalizacion
     generarPenalizacionesAuto(fecha: String): Int
+    generarPenalizacionesAutoRango(desde: String, hasta: String): Int
     justificarJornada(input: JustificarJornadaInput!): Boolean
 
     saveHoraExtra(horaExtra: HoraExtraInput!): HoraExtra!

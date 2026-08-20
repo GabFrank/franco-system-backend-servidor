@@ -9,6 +9,7 @@ import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.general.CiudadService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.personas.UsuarioService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
@@ -33,6 +34,12 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     @Autowired
     private MultiTenantService multiTenantService;
 
+    @Autowired
+    private com.franco.dev.repository.personas.FuncionarioRepository funcionarioRepository;
+
+    @Autowired
+    private com.franco.dev.repository.rrhh.FuncionarioCargoHistoricoRepository funcionarioCargoHistoricoRepository;
+
     public Optional<Cargo> cargo(Long id) {return service.findById(id);}
 
     public List<Cargo> cargos(int page, int size){
@@ -54,9 +61,29 @@ public class CargoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
         return e;
     }
 
-    public Boolean deleteCargo(Long id){
-        Boolean ok = service.deleteById(id);
-        return ok;
+    /**
+     * CrudService.deleteById atrapa la excepcion y devuelve false, y el desktop toma como
+     * exito cualquier respuesta sin errors: borrar un cargo en uso mostraba "eliminado con
+     * exito" sin haber borrado nada. Chequeamos antes y explicamos por que no se puede.
+     * Mismo patron que ProveedorServicioGraphQL.deleteProveedorServicio.
+     */
+    public Boolean deleteCargo(Long id) throws GraphQLException {
+        Long funcionarios = funcionarioRepository.countByCargoId(id);
+        if (funcionarios != null && funcionarios > 0) {
+            throw new GraphQLException(
+                    "No se puede eliminar: hay " + funcionarios + " funcionario(s) con este cargo");
+        }
+        Long historico = funcionarioCargoHistoricoRepository.countByCargoId(id);
+        if (historico != null && historico > 0) {
+            throw new GraphQLException(
+                    "No se puede eliminar: el cargo aparece en " + historico + " registro(s) del historico de cargos");
+        }
+        Long subcargos = service.countBySupervisadoPorId(id);
+        if (subcargos != null && subcargos > 0) {
+            throw new GraphQLException(
+                    "No se puede eliminar: hay " + subcargos + " cargo(s) que dependen de este");
+        }
+        return service.deleteById(id);
     }
 
     public Long countCargo(){

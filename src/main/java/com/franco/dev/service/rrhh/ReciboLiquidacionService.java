@@ -200,8 +200,15 @@ public class ReciboLiquidacionService {
      * el ticket termico y el PDF muestren cosas distintas de la misma liquidacion.</p>
      */
     private List<LiquidacionItem> itemsParaImpresion(Long liquidacionId) {
-        return liquidacionSueldoService.findItems(liquidacionId);
+        List<LiquidacionItem> items = liquidacionSueldoService.findItems(liquidacionId);
+        if (configuracionRrhhService.getBoolean(CLAVE_CONSOLIDAR_CREDITO, false)) {
+            items = com.franco.dev.service.rrhh.builder.ReciboAgrupador.consolidarCuotasCredito(items);
+        }
+        return items;
     }
+
+    /** Clave de configuracion que activa la consolidacion de cuotas de venta a credito. */
+    private static final String CLAVE_CONSOLIDAR_CREDITO = "LIQUIDACION_CONSOLIDAR_CUOTAS_CREDITO";
 
     /** Concepto de una fila de ticket: la descripcion del item, o su categoria si no tiene. */
     private String conceptoTicket(LiquidacionItem it) {

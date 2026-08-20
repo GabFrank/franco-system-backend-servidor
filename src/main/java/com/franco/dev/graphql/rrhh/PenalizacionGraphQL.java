@@ -119,6 +119,19 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     /**
+     * Genera las penalizaciones automaticas de un rango de fechas.
+     *
+     * <p>La generacion es idempotente por jornada, asi que re-correr un rango que se
+     * solapa con otro ya corrido no duplica nada.</p>
+     */
+    public Integer generarPenalizacionesAutoRango(String desde, String hasta) {
+        seg.requireAnyRole(seg.GESTIONAR);
+        LocalDate d = stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null;
+        LocalDate h = stringToDate(hasta) != null ? stringToDate(hasta).toLocalDate() : null;
+        return service.generarPenalizacionesAutoRango(d, h);
+    }
+
+    /**
      * Justifica una jornada: crea una novedad JUSTIFICADO y anula las
      * penalizaciones auto-generadas de esa jornada.
      */

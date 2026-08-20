@@ -15,6 +15,9 @@ public interface CargoRepository extends HelperRepository<Cargo, Long> {
 
     public List<Cargo> findByDescripcion(String texto);
 
+    /** Cuantos cargos dependen jerarquicamente de este. Bloquea su borrado. */
+    Long countBySupervisadoPorId(Long cargoId);
+
     @Query("select p from Cargo p where CAST(id as text) like %?1% or UPPER(p.nombre) like %?1% or UPPER(p.descripcion) like %?1%")
     public List<Cargo> findByAll(String texto);
 

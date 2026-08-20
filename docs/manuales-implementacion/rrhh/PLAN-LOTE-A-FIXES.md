@@ -281,6 +281,28 @@ Sin AOT entre fases; el gate real (`npm run check` en desktop, `./mvnw clean ver
 
 **Orden no negociable:** B1 y B3 en la misma fase (§2). R1 antes de B13, porque B13 toca `fechaItem` y R1 reorganiza ese archivo.
 
+## 10.5 Verificación en runtime (2026-08-20)
+
+Corrida contra el central local con la base `bodega_producto_devoluciones`, generando el lote
+completo desde el desktop web. **No alcanza con leer el código**: B9 falló dos diagnósticos
+estáticos seguidos antes de quedar bien.
+
+| Qué | Resultado |
+|---|---|
+| Lote completo | **"Borradores generados: 389"** — los 389 activos, sin fallos silenciosos |
+| `entityManager.clear()` no rompe el lote | ✅ Era el riesgo real del fix: vaciar el identity map con OSIV puede desprender entidades en uso |
+| Sueldo leído | `salario_base = 3.100.000`, el valor cambiado **directo en psql** sin pasar por la app |
+| **B5** | 389 liquidaciones, **1 solo** ítem `IPS_DESCUENTO`: el del único funcionario con `ips_activo = true` |
+| **B13** | Dos ítems separados, `QUEJA_CLIENTE: …` y `DANIO_MATERIAL: …`, con su `referencia_id`. Totales correctos |
+| **B6** | Ítems `Origen: AUTO` con botón de eliminar; confirmación con el aviso de "reaparece al regenerar"; borrado y totales recalculados (1.000.000 → 0) |
+
+**Penalizaciones con monto ≤ 0:** la base tenía una, un `TARDANZA` auto-generado en `0.00`.
+Con el filtro nuevo se saltea; antes sumaba cero y, si era la única, tampoco generaba ítem.
+Mismo total, sin regresión. Negativas no había ninguna.
+
+**Confirmado de paso:** el buscador global no encuentra "liquidacion" — hay que llegar por el
+menú. Es la issue desktop #235 en vivo.
+
 ## 11. Cierre
 
 1. `./mvnw clean verify` en central — incluye los tests que rompió el PR anterior por constructores nuevos.

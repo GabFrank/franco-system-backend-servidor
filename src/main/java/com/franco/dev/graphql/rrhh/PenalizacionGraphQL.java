@@ -103,7 +103,12 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         e.setTipo(input.getTipo());
         e.setDescripcion(input.getDescripcion());
         e.setMonto(input.getMonto());
-        if (input.getNumeroAdvertencia() != null) e.setNumeroAdvertencia(input.getNumeroAdvertencia());
+        // El numero correlativo lo pone el backend al crear (PenalizacionService.save).
+        // Solo se acepta del cliente al EDITAR, para poder corregir uno cargado mal; en el
+        // alta se ignora, asi una llamada GraphQL directa no puede saltear la numeracion.
+        if (input.getId() != null && input.getNumeroAdvertencia() != null) {
+            e.setNumeroAdvertencia(input.getNumeroAdvertencia());
+        }
         if (input.getFirmada() != null) e.setFirmada(input.getFirmada());
         if (input.getFechaHecho() != null && stringToDate(input.getFechaHecho()) != null)
             e.setFechaHecho(stringToDate(input.getFechaHecho()).toLocalDate());

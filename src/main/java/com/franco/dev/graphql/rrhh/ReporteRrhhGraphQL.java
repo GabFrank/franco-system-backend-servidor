@@ -8,6 +8,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.franco.dev.service.rrhh.RrhhSecurityService seg;
+
+
     @Autowired
     private ReporteRrhhService service;
 
@@ -53,6 +57,10 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
 
     /** Acta de amonestacion. Solo PDF A4: dos firmas no entran en una termica. */
     public String imprimirActaAdvertencia(Long id) {
+        // El acta lleva el motivo disciplinario del funcionario: no es un dato que deba
+        // ver cualquier usuario autenticado. El resto de este resolver no gatea (deuda
+        // previa), pero lo nuevo si.
+        seg.requireVer();
         return service.actaAdvertenciaBase64(id);
     }
 

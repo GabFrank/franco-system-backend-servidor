@@ -87,6 +87,7 @@ extend type Query {
     liquidacionConcepto(id: ID!): LiquidacionConcepto
     liquidacionConceptoPorCodigo(codigo: String!): LiquidacionConcepto
     liquidacionConceptos(page: Int = 0, size: Int = 50): [LiquidacionConcepto]!
+    liquidacionConceptosParaItemManual: [LiquidacionConcepto]!
     countLiquidacionConcepto: Int
 }
 

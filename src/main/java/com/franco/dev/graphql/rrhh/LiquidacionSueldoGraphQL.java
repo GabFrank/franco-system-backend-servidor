@@ -65,9 +65,10 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.generarBorrador(funcionarioId, periodo, monedaId);
     }
 
-    public LiquidacionItem agregarItemLiquidacion(Long liquidacionId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
+    public LiquidacionItem agregarItemLiquidacion(Long liquidacionId, String descripcion, BigDecimal monto,
+                                                  LiquidacionItemTipo tipo, Long liquidacionConceptoId) {
         seg.requireAnyRole(seg.LIQUIDAR);
-        return service.agregarItemManual(liquidacionId, descripcion, monto, tipo);
+        return service.agregarItemManual(liquidacionId, descripcion, monto, tipo, liquidacionConceptoId);
     }
 
     public Boolean eliminarItemLiquidacion(Long itemId) {

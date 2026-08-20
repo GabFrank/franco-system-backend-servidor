@@ -55,6 +55,7 @@ public class ReciboLiquidacionService {
     private final PrestamoCuotaRepository prestamoCuotaRepository;
     private final PenalizacionRepository penalizacionRepository;
     private final ConfiguracionRrhhService configuracionRrhhService;
+    private final LiquidacionConceptoService liquidacionConceptoService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
@@ -66,7 +67,8 @@ public class ReciboLiquidacionService {
                                     VacacionVentaRepository vacacionVentaRepository,
                                     PrestamoCuotaRepository prestamoCuotaRepository,
                                     PenalizacionRepository penalizacionRepository,
-                                    ConfiguracionRrhhService configuracionRrhhService) {
+                                    ConfiguracionRrhhService configuracionRrhhService,
+                                    LiquidacionConceptoService liquidacionConceptoService) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -76,6 +78,7 @@ public class ReciboLiquidacionService {
         this.prestamoCuotaRepository = prestamoCuotaRepository;
         this.penalizacionRepository = penalizacionRepository;
         this.configuracionRrhhService = configuracionRrhhService;
+        this.liquidacionConceptoService = liquidacionConceptoService;
     }
 
     @Transactional(readOnly = true)
@@ -211,9 +214,23 @@ public class ReciboLiquidacionService {
         return it.getTipo() == LiquidacionItemTipo.DESCUENTO ? "(" + monto + ")" : monto;
     }
 
-    /** Categoria del movimiento a partir del codigo del item, como en el recibo modelo. */
+    /**
+     * Categoria del movimiento para la columna Operacion.
+     *
+     * <p>Resuelve por el catalogo {@code rrhh.liquidacion_concepto}, que es donde vive el
+     * nombre de cada concepto y se puede editar sin deploy. El switch de abajo queda como
+     * respaldo para codigos legacy que no esten seedeados: sin el, un item viejo con un
+     * codigo desconocido perderia su etiqueta.</p>
+     */
     private String operacion(LiquidacionItem it) {
         String c = it.getCodigo() != null ? it.getCodigo() : "";
+        if (!c.isEmpty()) {
+            String delCatalogo = liquidacionConceptoService.findByCodigo(c)
+                    .map(lc -> lc.getDescripcion())
+                    .filter(d -> d != null && !d.trim().isEmpty())
+                    .orElse(null);
+            if (delCatalogo != null) return delCatalogo;
+        }
         switch (c) {
             case "SALARIO_BASE": return "SUELDO";
             case "HORA_EXTRA": return "HORAS EXTRA";

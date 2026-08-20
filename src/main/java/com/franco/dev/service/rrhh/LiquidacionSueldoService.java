@@ -77,6 +77,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
     private final com.franco.dev.service.administrativo.JornadaService jornadaService;
     private final CreditoConvenioService creditoConvenioService;
+    private final LiquidacionConceptoService liquidacionConceptoService;
     private final PlatformTransactionManager transactionManager;
 
     /**
@@ -388,17 +389,49 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     // Items manuales
     // =====================================================================
 
+    /**
+     * Agrega un item cargado a mano.
+     *
+     * <p>El concepto sale del catalogo {@code rrhh.liquidacion_concepto} y define tanto el
+     * codigo (que el recibo usa para la columna Operacion) como el signo. El {@code tipo}
+     * que mande el cliente se IGNORA cuando hay concepto: si el signo se pudiera mandar
+     * aparte, un bug de UI o una llamada GraphQL directa podria crear un descuento
+     * marcado como haber. La unica fuente de verdad es {@code esHaber} del catalogo.</p>
+     *
+     * <p>Sin concepto se mantiene el camino viejo (HABER_MANUAL / DESCUENTO_MANUAL segun
+     * el tipo recibido), para no romper clientes que todavia no mandan el concepto.</p>
+     */
     @Transactional
-    public LiquidacionItem agregarItemManual(Long liquidacionId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
+    public LiquidacionItem agregarItemManual(Long liquidacionId, String descripcion, BigDecimal monto,
+                                             LiquidacionItemTipo tipo, Long liquidacionConceptoId) {
         LiquidacionSueldo liq = repository.findById(liquidacionId)
                 .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() != LiquidacionSueldoEstado.BORRADOR) {
             throw new GraphQLException("Solo se pueden agregar items en estado BORRADOR");
         }
+
+        String codigo;
+        String desc = descripcion != null ? descripcion.toUpperCase().trim() : null;
+        if (liquidacionConceptoId != null) {
+            LiquidacionConcepto concepto = liquidacionConceptoService.findById(liquidacionConceptoId)
+                    .orElseThrow(() -> new GraphQLException("Concepto de liquidacion no encontrado"));
+            if (Boolean.FALSE.equals(concepto.getActivo())) {
+                throw new GraphQLException("El concepto " + concepto.getCodigo() + " esta inactivo");
+            }
+            codigo = concepto.getCodigo();
+            tipo = Boolean.FALSE.equals(concepto.getEsHaber())
+                    ? LiquidacionItemTipo.DESCUENTO : LiquidacionItemTipo.HABER;
+            // Sin texto libre, la descripcion del catalogo alcanza para que el recibo se explique.
+            if (desc == null || desc.isEmpty()) desc = concepto.getDescripcion();
+        } else {
+            if (tipo == null) tipo = LiquidacionItemTipo.DESCUENTO;
+            codigo = tipo == LiquidacionItemTipo.HABER ? "HABER_MANUAL" : "DESCUENTO_MANUAL";
+        }
+
         LiquidacionItem it = new LiquidacionItem();
         it.setLiquidacion(liq);
-        it.setCodigo(tipo == LiquidacionItemTipo.HABER ? "HABER_MANUAL" : "DESCUENTO_MANUAL");
-        it.setDescripcion(descripcion != null ? descripcion.toUpperCase() : null);
+        it.setCodigo(codigo);
+        it.setDescripcion(desc);
         it.setMonto(monto != null ? monto : BigDecimal.ZERO);
         it.setTipo(tipo);
         it.setManual(true);

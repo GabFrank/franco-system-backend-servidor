@@ -245,6 +245,8 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // se le descuenta, y sin referenciaId el item no se puede rastrear hasta su origen.
         // La descripcion lleva "TIPO: descripcion" para que el recibo lo explique solo.
         for (Penalizacion p : penalizacionRepository.findByFuncionarioIdAndFechaBetweenAndAnuladaFalse(fid, inicio, fin)) {
+            // Las amonestaciones no son plata: se registran y se cuentan, no se descuentan.
+            if (p.getTipo() == PenalizacionTipo.ADVERTENCIA) continue;
             if (p.getMonto() == null || p.getMonto().signum() <= 0) continue;
             String desc = p.getTipo() != null ? p.getTipo().name() : "PENALIZACION";
             if (p.getDescripcion() != null && !p.getDescripcion().trim().isEmpty()) {

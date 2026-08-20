@@ -7,6 +7,12 @@ import java.math.BigDecimal;
 
 @Data
 public class PenalizacionInput {
+
+    /** Solo para tipo ADVERTENCIA. Si viene null lo numera el backend al crear. */
+    private Integer numeroAdvertencia;
+    private Boolean firmada;
+    private String fechaHecho;
+
     private Long id;
     private Long funcionarioId;
     private Long jornadaId;

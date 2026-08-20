@@ -200,10 +200,30 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
         return total;
     }
 
+    /**
+     * Cuantas amonestaciones no anuladas acumula el funcionario. Es el contador que se
+     * muestra en el legajo, y el que numera la siguiente acta.
+     */
+    public Long contarAdvertencias(Long funcionarioId) {
+        if (funcionarioId == null) return 0L;
+        Long n = repository.countByFuncionarioIdAndTipoAndAnuladaFalse(
+                funcionarioId, PenalizacionTipo.ADVERTENCIA);
+        return n != null ? n : 0L;
+    }
+
     @Override
     public Penalizacion save(Penalizacion entity) {
         if (entity.getId() == null && entity.getCreadoEn() == null)
             entity.setCreadoEn(LocalDateTime.now());
+        // Numera la amonestacion al crearla: "2a advertencia" tiene que quedar en el acta
+        // impresa, no calcularse al vuelo cada vez que se abre (si despues se anula otra,
+        // el numero del acta ya firmada cambiaria).
+        if (entity.getId() == null
+                && entity.getTipo() == PenalizacionTipo.ADVERTENCIA
+                && entity.getNumeroAdvertencia() == null
+                && entity.getFuncionario() != null) {
+            entity.setNumeroAdvertencia(contarAdvertencias(entity.getFuncionario().getId()).intValue() + 1);
+        }
         if (entity.getAnulada() == null) entity.setAnulada(false);
         if (entity.getAutoGenerada() == null) entity.setAutoGenerada(false);
         if (entity.getMonto() == null) entity.setMonto(BigDecimal.ZERO);

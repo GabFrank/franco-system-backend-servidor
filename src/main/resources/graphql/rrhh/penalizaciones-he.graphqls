@@ -5,6 +5,7 @@ enum PenalizacionTipo {
     AMBIENTE_LABORAL
     DANIO_MATERIAL
     COMISION_DESCUENTO
+    ADVERTENCIA
     OTRO
 }
 
@@ -65,6 +66,9 @@ type Penalizacion {
     anulada: Boolean
     registradoPor: Usuario
     creadoEn: Date
+    numeroAdvertencia: Int
+    firmada: Boolean
+    fechaHecho: String
 }
 
 input PenalizacionInput {
@@ -79,6 +83,9 @@ input PenalizacionInput {
     autoGenerada: Boolean
     anulada: Boolean
     registradoPorId: Int
+    numeroAdvertencia: Int
+    firmada: Boolean
+    fechaHecho: String
 }
 
 type PenalizacionPage {
@@ -148,6 +155,7 @@ input JustificarJornadaInput {
 }
 
 extend type Query {
+    contarAdvertencias(funcionarioId: ID!): Int
     feriado(id: ID!): Feriado
     feriados(page: Int = 0, size: Int = 100): [Feriado]!
     feriadosPorRango(desde: String, hasta: String): [Feriado]

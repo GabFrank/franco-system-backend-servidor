@@ -51,6 +51,11 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
         return service.reciboPenalizacionBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
 
+    /** Acta de amonestacion. Solo PDF A4: dos firmas no entran en una termica. */
+    public String imprimirActaAdvertencia(Long id) {
+        return service.actaAdvertenciaBase64(id);
+    }
+
     public String imprimirReciboAguinaldo(Long id, Integer anchoMm, Boolean escpos) {
         return service.reciboAguinaldoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }

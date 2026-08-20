@@ -76,6 +76,12 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 PageRequest.of(page, size));
     }
 
+    /** Cuantas amonestaciones no anuladas acumula el funcionario (chip del legajo). */
+    public Long contarAdvertencias(Long funcionarioId) {
+        seg.requireVer();
+        return service.contarAdvertencias(funcionarioId);
+    }
+
     public Penalizacion savePenalizacion(PenalizacionInput input) {
         seg.requireAnyRole(seg.GESTIONAR);
         // Una penalizacion es siempre un descuento positivo. Un monto negativo cargado como
@@ -97,6 +103,10 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         e.setTipo(input.getTipo());
         e.setDescripcion(input.getDescripcion());
         e.setMonto(input.getMonto());
+        if (input.getNumeroAdvertencia() != null) e.setNumeroAdvertencia(input.getNumeroAdvertencia());
+        if (input.getFirmada() != null) e.setFirmada(input.getFirmada());
+        if (input.getFechaHecho() != null && stringToDate(input.getFechaHecho()) != null)
+            e.setFechaHecho(stringToDate(input.getFechaHecho()).toLocalDate());
         if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
             e.setFecha(stringToDate(input.getFecha()).toLocalDate());
         if (input.getAutoGenerada() != null) e.setAutoGenerada(input.getAutoGenerada());

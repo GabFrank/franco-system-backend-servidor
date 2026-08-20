@@ -54,6 +54,7 @@ public class ReciboLiquidacionService {
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
     private final PenalizacionRepository penalizacionRepository;
+    private final ConfiguracionRrhhService configuracionRrhhService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
@@ -64,7 +65,8 @@ public class ReciboLiquidacionService {
                                     BonoRepository bonoRepository,
                                     VacacionVentaRepository vacacionVentaRepository,
                                     PrestamoCuotaRepository prestamoCuotaRepository,
-                                    PenalizacionRepository penalizacionRepository) {
+                                    PenalizacionRepository penalizacionRepository,
+                                    ConfiguracionRrhhService configuracionRrhhService) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -73,6 +75,7 @@ public class ReciboLiquidacionService {
         this.vacacionVentaRepository = vacacionVentaRepository;
         this.prestamoCuotaRepository = prestamoCuotaRepository;
         this.penalizacionRepository = penalizacionRepository;
+        this.configuracionRrhhService = configuracionRrhhService;
     }
 
     @Transactional(readOnly = true)
@@ -105,6 +108,9 @@ public class ReciboLiquidacionService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocial());
+        params.put("ruc", ruc());
+        params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
+        params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
         params.put("funcionario", nombreFuncionario(liq));
         params.put("documento", documentoFuncionario(liq));
         params.put("direccion", direccionFuncionario(liq));
@@ -117,7 +123,9 @@ public class ReciboLiquidacionService {
         params.put("totalRecibido", formatear(liq.getTotalHaberes()));
         params.put("totalDescontado", formatear(liq.getTotalDescuentos()));
         params.put("totalNeto", formatear(liq.getTotalNeto()));
-        params.put("montoEnLetras", enLetras(liq.getTotalNeto()));
+        // El monto en letras acompania la frase de recepcion, que declara el BRUTO
+        // ("recibi la suma de..."). El neto sigue mostrandose aparte, en "Total a cobrar".
+        params.put("montoEnLetras", enLetras(liq.getTotalHaberes()));
 
         try (InputStream jrxmlStream = new ClassPathResource("reports/recibo-liquidacion.jrxml").getInputStream()) {
             JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlStream);
@@ -290,6 +298,12 @@ public class ReciboLiquidacionService {
             if (cg.getNombreEmpresa() != null) return cg.getNombreEmpresa();
         }
         return "";
+    }
+
+    /** RUC de la empresa emisora, para el encabezado del recibo. */
+    private String ruc() {
+        ConfiguracionGeneral cg = configGeneral();
+        return cg != null && cg.getRuc() != null ? cg.getRuc() : "";
     }
 
     private ConfiguracionGeneral configGeneral() {

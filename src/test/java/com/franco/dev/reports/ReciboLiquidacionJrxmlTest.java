@@ -31,7 +31,7 @@ public class ReciboLiquidacionJrxmlTest {
     private static final String[] PARAMS = {
             "empresa", "funcionario", "cargo", "documento", "direccion", "periodo",
             "fecha", "ciudad", "sueldoBase", "totalRecibido", "totalDescontado",
-            "totalNeto", "montoEnLetras"
+            "totalNeto", "montoEnLetras", "ruc", "direccionEmpresa", "telefonoEmpresa"
     };
 
     private static Map<String, Object> paramsDummy() {
@@ -83,10 +83,36 @@ public class ReciboLiquidacionJrxmlTest {
     }
 
     private byte[] generar(List<ReciboLiquidacionItemDto> filas) throws Exception {
+        return JasperExportManager.exportReportToPdf(llenar(filas));
+    }
+
+    private JasperPrint llenar(List<ReciboLiquidacionItemDto> filas) throws Exception {
         File f = ResourceUtils.getFile("classpath:reports/recibo-liquidacion.jrxml");
         JasperReport jr = JasperCompileManager.compileReport(f.getAbsolutePath());
-        JasperPrint print = JasperFillManager.fillReport(jr, paramsDummy(),
-                new JRBeanCollectionDataSource(filas));
-        return JasperExportManager.exportReportToPdf(print);
+        return JasperFillManager.fillReport(jr, paramsDummy(), new JRBeanCollectionDataSource(filas));
+    }
+
+    /**
+     * El pedido es que las DOS vias entren en la misma hoja. Jasper no parte la banda
+     * summary: si no entra, la manda entera a una pagina nueva y el recibo sale en dos
+     * hojas. Esta es la unica forma de que ese limite no se descubra recien imprimiendo.
+     *
+     * <p><b>Techo medido: 25 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
+     * (18) + summary con las dos vias (292) = 420 fijos, y quedan 382 para el detalle a
+     * 15pt por fila. Con 26 items se parte en dos hojas, verificado. El test corre hasta
+     * 20 para dejar margen: si alguien agranda una banda, salta aca y no en la impresora.</p>
+     */
+    @Test
+    void lasDosViasEntranEnUnaHoja() throws Exception {
+        for (int n : new int[]{1, 5, 10, 15, 20}) {
+            List<ReciboLiquidacionItemDto> filas = new ArrayList<>();
+            for (int i = 1; i <= n; i++) {
+                filas.add(new ReciboLiquidacionItemDto("CREDITO", "SALIDA",
+                        "CUOTA CREDITO - venta #" + i, "10/11/2026", "50.000"));
+            }
+            int paginas = llenar(filas).getPages().size();
+            org.junit.jupiter.api.Assertions.assertEquals(1, paginas,
+                    "con " + n + " items el recibo salio en " + paginas + " hojas; las dos vias tienen que entrar en una");
+        }
     }
 }

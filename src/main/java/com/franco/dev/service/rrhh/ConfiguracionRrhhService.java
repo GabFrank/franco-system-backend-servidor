@@ -82,6 +82,15 @@ public class ConfiguracionRrhhService extends CrudService<ConfiguracionRrhh, Con
         return porDefecto;
     }
 
+    /** Devuelve el texto de una clave, o el default si no existe o esta vacia. */
+    public String getString(String clave, String porDefecto) {
+        Optional<ConfiguracionRrhh> c = findByClave(clave);
+        if (c.isPresent() && c.get().getValor() != null && !c.get().getValor().trim().isEmpty()) {
+            return c.get().getValor().trim();
+        }
+        return porDefecto;
+    }
+
     /** Devuelve el valor booleano de una clave, o el default si no existe. */
     public boolean getBoolean(String clave, boolean porDefecto) {
         Optional<ConfiguracionRrhh> c = findByClave(clave);

@@ -266,6 +266,35 @@ Y el motivo del pedido es explícito: *"la hoja de liquidación es muy extensa"*
 
 **Lo que sí quedó resuelto:** "seleccionar qué monedas" son **divisas** (Gs/R$/US$), no denominaciones. `RetiroDetalle` es `(retiro, moneda, cantidad)` sin FK a `MonedaBilletes`; el PDV nunca registra billetes al retirar. Y hay patrón hermano listo para copiar: `MaletinTesoreriaService.ingresarMaletinCierre` ya recibe `List<Long> monedaIds`. Esa mitad es barata; la de recepción parcial es la cara.
 
+## 7.5 Qué cambió al implementar (2026-08-20)
+
+| Planeado | Real | Por qué |
+|---|---|---|
+| Las dos vías del recibo con firma | **Confirmado**, tras una corrección | Primero se sacó la firma de la vía del funcionario; el usuario corrigió que firman las dos. Lo que sí quedó corregido son las etiquetas: arriba la copia del funcionario, abajo el original de la empresa |
+| Techo de ~14 ítems por hoja | **25**, medido | El cálculo del plan sobreestimaba las bandas fijas. Con 26 se parte, verificado, y está como aserción en `lasDosViasEntranEnUnaHoja` |
+| `V201.5` = `ALTER TABLE configuracion_general` | `INSERT` en `configuracion_rrhh` | Esa tabla está en `central_pub`: agregarle columnas rompe el apply worker de las filiales. Ver §0.1 |
+| Consolidación de B16 dentro del servicio | Builder puro `ReciboAgrupador` | Para poder testearla sola, como los demás calculadores. 5 tests, uno fija que agrupar no cambie el total descontado |
+| Numerado de advertencia derivado al leer | **Persistido al crear** | Si se derivara contando, anular una amonestación vieja cambiaría el número de un acta ya firmada |
+
+**Un bug propio que costó una hora de diagnóstico.** La query nueva de B12 se declaró con
+`servidor = false`, y ese flag elige el cliente Apollo:
+
+```ts
+clientName: servidor == null || servidor ? "servidor" : null
+```
+
+Con `false` salía por el cliente por defecto en vez del central. Y como `onCustomQuery`
+**no emite** cuando la respuesta trae `errors` —solo muestra un snackbar—, el observable
+quedaba colgado. Es el mismo modo de falla que la auditoría del lote A marcó para el
+diálogo de ajuste de salarios: el síntoma nunca es un error visible, sino algo que no pasa.
+
+**Una conclusión falsa que conviene no repetir.** Durante ese diagnóstico se atribuyó el
+problema a que "la app queda pidiendo configuración de servidor al reiniciar el central".
+Era falso: el diálogo de configuración lo abrió un click mal apuntado sobre el engranaje, y
+las capturas del usuario mostraron Electron y Chrome funcionando sin ningún diálogo. El
+bisect que se hizo con esa hipótesis fue inválido porque ambos lados se probaron con la
+conexión al central caída.
+
 ## 8. Fases y commits
 
 | Fase | Contenido | Commit |

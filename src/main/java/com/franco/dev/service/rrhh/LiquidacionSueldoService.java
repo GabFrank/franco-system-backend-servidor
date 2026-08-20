@@ -79,6 +79,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final CreditoConvenioService creditoConvenioService;
     private final PlatformTransactionManager transactionManager;
 
+    /**
+     * Inyectado por campo a proposito: @AllArgsConstructor solo toma los final, y este no
+     * puede serlo. Se usa en generarLote para vaciar el cache de primer nivel entre
+     * funcionarios — ver el comentario ahi.
+     */
+    @javax.persistence.PersistenceContext
+    private javax.persistence.EntityManager entityManager;
+
     @Override
     public LiquidacionSueldoRepository getRepository() {
         return repository;
@@ -111,6 +119,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
      * un periodo 'YYYY-MM'. Preserva los items manuales; recalcula los
      * automaticos. Espejo del algoritmo de FRC Gourmet.
      */
+    // OJO: esta anotacion solo aplica cuando el metodo se invoca desde afuera (por el
+    // proxy de Spring). generarLote lo llama desde la misma clase, asi que ahi no rige:
+    // el aislamiento por funcionario lo pone el TransactionTemplate de aquel metodo.
     @Transactional
     public LiquidacionSueldo generarBorrador(Long funcionarioId, String periodo, Long monedaId) {
         Funcionario f = funcionarioService.findById(funcionarioId).orElse(null);
@@ -665,14 +676,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             }
         }
 
-        // Una transaccion por funcionario, no una sola para el lote entero. Dos razones:
-        //
-        // 1. Con transaccion compartida, generarBorrador recibe del identity map de
-        //    Hibernate el Funcionario que este metodo ya cargo arriba, no la fila fresca:
-        //    si el sueldo cambio despues de esa lectura, la liquidacion sale con el viejo.
-        // 2. El catch de abajo se traga el fallo de un funcionario para seguir con los
-        //    demas, pero compartiendo transaccion ese fallo puede marcar rollback-only y
-        //    tumbar tambien a los que ya se procesaron bien.
+        // Una transaccion por funcionario, no una sola para el lote entero: el catch de
+        // abajo se traga el fallo de un funcionario para seguir con los demas, y
+        // compartiendo transaccion ese fallo puede marcar rollback-only y tumbar tambien a
+        // los que ya se procesaron bien.
         //
         // Va con TransactionTemplate y no con @Transactional(REQUIRES_NEW) sobre
         // generarBorrador: la llamada de abajo es self-invocation (mismo bean), no pasa
@@ -683,7 +690,18 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         int n = 0;
         for (Long id : objetivo) {
             try {
-                tx.execute(status -> generarBorrador(id, periodo, monedaId));
+                tx.execute(status -> {
+                    // Vaciar el cache de primer nivel ANTES de cada funcionario. La
+                    // transaccion nueva no alcanza: la app corre con
+                    // OpenEntityManagerInViewFilter (FrancoSystemsApplication.OpenFilter) y
+                    // sin spring.jpa.open-in-view=false, asi que hay un EntityManager atado
+                    // al hilo para toda la request. JpaTransactionManager.doBegin lo
+                    // reutiliza en vez de crear uno nuevo, y sin este clear el findById de
+                    // generarBorrador devolveria el Funcionario que el loop de arriba ya
+                    // cargo — con el sueldo viejo si cambio despues de esa lectura.
+                    entityManager.clear();
+                    return generarBorrador(id, periodo, monedaId);
+                });
                 n++;
             } catch (Exception ignored) {
             }

@@ -95,7 +95,8 @@ public class ConfiguracionRrhhGraphQL implements GraphQLQueryResolver, GraphQLMu
         // unboxing del for-each en ajustarAlMinimo tira ClassCastException. Mismo patron que
         // LiquidacionSueldoGraphQL.generarLiquidacionesLote.
         List<Long> ids = funcionarioIds == null ? null
-                : funcionarioIds.stream().map(Integer::longValue).collect(java.util.stream.Collectors.toList());
+                : funcionarioIds.stream().filter(java.util.Objects::nonNull)
+                        .map(Integer::longValue).collect(java.util.stream.Collectors.toList());
         Usuario u = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
         return ajusteSalarioMinimoService.ajustarAlMinimo(ids, minimo, u);
     }

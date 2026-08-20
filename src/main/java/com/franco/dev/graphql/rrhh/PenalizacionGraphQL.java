@@ -78,6 +78,15 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Penalizacion savePenalizacion(PenalizacionInput input) {
         seg.requireAnyRole(seg.GESTIONAR);
+        // Una penalizacion es siempre un descuento positivo. Un monto negativo cargado como
+        // "correccion" de otra penalizacion genera su propio item de DESCUENTO en la
+        // liquidacion, donde no se compensa con nada: el funcionario termina cobrando de
+        // menos y en el recibo no se ve por que. Para corregir hay que anular y volver a
+        // cargar, que es lo que deja rastro.
+        if (input.getMonto() != null && input.getMonto().signum() < 0) {
+            throw new graphql.GraphQLException(
+                    "El monto de una penalizacion no puede ser negativo. Para corregir una penalizacion, anulala y carga la nueva.");
+        }
         Penalizacion e = input.getId() != null
                 ? service.findById(input.getId()).orElse(new Penalizacion())
                 : new Penalizacion();

@@ -54,9 +54,22 @@ class PagoProveedorServiceTest {
         pagoEvento.setId(500L);
         when(pagoService.save(any())).thenReturn(pagoEvento);
         PreGastoService preGastoService = mock(PreGastoService.class);
+        com.franco.dev.service.rrhh.ValeService valeService = mock(com.franco.dev.service.rrhh.ValeService.class);
+        // Los otros conceptos de RRHH pagables desde el hub. Los mocks devuelven false en
+        // tieneSolicitud, asi que el evento se clasifica como compra/gasto, que es lo que
+        // ejercitan estos tests.
+        com.franco.dev.service.rrhh.LiquidacionSueldoService liquidacionSueldoService =
+                mock(com.franco.dev.service.rrhh.LiquidacionSueldoService.class);
+        com.franco.dev.service.rrhh.LiquidacionFinalService liquidacionFinalService =
+                mock(com.franco.dev.service.rrhh.LiquidacionFinalService.class);
+        com.franco.dev.service.rrhh.AguinaldoService aguinaldoService =
+                mock(com.franco.dev.service.rrhh.AguinaldoService.class);
+        // El ACL de cajas acota detalleDePago; estos tests no lo ejercitan.
+        TesoreriaSecurityService seguridad = mock(TesoreriaSecurityService.class);
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
-                chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo, movBancarioRepo,
-                preGastoService);
+                chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo,
+                seguridad, movBancarioRepo,
+                preGastoService, valeService, liquidacionSueldoService, liquidacionFinalService, aguinaldoService);
 
         com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
         Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);

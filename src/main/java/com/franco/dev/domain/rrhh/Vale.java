@@ -66,6 +66,13 @@ public class Vale implements Identifiable<Long> {
     @Column(name = "caja_virtual_id")
     private Long cajaVirtualId;
 
+    /**
+     * Obligacion de pago del vale cuando se paga desde tesoreria (motor CPP).
+     * Null = vale del atajo viejo (crearValeConfirmado: egreso directo a caja mayor).
+     */
+    @Column(name = "solicitud_pago_id")
+    private Long solicitudPagoId;
+
     @Column(name = "movimiento_caja_virtual_id")
     private Long movimientoCajaVirtualId;
 

@@ -30,6 +30,15 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /** Gastos pagables (SolicitudPago tipo GASTO en SOLICITADO/PARCIAL) para el diálogo de gastos. */
+    /**
+     * Desglose de un evento de pago: que documentos se pagaron y cuanto se imputo a cada uno.
+     * Lo consume el detalle del movimiento consolidado en el historial de la caja.
+     */
+    public List<com.franco.dev.service.financiero.dto.DetallePagoItemDto> detalleDePago(Long pagoId) {
+        seg.requireVer();
+        return service.detalleDePago(pagoId);
+    }
+
     public List<SolicitudPago> gastosPendientes() {
         seg.requireVer();
         return service.listarGastosPendientes();
@@ -83,7 +92,8 @@ public class PagoProveedorGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.anularPagoCpp(pagoId, motivo, seg.currentUsuario());
     }
 
-    private List<PagoProveedorService.LineaPago> mapLineas(List<LineaPagoInputWrapper> lineas) {
+    /** Mapeo del input de líneas al modelo del motor de pago. Compartido con el pago de vales. */
+    public static List<PagoProveedorService.LineaPago> mapLineas(List<LineaPagoInputWrapper> lineas) {
         List<PagoProveedorService.LineaPago> ls = new ArrayList<>();
         for (LineaPagoInputWrapper w : lineas) {
             PagoProveedorService.LineaPago l = new PagoProveedorService.LineaPago();

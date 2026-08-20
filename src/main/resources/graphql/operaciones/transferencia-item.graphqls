@@ -139,6 +139,10 @@ extend type Mutation {
     saveTransferenciaItem(transferenciaItem:TransferenciaItemInput!, precioCosto: Float):TransferenciaItem!
     deleteTransferenciaItem(id:ID!):Boolean!
     verificarProducto(id: ID!, vencimientoVerificado: Boolean!): TransferenciaItem!
+    # Vacia las columnas de una etapa del item. En saveTransferenciaItem la ausencia de un campo
+    # significa "no lo toques", asi que limpiar necesita ser un pedido explicito.
+    # Etapas validas: PREPARACION_MERCADERIA, TRANSPORTE_VERIFICACION, RECEPCION_EN_VERIFICACION.
+    desconfirmarTransferenciaItem(id: ID!, etapa: EtapaTransferencia!): TransferenciaItem!
 }
 
 enum TransferenciaItemMotivoRechazo {

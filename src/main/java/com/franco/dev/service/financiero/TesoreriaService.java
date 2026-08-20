@@ -37,6 +37,8 @@ import java.util.Map;
 public class TesoreriaService {
 
     private final CajaVirtualSaldoRepository saldoRepository;
+
+    private final TesoreriaSecurityService seguridad;
     private final CajaVirtualRepository cajaVirtualRepository;
     private final MonedaRepository monedaRepository;
     private final MovimientoCajaVirtualRepository movimientoRepository;
@@ -68,6 +70,10 @@ public class TesoreriaService {
      */
     @Transactional
     public MovimientoCajaVirtual registrar(MovimientoCajaVirtual mov) {
+        // Choke point del ACL de escritura: TODA la plata que entra o sale de una caja pasa
+        // por aca (RRHH, CPP, gastos, maletin, retiros, entradas varias, devoluciones).
+        // Los procesos de sistema (schedulers, replicacion) no tienen sesion y pasan.
+        seguridad.requireEscrituraCaja(mov.getCajaVirtual() != null ? mov.getCajaVirtual().getId() : null);
         if (mov.getActivo() == null) mov.setActivo(true);
         Moneda moneda = resolverMoneda(mov.getMoneda());
         mov.setMoneda(moneda);
@@ -126,6 +132,9 @@ public class TesoreriaService {
     public Boolean transferir(Long origenId, Long destinoId, Double cantidad,
                               Moneda moneda, String descripcion, Usuario usuario) {
         if (origenId.equals(destinoId)) throw new GraphQLException("La caja origen y destino no pueden ser la misma");
+        // Mover plata entre cajas exige permiso en las dos: es un egreso y un ingreso.
+        seguridad.requireEscrituraCaja(origenId);
+        seguridad.requireEscrituraCaja(destinoId);
         CajaVirtual origen = cajaVirtualRepository.findById(origenId)
                 .orElseThrow(() -> new GraphQLException("Caja origen no encontrada"));
         CajaVirtual destino = cajaVirtualRepository.findById(destinoId)
@@ -173,6 +182,8 @@ public class TesoreriaService {
     public MovimientoCajaVirtual anular(Long movimientoId, String motivo, Usuario usuario) {
         MovimientoCajaVirtual orig = movimientoRepository.findById(movimientoId)
                 .orElseThrow(() -> new GraphQLException("Movimiento no encontrado: " + movimientoId));
+        // Anular mueve plata (contra-movimiento): mismo permiso que registrarla.
+        seguridad.requireEscrituraCaja(orig.getCajaVirtual() != null ? orig.getCajaVirtual().getId() : null);
 
         OrigenMovimientoTipo origen = orig.getOrigenTipo();
         if (origen == OrigenMovimientoTipo.ANULACION) {

@@ -117,6 +117,13 @@ public class LiquidacionFinal implements Identifiable<Long> {
     @Column(name = "caja_virtual_id")
     private Long cajaVirtualId;
 
+    /**
+     * Obligacion de pago (SolicitudPago tipo RRHH) cuando se paga desde el hub de la caja.
+     * NULL = pagada por el atajo viejo (egreso directo desde la pantalla de RRHH).
+     */
+    @Column(name = "solicitud_pago_id")
+    private Long solicitudPagoId;
+
     @Column(name = "movimiento_caja_virtual_id")
     private Long movimientoCajaVirtualId;
 

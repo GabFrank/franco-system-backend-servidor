@@ -228,12 +228,19 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         }
         if (he.signum() > 0) items.add(item(liq, "HORA_EXTRA", "HORAS EXTRA", he, LiquidacionItemTipo.HABER, null, null));
 
-        // PENALIZACION (DESC)
-        BigDecimal pen = BigDecimal.ZERO;
+        // PENALIZACION (DESC) — un item por penalizacion, no uno consolidado. Con un solo
+        // item de "PENALIZACIONES" el funcionario recibe un monto sin poder saber de que
+        // se le descuenta, y sin referenciaId el item no se puede rastrear hasta su origen.
+        // La descripcion lleva "TIPO: descripcion" para que el recibo lo explique solo.
         for (Penalizacion p : penalizacionRepository.findByFuncionarioIdAndFechaBetweenAndAnuladaFalse(fid, inicio, fin)) {
-            if (p.getMonto() != null) pen = pen.add(p.getMonto());
+            if (p.getMonto() == null || p.getMonto().signum() <= 0) continue;
+            String desc = p.getTipo() != null ? p.getTipo().name() : "PENALIZACION";
+            if (p.getDescripcion() != null && !p.getDescripcion().trim().isEmpty()) {
+                desc = desc + ": " + p.getDescripcion().trim();
+            }
+            items.add(item(liq, "PENALIZACION", desc, p.getMonto(),
+                    LiquidacionItemTipo.DESCUENTO, p.getId(), "PENALIZACION"));
         }
-        if (pen.signum() > 0) items.add(item(liq, "PENALIZACION", "PENALIZACIONES", pen, LiquidacionItemTipo.DESCUENTO, null, null));
 
         // JUSTIFICATIVO_DESCUENTO (DESC) — dias justificados cuyo TIPO descuenta salario.
         // Cuanto descuenta cada tipo lo define el catalogo (MEDIO_DIA / DIA_COMPLETO),

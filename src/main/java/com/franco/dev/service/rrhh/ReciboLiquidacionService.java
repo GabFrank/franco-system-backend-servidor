@@ -6,6 +6,7 @@ import com.franco.dev.domain.rrhh.LiquidacionItem;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
 import com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo;
 import com.franco.dev.repository.rrhh.BonoRepository;
+import com.franco.dev.repository.rrhh.PenalizacionRepository;
 import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
 import com.franco.dev.repository.rrhh.VacacionVentaRepository;
 import com.franco.dev.repository.rrhh.ValeRepository;
@@ -52,6 +53,7 @@ public class ReciboLiquidacionService {
     private final BonoRepository bonoRepository;
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
+    private final PenalizacionRepository penalizacionRepository;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
@@ -61,7 +63,8 @@ public class ReciboLiquidacionService {
                                     ValeRepository valeRepository,
                                     BonoRepository bonoRepository,
                                     VacacionVentaRepository vacacionVentaRepository,
-                                    PrestamoCuotaRepository prestamoCuotaRepository) {
+                                    PrestamoCuotaRepository prestamoCuotaRepository,
+                                    PenalizacionRepository penalizacionRepository) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -69,6 +72,7 @@ public class ReciboLiquidacionService {
         this.bonoRepository = bonoRepository;
         this.vacacionVentaRepository = vacacionVentaRepository;
         this.prestamoCuotaRepository = prestamoCuotaRepository;
+        this.penalizacionRepository = penalizacionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -242,6 +246,9 @@ public class ReciboLiquidacionService {
                     break;
                 case "CPP_CUOTA":
                     f = prestamoCuotaRepository.findById(ref).map(c -> c.getFechaVencimiento()).orElse(null);
+                    break;
+                case "PENALIZACION":
+                    f = penalizacionRepository.findById(ref).map(p -> p.getFecha()).orElse(null);
                     break;
                 default:
                     break;

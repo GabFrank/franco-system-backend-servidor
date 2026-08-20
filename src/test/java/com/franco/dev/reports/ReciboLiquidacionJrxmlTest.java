@@ -97,14 +97,14 @@ public class ReciboLiquidacionJrxmlTest {
      * summary: si no entra, la manda entera a una pagina nueva y el recibo sale en dos
      * hojas. Esta es la unica forma de que ese limite no se descubra recien imprimiendo.
      *
-     * <p><b>Techo medido: 25 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
-     * (18) + summary con las dos vias (292) = 420 fijos, y quedan 382 para el detalle a
-     * 15pt por fila. Con 26 items se parte en dos hojas, verificado. El test corre hasta
-     * 20 para dejar margen: si alguien agranda una banda, salta aca y no en la impresora.</p>
+     * <p><b>Techo medido: 27 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
+     * (18) + summary con las dos vias (256) = 384 fijos, y quedan 418 para el detalle a
+     * 15pt por fila. Con 28 items se parte en dos hojas, verificado. El test corre hasta
+     * 22 para dejar margen: si alguien agranda una banda, salta aca y no en la impresora.</p>
      */
     @Test
     void lasDosViasEntranEnUnaHoja() throws Exception {
-        for (int n : new int[]{1, 5, 10, 15, 20}) {
+        for (int n : new int[]{1, 5, 10, 15, 20, 22}) {
             List<ReciboLiquidacionItemDto> filas = new ArrayList<>();
             for (int i = 1; i <= n; i++) {
                 filas.add(new ReciboLiquidacionItemDto("CREDITO", "SALIDA",

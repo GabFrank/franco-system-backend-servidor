@@ -35,6 +35,18 @@ El trabajo se reparte en dos lotes, planificados y auditados:
 - **Fuera de los lotes**: B14 + B15 (necesitan decidir la fuente de verdad del salario y
   ~8 preguntas de negocio) y F3 (cross-repo, toca filial, con una pregunta bloqueante).
 
+## Estado (2026-08-20)
+
+El trabajo se reparte en dos lotes, planificados y auditados:
+
+- **Lote A — fixes**: `docs/manuales-implementacion/rrhh/PLAN-LOTE-A-FIXES.md`.
+  B1, B3, B5, B6, B9, B13 y F8 **implementados y verificados en runtime** contra el central
+  local (rama `fix/rrhh-calculos-y-trazabilidad`). Detalle de la verificación en §11 del plan.
+- **Lote B — features**: `docs/manuales-implementacion/rrhh/PLAN-LOTE-B-FEATS.md`.
+  B4, B7, B8, B10, B11, B12 y B16.
+- **Fuera de los lotes**: B14 + B15 (necesitan decidir la fuente de verdad del salario y
+  ~8 preguntas de negocio) y F3 (cross-repo, toca filial, con una pregunta bloqueante).
+
 ## Índice
 
 | # | Título | Sev |

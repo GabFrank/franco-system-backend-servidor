@@ -30,4 +30,31 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
     BigDecimal sumConvenioCobrado(@Param("cuotaId") Long cuotaId,
                                   @Param("sucId") Long sucId,
                                   @Param("excludeLiqId") Long excludeLiqId);
+
+    /**
+     * Lo percibido por el funcionario en el anio, agregado por periodo, contando solo los
+     * items HABER cuyo concepto es remunerativo.
+     *
+     * <p>Devuelve {@code [periodo, monto]} por mes. Una sola query: la version por item
+     * haria un SELECT al catalogo por fila, que es el N+1 que ya se corrigio en el
+     * recibo.</p>
+     *
+     * <p>El join al catalogo es por codigo (es un String, no una FK) y va por izquierda a
+     * proposito: un item con un codigo que no esta en el catalogo cuenta como
+     * remunerativo, igual que el DEFAULT TRUE de la columna. Asi los items historicos no
+     * desaparecen de la base por no estar seedeados.</p>
+     */
+    @Query("select l.periodo, coalesce(sum(i.monto), 0) " +
+            "from LiquidacionItem i " +
+            "join i.liquidacion l " +
+            "left join com.franco.dev.domain.rrhh.LiquidacionConcepto c on c.codigo = i.codigo " +
+            "where l.funcionario.id = :funcionarioId " +
+            "and l.periodo like concat(cast(:anio as string), '-%') " +
+            "and (l.estado = com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.APROBADA " +
+            "  or l.estado = com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.PAGADA) " +
+            "and i.tipo = com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo.HABER " +
+            "and (c.id is null or c.esRemunerativo is null or c.esRemunerativo = true) " +
+            "group by l.periodo order by l.periodo")
+    List<Object[]> percibidoPorPeriodo(@Param("funcionarioId") Long funcionarioId,
+                                       @Param("anio") Integer anio);
 }

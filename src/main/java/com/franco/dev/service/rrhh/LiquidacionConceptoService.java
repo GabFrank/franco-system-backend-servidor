@@ -32,6 +32,11 @@ public class LiquidacionConceptoService extends CrudService<LiquidacionConcepto,
         if (entity.getActivo() == null) entity.setActivo(true);
         if (entity.getEsHaber() == null) entity.setEsHaber(true);
         if (entity.getEsCalculadoAuto() == null) entity.setEsCalculadoAuto(false);
+        // Default true, igual que la columna: un cliente viejo que no manda el campo no
+        // puede reventar el insert. La UI si lo pide en el alta -- el default es la red,
+        // no el camino esperado, porque un concepto que entra a la base remunerativa sin
+        // que nadie lo haya decidido es justo la falla silenciosa que este cambio corrige.
+        if (entity.getEsRemunerativo() == null) entity.setEsRemunerativo(true);
         if (entity.getCodigo() != null) entity.setCodigo(entity.getCodigo().toUpperCase());
         return super.save(entity);
     }

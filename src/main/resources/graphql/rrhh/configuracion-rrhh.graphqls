@@ -33,6 +33,7 @@ type LiquidacionConcepto {
     descripcion: String
     esHaber: Boolean
     esCalculadoAuto: Boolean
+    esRemunerativo: Boolean
     activo: Boolean
     usuario: Usuario
     creadoEn: Date
@@ -44,6 +45,7 @@ input LiquidacionConceptoInput {
     descripcion: String
     esHaber: Boolean
     esCalculadoAuto: Boolean
+    esRemunerativo: Boolean
     activo: Boolean
     creadoEn: Date
     usuarioId: Int

@@ -1,0 +1,50 @@
+# Pago de liquidacion mensual, finiquito y aguinaldo desde tesoreria, con el mismo motor
+# de pago que CPP. Extiende a esos conceptos el puente que vale-tesoreria.graphqls abrio
+# para el vale: el documento de RRHH sigue siendo la verdad del modulo, su obligacion de
+# pago es una SolicitudPago tipo RRHH.
+
+# Fila de los dialogos "Pagar Liquidacion" / "Pagar Finiquito" / "Pagar Aguinaldo".
+# Es una proyeccion y no la entidad porque el saldo no vive en el documento: sale de su
+# obligacion de pago, que puede no existir todavia.
+type PagoRrhhPendiente {
+    # LIQUIDACION | FINIQUITO | AGUINALDO. Define contra que entidad resuelve el id.
+    concepto: String!
+    id: ID!
+    fecha: String
+    # Texto corto que ubica el documento: "2026-07" en liquidacion, "2026" en aguinaldo.
+    periodo: String
+    monto: Float
+    saldoPendiente: Float
+    descripcion: String
+    moneda: Moneda
+    funcionario: Funcionario
+    funcionarioNombre: String
+}
+
+# Un documento de RRHH con su reparto de formas de pago (espejo de ValeConLineasInput).
+input PagoRrhhConLineasInput {
+    concepto: ConceptoRrhhPagable!
+    documentoId: ID!
+    lineas: [LineaPagoInput!]!
+}
+
+enum ConceptoRrhhPagable {
+    LIQUIDACION
+    FINIQUITO
+    AGUINALDO
+}
+
+extend type Query {
+    # Liquidaciones mensuales APROBADAS todavia sin pagar.
+    liquidacionesPendientesPago: [PagoRrhhPendiente]
+    # Finiquitos APROBADOS todavia sin pagar.
+    finiquitosPendientesPago: [PagoRrhhPendiente]
+    # Aguinaldos APROBADOS todavia sin pagar (los CALCULADO no se pagan: monto no congelado).
+    aguinaldosPendientesPago: [PagoRrhhPendiente]
+}
+
+extend type Mutation {
+    # Paga documentos de RRHH con el motor de CPP. El pago parcial esta prohibido.
+    # En la practica se manda de a uno: la nomina nunca se paga en una sola operacion.
+    pagarRrhhMixto(pagos: [PagoRrhhConLineasInput!]!): Pago
+}

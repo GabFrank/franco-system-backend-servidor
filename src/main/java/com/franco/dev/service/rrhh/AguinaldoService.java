@@ -35,6 +35,7 @@ import java.util.Optional;
 public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository, Long> {
 
     private final AguinaldoRepository repository;
+    private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final FuncionarioService funcionarioService;
     private final CajaVirtualService cajaVirtualService;
@@ -161,6 +162,58 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
         a.setEstado(AguinaldoEstado.PAGADO);
         a.setFechaPago(LocalDate.now());
         return repository.save(a);
+    }
+
+
+    /**
+     * true si esta obligacion de pago pertenece a un aguinaldo. Lo usa el motor de pago para
+     * saber que concepto esta pagando y etiquetar el movimiento de caja con su origen real.
+     */
+    @Transactional(readOnly = true)
+    public boolean tieneSolicitud(Long solicitudPagoId) {
+        return solicitudPagoId != null && repository.findBySolicitudPagoId(solicitudPagoId) != null;
+    }
+
+    /**
+     * Espejo de {@code ValeService.sincronizarDesdeSolicitudPago}: lo llama el motor de pago
+     * cuando el aguinaldo se paga desde el hub de la caja en vez de con {@link #pagar}.
+     *
+     * <p>Solicitud CONCLUIDA ⇒ aguinaldo PAGADO (y por lo tanto deja de sumarse en la
+     * liquidacion de diciembre, que solo incluye los APROBADO) + link de caja y movimiento.
+     * <b>No postea nada en caja</b>: el movimiento ya lo genero el motor de pago. Si el pago
+     * se anula, vuelve a APROBADO y por ende vuelve a entrar en la liquidacion.</p>
+     */
+    @Transactional
+    public void sincronizarDesdeSolicitudPago(com.franco.dev.domain.operaciones.SolicitudPago sp) {
+        if (sp == null || sp.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) return;
+        Aguinaldo a = repository.findBySolicitudPagoId(sp.getId());
+        if (a == null) return;
+
+        boolean pagado = sp.getEstado() == com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado.CONCLUIDO;
+        AguinaldoEstado destino = pagado ? AguinaldoEstado.PAGADO : AguinaldoEstado.APROBADO;
+        if (a.getEstado() == destino) return;   // idempotente: el motor puede reentrar
+
+        if (pagado) {
+            for (com.franco.dev.domain.financiero.PagoSolicitudDetalle d
+                    : pagoSolicitudDetalleRepository.findBySolicitudPagoIdOrderByCreadoEnAsc(sp.getId())) {
+                if (Boolean.TRUE.equals(d.getAnulado())) continue;
+                if (d.getMovimientoCajaVirtualId() != null) {
+                    a.setMovimientoCajaVirtualId(d.getMovimientoCajaVirtualId());
+                    a.setCajaVirtualId(d.getCajaVirtualId());
+                    break;
+                }
+            }
+            a.setFechaPago(LocalDate.now());
+        } else if (sp.getMontoPagado() == null || sp.getMontoPagado().signum() <= 0) {
+            // Solo se sueltan los links cuando NO queda plata aplicada. Si la obligacion quedo
+            // PARCIAL (se pago en dos eventos y se anulo uno solo), parte del dinero sigue
+            // fuera de la caja: borrar la referencia al movimiento perderia su rastro.
+            a.setMovimientoCajaVirtualId(null);
+            a.setCajaVirtualId(null);
+            a.setFechaPago(null);
+        }
+        a.setEstado(destino);
+        repository.save(a);
     }
 
     @Override

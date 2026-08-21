@@ -43,6 +43,10 @@ extend type Query {
 extend type Mutation {
     saveCuentaBancaria(cuentaBancaria:CuentaBancariaInput!):CuentaBancaria!
     deleteCuentaBancaria(id:ID!):Boolean!
+    # Corrige el saldo de la cuenta contra el extracto real. Deja un movimiento AJUSTE_POSITIVO
+    # o AJUSTE_NEGATIVO con el motivo, que es la unica trazabilidad que tiene: un ajuste no
+    # tiene contrapartida, es plata que aparece o desaparece del ledger.
+    ajustarSaldoCuentaBancaria(cuentaBancariaId:ID!, monto:Float!, positivo:Boolean!, motivo:String!):MovimientoBancario!
 }
 
 enum TipoCuenta {

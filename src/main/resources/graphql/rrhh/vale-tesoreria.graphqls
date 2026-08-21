@@ -1,0 +1,45 @@
+# Pago de vales de RRHH desde tesoreria, con el mismo motor de pago que CPP.
+# El vale sigue siendo la verdad de RRHH; su obligacion de pago es una SolicitudPago tipo RRHH.
+
+# Fila del dialogo "Pagar Vale". Es una proyeccion y no el type Vale porque el saldo
+# no vive en el vale: sale de su obligacion de pago, que puede no existir todavia.
+type ValePendiente {
+    id: ID!
+    fecha: String
+    monto: Float
+    saldoPendiente: Float
+    esAdelanto: Boolean
+    observacion: String
+    moneda: Moneda
+    funcionario: Funcionario
+    funcionarioNombre: String
+    motivo: MotivoVale
+    motivoDescripcion: String
+}
+
+input ValeParaPagoInput {
+    funcionarioId: ID!
+    motivoId: ID
+    monedaId: ID!
+    monto: Float!
+    esAdelanto: Boolean
+    observacion: String
+}
+
+# Un vale con su reparto de formas de pago (espejo de SolicitudConLineasInput).
+input ValeConLineasInput {
+    valeId: ID!
+    lineas: [LineaPagoInput!]!
+}
+
+extend type Query {
+    # Vales en estado SOLICITADO: registrados y todavia sin entregar la plata.
+    valesPendientes: [ValePendiente]
+}
+
+extend type Mutation {
+    # Alta de un vale ya listo para pagar: queda SOLICITADO, sin mover plata.
+    crearValeParaPago(input: ValeParaPagoInput!): Vale!
+    # Paga N vales como un unico evento consolidado. El pago parcial de un vale esta prohibido.
+    pagarValesMixto(pagos: [ValeConLineasInput!]!): Pago
+}

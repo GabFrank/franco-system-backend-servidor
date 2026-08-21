@@ -45,6 +45,44 @@ public class CajaVirtualService {
         return repository.findByActivoTrue();
     }
 
+    // ── Variantes acotadas por el ACL ──
+    //
+    // Reciben la lista de ids visibles. {@code null} = ve todas (superusuario o proceso de
+    // sistema); lista vacia = no ve ninguna, que NO es lo mismo y devuelve vacio de verdad.
+
+    public Page<CajaVirtual> findAll(List<Long> visibles, Pageable pageable) {
+        if (visibles == null) return repository.findAll(pageable);
+        if (visibles.isEmpty()) return Page.empty(pageable);
+        return repository.findAllVisibles(visibles, pageable);
+    }
+
+    public Page<CajaVirtual> filter(List<Long> visibles, String nombre, CajaVirtualTipo tipo,
+                                    Long sucursalId, Boolean activo, Pageable pageable) {
+        String n = (nombre != null && !nombre.trim().isEmpty()) ? nombre.trim() : null;
+        String tipoStr = tipo != null ? tipo.name() : null;
+        if (visibles == null) return repository.filter(n, tipoStr, sucursalId, activo, pageable);
+        if (visibles.isEmpty()) return Page.empty(pageable);
+        return repository.filterVisibles(visibles, n, tipoStr, sucursalId, activo, pageable);
+    }
+
+    public List<CajaVirtual> findByTipo(List<Long> visibles, CajaVirtualTipo tipo) {
+        if (visibles == null) return repository.findByTipo(tipo);
+        if (visibles.isEmpty()) return java.util.Collections.emptyList();
+        return repository.findByTipoAndIdIn(tipo, visibles);
+    }
+
+    public List<CajaVirtual> findBySucursalId(List<Long> visibles, Long sucursalId) {
+        if (visibles == null) return repository.findBySucursalId(sucursalId);
+        if (visibles.isEmpty()) return java.util.Collections.emptyList();
+        return repository.findBySucursalIdAndIdIn(sucursalId, visibles);
+    }
+
+    public List<CajaVirtual> findActivas(List<Long> visibles) {
+        if (visibles == null) return repository.findByActivoTrue();
+        if (visibles.isEmpty()) return java.util.Collections.emptyList();
+        return repository.findByActivoTrueAndIdIn(visibles);
+    }
+
     public CajaVirtual save(CajaVirtual entity) {
         if (entity.getSaldoGs() == null) entity.setSaldoGs(0.0);
         if (entity.getSaldoRs() == null) entity.setSaldoRs(0.0);

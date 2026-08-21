@@ -37,6 +37,7 @@ public class EntradaVariaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     public Page<EntradaVaria> entradasVarias(Long cajaVirtualId, int page, int size) {
         seg.requireVer();
+        seg.requireLecturaCaja(cajaVirtualId);
         return service.findByCaja(cajaVirtualId, PageRequest.of(page, size));
     }
 

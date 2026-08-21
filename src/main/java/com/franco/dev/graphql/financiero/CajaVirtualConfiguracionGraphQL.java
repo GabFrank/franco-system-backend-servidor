@@ -30,6 +30,7 @@ public class CajaVirtualConfiguracionGraphQL implements GraphQLQueryResolver, Gr
 
     public CajaVirtualConfiguracion cajaVirtualConfiguracion(Long cajaVirtualId) {
         seg.requireVer();
+        seg.requireLecturaCaja(cajaVirtualId);
         return repository.findByCajaVirtualId(cajaVirtualId).orElse(null);
     }
 

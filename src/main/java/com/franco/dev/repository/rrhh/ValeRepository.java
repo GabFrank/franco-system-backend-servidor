@@ -38,4 +38,10 @@ public interface ValeRepository extends HelperRepository<Vale, Long> {
     List<Vale> findByEstadoOrderByFechaDesc(ValeEstado estado);
 
     List<Vale> findByFuncionarioIdAndEstado(Long funcionarioId, ValeEstado estado);
+
+    /** Vale que corresponde a una obligacion de pago de tesoreria (puente vale -> SolicitudPago RRHH). */
+    Vale findBySolicitudPagoId(Long solicitudPagoId);
+
+    /** Vales pagables desde tesoreria: SOLICITADO, del mas reciente al mas antiguo. */
+    List<Vale> findByEstadoOrderByFechaDescIdDesc(ValeEstado estado);
 }

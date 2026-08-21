@@ -74,3 +74,32 @@ enum CajaVirtualTipo {
     CAJA_MAYOR
     CAJA_CHICA
 }
+
+# ── Acceso por caja (ACL) ──
+#
+# El rol de tesoreria habilita la capacidad; estas filas delimitan sobre que cajas (modelo AND).
+# El propietario de la caja (CajaVirtual.usuario) tiene lectura y escritura implicitas y NO
+# aparece en la lista: es quien la administra.
+
+type CajaVirtualAcceso {
+    id: ID!
+    cajaVirtual: CajaVirtual
+    usuario: Usuario
+    puedeLeer: Boolean
+    puedeEscribir: Boolean
+    otorgadoPor: Usuario
+    creadoEn: Date
+}
+
+extend type Query {
+    # Usuarios habilitados en una caja. Solo el responsable de la caja (o ADMIN) puede verla.
+    cajaVirtualAccesos(cajaVirtualId: ID!): [CajaVirtualAcceso]
+}
+
+extend type Mutation {
+    # Otorga o actualiza el acceso de un usuario. Idempotente por (caja, usuario).
+    otorgarAccesoCaja(cajaVirtualId: ID!, usuarioId: ID!, puedeLeer: Boolean, puedeEscribir: Boolean): CajaVirtualAcceso!
+    revocarAccesoCaja(cajaVirtualId: ID!, usuarioId: ID!): Boolean!
+    # Pasa la caja a otro responsable. Evita que quede huerfana si su duenio deja la empresa.
+    transferirPropiedadCaja(cajaVirtualId: ID!, nuevoPropietarioId: ID!): CajaVirtual!
+}

@@ -3,7 +3,25 @@
 Registro de errores encontrados probando el módulo RRHH en desktop (rama `develop`)
 contra central local. **Sin investigar todavía** — solo captura del síntoma.
 
-Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido
+Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido · ✅ cerrado en un PR
+
+**Al 2026-08-21 — 19 de 24 cerrados.**
+
+| Lote | Rama | PRs |
+|---|---|---|
+| A — fixes (B1, B3, B5, B6, B9, B13, F8) | `fix/rrhh-calculos-y-trazabilidad` | central #230 · desktop #239 |
+| B — feats (B4, B7, B8, B10, B11, B12, B16) | `feat/rrhh-recibos-y-penalizaciones` | central #231 · desktop #241 |
+| Tipo del sueldo | `refactor/funcionario-sueldo-bigdecimal` | central #233 |
+| B14 + B15 | `feat/rrhh-base-remunerativa` | central #234 |
+
+**Orden de merge:** A → B, y #233 → #234. Cada uno sale del anterior.
+
+Siguen abiertos: **B2** (no es código, es data sucia), **F3** (cross-repo, toca el enum que
+replica a filiales) y **F5** (bloqueado por el hub de pagos).
+
+**Follow-up que dejó abierto #234:** no existe ABM de conceptos de liquidación en el desktop, así
+que `es_remunerativo` solo se edita por SQL y el `DEFAULT TRUE` deja pasar conceptos nuevos sin que
+nadie lo decida.
 
 ## Índice
 
@@ -22,8 +40,8 @@ Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido
 | B11 | Amonestaciones/advertencias sin monto + contador + acta firmable | 🟠 |
 | B12 | Ítem manual: select de operación (hoy todo sale "AJUSTE") | 🟠 |
 | B13 | Penalizaciones consolidadas en un ítem, sin detalle | 🔴 |
-| B14 | Aguinaldo sobre último sueldo, no sobre promedio percibido (INVESTIGADO) | 🔴 |
-| B15 | IPS del finiquito: sin prorrateo por días ni vacaciones en la base | 🔴 |
+| B14 | Aguinaldo sobre último sueldo, no sobre promedio percibido | ✅ PR #234 |
+| B15 | IPS del finiquito: sin prorrateo por días ni vacaciones en la base | ✅ PR #234 |
 | F1 | Ajuste de saldo en cuentas bancarias (solo existe en caja) | ✅ **hecho** |
 | F2 | Pagar liquidación/finiquito desde el hub de egreso de Caja Mayor | ✅ **hecho** |
 | F3 | Retiro de PDV: recepción parcial + selección de monedas | 🟠 |

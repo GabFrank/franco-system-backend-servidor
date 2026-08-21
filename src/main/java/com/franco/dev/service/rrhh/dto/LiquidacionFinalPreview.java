@@ -23,6 +23,7 @@ public class LiquidacionFinalPreview {
     private BigDecimal salarioDelMes;
     private BigDecimal aguinaldoProporcional;
     private Integer diasVacacionesNoGozadas;
+    private BigDecimal montoVacacionesNoGozadas;
     private Integer preavisoDias;
     private BigDecimal ipsBase;
     private Boolean ipsActivo;

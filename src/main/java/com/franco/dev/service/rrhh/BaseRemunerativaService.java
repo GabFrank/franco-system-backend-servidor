@@ -43,4 +43,29 @@ public class BaseRemunerativaService {
         }
         return BaseRemunerativa.de(meses);
     }
+
+    /**
+     * Promedio de lo percibido en los ultimos {@code meses} meses liquidados, sin
+     * importar el anio. Es la base del salario promedio del finiquito (indemnizacion).
+     *
+     * <p>Devuelve {@code null} cuando no hay ninguna liquidacion, para que el llamador
+     * decida su fallback en vez de recibir un cero que parece un promedio real.</p>
+     */
+    public BigDecimal promedioUltimosMeses(Long funcionarioId, int meses) {
+        if (funcionarioId == null || meses < 1) return null;
+        List<Object[]> filas = liquidacionItemRepository.percibidoPorPeriodoDesc(funcionarioId);
+        if (filas == null || filas.isEmpty()) return null;
+        BigDecimal suma = BigDecimal.ZERO;
+        int contados = 0;
+        for (Object[] f : filas) {
+            if (contados >= meses) break;
+            if (f == null || f.length < 2 || f[1] == null) continue;
+            suma = suma.add(f[1] instanceof BigDecimal
+                    ? (BigDecimal) f[1]
+                    : new BigDecimal(String.valueOf(f[1])));
+            contados++;
+        }
+        if (contados == 0) return null;
+        return suma.divide(new BigDecimal(contados), 0, java.math.RoundingMode.HALF_UP);
+    }
 }

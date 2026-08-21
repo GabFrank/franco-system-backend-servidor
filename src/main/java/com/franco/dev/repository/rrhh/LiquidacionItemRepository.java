@@ -57,4 +57,21 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "group by l.periodo order by l.periodo")
     List<Object[]> percibidoPorPeriodo(@Param("funcionarioId") Long funcionarioId,
                                        @Param("anio") Integer anio);
+
+    /**
+     * Lo mismo que {@link #percibidoPorPeriodo}, pero sin filtro de anio y del mas
+     * reciente al mas viejo. Lo usa el salario promedio del finiquito, que mira los
+     * ultimos N meses aunque crucen el fin de anio.
+     */
+    @Query("select l.periodo, coalesce(sum(i.monto), 0) " +
+            "from LiquidacionItem i " +
+            "join i.liquidacion l " +
+            "left join com.franco.dev.domain.rrhh.LiquidacionConcepto c on c.codigo = i.codigo " +
+            "where l.funcionario.id = :funcionarioId " +
+            "and (l.estado = com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.APROBADA " +
+            "  or l.estado = com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.PAGADA) " +
+            "and i.tipo = com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo.HABER " +
+            "and (c.id is null or c.esRemunerativo is null or c.esRemunerativo = true) " +
+            "group by l.periodo order by l.periodo desc")
+    List<Object[]> percibidoPorPeriodoDesc(@Param("funcionarioId") Long funcionarioId);
 }

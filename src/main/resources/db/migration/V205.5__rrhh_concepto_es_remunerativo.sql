@@ -13,8 +13,14 @@
 -- si sola. Los tres UPDATE de abajo si lo hacen, y esa es la correccion buscada.
 --
 -- OJO al reverso de ese default: un concepto nuevo cargado sin marcar es_remunerativo =
--- false entra a la base sin que nadie lo note. Por eso el ABM pide el valor en el alta en
--- vez de dejarlo al default.
+-- false entra a la base del aguinaldo y del IPS sin que nadie lo note. Hoy no hay ABM de
+-- conceptos en el desktop -- el catalogo solo se edita por SQL -- asi que el que agregue
+-- un concepto tiene que acordarse de definir esta columna a mano:
+--
+--   UPDATE rrhh.liquidacion_concepto SET es_remunerativo = false WHERE codigo = 'XXX';
+--
+-- Mientras no exista ese ABM pidiendo el valor en el alta, esta sigue siendo una falla
+-- silenciosa posible. Es la misma clase de problema que este cambio corrige.
 --
 -- rrhh.* no esta en central_pub ni en configuraciones.replication_table: esta tabla no
 -- replica a las filiales.

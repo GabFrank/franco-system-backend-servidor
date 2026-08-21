@@ -30,7 +30,7 @@ Asumido, decir si se quiere distinto:
   comportamiento de `AguinaldoService:89-91`.
 - Solo se recalcula el **año en curso**, no años anteriores.
 - `VACACION_VENTA` arranca como **remunerativo** (es plata que el funcionario percibió). Se corrige
-  desde el ABM sin deploy.
+  con un `UPDATE` al catálogo, sin deploy — pero por ahora a mano, porque no hay ABM.
 
 ---
 
@@ -116,11 +116,14 @@ WHERE NOT EXISTS (SELECT 1 FROM rrhh.liquidacion_concepto WHERE codigo = 'COMISI
 
 Aditiva y reversible a mano sin pérdida de datos.
 
-> **Riesgo reintroducido, y hay que mitigarlo.** El default `TRUE` significa que un concepto nuevo
-> que alguien cargue sin marcar `es_remunerativo = false` entra a la base del aguinaldo y del IPS
-> **sin que nadie lo note** — exactamente el patrón de falla silenciosa que motivó este plan.
-> Mitigación: en el ABM de conceptos la columna va **visible y obligatoria en el alta**, no
-> escondida detrás de un default.
+> **Riesgo reintroducido, y la mitigación que yo planeé no existe.** El default `TRUE` significa
+> que un concepto nuevo cargado sin marcar `es_remunerativo = false` entra a la base del aguinaldo
+> y del IPS **sin que nadie lo note** — el mismo patrón de falla silenciosa que motivó este plan.
+>
+> Yo había escrito que el ABM de conceptos lo pediría en el alta. **Ese ABM no existe**: el lote B
+> agregó una query de lectura (`ConceptosParaItemManual.ts`) y nada más. Hoy el catálogo solo se
+> edita por SQL. Queda como **follow-up obligatorio antes de que alguien agregue conceptos nuevos**,
+> y mientras tanto el que agregue uno tiene que correr el `UPDATE` a mano.
 
 ### D2 — Un único punto que responde "cuánto percibió"
 
@@ -253,13 +256,18 @@ Queda declarado como cabo suelto conocido, no como olvido.
 
 | # | Qué | Gate |
 |---|---|---|
-| 1 | `V205.5` + `es_remunerativo` en entidad/schema/ABM (visible y obligatorio en el alta) | migración en dev |
+| 1 | `V205.5` + `es_remunerativo` en entidad y schema GraphQL | migración en dev |
 | 2 | `V206.5` + los 4 campos de trazabilidad en `Aguinaldo` | migración en dev |
 | 3 | `BaseRemunerativa` + query agregada + tests puros | tests |
 | 4 | `AguinaldoService`: calculado **y** proyectado desde la misma fuente, con snapshot | recálculo en dev |
 | 5 | `LiquidacionFinalService`: aguinaldo proporcional + `calcularSalarioPromedio` (indemnización) | tests |
 | 6 | B15: base compuesta del IPS + monto de vacaciones en `previewDefaults` | tests |
-| 7 | Desktop: columna del catálogo, aviso de huecos, base del IPS en el diálogo | AOT |
+| 7 | Desktop: aviso de huecos y base del IPS en el diálogo | AOT |
+
+**Fuera de este PR, y hay que hacerlo:** el **ABM de conceptos de liquidación** no existe en el
+desktop. Sin él, `es_remunerativo` solo se edita por SQL y el default `TRUE` deja pasar conceptos
+nuevos sin que nadie lo decida. Es un PR propio, del tamaño del ABM de cargos del lote B, y depende
+de que el lote B esté mergeado.
 
 Commit + push por fase. **El gate real del backend es `gh pr checks`, no `mvnw verify` local** — los
 tests de Jasper tardan de 2 a 10 minutos acá y `ActaAdvertenciaJrxmlTest` mata la VM forked por

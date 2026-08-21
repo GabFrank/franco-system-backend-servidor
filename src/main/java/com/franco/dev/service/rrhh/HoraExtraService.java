@@ -66,7 +66,7 @@ public class HoraExtraService extends CrudService<HoraExtra, HoraExtraRepository
         boolean sinMonto = entity.getMontoCalculado() == null || entity.getMontoCalculado().signum() == 0;
         if (sinMonto && entity.getFuncionario() != null && entity.getFuncionario().getSueldo() != null
                 && entity.getMinutos().signum() > 0) {
-            BigDecimal sueldo = new BigDecimal(entity.getFuncionario().getSueldo().toString());
+            BigDecimal sueldo = entity.getFuncionario().getSueldo();
             BigDecimal horasJornada = configuracionRrhhService.getNumber("HORAS_JORNADA_LABORAL", new BigDecimal("8"));
             BigDecimal diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30"));
             BigDecimal recargo = entity.getRecargoPorcentaje() != null

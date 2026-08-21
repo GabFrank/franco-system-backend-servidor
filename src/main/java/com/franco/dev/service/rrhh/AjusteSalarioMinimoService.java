@@ -40,7 +40,7 @@ public class AjusteSalarioMinimoService {
     /** Vista previa: funcionarios activos que quedaron por debajo del nuevo minimo. */
     public List<Funcionario> findAfectadosPorMinimo(BigDecimal minimo) {
         if (minimo == null) return Collections.emptyList();
-        return funcionarioRepository.findConSueldoMenorA(minimo.floatValue());
+        return funcionarioRepository.findConSueldoMenorA(minimo);
     }
 
     /**
@@ -57,17 +57,17 @@ public class AjusteSalarioMinimoService {
         for (Long id : funcionarioIds) {
             Funcionario f = funcionarioService.findById(id).orElse(null);
             if (f == null) continue;
-            Float anterior = f.getSueldo();
+            BigDecimal anterior = f.getSueldo();
             // Se revalidan los mismos invariantes de la vista previa: entre el preview y
             // la confirmacion el sueldo pudo cambiar por otra via, y ademas el mutation
             // es alcanzable sin pasar por la UI.
-            if (anterior == null || anterior <= 0) continue;
-            if (anterior >= minimo.floatValue()) continue;
+            if (anterior == null || anterior.signum() <= 0) continue;
+            if (anterior.compareTo(minimo) >= 0) continue;
             if (!Boolean.TRUE.equals(f.getActivo())) continue;
 
             FuncionarioSalarioHistorico h = new FuncionarioSalarioHistorico();
             h.setFuncionario(f);
-            h.setSalarioAnterior(BigDecimal.valueOf(anterior));
+            h.setSalarioAnterior(anterior);
             h.setSalarioNuevo(minimo);
             // La moneda sale de CADA funcionario: puede variar entre ellos, y el historico
             // salarial es un registro legal — no se puede estampar la moneda de otro.
@@ -77,7 +77,7 @@ public class AjusteSalarioMinimoService {
             h.setAutorizadoPor(autorizadoPor);
             salarioHistoricoService.save(h);
 
-            f.setSueldo(minimo.floatValue());
+            f.setSueldo(minimo);
             funcionarioService.save(f);
             ajustados++;
         }

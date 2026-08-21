@@ -165,7 +165,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         }
         List<LiquidacionFinalItem> items = new ArrayList<>();
         // Salario del mes (días trabajados no liquidados) — base sueldo mensual del funcionario.
-        BigDecimal sueldoMensual = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        BigDecimal sueldoMensual = f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
         int diasTrabajadosMes = in.getDiasTrabajadosMes() != null ? Math.max(0, in.getDiasTrabajadosMes()) : egreso.getDayOfMonth();
         BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoMensual, diasTrabajadosMes, diasMes);
         if (salarioDelMes.signum() > 0) {
@@ -238,7 +238,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // IPS: por defecto se descuenta salvo que el funcionario tenga ipsActivo=false explícito.
         boolean ipsActivo = !Boolean.FALSE.equals(f.getIpsActivo());
         // Salario del mes: días trabajados = día del mes del egreso; base = sueldo mensual.
-        BigDecimal sueldoBase = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        BigDecimal sueldoBase = f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
         int diasTrabajadosMes = egreso.getDayOfMonth();
         BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoBase, diasTrabajadosMes, diasMes);
         return new LiquidacionFinalPreview(
@@ -481,7 +481,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             }
         }
         if (haberes.isEmpty()) {
-            return f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+            return f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
         }
         BigDecimal suma = BigDecimal.ZERO;
         for (BigDecimal h : haberes) suma = suma.add(h);
@@ -516,7 +516,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             proporcional = suma.divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
         } else {
             // fallback: sueldo × meses trabajados en el año / 12
-            BigDecimal sueldo = f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+            BigDecimal sueldo = f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
             int mesesTrabajados = egreso.getMonthValue();
             if (f.getFechaIngreso() != null && f.getFechaIngreso().getYear() == anio) {
                 mesesTrabajados = egreso.getMonthValue() - f.getFechaIngreso().getMonthValue() + 1;

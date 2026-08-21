@@ -196,7 +196,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             BigDecimal valorJornal = f.getValorJornal() != null ? new BigDecimal(f.getValorJornal().toString()) : BigDecimal.ZERO;
             return com.franco.dev.service.rrhh.builder.JornaleroCalculator.calcularSalarioBase(valorJornal, diasTrabajados);
         }
-        return f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        return f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
     }
 
     private List<LiquidacionItem> construirItemsAutomaticos(LiquidacionSueldo liq, Funcionario f,

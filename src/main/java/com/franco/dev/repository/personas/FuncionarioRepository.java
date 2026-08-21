@@ -47,7 +47,7 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "where f.sueldo is not null and f.sueldo > 0 and f.sueldo < ?1 " +
                         "and f.activo = true " +
                         "order by p.nombre")
-        public List<Funcionario> findConSueldoMenorA(Float monto);
+        public List<Funcionario> findConSueldoMenorA(java.math.BigDecimal monto);
         // FlushMode COMMIT: en el path de update la entity está managed y sucia con el
         // nuevo 'activo'. Sin este hint Hibernate auto-flushea antes de la consulta (el
         // query space coincide con personas.funcionario) y devolvería el valor nuevo,

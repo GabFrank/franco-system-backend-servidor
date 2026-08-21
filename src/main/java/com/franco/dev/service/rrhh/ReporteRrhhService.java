@@ -165,7 +165,7 @@ public class ReporteRrhhService {
 
         java.time.LocalDate ingreso = f != null && f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null;
         java.time.LocalDate egreso = lf.getFechaEgreso();
-        BigDecimal sueldo = f != null && f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        BigDecimal sueldo = f != null && f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
         BigDecimal jornal = sueldo.divide(new BigDecimal("30"), 0, java.math.RoundingMode.HALF_UP);
         String documento = f != null && f.getPersona() != null && f.getPersona().getDocumento() != null
                 ? f.getPersona().getDocumento() : "";

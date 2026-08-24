@@ -5,9 +5,11 @@ import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.enums.TipoCliente;
+import com.franco.dev.domain.rrhh.FuncionarioEgresoHistorico;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado;
 import com.franco.dev.repository.personas.FuncionarioRepository;
+import com.franco.dev.repository.rrhh.FuncionarioEgresoHistoricoRepository;
 import com.franco.dev.repository.rrhh.LiquidacionFinalRepository;
 import com.franco.dev.service.empresarial.CargoService;
 import com.franco.dev.service.financiero.MonedaService;
@@ -46,6 +48,7 @@ class RevertirEgresoFuncionarioTest {
     private UsuarioService usuarioService;
     private ClienteService clienteService;
     private LiquidacionFinalRepository liquidacionFinalRepository;
+    private FuncionarioEgresoHistoricoRepository egresoHistoricoRepository;
     private FuncionarioService funcionarioService;
     private FuncionarioRrhhService service;
 
@@ -60,6 +63,7 @@ class RevertirEgresoFuncionarioTest {
         usuarioService = mock(UsuarioService.class);
         clienteService = mock(ClienteService.class);
         liquidacionFinalRepository = mock(LiquidacionFinalRepository.class);
+        egresoHistoricoRepository = mock(FuncionarioEgresoHistoricoRepository.class);
 
         funcionarioService = new FuncionarioService(funcionarioRepository, usuarioService, clienteService);
 
@@ -71,7 +75,8 @@ class RevertirEgresoFuncionarioTest {
                 mock(FuncionarioCargoHistoricoService.class),
                 mock(FuncionarioSalarioHistoricoService.class),
                 clienteService,
-                liquidacionFinalRepository);
+                liquidacionFinalRepository,
+                egresoHistoricoRepository);
 
         persona = new Persona();
         persona.setId(PERSONA_ID);
@@ -102,6 +107,24 @@ class RevertirEgresoFuncionarioTest {
         when(funcionarioRepository.save(any(Funcionario.class))).thenAnswer(i -> i.getArgument(0));
         when(liquidacionFinalRepository.findByFuncionarioIdOrderByCreadoEnDesc(FUNC_ID))
                 .thenReturn(Collections.emptyList());
+        // Por defecto: egreso viejo, sin snapshot. Los tests que lo necesitan lo cargan.
+        when(egresoHistoricoRepository.findFirstByFuncionarioIdAndRevertidoEnIsNullOrderByIdDesc(FUNC_ID))
+                .thenReturn(Optional.empty());
+        when(egresoHistoricoRepository.save(any(FuncionarioEgresoHistorico.class)))
+                .thenAnswer(i -> i.getArgument(0));
+    }
+
+    /** Deja disponible un snapshot del egreso, como si lo hubiera dejado egresar(). */
+    private FuncionarioEgresoHistorico conSnapshot(String creditoFunc, String creditoCli, TipoCliente tipoPrevio) {
+        FuncionarioEgresoHistorico snap = new FuncionarioEgresoHistorico();
+        snap.setId(9L);
+        snap.setFuncionario(funcionario);
+        snap.setCreditoAnterior(new java.math.BigDecimal(creditoFunc));
+        snap.setClienteCreditoAnterior(new java.math.BigDecimal(creditoCli));
+        snap.setClienteTipoAnterior(tipoPrevio != null ? tipoPrevio.name() : null);
+        when(egresoHistoricoRepository.findFirstByFuncionarioIdAndRevertidoEnIsNullOrderByIdDesc(FUNC_ID))
+                .thenReturn(Optional.of(snap));
+        return snap;
     }
 
     @Test
@@ -194,5 +217,62 @@ class RevertirEgresoFuncionarioTest {
     void rechazaSiElFuncionarioNoExiste() {
         when(funcionarioRepository.findById(99L)).thenReturn(Optional.empty());
         assertThrows(GraphQLException.class, () -> service.revertirEgreso(99L, CREDITO_PREVIO, null));
+    }
+
+    // --- Con snapshot: la reversa restaura en vez de preguntar -------------------------
+
+    /** Sin indicar credito, el monto sale del snapshot que dejo el egreso. */
+    @Test
+    void conSnapshotElCreditoSaleDeLaFotoYNoHaceFaltaEscribirlo() {
+        conSnapshot("750000", "750000", TipoCliente.FUNCIONARIO);
+        Funcionario r = service.revertirEgreso(FUNC_ID, null, "error de carga");
+        assertEquals(750000f, r.getCredito(), 0.001f,
+                "el credito tenia que salir del snapshot, salio " + r.getCredito());
+        assertEquals(750000f, cliente.getCredito(), 0.001f);
+    }
+
+    /**
+     * El caso que motivo guardar el tipo: la cascada reactiva al cliente como FUNCIONARIO
+     * siempre. Si antes era VIP y no se restaura, la reversa le saca la categoria sin que
+     * nadie lo haya pedido.
+     */
+    @Test
+    void unClienteVipRecuperaSuCategoria() {
+        cliente.setTipo(TipoCliente.NORMAL);
+        conSnapshot("900000", "900000", TipoCliente.VIP);
+        service.revertirEgreso(FUNC_ID, null, null);
+        assertEquals(TipoCliente.VIP, cliente.getTipo(),
+                "el cliente quedo como " + cliente.getTipo() + ": la reversa lo degrado");
+    }
+
+    /** Lo que el usuario escribe gana sobre la foto: entre egreso y reversa todo pudo cambiar. */
+    @Test
+    void elOverrideManualGanaSobreElSnapshot() {
+        conSnapshot("750000", "750000", TipoCliente.FUNCIONARIO);
+        Funcionario r = service.revertirEgreso(FUNC_ID, 123000f, null);
+        assertEquals(123000f, r.getCredito(), 0.001f);
+        assertEquals(123000f, cliente.getCredito(), 0.001f);
+    }
+
+    /** Revertir marca la foto como usada, con quien y por que. */
+    @Test
+    void laReversaMarcaElSnapshotComoRevertido() {
+        FuncionarioEgresoHistorico snap = conSnapshot("500000", "500000", TipoCliente.FUNCIONARIO);
+        service.revertirEgreso(FUNC_ID, null, "egreso por error");
+        assertNotNull(snap.getRevertidoEn(), "el snapshot quedo sin marcar como revertido");
+        assertEquals("egreso por error", snap.getMotivoReversion());
+    }
+
+    /**
+     * Un tipo que ya no exista en el enum no puede voltear la reversa: se deja lo que puso
+     * la cascada y se sigue.
+     */
+    @Test
+    void unTipoDesconocidoEnElSnapshotNoRompe() {
+        FuncionarioEgresoHistorico snap = conSnapshot("500000", "500000", null);
+        snap.setClienteTipoAnterior("CATEGORIA_QUE_YA_NO_EXISTE");
+        Funcionario r = service.revertirEgreso(FUNC_ID, null, null);
+        assertTrue(Boolean.TRUE.equals(r.getActivo()));
+        assertEquals(TipoCliente.FUNCIONARIO, cliente.getTipo());
     }
 }

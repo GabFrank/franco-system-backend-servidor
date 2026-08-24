@@ -93,6 +93,18 @@ public class FuncionarioRrhhGraphQL implements GraphQLQueryResolver, GraphQLMuta
         return funcionarioRrhhService.egresar(funcionarioId, parseFecha(fecha), motivo);
     }
 
+    /**
+     * Revierte un egreso hecho por error. Mismo gating que egresar: quien puede sacar a
+     * alguien es quien puede volver a meterlo.
+     *
+     * <p>El credito va como parametro porque el egreso lo borra y no queda guardado en
+     * ninguna parte -- ver {@code FuncionarioRrhhService.revertirEgreso}.</p>
+     */
+    public Funcionario revertirEgresoFuncionario(Long funcionarioId, Float credito, String motivo) {
+        seg.requireAnyRole(seg.GESTIONAR, seg.APROBAR);
+        return funcionarioRrhhService.revertirEgreso(funcionarioId, credito, motivo);
+    }
+
     public FuncionarioDocumento saveFuncionarioDocumento(FuncionarioDocumentoInput input) {
         seg.requireAnyRole(seg.GESTIONAR);
         FuncionarioDocumento e = input.getId() != null

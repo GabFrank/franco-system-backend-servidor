@@ -6,7 +6,12 @@ import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.rrhh.FuncionarioCargoHistorico;
 import com.franco.dev.domain.rrhh.FuncionarioSalarioHistorico;
+import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.rrhh.LiquidacionFinal;
+import com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado;
+import com.franco.dev.repository.rrhh.LiquidacionFinalRepository;
 import com.franco.dev.service.empresarial.CargoService;
+import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -27,6 +32,7 @@ import java.util.List;
  */
 @Service
 @AllArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class FuncionarioRrhhService {
 
     private final FuncionarioService funcionarioService;
@@ -35,6 +41,8 @@ public class FuncionarioRrhhService {
     private final UsuarioService usuarioService;
     private final FuncionarioCargoHistoricoService cargoHistoricoService;
     private final FuncionarioSalarioHistoricoService salarioHistoricoService;
+    private final ClienteService clienteService;
+    private final LiquidacionFinalRepository liquidacionFinalRepository;
 
     /**
      * Cambia el cargo del funcionario dejando rastro: cierra el histórico abierto
@@ -106,5 +114,74 @@ public class FuncionarioRrhhService {
         f.setMotivoEgreso(motivo != null ? motivo.toUpperCase() : null);
         f.setActivo(false);
         return funcionarioService.save(f);
+    }
+
+    /**
+     * Revierte un egreso: deshace lo que {@link #egresar} dejo, incluido el dano
+     * colateral que egresar provoca y que no se ve en la pantalla de egreso.
+     *
+     * <p>Existe porque no habia ninguna forma de revertir un egreso desde la aplicacion.
+     * El 2026-08-21 se egreso por error a una funcionaria en farmacia y hubo que resolverlo
+     * el 22 con un UPDATE directo en produccion.</p>
+     *
+     * <p><b>Por que hace falta el parametro credito.</b> Egresar no solo apaga tres campos:
+     * {@code FuncionarioService.save} pone {@code credito = 0} cuando activo llega en false,
+     * y la cascada de estado hace lo mismo con el cliente ademas de pasarlo a NORMAL. Ese
+     * crédito no queda guardado en ninguna tabla -- {@code funcionario_salario_historico}
+     * guarda salario, no crédito -- asi que reactivar no puede recuperarlo solo: hay que
+     * decirle cual era. En el caso real hubo que sacarlo de un backup de nueve dias antes.</p>
+     *
+     * <p><b>El orden importa.</b> {@code save()} pisa el credito a cero cuando activo viene
+     * en false, asi que activo se setea en true ANTES de guardar. Y la cascada deja
+     * {@code cliente.credito = 0}, por lo que el crédito del cliente se re-sincroniza
+     * DESPUES del save -- esa sincronizacion vive en {@code FuncionarioGraphQL.saveFuncionario},
+     * no en el servicio, asi que por este camino hay que hacerla a mano o el funcionario
+     * queda con su crédito restaurado y el cliente en cero.</p>
+     *
+     * <p><b>El motivo no se persiste.</b> No hay tabla de historico de egresos; se deja en
+     * el log. Si la reversa tiene que ser auditable, hace falta esa tabla.</p>
+     */
+    @Transactional
+    public Funcionario revertirEgreso(Long funcionarioId, Float credito, String motivo) {
+        Funcionario f = funcionarioService.findById(funcionarioId)
+                .orElseThrow(() -> new GraphQLException("Funcionario no encontrado"));
+
+        if (Boolean.TRUE.equals(f.getActivo())) {
+            throw new GraphQLException("El funcionario ya esta activo: no hay egreso que revertir.");
+        }
+
+        // Un finiquito vigente es la contabilidad del egreso. Revertir el egreso dejandolo
+        // en pie deja al funcionario activo y con una liquidacion final que dice que se fue;
+        // si ademas esta PAGADA, ya salio plata de la caja por su salida.
+        for (LiquidacionFinal lf : liquidacionFinalRepository.findByFuncionarioIdOrderByCreadoEnDesc(funcionarioId)) {
+            if (lf.getEstado() != null && lf.getEstado() != LiquidacionFinalEstado.ANULADA) {
+                throw new GraphQLException("El funcionario tiene una liquidacion final "
+                        + lf.getEstado() + " (#" + lf.getId() + "). Anulala antes de revertir el egreso.");
+            }
+        }
+
+        LocalDateTime egresoPrevio = f.getFechaEgreso();
+        String motivoPrevio = f.getMotivoEgreso();
+        Float creditoRestaurado = credito != null ? credito : 0f;
+
+        f.setFechaEgreso(null);
+        f.setMotivoEgreso(null);
+        f.setActivo(true);
+        f.setCredito(creditoRestaurado);
+        Funcionario guardado = funcionarioService.save(f);
+
+        // La cascada reactivo al cliente y lo devolvio a FUNCIONARIO, pero le dejo el
+        // credito en cero.
+        if (guardado.getPersona() != null && guardado.getPersona().getId() != null) {
+            Cliente cliente = clienteService.findByPersonaId(guardado.getPersona().getId());
+            if (cliente != null && !java.util.Objects.equals(cliente.getCredito(), creditoRestaurado)) {
+                cliente.setCredito(creditoRestaurado);
+                clienteService.save(cliente);
+            }
+        }
+
+        log.info("Egreso revertido: funcionario={} egresoPrevio={} motivoPrevio={} creditoRestaurado={} motivoReversa={}",
+                funcionarioId, egresoPrevio, motivoPrevio, creditoRestaurado, motivo);
+        return guardado;
     }
 }

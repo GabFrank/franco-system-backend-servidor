@@ -62,7 +62,7 @@ extend type Query {
     liquidacionSueldo(id: ID!): LiquidacionSueldo
     liquidacionesPorFuncionario(funcionarioId: ID!): [LiquidacionSueldo]
     liquidacionesPorPeriodo(periodo: String!): [LiquidacionSueldo]
-    liquidacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, periodo: String, estado: LiquidacionSueldoEstado): LiquidacionSueldoPage
+    liquidacionesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, funcionarioNombre: String, periodo: String, estado: LiquidacionSueldoEstado): LiquidacionSueldoPage
     liquidacionItems(liquidacionId: ID!): [LiquidacionItem]
     imprimirReciboLiquidacion(id: ID!, anchoMm: Int, escpos: Boolean): String
 }

@@ -5,11 +5,23 @@ type ConfiguracionNotificacion {
     esObligatorio: Boolean
 }
 
+# El interruptor de un tipo entero. Sin fila, el tipo esta activo: esta lista
+# muestra lo que alguien decidio apagar, no todos los tipos que existen.
+type NotificacionTipoEstado {
+    id: ID
+    tipoNotificacion: String
+    activo: Boolean
+    motivo: String
+    actualizadoEn: Date
+}
+
 extend type Query {
     misConfiguracionesNotificacion: [ConfiguracionNotificacion]
+    estadosNotificacion: [NotificacionTipoEstado]
 }
 
 extend type Mutation {
     actualizarPreferenciaNotificacion(tipoNotificacion: String!, habilitado: Boolean!): Boolean
+    cambiarEstadoNotificacion(tipoNotificacion: String!, activo: Boolean!, motivo: String): NotificacionTipoEstado
     enviarNotificacionPersonalizada(titulo: String!, mensaje: String!, tipoEnvio: String!, usuariosIds: [Int]): Boolean
 }

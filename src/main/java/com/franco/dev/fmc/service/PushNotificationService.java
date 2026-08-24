@@ -47,6 +47,7 @@ public class PushNotificationService {
     private final FCMService fcmService;
 
     private final NotificacionPreferenciaService preferenciaService;
+    private final com.franco.dev.service.configuracion.NotificacionTipoEstadoService tipoEstadoService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -58,7 +59,8 @@ public class PushNotificationService {
             NotificationDispatchService dispatchService,
             InicioSesionService inicioSesionService,
             FCMService fcmService,
-            com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService) {
+            com.franco.dev.service.configuracion.NotificacionPreferenciaService preferenciaService,
+            com.franco.dev.service.configuracion.NotificacionTipoEstadoService tipoEstadoService) {
         this.notificacionRepository = notificacionRepository;
         this.notificacionDestinatarioRepository = notificacionDestinatarioRepository;
         this.notificacionEnvioLogRepository = notificacionEnvioLogRepository;
@@ -66,6 +68,7 @@ public class PushNotificationService {
         this.inicioSesionService = inicioSesionService;
         this.fcmService = fcmService;
         this.preferenciaService = preferenciaService;
+        this.tipoEstadoService = tipoEstadoService;
     }
 
     public void sendPushNotificationToToken(@Valid PushNotificationRequest request) {
@@ -82,6 +85,20 @@ public class PushNotificationService {
     private void enqueue(PushNotificationRequest request) {
         if (!request.hasTopic() && !request.hasDirectTokens() && !request.hasUsuarios()) {
             throw new ValidationException("Debe proveer al menos un token, tópico o usuario destino");
+        }
+        /*
+         * El interruptor va aca y no en el mapa de roles porque los tipos no
+         * comparten forma de elegir destinatario: NUEVO_DISPOSITIVO le llega
+         * al propio usuario y no pasa por esa tabla, asi que vaciarla lo
+         * dejaria vivo. Aca pasan todos.
+         *
+         * Se descarta entero: ni push ni fila en la bandeja. Una notificacion
+         * suspendida que igual aparece en la lista no esta suspendida.
+         */
+        String tipoSolicitado = request.getType() != null ? request.getType() : "GENERAL";
+        if (!tipoEstadoService.estaActivo(tipoSolicitado)) {
+            LOGGER.info("Notificacion de tipo {} suspendida: no se envia", tipoSolicitado);
+            return;
         }
         if (request.hasTopic()) {
             sendPushNotificationToTopic(request);

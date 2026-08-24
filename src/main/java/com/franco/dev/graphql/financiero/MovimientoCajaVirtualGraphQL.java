@@ -48,14 +48,18 @@ public class MovimientoCajaVirtualGraphQL implements GraphQLQueryResolver, Graph
         return service.findByCajaVirtualIdAndFecha(cajaVirtualId, inicio, fin, pageable);
     }
 
-    /** Movimientos filtrados por fecha/tipo, con opción de ocultar anulados (para el dashboard). */
+    /**
+     * Movimientos filtrados por fecha/tipo/moneda, con opción de ocultar anulados (para el dashboard).
+     * El filtro por moneda es lo que activan las cards de saldo al hacer click.
+     */
     public Page<MovimientoCajaVirtual> movimientosCajaVirtualFilter(Long cajaVirtualId, String desde, String fin,
                                                                     com.franco.dev.domain.financiero.enums.CajaVirtualTipoMovimiento tipo,
+                                                                    Long monedaId,
                                                                     Boolean soloActivos, int page, int size) {
         seg.requireVer();
         seg.requireLecturaCaja(cajaVirtualId);
         Pageable pageable = PageRequest.of(page, size);
-        return service.filter(cajaVirtualId, desde, fin, tipo, soloActivos != null && soloActivos, pageable);
+        return service.filter(cajaVirtualId, desde, fin, tipo, monedaId, soloActivos != null && soloActivos, pageable);
     }
 
     public MovimientoCajaVirtual saveMovimientoCajaVirtual(MovimientoCajaVirtualInput input) {

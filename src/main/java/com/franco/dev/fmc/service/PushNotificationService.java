@@ -348,6 +348,17 @@ public class PushNotificationService {
                 return false;
             }
 
+            /*
+             * El interruptor tambien se mira aca, y no solo en enqueue, porque
+             * este metodo devuelve un booleano que el escritorio muestra como
+             * "enviada". Dejarlo en true con el tipo suspendido hace que la
+             * pantalla afirme algo que no paso.
+             */
+            if (!tipoEstadoService.estaActivo("PERSONALIZADA")) {
+                LOGGER.info("Notificacion personalizada suspendida: no se envia");
+                return false;
+            }
+
             PushNotificationRequest request = new PushNotificationRequest();
             request.setTitle(titulo);
             request.setMessage(mensaje);

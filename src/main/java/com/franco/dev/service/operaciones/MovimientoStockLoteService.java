@@ -143,10 +143,11 @@ public class MovimientoStockLoteService
             LocalDate vencimiento = variacion.getVencimiento() != null
                     ? variacion.getVencimiento().toLocalDate()
                     : null;
-            // Sin fecha de retiro manual: cada variación es un lote distinto con su propio
-            // vencimiento, así que la del ítem no aplica y se deja derivar por lote.
-            creados.add(crearMovimiento(item, movimiento, numeroLote, vencimiento, null, cantidad,
-                    variacion.getPresentacion()));
+            // La fecha de retiro se toma de la variación y no del ítem: cada variación es un lote
+            // distinto, con su propio vencimiento y su propio retiro. Null deja que LoteService la
+            // derive de los días de vencimiento del producto.
+            creados.add(crearMovimiento(item, movimiento, numeroLote, vencimiento,
+                    variacion.getFechaRetiro(), cantidad, variacion.getPresentacion()));
         }
         return creados;
     }

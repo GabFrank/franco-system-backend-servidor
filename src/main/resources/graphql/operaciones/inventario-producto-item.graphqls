@@ -111,6 +111,21 @@ extend type Query {
         size: Int
     ): ProductoVencidoViewPage
 
+    """
+    Los vencimientos que el central conoce de unas presentaciones en una
+    sucursal, para proponerlos al contar.
+
+    NO es productosVencidos: ese reporte ancla al ultimo inventario de la
+    sucursal, y la toma que se esta contando ES el ultimo inventario, asi que
+    mientras se cuenta devuelve cero. Aca no hay ancla; se recorta a las
+    vigentes mas las `maxVencidas` vencidas mas recientes, por presentacion.
+    """
+    vencimientosConocidos(
+        sucursalId: ID!,
+        productoIdList: [ID],
+        maxVencidas: Int
+    ): [ProductoVencidoView]
+
     reporteProductosVencidos(
         startDate: String,
         endDate: String,

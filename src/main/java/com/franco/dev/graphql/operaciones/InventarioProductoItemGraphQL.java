@@ -437,6 +437,30 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         return movimientoStockService.findProductosFaltantes(sucursalId, productoId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
     }
 
+    /** Cuantas fechas ya vencidas se proponen por presentacion si no se pide otra cosa. */
+    private static final int MAX_VENCIDAS_DEFAULT = 3;
+
+    /**
+     * Los vencimientos que el central conoce de unas presentaciones.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Si (carga del conteo de inventario)
+     *
+     * Ver ProductosVencidosService.vencimientosConocidos() para por que no se
+     * usa productosVencidos.
+     */
+    public List<ProductoVencidoViewDTO> vencimientosConocidos(
+            Long sucursalId,
+            @Nullable List<Long> productoIdList,
+            @Nullable Integer maxVencidas) {
+
+        return productosVencidosService.vencimientosConocidos(
+                sucursalId,
+                productoIdList,
+                maxVencidas == null || maxVencidas < 0 ? MAX_VENCIDAS_DEFAULT : maxVencidas);
+    }
+
     public Page<ProductoVencidoViewDTO> productosVencidos(
             @Nullable String startDate,
             @Nullable String endDate,

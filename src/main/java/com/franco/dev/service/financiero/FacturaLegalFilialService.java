@@ -2,6 +2,8 @@ package com.franco.dev.service.financiero;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.Persona;
 import com.franco.dev.graphql.financiero.input.FacturaLegalInput;
 import com.franco.dev.graphql.financiero.input.FacturaLegalItemInput;
 import com.franco.dev.service.empresarial.SucursalService;
@@ -9,6 +11,8 @@ import com.franco.dev.service.financiero.dto.ErrorResponseDTO;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialRequest;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialResponse;
 import com.franco.dev.service.financiero.dto.FacturaLegalItemFilialRequest;
+import com.franco.dev.service.personas.ClienteService;
+import com.franco.dev.service.personas.PersonaService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +47,12 @@ public class FacturaLegalFilialService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private PersonaService personaService;
+
+    @Autowired
+    private ClienteService clienteService;
+
     public FacturaLegalFilialResponse crearFacturaLegalEnFilial(
             FacturaLegalInput facturaInput,
             List<FacturaLegalItemInput> items,
@@ -54,6 +64,23 @@ public class FacturaLegalFilialService {
 
         if (sucursal.getIp() == null) {
             throw new RuntimeException("La sucursal no tiene IP configurada");
+        }
+
+        // Si no vino un cliente ya identificado (ej. se cargó ruc+nombre a mano sin
+        // seleccionar un cliente existente), resolverlo/crearlo ACÁ en el central antes
+        // de reenviar al filial. El filial no debe crear Personas nuevas por su cuenta:
+        // "las personas se gestionan centralizadas" (ver PersonaService del filial), y
+        // además necesitaría autenticarse contra este mismo central para hacerlo — un
+        // round-trip innecesario y frágil cuando ya estamos parados acá. Resolviendo el
+        // cliente localmente evitamos que la factura llegue "innominada" al filial
+        // (clienteId null) cuando en realidad sí hay ruc+nombre cargados.
+        boolean clienteRecienCreado = false;
+        if (facturaInput.getClienteId() == null) {
+            ClienteResuelto resuelto = resolverOClienteId(facturaInput);
+            if (resuelto != null) {
+                facturaInput.setClienteId(resuelto.id);
+                clienteRecienCreado = resuelto.nuevo;
+            }
         }
 
         Integer puertoServidor = sucursal.getPuertoServidor() != null ? sucursal.getPuertoServidor() : 8082;
@@ -69,7 +96,7 @@ public class FacturaLegalFilialService {
         try {
             requestJson = objectMapper.writeValueAsString(request);
             log.debug("Request JSON serializado: {}", requestJson);
-            
+
             // Verificar que la fecha esté en formato string, no array
             if (requestJson.contains("\"fecha\" : [") || requestJson.contains("\"fecha\":[")) {
                 log.error("ERROR: La fecha se está serializando como array. Request: {}", requestJson);
@@ -84,6 +111,44 @@ public class FacturaLegalFilialService {
 
         log.info("Enviando factura legal a servidor filial: {} - URL: {}", sucursal.getNombre(), url);
 
+        // Si el cliente se acaba de crear en este mismo request, la réplica lógica
+        // central->filial todavía puede no haber llegado cuando el filial intente
+        // resolverlo por id (findById). Reintentar unas pocas veces con espera: la
+        // transacción del lado filial hace rollback completo ante cualquier error
+        // (incluida la factura "innominada" que dispara esto), así que repetir el
+        // mismo POST es seguro — no deja facturas duplicadas ni a medio guardar.
+        int intentosMaximos = clienteRecienCreado ? MAX_INTENTOS_CLIENTE_NUEVO : 1;
+        RuntimeException ultimoError = null;
+        for (int intento = 1; intento <= intentosMaximos; intento++) {
+            if (intento > 1) {
+                log.warn("Reintentando envío de factura al filial (intento {}/{}) — esperando replicación del cliente {}",
+                        intento, intentosMaximos, facturaInput.getClienteId());
+                try {
+                    Thread.sleep(ESPERA_ENTRE_INTENTOS_MS);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrumpido esperando replicación de cliente hacia el filial", ie);
+                }
+            }
+            try {
+                return intentarCrearEnFilial(url, entity);
+            } catch (RuntimeException e) {
+                ultimoError = e;
+                if (intento == intentosMaximos) {
+                    throw e;
+                }
+                log.warn("Intento {}/{} falló al crear factura en filial: {}", intento, intentosMaximos, e.getMessage());
+            }
+        }
+        // Inalcanzable (el loop siempre retorna o lanza en la última iteración),
+        // pero el compilador no lo sabe.
+        throw ultimoError;
+    }
+
+    private static final int MAX_INTENTOS_CLIENTE_NUEVO = 4;
+    private static final long ESPERA_ENTRE_INTENTOS_MS = 1500;
+
+    private FacturaLegalFilialResponse intentarCrearEnFilial(String url, HttpEntity<String> entity) {
         try {
             ResponseEntity<FacturaLegalFilialResponse> response = restTemplate.exchange(
                     url,
@@ -100,25 +165,97 @@ public class FacturaLegalFilialService {
                 log.error(mensajeError);
                 throw new RuntimeException(mensajeError);
             }
-            
+
         } catch (HttpClientErrorException e) {
             // Error 4xx (400, 404, etc.)
             ErrorResponseDTO errorResponse = parseErrorResponse(e.getResponseBodyAsString());
             String mensajeError = errorResponse != null ? errorResponse.getMensaje() : e.getMessage();
             log.error("Error al crear factura legal en servidor filial ({}): {}", e.getStatusCode(), mensajeError);
             throw new RuntimeException("Error al crear factura legal: " + mensajeError, e);
-            
+
         } catch (HttpServerErrorException e) {
             // Error 5xx (500, 503, etc.)
             ErrorResponseDTO errorResponse = parseErrorResponse(e.getResponseBodyAsString());
             String mensajeError = errorResponse != null ? errorResponse.getMensaje() : e.getMessage();
             log.error("Error del servidor filial ({}): {}", e.getStatusCode(), mensajeError);
             throw new RuntimeException("Error del servidor filial: " + mensajeError, e);
-            
+
         } catch (RestClientException e) {
             // Error de conexión u otro error de RestTemplate
             log.error("Error al conectar con el servidor filial: {}", e.getMessage(), e);
             throw new RuntimeException("Error al conectar con el servidor filial: " + e.getMessage(), e);
+        }
+    }
+
+    /** Resultado de resolverOClienteId: el id encontrado/creado y si fue recién creado. */
+    private static final class ClienteResuelto {
+        final Long id;
+        final boolean nuevo;
+        ClienteResuelto(Long id, boolean nuevo) {
+            this.id = id;
+            this.nuevo = nuevo;
+        }
+    }
+
+    /**
+     * Busca o crea localmente (en el central) el Cliente correspondiente a ruc+nombre
+     * cuando la factura no trae un clienteId ya resuelto. Mismo criterio de "carga
+     * manual" que ya usa el filial en FacturaLegalGraphQL.saveFacturaLegal (PDV), pero
+     * ejecutado acá para no depender de que el filial pueda autenticarse contra este
+     * central.
+     *
+     * @return el Cliente resuelto/creado (con la marca de si es nuevo), o null si no hay
+     *         ruc+nombre para intentarlo.
+     */
+    private ClienteResuelto resolverOClienteId(FacturaLegalInput facturaInput) {
+        String ruc = facturaInput.getRuc();
+        String nombre = facturaInput.getNombre();
+        if (ruc == null || ruc.trim().isEmpty()
+                || nombre == null || nombre.trim().isEmpty()
+                || ruc.trim().equalsIgnoreCase("X")) {
+            return null;
+        }
+
+        try {
+            String rucLimpio = ruc.trim();
+            Persona persona = personaService.findByDocumento(rucLimpio);
+            if (persona == null) {
+                String documentoNormalizado = rucLimpio.replaceAll("[^0-9]", "");
+                if (!documentoNormalizado.isEmpty()) {
+                    persona = personaService.findByDocumento(documentoNormalizado);
+                }
+            }
+
+            boolean personaNueva = persona == null;
+            if (persona == null) {
+                persona = new Persona();
+                persona.setDocumento(rucLimpio);
+                persona.setNombre(nombre.trim().toUpperCase());
+                if (facturaInput.getDireccion() != null && !facturaInput.getDireccion().trim().isEmpty()) {
+                    persona.setDireccion(facturaInput.getDireccion().trim().toUpperCase());
+                }
+                if (facturaInput.getEmail() != null && !facturaInput.getEmail().trim().isEmpty()) {
+                    persona.setEmail(facturaInput.getEmail().trim().toUpperCase());
+                }
+                persona = personaService.save(persona);
+                log.info("Nueva Persona creada desde factura hacia filial - ID: {}, RUC: {}, Nombre: {}",
+                        persona.getId(), persona.getDocumento(), persona.getNombre());
+            }
+
+            Cliente cliente = clienteService.findByPersonaId(persona.getId());
+            boolean clienteNuevo = cliente == null;
+            if (cliente == null) {
+                cliente = new Cliente();
+                cliente.setPersona(persona);
+                cliente.setVerificadoSet(false);
+                cliente.setTributa(true);
+                cliente = clienteService.save(cliente);
+                log.info("Nuevo Cliente creado desde factura hacia filial - ID: {}", cliente.getId());
+            }
+            return new ClienteResuelto(cliente.getId(), personaNueva || clienteNuevo);
+        } catch (Exception e) {
+            log.error("No se pudo resolver/crear el cliente en el central para ruc {}: {}", ruc, e.getMessage(), e);
+            return null;
         }
     }
 

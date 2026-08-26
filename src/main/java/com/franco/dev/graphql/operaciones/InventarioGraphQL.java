@@ -199,8 +199,20 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
         return service.findInventarioAbiertoPorSucursal(sucId);
     }
 
+    /**
+     * Finaliza la toma y ajusta el stock con lo contado.
+     *
+     * Usado en:
+     * - Desktop: Si (modulo de inventario, boton de finalizar)
+     * - Mobile: Si (detalle de la toma)
+     */
     public Inventario finalizarInventarioEnSucursal(Long id) throws GraphQLException {
         Inventario inventario = service.findById(id).orElse(null);
+        if (inventario == null) {
+            // Antes seguia y reventaba con un NullPointerException en la linea
+            // siguiente, que no dice cual es el problema.
+            throw new GraphQLException("No existe el inventario " + id);
+        }
         Map<Long, Double> cantidadesPorProducto = new HashMap<>();
         Producto selectedProducto = null;
         try {
@@ -214,6 +226,24 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                     List<InventarioProductoItem> inventarioProductoItemList = inventarioProductoItemService
                             .findByInventarioProductoId(ip.getId());
                     for (InventarioProductoItem ipi : inventarioProductoItemList) {
+                        /*
+                         * Un item SIN contar no es un item contado en cero.
+                         *
+                         * `cantidad` es lo contado y es nullable: un item que se
+                         * sumo a la toma y que nadie fue a contar la tiene en
+                         * null. Multiplicarla reventaba con un NullPointerException
+                         * al desempaquetar el Double, asi que ninguna toma con un
+                         * item sin contar se podia finalizar.
+                         *
+                         * Se saltea, no se toma como cero. Si se tomara como cero y
+                         * un producto tuviera todos sus items sin contar, el ajuste
+                         * le llevaria el stock A CERO sin que nadie hubiera contado
+                         * nada — una perdida de stock muda. Salteandolo, ese
+                         * producto simplemente no entra en el ajuste.
+                         */
+                        if (ipi.getCantidad() == null) {
+                            continue;
+                        }
                         selectedProducto = ipi.getPresentacion().getProducto();
                         cantidadesPorProducto.merge(
                                 ipi.getPresentacion().getProducto().getId(),

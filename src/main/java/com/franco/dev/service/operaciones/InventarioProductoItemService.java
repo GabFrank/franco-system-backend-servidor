@@ -343,8 +343,12 @@ public class InventarioProductoItemService
             // Dos vencimientos nulos son iguales a proposito: dos renglones de
             // la misma presentacion sin fecha son el mismo renglon dos veces.
             boolean mismoVencimiento = Objects.equals(item.getVencimiento(), entity.getVencimiento());
+            // Con control de lote un renglon ES un lote, y dos lotes del mismo producto pueden
+            // vencer el mismo dia: sin esto, contar el segundo fallaba. Dos nulos vuelven a ser
+            // iguales, asi que el renglon sin lote sigue teniendo la clave de siempre.
+            boolean mismoLote = Objects.equals(idDeLote(item), idDeLote(entity));
 
-            if (esOtroRenglon && mismaPresentacion && mismoVencimiento) {
+            if (esOtroRenglon && mismaPresentacion && mismoVencimiento && mismoLote) {
                 throw new IllegalStateException(mensajeDeRenglonDuplicado(entity));
             }
         }
@@ -362,12 +366,24 @@ public class InventarioProductoItemService
         }
         String donde = (zona != null && !zona.trim().isEmpty()) ? "la zona " + zona.trim() : "esta zona";
 
+        // Con lote, la fecha no es lo que distingue los renglones: nombrar el lote es lo unico que
+        // le dice al operador cual de los dos renglones ya esta cargado.
+        if (entity.getLote() != null && entity.getLote().getNumeroLote() != null) {
+            return "El lote " + entity.getLote().getNumeroLote() + " de esa presentacion ya esta en "
+                    + donde + ". Cada lote se cuenta en un solo renglon.";
+        }
+
         if (entity.getVencimiento() == null) {
             return "Esa presentacion ya esta en " + donde
                     + " sin vencimiento. Carguele la fecha a la que ya esta, o conte las dos juntas en ese renglon.";
         }
         return "Esa presentacion ya esta en " + donde + " con el mismo vencimiento. "
                 + "Un lote distinto va con otra fecha; el mismo lote se cuenta en un solo renglon.";
+    }
+
+    /** El id del lote del renglon, o null si no tiene. Aisla el null-check de la comparacion. */
+    private Long idDeLote(InventarioProductoItem item) {
+        return item != null && item.getLote() != null ? item.getLote().getId() : null;
     }
 
     @Override

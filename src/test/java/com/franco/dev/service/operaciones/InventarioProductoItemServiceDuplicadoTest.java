@@ -3,6 +3,7 @@ package com.franco.dev.service.operaciones;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.empresarial.Zona;
@@ -84,6 +85,17 @@ class InventarioProductoItemServiceDuplicadoTest {
         return item;
     }
 
+    /** El mismo renglon, pero atribuido a un lote. */
+    private InventarioProductoItem itemConLote(Long id, Long zonaId, Long presentacionId,
+                                               LocalDateTime vencimiento, Long loteId, String numeroLote) {
+        InventarioProductoItem item = item(id, zonaId, presentacionId, vencimiento);
+        Lote lote = new Lote();
+        lote.setId(loteId);
+        lote.setNumeroLote(numeroLote);
+        item.setLote(lote);
+        return item;
+    }
+
     @Test
     @DisplayName("el mismo renglon repetido en la zona se rechaza: el conteo saldria doble")
     void mismoRenglonRepetido() {
@@ -150,6 +162,45 @@ class InventarioProductoItemServiceDuplicadoTest {
                 .thenReturn(Arrays.asList(item(1L, ZONA_GONDOLA, UNIDAD, NOVIEMBRE)));
 
         assertDoesNotThrow(() -> service.save(item(1L, ZONA_GONDOLA, UNIDAD, NOVIEMBRE)));
+    }
+
+    @Test
+    @DisplayName("dos lotes distintos de la misma presentacion conviven aunque compartan vencimiento")
+    void dosLotesDistintosConLaMismaFecha() {
+        // Con control de lote un renglon ES un lote, y dos lotes del mismo producto pueden vencer
+        // el mismo dia. Sin el lote en la clave, contar el segundo fallaba.
+        when(repository.findByInventarioProductoId(ZONA_GONDOLA))
+                .thenReturn(Collections.singletonList(
+                        itemConLote(1L, ZONA_GONDOLA, UNIDAD, NOVIEMBRE, 41L, "L-2026-88")));
+
+        assertDoesNotThrow(() -> service.save(
+                itemConLote(null, ZONA_GONDOLA, UNIDAD, NOVIEMBRE, 42L, "L-2026-91")));
+    }
+
+    @Test
+    @DisplayName("el mismo lote repetido en la zona se rechaza y el mensaje lo nombra")
+    void mismoLoteRepetido() {
+        when(repository.findByInventarioProductoId(ZONA_GONDOLA))
+                .thenReturn(Collections.singletonList(
+                        itemConLote(1L, ZONA_GONDOLA, UNIDAD, NOVIEMBRE, 41L, "L-2026-88")));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.save(
+                        itemConLote(null, ZONA_GONDOLA, UNIDAD, NOVIEMBRE, 41L, "L-2026-88")));
+
+        assertTrue(error.getMessage().contains("L-2026-88"), error.getMessage());
+    }
+
+    @Test
+    @DisplayName("un renglon con lote y otro sin lote no son el mismo renglon")
+    void conLoteYSinLoteConviven() {
+        // El renglon sin lote es la mercaderia que todavia no se atribuyo a ninguno: es
+        // exactamente el caso que hay que poder contar aparte.
+        when(repository.findByInventarioProductoId(ZONA_GONDOLA))
+                .thenReturn(Collections.singletonList(item(1L, ZONA_GONDOLA, UNIDAD, NOVIEMBRE)));
+
+        assertDoesNotThrow(() -> service.save(
+                itemConLote(null, ZONA_GONDOLA, UNIDAD, NOVIEMBRE, 41L, "L-2026-88")));
     }
 
     @Test

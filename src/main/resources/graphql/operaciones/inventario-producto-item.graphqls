@@ -14,6 +14,9 @@ type InventarioProductoItem {
     estado: InventarioProductoEstado
     creadoEn: Date
     usuario: Usuario
+    # El lote que se conto. Nulo en los productos sin control de lote y en la mercaderia que
+    # todavia no se atribuyo a ninguno. Con lote, cantidadFisica es el saldo DE ESE LOTE.
+    lote: Lote
 }
 
 input InventarioProductoItemInput {
@@ -31,6 +34,8 @@ input InventarioProductoItemInput {
     vencimiento: String
     estado: InventarioProductoEstado
     usuarioId: Int
+    # Opcional y aditivo: el escritorio no lo manda y sigue funcionando igual.
+    loteId: Int
 }
 
 type InventarioProductoItemPage {

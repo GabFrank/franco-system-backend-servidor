@@ -4,10 +4,12 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.Inventario;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.InventarioEstado;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.domain.productos.Producto;
+import com.franco.dev.service.operaciones.InventarioLoteService;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.InventarioService;
@@ -23,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -31,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,6 +62,7 @@ class InventarioGraphQLFinalizarTest {
     private InventarioProductoItemService itemService;
     private ProductoService productoService;
     private MovimientoStockService movimientoStockService;
+    private InventarioLoteService inventarioLoteService;
     private InventarioGraphQL resolver;
 
     private InventarioProductoItem item(Long productoId, Double cantidadContada, double porPresentacion) {
@@ -111,12 +117,45 @@ class InventarioGraphQLFinalizarTest {
         when(movimientoStockService.save(any(MovimientoStock.class)))
                 .thenAnswer(invocacion -> invocacion.getArgument(0));
 
+        inventarioLoteService = mock(InventarioLoteService.class);
+        when(inventarioLoteService.contadoPorProductoYLote(INVENTARIO)).thenReturn(new HashMap<>());
+
         resolver = new InventarioGraphQL();
         ReflectionTestUtils.setField(resolver, "service", service);
         ReflectionTestUtils.setField(resolver, "inventarioProductoService", inventarioProductoService);
         ReflectionTestUtils.setField(resolver, "inventarioProductoItemService", itemService);
         ReflectionTestUtils.setField(resolver, "productoService", productoService);
         ReflectionTestUtils.setField(resolver, "movimientoStockService", movimientoStockService);
+        ReflectionTestUtils.setField(resolver, "inventarioLoteService", inventarioLoteService);
+    }
+
+    /** El mismo item, pero de un producto CON control de lote y atribuido a un lote. */
+    private InventarioProductoItem itemConLote(Long productoId, Double cantidadContada,
+                                               double porPresentacion, Long loteId) {
+        InventarioProductoItem item = item(productoId, cantidadContada, porPresentacion);
+        item.getPresentacion().getProducto().setLote(true);
+        Lote lote = new Lote();
+        lote.setId(loteId);
+        lote.setNumeroLote("L-" + loteId);
+        item.setLote(lote);
+        return item;
+    }
+
+    private void conProductoConLote(Long productoId) {
+        when(productoService.findById(eq(productoId))).thenAnswer(invocacion -> {
+            Producto p = new Producto();
+            p.setId(invocacion.getArgument(0));
+            p.setLote(true);
+            return Optional.of(p);
+        });
+    }
+
+    private void conContadoPorLote(Long productoId, Long loteId, Double unidades) {
+        Map<Long, Double> porLote = new HashMap<>();
+        porLote.put(loteId, unidades);
+        Map<Long, Map<Long, Double>> porProducto = new HashMap<>();
+        porProducto.put(productoId, porLote);
+        when(inventarioLoteService.contadoPorProductoYLote(INVENTARIO)).thenReturn(porProducto);
     }
 
     private void conItems(List<InventarioProductoItem> items) {
@@ -184,6 +223,60 @@ class InventarioGraphQLFinalizarTest {
         ArgumentCaptor<MovimientoStock> guardados = ArgumentCaptor.forClass(MovimientoStock.class);
         verify(movimientoStockService).save(guardados.capture());
         assertEquals(-10.0, guardados.getValue().getCantidad());
+    }
+
+    @Test
+    @DisplayName("un producto con lote escribe el desglose en el ledger, no solo el agregado")
+    void productoConLoteEscribeDesglose() {
+        // Es el punto entero del cambio: sin esto el ajuste queda en el agregado y la mercaderia
+        // contada nunca vuelve a ser asignable por FEFO.
+        conProductoConLote(CONTADO);
+        conContadoPorLote(CONTADO, 41L, 7.0);
+        when(inventarioLoteService.saldosPorLote(eq(CONTADO), eq(SUCURSAL), any()))
+                .thenReturn(saldos(41L, 10.0));
+        conItems(Collections.singletonList(itemConLote(CONTADO, 7.0, 1.0, 41L)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        verify(inventarioLoteService).escribirDesglose(any(MovimientoStock.class), any(Producto.class),
+                any(), any());
+    }
+
+    @Test
+    @DisplayName("un lote con saldo que nadie conto deja al producto ENTERO fuera del ajuste")
+    void loteSinContarDejaAlProductoAfuera() {
+        // Ni movimiento agregado ni filas del ledger: la misma regla que rige para el item con
+        // cantidad nula. Tomar el lote como cero le borraria el stock a mercaderia que nadie miro.
+        conProductoConLote(CONTADO);
+        conContadoPorLote(CONTADO, 41L, 7.0);
+        // El lote 42 tiene 20 unidades y ningun renglon lo conto.
+        when(inventarioLoteService.saldosPorLote(eq(CONTADO), eq(SUCURSAL), any()))
+                .thenReturn(saldos(41L, 10.0, 42L, 20.0));
+        conItems(Collections.singletonList(itemConLote(CONTADO, 7.0, 1.0, 41L)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        verify(movimientoStockService, never()).save(any(MovimientoStock.class));
+    }
+
+    @Test
+    @DisplayName("un producto sin control de lote no toca el ledger por lote")
+    void productoSinLoteNoTocaElLedger() {
+        // Regresion cero para los ~8.700 productos que no llevan lote.
+        conItems(Collections.singletonList(item(CONTADO, 7.0, 1.0)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        verify(movimientoStockService).save(any(MovimientoStock.class));
+        verify(inventarioLoteService, never()).escribirDesglose(any(), any(), any(), any());
+    }
+
+    private static Map<Long, Double> saldos(Object... pares) {
+        Map<Long, Double> mapa = new HashMap<>();
+        for (int i = 0; i < pares.length; i += 2) {
+            mapa.put(((Number) pares[i]).longValue(), ((Number) pares[i + 1]).doubleValue());
+        }
+        return mapa;
     }
 
     @Test

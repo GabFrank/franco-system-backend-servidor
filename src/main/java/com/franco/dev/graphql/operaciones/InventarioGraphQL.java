@@ -10,7 +10,9 @@ import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.InventarioInput;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.operaciones.InventarioLoteService;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
+import com.franco.dev.service.operaciones.PlanConteoLote;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.InventarioService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
@@ -25,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import lombok.extern.java.Log;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -32,6 +35,7 @@ import java.util.*;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
+@Log
 @Component
 public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
@@ -59,6 +63,9 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
 
     @Autowired
     private ProductoService productoService;
+
+    @Autowired
+    private InventarioLoteService inventarioLoteService;
 
     @Autowired
     private MultiTenantService multiTenantService;
@@ -251,34 +258,88 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                                 Double::sum);
                     }
 
-                    for (Map.Entry<Long, Double> entry : cantidadesPorProducto.entrySet()) {
-                        Long productoId = entry.getKey();
-                        Producto foundProducto = productoService.findById(productoId).orElse(null);
-                        Double cantidadTotal = entry.getValue();
-                        Double stockSistema = 0.0;
-                        MovimientoStock movimientoStockEncontrado = movimientoStockService
-                                .findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE,
-                                        inventario.getId(), inventario.getSucursal().getId(), productoId);
-                        if (movimientoStockEncontrado != null) {
-                            stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(
-                                    movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId(),
-                                    inventario.getSucursal().getId());
-                        } else {
-                            stockSistema = movimientoStockService.stockByProductoIdAndSucursalId(productoId,
-                                    inventario.getSucursal().getId());
+                }
+
+                /*
+                 * El desglose por lote de lo contado, por producto. Una sola pasada por toda la
+                 * toma: el mismo lote puede estar en gondola y en deposito, y los dos conteos
+                 * suman contra el mismo saldo.
+                 */
+                Map<Long, Map<Long, Double>> contadoPorLote =
+                        inventarioLoteService.contadoPorProductoYLote(id);
+
+                /*
+                 * ESTE BUCLE VA AFUERA DEL DE ZONAS, y no es un detalle de estilo.
+                 *
+                 * Estaba anidado adentro y `cantidadesPorProducto` nunca se limpia, asi que con N
+                 * zonas cada movimiento agregado se escribia N veces con acumulados parciales.
+                 * Terminaba bien de casualidad —la ultima pasada pisaba con el total correcto—,
+                 * pero el desglose por lote son filas NUEVAS con PK propia: escribirlas N veces
+                 * multiplica el ledger y ahi no hay pisada que lo salve.
+                 */
+                for (Map.Entry<Long, Double> entry : cantidadesPorProducto.entrySet()) {
+                    Long productoId = entry.getKey();
+                    Producto foundProducto = productoService.findById(productoId).orElse(null);
+                    Double cantidadTotal = entry.getValue();
+                    Double stockSistema = 0.0;
+                    MovimientoStock movimientoStockEncontrado = movimientoStockService
+                            .findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE,
+                                    inventario.getId(), inventario.getSucursal().getId(), productoId);
+                    if (movimientoStockEncontrado != null) {
+                        stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(
+                                movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId(),
+                                inventario.getSucursal().getId());
+                    } else {
+                        stockSistema = movimientoStockService.stockByProductoIdAndSucursalId(productoId,
+                                inventario.getSucursal().getId());
+                    }
+
+                    /*
+                     * Todo lo nuevo detras de este if: para los ~8.700 productos sin control de
+                     * lote el camino es exactamente el de antes.
+                     */
+                    boolean conLote = foundProducto != null && Boolean.TRUE.equals(foundProducto.getLote());
+                    PlanConteoLote plan = null;
+                    if (conLote) {
+                        plan = InventarioLoteService.planificar(
+                                stockSistema,
+                                cantidadTotal,
+                                inventarioLoteService.saldosPorLote(productoId,
+                                        inventario.getSucursal().getId(), movimientoStockEncontrado),
+                                contadoPorLote.getOrDefault(productoId, Collections.emptyMap()));
+
+                        if (plan.isOmitido()) {
+                            /*
+                             * Hay un lote con saldo que ningun renglon conto. El producto queda
+                             * ENTERO afuera: ni movimiento agregado ni filas del ledger.
+                             *
+                             * Es la misma regla que ya rige para el item con cantidad nula. La
+                             * pantalla lo avisa antes con lotesSinContar(), pero la regla se
+                             * aplica igual, mire alguien esa pantalla o no.
+                             */
+                            log.warning("Inventario " + inventario.getId() + ": el producto "
+                                    + productoId + " queda fuera del ajuste porque los lotes "
+                                    + plan.getLotesSinContar() + " tienen saldo y nadie los conto.");
+                            continue;
                         }
-                        if (movimientoStockEncontrado == null) {
-                            movimientoStockEncontrado = new MovimientoStock();
-                            movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
-                            movimientoStockEncontrado.setSucursalId(inventario.getSucursal().getId());
-                            movimientoStockEncontrado.setReferencia(inventario.getId());
-                            movimientoStockEncontrado.setProducto(foundProducto);
-                            movimientoStockEncontrado.setUsuario(inventario.getUsuario());
-                            movimientoStockEncontrado.setEstado(true);
-                        }
-                        Double diferencia = cantidadTotal - stockSistema; // 9 - 10 = -1, 11 - 10 = 1
-                        movimientoStockEncontrado.setCantidad(diferencia);
-                        movimientoStockEncontrado = movimientoStockService.save(movimientoStockEncontrado);
+                    }
+
+                    if (movimientoStockEncontrado == null) {
+                        movimientoStockEncontrado = new MovimientoStock();
+                        movimientoStockEncontrado.setTipoMovimiento(TipoMovimiento.AJUSTE);
+                        movimientoStockEncontrado.setSucursalId(inventario.getSucursal().getId());
+                        movimientoStockEncontrado.setReferencia(inventario.getId());
+                        movimientoStockEncontrado.setProducto(foundProducto);
+                        movimientoStockEncontrado.setUsuario(inventario.getUsuario());
+                        movimientoStockEncontrado.setEstado(true);
+                    }
+                    Double diferencia = cantidadTotal - stockSistema; // 9 - 10 = -1, 11 - 10 = 1
+                    movimientoStockEncontrado.setCantidad(diferencia);
+                    movimientoStockEncontrado = movimientoStockService.save(movimientoStockEncontrado);
+
+                    if (conLote) {
+                        inventarioLoteService.escribirDesglose(movimientoStockEncontrado, foundProducto,
+                                plan, inventario.getUsuario());
                     }
                 }
             }

@@ -26,6 +26,17 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo origenTipo, Long origenId);
 
     /**
+     * Igual que el anterior pero acotado a la sucursal del documento de origen.
+     *
+     * <p>Hace falta cuando el origen tiene PK compuesta: el id de un Retiro no es global —cada
+     * filial numera desde 1— y una caja mayor recibe retiros de varias sucursales, así que
+     * buscar solo por (origenTipo, origenId) devuelve movimientos de retiros ajenos que
+     * casualmente comparten el número.</p>
+     */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
+            OrigenMovimientoTipo origenTipo, Long origenId, Long origenSucursalId);
+
+    /**
      * Filtro combinado de movimientos (todos opcionales salvo la caja). soloActivos=true oculta anulados.
      * {@code tipo} llega como String (name del enum) y se compara contra la columna casteada a texto:
      * el enum es nativo de Postgres y un bind param nulo de enum rompe con 42P18. Castear a texto lo evita.

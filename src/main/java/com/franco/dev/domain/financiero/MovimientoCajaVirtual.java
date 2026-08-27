@@ -69,6 +69,18 @@ public class MovimientoCajaVirtual implements Serializable {
     @Column(name = "origen_id")
     private Long origenId;
 
+    /**
+     * Segunda mitad de la PK del documento de origen, cuando es compuesta. Null para los de
+     * PK simple.
+     *
+     * Hace falta porque {@code origenId} solo no identifica un documento: Retiro tiene PK
+     * (id, sucursalId) y el id no es global — cada filial numera desde 1, así que el mismo id
+     * lo comparten decenas de sucursales. Una caja mayor recibe retiros de varias sucursales
+     * por diseño, con lo cual buscar por (origenTipo, origenId) devuelve movimientos ajenos.
+     */
+    @Column(name = "origen_sucursal_id")
+    private Long origenSucursalId;
+
     private String descripcion;
 
     @ManyToOne(fetch = FetchType.LAZY)

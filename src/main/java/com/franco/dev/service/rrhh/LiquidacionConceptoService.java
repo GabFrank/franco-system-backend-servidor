@@ -20,6 +20,11 @@ public class LiquidacionConceptoService extends CrudService<LiquidacionConcepto,
         return repository;
     }
 
+    /** Los que se ofrecen en el select de item manual. Ver el repositorio. */
+    public java.util.List<LiquidacionConcepto> findParaItemManual() {
+        return repository.findByActivoTrueAndEsCalculadoAutoFalseOrderByEsHaberDescDescripcionAsc();
+    }
+
     public Optional<LiquidacionConcepto> findByCodigo(String codigo) {
         if (codigo == null) return Optional.empty();
         return repository.findByCodigo(codigo.toUpperCase());

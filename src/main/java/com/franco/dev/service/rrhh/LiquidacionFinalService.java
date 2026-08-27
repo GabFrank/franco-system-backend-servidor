@@ -382,6 +382,8 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             LocalDate inicioMes = egreso.withDayOfMonth(1);
             BigDecimal totalPenal = BigDecimal.ZERO;
             for (Penalizacion p : penalizacionRepository.findByFuncionarioIdAndFechaBetweenAndAnuladaFalse(fid, inicioMes, egreso)) {
+                // Las amonestaciones no son plata: se registran y se cuentan, no se descuentan.
+                if (p.getTipo() == com.franco.dev.domain.rrhh.enums.PenalizacionTipo.ADVERTENCIA) continue;
                 if (p.getMonto() != null) totalPenal = totalPenal.add(p.getMonto());
             }
             if (totalPenal.signum() > 0) {

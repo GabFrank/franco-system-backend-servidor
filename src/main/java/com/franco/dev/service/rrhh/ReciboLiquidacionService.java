@@ -54,6 +54,8 @@ public class ReciboLiquidacionService {
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
     private final PenalizacionRepository penalizacionRepository;
+    private final ConfiguracionRrhhService configuracionRrhhService;
+    private final LiquidacionConceptoService liquidacionConceptoService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
@@ -64,7 +66,9 @@ public class ReciboLiquidacionService {
                                     BonoRepository bonoRepository,
                                     VacacionVentaRepository vacacionVentaRepository,
                                     PrestamoCuotaRepository prestamoCuotaRepository,
-                                    PenalizacionRepository penalizacionRepository) {
+                                    PenalizacionRepository penalizacionRepository,
+                                    ConfiguracionRrhhService configuracionRrhhService,
+                                    LiquidacionConceptoService liquidacionConceptoService) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -73,6 +77,8 @@ public class ReciboLiquidacionService {
         this.vacacionVentaRepository = vacacionVentaRepository;
         this.prestamoCuotaRepository = prestamoCuotaRepository;
         this.penalizacionRepository = penalizacionRepository;
+        this.configuracionRrhhService = configuracionRrhhService;
+        this.liquidacionConceptoService = liquidacionConceptoService;
     }
 
     @Transactional(readOnly = true)
@@ -89,10 +95,11 @@ public class ReciboLiquidacionService {
             return generarTicket(liq, anchoMm);
         }
 
+        Map<String, String> cacheCatalogo = new HashMap<>();
         List<ReciboLiquidacionItemDto> filas = new ArrayList<>();
         for (LiquidacionItem it : itemsParaImpresion(liquidacionId)) {
             filas.add(new ReciboLiquidacionItemDto(
-                    operacion(it),
+                    operacion(it, cacheCatalogo),
                     it.getTipo() == LiquidacionItemTipo.HABER ? "ENTRADA" : "SALIDA",
                     it.getDescripcion(),
                     fechaItem(it, liq),
@@ -105,6 +112,9 @@ public class ReciboLiquidacionService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocial());
+        params.put("ruc", ruc());
+        params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
+        params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
         params.put("funcionario", nombreFuncionario(liq));
         params.put("documento", documentoFuncionario(liq));
         params.put("direccion", direccionFuncionario(liq));
@@ -114,10 +124,12 @@ public class ReciboLiquidacionService {
         params.put("fecha", fechaEnPalabras());
         params.put("ciudad", ciudad(liq));
         params.put("sueldoBase", formatear(liq.getSalarioBase()));
-        params.put("totalRecibido", formatear(liq.getTotalHaberes()));
+        params.put("totalRecibido", formatear(montoDeclarado(liq)));
         params.put("totalDescontado", formatear(liq.getTotalDescuentos()));
         params.put("totalNeto", formatear(liq.getTotalNeto()));
-        params.put("montoEnLetras", enLetras(liq.getTotalNeto()));
+        // El monto en letras acompania la frase de recepcion, que declara el BRUTO
+        // ("recibi la suma de..."). El neto sigue mostrandose aparte, en "Total a cobrar".
+        params.put("montoEnLetras", enLetras(montoDeclarado(liq)));
 
         try (InputStream jrxmlStream = new ClassPathResource("reports/recibo-liquidacion.jrxml").getInputStream()) {
             JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlStream);
@@ -132,28 +144,33 @@ public class ReciboLiquidacionService {
 
     /** Recibo de sueldo en ESC/POS (base64) para impresión térmica local del cliente. */
     private String generarTicketEscPos(LiquidacionSueldo liq, Integer anchoMm) {
+        Map<String, String> cacheCatalogo = new HashMap<>();
         List<com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row> rows = new ArrayList<>();
         for (LiquidacionItem it : itemsParaImpresion(liq.getId())) {
             rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(
-                    conceptoTicket(it), montoTicket(it)));
+                    conceptoTicket(it, cacheCatalogo), montoTicket(it)));
         }
-        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+        BigDecimal bruto = montoDeclarado(liq);
+        rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(
+                "NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
         return com.franco.dev.utilitarios.print.ReciboTicketEscPos.build(
                 razonSocial(), "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""),
                 nombreFuncionario(liq), documentoFuncionario(liq), LocalDate.now().toString(),
-                rows, formatoGs.format(neto), enLetras(neto),
+                rows, formatoGs.format(bruto), enLetras(bruto),
                 "Recibi conforme, en concepto de haberes del periodo,", anchoMm);
     }
 
     /** Recibo de sueldo en formato ticket (58/80mm), plantilla genérica concepto/monto. */
     private String generarTicket(LiquidacionSueldo liq, Integer anchoMm) {
+        Map<String, String> cacheCatalogo = new HashMap<>();
         List<ReporteRrhhService.FiniquitoRow> filas = new ArrayList<>();
         for (LiquidacionItem it : itemsParaImpresion(liq.getId())) {
-            filas.add(new ReporteRrhhService.FiniquitoRow(conceptoTicket(it), montoTicket(it)));
+            filas.add(new ReporteRrhhService.FiniquitoRow(conceptoTicket(it, cacheCatalogo), montoTicket(it)));
         }
         if (filas.isEmpty()) filas.add(new ReporteRrhhService.FiniquitoRow("SIN ITEMS", "0"));
+        filas.add(new ReporteRrhhService.FiniquitoRow("NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
 
-        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+        BigDecimal bruto = montoDeclarado(liq);
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocial());
         params.put("titulo", "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""));
@@ -161,8 +178,8 @@ public class ReciboLiquidacionService {
         params.put("documento", documentoFuncionario(liq));
         params.put("fecha", LocalDate.now().toString());
         params.put("clausula", "Recibí conforme, en concepto de haberes del período,");
-        params.put("total", formatoGs.format(neto));
-        params.put("totalEnLetras", enLetras(neto));
+        params.put("total", formatoGs.format(bruto));
+        params.put("totalEnLetras", enLetras(bruto));
 
         String tpl = anchoMm >= 80 ? "reports/recibo-ticket-80.jrxml" : "reports/recibo-ticket-58.jrxml";
         try (InputStream jrxmlStream = new ClassPathResource(tpl).getInputStream()) {
@@ -189,12 +206,19 @@ public class ReciboLiquidacionService {
      * el ticket termico y el PDF muestren cosas distintas de la misma liquidacion.</p>
      */
     private List<LiquidacionItem> itemsParaImpresion(Long liquidacionId) {
-        return liquidacionSueldoService.findItems(liquidacionId);
+        List<LiquidacionItem> items = liquidacionSueldoService.findItems(liquidacionId);
+        if (configuracionRrhhService.getBoolean(CLAVE_CONSOLIDAR_CREDITO, false)) {
+            items = com.franco.dev.service.rrhh.builder.ReciboAgrupador.consolidarCuotasCredito(items);
+        }
+        return items;
     }
 
+    /** Clave de configuracion que activa la consolidacion de cuotas de venta a credito. */
+    private static final String CLAVE_CONSOLIDAR_CREDITO = "LIQUIDACION_CONSOLIDAR_CUOTAS_CREDITO";
+
     /** Concepto de una fila de ticket: la descripcion del item, o su categoria si no tiene. */
-    private String conceptoTicket(LiquidacionItem it) {
-        return it.getDescripcion() != null ? it.getDescripcion() : operacion(it);
+    private String conceptoTicket(LiquidacionItem it, Map<String, String> cacheCatalogo) {
+        return it.getDescripcion() != null ? it.getDescripcion() : operacion(it, cacheCatalogo);
     }
 
     /** Monto de una fila de ticket. Los descuentos van entre parentesis (no hay columna de signo). */
@@ -203,9 +227,28 @@ public class ReciboLiquidacionService {
         return it.getTipo() == LiquidacionItemTipo.DESCUENTO ? "(" + monto + ")" : monto;
     }
 
-    /** Categoria del movimiento a partir del codigo del item, como en el recibo modelo. */
-    private String operacion(LiquidacionItem it) {
+    /**
+     * Categoria del movimiento para la columna Operacion.
+     *
+     * <p>Resuelve por el catalogo {@code rrhh.liquidacion_concepto}, que es donde vive el
+     * nombre de cada concepto y se puede editar sin deploy. El switch de abajo queda como
+     * respaldo para codigos legacy que no esten seedeados: sin el, un item viejo con un
+     * codigo desconocido perderia su etiqueta.</p>
+     */
+    private String operacion(LiquidacionItem it, Map<String, String> cacheCatalogo) {
         String c = it.getCodigo() != null ? it.getCodigo() : "";
+        if (!c.isEmpty()) {
+            // Un recibo repite pocos codigos distintos entre muchos items (varias cuotas de
+            // credito, varios vales). Sin la cache era un SELECT al catalogo por item; con
+            // ella es uno por codigo distinto. La cache se crea por generacion, asi que
+            // editar el catalogo se ve en el recibo siguiente sin reiniciar nada.
+            String delCatalogo = cacheCatalogo.computeIfAbsent(c, cod ->
+                    liquidacionConceptoService.findByCodigo(cod)
+                            .map(lc -> lc.getDescripcion())
+                            .filter(d -> d != null && !d.trim().isEmpty())
+                            .orElse(""));
+            if (!delCatalogo.isEmpty()) return delCatalogo;
+        }
         switch (c) {
             case "SALARIO_BASE": return "SUELDO";
             case "HORA_EXTRA": return "HORAS EXTRA";
@@ -263,6 +306,26 @@ public class ReciboLiquidacionService {
         return f != null ? f.format(DDMMYYYY) : "";
     }
 
+    /**
+     * Monto que declara la clausula de recepcion, en los tres formatos.
+     *
+     * <p>Es el BRUTO, porque la clausula dice "recibi la suma de X por concepto de sueldo,
+     * bonos, comisiones y otros extras": enumera los haberes, no la plata que queda despues
+     * de descontar. El ticket declaraba el neto y el A4 el bruto, asi que la misma
+     * liquidacion daba dos montos firmados distintos segun que boton se apretara.</p>
+     *
+     * <p>El neto no desaparece: en el A4 va en "Total a cobrar" y en los dos tickets se
+     * agrega como ultima fila, para que nadie firme un numero mayor al efectivo recibido
+     * sin ver cuanto le entra en la mano.</p>
+     */
+    private BigDecimal montoDeclarado(LiquidacionSueldo liq) {
+        return liq.getTotalHaberes() != null ? liq.getTotalHaberes() : BigDecimal.ZERO;
+    }
+
+    private BigDecimal netoACobrar(LiquidacionSueldo liq) {
+        return liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+    }
+
     private String formatear(BigDecimal valor) {
         return formato.format(valor != null ? valor : BigDecimal.ZERO);
     }
@@ -290,6 +353,12 @@ public class ReciboLiquidacionService {
             if (cg.getNombreEmpresa() != null) return cg.getNombreEmpresa();
         }
         return "";
+    }
+
+    /** RUC de la empresa emisora, para el encabezado del recibo. */
+    private String ruc() {
+        ConfiguracionGeneral cg = configGeneral();
+        return cg != null && cg.getRuc() != null ? cg.getRuc() : "";
     }
 
     private ConfiguracionGeneral configGeneral() {

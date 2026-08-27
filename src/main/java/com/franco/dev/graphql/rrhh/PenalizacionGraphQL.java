@@ -76,6 +76,12 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 PageRequest.of(page, size));
     }
 
+    /** Cuantas amonestaciones no anuladas acumula el funcionario (chip del legajo). */
+    public Long contarAdvertencias(Long funcionarioId) {
+        seg.requireVer();
+        return service.contarAdvertencias(funcionarioId);
+    }
+
     public Penalizacion savePenalizacion(PenalizacionInput input) {
         seg.requireAnyRole(seg.GESTIONAR);
         // Una penalizacion es siempre un descuento positivo. Un monto negativo cargado como
@@ -97,6 +103,15 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         e.setTipo(input.getTipo());
         e.setDescripcion(input.getDescripcion());
         e.setMonto(input.getMonto());
+        // El numero correlativo lo pone el backend al crear (PenalizacionService.save).
+        // Solo se acepta del cliente al EDITAR, para poder corregir uno cargado mal; en el
+        // alta se ignora, asi una llamada GraphQL directa no puede saltear la numeracion.
+        if (input.getId() != null && input.getNumeroAdvertencia() != null) {
+            e.setNumeroAdvertencia(input.getNumeroAdvertencia());
+        }
+        if (input.getFirmada() != null) e.setFirmada(input.getFirmada());
+        if (input.getFechaHecho() != null && stringToDate(input.getFechaHecho()) != null)
+            e.setFechaHecho(stringToDate(input.getFechaHecho()).toLocalDate());
         if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
             e.setFecha(stringToDate(input.getFecha()).toLocalDate());
         if (input.getAutoGenerada() != null) e.setAutoGenerada(input.getAutoGenerada());
@@ -116,6 +131,19 @@ public class PenalizacionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         seg.requireAnyRole(seg.GESTIONAR);
         LocalDate f = stringToDate(fecha) != null ? stringToDate(fecha).toLocalDate() : LocalDate.now().minusDays(1);
         return service.generarPenalizacionesAuto(f);
+    }
+
+    /**
+     * Genera las penalizaciones automaticas de un rango de fechas.
+     *
+     * <p>La generacion es idempotente por jornada, asi que re-correr un rango que se
+     * solapa con otro ya corrido no duplica nada.</p>
+     */
+    public Integer generarPenalizacionesAutoRango(String desde, String hasta) {
+        seg.requireAnyRole(seg.GESTIONAR);
+        LocalDate d = stringToDate(desde) != null ? stringToDate(desde).toLocalDate() : null;
+        LocalDate h = stringToDate(hasta) != null ? stringToDate(hasta).toLocalDate() : null;
+        return service.generarPenalizacionesAutoRango(d, h);
     }
 
     /**

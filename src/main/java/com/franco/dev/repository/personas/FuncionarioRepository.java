@@ -15,6 +15,10 @@ import java.util.List;
 
 public interface FuncionarioRepository extends HelperRepository<Funcionario, Long> {
 
+    /** Cuantos funcionarios tienen este cargo. Bloquea el borrado del cargo. */
+    Long countByCargoId(Long cargoId);
+
+
         default Class<Funcionario> getEntityClass() {
                 return Funcionario.class;
         }

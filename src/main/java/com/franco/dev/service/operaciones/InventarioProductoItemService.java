@@ -249,30 +249,52 @@ public class InventarioProductoItemService
                 toLongList(productoIdList));
     }
 
+    /**
+     * Guarda un item de conteo, rechazando el renglon duplicado.
+     *
+     * Usado en:
+     * - Desktop: Si (modulo de inventario, dialogo de agregar producto y edicion del conteo)
+     * - Mobile: Si (carga del conteo: agregar producto y guardar cantidades)
+     *
+     * <p>
+     * Un duplicado es <b>el mismo renglon dos veces en la misma zona</b>:
+     * misma zona, misma presentacion y mismo vencimiento. Ese es el unico caso
+     * que produce un dato sin sentido, porque
+     * {@code finalizarInventarioEnSucursal()} suma los dos renglones y el
+     * conteo sale doble.
+     *
+     * <p>
+     * <b>La clave era {@code (inventario, producto, vencimiento)} y estaba
+     * demasiado abierta en los tres ejes.</b> Rechazaba tres cosas legitimas:
+     *
+     * <ol>
+     * <li><b>El mismo producto en dos zonas.</b> Es el caso normal de un
+     * inventario por zona: hay stock en gondola y en deposito, y los conteos se
+     * suman. Con el alcance en todo el inventario, contar el segundo fallaba.</li>
+     * <li><b>Unidad y caja x12 del mismo producto.</b> Son dos presentaciones y
+     * dos renglones legitimos, pero para una clave por producto eran el mismo.</li>
+     * <li><b>Dos renglones sin vencimiento.</b> {@code Objects.equals} toma dos
+     * nulos por iguales, y el vencimiento es opcional en los dos frentes, asi
+     * que agregar un segundo producto sin fecha a una toma siempre fallaba.</li>
+     * </ol>
+     *
+     * <p>
+     * <b>El cambio es una relajacion, no un cambio de contrato.</b> Todo lo que
+     * la clave nueva rechaza ya lo rechazaba la anterior —una zona esta dentro
+     * de su inventario y una presentacion pertenece a su producto—, asi que
+     * ningun flujo que hoy funcione deja de funcionar. La firma, el input de
+     * GraphQL y el schema quedan igual.
+     *
+     * <p>
+     * El mensaje se arma listo para mostrar: el cliente es capa de presentacion
+     * y no tiene que interpretar el error ni reimplementar esta regla.
+     */
     @Override
     public InventarioProductoItem save(InventarioProductoItem entity) {
         if (entity.getCreadoEn() == null)
             entity.setCreadoEn(LocalDateTime.now());
 
-        Long inventarioId = null;
-        Long productoId = null;
-        if (entity.getInventarioProducto() != null && entity.getInventarioProducto().getInventario() != null) {
-            inventarioId = entity.getInventarioProducto().getInventario().getId();
-        }
-        if (entity.getPresentacion() != null && entity.getPresentacion().getProducto() != null) {
-            productoId = entity.getPresentacion().getProducto().getId();
-        }
-
-        if (inventarioId != null && productoId != null) {
-            List<InventarioProductoItem> existingItems = findByInventarioIdAndProductoId(inventarioId, productoId);
-            for (InventarioProductoItem item : existingItems) {
-                if (!Objects.equals(item.getId(), entity.getId())
-                        && Objects.equals(item.getVencimiento(), entity.getVencimiento())) {
-                    throw new IllegalStateException(
-                            "El producto ya fue registrado en este inventario con el mismo vencimiento");
-                }
-            }
-        }
+        verificarRenglonDuplicado(entity);
 
         InventarioProductoItem entidadAnterior = null;
         boolean esNuevo = (entity.getId() == null);
@@ -294,6 +316,74 @@ public class InventarioProductoItemService
         }
 
         return e;
+    }
+
+    /**
+     * Rechaza el mismo renglon repetido dentro de una zona.
+     *
+     * <p>
+     * Sin zona o sin presentacion no se puede decidir, y se deja pasar: es lo
+     * que hacia la version anterior cuando no podia resolver el inventario o el
+     * producto, y cambiarlo ahora rechazaria altas que hoy entran.
+     */
+    private void verificarRenglonDuplicado(InventarioProductoItem entity) {
+        Long inventarioProductoId = entity.getInventarioProducto() != null
+                ? entity.getInventarioProducto().getId()
+                : null;
+        Long presentacionId = entity.getPresentacion() != null ? entity.getPresentacion().getId() : null;
+
+        if (inventarioProductoId == null || presentacionId == null) {
+            return;
+        }
+
+        for (InventarioProductoItem item : findByInventarioProductoId(inventarioProductoId)) {
+            boolean esOtroRenglon = !Objects.equals(item.getId(), entity.getId());
+            boolean mismaPresentacion = item.getPresentacion() != null
+                    && Objects.equals(item.getPresentacion().getId(), presentacionId);
+            // Dos vencimientos nulos son iguales a proposito: dos renglones de
+            // la misma presentacion sin fecha son el mismo renglon dos veces.
+            boolean mismoVencimiento = Objects.equals(item.getVencimiento(), entity.getVencimiento());
+            // Con control de lote un renglon ES un lote, y dos lotes del mismo producto pueden
+            // vencer el mismo dia: sin esto, contar el segundo fallaba. Dos nulos vuelven a ser
+            // iguales, asi que el renglon sin lote sigue teniendo la clave de siempre.
+            boolean mismoLote = Objects.equals(idDeLote(item), idDeLote(entity));
+
+            if (esOtroRenglon && mismaPresentacion && mismoVencimiento && mismoLote) {
+                throw new IllegalStateException(mensajeDeRenglonDuplicado(entity));
+            }
+        }
+    }
+
+    /**
+     * El texto que ve el operador. Se arma aca —y no en cada cliente— para que
+     * el escritorio y el telefono digan lo mismo, y para que el frontend siga
+     * siendo capa de presentacion.
+     */
+    private String mensajeDeRenglonDuplicado(InventarioProductoItem entity) {
+        String zona = null;
+        if (entity.getInventarioProducto() != null && entity.getInventarioProducto().getZona() != null) {
+            zona = entity.getInventarioProducto().getZona().getDescripcion();
+        }
+        String donde = (zona != null && !zona.trim().isEmpty()) ? "la zona " + zona.trim() : "esta zona";
+
+        // Con lote, la fecha no es lo que distingue los renglones: nombrar el lote es lo unico que
+        // le dice al operador cual de los dos renglones ya esta cargado.
+        if (entity.getLote() != null && entity.getLote().getNumeroLote() != null) {
+            return "El lote " + entity.getLote().getNumeroLote() + " de esa presentacion ya esta en "
+                    + donde + ". Cada lote se cuenta en un solo renglon.";
+        }
+
+        if (entity.getVencimiento() == null) {
+            return "Esa presentacion ya esta en " + donde
+                    + " sin vencimiento. Carguele la fecha a la que ya esta, o conte las dos juntas en ese renglon.";
+        }
+        return "Esa presentacion ya esta en " + donde + " con el mismo vencimiento. "
+                + "Un lote distinto va con otra fecha; el mismo lote se cuenta en un solo renglon.";
+    }
+
+    /** El id del lote del renglon, o null si no tiene. Aisla el null-check de la comparacion. */
+    private Long idDeLote(InventarioProductoItem item) {
+        return item != null && item.getLote() != null ? item.getLote().getId() : null;
     }
 
     @Override

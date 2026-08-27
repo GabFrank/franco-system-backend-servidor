@@ -1,6 +1,7 @@
 package com.franco.dev.service.operaciones;
 
 import com.franco.dev.domain.operaciones.RecepcionMercaderiaItem;
+import com.franco.dev.domain.operaciones.RecepcionMercaderiaItemVariacion;
 import com.franco.dev.domain.operaciones.RecepcionMercaderia;
 import com.franco.dev.repository.operaciones.RecepcionMercaderiaItemRepository;
 import com.franco.dev.service.CrudService;
@@ -36,8 +37,13 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 import java.util.ArrayList;
+import com.franco.dev.domain.productos.Producto;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+
+import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +54,7 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
     private final RecepcionMercaderiaNotaService recepcionMercaderiaNotaService;
     private final MovimientoStockRepository movimientoStockRepository;
     private final MovimientoStockService movimientoStockService;
+    private final RecepcionMercaderiaItemVariacionService recepcionMercaderiaItemVariacionService;
     
     // Usar @Lazy para romper dependencia circular con RecepcionMercaderiaService
     @Autowired
@@ -681,6 +688,7 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
                 item.setMotivoRechazo(null);
                 item.setLote(null);
                 item.setVencimientoRecibido(null);
+                item.setFechaRetiro(null);
                 item.setMetodoVerificacion(null);
                 item.setMotivoVerificacionManual(null);
                 item.setEstadoVerificacion(EstadoVerificacion.PENDIENTE);
@@ -899,6 +907,10 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
      * @param notaRecepcionItemIdParaRechazo ID de la nota donde se registra el rechazo (null si no hay rechazo)
      * @param motivoRechazo Motivo del rechazo (enum name como String)
      * @param metodoVerificacion Metodo de verificacion (ej. MANUAL)
+     * @param lote Numero de lote de lo recibido. Obligatorio si el producto lleva control de lote.
+     * @param vencimientoRecibido Vencimiento de lo recibido (yyyy-MM-dd). Opcional.
+     * @param fechaRetiro Fecha de retiro cargada a mano (yyyy-MM-dd). Opcional: sin ella,
+     *                    {@code LoteService} la deriva de los dias de vencimiento del producto.
      * @param usuario Usuario que realiza la verificación
      * @return true si se actualizó correctamente
      */
@@ -911,6 +923,9 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
             Long notaRecepcionItemIdParaRechazo,
             String motivoRechazo,
             String metodoVerificacion,
+            String lote,
+            String vencimientoRecibido,
+            String fechaRetiro,
             Usuario usuario
     ) {
         Logger logger = LoggerFactory.getLogger(RecepcionMercaderiaItemService.class);
@@ -942,6 +957,11 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
         if (items.isEmpty()) {
             throw new GraphQLException("No se encontraron items de recepción para el producto " + productoId + " en la sucursal de recepción");
         }
+
+        String numeroLote = LoteService.normalizarNumeroLote(lote);
+        validarLoteObligatorio(items.get(0).getProducto(), cantRec, numeroLote);
+        LocalDate vencimiento = aFecha(vencimientoRecibido);
+        LocalDate retiro = aFecha(fechaRetiro);
 
         double totalPendiente = 0;
         double[] pendientes = new double[items.size()];
@@ -1035,10 +1055,76 @@ public class RecepcionMercaderiaItemService extends CrudService<RecepcionMercade
             if (metodoEnum != null) {
                 item.setMetodoVerificacion(metodoEnum);
             }
+            if (numeroLote != null && rec > 0 && item.getLote() == null) {
+                // Solo la primera vez: si el mismo item ya se verificó con otro lote, el dato de
+                // este nivel dejaría de representar a todo lo recibido. La verdad por lote vive
+                // en las variaciones, que se crean abajo.
+                item.setLote(numeroLote);
+                item.setVencimientoRecibido(vencimiento);
+                item.setFechaRetiro(retiro);
+            }
             actualizarEstadoVerificacionItem(item);
             repository.save(item);
+            if (numeroLote != null && rec > 0) {
+                registrarVariacionDeLote(item, rec, numeroLote, vencimiento, retiro);
+            }
         }
         return true;
+    }
+
+    /**
+     * Si el producto lleva control de lote, exige el número de lote para lo que se recibe.
+     *
+     * Vive acá y no solo en la pantalla porque mobile, el desktop y una llamada directa al
+     * GraphQL son puertas de entrada independientes: sin lote, la finalización de la recepción no
+     * puede desglosar el stock y la mercadería entra sin trazabilidad, en silencio.
+     *
+     * Solo aplica a lo que efectivamente se recibe: una verificación que es toda rechazo no tiene
+     * lote que informar. Es la misma regla que
+     * {@code RecepcionMercaderiaItemGraphQL.validarLoteObligatorio} aplica al guardar un ítem
+     * desde el desktop.
+     */
+    private void validarLoteObligatorio(Producto producto, double cantidadRecibida, String numeroLote) {
+        if (cantidadRecibida <= 0 || producto == null || !Boolean.TRUE.equals(producto.getLote())) {
+            return;
+        }
+        if (numeroLote == null) {
+            throw new GraphQLException("El producto '" + producto.getDescripcion()
+                    + "' requiere control de lote: el número de lote es obligatorio.");
+        }
+    }
+
+    /**
+     * Deja registrada la parte de lo recibido que corresponde a este lote.
+     *
+     * Se guarda como variación —y no solo en el ítem— porque el mismo producto puede verificarse
+     * en varias pasadas con lotes distintos: dos cajas del lote A ahora y cinco unidades del lote
+     * B después. El ítem tiene un solo campo `lote`, así que la segunda pasada pisaría a la
+     * primera y todo el stock terminaría atribuido al último lote tipeado.
+     *
+     * Al finalizar la recepción, {@code MovimientoStockLoteService.registrarEntradaCompra} prefiere
+     * las variaciones sobre el ítem justamente para este caso.
+     */
+    private void registrarVariacionDeLote(RecepcionMercaderiaItem item, double cantidad,
+                                          String numeroLote, LocalDate vencimiento,
+                                          LocalDate fechaRetiro) {
+        RecepcionMercaderiaItemVariacion variacion = new RecepcionMercaderiaItemVariacion();
+        variacion.setRecepcionMercaderiaItem(item);
+        variacion.setPresentacion(item.getPresentacionRecibida());
+        // En unidades base, igual que cantidadRecibida: es la escala con la que el desglose por
+        // lote se compara contra el movimiento de stock agregado.
+        variacion.setCantidad(cantidad);
+        variacion.setLote(numeroLote);
+        variacion.setVencimiento(vencimiento != null ? vencimiento.atStartOfDay() : null);
+        variacion.setFechaRetiro(fechaRetiro);
+        variacion.setRechazado(false);
+        recepcionMercaderiaItemVariacionService.save(variacion);
+    }
+
+    /** Las fechas llegan como "yyyy-MM-dd" desde mobile; stringToDate también acepta ISO-8601. */
+    private LocalDate aFecha(String valor) {
+        LocalDateTime fecha = stringToDate(valor);
+        return fecha != null ? fecha.toLocalDate() : null;
     }
 
     private void actualizarEstadoVerificacionItem(RecepcionMercaderiaItem item) {

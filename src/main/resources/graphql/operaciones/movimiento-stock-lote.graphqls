@@ -266,9 +266,66 @@ extend type Query {
         page: Int = 0
         size: Int = 20
     ): ClienteLotePage
+
+    # Los lotes con saldo que ningun renglon de la toma conto.
+    #
+    # La finalizacion deja esos productos ENTEROS fuera del ajuste —ni movimiento agregado ni filas
+    # del ledger—, con la misma regla que ya aplica al item con cantidad nula: un lote sin contar no
+    # es un lote en cero, y tomarlo como cero le borraria el stock a mercaderia que nadie miro.
+    #
+    # Esta consulta existe para poder AVISARLO antes de finalizar, en vez de que el operador
+    # descubra despues que su producto no se ajusto. La finalizacion aplica la regla igual, mire
+    # alguien esta pantalla o no.
+    lotesSinContar(inventarioId: ID!): [LoteSinContar]
+}
+
+type LoteSinContar {
+    loteId: ID
+    numeroLote: String
+    productoId: ID
+    productoDescripcion: String
+    fechaVencimiento: Date
+    fechaRetiro: Date
+    # Saldo en unidades base en la sucursal de la toma.
+    saldo: Float
 }
 
 extend type Mutation {
+    # Alta manual de un lote, SIN mover stock. El lote nace con saldo cero y estado LIBERADO; la
+    # existencia se la pone despues el conteo o la recepcion.
+    #
+    # Es el camino que faltaba para el inventario: el operador tiene el envase en la mano, el lote
+    # no esta en el sistema y necesita registrarlo para poder contarlo.
+    #
+    # Si el numero ya existe para ese producto devuelve el existente, no falla: la unicidad es
+    # (producto, numero) y ese lote ES el que el operador tiene en la mano. Fechas en yyyy-MM-dd.
+    crearLote(
+        productoId: ID!
+        numeroLote: String!
+        fechaVencimiento: String
+        fechaRetiro: String
+        observacion: String
+        usuarioId: ID
+    ): Lote
+
+    # Carga o corrige las fechas del MAESTRO del lote. Es la puerta que faltaba: hasta ahora la
+    # fecha de retiro solo se podia setear al CREAR el lote, asi que un lote viejo sin retiro no
+    # habia forma de completarlo ni uno mal tipeado forma de corregirlo.
+    #
+    # OJO: el cambio es GLOBAL. El maestro es uno por (producto, numero de lote) y replica
+    # MAIN_TO_ALL, asi que reordena el FEFO en todas las sucursales. La pantalla tiene que decirlo.
+    #
+    # Un nulo NO borra: el input no puede distinguir "no lo mande" de "borralo". Si cambia el
+    # vencimiento y nadie habia cargado el retiro, el retiro se recalcula con los dias de
+    # vencimiento del producto; si ya estaba cargado, se respeta. Fechas en yyyy-MM-dd.
+    actualizarFechasLote(
+        loteId: ID!
+        fechaVencimiento: String
+        fechaRetiro: String
+        motivo: String
+        usuarioId: ID
+    ): Lote
+
     # Cambia el estado de un lote. Es el mecanismo de recall: pasar a BLOQUEADO lo saca de FEFO y
     # del mostrador en todas las sucursales, sin tocar el stock fisico.
     cambiarEstadoLote(loteId: ID!, estado: EstadoLote!, observacion: String, usuarioId: ID): Lote

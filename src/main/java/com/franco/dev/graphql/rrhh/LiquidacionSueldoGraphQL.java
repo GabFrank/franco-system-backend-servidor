@@ -49,10 +49,10 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
-    public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String periodo,
-                                                     LiquidacionSueldoEstado estado) {
+    public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String funcionarioNombre,
+                                                     String periodo, LiquidacionSueldoEstado estado) {
         seg.requireVer();
-        return service.findPage(funcionarioId, periodo, estado, PageRequest.of(page, size));
+        return service.findPage(funcionarioId, funcionarioNombre, periodo, estado, PageRequest.of(page, size));
     }
 
     public List<LiquidacionItem> liquidacionItems(Long liquidacionId) {

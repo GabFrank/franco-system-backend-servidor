@@ -102,9 +102,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
-    public Page<LiquidacionSueldo> findPage(Long funcionarioId, String periodo, LiquidacionSueldoEstado estado,
-                                            Pageable pageable) {
-        return repository.findPage(funcionarioId, periodo, estado, pageable);
+    public Page<LiquidacionSueldo> findPage(Long funcionarioId, String funcionarioNombre, String periodo,
+                                            LiquidacionSueldoEstado estado, Pageable pageable) {
+        return repository.findPage(funcionarioId, funcionarioNombre, periodo, estado, pageable);
     }
 
     public List<LiquidacionItem> findItems(Long liquidacionId) {

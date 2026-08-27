@@ -42,10 +42,12 @@ public interface LiquidacionSueldoRepository extends HelperRepository<Liquidacio
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     @Query("select l from LiquidacionSueldo l where " +
             "(:funcionarioId is null or l.funcionario.id = :funcionarioId) and " +
+            "(:funcionarioNombre is null or upper(l.funcionario.persona.nombre) like upper(concat('%', :funcionarioNombre, '%'))) and " +
             "(:periodo is null or l.periodo = :periodo) and " +
             "(:estado is null or l.estado = :estado) " +
             "order by l.periodo desc, l.id desc")
     Page<LiquidacionSueldo> findPage(@Param("funcionarioId") Long funcionarioId,
+                                     @Param("funcionarioNombre") String funcionarioNombre,
                                      @Param("periodo") String periodo,
                                      @Param("estado") LiquidacionSueldoEstado estado,
                                      Pageable pageable);

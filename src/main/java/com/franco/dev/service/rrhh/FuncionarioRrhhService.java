@@ -77,7 +77,7 @@ public class FuncionarioRrhhService {
         Funcionario f = funcionarioService.findById(funcionarioId)
                 .orElseThrow(() -> new GraphQLException("Funcionario no encontrado"));
 
-        BigDecimal anterior = f.getSueldo() != null ? BigDecimal.valueOf(f.getSueldo()) : null;
+        BigDecimal anterior = f.getSueldo();
         FuncionarioSalarioHistorico h = new FuncionarioSalarioHistorico();
         h.setFuncionario(f);
         h.setSalarioAnterior(anterior);
@@ -90,7 +90,7 @@ public class FuncionarioRrhhService {
             h.setAutorizadoPor(usuarioService.findById(autorizadoPorId).orElse(null));
         salarioHistoricoService.save(h);
 
-        f.setSueldo(nuevoSalario.floatValue());
+        f.setSueldo(nuevoSalario);
         return funcionarioService.save(f);
     }
 

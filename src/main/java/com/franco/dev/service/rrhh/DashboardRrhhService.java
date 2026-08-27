@@ -280,7 +280,7 @@ public class DashboardRrhhService {
         com.franco.dev.domain.personas.Persona p = f.getPersona();
         List<String> faltantes = new ArrayList<>();
         if (f.getCargo() == null) faltantes.add("Cargo");
-        if (f.getSueldo() == null || f.getSueldo() <= 0) faltantes.add("Salario");
+        if (f.getSueldo() == null || f.getSueldo().signum() <= 0) faltantes.add("Salario");
         if (f.getFechaIngreso() == null) faltantes.add("Fecha ingreso");
         if (blank(p == null ? null : p.getDocumento())) faltantes.add("Documento");
         if (p == null || p.getNacimiento() == null) faltantes.add("Nacimiento");

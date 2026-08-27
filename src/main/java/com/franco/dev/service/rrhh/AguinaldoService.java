@@ -81,7 +81,7 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
             int mesesDevengados = AguinaldoCalculator.mesesDevengados(anio, ingreso, LocalDate.now());
             int mesesProyectados = AguinaldoCalculator.mesesTrabajados(anio, ingreso);
 
-            BigDecimal sueldo = new BigDecimal(f.getSueldo().toString());
+            BigDecimal sueldo = f.getSueldo();
             BigDecimal monto = AguinaldoCalculator.calcularMonto(sueldo, mesesDevengados);
             BigDecimal montoProyectado = AguinaldoCalculator.calcularMonto(sueldo, mesesProyectados);
 

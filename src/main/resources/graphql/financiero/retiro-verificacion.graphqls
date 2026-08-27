@@ -1,0 +1,176 @@
+"""
+Verificación de un retiro de PDV al recibirlo en tesorería.
+
+El retiro del PDV es inmutable: es la declaración del origen. Esto es lo que tesorería contó
+de verdad, y es lo que se acredita en la caja mayor.
+"""
+type RetiroVerificacion {
+    id: ID!
+    retiroId: Int
+    sucursalId: Int
+    usuario: Usuario
+    creadoEn: Date
+    resultado: ResultadoVerificacionRetiro
+    "Se confirmó lo declarado sin contar por denominación."
+    rapida: Boolean
+    observacion: String
+    anulada: Boolean
+    detalles: [RetiroVerificacionDetalle]
+}
+
+"""
+Una moneda dentro de la verificación. La comparación es por moneda y nunca por total
+convertido: un retiro puede cerrar en el total y tener faltante en una moneda con sobrante
+equivalente en otra, que es un cambio informal hecho en el camino.
+"""
+type RetiroVerificacionDetalle {
+    id: ID!
+    moneda: Moneda
+    declarado: Float
+    contado: Float
+    "contado − declarado. Negativo = faltante, positivo = sobrante."
+    diferencia: Float
+    categoria: CategoriaDiferenciaRetiro
+}
+
+"El retiro que no cerró y hay que investigar. Lo abre tesorería; lo cierra otro."
+type RetiroCaso {
+    id: ID!
+    retiroId: Int
+    sucursalId: Int
+    verificacion: RetiroVerificacion
+    estado: EstadoCasoRetiro
+    abiertoPor: Usuario
+    asignadoA: Usuario
+    resueltoPor: Usuario
+    creadoEn: Date
+    resueltoEn: Date
+    resolucion: String
+    "Qué se determinó. Null en un caso abierto, y también en uno cerrado por anulación."
+    veredicto: VeredictoCasoRetiro
+    "A quién se le atribuye la diferencia. Puede estar de cualquiera de los dos lados."
+    responsablePersona: Persona
+    "Solo con veredicto REINTEGRADO: el retiro por el que volvió la plata."
+    reintegroRetiroId: Int
+    "La sucursal de ese retiro: el id solo no lo identifica entre filiales."
+    reintegroSucursalId: Int
+    "El lado que entrega: quién hizo el retiro y de qué caja salió."
+    retiro: Retiro
+}
+
+"""
+Conclusión del que investiga. No confundir con CategoriaDiferenciaRetiro, que es lo que cree
+el que recibe en el momento de contar: esto es lo que se determinó después.
+"""
+enum VeredictoCasoRetiro {
+    ERROR_DE_CONTEO_TESORERIA
+    # Al sobre le falto: vino menos de lo declarado. Se mide desde el sobre, no desde la
+    # caja del cajero, donde el mismo hecho se ve al reves.
+    FALTANTE_PDV
+    # Al sobre le sobro: vino mas de lo declarado. Mismo punto de referencia.
+    SOBRANTE_PDV
+    REINTEGRADO
+    ASUMIDO_SIN_RESPONSABLE
+}
+
+enum ResultadoVerificacionRetiro {
+    SIN_DIFERENCIA
+    CON_DIFERENCIA
+}
+
+enum CategoriaDiferenciaRetiro {
+    DIFERENCIA_CONTEO
+    FALTANTE
+    SOBRANTE
+    BILLETE_NO_RECIBIBLE
+    NO_RECIBIDO
+    OTRO
+}
+
+enum EstadoCasoRetiro {
+    ABIERTO
+    EN_INVESTIGACION
+    RESUELTO
+}
+
+"""
+Lo que tesorería contó de una moneda al verificar un retiro.
+
+No confundir con ConteoMonedaInput, que es el conteo de la caja del PDV: son dos cosas
+distintas y el nombre corto ya estaba tomado.
+"""
+input ConteoRetiroMonedaInput {
+    monedaId: ID!
+    contado: Float!
+    "Solo si hay diferencia. Si no se indica, se deduce del signo."
+    categoria: CategoriaDiferenciaRetiro
+}
+
+type RetiroCasoPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [RetiroCaso]
+}
+
+extend type Query {
+    "La verificación vigente de un retiro, si ya se verificó."
+    verificacionDeRetiro(retiroId: ID!, sucursalId: ID!): RetiroVerificacion
+    """
+    Bandeja de casos. Todos los filtros son opcionales; null = sin filtrar por ese campo.
+    El rango de fechas es sobre la apertura del caso, no sobre la fecha del retiro.
+    """
+    retiroCasos(
+        estado: EstadoCasoRetiro
+        sucursalId: ID
+        retiroId: ID
+        desde: String
+        hasta: String
+        "Solo los casos del usuario logueado: asignados a él, o resueltos por él."
+        soloMios: Boolean
+        page: Int = 0
+        size: Int = 20
+    ): RetiroCasoPage
+    retiroCasosAbiertos: Int
+}
+
+extend type Mutation {
+    """
+    Cuenta un retiro, lo acredita en la caja mayor y lo cierra. Entra lo contado, no lo
+    declarado. Si hay diferencia se abre un caso.
+    """
+    verificarRetiro(
+        retiroId: ID!
+        sucursalId: ID!
+        cajaVirtualId: ID!
+        conteos: [ConteoRetiroMonedaInput!]!
+        rapida: Boolean
+        observacion: String
+    ): RetiroVerificacion
+
+    "Deshace una verificación ya acreditada: el que recibe también se puede equivocar."
+    anularVerificacionRetiro(verificacionId: ID!, motivo: String): RetiroVerificacion
+
+    asignarRetiroCaso(casoId: ID!, usuarioId: ID!): RetiroCaso
+    "Devuelve el caso a ABIERTO: se tomó por error o no corresponde."
+    soltarRetiroCaso(casoId: ID!): RetiroCaso
+    """
+    Cierra el caso. El veredicto es obligatorio: el informe explica, el veredicto clasifica, y
+    lo único que se puede contar después es el veredicto.
+
+    `anularVerificacion` solo se acepta con ERROR_DE_CONTEO_TESORERIA — es el único caso en que
+    lo acreditado en la caja mayor quedó equivocado y hay que volver a contar.
+    """
+    resolverRetiroCaso(
+        casoId: ID!
+        veredicto: VeredictoCasoRetiro!
+        resolucion: String!
+        responsablePersonaId: ID
+        reintegroRetiroId: ID
+        anularVerificacion: Boolean
+    ): RetiroCaso
+}

@@ -41,6 +41,14 @@ public class LiquidacionConcepto implements Identifiable<Long> {
     @Column(name = "es_calculado_auto")
     private Boolean esCalculadoAuto;
 
+    /**
+     * Si el concepto suma a la base remunerativa: aguinaldo, IPS del finiquito e
+     * indemnizacion. Falso para AGUINALDO (no entra a su propia base), VIATICO y
+     * REINTEGRO (compensan un gasto, no retribuyen trabajo).
+     */
+    @Column(name = "es_remunerativo")
+    private Boolean esRemunerativo;
+
     private Boolean activo;
 
     @ManyToOne(fetch = FetchType.LAZY)

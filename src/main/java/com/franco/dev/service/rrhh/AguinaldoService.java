@@ -41,6 +41,11 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
     private final CajaVirtualService cajaVirtualService;
     private final MovimientoCajaVirtualService movimientoCajaVirtualService;
     private final MonedaService monedaService;
+    private final BaseRemunerativaService baseRemunerativaService;
+
+    /** Valores de {@code Aguinaldo.origenBase}. */
+    public static final String ORIGEN_PERCIBIDO = "PERCIBIDO";
+    public static final String ORIGEN_SUELDO_ACTUAL = "SUELDO_ACTUAL";
 
     @Override
     public AguinaldoRepository getRepository() {
@@ -61,16 +66,28 @@ public class AguinaldoService extends CrudService<Aguinaldo, AguinaldoRepository
 
     /**
      * Calcula el aguinaldo del anio para todos los funcionarios activos.
-     * aguinaldo = (sueldo x meses_trabajados) / 12. Idempotente por
-     * (funcionario, anio): si ya existe CALCULADO lo actualiza; no toca los
-     * APROBADO/PAGADO. Devuelve la cantidad procesada.
+     *
+     * <p><b>aguinaldo = lo percibido en el anio / 12.</b> Percibido es la suma de los
+     * items HABER remunerativos de las liquidaciones APROBADA o PAGADA -- no el sueldo
+     * actual multiplicado por meses, que era lo que se hacia antes y no miraba ni el
+     * historial salarial ni las horas extra, bonos o comisiones.</p>
+     *
+     * <p>La formula no es nueva en el sistema: es la que
+     * {@code LiquidacionFinalService.calcularAguinaldoProporcional()} ya usaba para el
+     * finiquito. Lo que se corrige aca es que convivieran dos, y que el mismo funcionario
+     * cobrara distinto segun si se quedaba o si se iba.</p>
+     *
+     * <p>Idempotente por (funcionario, anio): si ya existe CALCULADO lo actualiza y guarda
+     * el monto anterior; no toca los APROBADO/PAGADO. Devuelve la cantidad procesada.</p>
      */
     @Transactional
     public int calcularAguinaldosAnio(Integer anio) {
         int n = 0;
         for (Funcionario f : funcionarioService.findAll2()) {
             if (!Boolean.TRUE.equals(f.getActivo())) continue;
-            if (f.getSueldo() == null || f.getFechaIngreso() == null) continue;
+            // El sueldo ya no es requisito: quien tenga liquidaciones cargadas se calcula
+            // desde lo percibido. Solo hace falta para el fallback, y ahi se valida.
+            if (f.getFechaIngreso() == null) continue;
 
             if (f.getFechaIngreso().getYear() > anio) {
                 continue;

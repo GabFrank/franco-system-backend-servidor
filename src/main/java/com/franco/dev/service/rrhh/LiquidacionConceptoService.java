@@ -32,6 +32,14 @@ public class LiquidacionConceptoService extends CrudService<LiquidacionConcepto,
         if (entity.getActivo() == null) entity.setActivo(true);
         if (entity.getEsHaber() == null) entity.setEsHaber(true);
         if (entity.getEsCalculadoAuto() == null) entity.setEsCalculadoAuto(false);
+        // Default true, igual que la columna: un cliente viejo que no manda el campo no
+        // puede reventar el insert.
+        //
+        // Ojo: hoy no hay ABM de conceptos en el desktop, asi que este default es el
+        // camino normal y no la red. Un concepto nuevo entra a la base remunerativa sin
+        // que nadie lo decida -- la misma falla silenciosa que este cambio corrige en
+        // otro lado. Cuando exista el ABM, tiene que pedir el valor en el alta.
+        if (entity.getEsRemunerativo() == null) entity.setEsRemunerativo(true);
         if (entity.getCodigo() != null) entity.setCodigo(entity.getCodigo().toUpperCase());
         return super.save(entity);
     }

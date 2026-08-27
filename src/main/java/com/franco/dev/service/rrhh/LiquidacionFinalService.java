@@ -80,6 +80,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final PenalizacionRepository penalizacionRepository;
     private final CreditoConvenioService creditoConvenioService;
     private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
+    private final BaseRemunerativaService baseRemunerativaService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -207,7 +208,16 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
 
         // Descuentos automáticos del funcionario (IPS, vales, cuotas, convenio, penalizaciones),
         // cada uno activable/desactivable desde el diálogo (default: todos activos).
-        BigDecimal ipsBase = in.getIpsBase() != null ? in.getIpsBase() : salarioPromedio;
+        // Base del IPS: el salario del mes ya prorrateado por dias trabajados, mas las
+        // vacaciones no gozadas (causadas y proporcionales, que calcularDiasVacacionesNoGozadas
+        // ya suma juntas) mas el aguinaldo proporcional.
+        //
+        // Antes era salarioPromedio: un mes entero de haberes promediado sobre 6 meses, sin
+        // prorratear por los dias que la persona efectivamente trabajo en el mes de egreso, y
+        // sin las vacaciones ni el aguinaldo que se le pagan en el mismo acto.
+        BigDecimal ipsBase = in.getIpsBase() != null
+                ? in.getIpsBase()
+                : baseIpsFiniquito(salarioDelMes, r.getMontoVacacionesNoGozadas(), r.getAguinaldoProporcional());
         // IPS: override del diálogo, o por defecto según ipsActivo del funcionario.
         boolean descontarIps = in.getDescontarIps() != null ? in.getDescontarIps() : !Boolean.FALSE.equals(f.getIpsActivo());
         boolean cobrarVales = in.getCobrarVales() == null || in.getCobrarVales();
@@ -241,10 +251,28 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         BigDecimal sueldoBase = f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
         int diasTrabajadosMes = egreso.getDayOfMonth();
         BigDecimal salarioDelMes = salarioPorDiasTrabajados(sueldoBase, diasTrabajadosMes, diasMes);
+        // El monto de las vacaciones no lo traia el preview: solo los dias. Sin el, el
+        // dialogo no puede precargar la base del IPS, que es justamente donde entran.
+        BigDecimal montoVac = LiquidacionFinalCalculator.montoVacaciones(salarioPromedio, diasVac, diasMes);
+        BigDecimal ipsBase = baseIpsFiniquito(salarioDelMes, montoVac, aguinaldo);
         return new LiquidacionFinalPreview(
                 ingreso != null ? ingreso.toString() : null,
                 ant.getAnios(), (int) ant.getDias(), salarioPromedio, sueldoBase, diasTrabajadosMes, salarioDelMes,
-                aguinaldo, diasVac, preavisoDias, salarioPromedio, ipsActivo);
+                aguinaldo, diasVac, montoVac, preavisoDias, ipsBase, ipsActivo);
+    }
+
+    /**
+     * Base sobre la que se calcula el IPS del finiquito.
+     *
+     * <p>Los tres componentes se pagan en el mismo acto, asi que los tres aportan. El
+     * aguinaldo entra por decision expresa (2026-08-21); si en algun momento contabilidad
+     * define que esta exento, se saca de aca y de ningun otro lado.</p>
+     */
+    private BigDecimal baseIpsFiniquito(BigDecimal salarioDelMes, BigDecimal vacaciones, BigDecimal aguinaldo) {
+        BigDecimal base = salarioDelMes != null ? salarioDelMes : BigDecimal.ZERO;
+        if (vacaciones != null) base = base.add(vacaciones);
+        if (aguinaldo != null) base = base.add(aguinaldo);
+        return base;
     }
 
     /** Salario por días trabajados: (sueldo / diasMes) × días, guaraníes enteros. */
@@ -469,23 +497,21 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     }
 
     /** Promedio de total_haberes de las últimas N liquidaciones APROBADA/PAGADA; fallback al sueldo. */
+    /**
+     * Salario promedio de los ultimos N meses liquidados. Es la base de la
+     * INDEMNIZACION, asi que cuenta solo lo remunerativo.
+     *
+     * <p>Antes promediaba {@code total_haberes} crudo, que incluye el propio AGUINALDO:
+     * la indemnizacion de quien se iba el mismo anio que habia cobrado el aguinaldo salia
+     * inflada por ese aguinaldo. Tambien entraban viaticos y reintegros, que compensan un
+     * gasto en vez de retribuir trabajo.</p>
+     */
     private BigDecimal calcularSalarioPromedio(Funcionario f) {
         int mesesPromedio = configuracionRrhhService.getNumber("MESES_PROMEDIO_LIQUIDACION_FINAL", new BigDecimal("6")).intValue();
         if (mesesPromedio < 1) mesesPromedio = 6;
-        List<LiquidacionSueldo> liqs = liquidacionSueldoRepository.findByFuncionarioIdOrderByPeriodoDesc(f.getId());
-        List<BigDecimal> haberes = new ArrayList<>();
-        for (LiquidacionSueldo l : liqs) {
-            if (l.getEstado() == LiquidacionSueldoEstado.APROBADA || l.getEstado() == LiquidacionSueldoEstado.PAGADA) {
-                if (l.getTotalHaberes() != null) haberes.add(l.getTotalHaberes());
-                if (haberes.size() >= mesesPromedio) break;
-            }
-        }
-        if (haberes.isEmpty()) {
-            return f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
-        }
-        BigDecimal suma = BigDecimal.ZERO;
-        for (BigDecimal h : haberes) suma = suma.add(h);
-        return suma.divide(new BigDecimal(haberes.size()), 0, RoundingMode.HALF_UP);
+        BigDecimal promedio = baseRemunerativaService.promedioUltimosMeses(f.getId(), mesesPromedio);
+        if (promedio != null) return promedio;
+        return f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
     }
 
     private int calcularDiasVacacionesNoGozadas(Long funcionarioId) {
@@ -498,22 +524,20 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return dias;
     }
 
-    /** Σ total_haberes de las liquidaciones del año del egreso / 12; fallback sueldo × meses/12. */
+    /**
+     * Aguinaldo proporcional del año del egreso: lo percibido / 12.
+     *
+     * <p>Sale del mismo {@link BaseRemunerativaService} que el aguinaldo anual. Antes cada
+     * uno tenia su propia copia de la formula y el aguinaldo anual usaba otra: el mismo
+     * funcionario cobraba distinto segun si se quedaba o si se iba.</p>
+     */
     private BigDecimal calcularAguinaldoProporcional(Funcionario f, LocalDate egreso) {
         int anio = egreso.getYear();
-        BigDecimal suma = BigDecimal.ZERO;
-        boolean hay = false;
-        for (LiquidacionSueldo l : liquidacionSueldoRepository.findByFuncionarioIdOrderByPeriodoDesc(f.getId())) {
-            if (l.getPeriodo() != null && l.getPeriodo().startsWith(anio + "-")
-                    && (l.getEstado() == LiquidacionSueldoEstado.APROBADA || l.getEstado() == LiquidacionSueldoEstado.PAGADA)
-                    && l.getTotalHaberes() != null) {
-                suma = suma.add(l.getTotalHaberes());
-                hay = true;
-            }
-        }
+        com.franco.dev.service.rrhh.builder.BaseRemunerativa.Resultado base =
+                baseRemunerativaService.percibidoAnual(f.getId(), anio);
         BigDecimal proporcional;
-        if (hay) {
-            proporcional = suma.divide(new BigDecimal("12"), 0, RoundingMode.HALF_UP);
+        if (!base.vacio()) {
+            proporcional = com.franco.dev.service.rrhh.builder.BaseRemunerativa.aguinaldo(base.total);
         } else {
             // fallback: sueldo × meses trabajados en el año / 12
             BigDecimal sueldo = f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;

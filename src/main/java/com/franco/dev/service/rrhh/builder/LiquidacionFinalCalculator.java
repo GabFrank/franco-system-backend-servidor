@@ -104,6 +104,20 @@ public final class LiquidacionFinalCalculator {
         return new Antiguedad(dias, meses, anios);
     }
 
+    /**
+     * Monto de las vacaciones no gozadas: promedio diario x dias.
+     *
+     * <p>Publico porque lo necesitan dos lugares — el finiquito al generarse y el preview
+     * del dialogo, que no llama a {@link #calcular}. Duplicar la formula seria repetir el
+     * error que este cambio corrige en otro lado.</p>
+     */
+    public static BigDecimal montoVacaciones(BigDecimal salarioPromedio, int diasNoGozados, int diasMes) {
+        if (salarioPromedio == null || diasNoGozados <= 0) return BigDecimal.ZERO;
+        BigDecimal divisor = new BigDecimal(diasMes > 0 ? diasMes : 30);
+        return salarioPromedio.multiply(new BigDecimal(diasNoGozados))
+                .divide(divisor, 0, RoundingMode.HALF_UP);
+    }
+
     public static Resultado calcular(LocalDate ingreso, LocalDate egreso, MotivoEgreso motivo,
                                      BigDecimal salarioPromedio, int diasNoGozados,
                                      BigDecimal aguinaldoProporcional, BigDecimal indemnizacionDiasPorAnio,
@@ -127,8 +141,7 @@ public final class LiquidacionFinalCalculator {
                     .divide(divisorDiasMes, 0, RoundingMode.HALF_UP);
         }
 
-        BigDecimal montoVac = promedio.multiply(new BigDecimal(diasVac))
-                .divide(divisorDiasMes, 0, RoundingMode.HALF_UP);
+        BigDecimal montoVac = montoVacaciones(promedio, diasVac, divisorDiasMes.intValue());
 
         // Preaviso: solo si NO se otorgó. Despido injustificado → el empleador lo paga
         // (HABER, días completos del tramo); renuncia → el empleador lo descuenta

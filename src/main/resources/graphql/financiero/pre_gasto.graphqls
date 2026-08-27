@@ -5,6 +5,7 @@ enum EstadoPreGasto {
     RECHAZADO
     COMPLETADO
     ENVIADO_A_TESORERIA
+    PAGADO
 }
 
 type PreGastoDetalleFinanzas {

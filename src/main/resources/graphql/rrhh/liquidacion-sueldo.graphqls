@@ -69,7 +69,7 @@ extend type Query {
 
 extend type Mutation {
     generarLiquidacionBorrador(funcionarioId: ID!, periodo: String!, monedaId: ID): LiquidacionSueldo
-    agregarItemLiquidacion(liquidacionId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo): LiquidacionItem
+    agregarItemLiquidacion(liquidacionId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo, liquidacionConceptoId: ID): LiquidacionItem
     editarItemLiquidacion(itemId: ID!, descripcion: String, monto: Float, tipo: LiquidacionItemTipo, usuarioId: ID): LiquidacionItem
     eliminarItemLiquidacion(itemId: ID!): Boolean
     aprobarLiquidacion(id: ID!, aprobadoPorId: ID): LiquidacionSueldo

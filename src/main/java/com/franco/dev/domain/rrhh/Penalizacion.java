@@ -61,6 +61,20 @@ public class Penalizacion implements Identifiable<Long> {
 
     private Boolean anulada;
 
+    /**
+     * Numero correlativo de advertencia del funcionario (1a, 2a, 3a...). Solo se llena
+     * para tipo ADVERTENCIA; el resto de las penalizaciones lo dejan en null.
+     */
+    @Column(name = "numero_advertencia")
+    private Integer numeroAdvertencia;
+
+    /** Si el funcionario firmo el acta. Negarse a firmar tambien es un dato. */
+    private Boolean firmada;
+
+    /** Cuando ocurrio el hecho, si no coincide con el dia en que se registro. */
+    @Column(name = "fecha_hecho")
+    private LocalDate fechaHecho;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "registrado_por_id", nullable = true)
     private Usuario registradoPor;

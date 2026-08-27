@@ -3,33 +3,78 @@
 Registro de errores encontrados probando el módulo RRHH en desktop (rama `develop`)
 contra central local. **Sin investigar todavía** — solo captura del síntoma.
 
-Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido
+Estados: 🔴 abierto · 🟡 en análisis · 🟢 corregido · ✅ cerrado en un PR
+
+**Al 2026-08-21 — 19 de 24 cerrados.**
+
+| Lote | Rama | PRs |
+|---|---|---|
+| A — fixes (B1, B3, B5, B6, B9, B13, F8) | `fix/rrhh-calculos-y-trazabilidad` | central #230 · desktop #239 |
+| B — feats (B4, B7, B8, B10, B11, B12, B16) | `feat/rrhh-recibos-y-penalizaciones` | central #231 · desktop #241 |
+| Tipo del sueldo | `refactor/funcionario-sueldo-bigdecimal` | central #233 |
+| B14 + B15 | `feat/rrhh-base-remunerativa` | central #234 |
+
+**Orden de merge:** A → B, y #233 → #234. Cada uno sale del anterior.
+
+Siguen abiertos: **B2** (no es código, es data sucia), **F3** (cross-repo, toca el enum que
+replica a filiales) y **F5** (bloqueado por el hub de pagos).
+
+**Follow-up que dejó abierto #234:** no existe ABM de conceptos de liquidación en el desktop, así
+que `es_remunerativo` solo se edita por SQL y el `DEFAULT TRUE` deja pasar conceptos nuevos sin que
+nadie lo decida.
+
+## Estado (2026-08-20)
+
+El trabajo se reparte en dos lotes, planificados y auditados:
+
+- **Lote A — fixes**: `docs/manuales-implementacion/rrhh/PLAN-LOTE-A-FIXES.md`.
+  B1, B3, B5, B6, B9, B13 y F8 **implementados y verificados en runtime** contra el central
+  local (rama `fix/rrhh-calculos-y-trazabilidad`). Detalle de la verificación en §11 del plan.
+- **Lote B — features**: `docs/manuales-implementacion/rrhh/PLAN-LOTE-B-FEATS.md`.
+  B4, B7, B8, B10, B11, B12 y B16.
+- **Fuera de los lotes**: B14 + B15 (necesitan decidir la fuente de verdad del salario y
+  ~8 preguntas de negocio) y F3 (cross-repo, toca filial, con una pregunta bloqueante).
+
+## Estado (2026-08-20)
+
+El trabajo se reparte en dos lotes, planificados y auditados:
+
+- **Lote A — fixes**: `docs/manuales-implementacion/rrhh/PLAN-LOTE-A-FIXES.md`.
+  B1, B3, B5, B6, B9, B13 y F8 **implementados y verificados en runtime** contra el central
+  local (rama `fix/rrhh-calculos-y-trazabilidad`). Detalle de la verificación en §11 del plan.
+- **Lote B — features**: `docs/manuales-implementacion/rrhh/PLAN-LOTE-B-FEATS.md`.
+  B4, B7, B8, B10, B11, B12 y B16 **implementados** en la rama
+  `feat/rrhh-recibos-y-penalizaciones`, que sale del lote A y no de `develop` porque
+  comparten archivos. B7/B8 y B12 verificados end-to-end contra el central local.
+- **Fuera de los lotes**: B14 + B15 (necesitan decidir la fuente de verdad del salario y
+  ~8 preguntas de negocio) y F3 (cross-repo, toca filial, con una pregunta bloqueante).
 
 ## Índice
 
 | # | Título | Sev |
 |---|---|---|
-| B1 | Ajuste salario mínimo global — `Integer cannot be cast to Long` al guardar | 🔴 |
-| B2 | Mismo diálogo — "Sueldo actual" muestra `1`/`2`, "Cargo" vacía | 🔴 |
-| B3 | Mismo diálogo — dice 15 seleccionados, lista 10 filas | 🔴 |
-| B4 | No existe CRUD de cargos en desktop (backend listo) | 🔴 |
-| B5 | Toggle IPS en `false` igual descuenta en liquidación mensual | 🔴 |
-| B6 | No se puede eliminar un ítem automático del borrador | 🔴 |
-| B7 | Recibo: total sin descuentos en la firma + 2 vías + línea punteada | 🟠 |
-| B8 | Recibo: header con empresa emisora + "Recibí de … la suma de …" | 🟠 |
-| B9 | Liquidación toma el salario anterior (probable consecuencia de B1) | 🔴 |
-| B10 | Penalización automática: solo un día, falta rango de fechas | 🟠 |
-| B11 | Amonestaciones/advertencias sin monto + contador + acta firmable | 🟠 |
-| B12 | Ítem manual: select de operación (hoy todo sale "AJUSTE") | 🟠 |
-| B13 | Penalizaciones consolidadas en un ítem, sin detalle | 🔴 |
-| B14 | Aguinaldo sobre último sueldo, no sobre promedio percibido (INVESTIGADO) | 🔴 |
-| B15 | IPS del finiquito: sin prorrateo por días ni vacaciones en la base | 🔴 |
+| B1 | Ajuste salario mínimo global — `Integer cannot be cast to Long` al guardar | ✅ **hecho** |
+| B2 | Mismo diálogo — "Sueldo actual" muestra `1`/`2`, "Cargo" vacía | ⚪ **no es código** — data sucia, ver §B2 |
+| B3 | Mismo diálogo — dice 15 seleccionados, lista 10 filas | ✅ **hecho** |
+| B4 | No existe CRUD de cargos en desktop (backend listo) | ✅ **hecho** |
+| B5 | Toggle IPS en `false` igual descuenta en liquidación mensual | ✅ **hecho** |
+| B6 | No se puede eliminar un ítem automático del borrador | ✅ **hecho** |
+| B7 | Recibo: total sin descuentos en la firma + 2 vías + línea punteada | ✅ **hecho** |
+| B8 | Recibo: header con empresa emisora + "Recibí de … la suma de …" | ✅ **hecho** |
+| B9 | Liquidación toma el salario anterior (probable consecuencia de B1) | ✅ **hecho** |
+| B10 | Penalización automática: solo un día, falta rango de fechas | ✅ **hecho** |
+| B11 | Amonestaciones/advertencias sin monto + contador + acta firmable | ✅ **hecho** |
+| B12 | Ítem manual: select de operación (hoy todo sale "AJUSTE") | ✅ **hecho** |
+| B13 | Penalizaciones consolidadas en un ítem, sin detalle | ✅ **hecho** |
+| B14 | Aguinaldo sobre último sueldo, no sobre promedio percibido | ✅ PR #234 |
+| B15 | IPS del finiquito: sin prorrateo por días ni vacaciones en la base | ✅ PR #234 |
 | F1 | Ajuste de saldo en cuentas bancarias (solo existe en caja) | ✅ **hecho** |
 | F2 | Pagar liquidación/finiquito desde el hub de egreso de Caja Mayor | ✅ **hecho** |
 | F3 | Retiro de PDV: recepción parcial + selección de monedas | 🟠 |
 | F4 | Todo pago figura "Pago Proveedor"; usar `origenTipo` para el label | ✅ **hecho** |
 | F5 | Premisa: pagos de caja mayor solo desde la caja mayor (ocultar en RRHH) | 🟠 |
-| B16 | Liquidación: consolidar en un ítem las cuotas de ventas a crédito (configurable) | 🟠 |
+| F8 | Movimientos históricos siguen etiquetados "Compra" tras el fix de F4 | ✅ **hecho** (script) |
+| B16 | Liquidación: consolidar en un ítem las cuotas de ventas a crédito (configurable) | ✅ **hecho** |
 | **ACL** | **Acceso por caja: lista de usuarios R/W por caja virtual** — plan en `financiero/PLAN-ACL-CAJAS-VIRTUALES.md` | ⭐ **1ª** |
 
 ### Causas raíz agrupadas

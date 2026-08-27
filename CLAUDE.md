@@ -208,6 +208,20 @@ Si tu codigo espera que exista una carpeta en disco, crearla programaticamente c
 2. Recien cuando todos los clientes (desktop + mobile) esten actualizados, eliminar el campo viejo.
 3. Si es inevitable, marcarlo como breaking change: `feat!: cambiar respuesta de /productos`. Esto sube MAJOR e implica que filiales + desktop + mobile tienen que actualizarse coordinadamente.
 
+> **Los clientes son dos: el desktop (`frc-sistemas-integrados-angular`) y la PWA (`frc-mobile-pwa`).** `frc-mobile` -- la APK vieja con Ionic/Capacitor -- **es legacy** y no se desarrolla mas; la PWA la reemplaza. Al evaluar el impacto cross-proyecto de un cambio de API, grepear el desktop y la PWA.
+
+### Un valor nuevo en un enum de Java va TAMBIEN en el .graphqls
+
+Es la falla mas silenciosa de este repo. Los enums de `domain/**/enums/` **no** generan el schema: el `.graphqls` los declara a mano y aparte. Si el enum de Java gana un valor y el schema no, la fila que lo tenga **no falla el build ni el CI** -- revienta en runtime al serializar:
+
+```
+CoercingSerializeException: Invalid input for Enum 'EstadoPreGasto'. Unknown value 'PAGADO'
+```
+
+graphql-java loguea un WARN, devuelve `null` en ese campo y la pantalla del cliente se rompe sin explicacion. Paso con `EstadoPreGasto.PAGADO` (V197.5): tumbo la lista de caja chica de la mobile-pwa.
+
+Al agregar un valor: **enum Java + `.graphqls` + migracion (si hay CHECK constraint) en el mismo commit.** `SchemaEnumsSincronizadosTest` compara los 108 enums pareados y falla el build si se desincronizan -- si ese test se pone en rojo, no es el test, es el schema.
+
 ## Convenciones
 
 - **GraphQL, no REST.** Endpoints nuevos van en `graphql/` (resolvers + schema), no `controller/`.

@@ -7,6 +7,10 @@ import java.util.List;
 
 public interface FuncionarioCargoHistoricoRepository extends HelperRepository<FuncionarioCargoHistorico, Long> {
 
+    /** Cuantas filas de historico apuntan a este cargo. Bloquea el borrado del cargo. */
+    Long countByCargoId(Long cargoId);
+
+
     default Class<FuncionarioCargoHistorico> getEntityClass() {
         return FuncionarioCargoHistorico.class;
     }

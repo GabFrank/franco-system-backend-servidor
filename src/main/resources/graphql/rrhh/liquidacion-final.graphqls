@@ -47,6 +47,7 @@ type LiquidacionFinalPreview {
     salarioDelMes: Float
     aguinaldoProporcional: Float
     diasVacacionesNoGozadas: Int
+    montoVacacionesNoGozadas: Float
     preavisoDias: Int
     ipsBase: Float
     ipsActivo: Boolean

@@ -11,6 +11,7 @@ import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -54,7 +55,7 @@ public class Funcionario implements Identifiable<Long> {
         @Column(name = "fecha_ingreso")
         private LocalDateTime fechaIngreso;
 
-        private Float sueldo;
+        private BigDecimal sueldo;
 
         private Boolean activo;
 

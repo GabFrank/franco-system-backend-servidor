@@ -64,9 +64,10 @@ el que recibe en el momento de contar: esto es lo que se determinó después.
 """
 enum VeredictoCasoRetiro {
     ERROR_DE_CONTEO_TESORERIA
-    "Al sobre le faltó: vino menos de lo declarado. Se mide desde el sobre, no desde la caja."
+    # Al sobre le falto: vino menos de lo declarado. Se mide desde el sobre, no desde la
+    # caja del cajero, donde el mismo hecho se ve al reves.
     FALTANTE_PDV
-    "Al sobre le sobró: vino más de lo declarado."
+    # Al sobre le sobro: vino mas de lo declarado. Mismo punto de referencia.
     SOBRANTE_PDV
     REINTEGRADO
     ASUMIDO_SIN_RESPONSABLE

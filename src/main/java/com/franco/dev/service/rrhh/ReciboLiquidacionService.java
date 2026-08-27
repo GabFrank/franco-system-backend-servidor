@@ -6,6 +6,7 @@ import com.franco.dev.domain.rrhh.LiquidacionItem;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
 import com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo;
 import com.franco.dev.repository.rrhh.BonoRepository;
+import com.franco.dev.repository.rrhh.PenalizacionRepository;
 import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
 import com.franco.dev.repository.rrhh.VacacionVentaRepository;
 import com.franco.dev.repository.rrhh.ValeRepository;
@@ -52,6 +53,7 @@ public class ReciboLiquidacionService {
     private final BonoRepository bonoRepository;
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
+    private final PenalizacionRepository penalizacionRepository;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
@@ -61,7 +63,8 @@ public class ReciboLiquidacionService {
                                     ValeRepository valeRepository,
                                     BonoRepository bonoRepository,
                                     VacacionVentaRepository vacacionVentaRepository,
-                                    PrestamoCuotaRepository prestamoCuotaRepository) {
+                                    PrestamoCuotaRepository prestamoCuotaRepository,
+                                    PenalizacionRepository penalizacionRepository) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -69,6 +72,7 @@ public class ReciboLiquidacionService {
         this.bonoRepository = bonoRepository;
         this.vacacionVentaRepository = vacacionVentaRepository;
         this.prestamoCuotaRepository = prestamoCuotaRepository;
+        this.penalizacionRepository = penalizacionRepository;
     }
 
     @Transactional(readOnly = true)
@@ -86,7 +90,7 @@ public class ReciboLiquidacionService {
         }
 
         List<ReciboLiquidacionItemDto> filas = new ArrayList<>();
-        for (LiquidacionItem it : liquidacionSueldoService.findItems(liquidacionId)) {
+        for (LiquidacionItem it : itemsParaImpresion(liquidacionId)) {
             filas.add(new ReciboLiquidacionItemDto(
                     operacion(it),
                     it.getTipo() == LiquidacionItemTipo.HABER ? "ENTRADA" : "SALIDA",
@@ -129,11 +133,9 @@ public class ReciboLiquidacionService {
     /** Recibo de sueldo en ESC/POS (base64) para impresión térmica local del cliente. */
     private String generarTicketEscPos(LiquidacionSueldo liq, Integer anchoMm) {
         List<com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row> rows = new ArrayList<>();
-        for (LiquidacionItem it : liquidacionSueldoService.findItems(liq.getId())) {
-            String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
-            if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) monto = "(" + monto + ")";
-            String concepto = it.getDescripcion() != null ? it.getDescripcion() : operacion(it);
-            rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(concepto, monto));
+        for (LiquidacionItem it : itemsParaImpresion(liq.getId())) {
+            rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(
+                    conceptoTicket(it), montoTicket(it)));
         }
         BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
         return com.franco.dev.utilitarios.print.ReciboTicketEscPos.build(
@@ -146,11 +148,8 @@ public class ReciboLiquidacionService {
     /** Recibo de sueldo en formato ticket (58/80mm), plantilla genérica concepto/monto. */
     private String generarTicket(LiquidacionSueldo liq, Integer anchoMm) {
         List<ReporteRrhhService.FiniquitoRow> filas = new ArrayList<>();
-        for (LiquidacionItem it : liquidacionSueldoService.findItems(liq.getId())) {
-            String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
-            if (it.getTipo() == LiquidacionItemTipo.DESCUENTO) monto = "(" + monto + ")";
-            String concepto = it.getDescripcion() != null ? it.getDescripcion() : operacion(it);
-            filas.add(new ReporteRrhhService.FiniquitoRow(concepto, monto));
+        for (LiquidacionItem it : itemsParaImpresion(liq.getId())) {
+            filas.add(new ReporteRrhhService.FiniquitoRow(conceptoTicket(it), montoTicket(it)));
         }
         if (filas.isEmpty()) filas.add(new ReporteRrhhService.FiniquitoRow("SIN ITEMS", "0"));
 
@@ -177,6 +176,33 @@ public class ReciboLiquidacionService {
         }
     }
 
+    /**
+     * Items tal como se imprimen, para los tres formatos (PDF A4, ticket PDF y ESC/POS).
+     *
+     * <p>Punto unico donde se aplica cualquier politica de presentacion: agrupar varios
+     * items en una linea o desglosar uno en varias. Hoy devuelve los items tal cual.</p>
+     *
+     * <p>Existe porque los tres generadores construyen sus filas por separado y con
+     * modelos distintos — el A4 tiene 5 columnas y marca el signo con ENTRADA/SALIDA, los
+     * tickets tienen 2 y lo marcan con parentesis. Sin este punto en comun, cada cambio de
+     * presentacion hay que escribirlo tres veces y alcanza con olvidarse de uno para que
+     * el ticket termico y el PDF muestren cosas distintas de la misma liquidacion.</p>
+     */
+    private List<LiquidacionItem> itemsParaImpresion(Long liquidacionId) {
+        return liquidacionSueldoService.findItems(liquidacionId);
+    }
+
+    /** Concepto de una fila de ticket: la descripcion del item, o su categoria si no tiene. */
+    private String conceptoTicket(LiquidacionItem it) {
+        return it.getDescripcion() != null ? it.getDescripcion() : operacion(it);
+    }
+
+    /** Monto de una fila de ticket. Los descuentos van entre parentesis (no hay columna de signo). */
+    private String montoTicket(LiquidacionItem it) {
+        String monto = formatoGs.format(it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO);
+        return it.getTipo() == LiquidacionItemTipo.DESCUENTO ? "(" + monto + ")" : monto;
+    }
+
     /** Categoria del movimiento a partir del codigo del item, como en el recibo modelo. */
     private String operacion(LiquidacionItem it) {
         String c = it.getCodigo() != null ? it.getCodigo() : "";
@@ -189,6 +215,8 @@ public class ReciboLiquidacionService {
             case "ADELANTO_DESCUENTO": return "ANTICIPOS";
             case "PRESTAMO_CUOTA": return "PRESTAMO";
             case "VACACION_VENTA": return "VACACIONES";
+            case "AGUINALDO": return "AGUINALDO";
+            case "CREDITO_CONVENIO_CUOTA": return "CREDITO";
             case "PENALIZACION":
             case "JUSTIFICATIVO_DESCUENTO": return "DESCUENTOS";
             default: return Boolean.TRUE.equals(it.getManual()) ? "AJUSTE"
@@ -218,6 +246,9 @@ public class ReciboLiquidacionService {
                     break;
                 case "CPP_CUOTA":
                     f = prestamoCuotaRepository.findById(ref).map(c -> c.getFechaVencimiento()).orElse(null);
+                    break;
+                case "PENALIZACION":
+                    f = penalizacionRepository.findById(ref).map(p -> p.getFecha()).orElse(null);
                     break;
                 default:
                     break;

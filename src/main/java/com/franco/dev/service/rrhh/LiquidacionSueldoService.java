@@ -21,7 +21,10 @@ import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -74,6 +77,15 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final com.franco.dev.repository.financiero.PagoSolicitudDetalleRepository pagoSolicitudDetalleRepository;
     private final com.franco.dev.service.administrativo.JornadaService jornadaService;
     private final CreditoConvenioService creditoConvenioService;
+    private final PlatformTransactionManager transactionManager;
+
+    /**
+     * Inyectado por campo a proposito: @AllArgsConstructor solo toma los final, y este no
+     * puede serlo. Se usa en generarLote para vaciar el cache de primer nivel entre
+     * funcionarios — ver el comentario ahi.
+     */
+    @javax.persistence.PersistenceContext
+    private javax.persistence.EntityManager entityManager;
 
     @Override
     public LiquidacionSueldoRepository getRepository() {
@@ -107,6 +119,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
      * un periodo 'YYYY-MM'. Preserva los items manuales; recalcula los
      * automaticos. Espejo del algoritmo de FRC Gourmet.
      */
+    // OJO: esta anotacion solo aplica cuando el metodo se invoca desde afuera (por el
+    // proxy de Spring). generarLote lo llama desde la misma clase, asi que ahi no rige:
+    // el aislamiento por funcionario lo pone el TransactionTemplate de aquel metodo.
     @Transactional
     public LiquidacionSueldo generarBorrador(Long funcionarioId, String periodo, Long monedaId) {
         Funcionario f = funcionarioService.findById(funcionarioId).orElse(null);
@@ -208,10 +223,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // SALARIO_BASE (HABER)
         items.add(item(liq, "SALARIO_BASE", "SALARIO BASE", salarioBase, LiquidacionItemTipo.HABER, null, null));
 
-        // IPS_DESCUENTO (DESC)
-        BigDecimal ipsPct = configuracionRrhhService.getNumber("IPS_PORCENTAJE_FUNCIONARIO", new BigDecimal("9"));
-        BigDecimal ips = salarioBase.multiply(ipsPct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
-        if (ips.signum() > 0) items.add(item(liq, "IPS_DESCUENTO", "DESCUENTO IPS", ips, LiquidacionItemTipo.DESCUENTO, null, null));
+        // IPS_DESCUENTO (DESC) — solo si el funcionario aporta. El null se trata como
+        // activo (mismo criterio que LiquidacionFinalService): solo un false explicito
+        // en el legajo desactiva el descuento.
+        if (!Boolean.FALSE.equals(f.getIpsActivo())) {
+            BigDecimal ipsPct = configuracionRrhhService.getNumber("IPS_PORCENTAJE_FUNCIONARIO", new BigDecimal("9"));
+            BigDecimal ips = salarioBase.multiply(ipsPct).divide(new BigDecimal("100"), 2, RoundingMode.HALF_UP);
+            if (ips.signum() > 0) items.add(item(liq, "IPS_DESCUENTO", "DESCUENTO IPS", ips, LiquidacionItemTipo.DESCUENTO, null, null));
+        }
 
         // HORA_EXTRA (HABER)
         BigDecimal he = BigDecimal.ZERO;
@@ -220,12 +239,19 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         }
         if (he.signum() > 0) items.add(item(liq, "HORA_EXTRA", "HORAS EXTRA", he, LiquidacionItemTipo.HABER, null, null));
 
-        // PENALIZACION (DESC)
-        BigDecimal pen = BigDecimal.ZERO;
+        // PENALIZACION (DESC) — un item por penalizacion, no uno consolidado. Con un solo
+        // item de "PENALIZACIONES" el funcionario recibe un monto sin poder saber de que
+        // se le descuenta, y sin referenciaId el item no se puede rastrear hasta su origen.
+        // La descripcion lleva "TIPO: descripcion" para que el recibo lo explique solo.
         for (Penalizacion p : penalizacionRepository.findByFuncionarioIdAndFechaBetweenAndAnuladaFalse(fid, inicio, fin)) {
-            if (p.getMonto() != null) pen = pen.add(p.getMonto());
+            if (p.getMonto() == null || p.getMonto().signum() <= 0) continue;
+            String desc = p.getTipo() != null ? p.getTipo().name() : "PENALIZACION";
+            if (p.getDescripcion() != null && !p.getDescripcion().trim().isEmpty()) {
+                desc = desc + ": " + p.getDescripcion().trim();
+            }
+            items.add(item(liq, "PENALIZACION", desc, p.getMonto(),
+                    LiquidacionItemTipo.DESCUENTO, p.getId(), "PENALIZACION"));
         }
-        if (pen.signum() > 0) items.add(item(liq, "PENALIZACION", "PENALIZACIONES", pen, LiquidacionItemTipo.DESCUENTO, null, null));
 
         // JUSTIFICATIVO_DESCUENTO (DESC) — dias justificados cuyo TIPO descuenta salario.
         // Cuanto descuenta cada tipo lo define el catalogo (MEDIO_DIA / DIA_COMPLETO),
@@ -629,7 +655,6 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     }
 
     /** Genera borradores para todos los funcionarios activos en un periodo. */
-    @Transactional
     public int generarMes(String periodo, Long monedaId) {
         return generarLote(null, periodo, monedaId);
     }
@@ -639,24 +664,44 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
      * corre para todos los activos; si no, solo para los indicados. Los que ya estan
      * APROBADA/PAGADA se saltean en silencio (generarBorrador tira, se ignora).
      */
-    @Transactional
     public int generarLote(List<Long> funcionarioIds, String periodo, Long monedaId) {
-        List<Funcionario> objetivo;
+        List<Long> objetivo = new ArrayList<>();
         if (funcionarioIds == null || funcionarioIds.isEmpty()) {
-            objetivo = new ArrayList<>();
             for (Funcionario f : funcionarioService.findAll2()) {
-                if (Boolean.TRUE.equals(f.getActivo())) objetivo.add(f);
+                if (Boolean.TRUE.equals(f.getActivo())) objetivo.add(f.getId());
             }
         } else {
-            objetivo = new ArrayList<>();
             for (Long id : funcionarioIds) {
-                funcionarioService.findById(id).ifPresent(objetivo::add);
+                funcionarioService.findById(id).ifPresent(f -> objetivo.add(f.getId()));
             }
         }
+
+        // Una transaccion por funcionario, no una sola para el lote entero: el catch de
+        // abajo se traga el fallo de un funcionario para seguir con los demas, y
+        // compartiendo transaccion ese fallo puede marcar rollback-only y tumbar tambien a
+        // los que ya se procesaron bien.
+        //
+        // Va con TransactionTemplate y no con @Transactional(REQUIRES_NEW) sobre
+        // generarBorrador: la llamada de abajo es self-invocation (mismo bean), no pasa
+        // por el proxy de Spring y la anotacion se ignoraria en silencio.
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
         int n = 0;
-        for (Funcionario f : objetivo) {
+        for (Long id : objetivo) {
             try {
-                generarBorrador(f.getId(), periodo, monedaId);
+                tx.execute(status -> {
+                    // Vaciar el cache de primer nivel ANTES de cada funcionario. La
+                    // transaccion nueva no alcanza: la app corre con
+                    // OpenEntityManagerInViewFilter (FrancoSystemsApplication.OpenFilter) y
+                    // sin spring.jpa.open-in-view=false, asi que hay un EntityManager atado
+                    // al hilo para toda la request. JpaTransactionManager.doBegin lo
+                    // reutiliza en vez de crear uno nuevo, y sin este clear el findById de
+                    // generarBorrador devolveria el Funcionario que el loop de arriba ya
+                    // cargo — con el sueldo viejo si cambio despues de esa lectura.
+                    entityManager.clear();
+                    return generarBorrador(id, periodo, monedaId);
+                });
                 n++;
             } catch (Exception ignored) {
             }

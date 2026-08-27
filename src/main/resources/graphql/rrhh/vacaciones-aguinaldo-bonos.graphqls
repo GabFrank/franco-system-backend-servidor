@@ -86,6 +86,10 @@ type Aguinaldo {
     cajaVirtualId: Int
     movimientoCajaVirtualId: Int
     creadoEn: Date
+    origenBase: String
+    mesesConLiquidacion: Int
+    montoAnterior: Float
+    recalculadoEn: Date
 }
 
 type Bono {

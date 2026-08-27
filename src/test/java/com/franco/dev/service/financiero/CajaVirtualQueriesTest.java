@@ -43,7 +43,7 @@ class CajaVirtualQueriesTest {
         movRepo = mock(MovimientoCajaVirtualRepository.class);
         tesoreriaService = mock(TesoreriaService.class);
         movService = new MovimientoCajaVirtualService(movRepo, tesoreriaService);
-        when(movRepo.filter(any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
+        when(movRepo.filter(any(), any(), any(), any(), any(), anyBoolean(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(Collections.emptyList()));
     }
 
@@ -70,19 +70,27 @@ class CajaVirtualQueriesTest {
 
     @Test
     void filtro_movimientos_fecha_vacia_es_null() {
-        movService.filter(1L, "", "", CajaVirtualTipoMovimiento.INGRESO, true, pageable);
+        movService.filter(1L, "", "", CajaVirtualTipoMovimiento.INGRESO, null, true, pageable);
 
         verify(movRepo).filter(eq(1L), isNull(), isNull(),
-                eq("INGRESO"), eq(true), eq(pageable));
+                eq("INGRESO"), isNull(), eq(true), eq(pageable));
+    }
+
+    @Test
+    void filtro_movimientos_pasa_la_moneda() {
+        movService.filter(1L, null, null, null, 3L, false, pageable);
+
+        // La moneda es el filtro que activan las cards de saldo del dashboard.
+        verify(movRepo).filter(eq(1L), isNull(), isNull(), isNull(), eq(3L), eq(false), eq(pageable));
     }
 
     @Test
     void filtro_movimientos_convierte_fechas() {
-        movService.filter(1L, "2026-07-01 00:00", "2026-07-31 23:59", null, false, pageable);
+        movService.filter(1L, "2026-07-01 00:00", "2026-07-31 23:59", null, null, false, pageable);
 
         ArgumentCaptor<LocalDateTime> desde = ArgumentCaptor.forClass(LocalDateTime.class);
         ArgumentCaptor<LocalDateTime> fin = ArgumentCaptor.forClass(LocalDateTime.class);
-        verify(movRepo).filter(eq(1L), desde.capture(), fin.capture(), isNull(), eq(false), eq(pageable));
+        verify(movRepo).filter(eq(1L), desde.capture(), fin.capture(), isNull(), isNull(), eq(false), eq(pageable));
         assertEquals(2026, desde.getValue().getYear());
         assertEquals(7, desde.getValue().getMonthValue());
         assertEquals(1, desde.getValue().getDayOfMonth());

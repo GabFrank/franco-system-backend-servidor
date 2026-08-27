@@ -8,6 +8,7 @@ extend type Query {
     # Recibos firmables por registro. anchoMm: null=PDF A4, 58/80=ticket. escpos=true → payload ESC/POS (para print-local del cliente).
     imprimirReciboVale(id: ID!, anchoMm: Int, escpos: Boolean): String
     imprimirReciboPenalizacion(id: ID!, anchoMm: Int, escpos: Boolean): String
+    imprimirActaAdvertencia(id: ID!): String
     imprimirReciboAguinaldo(id: ID!, anchoMm: Int, escpos: Boolean): String
     imprimirReciboPrestamo(id: ID!, anchoMm: Int, escpos: Boolean): String
     imprimirReciboBono(id: ID!, anchoMm: Int, escpos: Boolean): String

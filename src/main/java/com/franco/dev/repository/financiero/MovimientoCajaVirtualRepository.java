@@ -34,12 +34,14 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
             + "and (cast(:desde as timestamp) is null or m.creadoEn >= :desde) "
             + "and (cast(:fin as timestamp) is null or m.creadoEn <= :fin) "
             + "and (:tipo is null or cast(m.tipoMovimiento as string) = :tipo) "
+            + "and (:monedaId is null or m.moneda.id = :monedaId) "
             + "and (:soloActivos = false or m.activo = true) "
             + "order by m.creadoEn desc")
     Page<MovimientoCajaVirtual> filter(@Param("cajaId") Long cajaId,
                                        @Param("desde") LocalDateTime desde,
                                        @Param("fin") LocalDateTime fin,
                                        @Param("tipo") String tipo,
+                                       @Param("monedaId") Long monedaId,
                                        @Param("soloActivos") boolean soloActivos,
                                        Pageable pageable);
 }

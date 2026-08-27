@@ -84,4 +84,28 @@ public class Aguinaldo implements Identifiable<Long> {
     @CreationTimestamp
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
+
+    /**
+     * De donde salio el monto: {@code PERCIBIDO} (suma de las liquidaciones del anio) o
+     * {@code SUELDO_ACTUAL} (fallback cuando el funcionario no tiene ninguna). NULL en las
+     * filas calculadas antes de que esto existiera.
+     */
+    @Column(name = "origen_base")
+    private String origenBase;
+
+    /** Sobre cuantos meses se calculo. Menos meses que los devengados y con un hueco en el medio = falta cargar una liquidacion. */
+    @Column(name = "meses_con_liquidacion")
+    private Integer mesesConLiquidacion;
+
+    /**
+     * El {@code montoCalculado} que habia antes del ultimo recalculo.
+     *
+     * <p>Recalcular pisa el monto, y el rollback del JAR no devuelve un dato ya escrito.
+     * Sin este campo, un recalculo con una formula equivocada no se puede deshacer.</p>
+     */
+    @Column(name = "monto_anterior")
+    private BigDecimal montoAnterior;
+
+    @Column(name = "recalculado_en")
+    private LocalDateTime recalculadoEn;
 }

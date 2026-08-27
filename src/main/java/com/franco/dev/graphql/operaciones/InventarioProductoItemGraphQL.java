@@ -5,6 +5,7 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.domain.operaciones.InventarioProducto;
 import com.franco.dev.domain.operaciones.InventarioProductoItem;
+import com.franco.dev.domain.operaciones.Lote;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
 import com.franco.dev.domain.operaciones.dto.ReporteInventarioDto;
 import com.franco.dev.graphql.operaciones.input.InventarioProductoItemInput;
@@ -12,6 +13,7 @@ import com.franco.dev.domain.operaciones.enums.FuenteVerdadVencimiento;
 import com.franco.dev.domain.operaciones.enums.InventarioProductoEstado;
 import com.franco.dev.graphql.operaciones.dto.ProductoVencidoViewDTO;
 import com.franco.dev.service.operaciones.InventarioProductoItemService;
+import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.InventarioProductoService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.operaciones.ProductosVencidosService;
@@ -23,6 +25,7 @@ import com.franco.dev.service.productos.ProductoService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.IdUtils;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import net.sf.jasperreports.engine.*;
@@ -62,6 +65,9 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
 
     @Autowired
     private InventarioProductoService inventarioProductoService;
+
+    @Autowired
+    private LoteService loteService;
 
 
     @Autowired
@@ -152,8 +158,28 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
         if (input.getInventarioProductoId() != null) {
             entity.setInventarioProducto(inventarioProductoService.findById(input.getInventarioProductoId()).orElse(null));
         }
+        /*
+         * El lote es opcional y aditivo: el escritorio no lo manda y su renglon sigue entrando sin
+         * lote, que es lo correcto para los productos que no lo llevan.
+         *
+         * Un lote inexistente se rechaza en vez de guardar el renglon sin lote: guardarlo "casi
+         * bien" es lo que despues hace que la finalizacion no encuentre el desglose y el operador
+         * no entienda por que su producto no se ajusto.
+         */
+        if (input.getLoteId() != null) {
+            Lote lote = loteService.findById(input.getLoteId()).orElse(null);
+            if (lote == null) {
+                throw new GraphQLException("No existe el lote " + input.getLoteId() + ".");
+            }
+            entity.setLote(lote);
+        }
 
-        return service.save(entity);
+        try {
+            return service.save(entity);
+        } catch (IllegalStateException e) {
+            // El mensaje del central ya viene escrito para el operador: el cliente lo muestra.
+            throw new GraphQLException(e.getMessage());
+        }
     }
 
     public Boolean deleteInventarioProductoItem(Long id) {
@@ -435,6 +461,30 @@ public class InventarioProductoItemGraphQL implements GraphQLQueryResolver, Grap
     public Page<ProductoSaldoDto> productosFaltantes(Long sucursalId, Long productoId, String fechaInicio, String fechaFin, Integer page, Integer size) {
         Pageable pageable = PageRequest.of(page, size);
         return movimientoStockService.findProductosFaltantes(sucursalId, productoId, stringToDate(fechaInicio), stringToDate(fechaFin), pageable);
+    }
+
+    /** Cuantas fechas ya vencidas se proponen por presentacion si no se pide otra cosa. */
+    private static final int MAX_VENCIDAS_DEFAULT = 3;
+
+    /**
+     * Los vencimientos que el central conoce de unas presentaciones.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Si (carga del conteo de inventario)
+     *
+     * Ver ProductosVencidosService.vencimientosConocidos() para por que no se
+     * usa productosVencidos.
+     */
+    public List<ProductoVencidoViewDTO> vencimientosConocidos(
+            Long sucursalId,
+            @Nullable List<Long> productoIdList,
+            @Nullable Integer maxVencidas) {
+
+        return productosVencidosService.vencimientosConocidos(
+                sucursalId,
+                productoIdList,
+                maxVencidas == null || maxVencidas < 0 ? MAX_VENCIDAS_DEFAULT : maxVencidas);
     }
 
     public Page<ProductoVencidoViewDTO> productosVencidos(

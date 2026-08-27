@@ -19,6 +19,11 @@ public class ImpresoraInput {
     private String colaCups;
     private String ip;
     private Integer puerto;
+    /** Share de Windows (conexion SMB). Sin password: no se persiste (ver Impresora). */
+    private String smbHost;
+    private String smbRecurso;
+    private String smbUsuario;
+    private String smbDominio;
     private PerfilPapel perfilPapel;
     private Integer columnas;
     private Integer anchoMm;

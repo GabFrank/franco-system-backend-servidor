@@ -44,6 +44,21 @@ public class InventarioProductoItem implements Identifiable<Long> {
     @JoinColumn(name = "zona_id", nullable = true)
     private Zona zona;
 
+    /**
+     * El lote que se está contando. Nulo en los productos sin control de lote —la enorme mayoría—
+     * y también en la mercadería que todavía no se atribuyó a ninguno.
+     *
+     * Con control de lote, un renglón ES un lote: {@code cantidadFisica} guarda el saldo DE ESE
+     * LOTE en la sucursal, no la existencia del producto. Es lo que le permite a
+     * {@code finalizarInventarioEnSucursal()} escribir el desglose en {@code movimiento_stock_lote}
+     * en vez de dejar el ledger sin tocar.
+     *
+     * EAGER como {@code presentacion}: la pantalla de conteo lo muestra siempre.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "lote_id", nullable = true)
+    private Lote lote;
+
     private Double cantidad;
 
     private Double cantidadFisica;

@@ -524,6 +524,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 if (varInput.getVencimiento() != null && !varInput.getVencimiento().isEmpty()) {
                     variacion.setVencimiento(stringToDate(varInput.getVencimiento()));
                 }
+                variacion.setFechaRetiro(parseVencimiento(varInput.getFechaRetiro()));
 
                 variacion.setCantidad(varInput.getCantidad());
                 variacion.setLote(normalizarLote(varInput.getLote()));
@@ -628,6 +629,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 if (varInput.getVencimiento() != null && !varInput.getVencimiento().isEmpty()) {
                     variacion.setVencimiento(stringToDate(varInput.getVencimiento()));
                 }
+                variacion.setFechaRetiro(parseVencimiento(varInput.getFechaRetiro()));
 
                 variacion.setCantidad(varInput.getCantidad());
                 variacion.setLote(normalizarLote(varInput.getLote()));
@@ -746,6 +748,9 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
      * Verificación de producto para mobile.
      * Distribuye cantidades entre distribuciones automáticamente.
      *
+     * `lote`, `vencimientoRecibido` y `fechaRetiro` son la trazabilidad de lo recibido. El lote es
+     * obligatorio cuando el producto lleva control de lote: lo valida el servicio, no la pantalla.
+     *
      * Usado en:
      * - Desktop: No
      * - Mobile: Sí (verificación de producto en recepción)
@@ -759,6 +764,9 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             Long notaRecepcionItemIdParaRechazo,
             String motivoRechazo,
             String metodoVerificacion,
+            String lote,
+            String vencimientoRecibido,
+            String fechaRetiro,
             Long usuarioId
     ) {
         if (recepcionMercaderiaId == null || productoId == null || usuarioId == null) {
@@ -774,6 +782,9 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 notaRecepcionItemIdParaRechazo,
                 motivoRechazo,
                 metodoVerificacion,
+                lote,
+                vencimientoRecibido,
+                fechaRetiro,
                 usuario
         );
     }

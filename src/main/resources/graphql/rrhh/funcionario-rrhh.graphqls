@@ -78,6 +78,13 @@ input FuncionarioDocumentoInput {
 }
 
 extend type Query {
+    """
+    El egreso vigente del funcionario (el ultimo sin revertir), o null si no tiene o si
+    se hizo antes de que existiera el historico. El dialogo de reversa lo usa para
+    precargar el credito en vez de pedirlo a mano.
+    """
+    egresoVigenteFuncionario(funcionarioId: ID!): FuncionarioEgresoHistorico
+
     funcionarioCargoHistoricos(funcionarioId: ID!): [FuncionarioCargoHistorico]
     funcionarioSalarioHistoricos(funcionarioId: ID!): [FuncionarioSalarioHistorico]
     funcionarioDocumentos(funcionarioId: ID!): [FuncionarioDocumento]
@@ -88,6 +95,39 @@ extend type Mutation {
     cambiarCargoFuncionario(input: CambioCargoInput!): Funcionario
     cambiarSalarioFuncionario(input: CambioSalarioInput!): Funcionario
     egresarFuncionario(funcionarioId: ID!, fecha: String, motivo: String): Funcionario
+    """
+    Revierte un egreso hecho por error: limpia fecha y motivo de egreso, reactiva al
+    funcionario (y con el a su usuario y su cliente) y restaura el credito.
+
+    El credito va como parametro porque egresar lo pone en cero y no queda guardado en
+    ninguna tabla: sin el valor, la reversa no puede recuperarlo.
+    """
+    revertirEgresoFuncionario(funcionarioId: ID!, credito: Float, motivo: String): Funcionario
     saveFuncionarioDocumento(input: FuncionarioDocumentoInput!): FuncionarioDocumento!
     anularFuncionarioDocumento(id: ID!): FuncionarioDocumento
+}
+
+"""
+Snapshot del estado que un egreso destruyo. Permite revertirlo restaurando lo que habia,
+en vez de pedirle al usuario que lo reconstruya de memoria o de un backup.
+
+Es null para egresos hechos antes de que existiera el historico.
+"""
+type FuncionarioEgresoHistorico {
+    id: ID!
+    funcionario: Funcionario
+    fechaEgreso: Date
+    motivoEgreso: String
+    egresadoPor: Usuario
+    creditoAnterior: Float
+    usuarioId: Int
+    usuarioActivoAnterior: Boolean
+    clienteId: Int
+    clienteTipoAnterior: String
+    clienteCreditoAnterior: Float
+    clienteActivoAnterior: Boolean
+    revertidoEn: Date
+    revertidoPor: Usuario
+    motivoReversion: String
+    creadoEn: Date
 }

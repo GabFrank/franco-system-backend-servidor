@@ -299,7 +299,13 @@ extend type Mutation {
     #
     # Si el numero ya existe para ese producto devuelve el existente, no falla: la unicidad es
     # (producto, numero) y ese lote ES el que el operador tiene en la mano. Fechas en yyyy-MM-dd.
-    crearLote(
+    #
+    # OJO CON EL NOMBRE: se llamo "crearLote" y choco con el crearLote() de SIFEN
+    # (financiero/lote-de.graphqls), que es un lote de DOCUMENTOS ELECTRONICOS y no lleva
+    # argumentos. Los "extend type Mutation" se fusionan por nombre de campo: ganaba el de SIFEN y
+    # el central respondia "Unknown field argument productoId @ 'crearLote'" a la app, sin que
+    # nada fallara al arrancar. Por eso este lleva el sufijo del dominio.
+    crearLoteProducto(
         productoId: ID!
         numeroLote: String!
         fechaVencimiento: String

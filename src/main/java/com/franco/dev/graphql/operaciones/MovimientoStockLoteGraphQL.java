@@ -187,9 +187,15 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
      * Es el camino que faltaba para el conteo: el operador tiene el envase en la mano, el lote no
      * está en el sistema y necesita registrarlo para poder contarlo. Nace con saldo cero; el stock
      * se lo pone la finalización de la toma.
+     *
+     * ⚠️ <b>El nombre lleva el sufijo del dominio a propósito.</b> Se llamó {@code crearLote} y
+     * chocó con {@link com.franco.dev.graphql.financiero.LoteDEGraphQL#crearLote()}, que crea un
+     * lote de documentos electrónicos para SIFEN y no lleva argumentos. GraphQL fusiona los
+     * {@code extend type Mutation} por nombre de campo: ganaba el de SIFEN, el arranque no se
+     * quejaba y la app recibía {@code Unknown field argument productoId @ 'crearLote'}.
      */
-    public Lote crearLote(Long productoId, String numeroLote, String fechaVencimiento,
-                          String fechaRetiro, String observacion, Long usuarioId) {
+    public Lote crearLoteProducto(Long productoId, String numeroLote, String fechaVencimiento,
+                                  String fechaRetiro, String observacion, Long usuarioId) {
         if (productoId == null) {
             throw new GraphQLException("productoId es requerido");
         }

@@ -96,11 +96,17 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
         com.franco.dev.domain.personas.Persona personaActual = null;
         com.franco.dev.domain.empresarial.Cargo cargoActual = null;
         com.franco.dev.domain.empresarial.Sucursal sucursalActual = null;
+        com.franco.dev.domain.administrativo.Horario horarioActual = null;
+        java.math.BigDecimal sueldoActual = null;
+        Float creditoActual = null;
         if (input.getId() != null) {
             e = service.findById(input.getId()).orElse(new Funcionario());
             personaActual = e.getPersona();
             cargoActual = e.getCargo();
             sucursalActual = e.getSucursal();
+            horarioActual = e.getHorario();
+            sueldoActual = e.getSueldo();
+            creditoActual = e.getCredito();
             // Evitamos que ModelMapper intente mapear relaciones automáticamente y cause
             // errores de Hibernate
             e.setHorario(null);
@@ -120,6 +126,13 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
                 // cascada de estado, un null accidental inactivaría usuario y cliente.
                 e.setActivo(activoPrevio != null ? activoPrevio : true);
             }
+            // Sueldo, credito y horario no los gestiona todo formulario que llama a este
+            // save (el legajo edita datos personales y deja el salario a su propio flujo
+            // con historico). Sin esto, un input que no los trae los borraba, o forzaba al
+            // cliente a reenviar una copia posiblemente vieja y pisar el valor real.
+            if (input.getSueldo() == null) e.setSueldo(sueldoActual);
+            if (input.getCredito() == null) e.setCredito(creditoActual);
+            if (input.getHorarioId() == null) e.setHorario(horarioActual);
         } else {
             e = m.map(input, Funcionario.class);
             if (input.getActivo() == null) {

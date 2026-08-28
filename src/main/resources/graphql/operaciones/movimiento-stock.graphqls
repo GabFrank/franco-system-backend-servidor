@@ -42,7 +42,7 @@ type ResumenMovimientoStock {
 
 type StockPorTipoMovimientoDto {
     tipoMovimiento: TipoMovimiento
-    stock: Int
+    stock: Float
 }
 
 type ProductoSaldoDto {

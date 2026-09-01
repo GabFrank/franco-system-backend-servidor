@@ -1,0 +1,35 @@
+package com.franco.dev.service.financiero.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * Copia de los datos del cliente que el central manda junto con la factura para que el
+ * filial pueda materializarlo si todavia no lo tiene.
+ * <p>
+ * El central es el dueño del cliente: los ids que viajan aca son los suyos, y el filial
+ * los respeta tal cual. Sin esto, una factura emitida desde el central contra un cliente
+ * que el filial no conoce se guardaba con cliente_id null y sin ningun aviso.
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class ClienteFilialRequest {
+    private Long id;
+    private String tipo;
+    private Float credito;
+    private String codigo;
+    private Boolean tributa;
+    private Boolean verificadoSet;
+    private Boolean activo;
+
+    private Long personaId;
+    private String personaNombre;
+    private String personaApodo;
+    private String personaDocumento;
+    private String personaSexo;
+    private String personaDireccion;
+    private String personaTelefono;
+    private String personaEmail;
+}

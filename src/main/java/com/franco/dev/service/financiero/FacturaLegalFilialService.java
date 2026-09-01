@@ -5,6 +5,9 @@ import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.graphql.financiero.input.FacturaLegalInput;
 import com.franco.dev.graphql.financiero.input.FacturaLegalItemInput;
 import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.domain.personas.Cliente;
+import com.franco.dev.domain.personas.Persona;
+import com.franco.dev.service.financiero.dto.ClienteFilialRequest;
 import com.franco.dev.service.financiero.dto.ErrorResponseDTO;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialRequest;
 import com.franco.dev.service.financiero.dto.FacturaLegalFilialResponse;
@@ -42,6 +45,9 @@ public class FacturaLegalFilialService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private com.franco.dev.service.personas.ClienteService clienteService;
 
     public FacturaLegalFilialResponse crearFacturaLegalEnFilial(
             FacturaLegalInput facturaInput,
@@ -122,6 +128,48 @@ public class FacturaLegalFilialService {
         }
     }
 
+    /**
+     * Copia los datos del cliente para que viajen con la factura. El filial puede no
+     * tenerlo: en esta arquitectura personas y clientes no llegan por replicacion a todas
+     * las filiales, y sin estos datos la factura se guardaba alla con cliente_id null.
+     *
+     * @return null si no hay cliente o si el central tampoco lo encuentra
+     */
+    private ClienteFilialRequest mapearCliente(Long clienteId) {
+        if (clienteId == null) {
+            return null;
+        }
+
+        Cliente cliente = clienteService.findById(clienteId).orElse(null);
+        if (cliente == null) {
+            log.warn("El cliente {} no existe en el central; la factura viaja al filial sin datos de cliente", clienteId);
+            return null;
+        }
+
+        ClienteFilialRequest request = new ClienteFilialRequest();
+        request.setId(cliente.getId());
+        request.setTipo(cliente.getTipo() != null ? cliente.getTipo().name() : null);
+        request.setCredito(cliente.getCredito());
+        request.setCodigo(cliente.getCodigo());
+        request.setTributa(cliente.getTributa());
+        request.setVerificadoSet(cliente.getVerificadoSet());
+        request.setActivo(cliente.getActivo());
+
+        Persona persona = cliente.getPersona();
+        if (persona != null) {
+            request.setPersonaId(persona.getId());
+            request.setPersonaNombre(persona.getNombre());
+            request.setPersonaApodo(persona.getApodo());
+            request.setPersonaDocumento(persona.getDocumento());
+            request.setPersonaSexo(persona.getSexo());
+            request.setPersonaDireccion(persona.getDireccion());
+            request.setPersonaTelefono(persona.getTelefono());
+            request.setPersonaEmail(persona.getEmail());
+        }
+
+        return request;
+    }
+
     private FacturaLegalFilialRequest mapearRequest(
             FacturaLegalInput facturaInput,
             List<FacturaLegalItemInput> items,
@@ -131,6 +179,8 @@ public class FacturaLegalFilialService {
         request.setTimbradoDetalleId(timbradoDetalleId);
         request.setCajaId(facturaInput.getCajaId() != null ? facturaInput.getCajaId().longValue() : null);
         request.setClienteId(facturaInput.getClienteId() != null ? facturaInput.getClienteId().longValue() : null);
+        request.setUsuarioId(facturaInput.getUsuarioId() != null ? facturaInput.getUsuarioId().longValue() : null);
+        request.setCliente(mapearCliente(request.getClienteId()));
         request.setNombre(facturaInput.getNombre());
         request.setRuc(facturaInput.getRuc());
         request.setDireccion(facturaInput.getDireccion());

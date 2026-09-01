@@ -35,6 +35,13 @@ public interface FacturaLegalRepository
 
         FacturaLegal findByIdAndSucursalId(Long id, Long sucId);
 
+        /**
+         * Facturas que el usuario emitió en la sucursal desde una fecha, de la más nueva a la
+         * más vieja. Se usa para detectar que está por repetir una factura ya emitida hoy.
+         */
+        List<FacturaLegal> findByUsuarioIdAndClienteIdAndSucursalIdAndCreadoEnGreaterThanEqualOrderByIdDesc(
+                        Long usuarioId, Long clienteId, Long sucursalId, LocalDateTime desde);
+
         Boolean deleteByIdAndSucursalId(Long id, Long sucId);
 
         FacturaLegal findByVentaIdAndSucursalId(Long id, Long sucId);

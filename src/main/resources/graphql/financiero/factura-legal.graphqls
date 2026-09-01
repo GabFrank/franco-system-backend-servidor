@@ -94,7 +94,16 @@ type SaveFacturaLegalToFilialResponse {
     documentoElectronicoGenerado: Boolean
 }
 
+type FacturaSimilar {
+    facturaLegalId: ID!
+    numeroFactura: String
+    fecha: Date
+    totalFinal: Float
+    clienteNombre: String
+}
+
 extend type Query {
+    facturaSimilarReciente(usuarioId: ID!, clienteId: ID, totalFinal: Float!, items: [FacturaLegalItemInput], sucursalId: ID): FacturaSimilar
     facturaLegal(id:ID!, sucId: ID):FacturaLegal
     facturaLegales(page: Int, size: Int, fechaInicio: String, fechaFin: String, sucId: [ID], ruc: String, nombre: String, iva5: Boolean, iva10: Boolean, isElectronico: Boolean, activo: Boolean, sinNombre: Boolean, ventaId: ID):FacturaLegalPage!
     countFacturaLegal: Int

@@ -27,6 +27,23 @@ public interface RetiroRepository extends HelperRepository<Retiro, EmbebedPrimar
 
     public Retiro findByIdAndSucursalId(Long id, Long sucId);
 
+    /**
+     * Toma el retiro con lock pesimista para verificarlo.
+     *
+     * <p>Sin esto, dos tesoreros verificando el mismo retiro a la vez (o un doble click, o un
+     * reintento de red) leen los dos que no hay verificación, cuentan cada uno lo suyo y
+     * acreditan dos veces la misma plata en la caja mayor. El índice único sobre
+     * {@code retiro_verificacion} es la red de abajo, pero falla con un error feo; el lock
+     * serializa antes y el segundo ve la verificación que dejó el primero.</p>
+     *
+     * <p>Mismo patrón que {@code asegurarSolicitud} en RRHH, documentado ahí por la misma
+     * razón: un doble click pagaba dos veces el mismo sueldo.</p>
+     */
+    @org.springframework.data.jpa.repository.Lock(javax.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select r from Retiro r where r.id = :id and r.sucursalId = :sucId")
+    java.util.Optional<Retiro> lockByIdAndSucursalId(@org.springframework.data.repository.query.Param("id") Long id,
+                                                     @org.springframework.data.repository.query.Param("sucId") Long sucId);
+
     public List<Retiro> findByCajaSalidaId(Long id);
 
     /** Retiros destinados a una caja mayor, aún no posteados y ya concluidos (poller de tesorería, F3). */

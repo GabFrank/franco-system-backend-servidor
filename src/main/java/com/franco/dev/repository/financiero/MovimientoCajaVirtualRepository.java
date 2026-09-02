@@ -26,6 +26,17 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
     List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndActivoTrue(OrigenMovimientoTipo origenTipo, Long origenId);
 
     /**
+     * Igual que el anterior pero acotado a la sucursal del documento de origen.
+     *
+     * <p>Hace falta cuando el origen tiene PK compuesta: el id de un Retiro no es global —cada
+     * filial numera desde 1— y una caja mayor recibe retiros de varias sucursales, así que
+     * buscar solo por (origenTipo, origenId) devuelve movimientos de retiros ajenos que
+     * casualmente comparten el número.</p>
+     */
+    List<MovimientoCajaVirtual> findByOrigenTipoAndOrigenIdAndOrigenSucursalIdAndActivoTrue(
+            OrigenMovimientoTipo origenTipo, Long origenId, Long origenSucursalId);
+
+    /**
      * Filtro combinado de movimientos (todos opcionales salvo la caja). soloActivos=true oculta anulados.
      * {@code tipo} llega como String (name del enum) y se compara contra la columna casteada a texto:
      * el enum es nativo de Postgres y un bind param nulo de enum rompe con 42P18. Castear a texto lo evita.
@@ -34,12 +45,14 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
             + "and (cast(:desde as timestamp) is null or m.creadoEn >= :desde) "
             + "and (cast(:fin as timestamp) is null or m.creadoEn <= :fin) "
             + "and (:tipo is null or cast(m.tipoMovimiento as string) = :tipo) "
+            + "and (:monedaId is null or m.moneda.id = :monedaId) "
             + "and (:soloActivos = false or m.activo = true) "
             + "order by m.creadoEn desc")
     Page<MovimientoCajaVirtual> filter(@Param("cajaId") Long cajaId,
                                        @Param("desde") LocalDateTime desde,
                                        @Param("fin") LocalDateTime fin,
                                        @Param("tipo") String tipo,
+                                       @Param("monedaId") Long monedaId,
                                        @Param("soloActivos") boolean soloActivos,
                                        Pageable pageable);
 }

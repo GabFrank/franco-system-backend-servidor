@@ -28,6 +28,7 @@ type RecepcionMercaderiaItemVariacion {
     presentacion: Presentacion
     cantidad: Float
     vencimiento: String
+    fechaRetiro: Date
     lote: String
     rechazado: Boolean
     motivoRechazo: MotivoRechazoFisico
@@ -61,6 +62,7 @@ input RecepcionMercaderiaItemVariacionInput {
     presentacionId: ID
     cantidad: Float
     vencimiento: String
+    fechaRetiro: String
     lote: String
     rechazado: Boolean
     motivoRechazo: MotivoRechazoFisico
@@ -158,6 +160,9 @@ extend type Mutation {
         notaRecepcionItemIdParaRechazo: ID,
         motivoRechazo: String,
         metodoVerificacion: String,
+        lote: String,
+        vencimientoRecibido: String,
+        fechaRetiro: String,
         usuarioId: ID!
     ): Boolean!
     

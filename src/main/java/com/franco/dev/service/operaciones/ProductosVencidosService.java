@@ -115,10 +115,147 @@ public class ProductosVencidosService {
         return content;
     }
 
+    /**
+     * Los vencimientos que el central conoce de unas presentaciones, para
+     * proponerlos al contar.
+     *
+     * Usado en:
+     * - Desktop: No
+     * - Mobile: Si (carga del conteo de inventario)
+     *
+     * <p>
+     * <b>No sirve productosVencidos para esto, y ese fue el defecto.</b> Ese
+     * reporte responde «que entro desde el ultimo inventario»: ancla las cinco
+     * fuentes al ultimo inventario de la sucursal y por construccion olvida
+     * todo lo anterior. Pero <b>la toma que se esta contando es el ultimo
+     * inventario</b>, asi que mientras se cuenta el reporte no devuelve nada:
+     * la fuente INVENTARIO mira los items de esa misma toma —todavia sin
+     * fecha— y compras y transferencias exigen ser posteriores a hoy.
+     *
+     * <p>
+     * Verificado en bodega3 con COCA COLA 500ML (producto 802, sucursal 1):
+     * el central conoce 26 vencimientos de esa presentacion —6 de compras de
+     * junio de 2026— y el reporte devolvia cero, porque el ancla era la toma
+     * 7539 abierta el dia anterior.
+     *
+     * <p>
+     * Aca no hay ancla. Se recorta despues, por presentacion: <b>todas las
+     * vigentes mas las {@code maxVencidas} vencidas mas recientes</b>. Las
+     * vigentes son las que sirven para contar; unas pocas vencidas hacen falta
+     * porque puede haber mercaderia caduca en la gondola, y arrastrar la
+     * historia entera —2023 incluido— es trafico que nadie mira.
+     */
+    @Transactional(readOnly = true)
+    public List<ProductoVencidoViewDTO> vencimientosConocidos(
+            Long sucursalId,
+            @Nullable List<Long> productoIdList,
+            int maxVencidas) {
+
+        if (sucursalId == null) {
+            return new ArrayList<>();
+        }
+
+        FiltrosProductosVencidos filtros = new FiltrosProductosVencidos(
+                null, null, java.util.Collections.singletonList(sucursalId), null, null, null,
+                productoIdList, null, Boolean.FALSE);
+        filtros.historico = true;
+
+        Query query = entityManager.createNativeQuery(construirSqlBase(filtros));
+        aplicarParametros(query, filtros.parametros());
+
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        List<ProductoVencidoViewDTO> todas = new ArrayList<>();
+        for (Object[] row : rows) {
+            todas.add(enriquecer(mapearFila(row)));
+        }
+
+        return recortarPorPresentacion(todas, LocalDate.now(), maxVencidas);
+    }
+
+    /**
+     * Todas las vigentes, y de las vencidas solo las mas recientes.
+     *
+     * <p>
+     * El recorte es <b>por presentacion</b> y no sobre el total: si se cortara
+     * el total, una presentacion con muchos lotes se comeria el cupo de las
+     * demas y otras quedarian sin ninguna sugerencia.
+     */
+    static List<ProductoVencidoViewDTO> recortarPorPresentacion(
+            List<ProductoVencidoViewDTO> filas, LocalDate hoy, int maxVencidas) {
+
+        Map<Long, List<ProductoVencidoViewDTO>> porPresentacion = new java.util.LinkedHashMap<>();
+        for (ProductoVencidoViewDTO fila : filas) {
+            // Sin fecha no hay nada que proponer. Las cinco fuentes ya exigen
+            // vencimiento no nulo, asi que esto no deberia pasar; si pasara,
+            // la fila se colaria al cupo de las vencidas y desplazaria a una
+            // que si sirve.
+            if (fila.getVencimiento() == null || fila.getPresentacionId() == null) {
+                continue;
+            }
+            porPresentacion
+                    .computeIfAbsent(fila.getPresentacionId(), k -> new ArrayList<>())
+                    .add(fila);
+        }
+
+        List<ProductoVencidoViewDTO> recortadas = new ArrayList<>();
+        for (List<ProductoVencidoViewDTO> grupo : porPresentacion.values()) {
+            // Mas nueva primero: entre las vencidas, la ultima que se vio es la
+            // que tiene mas chance de seguir en gondola.
+            grupo.sort((a, b) -> comparar(b.getVencimiento(), a.getVencimiento()));
+            int vencidasPuestas = 0;
+            for (ProductoVencidoViewDTO fila : grupo) {
+                LocalDate vence = fila.getVencimiento() == null ? null : fila.getVencimiento().toLocalDate();
+                // Lo que vence hoy todavia no vencio: se puede vender durante el dia.
+                boolean vigente = vence != null && !vence.isBefore(hoy);
+                if (vigente) {
+                    recortadas.add(fila);
+                } else if (vencidasPuestas < maxVencidas) {
+                    recortadas.add(fila);
+                    vencidasPuestas++;
+                }
+            }
+        }
+        return recortadas;
+    }
+
+    private static int comparar(LocalDateTime a, LocalDateTime b) {
+        if (a == null && b == null) {
+            return 0;
+        }
+        if (a == null) {
+            return -1;
+        }
+        if (b == null) {
+            return 1;
+        }
+        return a.compareTo(b);
+    }
+
     private String construirSqlBase(FiltrosProductosVencidos filtros) {
         return ""
                 + "WITH ultimo_inv AS ( "
-                + "  SELECT inv.sucursal_id, MAX(inv.id) AS inventario_id, MAX(inv.fecha_inicio) AS fecha_inicio "
+                /*
+                 * Solo cuentan los inventarios CONCLUIDO. Era MAX(inv.id) a
+                 * secas, asi que una toma ABIERTA o CANCELADA se tomaba como si
+                 * fuera un inventario hecho. Como todas las fuentes se anclan
+                 * aca, abrir una toma dejaba el reporte de esa sucursal en
+                 * blanco: la fuente INVENTARIO miraba los items de la toma
+                 * recien abierta —todavia sin vencimiento— y compras y
+                 * transferencias exigian ser posteriores a su fecha_inicio, que
+                 * es hoy. En bodega3 pasaba en 5 de 26 sucursales.
+                 *
+                 * El COALESCE mantiene una fila por sucursal aunque no tenga
+                 * ningun inventario concluido: sin el, esa sucursal desaparece
+                 * del reporte por el JOIN de rankeados.
+                 */
+                + "  SELECT inv.sucursal_id, "
+                + "         MAX(inv.id) FILTER (WHERE inv.estado = 'CONCLUIDO') AS inventario_id, "
+                /* En modo historico no hay ancla: interesa todo lo que el central sepa. */
+                + (filtros.esHistorico()
+                        ? "         TIMESTAMP '1900-01-01' AS fecha_inicio "
+                        : "         COALESCE(MAX(inv.fecha_inicio) FILTER (WHERE inv.estado = 'CONCLUIDO'), "
+                                + "TIMESTAMP '1900-01-01') AS fecha_inicio ")
                 + "  FROM operaciones.inventario inv "
                 + "  GROUP BY inv.sucursal_id "
                 + "), "
@@ -175,7 +312,14 @@ public class ProductosVencidosService {
                 + "  FROM operaciones.inventario_producto_item ipi "
                 + "  JOIN operaciones.inventario_producto ip ON ip.id = ipi.inventario_producto_id "
                 + "  JOIN operaciones.inventario inv ON inv.id = ip.inventario_id "
-                + "  JOIN ultimo_inv ui ON ui.inventario_id = inv.id "
+                /*
+                 * Cualquier inventario concluido, no solo el ultimo: la fecha de
+                 * un lote sigue valiendo aunque se haya cargado en la toma
+                 * anterior.
+                 */
+                + (filtros.esHistorico()
+                        ? "  AND inv.estado = 'CONCLUIDO' "
+                        : "  JOIN ultimo_inv ui ON ui.inventario_id = inv.id ")
                 + "  JOIN empresarial.sucursal s ON s.id = inv.sucursal_id "
                 + "  JOIN productos.presentacion pre ON pre.id = ipi.presentacion_id "
                 + "  JOIN productos.producto pro ON pro.id = pre.producto_id "
@@ -467,6 +611,16 @@ public class ProductosVencidosService {
         private final List<Long> productoIdList;
         private final List<String> fuenteVerdadList;
         private final Boolean soloRealmenteVencidos;
+        /**
+         * Sin ancla: devuelve todo lo que el central sepa de la presentacion,
+         * por viejo que sea. Es lo que necesita la carga del conteo, y lo
+         * contrario de lo que necesita el reporte de vencidos.
+         */
+        private boolean historico;
+
+        private boolean esHistorico() {
+            return historico;
+        }
 
         private FiltrosProductosVencidos(
                 LocalDateTime startDate,

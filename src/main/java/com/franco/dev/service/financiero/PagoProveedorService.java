@@ -417,7 +417,22 @@ public class PagoProveedorService {
                 g.suma = g.suma.add(l.getMonto() != null ? l.getMonto() : BigDecimal.ZERO);
             }
         }
-        for (GrupoMov g : grupos.values()) {
+        // Orden canónico de lock: primero las cajas (por id), después las cuentas bancarias (por
+        // id). Hasta acá los grupos se posteaban en el orden en que el cliente mandó las líneas,
+        // así que dos pagos simultáneos sobre la misma caja y la misma cuenta podían tomarlas en
+        // sentido contrario y trabarse — los dos locks son SELECT FOR UPDATE, que espera.
+        // Es el mismo orden que usa OperacionFinancieraService: el orden tiene que ser único
+        // entre todos los flujos que lockean caja y banco, no dentro de cada uno.
+        List<GrupoMov> gruposOrdenados = new ArrayList<>(grupos.values());
+        gruposOrdenados.sort((x, y) -> {
+            int tipoX = x.fuente == FuentePago.CAJA_MAYOR ? 0 : 1;
+            int tipoY = y.fuente == FuentePago.CAJA_MAYOR ? 0 : 1;
+            if (tipoX != tipoY) return Integer.compare(tipoX, tipoY);
+            Long idX = tipoX == 0 ? x.cajaVirtualId : x.cuentaBancariaId;
+            Long idY = tipoY == 0 ? y.cajaVirtualId : y.cuentaBancariaId;
+            return Long.compare(idX != null ? idX : 0L, idY != null ? idY : 0L);
+        });
+        for (GrupoMov g : gruposOrdenados) {
             if (g.suma.signum() <= 0) throw new GraphQLException("Monto de línea inválido");
             if (g.fuente == FuentePago.CAJA_MAYOR) {
                 Moneda moneda = g.monedaId != null ? monedaRepository.findById(g.monedaId).orElse(null) : null;

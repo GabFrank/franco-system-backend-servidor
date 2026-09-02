@@ -33,6 +33,12 @@ public class LiquidacionConceptoGraphQL implements GraphQLQueryResolver, GraphQL
         return service.findById(id);
     }
 
+    /** Conceptos elegibles al agregar un item manual a una liquidacion. */
+    public List<LiquidacionConcepto> liquidacionConceptosParaItemManual() {
+        seg.requireVer();
+        return service.findParaItemManual();
+    }
+
     public Optional<LiquidacionConcepto> liquidacionConceptoPorCodigo(String codigo) {
         return service.findByCodigo(codigo);
     }

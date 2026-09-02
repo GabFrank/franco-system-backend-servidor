@@ -144,6 +144,10 @@ public class DashboardRrhhService {
         long penCant = 0;
         BigDecimal penMonto = BigDecimal.ZERO;
         for (Penalizacion p : penalizacionRepository.findByFechaBetweenAndAnuladaFalse(desde, hasta)) {
+            // Las amonestaciones no son penalizaciones de plata. Aca el filtro es
+            // obligatorio y no defensivo: este contador suma FILAS, asi que un monto en
+            // cero no alcanza para dejarlas afuera del KPI.
+            if (p.getTipo() == com.franco.dev.domain.rrhh.enums.PenalizacionTipo.ADVERTENCIA) continue;
             penCant++;
             if (p.getMonto() != null) penMonto = penMonto.add(p.getMonto());
         }
@@ -280,7 +284,7 @@ public class DashboardRrhhService {
         com.franco.dev.domain.personas.Persona p = f.getPersona();
         List<String> faltantes = new ArrayList<>();
         if (f.getCargo() == null) faltantes.add("Cargo");
-        if (f.getSueldo() == null || f.getSueldo() <= 0) faltantes.add("Salario");
+        if (f.getSueldo() == null || f.getSueldo().signum() <= 0) faltantes.add("Salario");
         if (f.getFechaIngreso() == null) faltantes.add("Fecha ingreso");
         if (blank(p == null ? null : p.getDocumento())) faltantes.add("Documento");
         if (p == null || p.getNacimiento() == null) faltantes.add("Nacimiento");

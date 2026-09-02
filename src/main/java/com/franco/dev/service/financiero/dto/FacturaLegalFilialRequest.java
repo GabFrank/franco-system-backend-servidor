@@ -13,6 +13,13 @@ public class FacturaLegalFilialRequest {
     private Long timbradoDetalleId;
     private Long cajaId;
     private Long clienteId;
+    /**
+     * Datos del cliente para que el filial pueda materializarlo si no lo tiene todavia.
+     * Va lleno siempre que clienteId no sea null.
+     */
+    private ClienteFilialRequest cliente;
+    /** Usuario que emite la factura. Sin esto la factura queda sin trazabilidad en el filial. */
+    private Long usuarioId;
     private String nombre;
     private String ruc;
     private String direccion;

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports"
+              xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+              xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd"
+              name="acta-advertencia" pageWidth="595" pageHeight="842" columnWidth="555"
+              leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="77a73d4e-71ec-4c13-8498-0c75089bf316">
+	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="ruc" class="java.lang.String"/>
+	<parameter name="direccionEmpresa" class="java.lang.String"/>
+	<parameter name="telefonoEmpresa" class="java.lang.String"/>
+	<parameter name="funcionario" class="java.lang.String"/>
+	<parameter name="documento" class="java.lang.String"/>
+	<parameter name="cargo" class="java.lang.String"/>
+	<parameter name="numeroAdvertencia" class="java.lang.String"/>
+	<parameter name="motivo" class="java.lang.String"/>
+	<parameter name="fechaHecho" class="java.lang.String"/>
+	<parameter name="fecha" class="java.lang.String"/>
+	<parameter name="ciudad" class="java.lang.String"/>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="130" splitType="Stretch">
+			<textField>
+				<reportElement x="0" y="0" width="555" height="16" uuid="389c417d-5cee-4980-8f3b-633bec0cc6d3"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="11" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="16" width="555" height="12" uuid="b6046fd7-2a22-4096-87e9-53189d63caa4"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[
+($P{ruc} != null && $P{ruc}.length() > 0 ? "RUC: " + $P{ruc} : "")
++ ($P{direccionEmpresa} != null && $P{direccionEmpresa}.length() > 0 ? ($P{ruc} != null && $P{ruc}.length() > 0 ? "   -   " : "") + $P{direccionEmpresa} : "")
++ ($P{telefonoEmpresa} != null && $P{telefonoEmpresa}.length() > 0 ? "   -   Tel: " + $P{telefonoEmpresa} : "")
+]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="0" y="38" width="555" height="18" uuid="dd27b779-8c93-42c8-9ee4-faaf0ac585f7"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="12" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["ACTA DE AMONESTACION" + ($P{numeroAdvertencia} != null && $P{numeroAdvertencia}.length() > 0 ? " N " + $P{numeroAdvertencia} : "")]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="0" y="62" width="555" height="60" uuid="07433670-de97-425b-b4ca-8fd6d092122a"/>
+				<graphicElement><pen lineWidth="0.5"/></graphicElement>
+			</rectangle>
+			<textField>
+				<reportElement x="6" y="66" width="340" height="16" uuid="50c3d6f7-3505-4f2a-9c54-bc0a8f0dd120"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA["Funcionario: " + ($P{funcionario} != null ? $P{funcionario} : "") + ($P{cargo} != null ? "  (" + $P{cargo} + ")" : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="6" y="84" width="340" height="16" uuid="66f89e94-2b4b-4204-b684-ffc4d017a5fc"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Documento: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="6" y="102" width="340" height="16" uuid="728060aa-0b4a-45df-b30a-88b4d2d166d9"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Fecha del hecho: " + ($P{fechaHecho} != null ? $P{fechaHecho} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="350" y="66" width="199" height="16" uuid="31d1e5bb-2b6c-49c0-a980-c1b2fa753f8e"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Lugar: " + ($P{ciudad} != null ? $P{ciudad} : "")]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="350" y="84" width="199" height="16" uuid="887fa99e-4ece-432a-9e6b-67c86ebaa7c4"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA["Fecha: " + ($P{fecha} != null ? $P{fecha} : "")]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<summary>
+		<band height="360" splitType="Stretch">
+			<staticText>
+				<reportElement x="0" y="6" width="555" height="14" uuid="23817e3a-f79b-4924-9eee-f3ba5cb5ce00"/>
+				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
+				<text><![CDATA[MOTIVO]]></text>
+			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="0" y="22" width="555" height="60" uuid="49bf205b-eda6-42c4-b381-64cfa6f67fe6"/>
+				<box><pen lineWidth="0.5"/></box>
+				<textElement textAlignment="Justified" verticalAlignment="Top"><font fontName="SansSerif" size="9"/></textElement>
+				<textFieldExpression><![CDATA[$P{motivo} != null ? $P{motivo} : ""]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="0" y="96" width="555" height="60" uuid="7c7d9886-f95b-4cac-bcd9-0752c557646b"/>
+				<textElement textAlignment="Justified" verticalAlignment="Top"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA["Por medio de la presente se deja constancia de la amonestacion aplicada al funcionario arriba identificado por el hecho descripto. Se le recuerda la obligacion de cumplir con las normas internas y las tareas asignadas. La reiteracion de hechos de esta naturaleza podra dar lugar a las medidas disciplinarias que correspondan conforme a la legislacion laboral vigente. La firma del funcionario acredita la recepcion de esta acta, no necesariamente su conformidad con el contenido."]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="30" y="250" width="200" height="1" uuid="ca97c67e-bc98-44de-8863-e9c18d8a2496"/>
+			</line>
+			<staticText>
+				<reportElement x="30" y="252" width="200" height="12" uuid="34f41e32-e8a3-4906-9f57-13ed698979cb"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<text><![CDATA[Firma del Funcionario]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="30" y="264" width="200" height="12" uuid="425d8845-a9a0-44ce-a497-17898090ea5b"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[($P{funcionario} != null ? $P{funcionario} : "") + "  -  Doc: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="325" y="250" width="200" height="1" uuid="aecf79a8-fd44-4012-aad2-60e3c957bb1c"/>
+			</line>
+			<staticText>
+				<reportElement x="325" y="252" width="200" height="12" uuid="f7fd0eec-521f-4eda-9761-9e5e547d9b1d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<text><![CDATA[Firma y sello de la Empresa]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="325" y="264" width="200" height="12" uuid="e1ab960c-9713-4408-97d4-726fc456d2c4"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

@@ -14,6 +14,12 @@ import java.util.List;
 @AllArgsConstructor
 public class CargoService extends CrudService<Cargo, CargoRepository, Long> {
 
+    /** Cuantos cargos dependen jerarquicamente de este. Ver CargoGraphQL.deleteCargo. */
+    public Long countBySupervisadoPorId(Long cargoId) {
+        return getRepository().countBySupervisadoPorId(cargoId);
+    }
+
+
     private final CargoRepository repository;
 
     @Override

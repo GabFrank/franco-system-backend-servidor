@@ -14,6 +14,7 @@ import org.hibernate.annotations.TypeDefs;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -50,6 +51,15 @@ public class RecepcionMercaderiaItemVariacion implements Serializable, Identifia
     private Double cantidad;
 
     private LocalDateTime vencimiento;
+
+    /**
+     * Fecha de retiro cargada a mano en la verificacion. Opcional: cuando queda null,
+     * {@code LoteService} la deriva de {@code vencimiento - producto.diasVencimiento}, que es el
+     * comportamiento historico. Vive por variacion y no solo en el item porque cada variacion es
+     * un lote distinto, con su propio vencimiento y su propio retiro.
+     */
+    @Column(name = "fecha_retiro")
+    private LocalDate fechaRetiro;
 
     @Column(name = "lote")
     private String lote;

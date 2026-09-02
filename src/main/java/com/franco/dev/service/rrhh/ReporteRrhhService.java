@@ -349,9 +349,7 @@ public class ReporteRrhhService {
         java.time.LocalDate hecho = p.getFechaHecho() != null ? p.getFechaHecho() : p.getFecha();
         params.put("fechaHecho", hecho != null ? hecho.toString() : "");
         params.put("fecha", java.time.LocalDate.now().toString());
-        params.put("ciudad", p.getFuncionario() != null && p.getFuncionario().getSucursal() != null
-                && p.getFuncionario().getSucursal().getCiudad() != null
-                ? p.getFuncionario().getSucursal().getCiudad().getDescripcion() : "");
+        params.put("ciudad", ciudadDe(p.getFuncionario()));
 
         try (java.io.InputStream in = new org.springframework.core.io.ClassPathResource(
                 "reports/acta-advertencia.jrxml").getInputStream()) {
@@ -370,6 +368,20 @@ public class ReporteRrhhService {
     /** RUC de la empresa emisora, para el encabezado. */
     private String rucEmpresa() {
         return empresaEmisoraService.ruc();
+    }
+
+    /**
+     * Ciudad de la sucursal del funcionario, con la ciudad fiscal de la empresa
+     * emisora como respaldo: {@code funcionario.sucursal_id} y
+     * {@code sucursal.ciudad_id} son nullable, y el acta encabeza con la ciudad.
+     */
+    private String ciudadDe(Funcionario f) {
+        if (f != null && f.getSucursal() != null && f.getSucursal().getCiudad() != null
+                && f.getSucursal().getCiudad().getDescripcion() != null
+                && !f.getSucursal().getCiudad().getDescripcion().trim().isEmpty()) {
+            return f.getSucursal().getCiudad().getDescripcion().trim();
+        }
+        return empresaEmisoraService.ciudad();
     }
 
     /** Recibo de aguinaldo. */

@@ -60,6 +60,25 @@ public class EmpresaEmisoraService {
         return "";
     }
 
+    /**
+     * Ciudad del domicilio fiscal de la empresa emisora; "" si no hay timbrado
+     * cargado.
+     *
+     * <p>Es el respaldo de la clausula "en la ciudad de X" de los recibos, que se
+     * arma con la ciudad de la sucursal del funcionario. Esa cadena tiene dos
+     * eslabones opcionales -- {@code funcionario.sucursal_id} y
+     * {@code sucursal.ciudad_id} son nullable --, asi que un funcionario sin
+     * sucursal asignada, o una sucursal sin ciudad, dejaba la frase cortada igual
+     * que pasaba con la razon social. La ciudad fiscal del timbrado es ademas la
+     * nocion correcta para un recibo que emite la empresa.</p>
+     */
+    @Transactional(readOnly = true)
+    public String ciudad() {
+        Timbrado t = timbradoActivo();
+        if (t != null && tiene(t.getDomicilioFiscalCiudad())) return t.getDomicilioFiscalCiudad().trim();
+        return "";
+    }
+
     private ConfiguracionGeneral configuracionGeneral() {
         List<ConfiguracionGeneral> all = configuracionGeneralService.findAll2();
         return all != null && !all.isEmpty() ? all.get(0) : null;

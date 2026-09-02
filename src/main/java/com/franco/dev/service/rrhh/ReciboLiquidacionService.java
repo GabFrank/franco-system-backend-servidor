@@ -360,13 +360,20 @@ public class ReciboLiquidacionService {
         return empresaEmisoraService.ruc();
     }
 
+    /**
+     * Ciudad de la clausula "en la ciudad de X": la de la sucursal del funcionario,
+     * que es la que corresponde al lugar donde se firma. Si el funcionario no tiene
+     * sucursal, o la sucursal no tiene ciudad (ambos FK nullable), cae a la ciudad
+     * fiscal de la empresa emisora antes que dejar la frase cortada.
+     */
     private String ciudad(LiquidacionSueldo liq) {
         Funcionario f = liq.getFuncionario();
         if (f != null && f.getSucursal() != null && f.getSucursal().getCiudad() != null
-                && f.getSucursal().getCiudad().getDescripcion() != null) {
-            return f.getSucursal().getCiudad().getDescripcion();
+                && f.getSucursal().getCiudad().getDescripcion() != null
+                && !f.getSucursal().getCiudad().getDescripcion().trim().isEmpty()) {
+            return f.getSucursal().getCiudad().getDescripcion().trim();
         }
-        return "";
+        return empresaEmisoraService.ciudad();
     }
 
     private String nombreFuncionario(LiquidacionSueldo liq) {

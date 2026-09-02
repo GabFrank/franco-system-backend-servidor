@@ -51,6 +51,12 @@ class EmpresaEmisoraServiceTest {
         return t;
     }
 
+    private Timbrado timbradoConCiudad(String ciudad) {
+        Timbrado t = timbrado("FRANCO AREVALOS S.A.", "80011111-1");
+        t.setDomicilioFiscalCiudad(ciudad);
+        return t;
+    }
+
     @Test
     void sinConfiguracionGeneral_usaLaRazonSocialDelTimbradoActivo() {
         when(configuracionGeneralService.findAll2()).thenReturn(Collections.emptyList());
@@ -104,11 +110,35 @@ class EmpresaEmisoraServiceTest {
     }
 
     @Test
+    void ciudad_saleDelDomicilioFiscalDelTimbradoActivo() {
+        when(timbradoRepository.findActivos())
+                .thenReturn(Collections.singletonList(timbradoConCiudad("PEDRO JUAN CABALLERO")));
+
+        assertEquals("PEDRO JUAN CABALLERO", service.ciudad());
+    }
+
+    @Test
+    void ciudad_sinTimbrado_devuelveCadenaVacia() {
+        when(timbradoRepository.findActivos()).thenReturn(Collections.emptyList());
+
+        assertEquals("", service.ciudad());
+    }
+
+    @Test
+    void ciudad_enBlancoEnElTimbrado_devuelveCadenaVacia() {
+        when(timbradoRepository.findActivos())
+                .thenReturn(Collections.singletonList(timbradoConCiudad("  ")));
+
+        assertEquals("", service.ciudad());
+    }
+
+    @Test
     void sinNingunaFuente_devuelveCadenaVacia() {
         when(configuracionGeneralService.findAll2()).thenReturn(null);
         when(timbradoRepository.findActivos()).thenReturn(null);
 
         assertEquals("", service.razonSocial());
         assertEquals("", service.ruc());
+        assertEquals("", service.ciudad());
     }
 }

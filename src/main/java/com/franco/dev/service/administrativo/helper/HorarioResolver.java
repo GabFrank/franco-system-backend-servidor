@@ -57,11 +57,19 @@ public class HorarioResolver {
         return Optional.ofNullable(funcionarioService.findByUsuarioId(marcacion.getUsuario().getId()));
     }
 
+    /** Un horario sin dias cargados no discrimina: rige todos los dias. */
     private boolean cumpleCondiciones(Horario horario, Dia diaSemana) {
-        if (horario.getDias() == null || horario.getDias().isEmpty()) return false;
+        if (horario.getDias() == null || horario.getDias().isEmpty()) return true;
         return horario.getDias().contains(diaSemana) || horario.getDias().contains(Dia.TODOS);
     }
 
+    /**
+     * Otro horario del usuario que si rija ese dia. Si ninguno rige, devuelve null a
+     * proposito: la jornada queda sin horario y se evalua contra la jornada estandar de
+     * 8 h. Antes se devolvia "cualquier horario del usuario", y eso le encajaba el turno
+     * nocturno a quien trabajaba un fin de semana en horario de dia, inventando horas
+     * extras que nadie hizo.
+     */
     private Horario buscarAlternativo(Long usuarioId, Dia diaSemana) {
         List<Horario> horariosUsuario = horarioRepository.findByUsuarioIdOrderByIdDesc(usuarioId);
         if (horariosUsuario == null || horariosUsuario.isEmpty()) return null;
@@ -69,10 +77,7 @@ public class HorarioResolver {
         return horariosUsuario.stream()
                 .filter(h -> h.getHoraEntrada() != null && cumpleCondiciones(h, diaSemana))
                 .findFirst()
-                .orElseGet(() -> horariosUsuario.stream()
-                        .filter(h -> h.getHoraEntrada() != null)
-                        .findFirst()
-                        .orElse(null));
+                .orElse(null);
     }
 
     private Horario buscarPorUsuarioYDia(Marcacion marcacion, Dia diaSemana) {

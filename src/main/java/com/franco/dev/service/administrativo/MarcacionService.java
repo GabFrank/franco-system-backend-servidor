@@ -131,12 +131,14 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
             }
 
             LocalDateTime fechaReferencia = obtenerFechaReferencia(marcacion);
-            Horario horario = horarioResolver.resolver(marcacion, fechaReferencia);
             Jornada jornada = jornadaMarcacionResolver.resolver(marcacion, fechaReferencia.toLocalDate());
+            Horario horario = horarioResolver.resolver(marcacion, fechaDeLaJornada(jornada, fechaReferencia));
 
-            if (horario != null && jornada.getHoraEntradaHorario() == null) {
-                aplicarHorarioAJornada(jornada, horario);
-            }
+            // Se re-copia el horario vigente en cada marcacion, no solo la primera vez. Antes
+            // la jornada quedaba pegada al horario que tenia al marcar la entrada, asi que
+            // corregir el horario del funcionario no arreglaba ni la jornada abierta de ese
+            // dia: seguia comparando contra el turno equivocado e inventando horas extras.
+            aplicarHorarioAJornada(jornada, horario);
 
             almuerzoProcessor.procesar(jornada, marcacion);
 
@@ -146,9 +148,7 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
                         marcacion.getId(), jornada.getId(), jornada.getFecha(),
                         marcacion.getUsuario().getId());
                 jornada = jornadaFactory.crearNuevaJornada(marcacion, fechaReferencia.toLocalDate());
-                if (horario != null) {
-                    aplicarHorarioAJornada(jornada, horario);
-                }
+                aplicarHorarioAJornada(jornada, horario);
                 almuerzoProcessor.procesar(jornada, marcacion);
             }
             tardanzaCalculator.calcular(jornada);
@@ -177,6 +177,17 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         }
     }
 
+    /**
+     * El horario se resuelve por el dia de la jornada, no por el de la marcacion: la salida de
+     * un turno noche cae al dia siguiente y no debe traer el horario de ese otro dia.
+     */
+    private LocalDateTime fechaDeLaJornada(Jornada jornada, LocalDateTime fechaReferencia) {
+        if (jornada == null || jornada.getFecha() == null) {
+            return fechaReferencia;
+        }
+        return jornada.getFecha().atTime(fechaReferencia.toLocalTime());
+    }
+
     private LocalDateTime obtenerFechaReferencia(Marcacion marcacion) {
         if (marcacion.getFechaEntrada() != null)
             return marcacion.getFechaEntrada();
@@ -201,12 +212,17 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
         return false;
     }
 
+    /**
+     * Copia el horario vigente a la jornada. Un horario nulo -- no rige ninguno ese dia -- deja
+     * la jornada sin horario a proposito, para que se mida contra la jornada estandar en vez de
+     * arrastrar el turno de otro dia.
+     */
     private void aplicarHorarioAJornada(Jornada jornada, Horario horario) {
-        jornada.setTurno(horario.getTurno());
-        jornada.setHoraEntradaHorario(horario.getHoraEntrada());
-        jornada.setHoraSalidaHorario(horario.getHoraSalida());
-        jornada.setInicioDescansoHorario(horario.getInicioDescanso());
-        jornada.setFinDescansoHorario(horario.getFinDescanso());
-        jornada.setToleranciaMinutosHorario(horario.getToleranciaMinutos());
+        jornada.setTurno(horario != null ? horario.getTurno() : null);
+        jornada.setHoraEntradaHorario(horario != null ? horario.getHoraEntrada() : null);
+        jornada.setHoraSalidaHorario(horario != null ? horario.getHoraSalida() : null);
+        jornada.setInicioDescansoHorario(horario != null ? horario.getInicioDescanso() : null);
+        jornada.setFinDescansoHorario(horario != null ? horario.getFinDescanso() : null);
+        jornada.setToleranciaMinutosHorario(horario != null ? horario.getToleranciaMinutos() : null);
     }
 }

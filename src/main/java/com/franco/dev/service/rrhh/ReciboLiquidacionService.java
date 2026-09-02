@@ -1,6 +1,5 @@
 package com.franco.dev.service.rrhh;
 
-import com.franco.dev.domain.empresarial.ConfiguracionGeneral;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.LiquidacionItem;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
@@ -10,7 +9,7 @@ import com.franco.dev.repository.rrhh.PenalizacionRepository;
 import com.franco.dev.repository.rrhh.PrestamoCuotaRepository;
 import com.franco.dev.repository.rrhh.VacacionVentaRepository;
 import com.franco.dev.repository.rrhh.ValeRepository;
-import com.franco.dev.service.empresarial.ConfiguracionGeneralService;
+import com.franco.dev.service.empresarial.EmpresaEmisoraService;
 import com.franco.dev.service.rrhh.dto.ReciboLiquidacionItemDto;
 import com.franco.dev.utilitarios.NumeroALetrasService;
 import graphql.GraphQLException;
@@ -47,7 +46,7 @@ public class ReciboLiquidacionService {
     private static final DateTimeFormatter DDMMYYYY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final LiquidacionSueldoService liquidacionSueldoService;
-    private final ConfiguracionGeneralService configuracionGeneralService;
+    private final EmpresaEmisoraService empresaEmisoraService;
     private final NumeroALetrasService numeroALetrasService;
     private final ValeRepository valeRepository;
     private final BonoRepository bonoRepository;
@@ -60,7 +59,7 @@ public class ReciboLiquidacionService {
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales (ticket)
 
     public ReciboLiquidacionService(LiquidacionSueldoService liquidacionSueldoService,
-                                    ConfiguracionGeneralService configuracionGeneralService,
+                                    EmpresaEmisoraService empresaEmisoraService,
                                     NumeroALetrasService numeroALetrasService,
                                     ValeRepository valeRepository,
                                     BonoRepository bonoRepository,
@@ -70,7 +69,7 @@ public class ReciboLiquidacionService {
                                     ConfiguracionRrhhService configuracionRrhhService,
                                     LiquidacionConceptoService liquidacionConceptoService) {
         this.liquidacionSueldoService = liquidacionSueldoService;
-        this.configuracionGeneralService = configuracionGeneralService;
+        this.empresaEmisoraService = empresaEmisoraService;
         this.numeroALetrasService = numeroALetrasService;
         this.valeRepository = valeRepository;
         this.bonoRepository = bonoRepository;
@@ -346,24 +345,19 @@ public class ReciboLiquidacionService {
         return dia + " " + hoy.getDayOfMonth() + " " + mes + " " + hoy.getYear();
     }
 
+    /**
+     * Razon social de la empresa emisora, para el encabezado y para la clausula
+     * "Recibi de X". Delega en {@link EmpresaEmisoraService}, que cae al timbrado
+     * activo cuando ConfiguracionGeneral esta vacia: asi el recibo nombra la misma
+     * empresa que el ticket impreso (bodega y farmacia son instalaciones distintas).
+     */
     private String razonSocial() {
-        ConfiguracionGeneral cg = configGeneral();
-        if (cg != null) {
-            if (cg.getRazonSocial() != null) return cg.getRazonSocial();
-            if (cg.getNombreEmpresa() != null) return cg.getNombreEmpresa();
-        }
-        return "";
+        return empresaEmisoraService.razonSocial();
     }
 
     /** RUC de la empresa emisora, para el encabezado del recibo. */
     private String ruc() {
-        ConfiguracionGeneral cg = configGeneral();
-        return cg != null && cg.getRuc() != null ? cg.getRuc() : "";
-    }
-
-    private ConfiguracionGeneral configGeneral() {
-        List<ConfiguracionGeneral> all = configuracionGeneralService.findAll2();
-        return all != null && !all.isEmpty() ? all.get(0) : null;
+        return empresaEmisoraService.ruc();
     }
 
     private String ciudad(LiquidacionSueldo liq) {

@@ -30,4 +30,12 @@ public interface TimbradoRepository extends HelperRepository<Timbrado, Long> {
 
     @Query("SELECT COUNT(t) > 0 FROM Timbrado t WHERE t.activo = true AND (:excludeId IS NULL OR t.id != :excludeId)")
     public Boolean existeTimbradoActivo(@Param("excludeId") Long excludeId);
+
+    /**
+     * Timbrados activos, el mas reciente primero. Normalmente devuelve uno solo
+     * (lo garantiza TimbradoService.save); es la fuente de la razon social con la
+     * que emite esta instalacion -- bodega y farmacia son empresas distintas.
+     */
+    @Query("SELECT t FROM Timbrado t WHERE t.activo = true AND t.id <> 0 ORDER BY t.id DESC")
+    public List<Timbrado> findActivos();
 }

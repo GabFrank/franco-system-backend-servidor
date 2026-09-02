@@ -44,7 +44,7 @@ public class ReporteRrhhService {
     private final com.franco.dev.repository.rrhh.PenalizacionRepository penalizacionRepository;
     private final com.franco.dev.repository.rrhh.BonoRepository bonoRepository;
     private final com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService;
-    private final com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService;
+    private final com.franco.dev.service.empresarial.EmpresaEmisoraService empresaEmisoraService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales
 
@@ -57,7 +57,7 @@ public class ReporteRrhhService {
                               com.franco.dev.repository.rrhh.PenalizacionRepository penalizacionRepository,
                               com.franco.dev.repository.rrhh.BonoRepository bonoRepository,
                               com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService,
-                              com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService) {
+                              com.franco.dev.service.empresarial.EmpresaEmisoraService empresaEmisoraService) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
@@ -67,7 +67,7 @@ public class ReporteRrhhService {
         this.penalizacionRepository = penalizacionRepository;
         this.bonoRepository = bonoRepository;
         this.numeroALetrasService = numeroALetrasService;
-        this.configuracionGeneralService = configuracionGeneralService;
+        this.empresaEmisoraService = empresaEmisoraService;
     }
 
     /** Nómina del mes: liquidaciones aprobadas/pagadas del período. */
@@ -90,7 +90,7 @@ public class ReporteRrhhService {
         if (filas.isEmpty()) filas.add(new NominaMesItemDto("SIN LIQUIDACIONES", "0", "0", "0"));
 
         Map<String, Object> params = new HashMap<>();
-        params.put("empresa", empresa(periodo));
+        params.put("empresa", razonSocialEmpresa());
         params.put("periodo", periodo);
         params.put("fecha", LocalDate.now().toString());
         params.put("totalNeto", formatear(totalNeto));
@@ -125,7 +125,7 @@ public class ReporteRrhhService {
         if (filas.isEmpty()) filas.add(new ResumenIpsItemDto("SIN LIQUIDACIONES", "0", "0", "0"));
 
         Map<String, Object> params = new HashMap<>();
-        params.put("empresa", empresa(periodo));
+        params.put("empresa", razonSocialEmpresa());
         params.put("periodo", periodo);
         params.put("fecha", LocalDate.now().toString());
         params.put("porcentajeFuncionario", formato.format(pctFunc));
@@ -189,15 +189,16 @@ public class ReporteRrhhService {
 
 
     /** Row para recibo-finiquito.jrxml (fields concepto, monto). */
-    /** Razón social de la empresa (ConfiguracionGeneral), no el nombre de la sucursal. */
+    /**
+     * Razón social de la empresa emisora, no el nombre de la sucursal.
+     *
+     * <p>Delega en {@link com.franco.dev.service.empresarial.EmpresaEmisoraService},
+     * que cae al timbrado activo cuando ConfiguracionGeneral está vacía: así el
+     * recibo nombra la misma empresa que el ticket impreso (bodega y farmacia son
+     * instalaciones distintas, con timbrado propio cada una).</p>
+     */
     private String razonSocialEmpresa() {
-        java.util.List<com.franco.dev.domain.empresarial.ConfiguracionGeneral> all = configuracionGeneralService.findAll2();
-        com.franco.dev.domain.empresarial.ConfiguracionGeneral cg = all != null && !all.isEmpty() ? all.get(0) : null;
-        if (cg != null) {
-            if (cg.getRazonSocial() != null) return cg.getRazonSocial();
-            if (cg.getNombreEmpresa() != null) return cg.getNombreEmpresa();
-        }
-        return "";
+        return empresaEmisoraService.razonSocial();
     }
 
     /** "X año(s) Y mes(es) Z día(s)" entre ingreso y egreso. */
@@ -368,9 +369,7 @@ public class ReporteRrhhService {
 
     /** RUC de la empresa emisora, para el encabezado. */
     private String rucEmpresa() {
-        java.util.List<com.franco.dev.domain.empresarial.ConfiguracionGeneral> all = configuracionGeneralService.findAll2();
-        com.franco.dev.domain.empresarial.ConfiguracionGeneral cg = all != null && !all.isEmpty() ? all.get(0) : null;
-        return cg != null && cg.getRuc() != null ? cg.getRuc() : "";
+        return empresaEmisoraService.ruc();
     }
 
     /** Recibo de aguinaldo. */
@@ -459,7 +458,7 @@ public class ReporteRrhhService {
     private Map<String, Object> paramsGenericos(String titulo, String subtitulo, String h1, String h2, String h3, String h4,
                                                 String totalLabel, String totalValue) {
         Map<String, Object> params = new HashMap<>();
-        params.put("empresa", "");
+        params.put("empresa", razonSocialEmpresa());
         params.put("titulo", titulo);
         params.put("subtitulo", subtitulo);
         params.put("fecha", LocalDate.now().toString());
@@ -502,14 +501,4 @@ public class ReporteRrhhService {
         return f != null && f.getId() != null ? "#" + f.getId() : "";
     }
 
-    private String empresa(String periodo) {
-        // primera liquidación del período con sucursal, si hay
-        for (LiquidacionSueldo l : liquidacionSueldoRepository.findByPeriodoOrderByIdAsc(periodo)) {
-            if (l.getFuncionario() != null && l.getFuncionario().getSucursal() != null
-                    && l.getFuncionario().getSucursal().getNombre() != null) {
-                return l.getFuncionario().getSucursal().getNombre();
-            }
-        }
-        return "";
-    }
 }

@@ -25,35 +25,31 @@ public class HorasTrabajadasCalculator {
         long tiempoAlmuerzoReal = getTiempoAlmuerzoReal(jornada);
         long descansoADescontar = Math.max(minutosDescanso, tiempoAlmuerzoReal);
 
-        long totalMinutos;
-        long horasProgramadas;
-
-        if (jornada.getHoraEntradaHorario() != null && jornada.getHoraSalidaHorario() != null) {
-            LocalDateTime hEntradaHorario = getHorarioEntrada(jornada);
-            LocalDateTime hSalidaHorario = getHorarioSalida(jornada, hEntradaHorario);
-
-            LocalDateTime entradaCalculo = ajustarEntrada(entradaReal, hEntradaHorario);
-            totalMinutos = ChronoUnit.MINUTES.between(entradaCalculo, salidaReal);
-            
-            if (shouldDeductBreak(totalMinutos, tiempoAlmuerzoReal, jornada.getTurno())) {
-                totalMinutos -= descansoADescontar;
-            }
-            totalMinutos = Math.max(0, totalMinutos);
-
-            horasProgramadas = ChronoUnit.MINUTES.between(hEntradaHorario, hSalidaHorario);
-            if (horasProgramadas > minutosDescanso && isShiftWithBreak(jornada.getTurno())) {
-                horasProgramadas -= minutosDescanso;
-            }
-        } else {
-            totalMinutos = ChronoUnit.MINUTES.between(entradaReal, salidaReal);
-            if (shouldDeductBreak(totalMinutos, tiempoAlmuerzoReal, jornada.getTurno())) {
-                totalMinutos -= descansoADescontar;
-            }
-            totalMinutos = Math.max(0, totalMinutos);
-            horasProgramadas = 8 * 60;
+        // Tiempo realmente presente. Se cuenta desde la marcacion real de entrada: si el
+        // funcionario llega antes de su horario, esos minutos son extras igual que los que
+        // se queda de mas al final del turno.
+        long totalMinutos = ChronoUnit.MINUTES.between(entradaReal, salidaReal);
+        if (shouldDeductBreak(entradaReal, salidaReal, totalMinutos, tiempoAlmuerzoReal, jornada)) {
+            totalMinutos -= descansoADescontar;
         }
+        totalMinutos = Math.max(0, totalMinutos);
 
-        asignarResultados(jornada, totalMinutos, horasProgramadas);
+        asignarResultados(jornada, totalMinutos, calcularHorasProgramadas(jornada, minutosDescanso));
+    }
+
+    /** Minutos que el horario exige, ya sin el descanso. Sin horario cargado se asume la jornada de 8 h. */
+    private long calcularHorasProgramadas(Jornada jornada, long minutosDescanso) {
+        if (jornada.getHoraEntradaHorario() == null || jornada.getHoraSalidaHorario() == null) {
+            return 8 * 60;
+        }
+        LocalDateTime hEntradaHorario = getHorarioEntrada(jornada);
+        LocalDateTime hSalidaHorario = getHorarioSalida(jornada, hEntradaHorario);
+
+        long programadas = ChronoUnit.MINUTES.between(hEntradaHorario, hSalidaHorario);
+        if (programadas > minutosDescanso && abarcaDescanso(hEntradaHorario, hSalidaHorario, jornada)) {
+            programadas -= minutosDescanso;
+        }
+        return programadas;
     }
 
     private LocalDateTime determinarSalidaReal(Jornada jornada) {
@@ -86,12 +82,38 @@ public class HorasTrabajadasCalculator {
         return -1;
     }
 
-    private boolean shouldDeductBreak(long totalMinutos, long tiempoAlmuerzoReal, Turno turno) {
-        return (totalMinutos > (5 * 60) || tiempoAlmuerzoReal >= 0) && isShiftWithBreak(turno);
+    /**
+     * Si el funcionario marco su descanso, se descuenta siempre. Si no lo marco, se descuenta
+     * cuando la jornada fue larga y ademas paso por la franja de descanso.
+     */
+    private boolean shouldDeductBreak(LocalDateTime entradaReal, LocalDateTime salidaReal,
+                                      long totalMinutos, long tiempoAlmuerzoReal, Jornada jornada) {
+        if (tiempoAlmuerzoReal >= 0) return true;
+        return totalMinutos > (5 * 60) && abarcaDescanso(entradaReal, salidaReal, jornada);
     }
 
-    private boolean isShiftWithBreak(Turno turno) {
-        return turno != Turno.NOCHE && turno != Turno.MADRUGADA;
+    /**
+     * Si el intervalo pasa por la franja de descanso. Se decide por el intervalo realmente
+     * trabajado y no por el turno cargado en la jornada: el turno de un funcionario cambia
+     * y puede no ser el que trabajo ese dia, mientras que las marcaciones no mienten.
+     */
+    private boolean abarcaDescanso(LocalDateTime desde, LocalDateTime hasta, Jornada jornada) {
+        if (desde == null || hasta == null || !hasta.isAfter(desde)) return false;
+
+        LocalDateTime candidato = desde.toLocalDate().atTime(momentoDescanso(jornada));
+        if (candidato.isBefore(desde)) candidato = candidato.plusDays(1);
+        return !candidato.isAfter(hasta);
+    }
+
+    /** Punto medio de la franja de descanso del horario; sin franja cargada, el mediodia. */
+    private LocalTime momentoDescanso(Jornada jornada) {
+        LocalTime inicio = jornada.getInicioDescansoHorario();
+        LocalTime fin = jornada.getFinDescansoHorario();
+        if (inicio == null || fin == null) return LocalTime.NOON;
+
+        long duracion = ChronoUnit.MINUTES.between(inicio, fin);
+        if (duracion < 0) duracion += 1440;
+        return inicio.plusMinutes(duracion / 2);
     }
 
     private LocalDateTime getHorarioEntrada(Jornada jornada) {
@@ -111,14 +133,6 @@ public class HorasTrabajadasCalculator {
             hSalida = hEntradaHorario.toLocalDate().atTime(hora);
         }
         return hSalida.isBefore(hEntradaHorario) ? hSalida.plusDays(1) : hSalida;
-    }
-
-    private LocalDateTime ajustarEntrada(LocalDateTime entradaReal, LocalDateTime hEntradaHorario) {
-        if (entradaReal.isBefore(hEntradaHorario)) {
-            long diff = ChronoUnit.MINUTES.between(entradaReal, hEntradaHorario);
-            if (diff <= 40) return hEntradaHorario;
-        }
-        return entradaReal;
     }
 
     private void asignarResultados(Jornada jornada, long totalMinutos, long horasProgramadas) {

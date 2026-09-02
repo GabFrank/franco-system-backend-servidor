@@ -11,6 +11,7 @@ public class LiquidacionConceptoInput {
     private String descripcion;
     private Boolean esHaber;
     private Boolean esCalculadoAuto;
+    private Boolean esRemunerativo;
     private Boolean activo;
     private LocalDateTime creadoEn;
     private Long usuarioId;

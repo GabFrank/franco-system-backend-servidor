@@ -66,6 +66,17 @@ public class Impresora implements Identifiable<Long> {
     /** Direccion IP (conexion RED / inalambrica). */
     private String ip;
 
+    /**
+     * Datos del share de Windows (conexion SMB). Son informativos/para reinstalar la cola: el
+     * transporte real vive en el device-uri de la cola CUPS. La password NO se guarda aca -- esta
+     * tabla se replica a TODAS las filiales via central_pub, asi que no puede llevar secretos;
+     * queda solo en /etc/cups/printers.conf del host duenio.
+     */
+    private String smbHost;
+    private String smbRecurso;
+    private String smbUsuario;
+    private String smbDominio;
+
     /** Puerto RAW/JetDirect (default 9100) para conexion RED. */
     private Integer puerto;
 

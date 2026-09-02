@@ -21,4 +21,12 @@ public class InventarioProductoItemInput {
     private InventarioProductoEstado estado;
     private LocalDateTime creadoEn;
     private Long usuarioId;
+    /**
+     * Lote que se esta contando. Opcional y aditivo: el escritorio no lo manda y su renglon sigue
+     * entrando sin lote.
+     *
+     * Con lote, {@code cantidadFisica} es el saldo DE ESE LOTE en la sucursal, no la existencia
+     * del producto.
+     */
+    private Long loteId;
 }

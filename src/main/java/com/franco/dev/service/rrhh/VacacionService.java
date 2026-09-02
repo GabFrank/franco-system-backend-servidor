@@ -235,7 +235,7 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
         BigDecimal diasMes = configuracionRrhhService.getNumber("DIAS_MES_PROMEDIO", new BigDecimal("30"));
         BigDecimal salarioDiario = BigDecimal.ZERO;
         if (v.getFuncionario() != null && v.getFuncionario().getSueldo() != null) {
-            salarioDiario = new BigDecimal(v.getFuncionario().getSueldo().toString())
+            salarioDiario = v.getFuncionario().getSueldo()
                     .divide(diasMes, 2, RoundingMode.HALF_UP);
         }
         VacacionVenta venta = new VacacionVenta();

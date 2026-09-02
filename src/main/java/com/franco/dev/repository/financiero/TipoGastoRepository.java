@@ -11,6 +11,10 @@ import java.util.List;
 
 public interface TipoGastoRepository extends HelperRepository<TipoGasto, Long> {
 
+    /** Cuantos tipos de gasto tienen este cargo como autorizante. Bloquea su borrado. */
+    Long countByCargoId(Long cargoId);
+
+
     default Class<TipoGasto> getEntityClass() {
         return TipoGasto.class;
     }

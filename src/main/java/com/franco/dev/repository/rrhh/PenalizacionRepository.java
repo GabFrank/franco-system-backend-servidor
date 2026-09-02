@@ -13,6 +13,11 @@ import java.util.List;
 
 public interface PenalizacionRepository extends HelperRepository<Penalizacion, Long> {
 
+    /** Cuantas amonestaciones no anuladas tiene el funcionario. Numera la siguiente. */
+    Long countByFuncionarioIdAndTipoAndAnuladaFalse(Long funcionarioId,
+            com.franco.dev.domain.rrhh.enums.PenalizacionTipo tipo);
+
+
     default Class<Penalizacion> getEntityClass() {
         return Penalizacion.class;
     }

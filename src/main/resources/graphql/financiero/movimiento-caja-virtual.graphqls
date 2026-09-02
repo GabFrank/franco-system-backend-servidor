@@ -14,6 +14,10 @@ type MovimientoCajaVirtual {
     activo: Boolean
     creadoEn: Date
     origenTipo: OrigenMovimientoTipo
+    # Documento que originó el movimiento. Van los dos juntos porque origenId solo no
+    # identifica nada cuando el documento tiene PK compuesta (Retiro: (id, sucursalId)).
+    origenId: Int
+    origenSucursalId: Int
     # true si este movimiento es el asiento consolidado de un evento de pago (motor de CPP).
     #
     # No se puede deducir del origenTipo: RRHH_VALE / RRHH_LIQUIDACION_* / RRHH_AGUINALDO los
@@ -74,7 +78,7 @@ extend type Query {
     movimientoCajaVirtual(id: ID!): MovimientoCajaVirtual
     movimientosCajaVirtual(cajaVirtualId: ID!, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
     movimientosCajaVirtualPorFecha(cajaVirtualId: ID!, inicio: String, fin: String, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
-    movimientosCajaVirtualFilter(cajaVirtualId: ID!, desde: String, fin: String, tipo: CajaVirtualTipoMovimiento, soloActivos: Boolean, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
+    movimientosCajaVirtualFilter(cajaVirtualId: ID!, desde: String, fin: String, tipo: CajaVirtualTipoMovimiento, monedaId: ID, soloActivos: Boolean, page: Int = 0, size: Int = 20): MovimientoCajaVirtualPage
 }
 
 extend type Mutation {

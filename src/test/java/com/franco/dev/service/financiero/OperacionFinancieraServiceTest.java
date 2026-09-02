@@ -10,6 +10,7 @@ import com.franco.dev.repository.financiero.OperacionFinancieraRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import java.math.BigDecimal;
 
@@ -148,5 +149,126 @@ class OperacionFinancieraServiceTest {
         verify(tesoreriaService, times(2)).registrar(cap.capture());
         assertEquals(CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA, cap.getAllValues().get(0).getTipoMovimiento());
         assertEquals(CajaVirtualTipoMovimiento.TRANSFERENCIA_ENTRADA, cap.getAllValues().get(1).getTipoMovimiento());
+    }
+    private CuentaBancaria cuentaConMoneda(long id, Moneda m) {
+        CuentaBancaria c = cuenta(id);
+        c.setMoneda(m);
+        return c;
+    }
+
+    private Moneda moneda(long id) { Moneda m = new Moneda(); m.setId(id); return m; }
+
+    /** Un cambio de divisa entre dos cuentas: no toca caja mayor, dos patas bancarias. */
+    @Test
+    void cambio_divisa_entre_cuentas_bancarias_postea_las_dos_patas() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCuentaBancariaOrigen(cuenta(8)); op.setMontoOrigen(new BigDecimal("1000"));
+        op.setCuentaBancariaDestino(cuenta(9)); op.setMontoDestino(new BigDecimal("140"));
+
+        service.registrar(op, null);
+
+        verify(bancoLedgerService).registrar(eq(8L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), eq(new BigDecimal("1000")), any(), any(), any(), any());
+        verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.ENTRADA_MANUAL), eq(new BigDecimal("140")), any(), any(), any(), any());
+        verifyNoInteractions(tesoreriaService);
+    }
+
+    /** Mixto caja→banco: una pata de cada tipo, la de caja primero (orden canónico de lock). */
+    @Test
+    void cambio_divisa_de_caja_a_cuenta_lockea_la_caja_primero() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(new BigDecimal("700000"));
+        op.setCuentaBancariaDestino(cuenta(9)); op.setMontoDestino(new BigDecimal("100"));
+
+        service.registrar(op, null);
+
+        InOrder orden = inOrder(tesoreriaService, bancoLedgerService);
+        orden.verify(tesoreriaService).registrar(any());
+        orden.verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.ENTRADA_MANUAL), any(), any(), any(), any(), any());
+    }
+
+    /** Mixto banco→caja: la caja se toca primero igual, aunque sea el destino. */
+    @Test
+    void cambio_divisa_de_cuenta_a_caja_tambien_lockea_la_caja_primero() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCuentaBancariaOrigen(cuenta(9)); op.setMontoOrigen(new BigDecimal("100"));
+        op.setCajaMayorDestino(caja(1)); op.setMontoDestino(new BigDecimal("700000"));
+
+        service.registrar(op, null);
+
+        InOrder orden = inOrder(tesoreriaService, bancoLedgerService);
+        orden.verify(tesoreriaService).registrar(any());
+        orden.verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), any(), any(), any(), any(), any());
+    }
+
+    /** El retiro bancario toca la caja antes que el banco: mismo orden que el depósito. */
+    @Test
+    void retiro_bancario_lockea_la_caja_antes_que_el_banco() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.RETIRO_BANCARIO);
+        op.setCuentaBancariaOrigen(cuenta(9)); op.setMontoOrigen(new BigDecimal("300"));
+        op.setCajaMayorDestino(caja(1)); op.setMontoDestino(new BigDecimal("300"));
+
+        service.registrar(op, null);
+
+        InOrder orden = inOrder(tesoreriaService, bancoLedgerService);
+        orden.verify(tesoreriaService).registrar(any());
+        orden.verify(bancoLedgerService).registrar(eq(9L), eq(MovimientoBancarioTipo.SALIDA_MANUAL), any(), any(), any(), any(), any());
+    }
+
+    /** Un lado no puede ser caja y cuenta a la vez. */
+    @Test
+    void cambio_divisa_rechaza_caja_y_cuenta_en_el_mismo_lado() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCajaMayorOrigen(caja(1)); op.setCuentaBancariaOrigen(cuenta(8));
+        op.setMontoOrigen(new BigDecimal("100"));
+        op.setCajaMayorDestino(caja(1)); op.setMontoDestino(new BigDecimal("14"));
+
+        assertThrows(RuntimeException.class, () -> service.registrar(op, null));
+    }
+
+    /** Cambiar una cuenta contra sí misma no es un cambio. */
+    @Test
+    void cambio_divisa_rechaza_la_misma_cuenta_en_los_dos_lados() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCuentaBancariaOrigen(cuenta(9)); op.setMontoOrigen(new BigDecimal("100"));
+        op.setCuentaBancariaDestino(cuenta(9)); op.setMontoDestino(new BigDecimal("100"));
+
+        assertThrows(RuntimeException.class, () -> service.registrar(op, null));
+    }
+
+    /** La moneda de una pata bancaria la manda la cuenta, no lo que llegó en el formulario. */
+    @Test
+    void la_moneda_de_la_pata_bancaria_se_deriva_de_la_cuenta() {
+        Moneda real = moneda(2);
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCajaMayorOrigen(caja(1)); op.setMontoOrigen(new BigDecimal("700000"));
+        op.setMonedaOrigen(moneda(1));
+        op.setCuentaBancariaDestino(cuentaConMoneda(9, real)); op.setMontoDestino(new BigDecimal("100"));
+        op.setMonedaDestino(moneda(3)); // el cliente mandó cualquier cosa
+
+        service.registrar(op, null);
+
+        assertEquals(real.getId(), op.getMonedaDestino().getId());
+    }
+
+    /** Sin caja mayor en ningún lado, la diferencia no tiene dónde imputarse: se rechaza antes. */
+    @Test
+    void cambio_divisa_entre_cuentas_rechaza_diferencia_imputable() {
+        OperacionFinanciera op = new OperacionFinanciera();
+        op.setTipoOperacion(TipoOperacionFinanciera.CAMBIO_DIVISA);
+        op.setCuentaBancariaOrigen(cuenta(8)); op.setMontoOrigen(new BigDecimal("1000"));
+        op.setCuentaBancariaDestino(cuenta(9)); op.setMontoDestino(new BigDecimal("140"));
+        op.setDiferencia(new BigDecimal("5"));
+        op.setDiferenciaDestinoTipo(com.franco.dev.domain.financiero.enums.DiferenciaDestinoTipo.GASTO);
+
+        assertThrows(RuntimeException.class, () -> service.registrar(op, null));
+        verifyNoInteractions(tesoreriaService);
+        verifyNoInteractions(bancoLedgerService);
     }
 }

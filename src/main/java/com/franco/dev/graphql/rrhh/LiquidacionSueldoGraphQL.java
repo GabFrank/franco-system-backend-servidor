@@ -49,10 +49,10 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     }
 
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
-    public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String periodo,
-                                                     LiquidacionSueldoEstado estado) {
+    public Page<LiquidacionSueldo> liquidacionesPage(int page, int size, Long funcionarioId, String funcionarioNombre,
+                                                     String periodo, LiquidacionSueldoEstado estado) {
         seg.requireVer();
-        return service.findPage(funcionarioId, periodo, estado, PageRequest.of(page, size));
+        return service.findPage(funcionarioId, funcionarioNombre, periodo, estado, PageRequest.of(page, size));
     }
 
     public List<LiquidacionItem> liquidacionItems(Long liquidacionId) {
@@ -65,9 +65,10 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
         return service.generarBorrador(funcionarioId, periodo, monedaId);
     }
 
-    public LiquidacionItem agregarItemLiquidacion(Long liquidacionId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {
+    public LiquidacionItem agregarItemLiquidacion(Long liquidacionId, String descripcion, BigDecimal monto,
+                                                  LiquidacionItemTipo tipo, Long liquidacionConceptoId) {
         seg.requireAnyRole(seg.LIQUIDAR);
-        return service.agregarItemManual(liquidacionId, descripcion, monto, tipo);
+        return service.agregarItemManual(liquidacionId, descripcion, monto, tipo, liquidacionConceptoId);
     }
 
     public Boolean eliminarItemLiquidacion(Long itemId) {

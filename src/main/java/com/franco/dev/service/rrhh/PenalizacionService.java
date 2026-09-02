@@ -11,13 +11,17 @@ import com.franco.dev.repository.rrhh.PenalizacionRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.administrativo.JornadaService;
 import com.franco.dev.service.personas.FuncionarioService;
+import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,6 +40,7 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
     private final FuncionarioService funcionarioService;
     private final JustificativoService justificativoService;
     private final ConfiguracionRrhhService configuracionRrhhService;
+    private final PlatformTransactionManager transactionManager;
 
     @Override
     public PenalizacionRepository getRepository() {
@@ -154,10 +159,71 @@ public class PenalizacionService extends CrudService<Penalizacion, PenalizacionR
         return generadas;
     }
 
+    /** Tope de dias por corrida. Evita recorrer meses de jornadas por un error de tipeo. */
+    public static final int RANGO_MAX_DIAS = 62;
+
+    /**
+     * Genera las penalizaciones automaticas de un rango de fechas, un dia por vez.
+     *
+     * <p>Reusa el metodo de un dia en vez de duplicar la logica, asi la tolerancia, los
+     * justificativos que evitan penalizacion y la idempotencia por jornada siguen siendo
+     * las mismas. La guarda de idempotencia es por jornada, no por fecha, asi que correr
+     * 1-5 y despues 3-7 no duplica los dias que se solapan.</p>
+     *
+     * <p>Cada dia va en su propia transaccion con TransactionTemplate y no anotando
+     * REQUIRES_NEW: la llamada de abajo es self-invocation (misma clase), no pasa por el
+     * proxy de Spring y la anotacion se ignoraria en silencio. Ademas, un dia que falle no
+     * se lleva puestos a los anteriores, que ya commitearon.</p>
+     */
+    public int generarPenalizacionesAutoRango(LocalDate desde, LocalDate hasta) {
+        if (desde == null || hasta == null) throw new GraphQLException("Indica el rango de fechas");
+        if (hasta.isBefore(desde)) throw new GraphQLException("La fecha final no puede ser anterior a la inicial");
+        long dias = java.time.temporal.ChronoUnit.DAYS.between(desde, hasta) + 1;
+        if (dias > RANGO_MAX_DIAS) {
+            throw new GraphQLException("El rango no puede superar " + RANGO_MAX_DIAS + " dias (pediste " + dias + ")");
+        }
+
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        int total = 0;
+        for (LocalDate d = desde; !d.isAfter(hasta); d = d.plusDays(1)) {
+            final LocalDate dia = d;
+            try {
+                Integer n = tx.execute(status -> generarPenalizacionesAuto(dia));
+                if (n != null) total += n;
+            } catch (Exception e) {
+                LOGGER.warn("Fallo la generacion automatica del {}: {}", dia, e.getMessage());
+            }
+        }
+        LOGGER.info("Penalizaciones automaticas generadas entre {} y {}: {}", desde, hasta, total);
+        return total;
+    }
+
+    /**
+     * Cuantas amonestaciones no anuladas acumula el funcionario. Es el contador que se
+     * muestra en el legajo, y el que numera la siguiente acta.
+     */
+    public Long contarAdvertencias(Long funcionarioId) {
+        if (funcionarioId == null) return 0L;
+        Long n = repository.countByFuncionarioIdAndTipoAndAnuladaFalse(
+                funcionarioId, PenalizacionTipo.ADVERTENCIA);
+        return n != null ? n : 0L;
+    }
+
     @Override
     public Penalizacion save(Penalizacion entity) {
         if (entity.getId() == null && entity.getCreadoEn() == null)
             entity.setCreadoEn(LocalDateTime.now());
+        // Numera la amonestacion al crearla: "2a advertencia" tiene que quedar en el acta
+        // impresa, no calcularse al vuelo cada vez que se abre (si despues se anula otra,
+        // el numero del acta ya firmada cambiaria).
+        if (entity.getId() == null
+                && entity.getTipo() == PenalizacionTipo.ADVERTENCIA
+                && entity.getNumeroAdvertencia() == null
+                && entity.getFuncionario() != null) {
+            entity.setNumeroAdvertencia(contarAdvertencias(entity.getFuncionario().getId()).intValue() + 1);
+        }
         if (entity.getAnulada() == null) entity.setAnulada(false);
         if (entity.getAutoGenerada() == null) entity.setAutoGenerada(false);
         if (entity.getMonto() == null) entity.setMonto(BigDecimal.ZERO);

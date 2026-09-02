@@ -5,6 +5,7 @@ import com.franco.dev.domain.operaciones.MovimientoStockLote;
 import com.franco.dev.domain.operaciones.dto.AjusteStockLoteResultadoDto;
 import com.franco.dev.domain.operaciones.dto.ClienteLoteDto;
 import com.franco.dev.domain.operaciones.dto.LoteDeProductoDto;
+import com.franco.dev.domain.operaciones.dto.LoteSinContarDto;
 import com.franco.dev.domain.operaciones.dto.MovimientoLoteDto;
 import com.franco.dev.domain.operaciones.dto.ResumenStockLoteDto;
 import com.franco.dev.domain.operaciones.dto.StockLoteDto;
@@ -13,8 +14,10 @@ import com.franco.dev.domain.operaciones.dto.StockLoteSucursalDto;
 import com.franco.dev.domain.operaciones.enums.EstadoLote;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
+import com.franco.dev.domain.productos.Producto;
 import com.franco.dev.graphql.operaciones.input.AjusteStockLoteInput;
 import com.franco.dev.service.operaciones.AjusteStockLoteService;
+import com.franco.dev.service.operaciones.InventarioLoteService;
 import com.franco.dev.service.operaciones.LoteService;
 import com.franco.dev.service.operaciones.MovimientoStockLoteService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -50,6 +53,12 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
 
     @Autowired
     private AjusteStockLoteService ajusteStockLoteService;
+
+    @Autowired
+    private InventarioLoteService inventarioLoteService;
+
+    @Autowired
+    private com.franco.dev.service.productos.ProductoService productoService;
 
     /**
      * Saldo por lote de un producto en una sucursal, ordenado por FEFO.
@@ -169,6 +178,92 @@ public class MovimientoStockLoteGraphQL implements GraphQLQueryResolver, GraphQL
             return ajusteStockLoteService.ajustar(input);
         } catch (IllegalArgumentException e) {
             throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Alta manual de un lote, sin mover stock.
+     *
+     * Es el camino que faltaba para el conteo: el operador tiene el envase en la mano, el lote no
+     * está en el sistema y necesita registrarlo para poder contarlo. Nace con saldo cero; el stock
+     * se lo pone la finalización de la toma.
+     *
+     * ⚠️ <b>El nombre lleva el sufijo del dominio a propósito.</b> Se llamó {@code crearLote} y
+     * chocó con {@link com.franco.dev.graphql.financiero.LoteDEGraphQL#crearLote()}, que crea un
+     * lote de documentos electrónicos para SIFEN y no lleva argumentos. GraphQL fusiona los
+     * {@code extend type Mutation} por nombre de campo: ganaba el de SIFEN, el arranque no se
+     * quejaba y la app recibía {@code Unknown field argument productoId @ 'crearLote'}.
+     */
+    public Lote crearLoteProducto(Long productoId, String numeroLote, String fechaVencimiento,
+                                  String fechaRetiro, String observacion, Long usuarioId) {
+        if (productoId == null) {
+            throw new GraphQLException("productoId es requerido");
+        }
+        Producto producto = productoService.findById(productoId).orElse(null);
+        if (producto == null) {
+            throw new GraphQLException("No existe el producto " + productoId + ".");
+        }
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return loteService.crear(producto, numeroLote, aFecha(fechaVencimiento, "vencimiento"),
+                    aFecha(fechaRetiro, "retiro"), observacion, usuario);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Carga o corrige las fechas del maestro de un lote.
+     *
+     * Es la puerta que faltaba: la fecha de retiro solo se podía setear al CREAR el lote —desde la
+     * recepción o desde el ajuste—, así que un lote viejo sin retiro no había forma de completarlo
+     * y uno mal tipeado no había forma de corregirlo.
+     *
+     * El cambio es GLOBAL: el maestro es uno por (producto, número de lote) y replica MAIN_TO_ALL,
+     * así que reordena el FEFO en todas las sucursales. Quien llama tiene que haberlo dicho en
+     * pantalla.
+     *
+     * Las fechas llegan como texto {@code yyyy-MM-dd}, igual que en {@link AjusteStockLoteInput}.
+     */
+    public Lote actualizarFechasLote(Long loteId, String fechaVencimiento, String fechaRetiro,
+                                     String motivo, Long usuarioId) {
+        if (loteId == null) {
+            throw new GraphQLException("loteId es requerido");
+        }
+        Usuario usuario = usuarioId != null ? usuarioService.findById(usuarioId).orElse(null) : null;
+        try {
+            return loteService.actualizarFechas(loteId, aFecha(fechaVencimiento, "vencimiento"),
+                    aFecha(fechaRetiro, "retiro"), motivo, usuario);
+        } catch (IllegalArgumentException e) {
+            throw new GraphQLException(e.getMessage());
+        }
+    }
+
+    /**
+     * Los lotes con saldo que ningún renglón de la toma contó.
+     *
+     * Existe para poder avisarlo ANTES de finalizar: la finalización deja esos productos enteros
+     * fuera del ajuste, y sin esta consulta el operador se entera después de cerrar la toma.
+     */
+    public List<LoteSinContarDto> lotesSinContar(Long inventarioId) {
+        if (inventarioId == null) {
+            throw new GraphQLException("inventarioId es requerido");
+        }
+        return inventarioLoteService.lotesSinContar(inventarioId);
+    }
+
+    /**
+     * Una fecha vacía es "no la mandé", no un error: el input distingue nulo de dato, y un texto
+     * en blanco llega cuando el formulario nunca se tocó.
+     */
+    private java.time.LocalDate aFecha(String valor, String cual) {
+        if (valor == null || valor.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            return java.time.LocalDate.parse(valor.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new GraphQLException("La fecha de " + cual + " no tiene el formato yyyy-MM-dd.");
         }
     }
 

@@ -165,7 +165,7 @@ public class ReporteRrhhService {
 
         java.time.LocalDate ingreso = f != null && f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null;
         java.time.LocalDate egreso = lf.getFechaEgreso();
-        BigDecimal sueldo = f != null && f.getSueldo() != null ? new BigDecimal(f.getSueldo().toString()) : BigDecimal.ZERO;
+        BigDecimal sueldo = f != null && f.getSueldo() != null ? f.getSueldo() : BigDecimal.ZERO;
         BigDecimal jornal = sueldo.divide(new BigDecimal("30"), 0, java.math.RoundingMode.HALF_UP);
         String documento = f != null && f.getPersona() != null && f.getPersona().getDocumento() != null
                 ? f.getPersona().getDocumento() : "";
@@ -313,6 +313,64 @@ public class ReporteRrhhService {
         filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(p.getMonto()))));
         String clausula = "Tomo conocimiento de la penalización aplicada y su descuento correspondiente,";
         return reciboRrhh("RECIBO DE PENALIZACION", p.getFuncionario(), filas, nz(p.getMonto()), clausula, anchoMm, escpos);
+    }
+
+    /**
+     * Acta de amonestacion, en PDF A4.
+     *
+     * <p>No usa recibo-rrhh.jrxml como los demas comprobantes: ese template tiene una sola
+     * firma y una tabla de conceptos con monto, y una amonestacion no lleva plata y necesita
+     * dos firmas (funcionario y empresa). Va con plantilla propia.</p>
+     *
+     * <p>Solo A4: dos firmas no entran legibles en 32/48 columnas de una termica.</p>
+     */
+    public String actaAdvertenciaBase64(Long id) {
+        com.franco.dev.domain.rrhh.Penalizacion p = penalizacionRepository.findById(id)
+                .orElseThrow(() -> new GraphQLException("Amonestacion no encontrada"));
+        if (p.getTipo() != com.franco.dev.domain.rrhh.enums.PenalizacionTipo.ADVERTENCIA) {
+            throw new GraphQLException("El acta solo aplica a amonestaciones (tipo ADVERTENCIA)");
+        }
+
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("empresa", razonSocialEmpresa());
+        params.put("ruc", rucEmpresa());
+        params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
+        params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
+        params.put("funcionario", p.getFuncionario() != null && p.getFuncionario().getPersona() != null
+                ? p.getFuncionario().getPersona().getNombre() : "");
+        params.put("documento", p.getFuncionario() != null && p.getFuncionario().getPersona() != null
+                ? p.getFuncionario().getPersona().getDocumento() : "");
+        params.put("cargo", p.getFuncionario() != null && p.getFuncionario().getCargo() != null
+                ? p.getFuncionario().getCargo().getNombre() : null);
+        params.put("numeroAdvertencia", p.getNumeroAdvertencia() != null ? p.getNumeroAdvertencia().toString() : "");
+        params.put("motivo", p.getDescripcion() != null ? p.getDescripcion() : "");
+        // Si no se cargo la fecha del hecho, vale la del registro.
+        java.time.LocalDate hecho = p.getFechaHecho() != null ? p.getFechaHecho() : p.getFecha();
+        params.put("fechaHecho", hecho != null ? hecho.toString() : "");
+        params.put("fecha", java.time.LocalDate.now().toString());
+        params.put("ciudad", p.getFuncionario() != null && p.getFuncionario().getSucursal() != null
+                && p.getFuncionario().getSucursal().getCiudad() != null
+                ? p.getFuncionario().getSucursal().getCiudad().getDescripcion() : "");
+
+        try (java.io.InputStream in = new org.springframework.core.io.ClassPathResource(
+                "reports/acta-advertencia.jrxml").getInputStream()) {
+            net.sf.jasperreports.engine.JasperReport jr =
+                    net.sf.jasperreports.engine.JasperCompileManager.compileReport(in);
+            net.sf.jasperreports.engine.JasperPrint print =
+                    net.sf.jasperreports.engine.JasperFillManager.fillReport(jr, params,
+                            new net.sf.jasperreports.engine.JREmptyDataSource());
+            byte[] pdf = net.sf.jasperreports.engine.JasperExportManager.exportReportToPdf(print);
+            return java.util.Base64.getEncoder().encodeToString(pdf);
+        } catch (Exception e) {
+            throw new GraphQLException("Error generando el acta: " + e.getMessage());
+        }
+    }
+
+    /** RUC de la empresa emisora, para el encabezado. */
+    private String rucEmpresa() {
+        java.util.List<com.franco.dev.domain.empresarial.ConfiguracionGeneral> all = configuracionGeneralService.findAll2();
+        com.franco.dev.domain.empresarial.ConfiguracionGeneral cg = all != null && !all.isEmpty() ? all.get(0) : null;
+        return cg != null && cg.getRuc() != null ? cg.getRuc() : "";
     }
 
     /** Recibo de aguinaldo. */

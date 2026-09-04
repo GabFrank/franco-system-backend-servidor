@@ -127,6 +127,15 @@ public class MarcacionGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         if (marcacion.getDistanciaSucursalMetros() != null)
             e.setDistanciaSucursalMetros(marcacion.getDistanciaSucursalMetros());
 
+        // Como se identifico a la persona. Se copian solo si vinieron, igual que el resto:
+        // el desktop llama a este mismo metodo y no los manda.
+        if (marcacion.getMetodoRegistro() != null)
+            e.setMetodoRegistro(marcacion.getMetodoRegistro());
+        if (marcacion.getSimilitudFacial() != null)
+            e.setSimilitudFacial(marcacion.getSimilitudFacial());
+        if (marcacion.getMargenSegundoCandidato() != null)
+            e.setMargenSegundoCandidato(marcacion.getMargenSegundoCandidato());
+
         return service.save(e);
     }
 

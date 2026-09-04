@@ -955,8 +955,9 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         }
         BigDecimal total = dto.getMontoTotal() != null ? dto.getMontoTotal() : BigDecimal.ZERO;
         BigDecimal pagado = dto.getMontoYaPagado() != null ? dto.getMontoYaPagado() : BigDecimal.ZERO;
-        BigDecimal pendiente = total.subtract(pagado);
-        dto.setMontoPendiente(pendiente.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : pendiente);
+        // Sin monto total el pendiente queda nulo: un cero afirmaria que no se debe nada.
+        dto.setMontoPendiente(
+                ActivoPagoNormalizer.montoPendienteInformable(dto.getMontoTotal(), dto.getMontoYaPagado()));
         ActivoPagoNormalizer.normalizarResumenSiPagadoCompleto(dto);
 
         if (total.compareTo(BigDecimal.ZERO) > 0) {

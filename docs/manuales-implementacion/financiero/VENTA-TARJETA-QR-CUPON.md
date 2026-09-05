@@ -18,7 +18,7 @@ habrá que adaptarse al que ya imprimen. Por eso el formato **no se escribe en e
 
 ## 2. El formato es dato, no código
 
-`financiero.formato_qr_pos` (central, migración `V216.5`; espejo en filial `V91.5`) guarda una
+`financiero.formato_qr_pos` (central, migración `V217.5`; espejo en filial `V91.5`) guarda una
 fila por proveedor:
 
 - **`patron`** — regex con grupos nombrados (`(?<auth>...)`, `(?<amt>...)`, …).
@@ -103,7 +103,7 @@ Antes de escribir nada, el diálogo resuelve **a qué cobro** pertenece el cupó
 
 ## 6. Rol nuevo — `VENTA TARJETA COMPLETAR`
 
-Migración `V217.5` (central; **sin espejo en filial**, igual que el seed de roles de tesorería
+Migración `V218.5` (central; **sin espejo en filial**, igual que el seed de roles de tesorería
 `V176.5` — `personas.role` se replica desde el central).
 
 El aviso del cierre de caja le dice al cajero *"Registralas escaneando el QR del cupón desde el
@@ -215,7 +215,7 @@ de registrar, que es enterarse tarde.
 | filial | `./mvnw clean verify -B` | 107 tests, 0 fallos (`VentaTarjetaServiceTest` 18/18) |
 | desktop | `npm run check` (AOT, el gate del repo) | limpio, 0 errores |
 | desktop — unit | `qr-pos-parser` (23), `venta-tarjeta-qr-payload` (8), `cobro-tarjeta` (8), `mensaje-error` (6) | 45 verdes |
-| `V217.5` | dos pasadas en transacción con `ROLLBACK` | `INSERT 0 1` / `INSERT 0 0` — idempotente |
+| `V218.5` | dos pasadas en transacción con `ROLLBACK` | `INSERT 0 1` / `INSERT 0 0` — idempotente |
 
 ⚠️ **Karma (`npm test`) está roto de antes en el desktop y el CI no lo corre.** Los specs se
 verificaron transpilando con esbuild y corriéndolos en node. Además `npm run check` **no
@@ -268,7 +268,7 @@ Cerrarlo tiene dos salidas, y la elección no es obvia:
 
 **Decisión pendiente (2026-09-04).** Anotado, no implementado.
 
-### La moneda vive en el registro, no en la terminal — `V218.5` / `V92.5`
+### La moneda vive en el registro, no en la terminal — `V219.5` / `V92.5`
 
 `venta_tarjeta.moneda_id` guarda la moneda **del cobro** que el registro respalda.
 
@@ -284,7 +284,7 @@ completar. Para entonces ya pasó por la validación de §8.1, así que se sabe 
 
 ⚠️ **Orden de despliegue.** `venta_tarjeta` es `BRANCH_TO_MAIN` (V150.1): la filial publica y el
 central se suscribe. Si el publisher manda una columna que el subscriber no tiene, **la
-replicación se corta**. Por eso `V218.5` (central) va **antes** que `V92.5` (filial) — y la
+replicación se corta**. Por eso `V219.5` (central) va **antes** que `V92.5` (filial) — y la
 filial se despliega sola en ≤15 min, mientras el central es manual.
 
 Sin backfill: la funcionalidad no está en uso en producción, así que no hay filas históricas que

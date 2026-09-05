@@ -94,7 +94,7 @@ public class FormatoQrPosService extends CrudService<FormatoQrPos, FormatoQrPosR
         // 4) El mapeo es un JSON con forma y todos los grupos que nombra existen en el patron.
         validarMapeo(entity.getMapeo(), matcher);
 
-        // 5) Un solo formato por proveedor (el indice unico parcial de la V216.5 lo garantiza en
+        // 5) Un solo formato por proveedor (el indice unico parcial de la V217.5 lo garantiza en
         //    la base; aca se adelanta el error para que la pantalla diga algo entendible).
         if (entity.getProveedorServicio() != null && entity.getProveedorServicio().getId() != null) {
             FormatoQrPos existente = repository.findByProveedorServicioId(entity.getProveedorServicio().getId());

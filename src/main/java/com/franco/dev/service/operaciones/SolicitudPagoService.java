@@ -261,13 +261,17 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
 
     /**
      * Get notas de recepción disponibles para pago para un pedido.
-     * Solo notas con recepción física finalizada (RECEPCION_COMPLETA), no pagadas.
+     * Solo notas con recepción física finalizada (RECEPCION_COMPLETA), no pagadas
+     * y no incluidas en otra solicitud (mismo criterio que la búsqueda por proveedor).
+     * Usado en: Desktop Sí (tab Solicitud de Pago del pedido, precarga de notas).
      */
+    @Transactional(readOnly = true)
     public List<NotaRecepcion> getNotasDisponiblesParaPago(Long pedidoId) {
         List<NotaRecepcion> todasLasNotas = notaRecepcionRepository.findByPedidoId(pedidoId);
         return todasLasNotas.stream()
             .filter(nota -> ESTADOS_ELEGIBLES_PAGO.contains(nota.getEstado()))
             .filter(nota -> nota.getPagado() == null || !nota.getPagado())
+            .filter(nota -> !solicitudPagoNotaRecepcionService.isNotaIncludedInSolicitud(nota.getId()))
             .collect(Collectors.toList());
     }
     

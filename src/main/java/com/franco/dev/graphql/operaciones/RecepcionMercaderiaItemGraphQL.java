@@ -50,6 +50,8 @@ import javax.persistence.EntityManager;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -59,6 +61,8 @@ import com.franco.dev.graphql.operaciones.input.RecepcionMercaderiaItemVariacion
 
 @Component
 public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(RecepcionMercaderiaItemGraphQL.class);
 
     @Autowired
     private RecepcionMercaderiaItemService service;
@@ -1235,9 +1239,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
 
     public ValidacionFinalizacionRecepcion validarFinalizacionRecepcionPorPedido(Long pedidoId,
             List<Long> sucursalesIds) {
-        System.out.println("=== VALIDACIÓN FINALIZACIÓN RECEPCIÓN POR PEDIDO ===");
-        System.out.println("PedidoId: " + pedidoId);
-        System.out.println("SucursalesIds: " + sucursalesIds);
+        log.debug("=== VALIDACIÓN FINALIZACIÓN RECEPCIÓN POR PEDIDO === pedidoId={} sucursalesIds={}",
+                pedidoId, sucursalesIds);
 
         if (pedidoId == null) {
             throw new GraphQLException("PedidoId es requerido");
@@ -1250,74 +1253,76 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
         try {
             // 1. Obtener todas las notas de recepción del pedido
             List<NotaRecepcion> notasPedido = notaRecepcionService.findByPedidoId(pedidoId);
-            System.out.println("Notas de recepción encontradas: " + notasPedido.size());
+            log.debug("Notas de recepción encontradas: {}", notasPedido.size());
 
             List<ItemPendiente> itemsPendientes = new ArrayList<>();
 
             for (NotaRecepcion nota : notasPedido) {
-                System.out.println("Procesando nota: " + nota.getNumero());
+                log.debug("Procesando nota: {}", nota.getNumero());
 
                 // 2. Obtener todos los ítems de la nota (excluyendo rechazados documentalmente)
                 List<NotaRecepcionItem> itemsNota = notaRecepcionItemService.findByNotaRecepcionId(nota.getId())
                         .stream()
                         .filter(item -> item.getEstado() != NotaRecepcionItemEstado.RECHAZADO)
                         .collect(Collectors.toList());
-                System.out.println("Ítems de nota encontrados (sin rechazados): " + itemsNota.size());
+                log.debug("Ítems de nota encontrados (sin rechazados): {}", itemsNota.size());
+
+                // 3. Distribuciones de toda la nota, agrupadas por ítem.
+                // Dependen de la nota, no del ítem: una sola consulta en vez de una por ítem.
+                Map<Long, List<NotaRecepcionItemDistribucion>> distribucionesPorItem = notaRecepcionItemDistribucionService
+                        .findByNotaRecepcionId(nota.getId())
+                        .stream()
+                        .filter(dist -> sucursalesIds.contains(dist.getSucursalEntrega().getId()))
+                        .collect(Collectors.groupingBy(dist -> dist.getNotaRecepcionItem().getId()));
+
+                // 4. Cantidades recibidas y rechazadas de toda la nota, acumuladas por ítem.
+                // También dependen solo de la nota y las sucursales: se resuelven una vez por nota
+                // en lugar de una vez por ítem por recepción.
+                List<RecepcionMercaderiaNota> recepcionesNota = recepcionMercaderiaNotaService
+                        .findByNotaRecepcionId(nota.getId());
+                log.debug("Recepciones de mercadería encontradas: {}", recepcionesNota.size());
+
+                Map<Long, double[]> totalesPorItem = new HashMap<>();
+                for (RecepcionMercaderiaNota recepcionNota : recepcionesNota) {
+                    List<RecepcionMercaderiaItem> itemsRecepcion = service.findByRecepcionMercaderiaIdAndSucursales(
+                            recepcionNota.getRecepcionMercaderia().getId(),
+                            sucursalesIds);
+
+                    for (RecepcionMercaderiaItem itemRecepcion : itemsRecepcion) {
+                        Long notaItemId = itemRecepcion.getNotaRecepcionItem().getId();
+                        double[] acumulado = totalesPorItem.computeIfAbsent(notaItemId, k -> new double[2]);
+                        acumulado[0] += (itemRecepcion.getCantidadRecibida() != null
+                                ? itemRecepcion.getCantidadRecibida()
+                                : 0.0);
+                        acumulado[1] += (itemRecepcion.getCantidadRechazada() != null
+                                ? itemRecepcion.getCantidadRechazada()
+                                : 0.0);
+                    }
+                }
 
                 for (NotaRecepcionItem item : itemsNota) {
-                    // 3. Verificar si el ítem tiene distribuciones en las sucursales seleccionadas
-                    List<NotaRecepcionItemDistribucion> distribuciones = notaRecepcionItemDistribucionService
-                            .findByNotaRecepcionItemId(item.getId());
+                    List<NotaRecepcionItemDistribucion> distribucionesFiltradas = distribucionesPorItem
+                            .get(item.getId());
 
-                    // Filtrar solo distribuciones de las sucursales seleccionadas
-                    List<NotaRecepcionItemDistribucion> distribucionesFiltradas = distribuciones.stream()
-                            .filter(dist -> sucursalesIds.contains(dist.getSucursalEntrega().getId()))
-                            .collect(Collectors.toList());
-
-                    if (distribucionesFiltradas.isEmpty()) {
-                        System.out.println(
-                                "No hay distribuciones para las sucursales seleccionadas en ítem: " + item.getId());
+                    if (distribucionesFiltradas == null || distribucionesFiltradas.isEmpty()) {
+                        log.debug("No hay distribuciones para las sucursales seleccionadas en ítem: {}", item.getId());
                         continue; // No hay distribuciones para las sucursales seleccionadas
                     }
 
-                    // 4. Calcular cantidad esperada total para las sucursales seleccionadas
+                    // 5. Calcular cantidad esperada total para las sucursales seleccionadas
                     double cantidadEsperadaTotal = distribucionesFiltradas.stream()
                             .mapToDouble(NotaRecepcionItemDistribucion::getCantidad)
                             .sum();
 
-                    System.out.println(
-                            "Cantidad esperada total para ítem " + item.getId() + ": " + cantidadEsperadaTotal);
+                    log.debug("Cantidad esperada total para ítem {}: {}", item.getId(), cantidadEsperadaTotal);
 
-                    // 5. Buscar todas las recepciones de mercadería asociadas a esta nota
-                    List<RecepcionMercaderiaNota> recepcionesNota = recepcionMercaderiaNotaService
-                            .findByNotaRecepcionId(nota.getId());
-                    System.out.println("Recepciones de mercadería encontradas: " + recepcionesNota.size());
+                    double[] totales = totalesPorItem.get(item.getId());
+                    double totalRecibido = totales != null ? totales[0] : 0.0;
+                    double totalRechazado = totales != null ? totales[1] : 0.0;
 
-                    double totalRecibido = 0.0;
-                    double totalRechazado = 0.0;
+                    log.debug("Total recibido: {}, Total rechazado: {}", totalRecibido, totalRechazado);
 
-                    for (RecepcionMercaderiaNota recepcionNota : recepcionesNota) {
-                        // 6. Obtener ítems de recepción para las sucursales seleccionadas
-                        List<RecepcionMercaderiaItem> itemsRecepcion = service.findByRecepcionMercaderiaIdAndSucursales(
-                                recepcionNota.getRecepcionMercaderia().getId(),
-                                sucursalesIds);
-
-                        // Sumar cantidades recibidas y rechazadas
-                        for (RecepcionMercaderiaItem itemRecepcion : itemsRecepcion) {
-                            if (itemRecepcion.getNotaRecepcionItem().getId().equals(item.getId())) {
-                                totalRecibido += (itemRecepcion.getCantidadRecibida() != null
-                                        ? itemRecepcion.getCantidadRecibida()
-                                        : 0.0);
-                                totalRechazado += (itemRecepcion.getCantidadRechazada() != null
-                                        ? itemRecepcion.getCantidadRechazada()
-                                        : 0.0);
-                            }
-                        }
-                    }
-
-                    System.out.println("Total recibido: " + totalRecibido + ", Total rechazado: " + totalRechazado);
-
-                    // 7. Verificar si está completo
+                    // 6. Verificar si está completo
                     if (totalRecibido + totalRechazado < cantidadEsperadaTotal) {
                         ItemPendiente itemPendiente = new ItemPendiente(
                                 item.getId(),
@@ -1328,7 +1333,7 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                                 totalRecibido,
                                 totalRechazado);
                         itemsPendientes.add(itemPendiente);
-                        System.out.println("Ítem pendiente agregado: " + item.getProducto().getDescripcion());
+                        log.debug("Ítem pendiente agregado: {}", item.getProducto().getDescripcion());
                     }
                 }
             }
@@ -1337,10 +1342,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
             String mensaje = puedeFinalizar ? "Se puede finalizar la recepción física"
                     : "No se puede finalizar. Hay " + itemsPendientes.size() + " ítem(s) pendiente(s)";
 
-            System.out.println("=== RESULTADO VALIDACIÓN ===");
-            System.out.println("Puede finalizar: " + puedeFinalizar);
-            System.out.println("Ítems pendientes: " + itemsPendientes.size());
-            System.out.println("Mensaje: " + mensaje);
+            log.debug("=== RESULTADO VALIDACIÓN === puedeFinalizar={} itemsPendientes={} mensaje={}",
+                    puedeFinalizar, itemsPendientes.size(), mensaje);
 
             return new ValidacionFinalizacionRecepcion(
                     puedeFinalizar,

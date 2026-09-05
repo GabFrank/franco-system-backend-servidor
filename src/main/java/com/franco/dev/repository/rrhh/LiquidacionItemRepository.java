@@ -19,6 +19,14 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
     List<LiquidacionItem> findByLiquidacionIdAndManualFalse(Long liquidacionId);
 
     /**
+     * Items ya emitidos que usan un codigo del catalogo. {@code liquidacion_item.codigo}
+     * es un String, no una FK, asi que la base no impide borrar un concepto en uso: los
+     * recibos historicos se quedarian sin etiqueta y el codigo dejaria de resolver a
+     * remunerativo/no remunerativo. Lo chequea LiquidacionConceptoGraphQL antes de borrar.
+     */
+    Long countByCodigo(String codigo);
+
+    /**
      * Suma ya cobrada de una cuota de venta a credito (CREDITO_CONVENIO_CUOTA) por las
      * liquidaciones mensuales no ANULADAS, excluyendo la liquidacion en curso.
      */

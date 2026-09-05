@@ -13,6 +13,10 @@ type Usuario {
 type UsuarioSimilitud {
     usuario: Usuario
     similitud: Float
+    """La del siguiente candidato. Null si hay un solo enrolado."""
+    similitudSegundo: Float
+    """similitud - similitudSegundo. Dice si el 1:N fue solido o una moneda al aire."""
+    margen: Float
 }
 
 enum ResultadoIncorporacionEmbedding {

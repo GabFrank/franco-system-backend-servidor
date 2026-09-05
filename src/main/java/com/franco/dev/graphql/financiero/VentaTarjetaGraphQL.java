@@ -10,6 +10,7 @@ import com.franco.dev.graphql.financiero.input.VentaTarjetaInput;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.TerminalPosService;
 import com.franco.dev.service.financiero.VentaTarjetaService;
 import com.franco.dev.service.impresion.ImpresionService;
@@ -41,6 +42,9 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     @Autowired
     private TerminalPosService terminalPosService;
+
+    @Autowired
+    private MonedaService monedaService;
 
     @Autowired
     private UsuarioService usuarioService;
@@ -125,6 +129,11 @@ public class VentaTarjetaGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         if (input.getEstado() != null) entity.setEstado(input.getEstado());
         if (input.getTerminalPosId() != null) {
             entity.setTerminalPos(terminalPosService.findById(input.getTerminalPosId()).orElse(null));
+        }
+        // La moneda del COBRO, no la de la terminal: es el cobro el que se esta pagando, y sin
+        // ella monto/monto_escaneado quedan sin unidad.
+        if (input.getMonedaId() != null) {
+            entity.setMoneda(monedaService.findById(input.getMonedaId()).orElse(null));
         }
         if (input.getUsuarioId() != null) {
             entity.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));

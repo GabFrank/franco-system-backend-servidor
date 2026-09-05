@@ -1,0 +1,32 @@
+type FormatoQrPos {
+    id: ID!
+    nombre: String
+    proveedorServicio: ProveedorServicio
+    patron: String
+    mapeo: String
+    ejemplo: String
+    activo: Boolean
+    creadoEn: Date
+}
+
+input FormatoQrPosInput {
+    id: ID
+    nombre: String!
+    proveedorServicioId: Int
+    patron: String!
+    mapeo: String!
+    ejemplo: String!
+    activo: Boolean
+    usuarioId: Int
+}
+
+extend type Query {
+    formatoQrPos(id: ID!): FormatoQrPos
+    formatosQrPos: [FormatoQrPos]
+    formatosQrPosActivos: [FormatoQrPos]
+}
+
+extend type Mutation {
+    saveFormatoQrPos(input: FormatoQrPosInput!): FormatoQrPos!
+    desactivarFormatoQrPos(id: ID!): Boolean!
+}

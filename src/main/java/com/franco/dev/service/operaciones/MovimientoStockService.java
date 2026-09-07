@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -71,23 +72,47 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
     }
 
     public Double stockByProductoId(Long proId) {
-        Double finalStock = 0.0;
-        List<Sucursal> sucursalList = sucursalService.findAll2();
-        for (Sucursal s : sucursalList) {
-            finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
-        }
-        return finalStock;
+        return sumarStockDeSucursales(proId, null);
     }
 
     public Double stockByProductoIdExcluyendoNombresSucursal(Long proId, List<String> nombresExcluidos) {
-        Double finalStock = 0.0;
-        List<Sucursal> sucursalList = sucursalService.findAll2();
-        for (Sucursal s : sucursalList) {
-            if (nombresExcluidos != null && nombresExcluidos.stream()
-                    .anyMatch(nombre -> nombre.equalsIgnoreCase(s.getNombre()))) {
+        return sumarStockDeSucursales(proId, nombresExcluidos);
+    }
+
+    /**
+     * Existencia total del producto, sumando el desglose por sucursal de UNA consulta agrupada.
+     *
+     * Antes esto era un bucle que preguntaba {@code stockByProductoIdAndSucursalId} una vez por
+     * sucursal: con 31 sucursales en la tabla eran 31 consultas por producto, y {@code findAll2()}
+     * se repetía en cada vuelta del caller. Donde más pesaba era al finalizar una recepción física
+     * ({@code CostosPorProductoService.aplicarCostoCompra} llama acá una vez por ítem recibido):
+     * una recepción de 101 ítems disparaba 3.131 consultas dentro de la transacción de cierre.
+     *
+     * El total no cambia. Se conservan a propósito las dos rarezas del bucle viejo:
+     *
+     * - Una sucursal sin movimientos vale cero. No vuelve en el GROUP BY —no hay filas que sumar—
+     *   y sumar cero es lo mismo que no sumarla.
+     * - Los movimientos de una sucursal que no está en la tabla no cuentan. El bucle nunca los
+     *   preguntaba porque iteraba sobre {@code findAll2()}; la consulta agrupada sí los trae, así
+     *   que hay que filtrarlos o el total sube.
+     *
+     * También se conserva el redondeo: cada subtotal pasaba por {@code Float} (la firma del
+     * repositorio devuelve {@code Float}) antes de ensancharse a {@code double}. Ese redondeo entra
+     * en el denominador del costo medio, y acá el objetivo era sacar consultas, no mover números.
+     */
+    private Double sumarStockDeSucursales(Long proId, List<String> nombresExcluidos) {
+        Set<Long> sucursalesQueCuentan = sucursalService.findAll2().stream()
+                .filter(s -> nombresExcluidos == null || nombresExcluidos.stream()
+                        .noneMatch(nombre -> nombre.equalsIgnoreCase(s.getNombre())))
+                .map(Sucursal::getId)
+                .collect(Collectors.toSet());
+
+        double finalStock = 0.0;
+        for (StockPorSucursalDto fila : repository.stockPorSucursales(proId)) {
+            if (fila.getCantidad() == null || !sucursalesQueCuentan.contains(fila.getSucursalId())) {
                 continue;
             }
-            finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
+            finalStock += fila.getCantidad().floatValue();
         }
         return finalStock;
     }

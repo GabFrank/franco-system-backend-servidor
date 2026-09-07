@@ -1,5 +1,6 @@
 package com.franco.dev.graphql.administrativo.input;
 
+import com.franco.dev.domain.administrativo.enums.MetodoMarcacion;
 import com.franco.dev.domain.administrativo.enums.TipoMarcacion;
 import lombok.Data;
 
@@ -28,4 +29,9 @@ public class MarcacionInput {
     private String codigo;
     private java.util.List<Double> embedding;
     private Boolean esSalidaAlmuerzo;
+
+    // Como se identifico a la persona. Opcionales: el desktop no los manda.
+    private MetodoMarcacion metodoRegistro;
+    private Float similitudFacial;
+    private Float margenSegundoCandidato;
 }

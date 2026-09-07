@@ -17,6 +17,7 @@ import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -128,8 +129,33 @@ public class EnteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
     }
 
 
+    /**
+     * ModelMapper propio, con matching STRICT y SIN field matching.
+     *
+     * No se usa el bean {@code modelMapper()} de {@code FrancoSystemsApplication}: ese tiene
+     * {@code setFieldMatchingEnabled(true)} con acceso a campos privados, y para llenar
+     * {@code Ente.creadoEn} entra por reflexion a los campos internos de
+     * {@code java.time.LocalDateTime}. En JDK 17 eso lanza
+     * {@code InaccessibleObjectException: module java.base does not "opens java.time"},
+     * asi que {@code saveEnte} fallaba con CUALQUIER input — incluso uno vacio — y ni el
+     * escritorio ni la PWA podian dar de alta un ente.
+     *
+     * Es el mismo problema que ya se resolvio en {@code ImpresoraGraphQL}; aca ademas del
+     * matching hay que apagar el field matching, que es lo que dispara la reflexion.
+     *
+     * Los ids ({@code tipoEnte}, {@code usuarioId}) se resuelven a mano mas abajo, asi que
+     * exigir nombres exactos no pierde nada.
+     */
+    private static final ModelMapper MAPPER = strictMapper();
+
+    static ModelMapper strictMapper() {
+        ModelMapper m = new ModelMapper();
+        m.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        return m;
+    }
+
     public Ente saveEnte(EnteInput input) {
-        Ente e = modelMapper.map(input, Ente.class);
+        Ente e = MAPPER.map(input, Ente.class);
         if (input.getTipoEnte() != null) {
             e.setTipoEnte(TipoEnte.valueOf(input.getTipoEnte()));
         }

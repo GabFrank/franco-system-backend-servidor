@@ -9,6 +9,7 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -71,9 +72,23 @@ public class ImpresoraGraphQL implements GraphQLQueryResolver, GraphQLMutationRe
         return cupsAdminService.listarColasInstaladas();
     }
 
-    public Impresora saveImpresora(ImpresoraInput input) {
+    /**
+     * ModelMapper con matching STRICT (solo nombres exactos). Con la estrategia por defecto,
+     * {@code smbUsuario} y {@code usuarioId} caian los dos sobre el destino
+     * {@code Impresora.usuario.usuario} (Usuario se auto-referencia) y el mapeo abortaba con
+     * "matches multiple source property hierarchies". Los ids (sucursalId/usuarioId) se resuelven
+     * a mano mas abajo, asi que no perdemos nada al exigir nombres exactos.
+     */
+    private static final ModelMapper MAPPER = strictMapper();
+
+    static ModelMapper strictMapper() {
         ModelMapper m = new ModelMapper();
-        Impresora e = m.map(input, Impresora.class);
+        m.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        return m;
+    }
+
+    public Impresora saveImpresora(ImpresoraInput input) {
+        Impresora e = MAPPER.map(input, Impresora.class);
         if (input.getSucursalId() != null) {
             e.setSucursal(sucursalService.findById(input.getSucursalId()).orElse(null));
         }

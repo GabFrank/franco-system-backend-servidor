@@ -1,5 +1,6 @@
 package com.franco.dev.domain.administrativo;
 
+import com.franco.dev.domain.administrativo.enums.MetodoMarcacion;
 import com.franco.dev.domain.administrativo.enums.TipoMarcacion;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.personas.Usuario;
@@ -59,6 +60,30 @@ public class Marcacion implements Serializable {
 
     @Column(name = "device_info")
     private String deviceInfo;
+
+    /**
+     * Como se identifico a la persona. Ver {@link MetodoMarcacion}.
+     *
+     * Es VARCHAR y no un enum de Postgres --a diferencia de `tipo_marcacion`-- porque la
+     * tabla se replica a las filiales y un tipo nuevo habria que crearlo en cada una
+     * antes de que llegue la primera fila.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "metodo_registro", length = 30)
+    private MetodoMarcacion metodoRegistro;
+
+    /** Similitud del match aceptado, 0..1. Null si no hubo rostro. */
+    @Column(name = "similitud_facial")
+    private Float similitudFacial;
+
+    /**
+     * Cuanto le saco el reconocido al segundo candidato.
+     *
+     * Null cuando no hubo segundo --un solo enrolado-- o cuando no fue 1:N. No se rellena
+     * con 0 ni con 1: inventar la medicion es peor que no tenerla.
+     */
+    @Column(name = "margen_segundo_candidato")
+    private Float margenSegundoCandidato;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sucursal_entrada_id")

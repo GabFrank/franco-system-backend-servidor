@@ -9,12 +9,15 @@ type VentaTarjeta {
     sucursal: Sucursal
     venta: Venta
     terminalPos: TerminalPos
+    """Moneda del cobro que respalda. Sin esto, monto no tiene unidad."""
+    moneda: Moneda
     caja: PdvCaja
     codigoAutorizacion: String
     numeroBoleta: String
     monto: Float
     montoEscaneado: Float
     imagenUrl: String
+    qrCrudo: String
     estado: String
     usuario: Usuario
     creadoEn: Date
@@ -25,6 +28,7 @@ input VentaTarjetaInput {
     sucursalId: Int
     ventaId: Int
     terminalPosId: Int
+    monedaId: Int
     cajaId: Int
     codigoAutorizacion: String
     numeroBoleta: String

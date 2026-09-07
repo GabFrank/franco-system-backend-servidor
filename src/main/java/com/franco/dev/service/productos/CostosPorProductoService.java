@@ -10,6 +10,8 @@ import com.franco.dev.service.CrudService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import com.franco.dev.service.productos.builder.CostoMedioCalculator;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,8 @@ import java.util.List;
 @Service
 @AllArgsConstructor
 public class CostosPorProductoService extends CrudService<CostoPorProducto, CostosPorProductoRepository, Long> {
+
+    private static final Logger log = LoggerFactory.getLogger(CostosPorProductoService.class);
 
     @Autowired
     private final CostosPorProductoRepository repository;
@@ -121,6 +125,22 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
     public static final String SUCURSAL_COMPRAS = "COMPRAS";
 
     /**
+     * Cuántas veces puede crecer el costo de un producto en una sola compra antes de considerarlo
+     * un error de conversión de moneda. 100 queda holgadamente por encima de cualquier aumento real
+     * y por debajo de la cotización más baja en uso (real ~1.100), que es el factor con el que se
+     * inflaba el costo cuando se aplicaba la cotización dos veces.
+     */
+    private static final double FACTOR_SALTO_SOSPECHOSO = 100.0;
+
+    /**
+     * Costo mínimo en Gs para que el costo anterior sirva como ancla del guard. Por debajo de esto
+     * el valor previo no es un costo en guaraníes creíble (nada cuesta menos de 100 Gs): es un
+     * importe en moneda extranjera guardado sin cotización. Anclar el guard en un valor así haría
+     * que la primera compra correcta pareciera un salto y quedara descartada para siempre.
+     */
+    private static final double COSTO_ANCLA_MINIMO_GS = 100.0;
+
+    /**
      * Aplica el costo de una compra real (recepción de mercadería) al producto.
      *
      * - costoMedio: promedio ponderado GLOBAL en Gs (moneda base), usando el inventario REAL
@@ -133,9 +153,12 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
      *   como Gs, así que se persiste ya convertido para no depender de que cada lector aplique la cotización.
      * - Dedup: si el costo resultante es idéntico al último registro (mismo costoMedio, ultimoPrecioCompra
      *   y moneda), NO se inserta una fila nueva. Evita inflar la tabla con compras al mismo precio.
+     * - Guard: si el costo salta más de {@link #FACTOR_SALTO_SOSPECHOSO} veces respecto al anterior se
+     *   descarta y se conserva el costo previo, porque es una conversión de moneda aplicada de más.
      *
-     * @return el CostoPorProducto resultante (nuevo, o el último existente si no hubo cambio);
-     *         null si la compra no tenía un costo válido (no aplica a bonificaciones).
+     * @return el CostoPorProducto resultante (nuevo, o el último existente si no hubo cambio o si el
+     *         salto de costo se descartó); null si la compra no tenía un costo válido (no aplica a
+     *         bonificaciones).
      */
     @org.springframework.transaction.annotation.Transactional
     public CostoPorProducto aplicarCostoCompra(Producto producto, Double cantidadEntrada, Double costoUnitario,
@@ -157,12 +180,45 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
                 producto.getId(), Arrays.asList(SUCURSAL_COMPRAS));
         if (stockReal == null) stockReal = 0.0;
 
+        // Guard anti-inflación: un costo que salta decenas de veces respecto al anterior casi nunca es
+        // un cambio de precio real, es un importe que ya venía en Gs y se volvió a multiplicar por la
+        // cotización. Si se dejara pasar, el costo inflado vuelve como precio sugerido de la compra
+        // siguiente y el error se compone en cada compra (ver FACTOR_SALTO_SOSPECHOSO).
+        if (esSaltoSospechoso(costoAnterior, costoEnGs)) {
+            log.warn("Costo de compra descartado por salto sospechoso: producto={} ({}), costo anterior={} Gs, " +
+                            "costo nuevo={} Gs, moneda={}, cotizacion={}. Se conserva el costo anterior.",
+                    producto.getId(), producto.getDescripcion(), costoAnterior.getUltimoPrecioCompra(),
+                    costoEnGs, (moneda != null ? moneda.getDenominacion() : null), cotiz);
+            return costoAnterior;
+        }
+
         Double costoMedioAnterior = (costoAnterior != null) ? costoAnterior.getCostoMedio() : null;
         double nuevoCostoMedio = CostoMedioCalculator.calcular(stockReal, cantidadEntrada, costoMedioAnterior,
                 costoEnGs);
 
         return guardarSiCambia(producto, nuevoCostoMedio, costoEnGs, moneda, cotiz, sucursal, usuario, fecha,
                 costoAnterior);
+    }
+
+    /**
+     * Detecta un salto de costo implausible respecto al último costo conocido.
+     *
+     * Solo mira hacia arriba: una baja de precio grande es plausible (bonificación, cambio de proveedor),
+     * mientras que una subida de dos órdenes de magnitud en la práctica siempre fue una conversión de
+     * moneda aplicada de más. El umbral está muy por encima de cualquier suba real de precio y por
+     * debajo de la cotización más baja en uso (el real, ~1.100), así que no puede tapar un error de
+     * cotización real ni bloquear un aumento legítimo.
+     *
+     * Y solo actúa si el costo anterior es un ancla creíble: si el producto arrastra un costo por
+     * debajo de {@link #COSTO_ANCLA_MINIMO_GS} (típicamente un precio en US$/R$ guardado sin
+     * cotización, p.ej. 7,99), la primera compra correcta en Gs se vería como un salto de ~1.000x
+     * y el guard la descartaría, dejando el costo malo congelado para siempre.
+     */
+    private boolean esSaltoSospechoso(CostoPorProducto costoAnterior, double costoEnGs) {
+        if (costoAnterior == null) return false;
+        Double anterior = costoAnterior.getUltimoPrecioCompra();
+        if (anterior == null || anterior < COSTO_ANCLA_MINIMO_GS) return false;
+        return costoEnGs > anterior * FACTOR_SALTO_SOSPECHOSO;
     }
 
     /**

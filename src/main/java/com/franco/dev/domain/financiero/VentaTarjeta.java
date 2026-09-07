@@ -54,6 +54,18 @@ public class VentaTarjeta implements Serializable {
     @JoinColumn(name = "terminal_pos_id", nullable = true)
     private TerminalPos terminalPos;
 
+    /**
+     * Moneda del COBRO que este registro respalda, no la de la terminal.
+     *
+     * Sin esto, monto y monto_escaneado no tienen unidad: la lista los pintaba con la moneda
+     * actual de la terminal, asi que cambiar esa configuracion reescribia el significado de todo
+     * el historico. Y en la conciliacion, 8.000 R$ contra 8.000 Gs daba diferencia cero.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "moneda_id", nullable = true)
+    private Moneda moneda;
+
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumnsOrFormulas(value = {
             @JoinColumnOrFormula(formula = @JoinFormula(value = "sucursal_id", referencedColumnName = "sucursal_id")),
@@ -75,6 +87,14 @@ public class VentaTarjeta implements Serializable {
 
     @Column(name = "imagen_url")
     private String imagenUrl;
+
+    /**
+     * Cadena cruda que entro por el lector cuando el registro se completo escaneando el QR del
+     * cupon en el PDV. Queda NULL cuando lo completo la app movil con foto + OCR. Se guarda sin
+     * normalizar: es la unica evidencia si un cupon parseo mal y el ticket termico ya se borro.
+     */
+    @Column(name = "qr_crudo", length = 512)
+    private String qrCrudo;
 
     @Column(nullable = false, length = 20)
     private String estado = "PENDIENTE";

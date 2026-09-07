@@ -293,10 +293,24 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.count();
     }
 
+    /**
+     * Cierra la creacion y manda la transferencia a origen.
+     *
+     * Usado en:
+     * - Desktop: No (inyecta el GQL pero la unica llamada esta comentada; su boton "Finalizar"
+     *   usa avanzarEtapaTransferencia)
+     * - Mobile: Si (la PWA cierra el borrador por aca)
+     *
+     * ⚠️ **Mueve la etapa sin pasar por avanzarEtapaTransferencia**, asi que las validaciones de
+     * ese camino hay que repetirlas aca o no se aplican a nadie que entre por este. El solicitante
+     * se colaba justamente por este agujero.
+     */
     public Boolean finalizarTransferencia(Long id, Long usuarioId) {
         Transferencia transferencia = service.findById(id).orElse(null);
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         if (transferencia.getEstado() == TransferenciaEstado.ABIERTA) {
+            validarSolicitanteCargado(transferencia.getId(), transferencia.getEtapa(),
+                    EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN, transferencia.getSolicitante());
             transferencia.setEstado(TransferenciaEstado.EN_ORIGEN);
             transferencia.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
             transferencia.setUsuarioPreTransferencia(usuario);

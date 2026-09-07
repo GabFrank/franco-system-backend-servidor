@@ -148,6 +148,26 @@ class TransferenciaGraphQLSolicitanteTest {
     }
 
     @Test
+    @DisplayName("finalizarTransferencia tampoco cierra la creacion sin solicitante")
+    void finalizarSinSolicitanteFalla() {
+        persistida(7009L, EtapaTransferencia.PRE_TRANSFERENCIA_CREACION, null);
+
+        assertThrows(GraphQLException.class, () -> resolver.finalizarTransferencia(7009L, 1L));
+
+        verify(service, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("finalizarTransferencia con solicitante cierra la creacion normalmente")
+    void finalizarConSolicitanteFunciona() {
+        persistida(7010L, EtapaTransferencia.PRE_TRANSFERENCIA_CREACION, usuario(SOLICITANTE_ID));
+
+        assertTrue(resolver.finalizarTransferencia(7010L, 1L));
+
+        verify(service).save(any());
+    }
+
+    @Test
     @DisplayName("un save que no manda solicitanteId no borra el solicitante ya guardado")
     void savePreservaElSolicitante() {
         persistida(7007L, EtapaTransferencia.PRE_TRANSFERENCIA_CREACION, usuario(SOLICITANTE_ID));

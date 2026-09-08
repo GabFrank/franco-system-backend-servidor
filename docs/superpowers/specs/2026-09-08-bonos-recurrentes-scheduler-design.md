@@ -104,11 +104,15 @@ auditar.
 
 ### `es_recurrente` y `frecuencia` en `rrhh.bono`
 
-Quedan en la tabla (la regla del repo prohibe `DROP`) pero cambian de
-significado: pasan a ser **marcadores de salida**. El generador los setea
-(`true` / `MENSUAL`) en los bonos que crea, con lo cual el icono `autorenew` de
-`list-bono.component.html:59` por fin dice la verdad. Se quitan de `BonoInput` y
-del dialog manual, donde eran una promesa falsa.
+Se quedan y **vuelven a ser campos de entrada**, pero ahora hacen algo: el
+toggle del dialogo los manda en `BonoInput` y `saveBono` crea, actualiza o
+desactiva la plantilla segun corresponda (ver "API GraphQL"). El generador
+tambien los setea (`true` / `MENSUAL`) en los bonos que crea, con lo cual el
+icono `autorenew` de `list-bono.component.html:59` por fin dice la verdad.
+
+En la primera version se los saco del input por decorativos. La revision
+posterior los devolvio con semantica real, que es lo que el usuario esperaba
+que hicieran desde el principio.
 
 ## Generacion
 
@@ -188,98 +192,102 @@ Se prefiere esto a que el sistema borre un pago que quizas si corresponde.
 
 ### Alta a mitad de mes
 
-`saveBonoRecurrente` termina llamando a `generarUno(id, YearMonth.now())` — la
-misma ruta que el job, no una copia. Una plantilla creada el 15/03 genera su
-bono de marzo con fecha 01/03 al instante, y el paso 4 evita el duplicado si el
-job ya lo habia hecho.
+Guardar un bono con el toggle encendido crea la plantilla y deja el bono de ese
+mes ya cargado — es el propio bono que se esta guardando, con su `periodo`
+enlazado. No hace falta esperar al job para el primer mes.
+
+Para los meses siguientes actua el job, y el chequeo de idempotencia evita el
+duplicado si la fila del periodo ya existe.
 
 ## API GraphQL
 
+**Revision 2026-09-08 (post-demo).** La primera version exponia las plantillas
+como entidad propia (`bonosRecurrentesPage`, `saveBonoRecurrente`,
+`cambiarEstadoBonoRecurrente`) para una pantalla separada. Se descarto tras
+probarla: tener dos pantallas, una de bonos y otra de recurrencias, no cierra
+desde el uso. La recurrencia vuelve a ser un atributo del bono.
+
+Esa API se elimina — nunca llego a publicarse, no tiene consumidores. La tabla,
+el service de generacion y el scheduler **no cambian**: siguen siendo el motor.
+
+Lo que queda expuesto:
+
 ```graphql
-type BonoRecurrente {
-    id: ID!
-    funcionario: Funcionario
-    tipo: BonoTipo
-    monto: Float
+type Bono {
+    # ... campos existentes ...
+    esRecurrente: Boolean
     frecuencia: BonoFrecuencia
-    motivo: String
-    activo: Boolean
-    autorizadoPor: Usuario
-    creadoEn: Date
+    bonoRecurrenteId: Int      # NUEVO: de que plantilla vino, null si es manual
 }
 
-input BonoRecurrenteInput {
-    id: ID
-    funcionarioId: Int
-    tipo: BonoTipo
-    monto: Float
+input BonoInput {
+    # ... campos existentes ...
+    esRecurrente: Boolean      # dejan de ser deprecados: vuelven a usarse
     frecuencia: BonoFrecuencia
-    motivo: String
-    activo: Boolean
-    autorizadoPorId: Int
-    usuarioId: Int
 }
 ```
 
-| Operacion | Permiso |
+Un formulario, una mutation: `saveBono` resuelve todo del lado del servidor, en
+una sola transaccion.
+
+| Situacion | Efecto |
 |---|---|
-| `bonoRecurrente(id)` | `requireVer()` |
-| `bonosRecurrentesPage(page, size, funcionarioId, activo)` | `requireVer()` |
-| `saveBonoRecurrente(input)` | `requireAnyRole(GESTIONAR)` |
-| `cambiarEstadoBonoRecurrente(id, activo)` | `requireAnyRole(GESTIONAR)` |
+| `esRecurrente=true`, el bono no tiene plantilla | Crea la plantilla desde los datos del bono y enlaza `bono.bonoRecurrenteId` |
+| `esRecurrente=true`, el bono ya tiene plantilla | Actualiza bono **y** plantilla: monto, tipo, motivo, frecuencia; `activo=true` |
+| `esRecurrente=false`, el bono tiene plantilla | Desactiva la plantilla (`activo=false`). **El bono del mes se queda** |
+| `esRecurrente=false`, sin plantilla | Bono manual de siempre |
 
-`BonoRecurrentePage` sigue el formato de paginacion estandar del repo
-(`getTotalPages`, `getContent`, `getPageable`, ...) y el filtrado va en el
-backend, como `bonosPage`.
+### Alcance de una edicion: de este mes en adelante
 
-No hay mutation de borrado: el toggle `activo` es la salida elegida, y borrar la
-plantilla dejaria bonos generados apuntando a una FK muerta.
+Editar el monto de un bono recurrente cambia **ese bono y la plantilla**, y por
+lo tanto vale para ese mes y los siguientes.
+
+**Los meses anteriores no se tocan.** Cada mes es una fila propia con su
+`periodo`; la plantilla solo interviene cuando el job **crea** una fila que no
+existe, y el job unicamente mira el mes corriente
+(`generarPeriodo(YearMonth.now())`). Una fila de agosto ya existe, asi que
+ninguna corrida futura la revisa.
+
+Editar 150.000 -> 200.000 en septiembre:
+
+| Mes | Queda en | Por que |
+|---|---|---|
+| Julio, Agosto | 150.000 | Filas existentes; el job no vuelve sobre meses pasados |
+| Septiembre | 200.000 | Es la fila editada |
+| Octubre en adelante | 200.000 | Las genera el job con el monto nuevo de la plantilla |
+
+Es deliberado: cambiar hacia atras un mes ya pagado seria reescribir un recibo
+ya cobrado.
+
+### Guarda: no se edita un bono liquidado
+
+Si el bono tiene `liquidacionId`, `saveBono` rechaza la edicion. Hasta ahora los
+bonos no se editaban desde la UI y la guarda no hacia falta; al habilitar la
+edicion, sin ella se podria modificar un pago ya hecho.
 
 ## Frontend
 
-Pantalla nueva, hermana de la de bonos:
+**Una sola pantalla: RRHH -> Bonos.** No hay pantalla de plantillas; el item
+"Bonos recurrentes" del menu y los componentes de
+`src/app/modules/rrhh/bono-recurrente/` se eliminan.
 
-```
-src/app/modules/rrhh/bono-recurrente/
-    bono-recurrente.model.ts
-    bono-recurrente.service.ts
-    graphql/graphql-query.ts
-    graphql/BonosRecurrentesPage.ts
-    graphql/SaveBonoRecurrente.ts
-    graphql/CambiarEstadoBonoRecurrente.ts
-    list-bono-recurrente/
-    edit-bono-recurrente-dialog/
-```
+El dialogo de bono recupera el toggle "Recurrente" y el select "Frecuencia", y
+pasa a servir para crear **y editar**. La grilla suma "Editar" al menu de tres
+puntos de cada fila, que abre ese mismo dialogo completo — no una accion
+acotada a la recurrencia.
 
-Un `graphql-query.ts` por modelo y una clase service Apollo por operacion, que
-es la convencion del repo. Se declara en `rrhh.module.ts` y se cuelga del menu
-en `side-mini-variant.component.ts` junto al item existente, con
-`openTabIfAuthorized(ROLES.RRHH_VER, ListBonoRecurrenteComponent, "Bonos recurrentes")`.
+Apagar el toggle ahi mismo termina la recurrencia. Cambiar la frecuencia se
+hace en el mismo lugar. El bono ya generado del mes sobrevive a las dos cosas.
 
-Grilla: funcionario, tipo, monto, frecuencia, slide-toggle de `activo`, fecha de
-alta. Dialog: el mismo formulario que el de bono manual menos la fecha (la
-define el periodo) y con `frecuencia` fija en MENSUAL — el enum tiene cinco
-valores pero solo uno genera, y ofrecer los otros repetiria la mentira que se
-esta corrigiendo.
+**El select de Frecuencia ofrece solo `MENSUAL`**, que es la unica que el
+generador implementa. Ofrecer las cinco del enum repetiria la mentira que esta
+feature vino a eliminar, solo que escondida en un lugar mas creible. Las demas
+se agregan al select cuando se implementen.
 
-Quitar `esRecurrente` y `frecuencia` de `BonoInput` no rompe otros clientes:
-`frc-mobile-pwa` y `frc-mobile` no referencian `BonoInput`, `saveBono` ni
-`esRecurrente` (verificado por grep sobre ambos `src/`). El unico consumidor es
-el desktop.
+La columna "Recurrente" de la grilla sigue mostrando el icono `autorenew`, que
+ahora es verdadero: lo setea el generador y refleja que el bono vino de una
+plantilla.
 
-Cambio en la pantalla existente: se quitan el toggle "Recurrente" y el select de
-frecuencia de `edit-bono-dialog.component.html:33-36`, y los campos
-correspondientes de `BonoInput`. Un bono generado sigue siendo editable y
-anulable como cualquier otro, y `saveBono` conserva `periodo`,
-`bonoRecurrenteId` y `esRecurrente` al editar, asi que la idempotencia
-sobrevive aunque se cambie la `fecha`.
-
-**Salvedad:** hoy la pantalla de Bonos **no ofrece editar** — `list-bono` solo
-tiene Anular e Imprimir recibo, y `EditBonoDialogComponent` nunca setea el id,
-asi que solo puede crear. Es una carencia pre-existente, no de esta rama, pero
-significa que el remedio real para un mes con monto distinto es anular el bono
-generado y cargar uno manual, lo que pierde la trazabilidad hacia la plantilla.
-Habilitar la edicion es trabajo aparte.
 
 ## Testing
 
@@ -355,9 +363,11 @@ el fin del mes.
   mitad de mes.
 - Guarda contra generar hacia un periodo ya liquidado (ver "Limitacion
   conocida" mas arriba).
-- Edicion de un bono ya generado desde la pantalla de Bonos.
 - Restriccion que impida dos plantillas identicas para el mismo funcionario y
   tipo.
+- Editar un bono ya liquidado (queda bloqueado a proposito).
+- Un monto distinto para un solo mes sin cambiar los siguientes: se decidio
+  "un monto, una verdad", asi que el dialogo edita bono y plantilla juntos.
 
 ## Verificacion pre-push
 

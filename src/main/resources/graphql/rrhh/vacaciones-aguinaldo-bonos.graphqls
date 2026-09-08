@@ -106,6 +106,8 @@ type Bono {
     bonoRecurrenteId: Int
     autorizadoPor: Usuario
     creadoEn: Date
+    editable: Boolean
+    motivoNoEditable: String
 }
 
 input BonoInput {

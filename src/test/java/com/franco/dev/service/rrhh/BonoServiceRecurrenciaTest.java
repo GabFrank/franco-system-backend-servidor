@@ -7,6 +7,7 @@ import com.franco.dev.domain.rrhh.enums.BonoFrecuencia;
 import com.franco.dev.domain.rrhh.enums.BonoTipo;
 import com.franco.dev.repository.rrhh.BonoRecurrenteRepository;
 import com.franco.dev.repository.rrhh.BonoRepository;
+import com.franco.dev.repository.rrhh.LiquidacionItemRepository;
 import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,10 +15,12 @@ import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /**
@@ -29,19 +32,22 @@ class BonoServiceRecurrenciaTest {
 
     private BonoRepository repository;
     private BonoRecurrenteRepository plantillaRepository;
+    private LiquidacionItemRepository liquidacionItemRepository;
     private BonoService service;
 
     @BeforeEach
     void setUp() {
         repository = mock(BonoRepository.class);
         plantillaRepository = mock(BonoRecurrenteRepository.class);
-        service = new BonoService(repository, plantillaRepository);
+        liquidacionItemRepository = mock(LiquidacionItemRepository.class);
+        service = new BonoService(repository, plantillaRepository, liquidacionItemRepository);
         when(repository.save(any(Bono.class))).thenAnswer(i -> i.getArgument(0));
         when(plantillaRepository.save(any(BonoRecurrente.class))).thenAnswer(i -> {
             BonoRecurrente p = i.getArgument(0);
             if (p.getId() == null) p.setId(77L);
             return p;
         });
+        when(liquidacionItemRepository.existeEnLiquidacionCerrada(anyLong())).thenReturn(false);
     }
 
     private Bono bono(Long id, Long plantillaId) {
@@ -52,7 +58,7 @@ class BonoServiceRecurrenciaTest {
         b.setFuncionario(f);
         b.setTipo(BonoTipo.PRODUCTIVIDAD);
         b.setMonto(new BigDecimal("150000"));
-        b.setFecha(LocalDate.of(2026, 9, 8));
+        b.setFecha(YearMonth.now().atDay(8));
         b.setMotivo("TRANSPORTE");
         b.setBonoRecurrenteId(plantillaId);
         return b;
@@ -72,7 +78,7 @@ class BonoServiceRecurrenciaTest {
         assertEquals(Boolean.TRUE, p.getActivo());
 
         assertEquals(77L, guardado.getBonoRecurrenteId());
-        assertEquals("2026-09", guardado.getPeriodo());
+        assertEquals(YearMonth.now().toString(), guardado.getPeriodo());
         assertEquals(Boolean.TRUE, guardado.getEsRecurrente());
         assertEquals(BonoFrecuencia.MENSUAL, guardado.getFrecuencia());
     }
@@ -149,5 +155,58 @@ class BonoServiceRecurrenciaTest {
         assertThrows(GraphQLException.class,
                 () -> service.saveConRecurrencia(bono(5L, null), false, null));
         verify(repository, never()).save(any(Bono.class));
+    }
+
+    @Test
+    void noSePuedeEditarUnBonoIncluidoEnUnaLiquidacionCerrada() {
+        Bono previo = bono(5L, null);
+        when(repository.findById(5L)).thenReturn(Optional.of(previo));
+        when(liquidacionItemRepository.existeEnLiquidacionCerrada(5L)).thenReturn(true);
+
+        assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(bono(5L, null), false, null));
+        verify(repository, never()).save(any(Bono.class));
+    }
+
+    @Test
+    void noSePuedeEditarUnBonoDeUnPeriodoAnterior() {
+        Bono previo = bono(5L, null);
+        previo.setFecha(YearMonth.now().minusMonths(1).atDay(8));
+        when(repository.findById(5L)).thenReturn(Optional.of(previo));
+
+        assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(bono(5L, null), false, null));
+        verify(repository, never()).save(any(Bono.class));
+    }
+
+    @Test
+    void unBonoRecurrenteNoPuedeCambiarDeMes() {
+        Bono previo = bono(5L, 77L);
+        previo.setPeriodo(YearMonth.now().toString());
+        when(repository.findById(5L)).thenReturn(Optional.of(previo));
+
+        Bono editado = bono(5L, 77L);
+        editado.setPeriodo(YearMonth.now().toString());
+        editado.setFecha(YearMonth.now().plusMonths(1).atDay(15));
+
+        assertThrows(GraphQLException.class,
+                () -> service.saveConRecurrencia(editado, true, BonoFrecuencia.MENSUAL));
+        verify(repository, never()).save(any(Bono.class));
+    }
+
+    @Test
+    void seGuardaNormalmenteUnBonoDelMesCorrienteNoLiquidadoNiEnLiquidacionCerrada() {
+        Bono previo = bono(5L, null);
+        when(repository.findById(5L)).thenReturn(Optional.of(previo));
+
+        Bono guardado = service.saveConRecurrencia(bono(5L, null), false, null);
+
+        assertNotNull(guardado);
+        verify(repository).save(any(Bono.class));
+    }
+
+    @Test
+    void motivoNoEditableEsNuloParaUnBonoNuevo() {
+        assertNull(service.motivoNoEditable(bono(null, null)));
     }
 }

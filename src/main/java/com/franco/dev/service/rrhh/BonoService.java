@@ -6,6 +6,7 @@ import com.franco.dev.domain.rrhh.enums.BonoFrecuencia;
 import com.franco.dev.domain.rrhh.enums.BonoTipo;
 import com.franco.dev.repository.rrhh.BonoRecurrenteRepository;
 import com.franco.dev.repository.rrhh.BonoRepository;
+import com.franco.dev.repository.rrhh.LiquidacionItemRepository;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import org.springframework.data.domain.Page;
@@ -25,10 +26,13 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
 
     private final BonoRepository repository;
     private final BonoRecurrenteRepository plantillaRepository;
+    private final LiquidacionItemRepository liquidacionItemRepository;
 
-    public BonoService(BonoRepository repository, BonoRecurrenteRepository plantillaRepository) {
+    public BonoService(BonoRepository repository, BonoRecurrenteRepository plantillaRepository,
+                        LiquidacionItemRepository liquidacionItemRepository) {
         this.repository = repository;
         this.plantillaRepository = plantillaRepository;
+        this.liquidacionItemRepository = liquidacionItemRepository;
     }
 
     @Override
@@ -77,8 +81,15 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
     public Bono saveConRecurrencia(Bono entity, Boolean esRecurrente, BonoFrecuencia frecuencia) {
         if (entity.getId() != null) {
             Bono previo = repository.findById(entity.getId()).orElse(null);
-            if (previo != null && previo.getLiquidacionId() != null) {
-                throw new GraphQLException("No se puede editar un bono ya liquidado");
+            String motivo = motivoNoEditable(previo);
+            if (motivo != null) {
+                throw new GraphQLException(motivo);
+            }
+            if (previo != null && previo.getPeriodo() != null && entity.getFecha() != null) {
+                YearMonth periodoPrevio = YearMonth.parse(previo.getPeriodo());
+                if (!periodoPrevio.equals(YearMonth.from(entity.getFecha()))) {
+                    throw new GraphQLException("Un bono recurrente no puede cambiar de mes.");
+                }
             }
         }
 
@@ -119,5 +130,36 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
         }
 
         return save(entity);
+    }
+
+    /**
+     * Motivo por el que este bono no se puede editar, o null si se puede.
+     *
+     * Es la unica fuente de verdad: la usa saveConRecurrencia para rechazar, y
+     * BonoResolver para que la pantalla abra el dialogo en solo lectura en vez de
+     * ofrecer una accion que el backend va a rechazar.
+     */
+    public String motivoNoEditable(Bono b) {
+        if (b == null || b.getId() == null) return null;
+
+        if (b.getLiquidacionId() != null) {
+            return "Este bono ya fue liquidado y pagado.";
+        }
+
+        if (liquidacionItemRepository.existeEnLiquidacionCerrada(b.getId())) {
+            return "Este bono esta incluido en una liquidacion ya aprobada.";
+        }
+
+        YearMonth mes = null;
+        if (b.getPeriodo() != null) {
+            mes = YearMonth.parse(b.getPeriodo());
+        } else if (b.getFecha() != null) {
+            mes = YearMonth.from(b.getFecha());
+        }
+        if (mes != null && mes.isBefore(YearMonth.now())) {
+            return "Este bono es de un periodo anterior. Solo se edita el bono del mes corriente.";
+        }
+
+        return null;
     }
 }

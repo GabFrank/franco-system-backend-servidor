@@ -27,7 +27,7 @@
 
 ---
 
-### Task R1: `saveBono` maneja la recurrencia
+### Task 1: `saveBono` maneja la recurrencia
 
 **Files:**
 - Modify: `src/main/java/com/franco/dev/service/rrhh/BonoService.java`
@@ -323,7 +323,7 @@ git commit -m "feat(rrhh): el toggle de recurrencia del bono crea y apaga su pla
 
 ---
 
-### Task R2: Borrar la API de la pantalla de plantillas
+### Task 2: Borrar la API de la pantalla de plantillas
 
 Nunca se publico y se queda sin consumidores. El motor no se toca.
 
@@ -342,7 +342,7 @@ Run:
 ```bash
 grep -rn "bonosRecurrentesPage\|saveBonoRecurrente\|cambiarEstadoBonoRecurrente\|BonoRecurrentePage\|BonoRecurrenteInput" src/ ../../frontend/frc-sistemas-integrados-angular/src ../../frontend/frc-mobile-pwa/src 2>/dev/null
 ```
-Expected: solo los tres archivos a borrar, y los del frontend que la Task R4 elimina. Si aparece algo mas, **frenar** y avisar.
+Expected: solo los tres archivos a borrar, y los del frontend que la Task 4 elimina. Si aparece algo mas, **frenar** y avisar.
 
 - [ ] **Step 2: Borrar los tres archivos**
 
@@ -367,7 +367,7 @@ git commit -m "refactor(rrhh): borrar la api graphql de la pantalla de plantilla
 
 ---
 
-### Task R3: Dialogo de bono con recurrencia y modo edicion (desktop)
+### Task 3: Dialogo de bono con recurrencia y modo edicion (desktop)
 
 **Files:**
 - Modify: `src/app/modules/rrhh/bono/bono.model.ts`
@@ -376,7 +376,7 @@ git commit -m "refactor(rrhh): borrar la api graphql de la pantalla de plantilla
 - Modify: `src/app/modules/rrhh/bono/edit-bono-dialog/edit-bono-dialog.component.html`
 
 **Interfaces:**
-- Consumes: `saveBono` con `esRecurrente`/`frecuencia` (Task R1), `bonoRecurrenteId` en `type Bono` (Task R1).
+- Consumes: `saveBono` con `esRecurrente`/`frecuencia` (Task 1), `bonoRecurrenteId` en `type Bono` (Task 1).
 - Produces: `BonoDialogData` pasa a `{ funcionarioId: number; bono: Bono }`. El dialogo crea y edita.
 
 - [ ] **Step 1: Modelo — restaurar los campos en `toInput()` y sumar la trazabilidad**
@@ -550,7 +550,7 @@ git commit -m "feat(rrhh): el dialogo de bono maneja la recurrencia y permite ed
 
 ---
 
-### Task R4: Accion Editar en la grilla y borrar la pantalla de plantillas (desktop)
+### Task 4: Accion Editar en la grilla y borrar la pantalla de plantillas (desktop)
 
 **Files:**
 - Modify: `src/app/modules/rrhh/bono/list-bono/list-bono.component.ts`
@@ -560,7 +560,7 @@ git commit -m "feat(rrhh): el dialogo de bono maneja la recurrencia y permite ed
 - Delete: `src/app/modules/rrhh/bono-recurrente/` (el directorio completo)
 
 **Interfaces:**
-- Consumes: `EditBonoDialogComponent` con `BonoDialogData { funcionarioId, bono }` (Task R3).
+- Consumes: `EditBonoDialogComponent` con `BonoDialogData { funcionarioId, bono }` (Task 3).
 - Produces: nada.
 
 - [ ] **Step 1: Grilla (TS) — accion Editar y el `data` nuevo**
@@ -629,7 +629,7 @@ git commit -m "feat(rrhh): editar bonos desde la grilla y quitar la pantalla de 
 
 ---
 
-### Task R5: Verificacion integral
+### Task 5: Verificacion integral
 
 Sin codigo nuevo. Lo ejecuta el controller, no un subagente: termina en el gate del usuario.
 

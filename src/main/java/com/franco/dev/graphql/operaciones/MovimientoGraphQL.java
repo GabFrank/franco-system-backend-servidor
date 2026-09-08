@@ -3,6 +3,7 @@ package com.franco.dev.graphql.operaciones;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.operaciones.dto.CantidadSugeridaPorSucursalDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.domain.personas.Usuario;
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -78,6 +80,26 @@ public class MovimientoGraphQL implements GraphQLQueryResolver, GraphQLMutationR
             return null;
         return service.findMovimientoStockWithFilters(stringToDate(inicio), stringToDate(fin), sucursalList, productoId,
                 tipoMovimientoList, usuarioId, pageable);
+    }
+
+    /**
+     * Insumos de la cantidad sugerida para todas las sucursales pedidas, en UN request.
+     *
+     * El diálogo de ítem de compra pedia esto con dos consultas encadenadas por sucursal
+     * —{@code findMovimientoStockByFilters} con {@code size: 1000}, primero compras y en su
+     * respuesta ventas—, escalonadas con {@code setTimeout}. Con 10 distribuciones eran 20 idas y
+     * vueltas y decenas de miles de filas para terminar en cuatro numeros por sucursal.
+     *
+     * Devuelve solo las sucursales con movimientos en el rango; el cliente muestra el resto en
+     * cero, igual que hace con {@code stockPorSucursales}.
+     */
+    public List<CantidadSugeridaPorSucursalDto> cantidadSugeridaPorSucursales(Long productoId,
+            String inicio, String fin, List<Long> sucursalList) {
+        if (productoId == null || inicio == null || fin == null) {
+            return new ArrayList<>();
+        }
+        return service.cantidadSugeridaPorSucursales(productoId, stringToDate(inicio), stringToDate(fin),
+                sucursalList);
     }
 
     public Optional<MovimientoStock> movimientoStock(Long id, Long sucId) {

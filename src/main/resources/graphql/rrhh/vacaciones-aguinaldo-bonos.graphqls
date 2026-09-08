@@ -114,8 +114,6 @@ input BonoInput {
     monto: Float
     fecha: String
     motivo: String
-    esRecurrente: Boolean
-    frecuencia: BonoFrecuencia
     autorizadoPorId: Int
     usuarioId: Int
 }

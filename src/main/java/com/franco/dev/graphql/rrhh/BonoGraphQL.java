@@ -64,8 +64,6 @@ public class BonoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         if (input.getFecha() != null && stringToDate(input.getFecha()) != null)
             e.setFecha(stringToDate(input.getFecha()).toLocalDate());
         e.setMotivo(input.getMotivo());
-        if (input.getEsRecurrente() != null) e.setEsRecurrente(input.getEsRecurrente());
-        e.setFrecuencia(input.getFrecuencia());
         if (input.getAutorizadoPorId() != null)
             e.setAutorizadoPor(usuarioService.findById(input.getAutorizadoPorId()).orElse(null));
         if (input.getUsuarioId() != null)

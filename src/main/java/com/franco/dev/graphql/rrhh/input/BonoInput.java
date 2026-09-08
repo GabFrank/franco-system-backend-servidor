@@ -1,6 +1,5 @@
 package com.franco.dev.graphql.rrhh.input;
 
-import com.franco.dev.domain.rrhh.enums.BonoFrecuencia;
 import com.franco.dev.domain.rrhh.enums.BonoTipo;
 import lombok.Data;
 
@@ -14,8 +13,6 @@ public class BonoInput {
     private BigDecimal monto;
     private String fecha;
     private String motivo;
-    private Boolean esRecurrente;
-    private BonoFrecuencia frecuencia;
     private Long autorizadoPorId;
     private Long usuarioId;
 }

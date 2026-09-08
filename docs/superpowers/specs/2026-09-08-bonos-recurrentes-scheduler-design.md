@@ -366,6 +366,11 @@ el fin del mes.
 - Restriccion que impida dos plantillas identicas para el mismo funcionario y
   tipo.
 - Editar un bono ya liquidado (queda bloqueado a proposito).
+- Que el finiquito pague los bonos pendientes de un funcionario que egresa.
+  La plantilla si deja de generar sola (el generador exige funcionario activo),
+  pero un bono ya generado y sin liquidar no lo paga ni el finiquito ni la
+  generacion masiva de liquidaciones, que saltea a los inactivos. Es una
+  carencia pre-existente que esta feature hace mas probable. Ver issue #276.
 - Un monto distinto para un solo mes sin cambiar los siguientes: se decidio
   "un monto, una verdad", asi que el dialogo edita bono y plantilla juntos.
 

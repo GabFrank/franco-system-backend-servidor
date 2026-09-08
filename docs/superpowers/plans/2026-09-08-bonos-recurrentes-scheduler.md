@@ -14,7 +14,7 @@
 
 - Repos: central `franco-system-backend-servidor`, desktop `frc-sistemas-integrados-angular`. Misma rama en ambos: `feat/rrhh-bonos-recurrentes`, salida de `origin/develop` recien fetcheada.
 - Migracion Flyway: **solo `ADD COLUMN` / `CREATE TABLE` / `CREATE INDEX`**. Prohibido `DROP`, `RENAME` y cambio de tipo (CLAUDE.md del backend).
-- Numeracion Flyway: siguiente entero libre despues de `V216.5` (o sea `V217.0`), **re-verificado despues de cualquier rebase sobre `origin/develop`**. Invocar el skill `flyway-migraciones-frc` antes de crear el archivo.
+- Numeracion Flyway: **siguiente entero, siempre con sufijo `.1`** (nunca `.0`, y nunca incrementar el decimal sobre un mismo entero). El mayor en `origin/develop` al escribir este plan es `V219.5`, asi que la nuestra es `V220.1`. **Re-verificar despues de cualquier rebase sobre `origin/develop`**. Invocar el skill `flyway-migraciones-frc` antes de crear el archivo.
 - Tipos de commit permitidos: `feat`, `fix`, `refactor`, `docs`, `chore`. Nunca `style`, `test`, `perf` ni `ci`.
 - Frecuencia soportada por el generador: **solo `MENSUAL`**. Las otras cuatro del enum `BonoFrecuencia` quedan sin generacion automatica.
 - Formato de `periodo`: string `"YYYY-MM"` (`YearMonth.toString()`).
@@ -28,7 +28,7 @@
 ### Task 1: Migracion, entity y repositorios
 
 **Files:**
-- Create: `src/main/resources/db/migration/V217.0__rrhh_bono_recurrente.sql`
+- Create: `src/main/resources/db/migration/V220.1__rrhh_bono_recurrente.sql`
 - Create: `src/main/java/com/franco/dev/domain/rrhh/BonoRecurrente.java`
 - Create: `src/main/java/com/franco/dev/repository/rrhh/BonoRecurrenteRepository.java`
 - Modify: `src/main/java/com/franco/dev/domain/rrhh/Bono.java` (agregar 2 campos despues de `liquidacionId`)
@@ -45,15 +45,21 @@
 
 - [ ] **Step 1: Confirmar el numero de migracion libre**
 
+Mirar `origin/develop`, **no el working tree**: la rama local puede estar atrasada y el numero elegido quedaria pisado.
+
 Run:
 ```bash
-ls src/main/resources/db/migration | sed 's/__.*//' | sed 's/^V//' | sort -t. -k1,1n -k2,2n | tail -3
+git fetch origin develop -q
+git ls-tree -r --name-only origin/develop src/main/resources/db/migration \
+  | sed 's|.*/V||;s|__.*||' | sort -t. -k1,1n -k2,2n | tail -3
 ```
-Expected: la ultima es `216.5`. Si aparece un numero >= 217, usar el siguiente entero libre y ajustar el nombre del archivo en todos los pasos siguientes.
+Expected: la mayor es `219.5`, asi que la nuestra es `V220.1` — siguiente entero, sufijo `.1`.
+
+Si develop avanzo, tomar el entero siguiente al mayor **ignorando el decimal** y ajustar el nombre del archivo en todos los pasos siguientes. No incrementar el decimal: si la mayor es `V220.3`, la proxima es `V221.1`, nunca `V220.4`.
 
 - [ ] **Step 2: Crear la migracion**
 
-`src/main/resources/db/migration/V217.0__rrhh_bono_recurrente.sql`:
+`src/main/resources/db/migration/V220.1__rrhh_bono_recurrente.sql`:
 
 ```sql
 -- Plantilla de bono recurrente. El bono real sigue viviendo en rrhh.bono;
@@ -232,7 +238,7 @@ Expected: termina sin errores. Si falla por `AssignedIdentityGenerator` o por el
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/main/resources/db/migration/V217.0__rrhh_bono_recurrente.sql \
+git add src/main/resources/db/migration/V220.1__rrhh_bono_recurrente.sql \
         src/main/java/com/franco/dev/domain/rrhh/BonoRecurrente.java \
         src/main/java/com/franco/dev/domain/rrhh/Bono.java \
         src/main/java/com/franco/dev/repository/rrhh/BonoRecurrenteRepository.java \
@@ -1663,9 +1669,17 @@ Expected: sin errores de compilacion.
 cd backend/franco-system-backend-servidor
 git fetch origin develop -q
 git log --oneline HEAD..origin/develop     # tiene que salir vacio
-ls src/main/resources/db/migration | grep -c "^V217\."   # tiene que dar 1
+
+# el mayor de develop AHORA
+git ls-tree -r --name-only origin/develop src/main/resources/db/migration \
+  | sed 's|.*/V||;s|__.*||' | sort -t. -k1,1n -k2,2n | tail -1
+
+# el nuestro
+git diff --name-only origin/develop..HEAD -- src/main/resources/db/migration
 ```
-Si `develop` avanzo y trajo una migracion `V217.x`, **renombrar la nuestra al siguiente entero libre antes de pushear** (invocar el skill `flyway-migraciones-frc`). Repetir el mismo chequeo en el repo del desktop para la base de la rama.
+El entero de nuestra migracion tiene que ser **estrictamente mayor** que el de develop. Si no lo es, o si quedo duplicada, `git mv` al siguiente entero con sufijo `.1` y commitear el rename **antes de pushear**.
+
+Renumerar antes de pushear es barato; despues de que se aplico en un entorno, no. Si el numero cambia, **avisarle al usuario**: es el numero que va a ver en el PR, y si ya probo en alpha con el numero viejo, esa base quedo con el anterior en su `flyway_schema_history`.
 
 - [ ] **Step 4: Levantar el entorno**
 
@@ -1683,7 +1697,7 @@ cd frontend/frc-sistemas-integrados-angular
 npm start
 ```
 
-Confirmar en el log del central `Started FrancoSystemsApplication`. Flyway **si** va a aplicar `V217.0` sobre la base del usuario: avisarselo explicitamente, no darlo por sentado.
+Confirmar en el log del central `Started FrancoSystemsApplication`. Flyway **si** va a aplicar `V220.1` sobre la base del usuario: avisarselo explicitamente, no darlo por sentado.
 
 - [ ] **Step 5: Guion de prueba para el usuario**
 

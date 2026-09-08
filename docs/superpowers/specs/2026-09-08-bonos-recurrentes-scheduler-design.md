@@ -52,7 +52,8 @@ periodos ya liquidados.
 
 ## Modelo de datos
 
-Migracion Flyway: siguiente entero libre despues de `V216.5`. Confirmar el
+Migracion Flyway: siguiente entero con sufijo `.1` (nunca `.0`). El mayor en
+`origin/develop` es `V219.5`, asi que la nuestra es `V220.1`. Confirmar el
 numero con el skill `flyway-migraciones-frc` al momento de crear el archivo, y
 re-verificarlo despues de rebasar sobre `origin/develop`.
 

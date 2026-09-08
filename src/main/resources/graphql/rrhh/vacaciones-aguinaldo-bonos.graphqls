@@ -103,6 +103,7 @@ type Bono {
     frecuencia: BonoFrecuencia
     anulado: Boolean
     liquidacionId: Int
+    bonoRecurrenteId: Int
     autorizadoPor: Usuario
     creadoEn: Date
 }
@@ -116,9 +117,6 @@ input BonoInput {
     motivo: String
     autorizadoPorId: Int
     usuarioId: Int
-    # Deprecados: se aceptan por compatibilidad con desktops sin actualizar
-    # que todavia los envian, pero el backend los ignora (ver BonoGraphQL.saveBono).
-    # Eliminar recien cuando todos los clientes esten actualizados.
     esRecurrente: Boolean
     frecuencia: BonoFrecuencia
 }

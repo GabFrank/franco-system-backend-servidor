@@ -68,7 +68,7 @@ public class BonoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
             e.setAutorizadoPor(usuarioService.findById(input.getAutorizadoPorId()).orElse(null));
         if (input.getUsuarioId() != null)
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        return service.save(e);
+        return service.saveConRecurrencia(e, input.getEsRecurrente(), input.getFrecuencia());
     }
 
     public Bono anularBono(Long id) {

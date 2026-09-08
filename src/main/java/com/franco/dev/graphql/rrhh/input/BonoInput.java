@@ -16,9 +16,6 @@ public class BonoInput {
     private String motivo;
     private Long autorizadoPorId;
     private Long usuarioId;
-    // Deprecados: se aceptan por compatibilidad con desktops sin actualizar
-    // que todavia los envian, pero el backend los ignora (ver BonoGraphQL.saveBono).
-    // Eliminar recien cuando todos los clientes esten actualizados.
     private Boolean esRecurrente;
     private BonoFrecuencia frecuencia;
 }

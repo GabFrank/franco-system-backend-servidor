@@ -116,6 +116,11 @@ input BonoInput {
     motivo: String
     autorizadoPorId: Int
     usuarioId: Int
+    # Deprecados: se aceptan por compatibilidad con desktops sin actualizar
+    # que todavia los envian, pero el backend los ignora (ver BonoGraphQL.saveBono).
+    # Eliminar recien cuando todos los clientes esten actualizados.
+    esRecurrente: Boolean
+    frecuencia: BonoFrecuencia
 }
 
 type VacacionPage {

@@ -9,6 +9,8 @@ import com.franco.dev.service.rrhh.RrhhSecurityService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,6 +21,8 @@ import java.util.Optional;
 
 @Component
 public class BonoRecurrenteGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(BonoRecurrenteGraphQL.class);
 
     @Autowired
     private BonoRecurrenteService service;
@@ -65,7 +69,21 @@ public class BonoRecurrenteGraphQL implements GraphQLQueryResolver, GraphQLMutat
         // Alta a mitad de mes: se genera el bono del mes corriente por la misma
         // ruta que usa el job, no por una copia. Si el job ya lo genero, el
         // chequeo de idempotencia de generarUno() lo deja pasar sin duplicar.
-        service.generarUno(guardado.getId(), YearMonth.now());
+        //
+        // service.save() ya hizo commit en su propia transaccion; generarUno()
+        // corre en una transaccion separada y puede chocar con el job de las 06:30
+        // generando el mismo periodo (DataIntegrityViolationException por el indice
+        // unico). Si eso pasa, la plantilla ya quedo guardada de todas formas: no
+        // podemos dejar que la excepcion se propague, porque el dialogo del desktop
+        // solo cierra con exito y el usuario reintentaria Guardar, duplicando la
+        // plantilla (y el bono, todos los meses). El job de esta noche genera el
+        // mes igual si esta corrida no lo logro.
+        try {
+            service.generarUno(guardado.getId(), YearMonth.now());
+        } catch (Exception ex) {
+            LOGGER.error("BonoRecurrenteGraphQL: error generando bono de la plantilla {} para {}",
+                    guardado.getId(), YearMonth.now(), ex);
+        }
 
         return guardado;
     }

@@ -270,8 +270,16 @@ el desktop.
 Cambio en la pantalla existente: se quitan el toggle "Recurrente" y el select de
 frecuencia de `edit-bono-dialog.component.html:33-36`, y los campos
 correspondientes de `BonoInput`. Un bono generado sigue siendo editable y
-anulable como cualquier otro; si el monto de un mes es distinto, RRHH lo toca
-ahi y la plantilla no se entera.
+anulable como cualquier otro, y `saveBono` conserva `periodo`,
+`bonoRecurrenteId` y `esRecurrente` al editar, asi que la idempotencia
+sobrevive aunque se cambie la `fecha`.
+
+**Salvedad:** hoy la pantalla de Bonos **no ofrece editar** — `list-bono` solo
+tiene Anular e Imprimir recibo, y `EditBonoDialogComponent` nunca setea el id,
+asi que solo puede crear. Es una carencia pre-existente, no de esta rama, pero
+significa que el remedio real para un mes con monto distinto es anular el bono
+generado y cargar uno manual, lo que pierde la trazabilidad hacia la plantilla.
+Habilitar la edicion es trabajo aparte.
 
 ## Testing
 
@@ -319,6 +327,23 @@ olvido en el schema nuevo.
 dias seguidos; queda visible solo en el log del backend. Se puede colgar de
 `RrhhNotificacionScheduler` (que ya existe) en una version posterior.
 
+### Limitacion conocida: bono generado hacia un periodo ya liquidado
+
+El punto 3 de arriba dice que el job "se auto-repara". Eso vale mientras el
+periodo siga abierto. Si la liquidacion del mes ya esta APROBADA o PAGADA,
+`LiquidacionSueldoService.generarBorrador` no la regenera, y un bono con
+`fecha` = dia 1 de ese mes **no lo paga ningun periodo**: queda visible en la
+grilla, sin liquidar, y hay que cargarlo a mano en el periodo siguiente.
+
+Se da en dos casos: la plantilla se crea despues de aprobada la liquidacion del
+mes, o el backend estuvo caido y el job recupera despues de esa aprobacion.
+
+No se resuelve en esta version porque el arreglo exige una decision de negocio
+—saltear ese periodo, o correr el bono al siguiente— y las dos mueven plata.
+Con `DIA_CIERRE_MES` en su default (31) el periodo es el mes calendario, asi
+que la ventana de riesgo son los dias entre la aprobacion de la liquidacion y
+el fin del mes.
+
 ## Fuera de alcance de esta version
 
 - Frecuencias SEMANAL, TRIMESTRAL, SEMESTRAL y ANUAL.
@@ -328,6 +353,11 @@ dias seguidos; queda visible solo en el log del backend. Se puede colgar de
 - Notificacion a RRHH ante fallos repetidos del job.
 - Limpieza automatica de bonos ya generados cuando el funcionario egresa a
   mitad de mes.
+- Guarda contra generar hacia un periodo ya liquidado (ver "Limitacion
+  conocida" mas arriba).
+- Edicion de un bono ya generado desde la pantalla de Bonos.
+- Restriccion que impida dos plantillas identicas para el mismo funcionario y
+  tipo.
 
 ## Verificacion pre-push
 

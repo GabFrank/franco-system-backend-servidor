@@ -23,6 +23,13 @@ Cuatro formatos de proveedor distintos en las 16, dos de ellos en portugués:
 | Stone (BR) | `AUT PAG:` `R$` `STONEID:` |
 | BXX (BR) | `COD TRANS.` `DATA:` `TOTAL` `R$` |
 
+> ⚠️ **Son cinco, no cuatro** (hallado 2026-09-09). Apareció **PlugPay**, con etiquetas propias:
+> `COD.TRANS.` `DATA:` `NOMBRE:` `DOCUMENTO:` `VALOR EN DOLARES` `TOTAL PAGO` `N DOCUMENTO`.
+> Cobra a brasileños en dólares y liquida en guaraníes, así que **el ticket trae dos montos en dos
+> monedas** (`USD113.24` / `PYG661.309`) — el mapa de campos de §2.2 tiene que elegir cuál es el de
+> la venta, no tomar el primero que encuentre. 3 de 9 cupones de una muestra real eran de este
+> formato, así que no es marginal.
+
 ### Resultados
 
 | Motor | Campos extraídos | Tiempo | Dónde puede correr |
@@ -169,13 +176,11 @@ sale a internet.
 **disponibilidad**. Cuando la conexión está inestable o caída, el mostrador tiene que seguir
 funcionando.
 
-> ⚠️ **Pendiente de verificar:** el binding Java de ONNX Runtime existe y es oficial
-> (`com.microsoft.onnxruntime:onnxruntime` en Maven Central), y hay precedentes de correr PP-OCR
-> así (`pponnxcr`, `OnnxOCR`). Falta **medir** que el rendimiento en la JVM sea comparable al de
-> Python. Si lo es, el filial no necesita un servicio Python al lado — en 24 sucursales, esa
-> diferencia es enorme.
+> ✅ **Verificado el 2026-09-09 — ver §2.9.** El binding Java no sólo alcanza: es **más rápido**.
+> El filial **no necesita un servicio Python al lado**.
 >
-> Si hiciera falta más velocidad, **PP-OCRv6 con OpenVINO** rinde 1,4× a 2,7× más que PyTorch en CPU.
+> Si alguna vez hiciera falta más velocidad, **PP-OCRv6 con OpenVINO** rinde 1,4× a 2,7× más que
+> PyTorch en CPU.
 
 ### 2.2 · El mapa de diseño por POS es **híbrido**
 
@@ -343,6 +348,87 @@ descartó aparte — sin MDM no hay forma automática de hacerlo, y son teléfon
 > En la medición del 2026-09-09 **los dos** navegadores la aplicaban (`crudo=4032x3024`,
 > `bmp=3024x4032`). Igual la detección se queda: es lo que hace que la próxima versión de Safari no
 > rompa esto en silencio.
+### 2.9 · El OCR corre en Java puro, dentro del filial — medido, no supuesto
+
+Portado y medido el **2026-09-09** sobre **27 cupones de 5 formatos** (539 líneas, 289 tokens
+numéricos), contra RapidOCR en Python como referencia. Ambos lados con **ONNX Runtime 1.23.2
+exactamente**, para que la comparación no tenga excusa de versión.
+
+**Paso 1 — ¿es rápido el binding?** Se volcó el tensor ya preprocesado desde Python y se corrió
+*ese mismo tensor* en Java, aislando ORT de todo lo demás:
+
+| | Mediana | Salida |
+|---|---|---|
+| Python | 509,4 ms | referencia |
+| Java | 532,7 ms | **idéntica bit a bit** — 0 de 1.433.600 valores con diferencia > 1e-6 |
+
+Tiene sentido: es la **misma librería nativa**; el binding Java es una cáscara JNI sobre
+`libonnxruntime`. Python nunca tuvo una ventaja que perder.
+
+**Paso 2 — el pipeline completo en Java puro**, ~750 líneas, sin OpenCV: carga de imagen en BGR,
+resize bilineal, post-proceso DB (dilatación, componentes conexas, envolvente convexa, rectángulo
+de área mínima, *unclip*), recorte con homografía, clasificador de ángulo, reconocimiento por lotes
+y decodificación CTC.
+
+| | Lote 1 (18 img) | Lote 2 (9 img, difíciles) |
+|---|---|---|
+| Velocidad contra Python | **−23%** | **−21%** |
+| Líneas idénticas | 87,0% | 84,1% |
+| Líneas ignorando espacios | 93,7% | 88,4% |
+| **Tokens numéricos coincidentes** | **93,1% / 94,1%** | **94,1% / 96,0%** |
+
+En los 9 cupones difíciles —fotos ajenas, comprimidas por WhatsApp, en ángulo, con dedos y
+reflejos— **`MONTO`, `BOLETA` y `C.AUT` coincidieron en los 9**. Los desacuerdos cayeron en `Caja`,
+`Lote` y un CPF brasileño.
+
+**Ventajas operativas que decidieron la elección:**
+
+- El jar de ORT **trae los binarios nativos de linux-x64, linux-aarch64, win-x64 y macOS**. Cubre
+  las 24 filiales Fedora y la Windows **sin instalar nada en el host**.
+- Modelos: det 4,5 MB + rec 10,4 MB + cls 0,6 MB = **15,5 MB**, empaquetables.
+- ⚠️ **El jar de ORT pesa 71,8 MB**, y el `frc-filial-server.jar` se descarga entero en cada
+  actualización, en 24 sucursales. Hay que **podarlo en el build** dejando sólo las plataformas
+  que se despliegan (linux-x64 21,3 MB + win-x64 13,5 MB), o el auto-update engorda mucho.
+
+> ### ⚠️ Trampa verificada: la metadata del modelo se corrompe en Java
+>
+> El diccionario de 6.623 caracteres viene **embebido en la metadata del ONNX**, y lo natural es
+> leerlo de ahí. **No se puede.** El binding Java expone la metadata por JNI `NewStringUTF`, que
+> usa *Modified UTF-8* y **no admite secuencias de 4 bytes**: el único carácter fuera del BMP del
+> diccionario (**`U+231C9`, línea 6137**) vuelve como 4 caracteres sueltos.
+>
+> Eso corre todos los índices posteriores y **rompe la decodificación en silencio**. Se manifestó
+> como *"faltan todos los espacios"* — un síntoma que no apunta ni de lejos a la causa, porque el
+> arreglo quedaba de 6.623 entradas contra un modelo de 6.625 clases y se descartaban las dos
+> últimas, justo donde vive el espacio.
+>
+> **Solución:** el diccionario viaja como recurso UTF-8 al lado del modelo, y al arrancar se
+> **verifica su largo contra la dimensión de salida del modelo**. Aborta al inicio en vez de
+> producir texto sutilmente equivocado.
+
+**La diferencia que queda, y por qué no se persigue.** Las cajas del detector coinciden en cantidad
+pero difieren ~1 píxel (**IoU medio 0,974**), y sobre una línea de 40 px de alto eso cambia el borde
+del recorte: ahí es donde un `1` se lee `i`. Se descartaron por medición cuatro causas antes de dar
+con ella:
+
+| Hipótesis | Cómo se probó | Resultado |
+|---|---|---|
+| Puntaje del post-proceso DB | contar y comparar cajas | ✗ misma cantidad |
+| Resize bilineal | contra `cv2.resize`, byte a byte | ✗ se corrigió a punto fijo, no cambió las discrepancias |
+| Cuantización entera del `unclip` | IoU antes/después | ✗ 0,9736 → 0,9736 |
+| Ancla de la dilatación | contra `cv2.dilate` | ✗ **100% idéntica** |
+
+Lo que queda es el redondeo sub-píxel de `minAreaRect` y la teselación de arcos de `pyclipper`.
+Cerrarlo exige replicar la aritmética float32 de OpenCV. **El efecto medido son 2 caracteres
+errados en 101 tokens, en campos secundarios** — no lo justifica.
+
+**Lo que sí lo resuelve es más barato:** `Lote: 0i64` es **detectable por máquina**. Un campo
+declarado numérico rechaza una `i` y activa el semáforo por campo de §2.6, sin perseguir paridad
+binaria.
+
+> Y el error que **ninguna de las dos implementaciones salva**: `Cargo: 002511` lo leen `802511`
+> las dos. Ese es el límite del modelo con tipografía térmica chica, y **es más grande que toda la
+> brecha Java–Python**. Si se va a invertir en precisión, ahí rinde más.
 ---
 
 ## 3 · Backlog
@@ -414,8 +500,10 @@ trata como código. **Ese orden es el seguro; al revés no lo es**, porque la b�
 
 ## 4 · Lo que queda por verificar
 
-1. **Rendimiento del binding Java de ONNX Runtime** (§2.1). Decide si el filial necesita un servicio
-   Python aparte.
+1. **La lectura de `Cargo` con tipografía térmica chica.** Ambos motores leen `002511` como
+   `802511` (§2.9). Es el error más grande que queda, más que cualquier diferencia entre
+   implementaciones. Probar si más resolución sobre esa línea, o un segundo pase sobre el recorte
+   del campo, lo corrige.
 2. **Que los teléfonos estén efectivamente en la LAN de la sucursal.** Si algún cajero usa datos
    móviles, o si la WiFi de clientes está aislada de la de servidores, el filial no es alcanzable y
    el esquema se cae.
@@ -423,14 +511,18 @@ trata como código. **Ese orden es el seguro; al revés no lo es**, porque la b�
    desde el filial por HTTP, Chrome/Android y Safari/iOS llegan sin cert ni permisos. Lo que sigue
    abierto es **la topología de red de cada sucursal**, que no se probó: la medición se hizo en una
    LAN doméstica, no en un local. Falta confirmar que la WiFi que usan los cajeros alcanza al filial.
-3. **El rendimiento en el hardware real de una filial.** Los ~1.800 ms de piso (§1.5) se midieron en
-   un iMac. Es el número que define si el flujo se siente instantáneo o si el cajero espera.
+3. **El rendimiento en el hardware real de una filial.** Los ~1.800 ms de piso (§1.5) y los
+   ~1.700-1.950 ms del motor Java (§2.9) se midieron en un iMac de 4 núcleos. Es el número que
+   define si el flujo se siente instantáneo o si el cajero espera.
 4. **La tasa de acierto sobre cupones difíciles.** Todo lo medido hasta ahora son cupones planos y
    bien iluminados. Faltan térmicos gastados, con brillo, en ángulo, y los formatos brasileños con
    fotos de cámara nativa.
 
 **Cerrados el 2026-09-09:**
 
+- ~~Rendimiento del binding Java de ONNX Runtime~~ — **verificado y superado** (§2.9). Salida
+  idéntica bit a bit sobre el mismo tensor, y **21-23% más rápido** que Python en el pipeline
+  completo. El filial no necesita un servicio Python al lado.
 - ~~Si el overlay mejora la precisión~~ — **la pregunta quedó sin objeto**. El overlay en vivo es
   imposible sobre HTTP (§2.8) y resultó innecesario: con el ticket ocupando un tercio del cuadro,
   PP-OCR sacó todos los campos igual (§1.5).

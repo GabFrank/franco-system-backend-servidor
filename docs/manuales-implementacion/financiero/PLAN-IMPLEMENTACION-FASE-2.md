@@ -5,8 +5,13 @@ cambiar la arquitectura. El **qué** y el **por qué** viven en
 [FASE-2-TICKET-FISICO.md](FASE-2-TICKET-FISICO.md); acá está el **cómo, en qué orden y con qué
 proceso**.
 
-> Este plan se ejecuta siguiendo **`frc-cicd/guia-desarrollo-cicd.md`** al pie (repo aparte, no
-> enlazable desde acá). Donde este plan se aparta de la guía, lo dice explícitamente y con el motivo.
+> Este plan se ejecuta siguiendo **`frc-cicd/ciclo-implementacion-frc-comercial.md`** —el ciclo de
+> 12 pasos, obligatorio— y su complemento de git `frc-cicd/guia-desarrollo-cicd.md`. Los dos viven
+> en otro repo, no enlazables desde acá.
+>
+> **Este archivo muere al cierre** (paso 11): las verdades que sobrevivan se mudan a
+> [FASE-2-TICKET-FISICO.md](FASE-2-TICKET-FISICO.md) y **el plan se borra en el PR final de la rama
+> de trabajo**. Donde este plan se aparta de la guía, lo dice explícitamente y con el motivo.
 
 ---
 
@@ -116,9 +121,10 @@ feature/ocr-cupon-fase2   ← misma rama en central, filial y desktop
 >
 > Es la contrapartida aceptada de la decisión. Lo escribo acá para que no aparezca a mitad de camino.
 
-> La guía (§3, *Buenas prácticas de PR*) pide PRs de menos de 400 líneas y una responsabilidad por
-> PR. **Esta entrega se aparta de eso a pedido explícito de Gabriel.** No está entre los ítems de
-> §13 «lo que NUNCA debes hacer», así que es una decisión legítima — pero queda anotada.
+> **Corregido el 2026-09-09.** Una versión previa de este plan decía que «un PR por repo» se
+> apartaba de la guía. **Es al revés: es exactamente lo que manda el paso 7 del ciclo de
+> implementación.** Lo de las 400 líneas viene de `guia-desarrollo-cicd.md`, que es el flujo de
+> git, no el ciclo. La decisión de Gabriel coincidía con el ciclo y estaba mal marcada como desvío.
 
 ### 3.2 · Commits
 
@@ -132,12 +138,20 @@ conjunto de commits de la rama**: habrá `feat`, así que sube MINOR alpha.
 
 **Sufijo `.5` siempre**, nunca `.0` ni el entero pelado. Verificado el 2026-09-09:
 
-| Repo | Última existente | Reservado para esta entrega |
+| Repo | Última en `origin/develop` | Reservado para esta entrega |
 |---|---|---|
-| central | `V219.5` | **`V220.5` en adelante** |
+| central | **`V220.1`** (`rrhh_bono_recurrente`, commit `7efce9a9`) | **`V220.5` en adelante** |
 | filial | `V92.5` | **`V93.5` en adelante** |
 
-El PR #282 abierto en central **no trae migraciones**, así que no hay colisión conocida.
+`V220.1` y `V220.5` **no colisionan**: Flyway no normaliza `.1` a `.5`.
+
+> ⚠️ **Corregido el 2026-09-09 por la auditoría del paso 5.** La primera versión de este plan decía
+> «última: `V219.5`, verificado». **La verificación se hizo contra el checkout local, que estaba
+> atrás de `origin/develop`** — que ya tenía `V220.1`, de otro desarrollador y fuera de esta fase.
+> No hubo colisión por suerte, no por método.
+>
+> **Antes de crear la rama hay que hacer `git fetch origin develop` real en los tres repos y
+> re-confirmar que `V220.5` sigue libre.** Y el PR #282 de central sigue sin traer migraciones.
 
 > ### ⚠️ El orden de despliegue depende de la dirección de replicación
 >
@@ -148,8 +162,14 @@ El PR #282 abierto en central **no trae migraciones**, así que no hay colisión
 > | `venta_tarjeta` (columna nueva) | `BRANCH_TO_MAIN` — filial publica, central suscribe | **central** |
 > | Tablas de configuración nuevas | `MAIN_TO_ALL` — central publica, filial suscribe | **filial** |
 >
-> **En alpha esto no muerde**, porque corre con `replication.sync.enabled=false`. Pero es la regla
-> que gobierna la promoción a farmacia y bodega, y ahí sí rompe. Queda escrito para ese día.
+> **NO VERIFICADO.** La primera versión de este plan afirmaba que «en alpha no muerde porque corre
+> con `replication.sync.enabled=false`». **No se pudo confirmar**: el default de
+> `application.properties` es `true`, sólo los perfiles `dev`/`ci` lo apagan, y el `.env` real de
+> `/opt/frc-backend-central/alpha/` en mauro **no es legible sin sudo con contraseña** (intentado el
+> 2026-09-09). El flag apagado está confirmado para otros hosts, no para mauro.
+>
+> **Cómo se verifica:** `grep -i replication.sync /opt/frc-backend-central/alpha/.env` en mauro, con
+> sudo. Hasta entonces, tratar el orden de publicación como si importara también en alpha.
 >
 > Las publicaciones **no son `FOR ALL TABLES`**: cada tabla nueva necesita su
 > `ALTER PUBLICATION ... ADD TABLE` explícito.
@@ -255,6 +275,90 @@ Python evitan, sin perseguir paridad binaria entre motores.
 **§3.7 va al final a propósito**: cambia el flujo que Gabriel ya probó en las 8 pruebas manuales, y
 no conviene mover el piso mientras se construye encima.
 
+## 5.6 · Reglas duras que aplican mientras se escribe el código
+
+Salieron de la skill de dominio (paso 2) y de la auditoría (paso 5). **Ninguna se deduce leyendo el
+código**, y tres de ellas ya rompieron producción antes.
+
+### Seguridad — no existe `@PreAuthorize` en este repo
+
+**Cero usos** de `@PreAuthorize`, `@Secured` o `@RolesAllowed` en todo `src/main/java`. Un resolver
+nuevo se protege **inyectando `TesoreriaSecurityService`** y llamando `requireVer()` (query) o
+`requireGestionar()` (mutation) **como primera línea del método**. `@AdminSecured` no sirve: está
+roto de punta a punta (issue #177) y no hay un solo método anotado con él.
+
+Aplica a **todo** el ABM que agrega esta entrega: formato de cupón OCR, regiones por POS,
+configuración por POS, tipo de terminal. Si no se inyecta a mano, **quedan abiertos**.
+
+### Un enum nuevo va a TRES lugares en el mismo commit
+
+`terminal_pos.tipo` (`MAQUINA` / `WEB`) es un enum. Va en **Java + `.graphqls` + migración**, todo
+en el mismo commit. Y en PostgreSQL se extiende con `ALTER TYPE ... ADD VALUE` idempotente, **sin
+usar el valor nuevo en la misma transacción**.
+
+> **Es la falla más silenciosa del repo.** No rompe el build ni el CI: graphql-java loguea un WARN y
+> devuelve `null`. Ya pasó con `EstadoPreGasto.PAGADO` (`V197.5`), que **tumbó la caja chica de la
+> mobile-pwa**. `SchemaEnumsSincronizadosTest` existe justamente para esto y **hay que correrlo
+> antes del PR**.
+
+### Todo campo nuevo de input es opcional
+
+`mobile` sigue instalada, consume `VentaTarjeta` y `TerminalPos`, y **sólo se actualiza por release
+manual de Play Store**: no puede seguir el ritmo de esta entrega. Hoy todos los campos de
+`VentaTarjetaInput` y `TerminalPosInput` son opcionales — **mantener esa convención**.
+
+### Los schedulers van apagados por default
+
+El job de purga de imágenes lleva `@ConditionalOnProperty(..., matchIfMissing=false)`, como
+`tesoreria.retiro-poller.enabled` y `tesoreria.acreditacion-pos.enabled`. Se enciende por propiedad,
+no por existir.
+
+### La carpeta de imágenes se crea sola
+
+`Files.createDirectories()` en el primer guardado. **No asumir que el servidor la tiene.** Si la ruta
+llega por variable de entorno, hay que provisionarla **antes** de que el código se despliegue o la
+app no arranca.
+
+---
+
+## 5.7 · Coreografía del merge — las dos mitades de alpha no llegan juntas
+
+**Hallazgo crítico de la auditoría.** Este plan decía «todo llega junto a `develop`/alpha». Es falso:
+
+| Mitad | Cómo se actualiza |
+|---|---|
+| **filial-alpha** (mauro) | **Solo, cada 15 min, sin aprobación**, apenas `semantic-release` corta el tag |
+| **central-alpha** (mauro) | **`workflow_dispatch` manual.** Sin revisor, pero alguien tiene que apretarlo |
+
+Entre esos dos momentos el filial corre código nuevo **contra un central que todavía no tiene las
+tablas**. Las tablas de configuración de las etapas 3 a 5 son `MAIN_TO_ALL`, así que sí muerde.
+
+**Procedimiento obligatorio al mergear:**
+
+1. Mergear **primero el PR de central**
+2. **Disparar el Deploy de central a `alpha` de inmediato**, sin esperar
+3. Recién entonces mergear el PR de filial
+4. Confirmar que mauro tomó la versión (`.current-version` y `/api/version`)
+
+Alternativa si hace falta más margen: **pausar el cron de `check-update.sh` en mauro** durante la
+ventana de merge y reanudarlo cuando central ya esté arriba.
+
+---
+
+## 5.8 · Antes de abrir los PRs: ensayar las migraciones
+
+**Hallazgo alto de la auditoría.** Con un PR por repo al final, el merge aplica de una vez ~6
+migraciones en central y ~7 en filial. Y **el CI no las valida**: central corre con
+`-DskipFlyway=true` y en filial no hay ningún test que levante contexto Spring. La primera vez que
+tocan una base real es cuando ya están corriendo — y en el filial, **sin ningún gate humano**.
+
+**El repo ya tiene el procedimiento:** `frc-cicd/.claude/skills/frc-cicd/runbooks/dry-run-migration.md`.
+Correrlo contra una copia de la base de alpha con el JAR final de la rama, **antes de abrir el PR**.
+Este plan lo adopta como paso obligatorio.
+
+**Y en la descripción de cada PR**, columna por columna: qué hace el backend **viejo** si la lee
+(ignorarla) y qué falla si la escribe (nada, porque no la escribe). El rollback re-apunta el symlink
+y reinicia — **nunca toca la base**.
 ---
 
 ## 6 · Riesgos vivos
@@ -264,7 +368,9 @@ no conviene mover el piso mientras se construye encima.
 | **`Cargo: 002511` leído `802511`** | Abierto, y **es el error más grande del módulo** — lo fallan los dos motores. Más resolución sobre esa línea, o un segundo pase, son las hipótesis a probar |
 | **Rendimiento con la filial bajo carga** | Lo medido fue con la máquina ociosa. ORT toma todos los núcleos por defecto: falta decidir si limitar `intra_op_num_threads` para no ahogar la aplicación |
 | **Topología de red de una sucursal real** | La captura se probó en una LAN doméstica. Falta confirmar que la WiFi que usan los cajeros alcanza al filial |
-| **El JAR del filial engorda** | +8 MB de ORT podado y +15,5 MB de modelos, en cada auto-update de 24 sucursales cada 15 min. Medir el impacto real antes de promover |
+| **El JAR del filial engorda, y nadie limpia** | +8 MB de ORT podado y +15,5 MB de modelos. Peor: **`check-update.sh` nunca borra `releases/<version>/`** — cada JAR descargado queda en disco para siempre, en 24 sucursales. El incremento no es un evento único: se repite en **cada release futura**. Purgar releases viejas es **prerequisito de promoción**, y va en el script, no en esta entrega |
+| **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
+| **El cajero posterga la actualización del desktop** | `autoDownload=false` y la instalación pide consentimiento: se puede posponer **indefinidamente**. Un desktop viejo contra un central nuevo es exactamente el escenario del incidente de `EstadoPreGasto` |
 
 ---
 
@@ -279,3 +385,55 @@ no conviene mover el piso mientras se construye encima.
 - [ ] Sin secretos, sin `.env`, sin claves
 - [ ] Descripción del PR: qué resuelve, cómo probarlo, riesgo, impacto en DB y en rollback
 - [ ] `npm run check` corrido en desktop antes de pushear
+- [ ] **Resolvers nuevos con `TesoreriaSecurityService`** — `requireVer()` / `requireGestionar()` como primera línea (§5.6)
+- [ ] **Enum nuevo en los tres lugares** y `SchemaEnumsSincronizadosTest` corrido (§5.6)
+- [ ] **Campos nuevos de input opcionales** — `mobile` no puede mandarlos (§5.6)
+- [ ] **Dry-run de las migraciones** contra una copia de la base de alpha (§5.8)
+- [ ] La descripción del PR dice, **columna por columna**, qué hace el backend viejo con el esquema nuevo (§5.8)
+- [ ] `git fetch origin develop` y re-confirmar que los números de migración siguen libres (§3.3)
+
+---
+
+## 8 · Registro del ciclo — pasos incumplidos y auditoría
+
+El ciclo de implementación pide que **un paso incumplido se anote, no se borre**. Esto es ese
+registro.
+
+### 8.1 · Pasos que se hicieron fuera de orden
+
+La primera versión de este plan se escribió leyendo `guia-desarrollo-cicd.md` —el flujo de git— **en
+lugar de `ciclo-implementacion-frc-comercial.md`**, que es el ciclo obligatorio. Consecuencia:
+
+| Paso | Qué pasó | Corregido |
+|---|---|---|
+| **1 · Rama** | El plan se commiteó en `docs/testeo-venta-tarjeta-qr`, no en una rama de trabajo | Las ramas `feature/ocr-cupon-fase2` se crean al aprobarse |
+| **2 · Skill de dominio** | No se cargó ninguna. Correspondía `frc-financiero-expert` | Cargada. Aportó las cuatro reglas de §5.6 |
+| **3 · Análisis** | Se hizo sin las skills y sin `gotchas.md` | Cubierto por la auditoría |
+| **5 · Auditoría** | **No se corrió antes de mostrar el plan** | Corrida. Resultados abajo |
+| **6 · Commit del plan** | **Se commiteó antes de auditarlo y antes de aprobarse** | El commit queda; la corrección va encima, que es lo que el ciclo pide |
+
+### 8.2 · Auditoría del paso 5 — dos ejes, sin verse
+
+**Eje A — contrato y propagación:** 4 riesgos. **Eje B — reversibilidad y estado:** 7 riesgos.
+Ninguno se contradijo; **dos coincidieron de forma independiente** en el enum.
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| A1 | **Crítico.** filial-alpha se actualiza solo en 15 min; central-alpha exige dispatch manual. No llegan juntos | **§5.7**, con procedimiento de merge |
+| A2 | La carpeta de imágenes: nadie la crea | **§5.6** |
+| A3 · B5 | `terminal_pos.tipo` es el patrón que tumbó la caja chica de la PWA | **§5.6**, con `SchemaEnumsSincronizadosTest` |
+| A4 | `mobile` es consumidor ciego y no puede seguir el ritmo | **§5.6**, campos opcionales |
+| B1 | **Alto.** ~13 migraciones que el CI no valida, aplicadas de una vez, y el filial sin gate humano | **§5.8**, dry-run obligatorio |
+| B2 | **Alto.** El rollback no revierte la base | **§5.8**, documentar columna por columna en el PR |
+| B3 | **La numeración se verificó contra un checkout viejo.** `origin/develop` ya tenía `V220.1` | **Verificado y corregido en §3.3** |
+| B4 | `check-update.sh` nunca purga `releases/` | **§6**, prerequisito de promoción |
+| B6 | La purga no tiene diseño de fallo, y el disco es compartido con el WAL de Postgres | **§6** |
+| B7 | La afirmación sobre `replication.sync.enabled` en alpha **no estaba verificada** | **Marcada NO VERIFICADO en §3.3**, con el comando que la resolvería |
+
+### 8.3 · Lo que sigue sin verificar
+
+1. **`replication.sync.enabled` en mauro.** El `.env` no es legible sin sudo con contraseña. Se
+   resuelve con `grep -i replication.sync /opt/frc-backend-central/alpha/.env`.
+2. **En qué partición viven `releases/`, las imágenes y los datos de PostgreSQL** en una filial real.
+3. **La aditividad real de las migraciones**: hoy no existen como archivos. La auditoría revisó la
+   intención declarada, no código. Es lo que el dry-run de §5.8 viene a cubrir.

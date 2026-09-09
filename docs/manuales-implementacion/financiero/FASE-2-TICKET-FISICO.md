@@ -11,8 +11,8 @@ salió borroso, o porque el cajero no lo escaneó en el momento.
 ## 1 · Lo que se midió, y con qué
 
 16 fotos de cupones reales, sacadas con celular en condiciones distintas y **comprimidas por
-WhatsApp** (720×1280, ~45 KB). Es un piso pesimista: la PWA reduce a 1600 px con calidad 0.75, o
-sea mandaría fotos mejores que estas.
+WhatsApp** (720×1280, ~45 KB). Es un piso pesimista: la página de captura manda 1000 px con calidad
+0.9 (§1.5), o sea fotos mejores que estas.
 
 Cuatro formatos de proveedor distintos en las 16, dos de ellos en portugués:
 
@@ -53,7 +53,7 @@ lo confirman: Tesseract **confunde punto y coma decimal** en documentos internac
 guaraníes (`18.000`) y reales (`69,67`) conviviendo, ese es exactamente el error que no se puede
 permitir. Un campo faltante se nota; uno corrupto con formato correcto se guarda y nadie lo mira.
 
-### Recortar sí, escalar no
+### Escalar no. Recortar, menos de lo que parecía
 
 | | Precisión | Peso | Tiempo |
 |---|---|---|---|
@@ -68,14 +68,70 @@ Recortar sin escalar mantiene la precisión y baja el peso al 71%. Las imágenes
 320×195 a 639×474 px, 12 a 41 KB — una caja con 50 ventas con tarjeta son ~1,5 MB, revisables en
 una grilla sin generar miniaturas aparte.
 
+> ⚠️ **Corregido el 2026-09-09.** Mirando la tabla de arriba con honestidad, el recorte movió la
+> precisión **+1% en Paddle y −1% en Vision**: eso es ruido, no una mejora. La segunda medición
+> (§1.5) lo confirmó con fotos de cámara nativa.
+>
+> **El recorte quedó fuera del diseño.** Lo que buscaba —bajar el peso— lo consigue mejor
+> **escalar a 1000 px**: 60 KB contra los ~500 KB de una recortada sin escalar, sin pedirle al
+> cajero un paso más ni una pantalla más. Lo que sigue vigente de esta tabla es la otra mitad del
+> título: **escalar hacia arriba nunca**, porque interpola píxeles que no existen.
+
 ### Dato que no se buscaba
 
 En estas fotos **el ticket ocupaba apenas un tercio del cuadro**. Y la detección automática del
 documento **falló en las 16**: ticket blanco sobre mostrador claro, con sombras encima, es el caso
-difícil clásico. Eso no es un problema del código — **es el argumento a favor del overlay**: si el
-sistema no puede encontrar el ticket solo, que el cajero lo alinee no es una comodidad, es el
-mecanismo.
+difícil clásico.
 
+En su momento se leyó esto como el argumento a favor del overlay. **Ya no lo es** (ver §1.5): con el
+ticket ocupando un tercio del cuadro, PP-OCR igual sacó todos los campos. Lo que este dato sigue
+sosteniendo es lo contrario de lo que parecía: **no intentar recorte automático en el servidor**,
+porque el caso es justamente el que la detección de contornos no resuelve.
+
+### 1.5 · Segunda medición (2026-09-09): cámara nativa, dentro del flujo real
+
+Las 16 primeras venían comprimidas por WhatsApp. Estas se sacaron **desde la página de captura**,
+con la cámara nativa del teléfono: sensor completo (iPhone 4032×3024, Android 4096×2304), reducidas
+en el propio teléfono antes de subir. Dos cupones Infonet, iPhone y Android.
+
+**Recorte manual contra foto completa — la misma foto, el mismo cupón:**
+
+| | Líneas | Confianza media | Tiempo |
+|---|---|---|---|
+| Completa 900×1600 | 16 | 0.935 | **2.648 ms** |
+| Recorte 1600×1422 | 17 | 0.939 | 3.775 ms |
+
+Todos los campos correctos en las dos: `BOLETA`, `C.AUT`, `MONTO`, `Caja`, `Lote`, `Cargo`, fecha y
+hora. **El recorte no compró precisión**, y como pesa más (2,3 MP contra 1,4) tardó **43% más**.
+
+El motivo es del motor, no de la foto: **la etapa de detección de PP-OCR redimensiona a un tamaño
+fijo**. Darle al cupón 1600 px en vez de 777 no le agrega información que pueda usar.
+
+**Entonces la pregunta se da vuelta: ¿cuánto se puede bajar?** (foto completa, escalada)
+
+| Lado máximo | Peso | Tiempo | Campos |
+|---|---|---|---|
+| 1600 | 148 KB | 2.601 ms | todos |
+| 1200 | 84 KB | 2.054 ms | todos |
+| **1000** | **60 KB** | **1.862 ms** | **todos** |
+| 800 | 40 KB | 1.875 ms | todos |
+| 640 | 26 KB | 1.843 ms | todos |
+| 500 | 17 KB | 1.817 ms | ✗ pierde `Caja` |
+
+Tres conclusiones que van al diseño:
+
+1. **El recorte táctil no va al producto.** No compra precisión y cuesta latencia, una pantalla más
+   y un paso más al cajero. Se construyó, se midió y se descartó.
+2. **El punto de trabajo es 1000 px de lado máximo**, calidad 0.9. Ahorra 28% de tiempo y 60% de
+   bytes contra 1600 sin perder un campo, y deja margen cómodo sobre los 640 donde empieza a romperse.
+3. **El piso de ~1.800 ms es el modelo, no la imagen.** De 1000 a 640 el tiempo no se mueve. Para
+   bajar de ahí hace falta otro modelo u otro hardware — achicar más la foto no sirve.
+
+> ⚠️ Medido en un iMac x86. **El número que importa es el del hardware real de una filial**, y ese
+> todavía no se tomó. Ver §4.
+
+> **Tamaño de muestra:** 2 cupones acá más los 16 anteriores, todos planos y bien iluminados.
+> Alcanza para decidir la arquitectura. **No alcanza para prometer una tasa de acierto.**
 ---
 
 ## 2 · Decisiones tomadas
@@ -141,18 +197,23 @@ es una fila, no un release.
 
 ### 2.3 · Reparto de responsabilidades
 
+> **Reescrito el 2026-09-09.** La versión anterior le daba al teléfono el overlay y el recorte.
+> Los dos se cayeron: el overlay es imposible sobre HTTP (§2.8) y el recorte no compra precisión
+> (§1.5).
+
 | Dónde | Qué hace | Por qué ahí |
 |---|---|---|
-| **Teléfono** | Overlay de encuadre, chequeo de nitidez, **recorte** | Nada de esto necesita modelos ni memoria, y el recorte baja 29% lo que viaja y lo que se guarda |
+| **Teléfono** | Orientar por EXIF, **escalar a 1000 px**, comprimir a 0.9, chequear nitidez | No necesita modelos ni memoria, y baja 60% lo que viaja y lo que se guarda |
 | **Servidor** | OCR, asignación de campos con el mapa, guardado | Un solo lugar para dimensionar y mejorar |
 
-**El recuadro NO debe exigir llenar la pantalla.** La cámara principal de la mayoría de los teléfonos
-no enfoca por debajo de ~5-10 cm: si el overlay pide llenar el sensor, el cajero acerca de más y sale
-movido. **60-70% de la pantalla** deja distancia de enfoque y margen para que el recorte tenga de
-dónde cortar.
+**La guía de encuadre pasa a ser texto, no un recuadro.** La cámara de la mayoría de los teléfonos no
+enfoca por debajo de ~5-10 cm, así que la instrucción sigue siendo la misma —*no acercarse de más*—
+pero la da una frase en pantalla, no un overlay. Que el ticket ocupe un tercio del cuadro **no
+degrada el resultado** (§1.5), así que no hay nada que forzar.
 
-**Recortar no es escalar.** Se recorta al recuadro más unos píxeles y se guarda **al tamaño
-resultante**, en píxeles nativos.
+**El chequeo de nitidez sigue en pie, pero después de la foto**, no en vivo: se calcula sobre el
+`canvas` de la imagen ya tomada, que sí funciona en contexto inseguro. Si sale movida, *"sacá otra"*
+**sin subir nada** — el mismo escalón de §2.6.
 
 ### 2.4 · Almacenamiento
 
@@ -161,10 +222,14 @@ resultante**, en píxeles nativos.
 | **Dónde** | Disco del filial, **ruta configurable**. `imagen_url` guarda la ruta |
 | **Replicación** | **No viaja al central** |
 | **Retención** | **Configurable**, con job de purga automática |
-| **Qué se guarda** | La **recortada**, no la original |
+| **Qué se guarda** | La **escalada a 1000 px** que se usó para el OCR, no el original del sensor |
 
-Con ~30 KB por imagen y 50 ventas con tarjeta por caja, son unos **45 MB al mes por sucursal**. Sin
-purga, cinco años son ~2,7 GB por sucursal que nadie va a mirar.
+Con ~60 KB por imagen (medido, §1.5) y 50 ventas con tarjeta por caja, son unos **90 MB al mes por
+sucursal**. Sin purga, cinco años son ~5,4 GB por sucursal que nadie va a mirar — razón de más para
+que el job de purga no quede para después.
+
+> Se guarda **la misma imagen que vio el OCR**. Si un campo salió mal, lo que se revisa es
+> exactamente lo que el motor tuvo delante, no una versión distinta.
 
 > `venta_tarjeta.imagen_url` **ya existe** en la tabla y en el modelo, sin uso. En `frc-mobile` la
 > imagen **nunca se guardó**: `imagenUrl` jamás viajó en el input, la foto sólo alimentaba el OCR y
@@ -173,10 +238,11 @@ purga, cinco años son ~2,7 GB por sucursal que nadie va a mirar.
 ### 2.5 · Puntos de entrada
 
 **Híbrido:** el desktop muestra un QR **y** ofrece un botón de subir imagen. El QR lleva al celular
-directo a ese registro, y de ahí sigue el flujo normal de la PWA.
+directo a ese registro — a la página de captura que sirve el filial (§2.7, §2.8), **no a la PWA**.
 
-El overlay necesita saber el POS **antes** de la foto, así que el orden es: elegir el registro
-pendiente (que ya trae su terminal) → abrir la cámara con el overlay de ese POS.
+El orden sigue siendo: elegir el registro pendiente (que ya trae su terminal) → sacar la foto. No
+porque haga falta para encuadrar, sino porque **el servidor necesita saber el POS para aplicar el
+mapa de campos** cuando le llegue la imagen. Ese dato viaja en el QR.
 
 ### 2.6 · El fallback manual es el último de tres escalones, no el plan B
 
@@ -197,6 +263,86 @@ el promedio por foto no distingue líneas buenas de malas) y pasa a ser **un sem
 **Los campos obligatorios de la carga manual se configuran por POS**, igual que el mapa. Un cupón
 Stone no tiene número de boleta; exigirlo sería inventar un requisito.
 
+### 2.7 · El teléfono es un **periférico de cámara del desktop**, no una pantalla de la suite
+
+Decidido el 2026-09-09. La página de captura **no es la PWA oficial** ni un módulo suyo: es una
+página de un solo propósito que se abre, saca una foto y se cierra. Sin login, sin sesión, sin
+offline, sin nada de la suite.
+
+**El desktop muestra un QR y el teléfono lo escanea.** Ese QR es el canal de configuración: lleva la
+URL del filial, el token de la operación, la caja y la venta en curso. **El teléfono no configura
+nada** — ni servidor, ni credenciales, ni app que instalar.
+
+Lo que el QR **no** puede llevar es alcance de red: dice a dónde hablar, no hace que ese destino sea
+alcanzable ni que el navegador lo acepte. Eso lo resuelve §2.8.
+
+### 2.8 · La página la sirve el **filial, por HTTP plano** — y por eso no hace falta certificado
+
+Medido el 2026-09-09 contra Chrome 152/Android y Safari/iPhone, con un servidor de prueba en la LAN.
+
+**El camino que no funciona:** una página servida por HTTPS desde Cloudflare (la PWA) hablándole a
+un filial en IP privada.
+
+| | Chrome / Android | Safari / iOS |
+|---|---|---|
+| Página HTTPS pública → `fetch` a `http://IP-privada` | ✅ 200 · permiso de red local en `prompt` | ❌ **contenido mixto, bloqueo duro** |
+| `ws://` desde página HTTPS | ❌ | ❌ |
+
+En Chrome anduvo: la primera llamada tardó **3.155 ms** (paga el permiso y el preflight de red
+privada) y con `targetAddressSpace: "local"` respondió en **16 ms**. **WebKit no tiene equivalente**:
+no implementa *Local Network Access* ni la relajación de contenido mixto para destinos locales. Y
+**Chrome en iOS también es WebKit**, así que fallan los dos — es un solo fallo, no dos.
+
+**El camino que sí funciona: que la página la sirva el propio filial, por HTTP.**
+
+| | |
+|---|---|
+| Contenido mixto | no existe — página HTTP, `fetch` HTTP |
+| Red local (Chrome) | no aplica — origen privado → privado, no cruza espacios de direcciones |
+| Safari / WebKit | nada que bloquear |
+| Certificado, DNS, *rebinding* | **desaparecen del plan** |
+
+Se aprovecha que **el puerto 8082 del filial ya está abierto y ya recibe conexiones de la LAN** — es
+por donde le habla el desktop hoy. Sin puerto nuevo, sin tocar el firewall de ninguna caja, y la
+imagen llega directo al proceso que hace el OCR: un solo salto.
+
+**Qué cuesta HTTP** (verificado en ambos teléfonos):
+
+- ❌ `getUserMedia` — **no existe** en contexto inseguro. Sin vista previa en vivo, sin overlay.
+  No es un permiso que el usuario pueda conceder ni una cabecera que el servidor pueda mandar:
+  lo decide el navegador mirando el esquema del origen.
+- ❌ Service worker, instalación como PWA, `wss://`.
+- ✅ `<input type="file" capture="environment">` — abre la cámara nativa y devuelve la foto.
+- ✅ `canvas` y `toBlob` — se puede orientar, recortar y comprimir en el teléfono.
+
+**Y el camino sin overlay le da mejor materia prima al OCR, no peor.** `input capture` usa la cámara
+nativa: enfoque por toque, HDR, pipeline de foto fija y sensor completo. `getUserMedia` en Safari
+entrega **cuadros de video** — menor resolución, sin `ImageCapture` (Safari no la implementa) y sin
+control de enfoque. Para leer letra chica de un cupón térmico, la foto fija gana.
+
+**El certificado no está muerto: está costeado.** Si alguna vez se quiere overlay en vivo o
+suscripciones contra el filial, el único camino es TLS en la filial, con el nombre colgando de
+`frcsuite.com` (DNS-01 por Cloudflare, un wildcard para toda la flota, distribuido por el
+`check-update.sh` que ya corre cada 15 min). **No sirve el tailnet:** `base_domain` es `hs.farmacia`,
+que no existe públicamente, y headscale no emite certificados. Y enrolar teléfonos en la VPN se
+descartó aparte — sin MDM no hay forma automática de hacerlo, y son teléfonos personales de cajeros.
+
+> ### ⚠️ Trampa verificada: la orientación EXIF
+>
+> La cámara de iOS casi siempre guarda el sensor **acostado** y marca la rotación en la etiqueta
+> EXIF; Android suele entregar los píxeles ya rotados. **Los navegadores no coinciden** en si
+> `createImageBitmap()` aplica esa etiqueta, y equivocarse rota el cupón 90°: PP-OCR corrige
+> inclinaciones chicas, **no una imagen entera acostada**. Sería una caída de precisión silenciosa
+> y sólo en algunos teléfonos.
+>
+> **No se resuelve suponiendo qué hace cada navegador** — costó dos intentos fallidos, uno por
+> defecto y otro por rotar de más. Se resuelve **midiendo**: leer las dimensiones crudas del JPEG
+> del marcador `SOF` y compararlas con las que devolvió `createImageBitmap`. Si vienen con los ejes
+> intercambiados, el navegador ya aplicó la orientación y no hay que tocar nada.
+>
+> En la medición del 2026-09-09 **los dos** navegadores la aplicaban (`crudo=4032x3024`,
+> `bmp=3024x4032`). Igual la detección se queda: es lo que hace que la próxima versión de Safari no
+> rompa esto en silencio.
 ---
 
 ## 3 · Backlog
@@ -272,13 +418,24 @@ trata como código. **Ese orden es el seguro; al revés no lo es**, porque la b�
    Python aparte.
 2. **Que los teléfonos estén efectivamente en la LAN de la sucursal.** Si algún cajero usa datos
    móviles, o si la WiFi de clientes está aislada de la de servidores, el filial no es alcanzable y
-   el esquema se cae. En la PWA importa más que en la app nativa: se sirve por HTTPS desde Cloudflare
-   y tendría que hablarle a un filial en IP privada — el mismo problema de contenido mixto que ya
-   frenó a `alpha.desk`.
-3. **Si el overlay mejora la precisión** además de la estructura. Requiere fotos nuevas con el ticket
-   bien encuadrado. **Se decidió que no es determinante**: la calidad actual ya alcanza (92% / 85%
-   con fotos de 45 KB sacadas de apuro), y el overlay se justifica por consistencia y por habilitar
-   el mapa.
+   el esquema se cae.
+   **La mitad de navegador de este riesgo quedó resuelta el 2026-09-09** (§2.8): sirviendo la página
+   desde el filial por HTTP, Chrome/Android y Safari/iOS llegan sin cert ni permisos. Lo que sigue
+   abierto es **la topología de red de cada sucursal**, que no se probó: la medición se hizo en una
+   LAN doméstica, no en un local. Falta confirmar que la WiFi que usan los cajeros alcanza al filial.
+3. **El rendimiento en el hardware real de una filial.** Los ~1.800 ms de piso (§1.5) se midieron en
+   un iMac. Es el número que define si el flujo se siente instantáneo o si el cajero espera.
+4. **La tasa de acierto sobre cupones difíciles.** Todo lo medido hasta ahora son cupones planos y
+   bien iluminados. Faltan térmicos gastados, con brillo, en ángulo, y los formatos brasileños con
+   fotos de cámara nativa.
+
+**Cerrados el 2026-09-09:**
+
+- ~~Si el overlay mejora la precisión~~ — **la pregunta quedó sin objeto**. El overlay en vivo es
+  imposible sobre HTTP (§2.8) y resultó innecesario: con el ticket ocupando un tercio del cuadro,
+  PP-OCR sacó todos los campos igual (§1.5).
+- ~~Si conviene recortar~~ — **no**. Se construyó el recorte táctil, se midió y se descartó: no
+  compra precisión y cuesta latencia (§1.5).
 
 ---
 

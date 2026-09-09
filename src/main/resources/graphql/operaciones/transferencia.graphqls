@@ -72,6 +72,16 @@ extend type Mutation {
     deleteTransferencia(id:ID!):Boolean!
     finalizarTransferencia(id:ID!, usuarioId:ID!):Boolean!
     avanzarEtapaTransferencia(id:ID!, etapa: EtapaTransferencia!, usuarioId:ID!):Boolean!
+    transferenciaQrEscaneado(id:ID!, sucursalId:ID!):Boolean
+}
+
+extend type Subscription {
+    transferenciaQrEscaneadoSub:TransferenciaQrEscaneadoUpdate
+}
+
+type TransferenciaQrEscaneadoUpdate {
+    transferenciaId:ID
+    sucursalId:ID
 }
 
 enum TransferenciaEstado {

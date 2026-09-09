@@ -386,9 +386,12 @@ reflejos— **`MONTO`, `BOLETA` y `C.AUT` coincidieron en los 9**. Los desacuerd
 - El jar de ORT **trae los binarios nativos de linux-x64, linux-aarch64, win-x64 y macOS**. Cubre
   las 24 filiales Fedora y la Windows **sin instalar nada en el host**.
 - Modelos: det 4,5 MB + rec 10,4 MB + cls 0,6 MB = **15,5 MB**, empaquetables.
-- ⚠️ **El jar de ORT pesa 71,8 MB**, y el `frc-filial-server.jar` se descarga entero en cada
-  actualización, en 24 sucursales. Hay que **podarlo en el build** dejando sólo las plataformas
-  que se despliegan (linux-x64 21,3 MB + win-x64 13,5 MB), o el auto-update engorda mucho.
+- **El jar de ORT pesa 71,8 MB, pero podado queda en 7,9 MB** (probado 2026-09-09). Dejando sólo
+  `linux-x64`, el `.so` de 21,3 MB comprime a eso: **9× menos**. Casi todo el peso original son los
+  símbolos de depuración de macOS (145 MB sin comprimir), que no van a ningún despliegue. Sumar
+  `win-x64` para la filial 4 de bodega lo deja igual por debajo de 15 MB. **Podarlo en el build es
+  obligatorio** — el `frc-filial-server.jar` se descarga entero en cada auto-update, en 24
+  sucursales.
 
 > ### ⚠️ Trampa verificada: la metadata del modelo se corrompe en Java
 >
@@ -425,6 +428,36 @@ errados en 101 tokens, en campos secundarios** — no lo justifica.
 **Lo que sí lo resuelve es más barato:** `Lote: 0i64` es **detectable por máquina**. Un campo
 declarado numérico rechaza una `i` y activa el semáforo por campo de §2.6, sin perseguir paridad
 binaria.
+
+### Rendimiento en hardware real de filial (medido 2026-09-09)
+
+Corrido por SSH sobre las máquinas productivas, con el jar podado:
+
+| Máquina | Hilos | Rango | `rec` sobre el total |
+|---|---|---|---|
+| **Pentium Gold G5400** — la más débil de la flota (bodega filial 5) | 4 | **3.167 – 5.451 ms** | 65-70% |
+| **i3-10105** — típica (bodega filial 1 y 11) | 8 | **2.032 – 2.773 ms** | 65-70% |
+| iMac de referencia | 4 | 2.000 – 2.400 ms | — |
+
+**Es viable**: 2-3 s en una filial típica, hasta 5,5 s en la peor. Necesita indicador de progreso;
+no es instantáneo.
+
+> ### La palanca de rendimiento es el mapa de campos, no el hardware
+>
+> El reconocimiento escala con **la cantidad de líneas**, no con el tamaño de la imagen:
+> ~148 ms por línea en el Pentium, ~80 ms en el i3. Un cupón da 16-26 líneas —a veces dos tickets
+> en la misma foto— y **el flujo necesita 6 campos**.
+>
+> El mapa por POS de §2.2 existe para *asignar* campos, pero puede además **decidir qué cajas se
+> reconocen**. Reconocer 6 en vez de 26 baja `rec` de 3.841 a ~900 ms: **la peor máquina de la
+> flota quedaría en ~2,3 s, mejor que la típica de hoy**.
+>
+> Eso cambia la prioridad del mapa: deja de ser una comodidad de asignación y pasa a ser lo que
+> hace que el flujo se sienta rápido.
+
+> ⚠️ Estas mediciones son con la filial **ociosa**. En producción la misma JVM atiende la
+> aplicación, y ORT toma todos los núcleos por defecto. Falta medir con carga y decidir si conviene
+> limitar `intra_op_num_threads` para no ahogar al resto.
 
 > Y el error que **ninguna de las dos implementaciones salva**: `Cargo: 002511` lo leen `802511`
 > las dos. Ese es el límite del modelo con tipografía térmica chica, y **es más grande que toda la
@@ -511,9 +544,9 @@ trata como código. **Ese orden es el seguro; al revés no lo es**, porque la b�
    desde el filial por HTTP, Chrome/Android y Safari/iOS llegan sin cert ni permisos. Lo que sigue
    abierto es **la topología de red de cada sucursal**, que no se probó: la medición se hizo en una
    LAN doméstica, no en un local. Falta confirmar que la WiFi que usan los cajeros alcanza al filial.
-3. **El rendimiento en el hardware real de una filial.** Los ~1.800 ms de piso (§1.5) y los
-   ~1.700-1.950 ms del motor Java (§2.9) se midieron en un iMac de 4 núcleos. Es el número que
-   define si el flujo se siente instantáneo o si el cajero espera.
+3. **El rendimiento con la filial bajo carga.** Lo medido en hardware real (§2.9) fue con la
+   máquina ociosa. En producción la misma JVM atiende la aplicación y ORT toma todos los núcleos:
+   falta decidir si limitar `intra_op_num_threads`.
 4. **La tasa de acierto sobre cupones difíciles.** Todo lo medido hasta ahora son cupones planos y
    bien iluminados. Faltan térmicos gastados, con brillo, en ángulo, y los formatos brasileños con
    fotos de cámara nativa.

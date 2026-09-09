@@ -36,6 +36,7 @@ import static com.franco.dev.service.grafico.GraficoPeriodoUtil.esMultiPeriodo;
 import static com.franco.dev.service.grafico.GraficoPeriodoUtil.extraerAnho;
 import static com.franco.dev.service.grafico.GraficoPeriodoUtil.fusionarSucursalesTexto;
 import static com.franco.dev.service.grafico.GraficoPeriodoUtil.normalizarSucIds;
+import static com.franco.dev.service.grafico.GraficoPeriodoUtil.normalizarSucIdsConServidor;
 import static com.franco.dev.service.grafico.GraficoPeriodoUtil.normalizarUsuarioIds;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
@@ -105,7 +106,8 @@ public class GraficoAggregationService {
             List<Long> sucIds) {
         validarPeriodos(periodos);
         boolean multiPeriodo = esMultiPeriodo(periodos);
-        List<Long> sucursales = normalizarSucIds(sucIds);
+        // Con servidor: los gastos pagados desde la caja mayor viven en la sucursal 0.
+        List<Long> sucursales = normalizarSucIdsConServidor(sucIds);
 
         Map<String, GastoPorCategoria> mapa = new LinkedHashMap<>();
 

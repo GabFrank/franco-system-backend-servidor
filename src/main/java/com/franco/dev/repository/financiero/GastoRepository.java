@@ -109,4 +109,11 @@ public interface GastoRepository extends HelperRepository<Gasto, EmbebedPrimaryK
 
         Gasto findFirstByPreGastoIdAndPreGastoSucursalIdOrderByCreadoEnDescIdDesc(Long preGastoId,
                         Long preGastoSucursalId);
+
+        /**
+         * Gasto de tesoreria materializado a partir de una solicitud de pago de tipo GASTO
+         * (pagada desde la caja mayor). Hay a lo sumo uno: lo garantiza el indice unico
+         * uk_gasto_solicitud_pago.
+         */
+        Gasto findFirstBySolicitudPagoId(Long solicitudPagoId);
 }

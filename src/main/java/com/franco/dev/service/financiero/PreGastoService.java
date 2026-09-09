@@ -76,6 +76,12 @@ import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 @RequiredArgsConstructor
 public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, EmbebedPrimaryKey> {
 
+    /**
+     * Sucursal 0. No es un local: no tiene caja fisica, asi que una solicitud dirigida ahi solo
+     * se puede cobrar desde la caja mayor. Ojo que no es "SUC. CENTRAL", que es la filial 1.
+     */
+    public static final Long SUCURSAL_SERVIDOR = 0L;
+
     private final PreGastoRepository repository;
     private final EnteFinancieroService enteFinancieroService;
     private final EnteCuotaService enteCuotaService;
@@ -130,11 +136,12 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         }
 
         if (entity.getId() == null) {
-            Long sucursalId = entity.getSucursalId() != null ? entity.getSucursalId() : currentSucursalId; // Default
-                                                                                                           // sucursal
-                                                                                                           // from
-                                                                                                           // config
-            if (sucursalId == null || sucursalId <= 0) {
+            // Default: la sucursal configurada del server. La sucursal 0 (SERVIDOR) es un
+            // destino valido —el gasto se cobra desde la caja mayor—, asi que se corta por
+            // ausencia y no por signo. Sin sucursal sigue siendo un error: nunca un default
+            // silencioso.
+            Long sucursalId = entity.getSucursalId() != null ? entity.getSucursalId() : currentSucursalId;
+            if (sucursalId == null) {
                 throw new RuntimeException("No se puede crear la solicitud sin una sucursal válida.");
             }
             Long maxId = repository.findMaxId(sucursalId);
@@ -528,6 +535,14 @@ public class PreGastoService extends CrudService<PreGasto, PreGastoRepository, E
         PreGasto preGasto = repository.findByIdAndSucursalId(input.getPreGastoId(), input.getSucursalId());
         if (preGasto == null) {
             throw new RuntimeException("Solicitud de gasto no encontrada.");
+        }
+        // La sucursal 0 (SERVIDOR) no tiene ninguna pdv_caja: su plata sale de la caja mayor.
+        // Se corta antes que el resto de las validaciones para no terminar diciendole al
+        // operador "registre el gasto en la caja local", que es justo lo que no puede hacer.
+        if (SUCURSAL_SERVIDOR.equals(preGasto.getSucursalId())) {
+            throw new RuntimeException(
+                    "Esta solicitud es de SERVIDOR: se cobra desde la caja mayor (Enviar a tesorería), "
+                            + "no por retiro de caja.");
         }
         if (preGasto.getEstado() != EstadoPreGasto.AUTORIZADO) {
             throw new RuntimeException("La solicitud no está autorizada para retiro.");

@@ -462,6 +462,66 @@ no es instantáneo.
 > Y el error que **ninguna de las dos implementaciones salva**: `Cargo: 002511` lo leen `802511`
 > las dos. Ese es el límite del modelo con tipografía térmica chica, y **es más grande que toda la
 > brecha Java–Python**. Si se va a invertir en precisión, ahí rinde más.
+### 2.10 · Modos de falla de la captura, y qué los cubre
+
+Levantado el **2026-09-10**, cuando la captura ya estaba escrita. **Ocho de trece estaban sin
+cubrir**, y el análisis encontró un defecto de diseño que ninguno de los casos sueltos mostraba.
+
+> ### El defecto de fondo: el token se consumía antes de saber el resultado
+>
+> Eso convertía **toda** falla recuperable —movida, no es el cupón, falló el motor, se perdió la
+> respuesta— en *«andá a la caja y pedí otro QR»*.
+>
+> **El token se consume recién con un resultado bueno.** Un solo cambio cerró cuatro casos.
+
+| # | Caso | Quién lo detecta | A dónde vuelve |
+|---|---|---|---|
+| 1 | La foto no es del cupón | cero líneas leídas → `ERROR` | sacar otra, sin gastar el token |
+| 2 | La foto salió movida | **el teléfono, antes de subir** | sacar otra, sin subir nada |
+| 3 | Falla el motor | `procesar` lo atrapa; la imagen se archiva igual | sacar otra |
+| 4 | **El desktop no se actualiza** | ⚠️ **nadie** | — |
+| 5 | **Foto del cupón equivocado** | ⚠️ sólo si los montos difieren | — |
+| 6 | Se pierde la respuesta, no la request | el reintento devuelve el resultado | nada que rehacer |
+| 7 | Dos subidas con el mismo token | lock pesimista | — |
+| 8 | La caja se cerró mientras tanto | se valida `EN_PROCESO` | a la caja |
+| 9 | **Texto sin ningún campo útil** | ⚠️ nadie todavía | — |
+| 10 | El motor no cargó | mensaje de cajero + carga manual | carga manual |
+| 11 | El OCR tarda de más | timeout de 30 s | sacar otra |
+| 12 | Disco lleno | archivar no bloquea leer | — |
+| 13 | No es una imagen | `ImageIO` devuelve null → `ERROR` | sacar otra |
+
+**`ERROR` devuelve 422, no 500.** Es un desenlace previsto y reintentable, no una falla del
+servidor, y el teléfono lo trata distinto.
+
+#### El umbral de nitidez está calibrado, no inventado
+
+Varianza del laplaciano de 4 vecinos sobre el canvas, **antes** de subir:
+
+| | Valor |
+|---|---|
+| Peor de los 27 cupones que el OCR leyó bien | **80,5** |
+| Máximo con desenfoque de 5 px | **47,5** |
+| **Umbral elegido** | **50** |
+
+Vive en el hueco entre los dos, **del lado permisivo**: rechazar una foto que habría servido es
+peor que dejar pasar una apenas movida. Verificado que el laplaciano en JavaScript da los mismos
+números que la calibración en OpenCV (**razón 1,001**) — sin ese chequeo el umbral podía estar
+errado por un factor sin que nada avisara.
+
+**La nitidez medida viaja en cada subida y se guarda**, junto con la cuenta de intentos por token,
+para ajustar el umbral con datos reales.
+
+#### Los tres que siguen abiertos
+
+- **Caso 5 — el más peligroso, y no es un error.** El cajero fotografía el cupón de la venta
+  anterior, que quedó en el mostrador. Foto perfecta, OCR perfecto, datos correctos… **de otra
+  transacción**: produce un registro válido y falso, y nadie se entera hasta la conciliación. Se
+  cubre cuando exista la extracción de campos y la validación de cupón duplicado por código de
+  autorización —la que ya existe para el QR— corra también sobre el OCR.
+- **Caso 4.** El publisher es un observable caliente sin persistencia: si el desktop no está
+  escuchando en ese instante, el aviso se pierde y el dato queda huérfano en la base. El desktop
+  tiene que **poder consultar el estado por token**, además de escuchar.
+- **Caso 9.** Lo cubre el semáforo por campo de §2.6.
 ---
 
 ## 3 · Backlog

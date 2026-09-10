@@ -31,6 +31,19 @@ public interface TerminalPosRepository extends HelperRepository<TerminalPos, Lon
 
     List<TerminalPos> findByFormatoTerminalPosIdOrderByIdAsc(Long formatoTerminalPosId);
 
+    /**
+     * Solo el id del formato asignado, sin traer la terminal entera.
+     * <p>
+     * Existe porque {@code saveTerminalPos} arma la entidad de cero con ModelMapper: lo que no
+     * viene en el input nace en null y se persiste como null. Para no pisar el formato cuando el
+     * cliente no lo manda hay que leer el valor actual — y traer la entidad completa la dejaria
+     * asociada a la sesion, chocando con la que se esta por guardar con el mismo id.
+     * <p>
+     * Navegar {@code t.formatoTerminalPos.id} no genera JOIN: Hibernate lo traduce a la columna FK.
+     */
+    @Query("select t.formatoTerminalPos.id from TerminalPos t where t.id = :id")
+    Long findFormatoTerminalPosIdDe(@Param("id") Long id);
+
     @Query(value = "select t from TerminalPos t " +
             "where (:descripcion is null or UPPER(t.descripcion) like %:descripcion%) " +
             "and (:codigo is null or UPPER(t.codigo) like %:codigo%) " +

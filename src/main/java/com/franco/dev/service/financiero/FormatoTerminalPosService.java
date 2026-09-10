@@ -114,9 +114,11 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
         // API no parsea texto: los campos llegan estructurados del proveedor. Los otros dos SI,
         // porque el OCR devuelve texto igual que el QR y se matchea con el mismo patron.
         if (!entity.necesitaPatron()) {
-            if (entity.getMapeo() == null || entity.getMapeo().trim().isEmpty()) {
-                throw new GraphQLException("El mapeo es obligatorio.");
-            }
+            // API no tiene patron contra el cual verificar los grupos, pero el mapeo igual tiene
+            // que ser un JSON: lo va a leer el filial para armar los campos que trae el proveedor.
+            // Sin este chequeo se podia guardar cualquier cadena --verificado-- y el error
+            // aparecia recien al parsearlo, lejos y sin contexto.
+            validarFormaDeJson(entity.getMapeo());
             return;
         }
 
@@ -169,8 +171,25 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
      * Los comodines (proveedor NULL) se comparan aparte: en SQL dos NULL no son iguales, asi que
      * una consulta por igualdad nunca los encontraria y se podrian crear dos con el mismo nombre.
      */
+    /** Lo minimo que se le exige a cualquier mapeo, tenga patron o no. Devuelve el valor limpio. */
+    private static String validarFormaDeJson(String mapeo) {
+        if (mapeo == null || mapeo.trim().isEmpty()) {
+            throw new GraphQLException("El mapeo es obligatorio.");
+        }
+        String m = mapeo.trim();
+        if (!m.startsWith("{") || !m.endsWith("}")) {
+            throw new GraphQLException("El mapeo debe ser un objeto JSON.");
+        }
+        return m;
+    }
+
     private void validarNombreUnicoEnElProveedor(FormatoTerminalPos entity) {
+        // Se normaliza el valor QUE SE GUARDA, no solo el que se compara. Antes solo se trimeaba
+        // para buscar, asi que "X " y "X" convivian en la base --verificado, dos filas visualmente
+        // identicas en el selector-- y cada una se podia asignar a terminales distintas sin que
+        // nadie notara la diferencia.
         String nombre = entity.getNombre().trim();
+        entity.setNombre(nombre);
         Long proveedorId = entity.getProveedorServicio() != null
                 ? entity.getProveedorServicio().getId() : null;
 
@@ -190,13 +209,7 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
      * dependencia de parseo al filial, que tambien lo lee.
      */
     private void validarMapeo(String mapeo, Matcher ejemploMatcheado) {
-        if (mapeo == null || mapeo.trim().isEmpty()) {
-            throw new GraphQLException("El mapeo es obligatorio.");
-        }
-        String m = mapeo.trim();
-        if (!m.startsWith("{") || !m.endsWith("}")) {
-            throw new GraphQLException("El mapeo debe ser un objeto JSON.");
-        }
+        String m = validarFormaDeJson(mapeo);
         // Cada "de":"grupo" del mapeo tiene que existir en el patron. Un grupo mal escrito dejaria
         // el campo vacio en silencio, que es peor que no guardar.
         Matcher refs = Pattern.compile("\"de\"\\s*:\\s*\"([A-Za-z][A-Za-z0-9]*)\"").matcher(m);

@@ -23,7 +23,16 @@ public class ConfiguracionVentaTarjetaGraphQL implements GraphQLQueryResolver, G
     private final UsuarioService usuarioService;
     private final TesoreriaSecurityService seg;
 
+    /**
+     * Ojo: <b>esta es la del central, y pide rol</b>. El PDV NO pasa por aca — lee la copia
+     * replicada contra el filial ({@code onGetConfiguracion(false)} en
+     * {@code pago-touch.component.ts:226} y {@code utilitarios-dialog.component.ts:77}), que es lo
+     * que le permite cobrar con tarjeta sin internet. El unico consumidor de esta query es el
+     * dialogo de administracion, asi que exigir el rol no rompe ninguna caja. Verificado el
+     * 2026-09-10 antes de agregar el chequeo.
+     */
     public ConfiguracionVentaTarjeta configuracionVentaTarjeta() {
+        seg.requireVer();
         return service.findOrCreate();
     }
 

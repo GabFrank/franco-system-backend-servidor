@@ -29,7 +29,10 @@ input TerminalPosInput {
     cuentaBancariaId: Int
     monedaId: Int
     proveedorServicioId: Int
-    "Formato del modelo de aparato que es esta terminal."
+    """
+    Formato del modelo de aparato. Si NO viene, el formato ya asignado NO se toca: omitir el campo
+    no puede apagar la venta con tarjeta de una caja. Para desvincular, desasignarFormatoTerminalPos.
+    """
     formatoTerminalPosId: Int
     activo: Boolean
     creadoEn: Date
@@ -45,6 +48,12 @@ extend type Query {
 }
 
 extend type Mutation {
+    """
+    Saca el formato de una terminal. Es el unico camino para dejarla sin formato, y por lo tanto
+    para bloquearle la venta con tarjeta: tiene que ser una decision, no el efecto de omitir un
+    campo en saveTerminalPos.
+    """
+    desasignarFormatoTerminalPos(terminalPosId: ID!): Boolean
     saveTerminalPos(terminalPos:TerminalPosInput!):TerminalPos!
     deleteTerminalPos(id:ID!):Boolean!
 }

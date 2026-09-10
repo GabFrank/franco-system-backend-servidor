@@ -605,7 +605,8 @@ allá de esa última escritura. Es el CN10 del módulo financiero, ya anotado co
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **filial** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · `venta_tarjeta.origen` · espejo de los campos de `configuracion_venta_tarjeta` · **parámetro `origen` en `completar()` y setearlo** · **chequeo de duplicado por `codigoAutorizacion` + terminal** (ventana de `horas_ventana_duplicado`) en `motivoCuponNoUsable()` · `minutos_validez_captura` en vez de la constante | `V95.5`, `V96.5`, `V97.5` |
+| **filial — entrega A** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · espejo de los campos de `configuracion_venta_tarjeta` · **chequeo de duplicado por `codigoAutorizacion` + terminal** (ventana de `horas_ventana_duplicado`) · índice del chequeo · `minutos_validez_captura` en vez de la constante | `V95.5`, `V96.5`, `V96.7` |
+| **filial — entrega B** | `venta_tarjeta.origen` · **parámetro `origen` en `completar()` y setearlo** | `V97.5`, **rama aparte** |
 | **central** | `venta_tarjeta.origen` (**va primero**) · `formato_terminal_pos` + copia desde `formato_qr_pos` + publicación (**sin el índice único por proveedor**) · FK en `terminal_pos` · ABM (impide desactivar un formato con terminales) · **7 campos nuevos en `configuracion_venta_tarjeta`** (§5.3.g) | `V221.5`, `V222.5`, `V223.5`, `V224.5` |
 | **desktop** | ABM de formatos (tipo, patrón, mapeo con obligatorios, ejemplo) · elegir formato en la terminal · el diálogo respeta el tipo · **carga a mano** con foto opcional · **bloqueo con motivo si la terminal no tiene formato** · el diálogo de configuración deja de ser un solo toggle · leer `segundos_dialogo_registro` en vez de los `120` clavados | — |
 
@@ -624,6 +625,31 @@ cuesta otra migración en tres lugares; agregarlo hoy cuesta una palabra. Que no
 evita dejar terminales en un estado que ningún código sabe atender.
 
 #### El orden de despliegue de esta etapa son DOS pasos, no uno
+
+> ⚠️ **Y «dos pasos» significa DOS RAMAS, no dos commits.** Descubierto por auditoría el
+> 2026-09-10, después de construirlo mal la primera vez: las tres migraciones del filial en un
+> mismo commit viajan en el **mismo JAR**, y Flyway aplica todas las pendientes de una. No hay
+> forma de desplegar «las MAIN_TO_ALL ahora, la BRANCH_TO_MAIN después» si están juntas.
+>
+> Y el costo de equivocarse no es teórico. La fila de `venta_tarjeta` en `pg_publication_rel`
+> **no tiene column list** (`prattrs IS NULL`, verificado), así que **PostgreSQL publica cualquier
+> columna nueva automáticamente** — no hace falta ningún `ALTER PUBLICATION`. Apenas una filial
+> aplique la migración de `origen` y procese **una sola venta con tarjeta**, el stream hacia central
+> incluye la columna; si central no la tiene, su apply worker se detiene con *missing replicated
+> column*. Y `develop`→alpha es automático cada 15 minutos, sin aprobación.
+>
+> **Estructura que quedó** (`filial`):
+>
+> ```
+> develop
+>  └── feature/ocr-cupon-fase2          ← entrega A: V95.5, V96.5, V96.7
+>       └── feature/venta-tarjeta-origen ← entrega B: V97.5
+> ```
+>
+> B es **hija** de A a propósito: mergear A nunca puede arrastrar a B.
+>
+> **Secuencia obligatoria para B:** central migra → central **despliega** y se confirma la versión →
+> recién entonces se mergea B.
 
 Es la única etapa con migraciones en las dos direcciones a la vez:
 
@@ -815,6 +841,7 @@ y reinicia — **nunca toca la base**.
 | **El JAR del filial engorda, y nadie limpia** | +8 MB de ORT podado y +15,5 MB de modelos. Peor: **`check-update.sh` nunca borra `releases/<version>/`** — cada JAR descargado queda en disco para siempre, en 24 sucursales. El incremento no es un evento único: se repite en **cada release futura**. Purgar releases viejas es **prerequisito de promoción**, y va en el script, no en esta entrega |
 | **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. **Las dos columnas (`dias_retencion_imagenes`, `mb_libres_minimos`) se adelantaron a la etapa 3** (§5.3.g); el job que las lee sigue en la etapa 6. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
 | **Un formato reasignado deja ventas viejas ilegibles** | `venta_tarjeta.datos_extra` guarda claves según el `mapeo` vigente al momento, y **ninguna columna dice qué formato las produjo**. Si el formato se corrige o la terminal se reapunta, las ventas archivadas quedan con claves que ya no corresponden a ningún mapeo vivo. Candidato: guardar `formato_terminal_pos_id` en cada `venta_tarjeta`, no sólo el `origen`. **Abierto, no bloquea la etapa 3** |
+| **`mobile` no pasa por el chequeo de duplicado** | **Alto, y no lo resuelve la etapa 3.** Su pantalla de carga manual llama `updateVentaTarjeta` del **central** (`mobile/.../venta-tarjeta.service.ts:82`), que es un setter genérico sin validación de estado, ni de cupón duplicado, ni de moneda — no `completarVentaTarjeta` del filial, que es donde vive toda la defensa. No es una regresión: ya era así. Pero el javadoc del filial afirmaba que *«el desktop y el celular completan por el mismo camino»* y era falso. Se cierra de una de dos formas, y hay que elegir: que `mobile` llame la mutation del filial, o replicar el chequeo en el `updateVentaTarjeta` de central |
 | **Un `tipo` desconocido llegado por SQL** | `API` entra al enum pero el ABM no lo ofrece — la mitigación vale sólo si el único camino es la pantalla, y este repo tolera (y para arreglos puntuales recomienda) tocar la base a mano. **El desktop cae a carga manual ante un `tipo` que no conoce**, nunca a una pantalla en blanco |
 | **El cajero posterga la actualización del desktop** | `autoDownload=false` y la instalación pide consentimiento: se puede posponer **indefinidamente**. Un desktop viejo contra un central nuevo es exactamente el escenario del incidente de `EstadoPreGasto` |
 
@@ -905,7 +932,25 @@ de dos ejes: **A, hechos** (cada afirmación verificable contra código y base) 
 | B9 | Nada registra qué formato produjo un `datos_extra` | **§6**, riesgo abierto |
 | B10 | Un `tipo` desconocido llegado por SQL | **§6**: el desktop cae a carga manual, no a pantalla en blanco |
 
-### 8.4 · Lo que sigue sin verificar
+### 8.4 · Tercera auditoría — el código del filial (2026-09-10)
+
+Dos ejes sobre el primer commit de la etapa 3: **replicación/despliegue** y **código Java**. La
+sospecha con la que se lanzó —que `vt.terminalPos.id` generaba un inner join implícito y excluía las
+filas sin terminal— **quedó refutada** con evidencia dura: un `SessionFactory` de Hibernate 5.4.17
+bootstrapeado aparte muestra que la navegación `.id` se traduce a la columna FK, sin JOIN.
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| A1 | **Alto.** `venta_tarjeta.origen` no puede viajar en el mismo JAR que las MAIN_TO_ALL. La publicación no tiene column list, así que publica columnas nuevas sola | Migración renumerada a `V97.5` y movida a **rama propia**, hija de la de A |
+| A2 | `V95.5` ponía `NOT NULL` en `nombre`/`mapeo`/`tipo` sobre una tabla **subscriber**, violando la regla que el propio commit predica | Sólo la PK lo lleva. La obligatoriedad es regla de negocio y vive en el ABM de central |
+| A3 | `ADD CONSTRAINT` sin `NOT VALID` toma `AccessExclusiveLock` sobre la tabla de cobros en horario de atención | `NOT VALID` + `VALIDATE CONSTRAINT` |
+| B1 | **Alto.** `mobile` no pasa por `completar()`: la defensa no lo cubre | Documentado en el javadoc y en §6. Sin cerrar: es una decisión |
+| B2 | El chequeo de duplicado hacía **Seq Scan** sobre toda `venta_tarjeta`, en cada `completar()` y en cada pre-chequeo | `V96.7`, índice parcial de expresión. Verificado con `EXPLAIN` que se usa con las tres escrituras posibles de `trim` |
+| B3 | `origenEfectivo` no validaba contra el whitelist: el valor llegaba al `INSERT` y el `CHECK` explotaba como error opaco | Whitelist antes de `save()`, con mensaje legible |
+| B4 | `catch (Exception)` en `minutosValidez()`, el patrón que ya costó un arranque caído | `catch (Throwable)`, como `CuponOcrService` |
+| B5 | Los 27 tests mockean el repositorio: **ningún test toca la traducción JPQL→SQL** de ninguna `@Query` del repo | Reconocido, no resuelto: el repo no tiene tests de integración. Lo cubre la corrida manual |
+
+### 8.5 · Lo que sigue sin verificar
 
 1. **`replication.sync.enabled` en mauro.** El `.env` no es legible sin sudo con contraseña. Se
    resuelve con `grep -i replication.sync /opt/frc-backend-central/alpha/.env`.

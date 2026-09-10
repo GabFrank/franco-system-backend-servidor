@@ -19,6 +19,18 @@ public interface TerminalPosRepository extends HelperRepository<TerminalPos, Lon
             "where (UPPER(CAST(t.id as text)) like %?1% or UPPER(t.descripcion) like %?1% or UPPER(t.codigo) like %?1%)")
     public List<TerminalPos> findByAll(String texto);
 
+    /**
+     * Cuantas terminales apuntan a este formato.
+     * <p>
+     * Lo usa el ABM para no dejar desactivar un formato que este en uso: con la FK directa,
+     * desactivarlo dejaria a esas terminales sin poder resolver el cupon, y el desktop bloquea la
+     * venta con tarjeta cuando no hay formato. Un clic en una pantalla de administracion no puede
+     * dejar sucursales enteras sin vender.
+     */
+    long countByFormatoTerminalPosId(Long formatoTerminalPosId);
+
+    List<TerminalPos> findByFormatoTerminalPosIdOrderByIdAsc(Long formatoTerminalPosId);
+
     @Query(value = "select t from TerminalPos t " +
             "where (:descripcion is null or UPPER(t.descripcion) like %:descripcion%) " +
             "and (:codigo is null or UPPER(t.codigo) like %:codigo%) " +

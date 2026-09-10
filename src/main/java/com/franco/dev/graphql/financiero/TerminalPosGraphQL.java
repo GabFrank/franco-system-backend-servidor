@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.TerminalPos;
 import com.franco.dev.graphql.financiero.input.TerminalPosInput;
 import com.franco.dev.service.financiero.CuentaBancariaService;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.financiero.FormatoTerminalPosService;
 import com.franco.dev.service.financiero.TerminalPosService;
 import com.franco.dev.service.personas.ProveedorServicioService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -34,6 +35,9 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     @Autowired
     private ProveedorServicioService proveedorServicioService;
+
+    @Autowired
+    private FormatoTerminalPosService formatoTerminalPosService;
 
     public Optional<TerminalPos> terminalPos(Long id) {
         return service.findById(id);
@@ -71,6 +75,13 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
         // proveedor de servicio de una terminal desde el desktop.
         e.setProveedorServicio(input.getProveedorServicioId() != null
                 ? proveedorServicioService.findById(input.getProveedorServicioId()).orElse(null)
+                : null);
+        // Explicito y no via ModelMapper: el mapeo automatico de `formatoTerminalPosId` armaria una
+        // FormatoTerminalPos a medias con solo el id, y Hibernate no tiene forma de saber que es
+        // una referencia y no una entidad nueva. Igual que arriba, se setea siempre para poder
+        // desvincular el formato desde la pantalla.
+        e.setFormatoTerminalPos(input.getFormatoTerminalPosId() != null
+                ? formatoTerminalPosService.findById(input.getFormatoTerminalPosId()).orElse(null)
                 : null);
         return service.save(e);
     }

@@ -1,0 +1,46 @@
+type FormatoTerminalPos {
+    id: ID!
+    nombre: String
+    proveedorServicio: ProveedorServicio
+    "MAQUINA | WEB | API. Decide que camino se le ofrece al cajero y, sobre todo, cual se le cierra."
+    tipo: String
+    "Regex con grupos nombrados, anclado con ^ y $. Obligatorio para MAQUINA y WEB; solo API puede no tenerlo."
+    patron: String
+    "JSON: campo destino -> {de, obligatorio, ...}. Los obligatorios definen tambien el formulario de carga a mano."
+    mapeo: String
+    ejemplo: String
+    "false = no elegible para asignar a terminales nuevas. Las que ya lo tienen siguen operando."
+    activo: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+input FormatoTerminalPosInput {
+    id: ID
+    nombre: String!
+    proveedorServicioId: Int
+    "MAQUINA | WEB | API"
+    tipo: String!
+    patron: String
+    mapeo: String!
+    ejemplo: String
+    activo: Boolean
+    usuarioId: Int
+}
+
+extend type Query {
+    formatoTerminalPos(id: ID!): FormatoTerminalPos
+    formatosTerminalPos: [FormatoTerminalPos]
+    formatosTerminalPosActivos: [FormatoTerminalPos]
+    formatosTerminalPosPorProveedor(proveedorServicioId: ID!): [FormatoTerminalPos]
+    """
+    Cuantas terminales usan este formato. La pantalla lo pide para avisar antes de que el usuario
+    intente desactivarlo: desactivar uno en uso se rechaza.
+    """
+    terminalesQueUsanFormato(id: ID!): Int
+}
+
+extend type Mutation {
+    saveFormatoTerminalPos(input: FormatoTerminalPosInput!): FormatoTerminalPos!
+    desactivarFormatoTerminalPos(id: ID!): Boolean!
+}

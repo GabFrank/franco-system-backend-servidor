@@ -113,6 +113,26 @@ public class VentaTarjeta implements Serializable {
     @Column(nullable = false, length = 20)
     private String estado = "PENDIENTE";
 
+    /**
+     * De donde salieron los datos del cupon: QR | OCR | MANUAL | API.
+     * <p>
+     * No todos los origenes merecen la misma confianza: un codigo leido por OCR puede tener un
+     * caracter mal --el {@code Cargo: 002511} leido {@code 802511} lo fallan los dos motores--, uno
+     * tipeado por un cajero puede tener cualquier cosa, y uno que viene de la API del proveedor no
+     * puede estar mal. Sin esta columna la conciliacion no puede responder cuales filas necesitan
+     * que las mire una persona.
+     * <p>
+     * <b>Lo escribe el FILIAL, no este repo.</b> El unico metodo que pasa una venta_tarjeta a
+     * COMPLETADO en los dos backends es {@code VentaTarjetaService.completar()} del filial; el
+     * {@code updateVentaTarjeta} de aca es un setter generico usado para otras cosas. Central crea
+     * la columna y la recibe por replicacion.
+     * <p>
+     * Sin CHECK en la base: central es el SUBSCRIBER de esta tabla (BRANCH_TO_MAIN), y un CHECK que
+     * el publisher no comparta abortaria el apply. La validacion vive donde se escribe.
+     */
+    @Column(length = 20)
+    private String origen;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;

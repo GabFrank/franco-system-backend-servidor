@@ -19,6 +19,11 @@ type VentaTarjeta {
     imagenUrl: String
     qrCrudo: String
     estado: String
+    """
+    QR | OCR | MANUAL | API. Origen dominante de los datos; null = anterior a la columna.
+    Lo escribe el filial al completar; central lo recibe por replicacion.
+    """
+    origen: String
     usuario: Usuario
     creadoEn: Date
 }

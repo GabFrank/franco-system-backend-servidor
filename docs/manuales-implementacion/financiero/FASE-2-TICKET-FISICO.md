@@ -383,6 +383,43 @@ medición en vez de una deducción, y no depende de saber cómo se llama la VPN 
 El orden queda: **`frc.captura.base-url` si está configurada → la dirección de la request → el
 escaneo de interfaces**, este último como último recurso y ya sin pretensión de acertar siempre.
 
+### 2.8.2 · El aviso al desktop es un timbre, no el contenido
+
+Verificado el 2026-09-10 contra el filial real, con una foto sacada desde un teléfono en el wifi
+del local.
+
+**Las subscriptions del filial son anónimas, y no por descuido.** El `SecurityGraphQLAspect` tiene
+este pointcut:
+
+```java
+@Pointcut("target(graphql.kickstart.tools.GraphQLQueryResolver)")
+```
+
+Matchea la **clase**, no el método. Un resolver que implemente `GraphQLQueryResolver` arrastra el
+chequeo de login a *todos* sus métodos, subscriptions incluidas — y por WebSocket no hay
+`SecurityContext` en esta aplicación, así que ese chequeo **nunca** se puede pasar. El servidor
+contesta `Sorry, you should log in first to do that!` y el cliente se queda esperando para
+siempre, sin nada en pantalla que diga por qué.
+
+Por eso `sincEstado` y `deliverys` viven en una clase que implementa **únicamente**
+`GraphQLSubscriptionResolver`. No es una convención de estilo: es la condición para que una
+subscription funcione. `CapturaCuponSubscription` sigue el mismo patrón, y por eso está separada
+de `CapturaCuponGraphQL` aunque sean del mismo caso de uso.
+
+**La consecuencia es de diseño, no de plomería.** Si toda subscription es de hecho anónima,
+entonces lo que se emita por ahí lo escucha cualquiera que abra un socket contra el filial en la
+LAN. El aviso de captura llevaba el texto del cupón adentro: PAN enmascarado, código de
+autorización, monto. Ahora lleva **token, caja y estado**, nada más — un timbre. El contenido sale
+por `capturaCupon(token)`, que va por HTTP con la sesión del cajero.
+
+Un timbre no le sirve de nada a quien no tenga sesión para cambiarlo por contenido. Y de paso el
+diseño queda mejor: la query pasa a ser la **única** vía del contenido, y ya era la red de
+contención del aviso perdido (caso 4 de §2.10) — una sola cosa haciendo los dos trabajos, en vez
+de dos caminos que pueden divergir.
+
+> **Regla para lo que venga:** antes de emitir algo por una subscription del filial, preguntarse
+> si eso se pondría en un cartel en el pasillo del local. Si no, va por query.
+
 ### 2.9 · El OCR corre en Java puro, dentro del filial — medido, no supuesto
 
 Portado y medido el **2026-09-09** sobre **27 cupones de 5 formatos** (539 líneas, 289 tokens

@@ -149,8 +149,8 @@ el **2026-09-10**:
 
 | Repo | Última en `origin/develop` | Reservado para esta entrega |
 |---|---|---|
-| central | **`V221.1`** (`funcionario_cobra_banco`, commit `3c399753`) | **`V220.5`, `V221.5` en adelante** |
-| filial | **`V93.1`** (espejo de `cobra_banco`, commit `30b96d7e`) | **`V93.5` en adelante** |
+| central | **`V221.1`** (`funcionario_cobra_banco`, commit `3c399753`) | **`V220.5` y `V221.5`–`V227.5`** |
+| filial | **`V93.1`** (espejo de `cobra_banco`, commit `30b96d7e`) | **`V93.5`–`V100.5`** |
 
 Los `.1` y los `.5` **no colisionan**: Flyway no normaliza `.1` a `.5`. Por eso `V220.5` sigue
 libre aunque central ya vaya por `V221.1`.
@@ -515,13 +515,83 @@ significa **«no elegible para asignar a terminales nuevas»**, no «deja de fun
 que ya lo tienen siguen operando. Y el ABM **impide desactivar** un formato con terminales
 asignadas, diciendo cuántas son.
 
+#### g) La configuración general del módulo hoy es una sola bandera
+
+`financiero.configuracion_venta_tarjeta` (`V146.1` central / `V78.1` filial) tiene **una fila y un
+campo útil**: `habilitado`, que se lee en `pago-touch.component.ts:227` y decide si el flujo de
+tarjeta aparece en el PDV. El resto —`usuario_id`, `creado_en`, `modificado_en`— es el rastro del
+último cambio. Es el mismo patrón de bandera única de `ConfiguracionFacturaConVenta` y
+`ConfiguracionTransferencia`.
+
+**Todo lo demás que decide comportamiento está clavado en el código:**
+
+| Constante | Dónde | Hoy |
+|---|---|---|
+| Vencimiento del QR de captura | `CapturaCuponService:45` | 10 min |
+| Countdown del diálogo de registro | `ventas-tarjeta-caja-dialog:184`, `list-venta-tarjeta:254` | 120 s — y `add-venta-credito-dialog:275` usa 60 |
+| Sondeo del desktop | `captura-cupon.service.ts:18` | 3000 ms |
+| Tamaño máximo de la foto | `CapturaCuponController:47` | 8 MB |
+| Lado máximo / nitidez mínima / calidad JPEG | `captura.html:49,58` | 1000 px, 50 |
+| Ruta de imágenes, base-url del QR | `@Value`, `CapturaCuponService:75-76` | properties **por host** |
+| Retención y purga de imágenes | — | **no existe** |
+
+**Lo que se agrega a la tabla en esta etapa** (decidido el 2026-09-10):
+
+| Campo | Qué decide | Default |
+|---|---|---|
+| `registro_obligatorio` | `LIBRE` / `AVISA_AL_CERRAR` / `BLOQUEA_EL_CIERRE` | `LIBRE` (lo de hoy) |
+| `tolerancia_diferencia_monto_pct` | Por debajo de ese %, la diferencia no pide confirmación | `0` = confirmar siempre |
+| `minutos_validez_captura` | Vida del token del QR | `10` |
+| `segundos_dialogo_registro` | Countdown del diálogo | `120` |
+| `horas_ventana_duplicado` | Cuánto atrás mira el chequeo de §5.3.d | `24` |
+| `dias_retencion_imagenes` | Purga de fotos de cupón | `NULL` = no purgar |
+| `mb_libres_minimos` | Umbral de espacio libre que alerta | `NULL` = sin alerta |
+
+**Por qué `registro_obligatorio` es el que importa.** Hoy «Registrar más tarde» deja la venta
+`PENDIENTE` y **nada la persigue**: verificado, el cierre de caja no mira ventas con tarjeta
+pendientes. La razón de ser del módulo depende de que el cajero se acuerde.
+
+**Por qué la tolerancia es un porcentaje y no un monto.** `monto` y `monto_escaneado` se guardan
+**sin unidad** — el comentario de `VentaTarjetaService:118-126` lo dice: un cupón de 8.000 R$ contra
+un cobro de 8.000 Gs da diferencia cero, y son ~5900x. Un umbral absoluto heredaría el mismo
+problema; un porcentaje es agnóstico de moneda.
+
+**Las dos columnas de retención entran ahora, el job que las lee sigue en la etapa 6.** No es
+configuración muerta por descuido: es más barato agregar las columnas en la misma migración que ya
+toca esta tabla replicada, que coordinar un segundo `ALTER TABLE` filial-primero sobre 24 filiales
+más adelante. La lógica de purga no se adelanta.
+
+**Queda global, sin `sucursal_id`.** Decidido el 2026-09-10 sabiendo el costo: si más adelante una
+farmacia y una bodega necesitan retenciones distintas, abrirlo por sucursal va a exigir backfill
+sobre valores ya cargados. Se aceptó a cambio de no arrastrar una dimensión que hoy nadie pide.
+
+> ⚠️ **Esta etapa introduce TRES enums nuevos de PostgreSQL**: `formato_terminal_pos.tipo`,
+> `venta_tarjeta.origen` y `configuracion_venta_tarjeta.registro_obligatorio`. La regla de §5.6
+> —Java + `.graphqls` + migración en el mismo commit, y `SchemaEnumsSincronizadosTest` antes del
+> PR— aplica a los tres, y es la falla más silenciosa del repo.
+
+**Lo que NO se hace configurable, a propósito:**
+
+- **`NITIDEZ_MIN = 50` y `LADO_MAX = 1000`** están calibrados con medición sobre 27 cupones que el
+  OCR leyó bien. Un knob acá es una invitación a bajarlo «para que acepte más fotos» y llenar la
+  base de imágenes ilegibles. Si cambian, cambian con una medición nueva.
+- **`MAX_BYTES`, `BYTES_TOKEN`** son límites de seguridad de un endpoint sin autenticación.
+- **Ruta de imágenes, base-url, `intra_op_num_threads` del OCR** dependen del hardware de cada
+  filial —un Pentium Gold y un i3 no quieren el mismo número de hilos—. Son `@Value` por host y ahí
+  están bien: meterlos en una tabla replicada los empeoraría.
+- **`MS_SONDEO`** es detalle de implementación, no política.
+
+**Hueco que queda abierto:** la tabla guarda `usuario_id` del **último** cambio, no un historial. Si
+alguien apaga `habilitado`, el PDV entero pierde la venta con tarjeta y no queda quién ni cuándo más
+allá de esa última escritura. Es el CN10 del módulo financiero, ya anotado como pendiente ahí.
+
 #### El trabajo
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **filial** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · `venta_tarjeta.origen` · **parámetro `origen` en `completar()` y setearlo** · **chequeo de duplicado por `codigoAutorizacion` + terminal** en `motivoCuponNoUsable()` | `V95.5`, `V96.5` |
-| **central** | `venta_tarjeta.origen` (**va primero**) · `formato_terminal_pos` + copia desde `formato_qr_pos` + publicación (**sin el índice único por proveedor**) · FK en `terminal_pos` · ABM (impide desactivar un formato con terminales) | `V221.5`, `V222.5`, `V223.5` |
-| **desktop** | ABM de formatos (tipo, patrón, mapeo con obligatorios, ejemplo) · elegir formato en la terminal · el diálogo respeta el tipo · **carga a mano** con foto opcional · **bloqueo con motivo si la terminal no tiene formato** | — |
+| **filial** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · `venta_tarjeta.origen` · espejo de los campos de `configuracion_venta_tarjeta` · **parámetro `origen` en `completar()` y setearlo** · **chequeo de duplicado por `codigoAutorizacion` + terminal** (ventana de `horas_ventana_duplicado`) en `motivoCuponNoUsable()` · `minutos_validez_captura` en vez de la constante | `V95.5`, `V96.5`, `V97.5` |
+| **central** | `venta_tarjeta.origen` (**va primero**) · `formato_terminal_pos` + copia desde `formato_qr_pos` + publicación (**sin el índice único por proveedor**) · FK en `terminal_pos` · ABM (impide desactivar un formato con terminales) · **7 campos nuevos en `configuracion_venta_tarjeta`** (§5.3.g) | `V221.5`, `V222.5`, `V223.5`, `V224.5` |
+| **desktop** | ABM de formatos (tipo, patrón, mapeo con obligatorios, ejemplo) · elegir formato en la terminal · el diálogo respeta el tipo · **carga a mano** con foto opcional · **bloqueo con motivo si la terminal no tiene formato** · el diálogo de configuración deja de ser un solo toggle · leer `segundos_dialogo_registro` en vez de los `120` clavados | — |
 
 > ⚠️ **`origen` se setea en el filial, no en central.** La primera versión de esta tabla lo ponía en
 > la fila de central, y está mal: el **único** método que pasa una `venta_tarjeta` a `COMPLETADO` es
@@ -566,8 +636,8 @@ Python evitan, sin perseguir paridad binaria entre motores.
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **central** | Regiones por campo y por formato | `V224.5` |
-| **filial** | Restringir el reconocimiento a las regiones del mapa | `V99.5` |
+| **central** | Regiones por campo y por formato | `V225.5` |
+| **filial** | Restringir el reconocimiento a las regiones del mapa | `V98.5` |
 | **desktop** | Editor de regiones sobre la imagen del cupón |
 
 **Criterio de la comparación, escrito antes de medir:**
@@ -584,16 +654,21 @@ Python evitan, sin perseguir paridad binaria entre motores.
 |---|---|---|
 | **§3.7 · Input único** | desktop | — |
 | **§3.6 · La terminal viajando dentro del propio QR** | central, desktop | — |
-| **§3.4 · Configuración por POS** | central, filial, desktop | `V225.5` / `V100.5` |
+| **§3.4 · Configuración por POS** | central, filial, desktop | `V226.5` / `V99.5` |
 | **§3.1 · Ticket con seña con QR** | filial (impresión), desktop | — |
-| **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V226.5` / `V101.5` |
-| **Retención y purga de imágenes** | filial | incluida en `V100.5` |
+| **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V227.5` / `V100.5` |
+| **Purga de imágenes** (el job) | filial | — |
 
 > ⚠️ **Números corregidos el 2026-09-10.** La versión anterior reusaba `V224.5` y `V99.5` —ya
 > asignados a la etapa 5— en dos filas de esta tabla, y encima ponía «incluida en `V224.5`» en una
 > fila marcada **filial**, cuando `V224.5` es un número del rango de **central**. Dos migraciones
 > distintas con la misma versión no conviven en el mismo repo: Flyway falla al arrancar. Los números
 > de acá son tentativos igual — se re-confirman con `git fetch` el día que se abre el PR (§3.3).
+
+> **La configuración *general* del módulo se adelantó a la etapa 3** (§5.3.g), con las columnas de
+> retención incluidas. Lo que queda acá es la configuración **por POS** —campos obligatorios y si la
+> carga manual está permitida en esa terminal— y el **job de purga**, que lee `dias_retencion_imagenes`
+> y `mb_libres_minimos` de columnas que ya van a existir.
 
 > ⚠️ **§3.4 lleva la restricción de §5.3.d**: el interruptor de «carga manual permitida por POS»
 > **no puede apagar el último camino disponible**. Si el tipo del formato ya cierra QR o cámara,
@@ -629,6 +704,9 @@ migración**, todo en el mismo commit. (Una versión anterior de este plan lo ll
 `terminal_pos.tipo`: el tipo dejó de ser columna de la terminal y pasó al formato — §5.3.a. Si se
 lee esa versión y se implementa literal, se construye el diseño viejo.) Y en PostgreSQL se extiende con `ALTER TYPE ... ADD VALUE` idempotente, **sin
 usar el valor nuevo en la misma transacción**.
+
+**La etapa 3 sola trae tres**: `formato_terminal_pos.tipo`, `venta_tarjeta.origen` y
+`configuracion_venta_tarjeta.registro_obligatorio`. Los tres, misma regla.
 
 > **Es la falla más silenciosa del repo.** No rompe el build ni el CI: graphql-java loguea un WARN y
 > devuelve `null`. Ya pasó con `EstadoPreGasto.PAGADO` (`V197.5`), que **tumbó la caja chica de la
@@ -719,7 +797,7 @@ y reinicia — **nunca toca la base**.
 | **Rendimiento con la filial bajo carga** | Lo medido fue con la máquina ociosa. ORT toma todos los núcleos por defecto: falta decidir si limitar `intra_op_num_threads` para no ahogar la aplicación |
 | **Topología de red de una sucursal real** | La captura se probó en una LAN doméstica. Falta confirmar que la WiFi que usan los cajeros alcanza al filial |
 | **El JAR del filial engorda, y nadie limpia** | +8 MB de ORT podado y +15,5 MB de modelos. Peor: **`check-update.sh` nunca borra `releases/<version>/`** — cada JAR descargado queda en disco para siempre, en 24 sucursales. El incremento no es un evento único: se repite en **cada release futura**. Purgar releases viejas es **prerequisito de promoción**, y va en el script, no en esta entrega |
-| **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
+| **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. **Las dos columnas (`dias_retencion_imagenes`, `mb_libres_minimos`) se adelantaron a la etapa 3** (§5.3.g); el job que las lee sigue en la etapa 6. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
 | **Un formato reasignado deja ventas viejas ilegibles** | `venta_tarjeta.datos_extra` guarda claves según el `mapeo` vigente al momento, y **ninguna columna dice qué formato las produjo**. Si el formato se corrige o la terminal se reapunta, las ventas archivadas quedan con claves que ya no corresponden a ningún mapeo vivo. Candidato: guardar `formato_terminal_pos_id` en cada `venta_tarjeta`, no sólo el `origen`. **Abierto, no bloquea la etapa 3** |
 | **Un `tipo` desconocido llegado por SQL** | `API` entra al enum pero el ABM no lo ofrece — la mitigación vale sólo si el único camino es la pantalla, y este repo tolera (y para arreglos puntuales recomienda) tocar la base a mano. **El desktop cae a carga manual ante un `tipo` que no conoce**, nunca a una pantalla en blanco |
 | **El cajero posterga la actualización del desktop** | `autoDownload=false` y la instalación pide consentimiento: se puede posponer **indefinidamente**. Un desktop viejo contra un central nuevo es exactamente el escenario del incidente de `EstadoPreGasto` |

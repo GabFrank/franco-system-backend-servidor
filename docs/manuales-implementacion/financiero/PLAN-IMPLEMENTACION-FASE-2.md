@@ -144,22 +144,29 @@ conjunto de commits de la rama**: habrá `feat`, así que sube MINOR alpha.
 
 ### 3.3 · Migraciones Flyway
 
-**Sufijo `.5` siempre**, nunca `.0` ni el entero pelado. Verificado el 2026-09-09:
+**Sufijo `.5` siempre**, nunca `.0` ni el entero pelado. Verificado contra `origin/develop`
+el **2026-09-10**:
 
 | Repo | Última en `origin/develop` | Reservado para esta entrega |
 |---|---|---|
-| central | **`V220.1`** (`rrhh_bono_recurrente`, commit `7efce9a9`) | **`V220.5` en adelante** |
-| filial | `V92.5` | **`V93.5` en adelante** |
+| central | **`V221.1`** (`funcionario_cobra_banco`, commit `3c399753`) | **`V220.5`, `V221.5` en adelante** |
+| filial | **`V93.1`** (espejo de `cobra_banco`, commit `30b96d7e`) | **`V93.5` en adelante** |
 
-`V220.1` y `V220.5` **no colisionan**: Flyway no normaliza `.1` a `.5`.
+Los `.1` y los `.5` **no colisionan**: Flyway no normaliza `.1` a `.5`. Por eso `V220.5` sigue
+libre aunque central ya vaya por `V221.1`.
 
-> ⚠️ **Corregido el 2026-09-09 por la auditoría del paso 5.** La primera versión de este plan decía
-> «última: `V219.5`, verificado». **La verificación se hizo contra el checkout local, que estaba
-> atrás de `origin/develop`** — que ya tenía `V220.1`, de otro desarrollador y fuera de esta fase.
-> No hubo colisión por suerte, no por método.
+> ⚠️ **Esta tabla se pone vieja sola, y ya pasó dos veces.**
 >
-> **Antes de crear la rama hay que hacer `git fetch origin develop` real en los tres repos y
-> re-confirmar que `V220.5` sigue libre.** Y el PR #282 de central sigue sin traer migraciones.
+> - **2026-09-09**: el plan decía «última: `V219.5`, verificado». La verificación se había hecho
+>   contra el **checkout local**, que estaba atrás de `origin/develop` — que ya tenía `V220.1`, de
+>   otro desarrollador y fuera de esta fase. No hubo colisión por suerte, no por método.
+> - **2026-09-10**: corregida a `V220.1` / `V92.5` con un `fetch` real… y **al día siguiente ya
+>   estaba vieja otra vez**: `V221.1` y `V93.1` se pushearon esa misma tarde.
+>
+> La conclusión no es «corregir la tabla mejor». Es que **el número escrito acá no es fuente de
+> verdad, y el `git fetch origin develop` del §7 no es opcional**: hay que rehacerlo el día que se
+> crea la rama y otra vez el día que se abre el PR. Lo único estable es la regla del sufijo: los
+> `.5` reservados no los toca nadie más, porque el resto del equipo usa `.1`.
 
 > ### ⚠️ El orden de despliegue depende de la dirección de replicación
 >
@@ -176,12 +183,36 @@ conjunto de commits de la rama**: habrá `feat`, así que sube MINOR alpha.
 > `venta_tarjeta.origen` exige central primero, el formato y su FK exigen filial primero. No hay un
 > orden único para la entrega: son dos pasos separados.
 >
-> Y `formato_qr_pos` **no se renombra**: la publicación la referencia por nombre. Ver §5.3.b.
+> Y `formato_qr_pos` **no se renombra**. El motivo no es el que decía la primera versión de este
+> plan («la publicación la referencia por nombre») — eso es **falso**, y se comprobó:
+>
+> ```sql
+> BEGIN;
+>   ALTER TABLE financiero.formato_qr_pos RENAME TO formato_terminal_pos_rename_test;
+>   SELECT * FROM pg_publication_tables WHERE tablename LIKE 'formato%';  -- sigue ahí, con el nombre nuevo
+> ROLLBACK;
+> ```
+>
+> Postgres trackea la membresía de una publicación por **OID de la relación** (`pg_publication_rel`),
+> no por nombre: un `RENAME` en el publicador no saca la tabla de la publicación.
+>
+> **Lo que sí rompe es el otro lado.** El protocolo de replicación lógica identifica la relación
+> **en el suscriptor** por `schema.nombre`. Si central renombra y el filial no, el apply worker del
+> filial busca `financiero.formato_qr_pos`, no la encuentra, y **se detiene** — el mismo síntoma que
+> el enum de `tipo_dispositivo` del 2026-08-20, por un mecanismo distinto.
+>
+> Corolario práctico: el peligro no está en el `RENAME` en sí, sino en la **ventana** entre que
+> renombra un lado y renombra el otro — y esa ventana, con 24 filiales que actualizan por cron cada
+> 15 minutos, no se puede cerrar. Por eso: tabla nueva, copiar, `DROP` diferido. Ver §5.3.b.
 >
 > El precedente está escrito en el repo, en la cabecera de `V153.1` del central: *«financiero.
 > terminal_pos esta replicada MAIN_TO_ALL. El ADD COLUMN de abajo exige que la columna ya exista en
 > TODAS las filiales (migracion espejo V81.2 del filial), si no el apply worker se detiene con
-> missing replicated column»*. Es exactamente el caso de `tipo`.
+> missing replicated column»*. Es exactamente el caso de **`terminal_pos.formato_terminal_pos_id`**
+> — la FK nueva de la etapa 3, que es un `ADD COLUMN` sobre una tabla `MAIN_TO_ALL` y por lo tanto
+> exige que **el filial migre primero**. (En una versión anterior de este plan esta línea decía «el
+> caso de `tipo`», cuando el tipo todavía iba a ser columna de `terminal_pos`; ya no lo es, vive en
+> el formato — ver §5.3.a.)
 >
 > **NO VERIFICADO.** La primera versión de este plan afirmaba que «en alpha no muerde porque corre
 > con `replication.sync.enabled=false`». **No se pudo confirmar**: el default de
@@ -323,9 +354,16 @@ el ticket de ese aparato. Decidido asumiendo el costo de hoy para ahorrar el de 
 caminos.
 
 > ⚠️ **No es un `RENAME`, y esto no es negociable.** `formato_qr_pos` está replicada
-> `MAIN_TO_ALL`, y la publicación y las suscripciones de las 24 filiales la referencian **por
-> nombre**. Un `ALTER TABLE ... RENAME` corta la replicación en toda la flota — el mismo corte del
-> 2026-08-20 que ya costó una noche.
+> `MAIN_TO_ALL`. El motivo exacto **no** es el que decía la primera versión de este plan («la
+> publicación la referencia por nombre») — eso se probó y es falso: Postgres trackea la membresía
+> por **OID** y un `RENAME` deja la tabla dentro de la publicación, con el nombre nuevo.
+>
+> Lo que corta es **el suscriptor**: el protocolo de replicación lógica identifica la relación en el
+> filial por `schema.nombre`. Si central renombra y las 24 filiales todavía no, cada apply worker
+> busca `financiero.formato_qr_pos`, no la encuentra y **se detiene**. Y esa ventana no se puede
+> cerrar: las filiales actualizan por cron cada 15 minutos, cada una por su cuenta. Es el mismo
+> corte del 2026-08-20 que ya costó una noche, por la otra mitad del mismo mecanismo. Detalle en
+> §3.3.
 >
 > **La secuencia es la de dos versiones que el repo exige:**
 >
@@ -336,6 +374,20 @@ caminos.
 >    la flota corra el código nuevo.
 >
 > Hoy `formato_qr_pos` tiene **una sola fila** (`ValidaPix FRCP1`), así que la copia es trivial.
+
+> ⚠️ **La tabla nueva NO lleva el índice único por proveedor.** `V217.5` creó
+> `uq_formato_qr_pos_proveedor` (`UNIQUE (proveedor_servicio_id) WHERE proveedor_servicio_id IS NOT
+> NULL`), y `FormatoQrPosService.validar()` lo refuerza con el mensaje *«El proveedor ya tiene el
+> formato X. Editalo en vez de crear otro»*.
+>
+> **Eso prohíbe exactamente lo que esta etapa existe para permitir**: Bancard v5.2 y Bancard v5.5
+> conviviendo bajo el mismo proveedor. El ABM nuevo se va a escribir copiando el viejo —es la
+> convención del repo, `CrudService` + `validar()`— y si nadie lo dice en voz alta, el segundo
+> formato se rechaza y **nadie lo nota hasta que alguien intenta cargar el firmware nuevo**.
+>
+> En `formato_terminal_pos` la unicidad es **`(proveedor_servicio_id, nombre)`**, y hay que sacar
+> también el chequeo del `validar()`. Va mencionado en la descripción del PR como cambio de
+> comportamiento respecto del ABM viejo.
 
 **Nombre.** `ConfiguracionVentaTarjeta` ya existe y es otra cosa (la config del flujo de venta con
 tarjeta), así que `configuracion_terminal` habría quedado a un carácter de confundirse.
@@ -351,6 +403,13 @@ El `mapeo` marca qué campos son **obligatorios**. Eso decide tres cosas de una 
    quedan vacíos, sin frenar nada.
 3. **Qué pide la carga a mano.** El formulario se arma con los obligatorios del formato. Una sola
    fuente de verdad en vez de tres listas que se desincronizan.
+
+**`patron` es obligatorio para `MAQUINA` y `WEB`.** El diagrama de arriba dice «(QR, si imprime)» y
+eso se puede leer mal: un formato `MAQUINA` —justo el que usa cámara, el caso central de esta
+fase— **también necesita patrón**, porque el OCR devuelve texto igual que el QR y la etapa 4 lo
+matchea con el mismo patrón y el mismo mapeo. Sin patrón, la etapa 4 no tiene contra qué comparar y
+hay que reabrir el diseño de la tabla en medio de la etapa. **Sólo `API` puede no tener patrón**:
+ahí los campos llegan estructurados del proveedor.
 
 #### d) La carga a mano es la salida universal
 
@@ -370,6 +429,34 @@ reabrir los caminos.
   OCR y archivando la imagen. El cupón sigue siendo la evidencia aunque el motor no haya podido
   leerlo.
 
+> ⚠️ **El chequeo de cupón duplicado no cubre la carga a mano, y hay que arreglarlo en ESTA etapa.**
+>
+> `VentaTarjetaService.motivoCuponNoUsable()` (filial) hoy mira dos cosas: `qrCrudo` —que sólo
+> existe si el cupón entró por el lector— e `identificadorTransaccion`, que **sólo llenan los
+> formatos con un campo distinto de `codigoAutorizacion`** (el `EndToEndId` de Pix sí; Dinelco,
+> Infonet, Stone, BXX y PlugPay no).
+>
+> Con carga a mano el cajero no tiene `qrCrudo` y, para la mayoría de los proveedores, tampoco un
+> identificador aparte: **puede retipear el cupón de la venta anterior entero y nada lo frena**. Es
+> el caso 5 de `FASE-2-TICKET-FISICO.md` §2.10, y ahí quedó anotado que se resolvía «cuando la
+> validación corra también sobre el OCR» — pero ni esta etapa ni la 4 lo tocaban.
+>
+> **Va acá, en la misma entrega que abre la carga a mano**: chequeo por
+> `codigoAutorizacion` + `terminal_pos_id` (+ ventana de tiempo), que es el único identificador que
+> `MANUAL` garantiza para todos los proveedores. Entregar el camino sin el freno es peor que no
+> entregarlo.
+
+> ⚠️ **La etapa 6 no puede apagar el último camino.** El backlog §3.4 —«campos obligatorios por POS
+> **y si la carga manual está permitida por POS**»— agrega un interruptor que anula la garantía en
+> la que se apoya toda esta etapa. El día que alguien lo apague en una terminal `MAQUINA` cuyo OCR
+> falle (el `Cargo: 002511` → `802511` de §6, el peor error del módulo), el cajero queda **sin
+> ningún camino**: sin QR porque lo cierra el tipo, sin manual porque se apagó. Venta `PENDIENTE` y
+> caja sin cerrar — el agujero que esta etapa dice haber tapado, reabierto por el mismo plan.
+>
+> **Regla dura, decidida el 2026-09-10:** el ABM de la etapa 6 **sólo deja apagar la carga manual si
+> el otro camino está abierto para ese tipo**. Si es el último, el interruptor se rechaza con el
+> motivo. Va al checklist de §7.
+
 #### e) De dónde vinieron los datos
 
 `venta_tarjeta` tiene los campos y **ninguna columna que diga cómo se obtuvieron**. No todos los
@@ -384,13 +471,67 @@ jsonb.
 desconocido. Lo que haya que completar se hace aparte, por SQL, con el guard de dry-run que exige
 el repo. Convertir una suposición en dato es peor que dejar el hueco visible.
 
+#### f) Una terminal sin formato no vende — y por eso el SQL va ANTES que el desktop
+
+**Hoy no hay resolución, hay cascada.** `qr-pos-parser.ts` prueba **todos** los formatos activos en
+orden hasta que uno matchea, sin filtrar por terminal. Por eso el comodín `ValidaPix FRCP1` funciona
+en cualquier lado, y por eso hoy ninguna terminal necesita estar configurada.
+
+El modelo de a) es **un salto directo, sin cascada de respaldo**: la terminal apunta a su formato.
+Eso deja una pregunta que el diseño no puede esquivar: qué pasa con una terminal cuyo
+`formato_terminal_pos_id` es `NULL` — que el día del corte son **todas**, en las 24 sucursales,
+porque no hay backfill.
+
+**Decidido el 2026-09-10: bloquea la venta.** Sin formato no se registra la venta con tarjeta, ni
+por QR ni por foto ni a mano. Es la opción estricta y hay que asumir lo que implica:
+
+- El mensaje tiene que decir **qué falta y quién lo arregla**: *«La terminal X no tiene formato
+  configurado. Un administrador tiene que asignárselo en Financiero → Terminales POS»*. Un bloqueo
+  mudo en una caja con gente esperando es peor que el problema que evita.
+- **No aplica a ventas ya `PENDIENTE`.** Una venta creada antes del corte se completa por el camino
+  que ya tenía; si no, el bloqueo alcanza plata que ya se cobró y deja la caja sin cerrar por algo
+  que el cajero no puede resolver.
+
+**Y ordena el despliegue.** El desktop es el que bloquea, y el desktop se actualiza **por
+consentimiento del cajero**: no hay forma de sincronizarlo con nada. Entonces la asignación por SQL
+no es una tarea posterior, es un **prerrequisito**:
+
+```
+1. filial migra   (formato_terminal_pos + FK, MAIN_TO_ALL)
+2. central migra  (tabla + copia desde formato_qr_pos + publicación)
+3. SQL: asignar formato a TODA terminal_pos existente     ← acá, antes de tocar el desktop
+4. verificar 0 filas con formato_terminal_pos_id IS NULL
+5. recién entonces sale la versión del desktop que bloquea
+```
+
+El SQL se completa a mano —no hay backfill automático, decidido el 2026-09-10— con el guard de
+dry-run + `RAISE EXCEPTION` que exige el repo, y mirando la PK, que en estas tablas suele ser
+`(id, sucursal_id)`.
+
+**Y `activo = false` cambia de significado.** Hoy `activo` sólo filtra `findActivos()`, la lista que
+se prueba en cascada: desactivar un formato mal cargado es inocuo. Con la FK directa, desactivar un
+formato que tiene terminales asignadas las dejaría a todas sin vender. **Regla:** `activo = false`
+significa **«no elegible para asignar a terminales nuevas»**, no «deja de funcionar»; las terminales
+que ya lo tienen siguen operando. Y el ABM **impide desactivar** un formato con terminales
+asignadas, diciendo cuántas son.
+
 #### El trabajo
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **filial** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · `venta_tarjeta.origen` | `V95.5`, `V96.5` |
-| **central** | `venta_tarjeta.origen` (**va primero**) · `formato_terminal_pos` + copia desde `formato_qr_pos` + publicación · FK en `terminal_pos` · ABM · setear `origen` al completar | `V221.5`, `V222.5`, `V223.5` |
-| **desktop** | ABM de formatos (tipo, patrón, mapeo con obligatorios, ejemplo) · elegir formato en la terminal · el diálogo respeta el tipo · **carga a mano** con foto opcional | — |
+| **filial** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · `venta_tarjeta.origen` · **parámetro `origen` en `completar()` y setearlo** · **chequeo de duplicado por `codigoAutorizacion` + terminal** en `motivoCuponNoUsable()` | `V95.5`, `V96.5` |
+| **central** | `venta_tarjeta.origen` (**va primero**) · `formato_terminal_pos` + copia desde `formato_qr_pos` + publicación (**sin el índice único por proveedor**) · FK en `terminal_pos` · ABM (impide desactivar un formato con terminales) | `V221.5`, `V222.5`, `V223.5` |
+| **desktop** | ABM de formatos (tipo, patrón, mapeo con obligatorios, ejemplo) · elegir formato en la terminal · el diálogo respeta el tipo · **carga a mano** con foto opcional · **bloqueo con motivo si la terminal no tiene formato** | — |
+
+> ⚠️ **`origen` se setea en el filial, no en central.** La primera versión de esta tabla lo ponía en
+> la fila de central, y está mal: el **único** método que pasa una `venta_tarjeta` a `COMPLETADO` es
+> `filial/VentaTarjetaService.completar()`. `central/VentaTarjetaGraphQL.updateVentaTarjeta` es un
+> update genérico que se usa para otras cosas, no el camino de completar un cupón.
+>
+> Ejecutando el plan como estaba escrito, central terminaba su parte —columna, ABM, FK— sin haber
+> tocado el único lugar donde `origen` se puede fijar con un dato verdadero, y la columna nacía
+> `NULL` para el ~100% del tráfico: todo lo que se completa desde las 24 filiales. **La columna la
+> crea central; el valor lo escribe el filial.**
 
 **`API` entra al enum pero el ABM todavía no lo ofrece.** Extender un enum de PostgreSQL después
 cuesta otra migración en tres lugares; agregarlo hoy cuesta una palabra. Que no se pueda elegir
@@ -443,10 +584,20 @@ Python evitan, sin perseguir paridad binaria entre motores.
 |---|---|---|
 | **§3.7 · Input único** | desktop | — |
 | **§3.6 · La terminal viajando dentro del propio QR** | central, desktop | — |
-| **§3.4 · Configuración por POS** | central, filial, desktop | `V224.5` / `V98.5` |
+| **§3.4 · Configuración por POS** | central, filial, desktop | `V225.5` / `V100.5` |
 | **§3.1 · Ticket con seña con QR** | filial (impresión), desktop | — |
-| **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V225.5` / `V99.5` |
-| **Retención y purga de imágenes** | filial | incluida en `V224.5` |
+| **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V226.5` / `V101.5` |
+| **Retención y purga de imágenes** | filial | incluida en `V100.5` |
+
+> ⚠️ **Números corregidos el 2026-09-10.** La versión anterior reusaba `V224.5` y `V99.5` —ya
+> asignados a la etapa 5— en dos filas de esta tabla, y encima ponía «incluida en `V224.5`» en una
+> fila marcada **filial**, cuando `V224.5` es un número del rango de **central**. Dos migraciones
+> distintas con la misma versión no conviven en el mismo repo: Flyway falla al arrancar. Los números
+> de acá son tentativos igual — se re-confirman con `git fetch` el día que se abre el PR (§3.3).
+
+> ⚠️ **§3.4 lleva la restricción de §5.3.d**: el interruptor de «carga manual permitida por POS»
+> **no puede apagar el último camino disponible**. Si el tipo del formato ya cierra QR o cámara,
+> apagar manual deja al cajero sin salida. El ABM lo rechaza con el motivo.
 
 **§3.6 quedó partido.** El tipo de terminal se absorbió en la etapa 3, porque es el router del
 flujo. Lo que queda acá es la otra mitad: que la terminal viaje dentro del propio QR (`FRCP1` ya
@@ -468,13 +619,15 @@ nuevo se protege **inyectando `TesoreriaSecurityService`** y llamando `requireVe
 `requireGestionar()` (mutation) **como primera línea del método**. `@AdminSecured` no sirve: está
 roto de punta a punta (issue #177) y no hay un solo método anotado con él.
 
-Aplica a **todo** el ABM que agrega esta entrega: formato de cupón OCR, regiones por POS,
-configuración por POS, tipo de terminal. Si no se inyecta a mano, **quedan abiertos**.
+Aplica a **todo** el ABM que agrega esta entrega: formato de terminal POS, regiones por POS,
+configuración por POS. Si no se inyecta a mano, **quedan abiertos**.
 
 ### Un enum nuevo va a TRES lugares en el mismo commit
 
-`terminal_pos.tipo` (`MAQUINA` / `WEB`) es un enum. Va en **Java + `.graphqls` + migración**, todo
-en el mismo commit. Y en PostgreSQL se extiende con `ALTER TYPE ... ADD VALUE` idempotente, **sin
+**`formato_terminal_pos.tipo`** (`MAQUINA` / `WEB` / `API`) es un enum. Va en **Java + `.graphqls` +
+migración**, todo en el mismo commit. (Una versión anterior de este plan lo llamaba
+`terminal_pos.tipo`: el tipo dejó de ser columna de la terminal y pasó al formato — §5.3.a. Si se
+lee esa versión y se implementa literal, se construye el diseño viejo.) Y en PostgreSQL se extiende con `ALTER TYPE ... ADD VALUE` idempotente, **sin
 usar el valor nuevo en la misma transacción**.
 
 > **Es la falla más silenciosa del repo.** No rompe el build ni el CI: graphql-java loguea un WARN y
@@ -510,6 +663,11 @@ app no arranca.
 |---|---|
 | **filial-alpha** (mauro) | **Solo, cada 15 min, sin aprobación**, apenas `semantic-release` corta el tag |
 | **central-alpha** (mauro) | **`workflow_dispatch` manual.** Sin revisor, pero alguien tiene que apretarlo |
+| **desktop** (cada caja) | `electron-updater` chequea cada 5 min y **pide consentimiento**. Se puede posponer **indefinidamente** |
+
+**Y no son dos mitades, son tres.** Esta sección hablaba sólo de central↔filial, pero desde la
+etapa 3 el trabajo que **cierra el camino equivocado y abre la carga a mano vive en el desktop** — y
+el desktop es la pieza que nadie puede sincronizar con nada.
 
 Entre esos dos momentos el filial corre código nuevo **contra un central que todavía no tiene las
 tablas**. Las tablas de configuración de las etapas **3 a 6** son `MAIN_TO_ALL`, así que sí muerde — y la
@@ -522,6 +680,15 @@ uno.
 2. **Disparar el Deploy de central a `alpha` de inmediato**, sin esperar
 3. Recién entonces mergear el PR de filial
 4. Confirmar que mauro tomó la versión (`.current-version` y `/api/version`)
+5. **Correr el SQL de asignación de formato** y verificar 0 terminales sin formato (§5.3.f)
+6. **Recién entonces** liberar el desktop, y **confirmar que las cajas tomaron la versión antes de
+   reconfigurar tipos en el ABM**
+
+Los pasos 5 y 6 son de la etapa 3 en adelante. Sin el 5, el desktop nuevo bloquea ventas en toda la
+flota. Sin el 6, un administrador marca una terminal como `MAQUINA` en el ABM —que ya está en
+central— y el cajero con desktop viejo sigue viendo el lector de QR como si nada: no rompe nada,
+pero **la funcionalidad que el administrador cree haber habilitado no existe en esa caja, y nadie
+avisa**.
 
 Alternativa si hace falta más margen: **pausar el cron de `check-update.sh` en mauro** durante la
 ventana de merge y reanudarlo cuando central ya esté arriba.
@@ -553,6 +720,8 @@ y reinicia — **nunca toca la base**.
 | **Topología de red de una sucursal real** | La captura se probó en una LAN doméstica. Falta confirmar que la WiFi que usan los cajeros alcanza al filial |
 | **El JAR del filial engorda, y nadie limpia** | +8 MB de ORT podado y +15,5 MB de modelos. Peor: **`check-update.sh` nunca borra `releases/<version>/`** — cada JAR descargado queda en disco para siempre, en 24 sucursales. El incremento no es un evento único: se repite en **cada release futura**. Purgar releases viejas es **prerequisito de promoción**, y va en el script, no en esta entrega |
 | **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
+| **Un formato reasignado deja ventas viejas ilegibles** | `venta_tarjeta.datos_extra` guarda claves según el `mapeo` vigente al momento, y **ninguna columna dice qué formato las produjo**. Si el formato se corrige o la terminal se reapunta, las ventas archivadas quedan con claves que ya no corresponden a ningún mapeo vivo. Candidato: guardar `formato_terminal_pos_id` en cada `venta_tarjeta`, no sólo el `origen`. **Abierto, no bloquea la etapa 3** |
+| **Un `tipo` desconocido llegado por SQL** | `API` entra al enum pero el ABM no lo ofrece — la mitigación vale sólo si el único camino es la pantalla, y este repo tolera (y para arreglos puntuales recomienda) tocar la base a mano. **El desktop cae a carga manual ante un `tipo` que no conoce**, nunca a una pantalla en blanco |
 | **El cajero posterga la actualización del desktop** | `autoDownload=false` y la instalación pide consentimiento: se puede posponer **indefinidamente**. Un desktop viejo contra un central nuevo es exactamente el escenario del incidente de `EstadoPreGasto` |
 
 ---
@@ -567,6 +736,11 @@ y reinicia — **nunca toca la base**.
 - [ ] La API GraphQL no rompe desktop ni mobile
 - [ ] Sin secretos, sin `.env`, sin claves
 - [ ] Descripción del PR: qué resuelve, cómo probarlo, riesgo, impacto en DB y en rollback
+- [ ] **`git fetch origin develop` recién hecho** y los números de `.5` re-confirmados libres — la
+      tabla de §3.3 ya se puso vieja dos veces en dos días
+- [ ] **Ningún camino queda cerrado sin alternativa**: si el tipo del formato cierra QR o cámara, la
+      carga a mano tiene que estar abierta para esa terminal (§5.3.d)
+- [ ] **Ninguna terminal sin formato** antes de liberar el desktop de la etapa 3 (§5.3.f)
 - [ ] `npm run check` corrido en desktop antes de pushear
 - [ ] **Resolvers nuevos con `TesoreriaSecurityService`** — `requireVer()` / `requireGestionar()` como primera línea (§5.6)
 - [ ] **Enum nuevo en los tres lugares** y `SchemaEnumsSincronizadosTest` corrido (§5.6)
@@ -613,10 +787,39 @@ Ninguno se contradijo; **dos coincidieron de forma independiente** en el enum.
 | B6 | La purga no tiene diseño de fallo, y el disco es compartido con el WAL de Postgres | **§6** |
 | B7 | La afirmación sobre `replication.sync.enabled` en alpha **no estaba verificada** | **Marcada NO VERIFICADO en §3.3**, con el comando que la resolvería |
 
-### 8.3 · Lo que sigue sin verificar
+### 8.3 · Segunda auditoría — sobre el plan ya rediseñado (2026-09-10)
+
+Después de reescribir §5.3 con el modelo de `formato_terminal_pos`, se corrió una segunda auditoría
+de dos ejes: **A, hechos** (cada afirmación verificable contra código y base) y **B, diseño**
+(coherencia interna y modos de falla). **Tres hallazgos desmienten afirmaciones de este plan.**
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| A1 | **La tabla de migraciones ya estaba vieja otra vez** — `V221.1` / `V93.1`, pusheadas al día siguiente de «corregirla» | **§3.3** reescrita: el número de acá no es fuente de verdad. Ítem nuevo en §7 |
+| A2 | **Falso el mecanismo del `RENAME`.** La publicación **no** referencia por nombre: trackea por OID. Probado con un `RENAME` + `ROLLBACK` | **§3.3 y §5.3.b** corregidas. Lo que corta es el **suscriptor**, que identifica por `schema.nombre`. La conclusión operativa no cambia |
+| A3 | **Contradicción interna:** §5.3.a dice que el tipo vive en el formato, pero §5.6 y §3.3 seguían diciendo `terminal_pos.tipo` — y §5.6 se presenta como regla dura | Las dos corregidas, con la nota de por qué |
+| A4 | `V224.5` y `V99.5` repetidos entre etapa 5 y 6; una fila decía «filial» citando un número del rango de central | **§5.6** renumerada |
+| A5 | PR #282 mal citado (es de transferencias, y está mergeado) | Referencia sacada de §3.3 |
+| B1 | **Alto.** `uq_formato_qr_pos_proveedor` + `validar()` **prohíben exactamente** lo que la etapa existe para permitir. El ABM nuevo se copia del viejo por convención | **§5.3.b**: unicidad `(proveedor, nombre)`, y va en la descripción del PR |
+| B2 | **Alto.** Nadie asigna formato a las terminales existentes, y el modelo nuevo **no tiene cascada de respaldo** | **§5.3.f** nueva: bloquea la venta, y el SQL es prerrequisito del desktop |
+| B3 | **Alto.** «Setear `origen` al completar» estaba en la fila de **central**, pero el único `completar()` es del **filial**. La columna nacía `NULL` para el ~100% del tráfico | Movido a la fila del filial, con la explicación |
+| B4 | **Alto.** El interruptor de la etapa 6 («carga manual permitida por POS») **anula la garantía** en la que se apoya toda la etapa 3 | **§5.3.d** y **§5.6**: no se puede apagar el último camino. Ítem en §7 |
+| B5 | **Alto.** El chequeo de cupón duplicado no cubre OCR ni MANUAL — con carga a mano se puede retipear el cupón anterior entero | Adelantado **a la etapa 3**, en la fila del filial |
+| B6 | `activo = false` con terminales apuntando por FK: sin definir | **§5.3.f**: significa «no elegible para asignar», y el ABM impide desactivar |
+| B7 | `patron` «si imprime» sugiere que `MAQUINA` puede no tenerlo — la etapa 4 lo necesita | **§5.3.c**: obligatorio para `MAQUINA` y `WEB` |
+| B8 | §5.7 cubría central↔filial, pero el cierre de camino vive en **desktop** | **§5.7**: son tres mitades, con dos pasos nuevos |
+| B9 | Nada registra qué formato produjo un `datos_extra` | **§6**, riesgo abierto |
+| B10 | Un `tipo` desconocido llegado por SQL | **§6**: el desktop cae a carga manual, no a pantalla en blanco |
+
+### 8.4 · Lo que sigue sin verificar
 
 1. **`replication.sync.enabled` en mauro.** El `.env` no es legible sin sudo con contraseña. Se
    resuelve con `grep -i replication.sync /opt/frc-backend-central/alpha/.env`.
 2. **En qué partición viven `releases/`, las imágenes y los datos de PostgreSQL** en una filial real.
 3. **La aditividad real de las migraciones**: hoy no existen como archivos. La auditoría revisó la
    intención declarada, no código. Es lo que el dry-run de §5.8 viene a cubrir.
+4. **Las mediciones de rendimiento del OCR** (Apple Vision 92% / PaddleOCR 85%, IoU 0,974, tiempos en
+   Pentium Gold e i3) no son reproducibles desde una auditoría: el arnés de comparación no está en el
+   repo. Se toman como reportadas, no como verificadas.
+5. **`imagenUrl` en `frc-mobile`.** El plan afirma que no se usa. Se confirmó el patrón análogo en
+   desktop (el resolver lo acepta, ningún template lo manda), pero el repo `mobile` no se revisó.

@@ -583,17 +583,33 @@ errado por un factor sin que nada avisara.
 **La nitidez medida viaja en cada subida y se guarda**, junto con la cuenta de intentos por token,
 para ajustar el umbral con datos reales.
 
-#### Los tres que siguen abiertos
+#### Los que siguen abiertos
 
 - **Caso 5 — el más peligroso, y no es un error.** El cajero fotografía el cupón de la venta
   anterior, que quedó en el mostrador. Foto perfecta, OCR perfecto, datos correctos… **de otra
-  transacción**: produce un registro válido y falso, y nadie se entera hasta la conciliación. Se
-  cubre cuando exista la extracción de campos y la validación de cupón duplicado por código de
-  autorización —la que ya existe para el QR— corra también sobre el OCR.
-- **Caso 4.** El publisher es un observable caliente sin persistencia: si el desktop no está
-  escuchando en ese instante, el aviso se pierde y el dato queda huérfano en la base. El desktop
-  tiene que **poder consultar el estado por token**, además de escuchar.
+  transacción**: produce un registro válido y falso, y nadie se entera hasta la conciliación.
+
+  > ⚠️ **Corregido el 2026-09-10 por auditoría.** Este párrafo decía que la validación de cupón
+  > duplicado por código de autorización «ya existe para el QR». **No existe.**
+  > `VentaTarjetaService.motivoCuponNoUsable()` mira dos cosas y ninguna es el código de
+  > autorización: `qrCrudo` —que sólo se llena si el cupón entró por el lector— e
+  > `identificadorTransaccion`, que sólo tienen los formatos con un campo distinto del código de
+  > autorización (el `EndToEndId` de Pix sí; Dinelco, Infonet, Stone, BXX y PlugPay no).
+  >
+  > Y con la **carga a mano** que abre la etapa 3, el agujero empeora: el cajero no tiene `qrCrudo`
+  > ni, para la mayoría de los proveedores, un identificador aparte — puede **retipear el cupón
+  > anterior entero** y nada lo frena. Por eso el chequeo por `codigoAutorizacion` + terminal se
+  > adelantó a la etapa 3, en la misma entrega que abre la carga a mano.
+
 - **Caso 9.** Lo cubre el semáforo por campo de §2.6.
+
+#### Caso 4 — cerrado en la etapa 2
+
+El publisher es un observable caliente sin persistencia: si el desktop no está escuchando en ese
+instante, el aviso se pierde y el dato queda huérfano. **Resuelto**: el desktop no espera sólo el
+aviso, sino `merge(subscription, sondeo cada N segundos)` sobre `capturaCupon(token)`. La
+subscription es la vía rápida; el sondeo es la red. Un desktop que se reinició o perdió la red un
+segundo ve el resultado en el siguiente sondeo. Probado con hardware real el 2026-09-10.
 ---
 
 ## 3 · Backlog

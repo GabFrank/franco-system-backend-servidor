@@ -223,7 +223,21 @@ Sin nada visible todavía. Termina cuando el filial puede leer un cupón desde u
 Aborta el arranque en vez de producir texto sutilmente equivocado — la trampa de Modified UTF-8 de
 §2.9 costó dos intentos y se manifestaba como «faltan los espacios».
 
-**Prueba:** un test que corre el motor sobre cupones de referencia y verifica los campos.
+**Prueba: el arnés de comparación local, no un test en el repo.** Decidido el 2026-09-10.
+
+Un test versionado necesitaría una foto de cupón, y **los repos de código son públicos** (verificado:
+los siete lo son, porque Actions es gratis e ilimitado ahí y entre central, desktop, filial y
+mobile-pwa suman ~1.800 corridas). Una foto de cupón lleva comercio, dirección, fecha, boleta,
+autorización y monto de una transacción real, y quedaría en el historial de git para siempre.
+
+La red que ese test iba a dar —que la etapa 4 no degrade la precisión al restringir el
+reconocimiento— **ya existe**: el arnés que compara los 27 cupones contra RapidOCR en Python, en el
+workspace local. Es el mismo que detectó que el resize de punto fijo no cambiaba nada. Se corre
+como **puerta antes de adoptar el mapa espacial** (§5.4) y su resultado se anota en
+[FASE-2-TICKET-FISICO.md](FASE-2-TICKET-FISICO.md).
+
+> No es deuda: es la decisión de no versionar datos de transacciones en un repo público cuando la
+> verificación ya está cubierta fuera.
 
 ### 5.2 · Etapa 2 — la foto llega del teléfono a la caja
 

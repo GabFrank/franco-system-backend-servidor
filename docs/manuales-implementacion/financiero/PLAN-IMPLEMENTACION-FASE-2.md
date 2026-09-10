@@ -113,18 +113,26 @@ medirse en serio en vez de darse por bueno.
 feature/ocr-cupon-fase2   ← misma rama en central, filial y desktop
 ```
 
-> ### ⚠️ Consecuencia de un solo PR al final
+> ### Por qué un solo PR al final: alpha es compartido
 >
-> **Hasta el merge final no hay nada en alpha.** Las pruebas paso a paso de cada etapa corren contra
-> **builds locales** (`./mvnw spring-boot:run` en central y filial, `npm start` en desktop), no
-> contra mauro.
+> **Alpha no es el entorno de integración de esta entrega: es de todo el equipo.** Otras personas
+> levantan alpha para probar **sus fixes y features terminados**. Si esta entrega le va metiendo
+> piezas granulares a medida que se escriben, el próximo que necesite probar algo suyo se encuentra
+> con trabajo a medio hacer encima y no puede.
 >
-> Es la contrapartida aceptada de la decisión. Lo escribo acá para que no aparezca a mitad de camino.
+> **El workspace de desarrollo es el local.** Todo se construye y se prueba contra
+> `./mvnw spring-boot:run` (central y filial) y `npm start` (desktop). **Hasta el merge final no hay
+> nada en alpha, y eso es el objetivo, no una contrapartida.**
+>
+> Corolario para quien ejecute este plan: **no proponer mergear algo para desbloquear el trabajo
+> propio.** Si una rama necesita otra que aún no se mergeó, se ramifica de ella o se espera.
+> Pushear una rama de feature es inocuo —corre CI, no genera release ni deploy—; lo que hay que
+> cuidar es el merge.
 
 > **Corregido el 2026-09-09.** Una versión previa de este plan decía que «un PR por repo» se
-> apartaba de la guía. **Es al revés: es exactamente lo que manda el paso 7 del ciclo de
-> implementación.** Lo de las 400 líneas viene de `guia-desarrollo-cicd.md`, que es el flujo de
-> git, no el ciclo. La decisión de Gabriel coincidía con el ciclo y estaba mal marcada como desvío.
+> apartaba de la guía, como si fuera una preferencia de tamaño. **No lo es**: coincide con el paso 7
+> del ciclo de implementación **y** es lo que exige que alpha reciba sólo trabajo terminado. Lo de
+> las 400 líneas viene de `guia-desarrollo-cicd.md`, que es el flujo de git, no el ciclo.
 
 ### 3.2 · Commits
 

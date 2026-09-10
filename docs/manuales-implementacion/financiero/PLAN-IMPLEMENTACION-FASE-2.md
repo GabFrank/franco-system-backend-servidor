@@ -628,10 +628,23 @@ del PR como cambio de comportamiento.**
 
 - `venta_tarjeta.origen`: central es **subscriber**. Un subscriber con una columna que el publisher
   todavía no manda no rompe nada, así que se puede agregar cuando sea.
-- `formato_terminal_pos` + `ALTER PUBLICATION`: central es **publisher**. Acá está el peligro — en
-  cuanto la tabla entra a la publicación, **toda filial que no la tenga se corta**. Por eso la
-  entrega A del filial tiene que estar desplegada en **toda la flota del canal**, no sólo mergeada,
-  antes de que esta migración corra.
+- `formato_terminal_pos`: central es **publisher**. Acá está el peligro — en cuanto la tabla entra a
+  la publicación, **toda filial que no la tenga se corta**. Por eso la entrega A del filial tiene
+  que estar desplegada en **toda la flota del canal**, no sólo mergeada, antes de que esto corra.
+
+> ⚠️ **Y la migración NO agrega la tabla a la publicación: eso lo hace un job, hasta una hora
+> después.** Verificado el 2026-09-10 por auditoría: después de aplicar `V221.5`,
+> `select pubname from pg_publication_tables where tablename='formato_terminal_pos'` devuelve
+> **cero filas**. La migración sólo inserta en `configuraciones.replication_table`; quien lee esa
+> tabla y ejecuta el `ALTER PUBLICATION` es `ReplicationPublicationSyncScheduler`, que corre **2
+> minutos después del arranque y luego cada hora**, y está gateado por `replication.sync.enabled`
+> — el mismo flag que este plan marca como **NO VERIFICADO** en mauro desde §3.3.
+>
+> **Consecuencia para el despliegue:** la ventana de peligro **no empieza cuando arranca el JAR de
+> central**, empieza cuando corre ese job. Así que el prerrequisito no se cumple mirando el deploy:
+> hay que **confirmar que la tabla aparezca en `central_pub` recién después** de que las 24 filiales
+> tengan la tabla. Y el paso que refresca cada suscripción remota atrapa el error por filial con un
+> `log.warn` sin reintentar: una filial caída en ese momento queda atrás hasta el ciclo siguiente.
 
 **4. `ADD CONSTRAINT ... CHECK` va con `NOT VALID` + `VALIDATE CONSTRAINT`.** A secas toma
 `AccessExclusiveLock` y valida contra todas las filas bajo ese lock. En central `venta_tarjeta`
@@ -663,7 +676,7 @@ muere con `Found more than one migration with version X`, sin ninguna pista de l
 |---|---|---|
 | **filial — entrega A** | `formato_terminal_pos` (espejo, **va primero**) · `terminal_pos.formato_terminal_pos_id` · espejo de los campos de `configuracion_venta_tarjeta` · **chequeo de duplicado por `codigoAutorizacion` + terminal** (ventana de `horas_ventana_duplicado`) · índice del chequeo · `minutos_validez_captura` en vez de la constante | `V95.5`, `V96.5`, `V96.7` |
 | **filial — entrega B** | `venta_tarjeta.origen` · **parámetro `origen` en `completar()` y setearlo** | `V97.5`, **rama aparte** |
-| **central** | `venta_tarjeta.origen` (**va primero**) · `formato_terminal_pos` + copia desde `formato_qr_pos` + publicación (**sin el índice único por proveedor**) · FK en `terminal_pos` · ABM (impide desactivar un formato con terminales) · **7 campos nuevos en `configuracion_venta_tarjeta`** (§5.3.g) | `V221.5`, `V222.5`, `V223.5`, `V224.5` |
+| **central** | `venta_tarjeta.origen` · `formato_terminal_pos` + copia desde `formato_qr_pos` + alta en `replication_table` (**sin el índice único por proveedor**) · FK en `terminal_pos` · ABM (impide desactivar un formato con terminales) · **7 campos nuevos en `configuracion_venta_tarjeta`** (§5.3.g) | `V221.5`, `V222.5`, `V223.5` |
 | **desktop** | ABM de formatos (tipo, patrón, mapeo con obligatorios, ejemplo) · elegir formato en la terminal · el diálogo respeta el tipo · **carga a mano** con foto opcional · **bloqueo con motivo si la terminal no tiene formato** · el diálogo de configuración deja de ser un solo toggle · leer `segundos_dialogo_registro` en vez de los `120` clavados | — |
 
 > ⚠️ **`origen` se setea en el filial, no en central.** La primera versión de esta tabla lo ponía en
@@ -1006,7 +1019,32 @@ bootstrapeado aparte muestra que la navegación `.id` se traduce a la columna FK
 | B4 | `catch (Exception)` en `minutosValidez()`, el patrón que ya costó un arranque caído | `catch (Throwable)`, como `CuponOcrService` |
 | B5 | Los 27 tests mockean el repositorio: **ningún test toca la traducción JPQL→SQL** de ninguna `@Query` del repo | Reconocido, no resuelto: el repo no tiene tests de integración. Lo cubre la corrida manual |
 
-### 8.5 · Lo que sigue sin verificar
+### 8.5 · Cuarta auditoría — el código de central (2026-09-10)
+
+Dos ejes sobre el commit de central: **migraciones/replicación** y **ABM/código**. Confirmaron que
+el espejo y el original coinciden columna por columna sin ningún mismatch de tipo o nombre, que las
+restricciones van en el sentido correcto en los tres casos, que las tres migraciones son
+idempotentes, que los números están libres y que el rollback del JAR no rompe nada. Y descartaron
+ReDoS midiendo: dentro del tope de 512 caracteres el crecimiento es cuadrático, no exponencial.
+
+| # | Hallazgo | Qué se hizo |
+|---|---|---|
+| A1 | **La migración NO agrega la tabla a la publicación**: eso lo hace un job hasta una hora después, gateado por un flag no verificado. La ventana de peligro no empieza con el deploy | **§5.3.g bis** reescrita: el prerrequisito se confirma mirando `central_pub`, no el deploy |
+| A2 | `saveTerminalPos` con un id de formato inexistente dejaba la terminal en `null` en silencio | Ahora avisa |
+| A3 | El plan reservaba cuatro migraciones para central y la entrega son tres | Corregido |
+| B1 | **Alto.** `saveTerminalPos` **borraba el formato asignado** cuando el input no lo traía — que es lo que hace el desktop de hoy. Cualquier edición trivial apagaba la venta con tarjeta en esa caja | Arreglado, y con la mutation `desasignarFormatoTerminalPos` para el caso legítimo |
+| B2 | **Alto.** `configuracionVentaTarjeta()` no pedía rol | `requireVer()`, después de verificar que el PDV lee la copia del filial y no ésta |
+| B3 | `tipo = API` aceptaba un mapeo que no es JSON | Se exige forma JSON en los dos caminos |
+| B4 | El nombre se comparaba trimeado pero se guardaba crudo: dos filas visualmente idénticas | Se normaliza lo que se guarda |
+| B5 | `saveFormatoTerminalPos` es full-overwrite mientras la config es PATCH — inconsistente dentro del mismo commit | Anotado, sin cambiar: es el patrón heredado del ABM viejo |
+
+**Lo que este ciclo dejó como método, más que como arreglo:** el primer intento de arreglar B1
+corrigió la capa equivocada —«no seteo el campo si no viene»— y el bug siguió igual, porque
+`saveTerminalPos` arma la entidad **de cero** con ModelMapper y lo que no viene nace en `null`. El
+auditor lo había dicho con todas las letras y yo lo leí como contexto en vez de como el mecanismo.
+Se descubrió sólo porque se volvió a probar con una mutation real después de arreglar.
+
+### 8.6 · Lo que sigue sin verificar
 
 1. **`replication.sync.enabled` en mauro.** El `.env` no es legible sin sudo con contraseña. Se
    resuelve con `grep -i replication.sync /opt/frc-backend-central/alpha/.env`.

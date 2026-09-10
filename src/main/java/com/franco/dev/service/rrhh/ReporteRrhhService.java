@@ -128,9 +128,10 @@ public class ReporteRrhhService {
         }
         List<NominaMesItemDto> filas = new ArrayList<>(banco);
         filas.addAll(efectivo);
-        if (filas.isEmpty()) {
-            filas.add(new NominaMesItemDto("SIN LIQUIDACIONES", "0", "0", "0", "EFECTIVO", BigDecimal.ZERO));
-        }
+        // Sin filas no se agrega un placeholder: caeria dentro de un grupo (quedaba listado
+        // como "COBRAN EN EFECTIVO") y ademas Jasper lo contaba, con lo que el subtotal decia
+        // "(1)" mientras el total decia "(0)". El jrxml usa whenNoDataType=AllSectionsNoDetail,
+        // asi que el reporte vacio sale con encabezado y totales en cero, sin grupos.
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", empresa(periodo, ciudadId, soloSinCiudad));

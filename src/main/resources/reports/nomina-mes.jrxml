@@ -4,6 +4,7 @@
 	<parameter name="periodo" class="java.lang.String"/>
 	<parameter name="fecha" class="java.lang.String"/>
 	<parameter name="totalNeto" class="java.lang.String"/>
+	<parameter name="ciudad" class="java.lang.String"/>
 	<parameter name="totalBanco" class="java.lang.String"/>
 	<parameter name="totalEfectivo" class="java.lang.String"/>
 	<parameter name="cantidadBanco" class="java.lang.Integer"/>
@@ -56,13 +57,13 @@
 				</textElement>
 				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
 			</textField>
-			<staticText>
+			<textField>
 				<reportElement x="0" y="22" width="555" height="18" uuid="b1c2d3e4-f5a6-4b7c-8d9e-1f2a3b4c5d03"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="10" isBold="true"/>
 				</textElement>
-				<text><![CDATA[NOMINA DEL MES]]></text>
-			</staticText>
+				<textFieldExpression><![CDATA["NOMINA DEL MES" + ($P{ciudad} != null && !$P{ciudad}.isEmpty() ? " - " + $P{ciudad} : "")]]></textFieldExpression>
+			</textField>
 			<textField>
 				<reportElement x="0" y="44" width="360" height="16" uuid="b1c2d3e4-f5a6-4b7c-8d9e-1f2a3b4c5d04"/>
 				<textElement verticalAlignment="Middle">

@@ -37,6 +37,7 @@ public class NominaMesJrxmlTest {
         p.put("totalEfectivo", "3.000.000");
         p.put("cantidadBanco", 2);
         p.put("cantidadEfectivo", 1);
+        p.put("ciudad", "SALTO DEL GUAIRA");
 
         // Mismo orden que arma el servicio: primero BANCO, despues EFECTIVO.
         List<NominaMesItemDto> filas = Arrays.asList(

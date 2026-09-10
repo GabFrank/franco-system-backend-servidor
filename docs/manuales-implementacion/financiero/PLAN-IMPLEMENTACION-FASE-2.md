@@ -167,8 +167,18 @@ conjunto de commits de la rama**: habrá `feat`, así que sube MINOR alpha.
 >
 > | Tabla | Dirección | Quién migra primero |
 > |---|---|---|
-> | `venta_tarjeta` (columna nueva) | `BRANCH_TO_MAIN` — filial publica, central suscribe | **central** |
-> | Tablas de configuración nuevas | `MAIN_TO_ALL` — central publica, filial suscribe | **filial** |
+> | `venta_tarjeta` (columnas nuevas: `datos_extra`, `origen`) | `BRANCH_TO_MAIN` — filial publica, central suscribe | **central** |
+> | `terminal_pos` (columna `tipo`) | `MAIN_TO_ALL` — central publica, filial suscribe | **filial** |
+> | Tablas de configuración nuevas | `MAIN_TO_ALL` | **filial** |
+>
+> **La etapa 2.5 tiene las dos direcciones a la vez** y por eso es la que más fácil se hace mal:
+> `venta_tarjeta.origen` exige central primero, `terminal_pos.tipo` exige filial primero. No hay un
+> orden único para la entrega: son dos pasos separados.
+>
+> El precedente está escrito en el repo, en la cabecera de `V153.1` del central: *«financiero.
+> terminal_pos esta replicada MAIN_TO_ALL. El ADD COLUMN de abajo exige que la columna ya exista en
+> TODAS las filiales (migracion espejo V81.2 del filial), si no el apply worker se detiene con
+> missing replicated column»*. Es exactamente el caso de `tipo`.
 >
 > **NO VERIFICADO.** La primera versión de este plan afirmaba que «en alpha no muerde porque corre
 > con `replication.sync.enabled=false`». **No se pudo confirmar**: el default de
@@ -256,12 +266,59 @@ Del lado del teléfono, lo verificado el 2026-09-09 y que hay que conservar: **o
 detectando qué hizo el navegador** (comparando contra el marcador `SOF` del JPEG, no asumiendo),
 **escalar a 1000 px** y comprimir a 0.9.
 
+### 5.2.5 · Etapa 2.5 — que el sistema sepa de qué familia viene cada cobro
+
+Decidido el 2026-09-10, después de cerrar la etapa 2 con hardware real.
+
+**El encuadre que la motiva.** Hay tres familias de POS, no dos:
+
+| Familia | De dónde salen los datos del cobro | Estado |
+|---|---|---|
+| **POS web** | El ticket trae QR → se escanea | Fase 1, en producción |
+| **POS físico** | El ticket no trae QR → foto + OCR | Fase 2, etapa 2 cerrada |
+| **Integración interna** | Nuestro sistema le pide la operación al proveedor y recibe los datos | Futuro |
+
+Las tres terminan en la **misma fila** de `venta_tarjeta`. Eso trae dos consecuencias que el plan
+original no cubría, porque trataba el tipo de terminal como una comodidad de UI de la etapa 5.
+
+**a) El tipo de terminal es el router, no un adorno.** Hoy el diálogo ofrece los dos caminos
+siempre y el cajero elige. Funciona —así se probó— pero es el sistema pidiéndole a la persona que
+sepa algo que él ya puede saber. Con `terminal_pos.tipo` cada terminal declara su familia y el
+diálogo ofrece sólo el camino que corresponde.
+
+Por eso §3.6 **se adelanta acá** desde la etapa 5. El mismo argumento que el plan usa para mandar
+§3.7 al final —no mover el piso mientras se construye encima— dice que esto va antes: el ABM y el
+semáforo de la etapa 3 se construyen sobre el flujo, y conviene que el flujo ya sea el definitivo.
+
+**b) La fila no sabe de dónde vinieron sus datos.** `venta_tarjeta` tiene `codigo_autorizacion`,
+`numero_boleta`, `monto_escaneado` y `datos_extra`, y **ninguna columna que diga cómo se
+obtuvieron**. No todos los orígenes merecen la misma confianza: un código leído por OCR puede tener
+un carácter mal, uno que viene de la API del proveedor no puede. El semáforo de la etapa 3 sólo
+tiene sentido para OCR, y cuando exista la integración habrá que saber qué registros no necesitan
+revisión humana.
+
+Hoy es una columna y un enum, aditivo. Cuando la integración exista, es un backfill adivinando —
+con las filas de QR y OCR ya mezcladas.
+
+| Repo | Trabajo | Migración |
+|---|---|---|
+| **filial** | `terminal_pos.tipo` (espejo, **va primero**). `venta_tarjeta.origen` | `V95.5` |
+| **central** | `venta_tarjeta.origen` (**va primero**). `terminal_pos.tipo` + ABM. Setear `origen` al completar | `V221.5` |
+| **desktop** | Tipo en el ABM de terminal. El diálogo del cupón ofrece sólo el camino de su familia | — |
+
+**Valores de `origen`:** `QR`, `OCR`, `MANUAL`, `API`. `MANUAL` no es relleno: es el camino que ya
+existe cuando alguien carga el cupón a mano, y hoy es indistinguible de un QR bien leído.
+
+**Fallback obligatorio.** Una terminal sin tipo cargado, o una familia que falle, tiene que dejar
+llegar al otro camino. El tipo elige el default, no cierra la puerta: si una terminal `WEB` imprime
+un ticket sin QR una vez, el cajero tiene que poder sacar la foto igual.
+
 ### 5.3 · Etapa 3 — los campos se completan solos
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **central** | Formato de cupón OCR: `patron` + `mapeo`, con la misma mecánica que `formato_qr_pos`. ABM GraphQL | `V221.5` |
-| **filial** | Aplicar el mapeo al texto del OCR: campos canónicos + el resto a datos adicionales | `V95.5` |
+| **central** | Formato de cupón OCR: `patron` + `mapeo`, con la misma mecánica que `formato_qr_pos`. ABM GraphQL | `V222.5` |
+| **filial** | Aplicar el mapeo al texto del OCR: campos canónicos + el resto a datos adicionales | `V96.5` |
 | **desktop** | ABM del formato. Confirmación con **semáforo por campo** según confianza (§2.6): los buenos se aplican, los dudosos se preguntan |
 
 **Un campo declarado numérico rechaza `0i64`.** Eso captura gratis el tipo de error que ni Java ni
@@ -271,8 +328,8 @@ Python evitan, sin perseguir paridad binaria entre motores.
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **central** | Regiones por campo y por POS | `V222.5` |
-| **filial** | Restringir el reconocimiento a las regiones del mapa | `V96.5` |
+| **central** | Regiones por campo y por POS | `V223.5` |
+| **filial** | Restringir el reconocimiento a las regiones del mapa | `V97.5` |
 | **desktop** | Editor de regiones sobre la imagen del cupón |
 
 **Criterio de la comparación, escrito antes de medir:**
@@ -288,11 +345,16 @@ Python evitan, sin perseguir paridad binaria entre motores.
 | Ítem | Repos | Migración |
 |---|---|---|
 | **§3.7 · Input único** | desktop | — |
-| **§3.6 · Tipo de terminal + terminal en el mapeo** | central, filial, desktop | `V223.5` / `V97.5` |
+| **§3.6 · La terminal viajando en el mapeo del QR** | central, desktop | — |
 | **§3.4 · Configuración por POS** | central, filial, desktop | `V224.5` / `V98.5` |
 | **§3.1 · Ticket con seña con QR** | filial (impresión), desktop | — |
 | **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V225.5` / `V99.5` |
 | **Retención y purga de imágenes** | filial | incluida en `V224.5` |
+
+**§3.6 quedó partido.** El tipo de terminal se adelantó a la etapa 2.5, porque es el router del
+flujo. Lo que queda acá es la otra mitad: que la terminal viaje dentro del propio QR (`FRCP1` ya
+mapea campos por nombre, así que es configuración y no release) con fallback a lista filtrada.
+Eso no necesita migración.
 
 **§3.7 va al final a propósito**: cambia el flujo que Gabriel ya probó en las 8 pruebas manuales, y
 no conviene mover el piso mientras se construye encima.
@@ -353,7 +415,8 @@ app no arranca.
 | **central-alpha** (mauro) | **`workflow_dispatch` manual.** Sin revisor, pero alguien tiene que apretarlo |
 
 Entre esos dos momentos el filial corre código nuevo **contra un central que todavía no tiene las
-tablas**. Las tablas de configuración de las etapas 3 a 5 son `MAIN_TO_ALL`, así que sí muerde.
+tablas**. Las tablas de configuración de las etapas **2.5** a 5 son `MAIN_TO_ALL`, así que sí muerde — y la
+2.5 además tiene una columna en la dirección contraria, así que su merge son **dos pasos**, no uno.
 
 **Procedimiento obligatorio al mergear:**
 

@@ -74,26 +74,54 @@ public class ReporteRrhhService {
     @Transactional(readOnly = true)
     public String nominaMesBase64(String periodo) {
         validarPeriodo(periodo);
-        List<NominaMesItemDto> filas = new ArrayList<>();
+        // El reporte agrupa por forma de cobro, asi que las filas se arman en dos listas y
+        // se concatenan: primero BANCO, despues EFECTIVO. Jasper agrupa sobre el orden del
+        // datasource, no ordena por su cuenta.
+        List<NominaMesItemDto> banco = new ArrayList<>();
+        List<NominaMesItemDto> efectivo = new ArrayList<>();
         BigDecimal totalNeto = BigDecimal.ZERO;
+        BigDecimal totalBanco = BigDecimal.ZERO;
+        BigDecimal totalEfectivo = BigDecimal.ZERO;
         for (LiquidacionSueldo l : liquidacionSueldoRepository.findByPeriodoOrderByIdAsc(periodo)) {
             if (l.getEstado() != LiquidacionSueldoEstado.APROBADA && l.getEstado() != LiquidacionSueldoEstado.PAGADA) {
                 continue;
             }
-            filas.add(new NominaMesItemDto(
+            // La forma de cobro es el estado actual del legajo, no una foto del momento del
+            // pago: si el funcionario cambia de efectivo a banco, los periodos ya emitidos
+            // se reagrupan al reimprimirlos.
+            boolean cobraBanco = l.getFuncionario() != null && Boolean.TRUE.equals(l.getFuncionario().getCobraBanco());
+            BigDecimal neto = l.getTotalNeto() != null ? l.getTotalNeto() : BigDecimal.ZERO;
+            NominaMesItemDto fila = new NominaMesItemDto(
                     nombreFuncionario(l.getFuncionario()),
                     formatear(l.getTotalHaberes()),
                     formatear(l.getTotalDescuentos()),
-                    formatear(l.getTotalNeto())));
-            if (l.getTotalNeto() != null) totalNeto = totalNeto.add(l.getTotalNeto());
+                    formatear(l.getTotalNeto()),
+                    cobraBanco ? "BANCO" : "EFECTIVO",
+                    neto);
+            if (cobraBanco) {
+                banco.add(fila);
+                totalBanco = totalBanco.add(neto);
+            } else {
+                efectivo.add(fila);
+                totalEfectivo = totalEfectivo.add(neto);
+            }
+            totalNeto = totalNeto.add(neto);
         }
-        if (filas.isEmpty()) filas.add(new NominaMesItemDto("SIN LIQUIDACIONES", "0", "0", "0"));
+        List<NominaMesItemDto> filas = new ArrayList<>(banco);
+        filas.addAll(efectivo);
+        if (filas.isEmpty()) {
+            filas.add(new NominaMesItemDto("SIN LIQUIDACIONES", "0", "0", "0", "EFECTIVO", BigDecimal.ZERO));
+        }
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", empresa(periodo));
         params.put("periodo", periodo);
         params.put("fecha", LocalDate.now().toString());
         params.put("totalNeto", formatear(totalNeto));
+        params.put("totalBanco", formatear(totalBanco));
+        params.put("totalEfectivo", formatear(totalEfectivo));
+        params.put("cantidadBanco", banco.size());
+        params.put("cantidadEfectivo", efectivo.size());
 
         return generar("reports/nomina-mes.jrxml", params, filas);
     }

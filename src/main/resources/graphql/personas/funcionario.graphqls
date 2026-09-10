@@ -21,6 +21,7 @@ type Funcionario {
     numeroIps: String
     valorJornal: Float
     moneda: Moneda
+    cobraBanco: Boolean
     cuentaBancaria: String
     fechaIngresoIps: Date
     contactoEmergenciaNombre: String
@@ -46,6 +47,7 @@ input FuncionarioInput {
     ipsActivo: Boolean
     numeroIps: String
     fechaIngresoIps: String
+    cobraBanco: Boolean
     cuentaBancaria: String
     contactoEmergenciaNombre: String
     contactoEmergenciaTelefono: String

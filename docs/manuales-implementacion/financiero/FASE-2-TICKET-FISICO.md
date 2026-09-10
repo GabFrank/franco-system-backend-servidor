@@ -348,6 +348,41 @@ descartó aparte — sin MDM no hay forma automática de hacerlo, y son teléfon
 > En la medición del 2026-09-09 **los dos** navegadores la aplicaban (`crudo=4032x3024`,
 > `bmp=3024x4032`). Igual la detección se queda: es lo que hace que la próxima versión de Safari no
 > rompa esto en silencio.
+### 2.8.1 · Qué dirección va dentro del QR — y por qué no se puede deducir
+
+Medido el 2026-09-10, corriendo la captura completa en local.
+
+El QR lleva `http://<host>:<puerto>/public/captura/<token>`, y el `<host>` tiene que ser una
+dirección por la que **el teléfono** —conectado al wifi del local— alcance al filial. La primera
+implementación la deducía recorriendo las interfaces de red y quedándose con la primera IPv4
+privada que no fuera de tailscale, docker ni loopback. **Eligió mal en la primera prueba real:**
+
+| Interfaz | IP | Qué es realmente |
+|---|---|---|
+| `en1` | 192.168.0.106 | la LAN del wifi — la correcta |
+| `feth1895` | **172.25.0.36** | ZeroTier — la que eligió |
+| `utun0` | 100.64.0.26 | tailscale — bien descartada |
+
+No fue un descuido del filtro. **Ni el rango ni el nombre de la interfaz distinguen una LAN de una
+red overlay**, y en esta red concretamente:
+
+- **172.25/16 es ZeroTier, no la LAN.** Es privada, tiene broadcast y es indistinguible de una
+  placa de red de verdad. (Ojo con el mapa de IPs del `CLAUDE.md` raíz: esas 172.25.x son
+  direcciones de overlay, no de LAN de local.)
+- **ZeroTier se llama distinto en cada sistema**: `zt*` en Linux, `feth*` en macOS, y en Windows un
+  nombre descriptivo cualquiera que no empieza por `zt`.
+
+Y el modo de falla es silencioso: elegir mal no produce ningún error. El QR se dibuja igual, el
+cajero lo escanea, y el teléfono se queda cargando. Nadie sabe dónde mirar.
+
+**La dirección sale de la request, no del escaneo.** Quien pide la captura es el desktop de la
+caja, que está en la misma red que el teléfono; la interfaz por la que entró esa request es, por
+definición, una que funciona desde el piso del local. `getLocalAddr()` la devuelve. Es una
+medición en vez de una deducción, y no depende de saber cómo se llama la VPN de turno.
+
+El orden queda: **`frc.captura.base-url` si está configurada → la dirección de la request → el
+escaneo de interfaces**, este último como último recurso y ya sin pretensión de acertar siempre.
+
 ### 2.9 · El OCR corre en Java puro, dentro del filial — medido, no supuesto
 
 Portado y medido el **2026-09-09** sobre **27 cupones de 5 formatos** (539 líneas, 289 tokens

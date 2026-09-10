@@ -575,16 +575,22 @@ sobre valores ya cargados. Se aceptó a cambio de no arrastrar una dimensión qu
 > **Y de ahí sale una regla que no estaba escrita en ningún lado: `CHECK` sólo donde el repo es el
 > que escribe.**
 >
-> | Campo | Dirección | El filial es | ¿CHECK en el filial? |
-> |---|---|---|---|
-> | `venta_tarjeta.origen` | `BRANCH_TO_MAIN` | **publisher** | **Sí** |
-> | `formato_terminal_pos.tipo` | `MAIN_TO_ALL` | subscriber | No |
-> | `configuracion_venta_tarjeta.registro_obligatorio` | `MAIN_TO_ALL` | subscriber | No |
+> **Y las reglas se INVIERTEN entre los dos repos**, porque la dirección de cada tabla es distinta:
+>
+> | Campo | Dirección | El filial es | ¿CHECK/NOT NULL en filial? | Central es | ¿En central? |
+> |---|---|---|---|---|---|
+> | `venta_tarjeta.origen` | `BRANCH_TO_MAIN` | **publisher** | **Sí** | subscriber | **No** |
+> | `formato_terminal_pos.tipo` | `MAIN_TO_ALL` | subscriber | No | **publisher** | **Sí** |
+> | `configuracion_venta_tarjeta.registro_obligatorio` | `MAIN_TO_ALL` | subscriber | No | **publisher** | **Sí** |
+>
+> Leerlo al revés es el error fácil: copiar el `CREATE TABLE` del filial a central deja la tabla sin
+> las restricciones que **sí** corresponden allá —y donde el ABM las necesita, porque central es
+> quien escribe— y copiar el de central al filial mete restricciones que cortan la replicación.
 >
 > En un subscriber, un `CHECK` que el publisher no comparte convierte un valor legítimo en un corte
-> de replicación en cuanto central agrega un valor antes de que esa filial actualice — y el orden en
-> que actualizan las 24 no lo controla nadie. Es el mismo criterio por el que `V91.5` ya usaba un
-> índice y no un `UNIQUE`, escrito ahí en 2026-08 y nunca generalizado.
+> de replicación en cuanto el otro lado agrega un valor antes de que ese repo actualice — y el orden
+> en que actualizan las 24 filiales no lo controla nadie. Es el mismo criterio por el que `V91.5` ya
+> usaba un índice y no un `UNIQUE`, escrito ahí en 2026-08 y nunca generalizado.
 
 **Lo que NO se hace configurable, a propósito:**
 
@@ -600,6 +606,56 @@ sobre valores ya cargados. Se aceptó a cambio de no arrastrar una dimensión qu
 **Hueco que queda abierto:** la tabla guarda `usuario_id` del **último** cambio, no un historial. Si
 alguien apaga `habilitado`, el PDV entero pierde la venta con tarjeta y no queda quién ni cuándo más
 allá de esa última escritura. Es el CN10 del módulo financiero, ya anotado como pendiente ahí.
+
+#### g bis) Lo que la mitad de central NO tiene que repetir
+
+Escrito el 2026-09-10 **después** de que la auditoría del filial encontrara cinco cosas mal en el
+primer intento. Todo esto ya costó una vez; leerlo antes de escribir la migración de central sale
+gratis.
+
+**1. Central es publisher de dos de las tres tablas, así que las restricciones van al revés.** Ver
+la tabla de §3.3. Concretamente: `formato_terminal_pos` en central **sí** lleva `NOT NULL` en
+`nombre` y `mapeo`, `CHECK` en `tipo`, y las FK a `proveedor_servicio` y `usuario`. El
+`CREATE TABLE` del espejo del filial **no se copia**: allá está deliberadamente permisivo.
+
+**2. La unicidad es `(proveedor_servicio_id, nombre)`, y hay que sacar el chequeo del `validar()`.**
+`V217.5` creó `uq_formato_qr_pos_proveedor` —único por proveedor— y `FormatoQrPosService.validar()`
+lo refuerza con *«El proveedor ya tiene el formato X»*. Eso prohíbe exactamente lo que esta etapa
+existe para permitir. El ABM nuevo se va a escribir copiando el viejo: **decirlo en la descripción
+del PR como cambio de comportamiento.**
+
+**3. La entrega de central es UN paso, no dos** — al revés que la del filial:
+
+- `venta_tarjeta.origen`: central es **subscriber**. Un subscriber con una columna que el publisher
+  todavía no manda no rompe nada, así que se puede agregar cuando sea.
+- `formato_terminal_pos` + `ALTER PUBLICATION`: central es **publisher**. Acá está el peligro — en
+  cuanto la tabla entra a la publicación, **toda filial que no la tenga se corta**. Por eso la
+  entrega A del filial tiene que estar desplegada en **toda la flota del canal**, no sólo mergeada,
+  antes de que esta migración corra.
+
+**4. `ADD CONSTRAINT ... CHECK` va con `NOT VALID` + `VALIDATE CONSTRAINT`.** A secas toma
+`AccessExclusiveLock` y valida contra todas las filas bajo ese lock. En central `venta_tarjeta`
+acumula lo de **las 24 sucursales**, así que es peor que en el filial, no mejor.
+
+**5. Si central implementa el chequeo de cupón duplicado, necesita su propio índice.** Los índices
+**no** se replican. Sin él es un `Seq Scan` sobre la tabla consolidada de toda la red. La forma que
+funciona está en `V96.7` del filial: parcial por `estado='COMPLETADO'`, de expresión sobre
+`upper(btrim(...))`. Verificado que PostgreSQL lo usa con las tres escrituras posibles de `trim`,
+porque compara el árbol parseado.
+
+**6. Arrancar la app NO valida el mapeo JPA.** `spring.jpa.hibernate.ddl-auto=none` en los dos
+backends: un nombre de columna mal escrito en una `@Entity` **no falla al arrancar**, falla la
+primera vez que alguien consulta. El arranque limpio sólo prueba que el esquema GraphQL carga. **Hay
+que correr una consulta real** contra cada campo nuevo — y contra un `@ManyToOne` nuevo, además, la
+consulta que lo navega.
+
+**7. Los tests de servicio mockean el repositorio**, así que ninguna `@Query` se verifica sola. La
+traducción JPQL→SQL sólo se ejercita corriendo la consulta contra una base.
+
+**8. Renombrar una migración deja la copia vieja en `target/classes/db/migration`** y el arranque
+muere con `Found more than one migration with version X`, sin ninguna pista de la causa. El paso
+`cleanup-duplicate-migrations` del pom no cubre el rename. Sincronizar `target` con `src`, o
+`mvn clean`.
 
 #### El trabajo
 

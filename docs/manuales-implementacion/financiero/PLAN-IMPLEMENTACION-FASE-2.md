@@ -565,10 +565,26 @@ más adelante. La lógica de purga no se adelanta.
 farmacia y una bodega necesitan retenciones distintas, abrirlo por sucursal va a exigir backfill
 sobre valores ya cargados. Se aceptó a cambio de no arrastrar una dimensión que hoy nadie pide.
 
-> ⚠️ **Esta etapa introduce TRES enums nuevos de PostgreSQL**: `formato_terminal_pos.tipo`,
-> `venta_tarjeta.origen` y `configuracion_venta_tarjeta.registro_obligatorio`. La regla de §5.6
-> —Java + `.graphqls` + migración en el mismo commit, y `SchemaEnumsSincronizadosTest` antes del
-> PR— aplica a los tres, y es la falla más silenciosa del repo.
+> ⚠️ **Los tres campos nuevos con valores cerrados NO son enums de PostgreSQL.** Corregido el
+> 2026-09-10 al implementar el filial: `financiero.venta_tarjeta.estado` **ya es `VARCHAR(20)`
+> mapeado a `String` en Java**, y el módulo entero sigue esa convención — no hay un solo enum de PG
+> en venta con tarjeta. Un enum habría exigido un `ALTER TYPE ... ADD VALUE` coordinado en las 24
+> filiales cada vez que aparezca un tipo nuevo, que es exactamente la falla que §5.6 marca como la
+> más silenciosa del repo. Con `VARCHAR` esa clase de problema no existe.
+>
+> **Y de ahí sale una regla que no estaba escrita en ningún lado: `CHECK` sólo donde el repo es el
+> que escribe.**
+>
+> | Campo | Dirección | El filial es | ¿CHECK en el filial? |
+> |---|---|---|---|
+> | `venta_tarjeta.origen` | `BRANCH_TO_MAIN` | **publisher** | **Sí** |
+> | `formato_terminal_pos.tipo` | `MAIN_TO_ALL` | subscriber | No |
+> | `configuracion_venta_tarjeta.registro_obligatorio` | `MAIN_TO_ALL` | subscriber | No |
+>
+> En un subscriber, un `CHECK` que el publisher no comparte convierte un valor legítimo en un corte
+> de replicación en cuanto central agrega un valor antes de que esa filial actualice — y el orden en
+> que actualizan las 24 no lo controla nadie. Es el mismo criterio por el que `V91.5` ya usaba un
+> índice y no un `UNIQUE`, escrito ahí en 2026-08 y nunca generalizado.
 
 **Lo que NO se hace configurable, a propósito:**
 

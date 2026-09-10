@@ -16,8 +16,8 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
     private ReporteRrhhService service;
 
     /** Nómina del mes en PDF (base64). */
-    public String reporteNominaMes(String periodo) {
-        return service.nominaMesBase64(periodo);
+    public String reporteNominaMes(String periodo, Long ciudadId, Boolean sinCiudad) {
+        return service.nominaMesBase64(periodo, ciudadId, sinCiudad);
     }
 
     /** Resumen IPS en PDF (base64). */

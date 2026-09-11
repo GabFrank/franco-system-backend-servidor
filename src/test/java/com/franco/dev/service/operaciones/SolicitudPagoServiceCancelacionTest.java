@@ -124,10 +124,10 @@ class SolicitudPagoServiceCancelacionTest {
     }
 
     @Test
-    void devolverVuelveABorradorConElMotivoYSinLiberarNotas() {
+    void devolverLaDejaDevueltaConElMotivoYSinLiberarNotas() {
         SolicitudPago r = service.devolverACompras(18L, "falta la factura", usuario);
 
-        assertEquals(SolicitudPagoEstado.PENDIENTE, r.getEstado());
+        assertEquals(SolicitudPagoEstado.DEVUELTO, r.getEstado());
         assertTrue(r.getObservaciones().contains("DEVUELTA A COMPRAS POR JPEREZ: FALTA LA FACTURA"), r.getObservaciones());
         verify(notaRecepcionService, never()).eliminarTodasRelaciones(anyLong());
     }
@@ -135,8 +135,39 @@ class SolicitudPagoServiceCancelacionTest {
     @Test
     void soloSeDevuelveUnaSolicitudEnviada() {
         sp.setEstado(SolicitudPagoEstado.PENDIENTE);
-
         assertThrows(IllegalStateException.class, () -> service.devolverACompras(18L, "x", usuario));
+
+        sp.setEstado(SolicitudPagoEstado.DEVUELTO);
+        assertThrows(IllegalStateException.class, () -> service.devolverACompras(18L, "x", usuario));
+    }
+
+    /** Compras corrige la devuelta y la reenvía: vuelve a la cola de pagos. */
+    @Test
+    void unaDevueltaSeReenviaATesoreria() {
+        sp.setEstado(SolicitudPagoEstado.DEVUELTO);
+
+        assertEquals(SolicitudPagoEstado.SOLICITADO,
+                service.actualizarEstado(18L, SolicitudPagoEstado.SOLICITADO).getEstado());
+    }
+
+    @Test
+    void unaDevueltaSePuedeCancelarYLiberaSusNotas() {
+        sp.setEstado(SolicitudPagoEstado.DEVUELTO);
+
+        assertEquals(SolicitudPagoEstado.CANCELADO, service.cancelar(18L, "no corresponde", usuario).getEstado());
+        verify(notaRecepcionService).eliminarTodasRelaciones(18L);
+    }
+
+    /** Una devuelta no se paga ni vuelve a borrador: primero se reenvía. */
+    @Test
+    void unaDevueltaSoloSaleReenviadaOCancelada() {
+        sp.setEstado(SolicitudPagoEstado.DEVUELTO);
+
+        assertThrows(IllegalStateException.class,
+                () -> service.actualizarEstado(18L, SolicitudPagoEstado.CONCLUIDO));
+        assertThrows(IllegalStateException.class,
+                () -> service.actualizarEstado(18L, SolicitudPagoEstado.PENDIENTE));
+        assertEquals(SolicitudPagoEstado.DEVUELTO, sp.getEstado());
     }
 
     @Test

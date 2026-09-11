@@ -296,6 +296,11 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
             throw errorParaMostrar(new IllegalStateException("Los pagos se registran desde la caja mayor"
                     + " (Pagar Compras): una solicitud no se marca como pagada a mano."));
         }
+        // DEVUELTO pide motivo y rol de tesorería: solo entra por devolverSolicitudPago.
+        if (estado == SolicitudPagoEstado.DEVUELTO) {
+            throw errorParaMostrar(new IllegalStateException(
+                    "Para devolver una solicitud a compras usá \"Devolver a compras\" en Pagar Compras."));
+        }
         try {
             return solicitudPagoService.actualizarEstado(id, estado);
         } catch (Exception e) {

@@ -452,8 +452,10 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         SolicitudPago solicitud = findById(solicitudId).orElseThrow(
             () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId)
         );
-        if (solicitud.getEstado() != SolicitudPagoEstado.PENDIENTE) {
-            throw new IllegalStateException("Solo se pueden editar solicitudes en estado PENDIENTE");
+        // Una devuelta se corrige antes de reenviarla, igual que un borrador.
+        if (solicitud.getEstado() != SolicitudPagoEstado.PENDIENTE
+                && solicitud.getEstado() != SolicitudPagoEstado.DEVUELTO) {
+            throw new IllegalStateException("Solo se pueden editar solicitudes en borrador (PENDIENTE) o devueltas por tesorería");
         }
         Moneda moneda = monedaRepository.findById(monedaId)
             .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada"));
@@ -522,8 +524,9 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
 
     /**
      * Tesorería devuelve a compras una solicitud que no va a pagar (falta la factura, monto mal
-     * cargado): vuelve a PENDIENTE (borrador), sale del diálogo de pago y compras la corrige o la
-     * cancela. Tesorería no cancela: el que paga no decide qué se debe.
+     * cargado): queda DEVUELTO, sale del diálogo de pago y conserva sus notas. Compras la corrige
+     * y la reenvía (DEVUELTO → SOLICITADO), o la cancela. Tesorería no cancela: el que paga no
+     * decide qué se debe.
      */
     @Transactional
     public SolicitudPago devolverACompras(Long solicitudId, String motivo, Usuario usuario) {
@@ -533,7 +536,7 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
             throw new IllegalStateException("Solo se puede devolver a compras una solicitud enviada (SOLICITADO); "
                 + solicitud.getNumeroSolicitud() + " está en " + solicitud.getEstado() + ".");
         }
-        return cambiarEstado(solicitud, SolicitudPagoEstado.PENDIENTE,
+        return cambiarEstado(solicitud, SolicitudPagoEstado.DEVUELTO,
             "DEVUELTA A COMPRAS" + firma(usuario) + ": " + motivoLimpio);
     }
 
@@ -548,9 +551,10 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                 solicitud.getEstado() + " a " + nuevoEstado);
         }
         
-        // Volver atrás desde "solicitada" (cancelar o devolver a borrador) solo vale para compras
-        // y sin plata entregada.
-        if (nuevoEstado == SolicitudPagoEstado.CANCELADO || nuevoEstado == SolicitudPagoEstado.PENDIENTE) {
+        // Volver atrás desde "solicitada" (cancelar, devolver a compras o reabrir como borrador)
+        // solo vale para compras y sin plata entregada.
+        if (nuevoEstado == SolicitudPagoEstado.CANCELADO || nuevoEstado == SolicitudPagoEstado.PENDIENTE
+                || nuevoEstado == SolicitudPagoEstado.DEVUELTO) {
             exigirSolicitudDeCompra(solicitud);
             exigirSinPagos(solicitud, nuevoEstado);
         }
@@ -579,7 +583,8 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     private boolean isValidStateTransition(SolicitudPagoEstado estadoActual, SolicitudPagoEstado nuevoEstado) {
         // Define valid transitions.
         // PENDIENTE (borrador) → SOLICITADO (solicitar) o CANCELADO.
-        // SOLICITADO (validada) → PENDIENTE (reabrir), o pagos/cancelación.
+        // SOLICITADO (validada) → PENDIENTE (reabrir), DEVUELTO (tesorería la devuelve), o pagos/cancelación.
+        // DEVUELTO → SOLICITADO (compras la corrige y la reenvía) o CANCELADO.
         switch (estadoActual) {
             case PENDIENTE:
                 return nuevoEstado == SolicitudPagoEstado.SOLICITADO ||
@@ -588,8 +593,12 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case SOLICITADO:
                 return nuevoEstado == SolicitudPagoEstado.PENDIENTE ||
+                       nuevoEstado == SolicitudPagoEstado.DEVUELTO ||
                        nuevoEstado == SolicitudPagoEstado.PARCIAL ||
                        nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
+                       nuevoEstado == SolicitudPagoEstado.CANCELADO;
+            case DEVUELTO:
+                return nuevoEstado == SolicitudPagoEstado.SOLICITADO ||
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case PARCIAL:
                 return nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||

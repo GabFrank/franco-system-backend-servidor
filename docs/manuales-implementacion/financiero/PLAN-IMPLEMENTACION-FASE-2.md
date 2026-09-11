@@ -790,6 +790,32 @@ POS» venía a resolver.
 **Un campo declarado numérico rechaza `0i64`.** Eso captura gratis el tipo de error que ni Java ni
 Python evitan, sin perseguir paridad binaria entre motores.
 
+#### El asistente es opcional, y va último
+
+Pregunta de Gabriel el 2026-09-11: *«¿necesitamos aún del asistente? ¿no que resolvíamos sólo con
+OCR?»*. Son trabajos distintos —el OCR **lee**, el asistente **interpreta**— pero el instinto apunta
+bien: **todo lo demás funciona sin IA.**
+
+- Las regiones se dibujan a mano en el editor.
+- El patrón se escribe a mano, que es lo que se hace hoy.
+- **El puntaje contra el corpus no necesita al modelo**: compilar el patrón y correrlo contra los N
+  textos es código nuestro.
+
+El asistente sólo ahorra escribir el primer borrador. Vale mucho al dar de alta un proveedor cuyo
+ticket no se vio nunca, y casi nada cuando el formato ya se conoce.
+
+**Por eso el orden dentro de la etapa 4 es: editor + corpus + puntaje primero —cero dependencias
+externas— y el asistente encima de eso.** Y así la dependencia de `feat/factura-import-ia` deja de
+ser una decisión pendiente: no hace falta resolverla hasta que el asistente se esté construyendo.
+
+> **Verificado el 2026-09-11** con `git ls-tree` sobre las tres ramas protegidas y
+> `git branch -r --contains`: ni `service/ia/` ni `empresarial.configuracion_sistema` existen en
+> `develop`, `release/beta` ni `master`. La rama está sin mergear. (La verificación anterior se
+> había hecho con un `git diff ...` de tres puntos, que **sugiere** pero no prueba.)
+>
+> Lo que sí está resuelto: `empresarial.configuracion_sistema` **no está en `replication_table`**, así
+> que la API key no viaja a las 24 filiales.
+
 #### El asistente que propone el formato
 
 Idea de Gabriel, 2026-09-11. Al dar de alta un formato se juntan ~10-20 cupones de ese aparato y **un
@@ -879,6 +905,26 @@ puntuar cuando sea.
 > agreguen una línea, el corpus sigue diciendo 20/20 mientras la caja falla. La detección de ese caso
 > queda del lado del semáforo por campo y de `origen`, no del corpus. Y el arreglo es barato cuando
 > pase: volver a cargar muestras nuevas.
+
+#### Tres reglas del corpus y el puntaje
+
+**Las regiones replican; el corpus no.** Son dos tablas nuevas colgando del mismo formato y con
+tratamiento **opuesto**, que es justo la clase de cosa que ya mordió antes:
+
+| Tabla | Replica | Por qué |
+|---|---|---|
+| Regiones por campo | **`MAIN_TO_ALL`**, entra a `replication_table` | El filial las necesita para restringir el reconocimiento a esas cajas |
+| Corpus (imágenes + textos OCR) | **No replica**, y va dicho en la migración | Serían fotos de cupones empujadas a 24 sucursales, con su WAL y su disco. Sólo se usan en el ABM, que vive en central |
+
+**Piso de 5 muestras para ofrecer puntaje.** Un `3/3` no dice nada. Por debajo de 5 el ABM muestra
+las muestras y deja editar, pero no da un número que invite a confiar. El 5 es ajustable, no una
+verdad medida.
+
+**Se puede guardar un formato que puntuó mal, con aviso, y el puntaje queda guardado.** Decidido el
+2026-09-11. Guardar mostrando qué cupones fallan, porque dos muestras mal fotografiadas no pueden
+trabar un formato bueno. Y el formato **recuerda con cuánto se dio de alta**: más adelante se lee
+«éste nació en 12/20» en vez de adivinar por qué falla en la caja. El puntaje se recalcula en cada
+edición, así que también se ve si mejoró o empeoró.
 
 ### 5.5 · Etapa 5 — terminar el módulo
 

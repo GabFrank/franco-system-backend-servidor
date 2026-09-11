@@ -12,6 +12,7 @@ import com.franco.dev.repository.rrhh.VacacionPeriodoRepository;
 import com.franco.dev.repository.rrhh.VacacionRepository;
 import com.franco.dev.repository.rrhh.VacacionVentaRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.rrhh.builder.VacacionPeriodoCalculator;
 import com.franco.dev.service.personas.FuncionarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
@@ -109,7 +110,13 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
                                             VacacionPeriodoEstado estado, String observacion) {
         Vacacion v = repository.findById(vacacionId)
                 .orElseThrow(() -> new GraphQLException("Vacacion no encontrada"));
-        int dias = (int) (ChronoUnit.DAYS.between(desde, hasta) + 1);
+        // Solo los dias laborables descuentan saldo: el domingo es dia libre. Antes se
+        // contaban los dias corridos, asi que asignar los 12 dias de vacaciones daba 13 o
+        // 14 (segun cuantos domingos cayeran adentro) y la solicitud se rechazaba.
+        int dias = VacacionPeriodoCalculator.diasLaborables(desde, hasta);
+        if (dias <= 0) {
+            throw new GraphQLException("El rango no contiene ningun dia laborable");
+        }
         // Contra el disponible real: los dias ya vendidos tampoco se pueden gozar.
         int disponibles = diasDisponibles(v);
         if (dias > disponibles) {
@@ -158,12 +165,15 @@ public class VacacionService extends CrudService<Vacacion, VacacionRepository, L
             Long funcionarioId = v.getFuncionario() != null ? v.getFuncionario().getId() : null;
             LocalDate d = p.getFechaDesde();
             while (funcionarioId != null && d != null && !d.isAfter(p.getFechaHasta())) {
-                Justificativo j = new Justificativo();
-                j.setFuncionario(v.getFuncionario());
-                j.setFecha(d);
-                j.setTipo(tipoVacacion);
-                j.setObservacion("VACACION (PERIODO #" + p.getId() + ")");
-                justificativoService.save(j);
+                // Los domingos no generan novedad: no son jornada, no se estan gozando.
+                if (VacacionPeriodoCalculator.esDiaLaborable(d)) {
+                    Justificativo j = new Justificativo();
+                    j.setFuncionario(v.getFuncionario());
+                    j.setFecha(d);
+                    j.setTipo(tipoVacacion);
+                    j.setObservacion("VACACION (PERIODO #" + p.getId() + ")");
+                    justificativoService.save(j);
+                }
                 d = d.plusDays(1);
             }
             p.setNovedadesGeneradas(true);

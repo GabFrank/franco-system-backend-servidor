@@ -11,6 +11,9 @@ import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
+import com.franco.dev.graphql.operaciones.publisher.TransferenciaQrEscaneadoPublisher;
+import com.franco.dev.graphql.operaciones.publisher.TransferenciaQrEscaneadoUpdate;
+import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
@@ -20,6 +23,8 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import graphql.kickstart.tools.GraphQLSubscriptionResolver;
+import org.reactivestreams.Publisher;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,7 +39,7 @@ import java.util.Optional;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
-public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver, GraphQLSubscriptionResolver {
 
     @Autowired
     private TransferenciaService service;
@@ -63,6 +68,35 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private TransferenciaQrEscaneadoPublisher qrEscaneadoPublisher;
+
+    /**
+     * Avisa que se escaneó el QR de una transferencia.
+     *
+     * Va sin seguridad igual que {@code ventaCreditoQrAuth}: lo único que
+     * viaja son dos ids que el que escanea ya tenía delante en el QR, y lo
+     * único que provoca es que se cierre un diálogo. No lee ni modifica
+     * nada de la transferencia.
+     */
+    @Unsecured
+    public Boolean transferenciaQrEscaneado(Long id, Long sucursalId) {
+        try {
+            TransferenciaQrEscaneadoUpdate entity = new TransferenciaQrEscaneadoUpdate();
+            entity.setTransferenciaId(id);
+            entity.setSucursalId(sucursalId);
+            qrEscaneadoPublisher.publish(entity);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Unsecured
+    public Publisher<TransferenciaQrEscaneadoUpdate> transferenciaQrEscaneadoSub() {
+        return qrEscaneadoPublisher.getPublisher();
+    }
 
     public Optional<Transferencia> transferencia(Long id) {
         return service.findById(id);

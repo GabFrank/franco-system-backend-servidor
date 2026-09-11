@@ -31,4 +31,7 @@ public interface BonoRepository extends HelperRepository<Bono, Long> {
                         Pageable pageable);
 
     List<Bono> findByFuncionarioIdOrderByFechaDesc(Long funcionarioId);
+
+    /** Idempotencia del generador: ¿ya existe el bono de esta plantilla para este periodo? */
+    boolean existsByBonoRecurrenteIdAndPeriodo(Long bonoRecurrenteId, String periodo);
 }

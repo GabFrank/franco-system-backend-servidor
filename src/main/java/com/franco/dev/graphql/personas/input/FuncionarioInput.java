@@ -24,6 +24,7 @@ public class FuncionarioInput {
     private Boolean ipsActivo;
     private String numeroIps;
     private String fechaIngresoIps;
+    private Boolean cobraBanco;
     private String cuentaBancaria;
     private String contactoEmergenciaNombre;
     private String contactoEmergenciaTelefono;

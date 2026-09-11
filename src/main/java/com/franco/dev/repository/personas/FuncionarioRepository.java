@@ -70,7 +70,11 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "(cast(:activo as boolean) is null or u.activo = :activo) and " +
                         "(cast(:cargoId as long) is null or c.id = :cargoId) and " +
                         "(cast(:diarista as boolean) is null or u.diarista = :diarista) and " +
-                        "(cast(:fasePrueba as boolean) is null or u.fasePrueba = :fasePrueba) " +
+                        "(cast(:fasePrueba as boolean) is null or u.fasePrueba = :fasePrueba) and " +
+                        // coalesce: las filas viejas quedaron en false por el DEFAULT de la
+                        // migracion, pero un insert que no mande la columna puede dejar null,
+                        // y ese caso tiene que caer en "No cobra por banco", no fuera del filtro.
+                        "(cast(:cobraBanco as boolean) is null or coalesce(u.cobraBanco, false) = :cobraBanco) " +
                         "order by p.nombre")
         public Page<Funcionario> findAllWithFilterAndPage(
                         @Param("id") Long id,
@@ -80,5 +84,6 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         @Param("cargoId") Long cargoId,
                         @Param("diarista") Boolean diarista,
                         @Param("fasePrueba") Boolean fasePrueba,
+                        @Param("cobraBanco") Boolean cobraBanco,
                         Pageable pageable);
 }

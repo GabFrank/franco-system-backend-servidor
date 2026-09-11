@@ -28,6 +28,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.productos.Codigo;
 import com.franco.dev.domain.productos.Presentacion;
 import com.franco.dev.service.productos.CodigoService;
+import com.franco.dev.utilitarios.IdCentral;
 import com.franco.dev.utilitarios.PresentacionUtils;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.repository.financiero.TipoGastoRepository;
@@ -533,8 +534,8 @@ public class DevolucionService extends CrudService<Devolucion, DevolucionReposit
                 ? config.getTipoGastoMerma() : TIPO_GASTO_MERMA;
 
         Long sucId = d.getSucursalOrigen().getId();
-        Long maxId = gastoRepository.findMaxId(sucId);
-        Long nuevoId = (maxId == null ? 0L : maxId) + 1;
+        // Impar: los pares los genera el filial de esa sucursal (ver IdCentral).
+        Long nuevoId = IdCentral.siguienteImpar(gastoRepository.findMaxId(sucId));
 
         Gasto gasto = new Gasto();
         gasto.setId(nuevoId);

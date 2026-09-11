@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.configuracion.InicioSesion;
 import com.franco.dev.repository.configuracion.InicioSesionRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.utilitarios.IdCentral;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,15 +36,21 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
     @org.springframework.beans.factory.annotation.Autowired
     private org.springframework.context.ApplicationEventPublisher publisher;
 
+    /**
+     * Una sesion con id par la abrio un filial. Si el central todavia no la tiene,
+     * no puede insertarla con ese id: cuando llegue el INSERT replicado del filial
+     * chocaria con inicio_sesion_pk y cortaria la replicacion entera. Pasa cuando
+     * un cliente conectado al central manda la sesion que el filial le devolvio.
+     */
+    boolean esSesionDeFilialQueElCentralNoTiene(InicioSesion entity) {
+        return IdCentral.esDeFilial(entity.getId())
+                && !repository.existsById(new EmbebedPrimaryKey(entity.getId(), entity.getSucursalId()));
+    }
+
     @Override
     @org.springframework.transaction.annotation.Transactional
     public InicioSesion save(InicioSesion entity) {
-        boolean isNew = entity.getId() == null;
         LocalDateTime now = LocalDateTime.now();
-
-        if (isNew) {
-            entity.setCreadoEn(now);
-        }
 
         if (entity.getSucursalId() == null) {
             if (entity.getSucursal() != null) {
@@ -53,13 +60,19 @@ public class InicioSesionService extends CrudService<InicioSesion, InicioSesionR
             }
         }
 
-        if (entity.getId() == null) {
-            Long lastId = repository.findMaxId(entity.getSucursalId());
-            long newId = (lastId == null ? 0L : lastId) + 1L;
-            if (newId % 2 == 0) {
-                newId++;
+        if (esSesionDeFilialQueElCentralNoTiene(entity)) {
+            if (entity.getHoraFin() != null) {
+                // Cierre de una sesion que el filial abrio y que todavia no llego
+                // por replicacion: aca no hay nada que cerrar.
+                return entity;
             }
-            entity.setId(newId);
+            entity.setId(null);
+        }
+
+        boolean isNew = entity.getId() == null;
+        if (isNew) {
+            entity.setCreadoEn(now);
+            entity.setId(IdCentral.siguienteImpar(repository.findMaxId(entity.getSucursalId())));
         }
 
         cerrarOtrasSesionesActivasDelDispositivo(entity, now);

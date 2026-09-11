@@ -1287,6 +1287,28 @@ public class LogicalReplicationService {
             throw new RuntimeException("Error executing remote command: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * Ejecuta una consulta en la base del filial y devuelve un solo valor. Usa la
+     * misma conexion que executeRemoteReplicationCommand.
+     */
+    public <T> T queryRemoteForObject(Long sucursalId, String sql, Class<T> tipo, Object... args) {
+        Sucursal sucursal = sucursalService.findById(sucursalId)
+            .orElseThrow(() -> new RuntimeException("Sucursal with ID " + sucursalId + " not found"));
+
+        if (sucursal.getIp() == null || sucursal.getPuerto() == null) {
+            throw new RuntimeException("Sucursal is missing IP or port information");
+        }
+
+        JdbcTemplate remoteJdbc = createRemoteJdbcTemplate(
+            sucursal.getIp(),
+            sucursal.getPuerto(),
+            getBranchDbName(),
+            dbUsername,
+            dbPassword
+        );
+        return remoteJdbc.queryForObject(sql, tipo, args);
+    }
     
     /**
      * Toggle a subscription on a remote branch

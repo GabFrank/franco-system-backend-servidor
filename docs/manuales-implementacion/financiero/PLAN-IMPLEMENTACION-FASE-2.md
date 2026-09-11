@@ -826,26 +826,59 @@ hace que un formato se pueda tocar sin miedo, y probablemente valga más que la 
 **Sólo en el ABM, nunca en el camino de una venta.** Si el modelo no responde, no se puede configurar
 un formato nuevo: molesto y recuperable. En el camino del cobro sería un cajero que no puede cobrar.
 
-> ### ⚠️ Lo que falta resolver: el OCR está en el filial y el ABM en central
+#### Las imágenes se suben a central, y central gana su propio motor OCR
+
+Decidido el 2026-09-11, y corrige un agujero del diseño anterior: **antes de registrar el formato no
+hay ni puede haber capturas de ese ticket.** La etapa 3 bloquea la venta con tarjeta si la terminal
+no tiene formato, así que el cajero no llega ni a la pantalla que fotografía. Un diseño que dependiera
+de las capturas del filial sólo servía para formatos que ya operan — justo el caso que menos necesita
+el asistente.
+
+Entonces: **las N imágenes se cargan en el ABM de central, a mano, al dar de alta el formato.**
+
+**Y el puntaje tiene que correr contra NUESTRO OCR, no contra la lectura del modelo.** Es la razón de
+fondo por la que central necesita el motor. El patrón afinado sobre la transcripción de GPT puede
+fallar sistemáticamente sobre la salida real de nuestro motor: el `Cargo: 002511` leído `802511` es
+el error más grande del módulo y lo fallan los dos motores, mientras que un modelo de visión
+probablemente lo lea bien. Un `matchea 18/20` medido sobre GPT **predice el comportamiento de un
+motor que no es el que corre en la caja**: es un número falso, y peor que no tenerlo.
+
+La contrapartida buena de esta decisión: **el diseño de formatos queda autocontenido en central.** Sin
+puente por el desktop, sin depender de que haya un filial arriba, y el corpus se puede volver a
+puntuar cuando sea.
+
+> ### ⚠️ Lo que central hereda al sumar el motor
 >
-> Para puntuar una propuesta hacen falta los **textos OCR** de los N cupones. El motor OCR vive
-> **sólo en el filial**, y `financiero.captura_cupon` —que ya guarda `imagen_url`, `texto_ocr`,
-> `campos`, `nitidez` y `ms_ocr` de **cada** cupón fotografiado— es **local del filial y no se
-> replica** a propósito (V94.5). Central no la ve.
+> **1. Las dos versiones tienen que ser la misma, y eso es una regla, no una coincidencia.** El
+> filial usa `io.github.gabfrank:onnxruntime-slim:1.23.2` y `io.github.gabfrank:ppocr-models:1.0`.
+> Si central corriera otra versión, el puntaje volvería a mentir — de forma más sutil, porque los
+> dos motores serían «el nuestro». **Las dos versiones se mueven juntas o no se mueven.**
 >
-> **Lo bueno es que el corpus ya se está juntando solo**: es un efecto secundario de la etapa 2. No
-> hace falta un camino de carga nuevo — hace falta poder **elegir** cuáles de las capturas recientes
-> son muestras de este formato.
+> **2. El `catch (Throwable)`, y acá importa más que en el filial.** La carga del motor tiene que ser
+> fail-open y no puede impedir el arranque. En el filial esa lección costó que no arrancara **una**
+> sucursal; en central, si no arranca, **no hay HQ para nadie**. Ver `CuponOcrService` del filial:
+> `UnsatisfiedLinkError` es un `Error`, no una `Exception`, y un `catch (Exception)` lo deja pasar.
 >
-> **Salida propuesta: el desktop es el puente.** Ya habla con los dos backends (`servidor: true` /
-> `false`) y es el único que lo hace. Leería los `texto_ocr` de las capturas del filial y los
-> mandaría al asistente de central. Las imágenes se quedan donde están.
+> **3. `onnxruntime-slim` sólo trae linux-x64 y win-x64.** Producción es Linux, así que va. Pero el
+> desarrollo local es esta Mac: hay que portar el perfil `ocr-mac` del `pom.xml` del filial —activado
+> por `<os><family>mac</family></os>`, agrega `com.microsoft.onnxruntime:onnxruntime:1.23.2`— o el
+> motor no carga acá y no se puede probar nada.
 >
-> **Queda una consecuencia por confirmar:** el editor dibuja regiones **sobre una imagen**, así que
-> central necesita al menos **una** foto de referencia, aunque el corpus de puntuación sea sólo
-> texto. O sea: N textos en central + 1 imagen de referencia, y el resto de las fotos en el filial.
-> Si se quisieran las N imágenes en central, hay que decidir dónde se guardan —central ya tiene
-> integración con Google Drive para imágenes— y que **no** se repliquen.
+> **4. El OCR toma todos los núcleos por defecto.** En el filial compite con el PDV de una sucursal;
+> en central competiría con las operaciones de las 24. Y el uso es raro pero a ráfagas: 20 cupones de
+> golpe al registrar un formato. **Acá sí conviene limitar `intra_op_num_threads`**, que en el filial
+> todavía es un riesgo abierto de §6.
+
+> ### El corpus es sólo lo que se carga a mano, y eso tiene un límite conocido
+>
+> Decidido el 2026-09-11: las capturas reales del filial **no** se suman al corpus. Más simple y
+> predecible, y evita guardar en central imágenes de cupones que llegan por otro camino.
+>
+> **La consecuencia, para que no sorprenda:** el corpus protege contra **nuestras** ediciones —tocar
+> el patrón y ver qué se rompe— pero **no** contra que el proveedor cambie el ticket. El día que
+> agreguen una línea, el corpus sigue diciendo 20/20 mientras la caja falla. La detección de ese caso
+> queda del lado del semáforo por campo y de `origen`, no del corpus. Y el arreglo es barato cuando
+> pase: volver a cargar muestras nuevas.
 
 ### 5.5 · Etapa 5 — terminar el módulo
 

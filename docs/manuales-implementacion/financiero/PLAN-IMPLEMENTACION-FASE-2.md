@@ -764,7 +764,85 @@ Tres cosas que conviene no confundir:
 | Columna | Forma | Por qué así |
 |---|---|---|
 | `sucursal_id` | `BIGINT NULL` | Nullable porque las filas existentes no tienen sucursal y **no se puede adivinar**: se completan a mano. NOT NULL sobre datos existentes es justo lo que el repo prohíbe en un solo paso |
-| `serie` | `VARCHAR(60) NULL` + índice único parcial sobre `(proveedor_servicio_id, serie)` donde `serie IS NOT NULL` | Separada de `codigo`, que tiene otra vida. Dos proveedores distintos pueden repetir un serial; el mismo proveedor no |
+| `serie` | `VARCHAR(60) NULL` + **dos** índices únicos parciales | Separada de `codigo`, que tiene otra vida. Ver abajo por qué son dos y no uno |
+
+#### ⚠️ Un solo índice único NO alcanza — medido
+
+El diseño original de esta sección decía `UNIQUE (proveedor_servicio_id, serie) WHERE serie IS NOT NULL`.
+**Eso no protege nada en el caso real.** Probado contra Postgres, dentro de `BEGIN; ... ROLLBACK;`:
+
+```
+proveedor NULL + 'JF798SJJ'  ->  INSERT 0 1
+proveedor NULL + 'JF798SJJ'  ->  INSERT 0 1     <- el duplicado ENTRO
+proveedor 7    + 'AB123'     ->  rechazado correctamente
+```
+
+Postgres no compara NULLs como iguales, así que cuando la primera columna de la tupla es NULL la
+unicidad **nunca se evalúa**. Y no es hipotético: `select id, proveedor_servicio_id from
+financiero.terminal_pos` devuelve hoy **las dos filas con el proveedor en NULL**. El caso roto es
+exactamente el caso actual, y se lleva puesto el uso que esta sección dice habilitar —cantar un
+cupón cuya máquina está registrada en otra sucursal—.
+
+Van **dos índices**, que es el mismo patrón que esta entrega ya usa en `V221.5` para
+`formato_terminal_pos`:
+
+```sql
+-- con proveedor: la serie es única dentro de ese proveedor
+CREATE UNIQUE INDEX IF NOT EXISTS uq_terminal_pos_proveedor_serie
+    ON financiero.terminal_pos (proveedor_servicio_id, serie)
+    WHERE proveedor_servicio_id IS NOT NULL AND serie IS NOT NULL;
+
+-- comodín: sin proveedor cargado, la serie es única a secas
+CREATE UNIQUE INDEX IF NOT EXISTS uq_terminal_pos_serie_comodin
+    ON financiero.terminal_pos (serie)
+    WHERE proveedor_servicio_id IS NULL AND serie IS NOT NULL;
+```
+
+Los dos con `CONCURRENTLY` si la tabla creciera; hoy tiene 2 filas y es catálogo, no transaccional,
+así que el lock es instantáneo. Se anota por disciplina, no por riesgo.
+
+#### ⚠️ El espejo del filial va PRIMERO, y esto casi se escapa
+
+`financiero.terminal_pos` es `MAIN_TO_ALL` **y ya está viva replicando**, con publicación de fila
+completa — verificado:
+
+```sql
+select p.pubname, c.relname, (pr.prattrs IS NULL) as publica_fila_completa
+  from pg_publication_rel pr ...  where c.relname = 'terminal_pos';
+
+ central_pub | terminal_pos | t
+```
+
+`prattrs IS NULL` significa que **cada UPDATE manda la tupla completa, columnas nuevas incluidas**.
+O sea que este ítem cae en el modo de falla que **sí corta** (§5.7), no en el blando: en cuanto
+central agregue las columnas y cualquier escritura toque una fila de `terminal_pos` —y §5.7 paso 5
+pide justamente correr el SQL de asignación de formato—, el apply worker de cada filial que todavía
+no tenga las columnas **se detiene**. Es el mecanismo del incidente de `tipo_dispositivo` del
+2026-08-20.
+
+**Por eso el filial va primero, con su espejo trivial** (es subscriber: sin índices, sin FK):
+
+```sql
+ALTER TABLE financiero.terminal_pos
+    ADD COLUMN IF NOT EXISTS sucursal_id BIGINT NULL,
+    ADD COLUMN IF NOT EXISTS serie VARCHAR(60) NULL;
+```
+
+Esto **contradice el "central primero" de §5.7 para este ítem puntual**, igual que ya pasaba con
+`formato_terminal_pos_id` en la etapa 3. La regla general sigue siendo central primero; la excepción
+es toda columna nueva sobre una tabla `MAIN_TO_ALL` que ya se replica.
+
+#### El filtro por sucursal ES un cambio de contrato GraphQL
+
+No es solo una cláusula `WHERE`. Hay que tocar, en central:
+
+- `type TerminalPos`: agregar `sucursalId` y `serie`
+- `input TerminalPosInput`: agregar `sucursalId` y `serie`, **opcionales** (§5.6)
+- `filterTerminalPos(...)`: agregar el parámetro `sucursalId`, opcional
+
+El patrón a copiar ya está en `venta-tarjeta.graphqls`, que expone `sucursalId` en el tipo y lo
+acepta en `filtrarVentasTarjeta`. ⚠️ Ese archivo tiene una inconsistencia preexistente —`Int` en el
+tipo y `ID` en el filtro— que **no hay que replicar**: elegir uno y usarlo en los dos lados.
 
 **Sin historial de traslados.** `venta_tarjeta` ya registra su propio `sucursal_id`, así que «qué
 vendió esa máquina en tal sucursal» se reconstruye de las ventas. Una tabla de movimientos se agrega
@@ -854,6 +932,54 @@ desde cero. Como los primeros formatos se cargan a mano con regex, ese caso no b
 El drag-and-drop vuelve más adelante con otro papel: **corregir** un mapa derivado que salió torcido,
 no construirlo desde cero.
 
+##### Tres cosas que la derivación necesita y el primer borrador de esta sección no tenía
+
+Salieron de la auditoría del paso 5. Las tres son de diseño, no de implementación: sin ellas el
+algoritmo de arriba no cierra.
+
+**1 · El texto del OCR no se arma como el del QR, y el patrón lo va a notar.** Hoy:
+
+```java
+// CapturaCuponService:193 — todas las cajas unidas con \n, sin mirar si comparten fila
+c.setTextoOcr(r.lineas.stream().map(l -> l.texto).collect(Collectors.joining("\n")));
+```
+
+`DetectorCajas` separa por componentes conexos, así que **etiqueta y valor suelen caer en cajas
+distintas** aunque estén uno al lado del otro en el papel — es el mismo motivo por el que un cupón da
+26 cajas y no 6. Un patrón escrito contra la cadena de un QR, que nunca trae saltos, puede no
+matchear contra un texto donde `MONTO:` y `150.000` quedaron separados por un `\n` que en el papel no
+existe.
+
+El criterio de "misma fila física" **ya está en el repo**, se usa para ordenar y no para unir:
+
+```java
+// MotorOcr:228
+if (Math.abs(dy) < 10) return Double.compare(a.p[0][0], b.p[0][0]);
+```
+
+La unión tiene que usar el mismo umbral: **mismo renglón → espacio; renglón distinto → `\n`**. Es un
+cambio chico y arregla el texto para las dos cosas, la derivación y el patrón.
+
+**2 · Qué pasa cuando un grupo capturado no cae en UNA sola caja.** Puede pasar: el regex matchea
+sobre el texto unido, pero el valor quedó repartido entre dos cajas. La regla es **no inventar una
+región**: ese campo no se deriva, se marca como "sin región" y cae al patrón por texto sin
+restricción espacial. El mapa parcial es válido —§5.4 ya dice que mapa y patrón conviven— y es
+preferible a una región mal dibujada, que después restringe el reconocimiento y **hace desaparecer un
+campo que hoy se lee bien**.
+
+**3 · La derivación es repetible, así que necesita reglas de sobrescritura.** El desktop la dispara
+como acción del usuario, no una sola vez en el alta. Y la tabla de regiones se replica
+`MAIN_TO_ALL`, o sea que una sobrescritura mala **no queda local: baja a las 24 filiales**.
+
+- Sobre un formato **sin regiones**: corre y guarda, sin preguntar.
+- Sobre un formato **que ya tiene regiones**: no pisa. Muestra el diff —qué campo cambiaría de
+  región— y pide confirmación explícita.
+- Correrla dos veces sobre el mismo cupón da el mismo resultado: es determinística por construcción,
+  no hay estado acumulado.
+
+Sin la segunda regla, alguien que corrigió un mapa a mano lo pierde con un clic, y el plan mismo
+anticipa esa corrección cuando dice que el drag-and-drop vuelve para arreglar mapas torcidos.
+
 #### El mapa y el patrón conviven; el mapa manda si existe
 
 Decidido el 2026-09-11. Un formato puede tener regiones, patrón, o los dos:
@@ -891,8 +1017,10 @@ Python evitan, sin perseguir paridad binaria entre motores.
 
 #### El asistente NO entra acá — se movió a la etapa 6
 
-Decidido el 2026-09-11. Todo lo de abajo sigue valiendo como diseño, pero **la etapa 4 entrega el
-editor, el corpus y el puntaje, y nada de IA**. El asistente necesita una capa de IA que hoy no
+Decidido el 2026-09-11, y **corregido el mismo día**: la primera versión de este párrafo decía que
+«la etapa 4 entrega el editor, el corpus y el puntaje». Ya no. La etapa 4 entrega **la derivación
+automática del mapa y el semáforo por confianza**; el **editor, el corpus y el puntaje se van con el
+asistente a la etapa 6**, porque los tres existían para alimentarlo. Nada de IA acá. El asistente necesita una capa de IA que hoy no
 existe bien hecha, y construirla apurada dentro de esta etapa la dejaría atada a este caso de uso
 —que es justo el defecto de la implementación que ya existe. Ver §5.6.
 
@@ -1172,6 +1300,39 @@ app no arranca.
 
 ---
 
+### 5.5.a · La purga no sabe qué está protegiendo (hallazgo del paso 5)
+
+El plan listaba «job de purga de imágenes» y daba por hecho que alcanzaba con leer
+`dias_retencion_imagenes` y `mb_libres_minimos`. **No alcanza**, porque falta lo principal: el job no
+tiene forma de saber si la foto que va a borrar pertenece a una venta que todavía la necesita.
+
+Verificado contra el filial:
+
+- La imagen se guarda en `captura_cupon.imagen_url` (`CapturaCuponService:179`, el único lugar que
+  llama `setImagenUrl` en el flujo nuevo).
+- `venta_tarjeta` **tiene** una columna `imagen_url`, pero el flujo de captura **nunca la llena**:
+  `completar()` no copia nada de la captura a la venta.
+- Y **no existe ninguna FK ni columna** que vincule `venta_tarjeta` con `captura_cupon` — ni
+  `captura_cupon_id`, ni `token`. Confirmado con `information_schema`: 0 constraints entre las dos.
+
+O sea que un job que borre por antigüedad de `captura_cupon.creado_en` **borra parejo**, sin
+distinguir una foto huérfana de la evidencia de un cobro que mañana se discute.
+
+**Lo que hay que decidir antes de escribir el job**, y es una decisión de producto:
+
+1. **Atar la foto a la venta.** Al completar desde una captura, copiar `imagen_url` a
+   `venta_tarjeta` —la columna ya existe y está muerta— o agregar `captura_cupon_id`. Es lo que
+   convierte la foto en evidencia del cobro en vez de un subproducto del OCR.
+2. **Criterio de borrado explícito**: qué se purga (¿capturas sin venta asociada? ¿todo lo anterior a
+   N días, venta incluida?) y qué nunca.
+3. **Dry-run obligatorio**: el job loguea qué borraría antes de borrar nada, y arranca apagado
+   (`matchIfMissing=false`, §5.6). Borrar archivos del disco **no es reversible** y el disco es el
+   mismo donde Postgres escribe el WAL.
+
+Sin (1) no hay criterio posible, así que **(1) entra al alcance junto con el job**.
+
+---
+
 ## 5.6 bis · Alcance del PR que va a alpha (decidido 2026-09-11)
 
 **Una sola entrega, un PR por repo.** Se evaluó cortarla en dos tandas —primero el núcleo de la
@@ -1183,7 +1344,7 @@ uno»*. El precio es un PR grande; la contrapartida es un solo punto de revisió
 | Bloque | Ítem | Repos |
 |---|---|---|
 | **Etapas 1-3** | Todo lo ya construido: motor OCR, captura por teléfono, formato por modelo de aparato, carga a mano, duplicados, configuración general | los tres |
-| **Etapa 3 bis** | `sucursal_id` + `serie` en `terminal_pos`, y filtro por sucursal en el listado (§5.3.h) | central, desktop |
+| **Etapa 3 bis** | `sucursal_id` + `serie` en `terminal_pos`, y filtro por sucursal en el listado (§5.3.h). **El espejo del filial va PRIMERO** | **filial**, central, desktop |
 | **Etapa 4** | Aplicar patrón/mapeo al texto del OCR · semáforo por confianza · regiones + restricción del reconocimiento · **derivación automática del mapa** | los tres |
 | **Etapa 5** | Job de purga de imágenes · configuración por POS · input único + terminal dentro del QR | los tres |
 | **Auditoría** | `sucursalId` sin validar (MEDIA) · `sucursalId` y caja abierta en la captura (BAJA) · UI para desasignar formato | filial, desktop |
@@ -1198,6 +1359,24 @@ uno»*. El precio es un PR grande; la contrapartida es un solo punto de revisió
 | **Filtrar la replicación de `terminal_pos`** | §5.3.h: se resuelve el caso de uso con un filtro de consulta, no cambiando el comportamiento de una tabla que ya baja a 24 filiales |
 | **SQL de asignación de formato** | **Se saca del MVP a propósito** (Gabriel, 2026-09-11): se corre **a mano**, que tiene menos riesgo que automatizarlo, y **el módulo no se habilita hasta estar configurado**. `ConfiguracionVentaTarjeta.habilitado` arranca en `false` |
 | **La capa de IA** | Etapa 6, hecha para todo el sistema. La derivación automática del mapa la vuelve innecesaria para el MVP |
+
+### Números de migración — verificados el 2026-09-11
+
+`origin/develop` llega hoy a `V222.3` en central y `V93.3` en filial; ninguno colisiona con la banda
+`.5`. Los libres de verdad, y su reparto:
+
+| Ítem | central | filial |
+|---|---|---|
+| Identidad de la terminal (§5.3.h) | `V224.5` | `V98.5` ← **va primero** |
+| Regiones del mapa (§5.4) | `V225.5` | `V99.5` |
+| Configuración por POS (§5.5) | `V226.5` | `V100.5` |
+
+El primer borrador de §5.3.h **no reservaba número** y su migración iba a competir con la de
+regiones, que ya tenía anotado `V224.5`. Corrido todo un lugar. En filial esto consume hasta
+`V100.5`, que es el borde de la banda reservada: **el ítem siguiente necesita banda nueva**.
+
+⚠️ Se re-confirman con `git fetch` **el día que se abre el PR** (§3.3), no antes. Esta tabla ya se
+corrió tres veces.
 
 ### Cierre de la entrega
 
@@ -1244,6 +1423,24 @@ midió entre los clusters locales 5551/5552 con `central_filial24_pub`/`central_
 **Por eso central va primero y alcanza con un paso.** Central primero le da a `datos_extra` su
 columna de destino antes de que el filial empiece a publicarla —que es el caso que sí corta— y el
 costo del otro lado es solo un refresh perdido que se reintenta.
+
+### La excepción: columna nueva sobre tabla MAIN_TO_ALL que ya se replica
+
+«Central primero y alcanza un paso» vale para **tablas nuevas**, que es lo que se midió. **No vale
+para una columna nueva sobre una tabla que ya está replicando**: ahí el publisher manda la tupla
+completa y el subscriber que no tenga la columna corta, que es el modo de falla duro de la tabla de
+arriba.
+
+En esta entrega eso aplica a **`terminal_pos`** (§5.3.h: `sucursal_id` y `serie`), igual que ya
+aplicaba a `formato_terminal_pos_id` en la etapa 3. Para esas columnas **el filial va primero**.
+
+Regla corta, para no volver a razonarlo cada vez:
+
+| Qué se agrega | Quién va primero |
+|---|---|
+| Tabla nueva `MAIN_TO_ALL` | Filial (el espejo), pero si se invierte solo se pierde un refresh |
+| **Columna nueva sobre tabla `MAIN_TO_ALL` ya viva** | **Filial, sin excepción — invertirlo corta** |
+| Columna nueva sobre tabla `BRANCH_TO_MAIN` | Central (el subscriber), sin excepción |
 
 ### Y el módulo queda apagado hasta que las dos mitades estén
 

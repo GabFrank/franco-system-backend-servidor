@@ -13,15 +13,18 @@ import org.hibernate.annotations.GenericGenerator;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Plantilla de bono recurrente. No es un bono: define que bono hay que crear
+ * cada periodo. El bono real lo genera BonoRecurrenteService en rrhh.bono.
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "bono", schema = "rrhh")
-public class Bono implements Identifiable<Long> {
+@Table(name = "bono_recurrente", schema = "rrhh")
+public class BonoRecurrente implements Identifiable<Long> {
 
     private static final long serialVersionUID = 1L;
 
@@ -37,7 +40,7 @@ public class Bono implements Identifiable<Long> {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "funcionario_id", nullable = true)
+    @JoinColumn(name = "funcionario_id", nullable = false)
     private Funcionario funcionario;
 
     @Enumerated(EnumType.STRING)
@@ -45,37 +48,20 @@ public class Bono implements Identifiable<Long> {
 
     private BigDecimal monto;
 
-    private LocalDate fecha;
-
-    private String motivo;
-
-    @Column(name = "es_recurrente")
-    private Boolean esRecurrente;
-
     @Enumerated(EnumType.STRING)
     private BonoFrecuencia frecuencia;
 
-    private Boolean anulado;
+    private String motivo;
 
-    @Column(name = "liquidacion_id")
-    private Long liquidacionId;
-
-    /** Plantilla que genero este bono. NULL en los bonos cargados a mano. */
-    @Column(name = "bono_recurrente_id")
-    private Long bonoRecurrenteId;
-
-    /** "YYYY-MM". Clave de idempotencia del generador: no se mueve aunque
-     *  despues alguien edite la fecha del bono. NULL en los bonos manuales. */
-    @Column(name = "periodo")
-    private String periodo;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "autorizado_por_id", nullable = true)
-    private Usuario autorizadoPor;
+    private Boolean activo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "autorizado_por_id", nullable = true)
+    private Usuario autorizadoPor;
 
     @CreationTimestamp
     @Column(name = "creado_en")

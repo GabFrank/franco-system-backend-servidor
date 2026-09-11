@@ -732,6 +732,72 @@ replicada MAIN_TO_ALL. El ADD COLUMN de abajo exige que la columna ya exista en 
 (migracion espejo V81.2 del filial), si no el apply worker se detiene con missing replicated
 column»*.
 
+### 5.3.h · Identidad de la terminal — dónde está y cuál es (decidido 2026-09-11)
+
+**Hueco de producto que salió al revisar el hallazgo de aislamiento del auditor.** `terminal_pos`
+no tiene `sucursal_id`: con 24 sucursales y un proveedor que entrega 30 máquinas, **no hay forma de
+saber qué máquina está en qué local**. Y tampoco hay dónde guardar el identificador propio del
+aparato.
+
+Lo que hay hoy, verificado contra la base:
+
+```
+financiero.terminal_pos
+  id, descripcion, codigo(55), cuenta_bancaria_id, activo, creado_en,
+  usuario_id, moneda_id, proveedor_servicio_id, porcentaje_comision,
+  minutos_acreditacion, formato_terminal_pos_id
+```
+
+Tres cosas que conviene no confundir:
+
+1. **`codigo` NO es el identificador de la máquina.** Es una etiqueta interna que el negocio le pega
+   para que el cajero la escanee con el lector (`scan-terminal-pos-dialog`). Está **vacío en las dos
+   terminales que existen**.
+2. **`codigo` no tiene `UNIQUE`**, y el escaneo hace `onFilter(...)` y se queda con `resultados[0]`.
+   Dos terminales con el mismo código y el cajero cobra contra la máquina equivocada, sin aviso.
+3. El `mapeo` del formato **ya declara `terminal` como campo canónico** (ver el encabezado de
+   `V93.5`), o sea que **el cupón imprime el identificador del aparato**. Hoy no hay contra qué
+   cotejarlo.
+
+#### Qué se agrega
+
+| Columna | Forma | Por qué así |
+|---|---|---|
+| `sucursal_id` | `BIGINT NULL` | Nullable porque las filas existentes no tienen sucursal y **no se puede adivinar**: se completan a mano. NOT NULL sobre datos existentes es justo lo que el repo prohíbe en un solo paso |
+| `serie` | `VARCHAR(60) NULL` + índice único parcial sobre `(proveedor_servicio_id, serie)` donde `serie IS NOT NULL` | Separada de `codigo`, que tiene otra vida. Dos proveedores distintos pueden repetir un serial; el mismo proveedor no |
+
+**Sin historial de traslados.** `venta_tarjeta` ya registra su propio `sucursal_id`, así que «qué
+vendió esa máquina en tal sucursal» se reconstruye de las ventas. Una tabla de movimientos se agrega
+el día que las máquinas roten lo bastante como para que haga falta, no antes.
+
+#### La replicación NO se filtra
+
+`terminal_pos` es `MAIN_TO_ALL` sin filtro y **se deja así** (decisión de Gabriel, 2026-09-11).
+Prender `replicate_central_to_branch_with_filter` cambia el comportamiento de una tabla que ya baja a
+24 filiales, y una terminal sin sucursal asignada dejaría de bajar a cualquiera — si alguna caja
+dependía de ella para cobrar, se queda sin cobrar con tarjeta.
+
+Lo que se resuelve es el **caso de uso real**, que es de listado y no de aislamiento: *un gerente de
+sucursal quiere saber cuántas máquinas debería tener en su local*. Eso es un filtro por `sucursal_id`
+en la consulta de la pantalla, no un cambio de replicación.
+
+El hallazgo de exposición entre sucursales queda **anotado, no cerrado**: el dato que viaja de más es
+el catálogo de terminales y su cuenta bancaria, no importes ni ventas.
+
+#### Lo que habilita
+
+Con `serie` cargada y el campo `terminal` que el OCR ya extrae del cupón, **el cupón dice solo de qué
+máquina salió**. Eso da dos cosas gratis:
+
+- El ítem «la terminal viajando dentro del propio QR» (§5.5), pero también para el camino de cámara
+- **Detección de cupón ajeno**: si el cupón trae `JF798SJJ` y esa máquina está registrada en otra
+  sucursal, el sistema lo puede cantar
+
+Caso de uso completo: *la máquina `JF798SJJ` del proveedor X está en la sucursal Y, cobra a la cuenta
+Z, y su cupón se lee con el formato W.*
+
+---
+
 ### 5.4 · Etapa 4 — el texto se convierte en campos, y el mapa se dibuja
 
 **Absorbe lo que antes era la etapa 5** (mapa espacial). Decidido con Gabriel el 2026-09-11, por dos
@@ -751,9 +817,42 @@ palanca de rendimiento**, no como una comodidad de asignación.
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **filial** | Espejo de las regiones (**va primero**) · aplicar el mapeo al texto del OCR: campos canónicos + el resto a `datos_extra` · **restringir el reconocimiento a las regiones** cuando el formato tiene mapa | `V98.5` |
+| **filial** | Espejo de las regiones (**va primero**) · aplicar el mapeo al texto del OCR: campos canónicos + el resto a `datos_extra` · **restringir el reconocimiento a las regiones** cuando el formato tiene mapa · **derivar el mapa solo** desde un cupón de muestra | `V98.5` |
 | **central** | Regiones por campo y por formato · el ABM las valida | `V224.5` |
-| **desktop** | **Editor drag-and-drop sobre la imagen del cupón** · confirmación con **semáforo por campo** según confianza (§2.6): los buenos se aplican, los dudosos se preguntan |
+| **desktop** | Confirmación con **semáforo por campo** según confianza (§2.6): los buenos se aplican, los dudosos se preguntan · disparar la derivación y mostrar el mapa derivado |
+
+#### El mapa se deriva solo; el editor no entra (decidido 2026-09-11)
+
+**El editor drag-and-drop sale de esta etapa.** No porque sea caro, sino porque **no hace falta para
+llegar al mapa**. La pregunta de Gabriel fue si convenía usar IA para generarlo sin intervención
+humana; la respuesta es que **ni siquiera hace falta IA**.
+
+El motor OCR ya devuelve la geometría, verificado en el código:
+
+```java
+// MotorOcr.Linea
+public final String texto;
+public final float confianza;
+public final double[][] caja;   // <- las coordenadas ya vienen
+```
+
+Y el `patron` ya dice **qué** es cada valor. Juntando las dos cosas el mapa sale por construcción:
+
+1. Se toma un cupón de muestra (o la primera captura real de esa terminal)
+2. El OCR devuelve líneas con `texto` **y `caja`**
+3. El `patron` etiqueta qué texto es el monto, cuál el código de autorización, cuál la boleta
+4. Se busca en qué caja cayó cada grupo capturado → **esa caja es la región de ese campo**
+5. Se guarda como región anclada a la etiqueta, según la regla de «Lo que el editor NO puede ser»
+
+**Determinístico y auditable**: si el patrón matcheó, la región es correcta por construcción. Sin
+API key, sin costo por llamada, sin alucinación, y sin que nadie arrastre un rectángulo.
+
+**Lo que esto NO cubre**, y por eso la capa de IA sigue teniendo sentido en la etapa 6: un proveedor
+**donde todavía no hay patrón**. Ahí sí hace falta que algo mire 10-20 cupones y proponga el patrón
+desde cero. Como los primeros formatos se cargan a mano con regex, ese caso no bloquea nada.
+
+El drag-and-drop vuelve más adelante con otro papel: **corregir** un mapa derivado que salió torcido,
+no construirlo desde cero.
 
 #### El mapa y el patrón conviven; el mapa manda si existe
 
@@ -1070,6 +1169,44 @@ no por existir.
 `Files.createDirectories()` en el primer guardado. **No asumir que el servidor la tiene.** Si la ruta
 llega por variable de entorno, hay que provisionarla **antes** de que el código se despliegue o la
 app no arranca.
+
+---
+
+## 5.6 bis · Alcance del PR que va a alpha (decidido 2026-09-11)
+
+**Una sola entrega, un PR por repo.** Se evaluó cortarla en dos tandas —primero el núcleo de la
+etapa 4, después el resto— y se descartó: *«si algo sale mal tenemos que revisar en 2 PRs en vez de
+uno»*. El precio es un PR grande; la contrapartida es un solo punto de revisión y un solo rollback.
+
+### Entra
+
+| Bloque | Ítem | Repos |
+|---|---|---|
+| **Etapas 1-3** | Todo lo ya construido: motor OCR, captura por teléfono, formato por modelo de aparato, carga a mano, duplicados, configuración general | los tres |
+| **Etapa 3 bis** | `sucursal_id` + `serie` en `terminal_pos`, y filtro por sucursal en el listado (§5.3.h) | central, desktop |
+| **Etapa 4** | Aplicar patrón/mapeo al texto del OCR · semáforo por confianza · regiones + restricción del reconocimiento · **derivación automática del mapa** | los tres |
+| **Etapa 5** | Job de purga de imágenes · configuración por POS · input único + terminal dentro del QR | los tres |
+| **Auditoría** | `sucursalId` sin validar (MEDIA) · `sucursalId` y caja abierta en la captura (BAJA) · UI para desasignar formato | filial, desktop |
+
+### No entra, y por qué
+
+| Ítem | Motivo |
+|---|---|
+| **Editor drag-and-drop** | El mapa se deriva solo (§5.4). Vuelve como herramienta de corrección, no de construcción |
+| **Ticket con seña + adjuntos al cierre de caja** | Lo más grande y lo menos urgente. Próxima entrega |
+| **Cerrar las lecturas de `TerminalPosGraphQL`** | Hueco **preexistente**, no lo introdujo esta rama. Cerrarlo le saca la pantalla «Ventas con tarjeta» a quien la usa hoy sin rol de tesorería. Va como issue aparte, no mezclado en un PR que ya trae tres etapas |
+| **Filtrar la replicación de `terminal_pos`** | §5.3.h: se resuelve el caso de uso con un filtro de consulta, no cambiando el comportamiento de una tabla que ya baja a 24 filiales |
+| **SQL de asignación de formato** | **Se saca del MVP a propósito** (Gabriel, 2026-09-11): se corre **a mano**, que tiene menos riesgo que automatizarlo, y **el módulo no se habilita hasta estar configurado**. `ConfiguracionVentaTarjeta.habilitado` arranca en `false` |
+| **La capa de IA** | Etapa 6, hecha para todo el sistema. La derivación automática del mapa la vuelve innecesaria para el MVP |
+
+### Cierre de la entrega
+
+- **Las ramas A y B del filial se unifican.** Se habían separado para poder secuenciar los
+  despliegues; con central yendo primero las dos condiciones se cumplen a la vez, porque central ya
+  tiene `datos_extra` y `origen` cuando el filial arranca. Un solo PR de filial.
+- Commitear el comentario de `datos_extra` en `V220.5`/`V93.5` + su `flyway:repair`.
+- **Dry-run de las migraciones** contra una copia de la base de alpha (§5.8), que con esta entrega
+  pasan de 10 a ~14.
 
 ---
 

@@ -14,8 +14,8 @@ public class BonoInput {
     private BigDecimal monto;
     private String fecha;
     private String motivo;
-    private Boolean esRecurrente;
-    private BonoFrecuencia frecuencia;
     private Long autorizadoPorId;
     private Long usuarioId;
+    private Boolean esRecurrente;
+    private BonoFrecuencia frecuencia;
 }

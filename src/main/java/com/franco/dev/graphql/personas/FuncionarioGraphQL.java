@@ -65,7 +65,8 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
     // entrega la lista con Integer sin convertirla al tipo generico del parametro. Se
     // recibe como List<Integer> y se convierte a Long, que es lo que espera la consulta.
     public Page<Funcionario> funcionariosWithPage(int page, int size, Long id, String nombre,
-            List<Integer> sucursalList, Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba) {
+            List<Integer> sucursalList, Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba,
+            Boolean cobraBanco) {
         Pageable pageable = PageRequest.of(page, size);
         if (nombre != null) {
             nombre = nombre.replace(" ", "%");
@@ -80,7 +81,8 @@ public class FuncionarioGraphQL implements GraphQLQueryResolver, GraphQLMutation
                 sucursalIdList = null;
             }
         }
-        return service.findAllWithPage(id, nombre, sucursalIdList, activo, cargoId, diarista, fasePrueba, pageable);
+        return service.findAllWithPage(id, nombre, sucursalIdList, activo, cargoId, diarista, fasePrueba, cobraBanco,
+                pageable);
     }
 
     public List<Funcionario> funcionariosSearch(String texto) {

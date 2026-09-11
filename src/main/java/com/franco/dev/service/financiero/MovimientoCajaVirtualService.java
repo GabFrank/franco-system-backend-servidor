@@ -64,4 +64,18 @@ public class MovimientoCajaVirtualService {
     public MovimientoCajaVirtual anularMovimiento(Long movimientoId, String motivo, Usuario usuario) {
         return tesoreriaService.anular(movimientoId, motivo, usuario);
     }
+
+    /**
+     * Contra-movimiento que revierte el efecto de un movimiento, sin el guard cross-módulo:
+     * lo llama el módulo dueño de la operación al anularla (RRHH, CPP...).
+     *
+     * <p>Existe para que los dueños no armen el AJUSTE a mano. Hacerlo a mano se ve simétrico
+     * pero no lo es: el egreso entra por {@code abs().negate()} y el AJUSTE conserva el signo,
+     * así que copiar el monto sin negar solo revierte cuando el monto es positivo — con un
+     * monto negativo vuelve a descontar. {@code TesoreriaService.revertir} recalcula el efecto
+     * y lo niega, y además marca el original como inactivo.</p>
+     */
+    public MovimientoCajaVirtual revertirMovimiento(Long movimientoId, String motivo, Usuario usuario) {
+        return tesoreriaService.revertir(tesoreriaService.findMovimiento(movimientoId), motivo, usuario);
+    }
 }

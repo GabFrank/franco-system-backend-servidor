@@ -33,12 +33,13 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
     }
 
     public Page<Funcionario> findAllWithPage(Long id, String nombre, List<Long> sucursalList, Pageable pageable) {
-        return repository.findAllWithFilterAndPage(id, nombre, sucursalList, null, null, null, null, pageable);
+        return repository.findAllWithFilterAndPage(id, nombre, sucursalList, null, null, null, null, null, pageable);
     }
 
     public Page<Funcionario> findAllWithPage(Long id, String nombre, List<Long> sucursalList,
-            Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba, Pageable pageable) {
-        return repository.findAllWithFilterAndPage(id, nombre, sucursalList, activo, cargoId, diarista, fasePrueba, pageable);
+            Boolean activo, Long cargoId, Boolean diarista, Boolean fasePrueba, Boolean cobraBanco, Pageable pageable) {
+        return repository.findAllWithFilterAndPage(id, nombre, sucursalList, activo, cargoId, diarista, fasePrueba,
+                cobraBanco, pageable);
     }
 
     public Funcionario findByPersonaId(Long id) {

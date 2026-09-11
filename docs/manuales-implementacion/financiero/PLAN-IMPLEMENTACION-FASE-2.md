@@ -1089,8 +1089,50 @@ el desktop es la pieza que nadie puede sincronizar con nada.
 
 Entre esos dos momentos el filial corre código nuevo **contra un central que todavía no tiene las
 tablas**. Las tablas de configuración de las etapas **3 a 6** son `MAIN_TO_ALL`, así que sí muerde — y la
-etapa 3 además tiene una columna en la dirección contraria, así que su merge son **dos pasos**, no
-uno.
+etapa 3 además tiene una columna en la dirección contraria (`venta_tarjeta.datos_extra`, V93.5).
+
+### Los dos modos de falla NO son el mismo, y solo uno corta la réplica
+
+La auditoría del paso 8 (eje condicional B, 2026-09-11) planteó que la etapa 3 no tenía **ningún**
+orden de despliegue válido: V93.5 (filial publica `datos_extra`) exige central primero, y V95.5/V96.5
+(espejos) exigen filial primero, y las cuatro viajan en la misma entrega. El razonamiento es correcto
+en su premisa pero **el veredicto no**, porque trata los dos modos de falla como equivalentes. Se
+midió entre los clusters locales 5551/5552 con `central_filial24_pub`/`central_filial24_sub` reales:
+
+| Qué pasa | Efecto real | Medido |
+|---|---|---|
+| El **publisher** manda una columna que el subscriber no tiene (`BRANCH_TO_MAIN`: V93.5 sin V220.5) | El apply worker de central entra en crash-loop. **Corta la réplica.** Es el incidente del enum `tipo_dispositivo` del 2026-08-20 | No (se asume por el incidente) |
+| Central publica una tabla que la filial todavía no tiene (`MAIN_TO_ALL`: V221.5 sin V95.5) | `ALTER SUBSCRIPTION ... REFRESH PUBLICATION` **falla entero y no aplica nada**. La suscripción queda intacta: mismo pid del worker, `received_lsn` avanzando, las demás tablas en `srsubstate='r'`. La tabla nueva simplemente no se registra, y el refresh siguiente del scheduler (cada hora) la toma sola, con copia inicial incluida | **Sí**, el 2026-09-11 |
+
+**Por eso central va primero y alcanza con un paso.** Central primero le da a `datos_extra` su
+columna de destino antes de que el filial empiece a publicarla —que es el caso que sí corta— y el
+costo del otro lado es solo un refresh perdido que se reintenta.
+
+### Y el módulo queda apagado hasta que las dos mitades estén
+
+Decisión de producto (Gabriel, 2026-09-11): **no se habilita el flujo de venta con tarjeta hasta que
+central y filiales estén las dos actualizadas.** Hoy no hay nadie registrando nada con lo que esta
+fase implementa, así que la ventana entre un despliegue y el otro no tiene tráfico que proteger. Eso
+es lo que vuelve innecesario partir la entrega en dos ramas de central.
+
+`ConfiguracionVentaTarjeta.habilitado` arranca en `false` justamente para esto.
+
+### Riesgo asumido y documentado: el scheduler no pregunta
+
+`ReplicationPublicationSyncScheduler` corre **2 minutos** después de que central arranca y cada hora
+(`replication.sync.enabled=true` por default en `application.properties`), y en cada corrida agrega
+las tablas nuevas de `replication_table` a `central_pub` **y refresca las suscripciones remotas de
+todas las sucursales activas**, sin verificar si cada filial ya tiene el esquema. El cron del filial
+es de 15 minutos. O sea: el refresh de la tabla nueva **va a fallar** en las filiales que todavía no
+actualizaron, en la ventana entre el minuto 2 y que cada una corra su cron.
+
+Con lo medido arriba, eso es ruido en el log y un reintento a la hora siguiente, no un corte. **Se
+documenta, no se toca en esta entrega** (decisión de Gabriel, 2026-09-11): el scheduler es mecanismo
+preexistente de toda la flota y arreglarlo acá mezcla dos responsabilidades en un PR.
+
+Lo que **no** está verificado es si el bucle del scheduler aborta cuando una filial tira excepción, o
+si sigue con las demás. Si aborta, una sola filial atrasada podría dejar sin refrescar a las que
+vienen después en la lista. Va a §8.6.
 
 **Procedimiento obligatorio al mergear:**
 
@@ -1285,3 +1327,50 @@ Se descubrió sólo porque se volvió a probar con una mutation real después de
    repo. Se toman como reportadas, no como verificadas.
 5. **`imagenUrl` en `frc-mobile`.** El plan afirma que no se usa. Se confirmó el patrón análogo en
    desktop (el resolver lo acepta, ningún template lo manda), pero el repo `mobile` no se revisó.
+6. **Si el bucle de `LogicalReplicationService.syncPublicationsWithReplicationTable()` aborta cuando
+   una filial tira excepción en el refresh, o sigue con las demás.** Importa porque si aborta, una
+   sola filial atrasada deja sin refrescar a todas las que vienen después en la lista. Ver §5.7.
+7. **La prueba de UI del desktop en Chrome (paso 9).** Quedó sin correr: el viewport de la ventana
+   devolvía 0×0 en los tres intentos, así que ni screenshot ni árbol de accesibilidad. Lo que el
+   paso 9 tenía que cubrir y sigue descubierto está listado en §8.7.
+
+---
+
+### 8.7 · Quinta auditoría — el diff completo de las etapas 1 a 3 (paso 8, 2026-09-11)
+
+Cuatro agentes: los 3 ejes fijos más el condicional B (migraciones en los dos backends). El
+condicional A no disparó — el diff no toca workflows, `electron-builder.json`, `app/main.ts`,
+`installer.nsh`, `ngsw-config.json` ni `api-por-host.ts`. Alcance: 103 archivos, ~7.500 inserciones,
+porque ninguna de las tres etapas está mergeada.
+
+**Hallazgos aplicados en el momento:**
+
+| # | Eje | Qué era | Cómo se cerró |
+|---|---|---|---|
+| 1 | Contrato (fijo 3) | **ALTA.** `add-terminal-pos-dialog` llamaba `onGetActivos(true)`, que manda la query del **filial** (`proveedorServicioId`) contra **central**, que declara `proveedorServicio` (el objeto). GraphQL rechaza la query entera, `formatos` queda vacío y, como el formato es `required` en el alta, **no se podía crear ninguna terminal POS** | `onGetActivos` elige la query según el backend. Se agregó `formatosTerminalPosActivosCentralQuery` con la selección que central sí declara |
+| 2 | Autorización (fijo 1) | **ALTA.** `TerminalPosGraphQL` (central) no tenía **ni un** `seg.*`, incluida la mutation nueva `desasignarFormatoTerminalPos`. Y se llega sin ser admin: `openTabIfAuthorized(ROLES.VENTA_TARJETA_COMPLETAR, TerminalPosDashboard)`. Un usuario con ese rol podía reasignar la `cuentaBancariaId` de cualquier terminal | `seg.requireGestionar()` en las tres **escrituras** (`saveTerminalPos`, `desasignarFormatoTerminalPos`, `deleteTerminalPos`) |
+| 3 | Autorización (fijo 1) | **MEDIA.** `CapturaCuponUpdate` difundía el `token` por una subscription que es anónima por diseño. Con ese token, `capturaCupon(token)` —que solo exige login, no ser el dueño— devuelve código de autorización y monto de **otra caja** | El token salió del payload. El desktop filtra por `cajaId`, que es lo único que necesita: su token ya lo tiene desde que pidió la captura, y el sondeo cada 3 s cubre el aviso perdido |
+
+**Hallazgo re-evaluado y bajado de severidad:**
+
+- **Condicional B #1 (ALTA → resuelto por medición).** «No hay orden de despliegue válido para la
+  etapa 3.» La premisa es correcta, el veredicto no: los dos modos de falla no son equivalentes. Ver
+  §5.7 — se midió que un `REFRESH PUBLICATION` contra una tabla faltante falla entero sin tocar la
+  suscripción. Central primero alcanza.
+- **Condicional B #2 (ALTA → riesgo documentado).** El scheduler refresca sin preguntar. Con lo
+  anterior, es un refresh perdido que se reintenta a la hora. §5.7.
+
+**Lo que las auditorías confirmaron como correcto** (vale anotarlo, porque son las cosas que en
+rondas anteriores estuvieron mal): numeración Flyway sin colisión en ninguna rama remota;
+`flyway:validate` verde en las dos bases (345 y 108 migraciones), o sea que ninguna migración se
+editó después de aplicarse; idempotencia probada corriendo las 10 migraciones **dos veces** dentro de
+`BEGIN;...ROLLBACK;`; cada `@Column` contra `information_schema` en las dos bases; las asimetrías
+central/filial (NOT NULL, CHECK, UNIQUE, FK) coinciden una por una con lo declarado;
+`prattrs IS NULL` en `filial24_pub` para `venta_tarjeta`; `captura_cupon` no publicada en ningún
+lado; y el índice de V96.7 matcheando la expresión JPQL, verificado con `EXPLAIN`.
+
+**Pendiente, severidad baja:** `venta_tarjeta.datos_extra` (V220.5/V93.5) es esquema muerto en esta
+entrega —cero usos en Java, no está en ningún `.graphqls`— pero el encabezado de la migración lo
+presenta como si el mecanismo ya corriera. Falta la misma nota de «etapa pendiente» que sí llevan
+`dias_retencion_imagenes` y `mb_libres_minimos`. Editarlo cambia el checksum de una migración ya
+aplicada en local, así que va junto con un `flyway:repair`.

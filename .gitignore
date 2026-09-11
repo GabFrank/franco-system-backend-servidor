@@ -33,3 +33,4 @@ src/main/resources/bodega-franco-frc-firebase-admin.json
 
 # Índices de búsqueda (Lucene/Hibernate Search) generados en runtime
 data/lucene/
+*.log

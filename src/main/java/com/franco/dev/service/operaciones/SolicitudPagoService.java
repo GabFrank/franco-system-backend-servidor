@@ -8,6 +8,7 @@ import com.franco.dev.domain.operaciones.SolicitudPago;
 import com.franco.dev.domain.operaciones.SolicitudPagoNotaRecepcion;
 import com.franco.dev.domain.operaciones.enums.NotaRecepcionEstado;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
+import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.financiero.Cambio;
 import com.franco.dev.domain.financiero.FormaPago;
 import com.franco.dev.domain.financiero.Moneda;
@@ -451,8 +452,10 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
         SolicitudPago solicitud = findById(solicitudId).orElseThrow(
             () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId)
         );
-        if (solicitud.getEstado() != SolicitudPagoEstado.PENDIENTE) {
-            throw new IllegalStateException("Solo se pueden editar solicitudes en estado PENDIENTE");
+        // Una devuelta se corrige antes de reenviarla, igual que un borrador.
+        if (solicitud.getEstado() != SolicitudPagoEstado.PENDIENTE
+                && solicitud.getEstado() != SolicitudPagoEstado.DEVUELTO) {
+            throw new IllegalStateException("Solo se pueden editar solicitudes en borrador (PENDIENTE) o devueltas por tesorería");
         }
         Moneda moneda = monedaRepository.findById(monedaId)
             .orElseThrow(() -> new IllegalArgumentException("Moneda no encontrada"));
@@ -503,9 +506,42 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
      */
     @Transactional
     public SolicitudPago actualizarEstado(Long solicitudId, SolicitudPagoEstado nuevoEstado) {
-        SolicitudPago solicitud = findById(solicitudId).orElseThrow(
-            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId)
-        );
+        return cambiarEstado(buscarSolicitud(solicitudId), nuevoEstado, null);
+    }
+
+    /**
+     * Compras cancela su solicitud: la deuda ya no corresponde (nota mal cargada, devolución,
+     * factura anulada). Libera las notas para armar otra solicitud. Solo sin pagos registrados:
+     * con plata entregada, cancelar dejaría el egreso de caja sin deuda que lo respalde y las
+     * notas libres para pagarse dos veces; en ese caso primero se anula el pago desde la caja.
+     */
+    @Transactional
+    public SolicitudPago cancelar(Long solicitudId, String motivo, Usuario usuario) {
+        String motivoLimpio = exigirMotivo(motivo, "cancelar");
+        return cambiarEstado(buscarSolicitud(solicitudId), SolicitudPagoEstado.CANCELADO,
+            "CANCELADA" + firma(usuario) + ": " + motivoLimpio);
+    }
+
+    /**
+     * Tesorería devuelve a compras una solicitud que no va a pagar (falta la factura, monto mal
+     * cargado): queda DEVUELTO, sale del diálogo de pago y conserva sus notas. Compras la corrige
+     * y la reenvía (DEVUELTO → SOLICITADO), o la cancela. Tesorería no cancela: el que paga no
+     * decide qué se debe.
+     */
+    @Transactional
+    public SolicitudPago devolverACompras(Long solicitudId, String motivo, Usuario usuario) {
+        String motivoLimpio = exigirMotivo(motivo, "devolver");
+        SolicitudPago solicitud = buscarSolicitud(solicitudId);
+        if (solicitud.getEstado() != SolicitudPagoEstado.SOLICITADO) {
+            throw new IllegalStateException("Solo se puede devolver a compras una solicitud enviada (SOLICITADO); "
+                + solicitud.getNumeroSolicitud() + " está en " + solicitud.getEstado() + ".");
+        }
+        return cambiarEstado(solicitud, SolicitudPagoEstado.DEVUELTO,
+            "DEVUELTA A COMPRAS" + firma(usuario) + ": " + motivoLimpio);
+    }
+
+    private SolicitudPago cambiarEstado(SolicitudPago solicitud, SolicitudPagoEstado nuevoEstado, String observacion) {
+        Long solicitudId = solicitud.getId();
         if (solicitud.getEstado() == SolicitudPagoEstado.CANCELADO) {
             throw new IllegalStateException("Una solicitud cancelada no puede cambiar de estado");
         }
@@ -515,6 +551,17 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                 solicitud.getEstado() + " a " + nuevoEstado);
         }
         
+        // Volver atrás desde "solicitada" (cancelar, devolver a compras o reabrir como borrador)
+        // solo vale para compras y sin plata entregada.
+        if (nuevoEstado == SolicitudPagoEstado.CANCELADO || nuevoEstado == SolicitudPagoEstado.PENDIENTE
+                || nuevoEstado == SolicitudPagoEstado.DEVUELTO) {
+            exigirSolicitudDeCompra(solicitud);
+            exigirSinPagos(solicitud, nuevoEstado);
+        }
+        if (observacion != null) {
+            agregarObservacion(solicitud, observacion);
+        }
+
         solicitud.setEstado(nuevoEstado);
         
         // If changing to CONCLUIDO, mark notas as paid
@@ -536,7 +583,8 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
     private boolean isValidStateTransition(SolicitudPagoEstado estadoActual, SolicitudPagoEstado nuevoEstado) {
         // Define valid transitions.
         // PENDIENTE (borrador) → SOLICITADO (solicitar) o CANCELADO.
-        // SOLICITADO (validada) → PENDIENTE (reabrir), o pagos/cancelación.
+        // SOLICITADO (validada) → PENDIENTE (reabrir), DEVUELTO (tesorería la devuelve), o pagos/cancelación.
+        // DEVUELTO → SOLICITADO (compras la corrige y la reenvía) o CANCELADO.
         switch (estadoActual) {
             case PENDIENTE:
                 return nuevoEstado == SolicitudPagoEstado.SOLICITADO ||
@@ -545,8 +593,12 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case SOLICITADO:
                 return nuevoEstado == SolicitudPagoEstado.PENDIENTE ||
+                       nuevoEstado == SolicitudPagoEstado.DEVUELTO ||
                        nuevoEstado == SolicitudPagoEstado.PARCIAL ||
                        nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
+                       nuevoEstado == SolicitudPagoEstado.CANCELADO;
+            case DEVUELTO:
+                return nuevoEstado == SolicitudPagoEstado.SOLICITADO ||
                        nuevoEstado == SolicitudPagoEstado.CANCELADO;
             case PARCIAL:
                 return nuevoEstado == SolicitudPagoEstado.CONCLUIDO ||
@@ -572,16 +624,56 @@ public class SolicitudPagoService extends CrudService<SolicitudPago, SolicitudPa
                 .filter(n -> n != null)
                 .map(n -> "Nº" + (n.getNumero() != null ? n.getNumero() : n.getId()))
                 .collect(Collectors.joining(", "));
-            String observacionCancelado = "CANCELADO - Notas vinculadas al cancelar (liberadas): " + numerosNotas;
-            String obsActual = solicitud.getObservaciones();
-            solicitud.setObservaciones(
-                (obsActual != null && !obsActual.trim().isEmpty())
-                    ? obsActual.trim() + " | " + observacionCancelado
-                    : observacionCancelado
-            );
+            agregarObservacion(solicitud, "CANCELADO - Notas vinculadas al cancelar (liberadas): " + numerosNotas);
         }
         solicitudPagoNotaRecepcionService.eliminarTodasRelaciones(solicitudId);
         solicitud.setMontoTotal(0.0);
+    }
+
+    /** Las solicitudes de gasto y de RRHH se gestionan desde su módulo (pre-gasto, vale, liquidación). */
+    private void exigirSolicitudDeCompra(SolicitudPago solicitud) {
+        TipoSolicitudPago tipo = solicitud.getTipo();
+        if (tipo != null && tipo != TipoSolicitudPago.COMPRA) {
+            throw new IllegalStateException("La solicitud " + solicitud.getNumeroSolicitud() + " es de "
+                + tipo + ": se gestiona desde su propio módulo, no desde compras.");
+        }
+    }
+
+    /**
+     * PARCIAL cuenta como pagada aunque no tenga monto: puede venir de "Marcar como pago parcial",
+     * que registra un pago hecho por fuera del sistema.
+     */
+    private void exigirSinPagos(SolicitudPago solicitud, SolicitudPagoEstado nuevoEstado) {
+        java.math.BigDecimal pagado = solicitud.getMontoPagado();
+        boolean tienePagos = solicitud.getEstado() == SolicitudPagoEstado.PARCIAL
+            || (pagado != null && pagado.signum() > 0);
+        if (tienePagos) {
+            String accion = nuevoEstado == SolicitudPagoEstado.CANCELADO ? "cancelarla" : "devolverla";
+            throw new IllegalStateException("La solicitud " + solicitud.getNumeroSolicitud()
+                + " ya tiene pagos registrados. Primero hay que anular el pago desde la caja mayor"
+                + " (Anular pago a proveedor) y después " + accion + ".");
+        }
+    }
+
+    private String exigirMotivo(String motivo, String accion) {
+        if (motivo == null || motivo.trim().isEmpty()) {
+            throw new IllegalArgumentException("Indicá el motivo para " + accion + " la solicitud.");
+        }
+        return motivo.trim().toUpperCase();
+    }
+
+    private static String firma(Usuario usuario) {
+        return (usuario != null && usuario.getNickname() != null) ? " POR " + usuario.getNickname() : "";
+    }
+
+    private void agregarObservacion(SolicitudPago solicitud, String texto) {
+        String actual = solicitud.getObservaciones();
+        solicitud.setObservaciones((actual != null && !actual.trim().isEmpty()) ? actual.trim() + " | " + texto : texto);
+    }
+
+    private SolicitudPago buscarSolicitud(Long solicitudId) {
+        return findById(solicitudId).orElseThrow(
+            () -> new IllegalArgumentException("Solicitud de pago no encontrada: " + solicitudId));
     }
 
     /**

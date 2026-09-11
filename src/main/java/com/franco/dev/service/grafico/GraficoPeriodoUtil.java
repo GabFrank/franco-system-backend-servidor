@@ -27,6 +27,27 @@ public final class GraficoPeriodoUtil {
         return ids.isEmpty() ? Collections.singletonList(null) : ids;
     }
 
+    /**
+     * Igual que {@link #normalizarSucIds(List)} pero acepta la <b>sucursal 0</b> (SERVIDOR) como
+     * una sucursal mas.
+     *
+     * <p>En casi todo el sistema {@code sucursalId <= 0} es el centinela de "todas las sucursales"
+     * ({@code VentaItemService}, {@code CobroDetalleService}, etc.), asi que dejar pasar el 0 ahi
+     * convertiria un filtro en un total. Pero los gastos pagados desde la caja mayor viven
+     * literalmente en la sucursal 0, y sin esto no se podrian mirar solos. Usar unicamente en los
+     * reportes de gastos.</p>
+     */
+    public static List<Long> normalizarSucIdsConServidor(List<Long> sucIds) {
+        if (sucIds == null || sucIds.isEmpty()) {
+            return Collections.singletonList(null);
+        }
+        List<Long> ids = sucIds.stream()
+                .filter(id -> id != null && id >= 0)
+                .distinct()
+                .collect(Collectors.toList());
+        return ids.isEmpty() ? Collections.singletonList(null) : ids;
+    }
+
     public static List<Long> normalizarUsuarioIds(List<Long> usuarioIds) {
         if (usuarioIds == null || usuarioIds.isEmpty()) {
             return Collections.emptyList();

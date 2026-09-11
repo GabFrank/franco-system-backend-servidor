@@ -88,6 +88,16 @@ public class Gasto extends EmbeddedEntity implements Serializable {
             @JoinColumn(name = "pre_gasto_sucursal_id", referencedColumnName = "sucursal_id")
     })
     private PreGasto preGasto;
+
+    /**
+     * Solicitud de pago (CPP) que dio origen al gasto, cuando el gasto se pago desde la caja
+     * mayor y no desde una caja fisica. Es el gasto de tesoreria: no tiene caja ni responsable,
+     * vive en la sucursal 0 (SERVIDOR) y lo mantiene GastoTesoreriaService.
+     *
+     * NULL en todos los gastos de caja fisica.
+     */
+    @Column(name = "solicitud_pago_id")
+    private Long solicitudPagoId;
 }
 
 

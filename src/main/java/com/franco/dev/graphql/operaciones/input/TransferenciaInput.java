@@ -19,6 +19,7 @@ public class TransferenciaInput {
     private Boolean isOrigen;
     private Boolean isDestino;
     private String observacion;
+    private Long solicitanteId;
     private Long usuarioPreTransferenciaId;
     private Long usuarioPreparacionId;
     private Long usuarioTransporteId;

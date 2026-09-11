@@ -13,6 +13,7 @@ import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.SolicitudPagoDetalleService;
 import com.franco.dev.service.operaciones.SolicitudPagoNotaRecepcionService;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
@@ -69,6 +70,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private SolicitudPagoDetalleService solicitudPagoDetalleService;
+
+    @Autowired
+    private TesoreriaSecurityService tesoreriaSecurityService;
 
     // ========== QUERIES ==========
 
@@ -291,6 +295,37 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         } catch (Exception e) {
             throw new RuntimeException("Error al actualizar estado de solicitud de pago: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Compras cancela su solicitud, con motivo. Las reglas (sin pagos, solo compras) viven en
+     * {@link SolicitudPagoService#cancelar}. No exige rol: compras no tiene uno propio y su
+     * pantalla tampoco lo pide.
+     */
+    public SolicitudPago cancelarSolicitudPago(Long id, String motivo) {
+        try {
+            return solicitudPagoService.cancelar(id, motivo, tesoreriaSecurityService.currentUsuario());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw errorParaMostrar(e);
+        }
+    }
+
+    /** Tesorería devuelve a compras una solicitud que no va a pagar (SOLICITADO → PENDIENTE), con motivo. */
+    public SolicitudPago devolverSolicitudPago(Long id, String motivo) {
+        tesoreriaSecurityService.requirePagarCpp();
+        try {
+            return solicitudPagoService.devolverACompras(id, motivo, tesoreriaSecurityService.currentUsuario());
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            throw errorParaMostrar(e);
+        }
+    }
+
+    /**
+     * Error de negocio listo para mostrar: GraphqlExceptionHandler desanida los GraphQLError, así
+     * que el mensaje llega al cliente sin el prefijo "Exception while fetching data".
+     */
+    private static graphql.GraphqlErrorException errorParaMostrar(RuntimeException e) {
+        return graphql.GraphqlErrorException.newErrorException().message(e.getMessage()).build();
     }
 
     /**

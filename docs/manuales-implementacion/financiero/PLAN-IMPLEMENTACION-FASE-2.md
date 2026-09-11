@@ -790,6 +790,15 @@ POS» venía a resolver.
 **Un campo declarado numérico rechaza `0i64`.** Eso captura gratis el tipo de error que ni Java ni
 Python evitan, sin perseguir paridad binaria entre motores.
 
+#### El asistente NO entra acá — se movió a la etapa 6
+
+Decidido el 2026-09-11. Todo lo de abajo sigue valiendo como diseño, pero **la etapa 4 entrega el
+editor, el corpus y el puntaje, y nada de IA**. El asistente necesita una capa de IA que hoy no
+existe bien hecha, y construirla apurada dentro de esta etapa la dejaría atada a este caso de uso
+—que es justo el defecto de la implementación que ya existe. Ver §5.6.
+
+Lo que sigue queda como el análisis de lo que el asistente tiene que hacer cuando se construya.
+
 #### El asistente es opcional, y va último
 
 Pregunta de Gabriel el 2026-09-11: *«¿necesitamos aún del asistente? ¿no que resolvíamos sólo con
@@ -958,6 +967,60 @@ formato. Eso no necesita migración.
 
 **§3.7 va al final a propósito**: cambia el flujo que Gabriel ya probó en las 8 pruebas manuales, y
 no conviene mover el piso mientras se construye encima.
+
+### 5.6 · Etapa 6 — la capa de IA, hecha para todo el sistema
+
+Decidido por Gabriel el 2026-09-11, después de leer cómo está implementada la IA en
+`feat/factura-import-ia`: *«la forma en que fue implementada en esa rama es muy específica para ese
+uso; mi idea es que esté preparada para un uso más general en el sistema completo, entonces dejemos
+para la fase final y hagamos bien hecho»*.
+
+**El diagnóstico concreto.** `OpenAiVisionService` fusiona dos cosas que tienen que estar separadas:
+el **transporte** (HTTP, key, timeouts, JSON mode, conteo de tokens, detección de truncado) y el
+**caso de uso** (`PROMPT_BASE`, 40 líneas sobre facturas paraguayas, y `FacturaIaResponse`). Y la
+configuración es un único `openai.modelo` global, que no puede servir a dos usos con necesidades
+opuestas: el import de facturas quiere **visión**, el asistente de cupones quiere **texto barato**.
+
+#### Lo que sí está bien resuelto ahí y hay que conservar
+
+- La API key se lee **encriptada**: `configService.getDecrypted("openai.api_key")`.
+- `temperature 0` y `response_format: json_object` para que la respuesta sea parseable.
+- Tope de `max_tokens` con detección de `finish_reason="length"`, que distingue **truncado** de
+  **falló** — sin eso, una imagen densa mete al modelo en un loop de repetición y el error que ve el
+  usuario no dice nada.
+- `@Value("${app.openai.base-url:https://api.openai.com}")`: la URL base ya es property, así que
+  apuntar a otro proveedor no necesita tocar código.
+- Conteo de tokens de ida y vuelta en el resultado.
+
+#### Qué significa «general», en concreto
+
+**Proveedor y modelo por caso de uso, no uno global.** Cada feature declara qué necesita; el import
+de facturas y el asistente de cupones no comparten modelo.
+
+**Las capacidades se declaran, no se asumen.** `response_format: json_object` y las imágenes **no**
+los soporta todo proveedor compatible con `/v1/chat/completions`. Si se asume y el proveedor lo
+ignora, el parseo se rompe en silencio. Cada proveedor configurado declara si tiene JSON mode y si
+tiene visión, y el sistema no le pide lo que no tiene.
+
+**Transporte separado del dominio.** Un cliente genérico, y cada caso de uso con su prompt y su DTO
+afuera. Es lo que hoy no está.
+
+**Costo por caso de uso.** Ya se cuentan los tokens; agruparlos por feature es lo que permite saber
+si el asistente sale caro antes de que la factura lo diga.
+
+**Ningún uso de IA puede estar en el camino de una operación.** La regla que se escribió para el
+asistente de cupones vale para todo el sistema: si el modelo no responde, ninguna venta, cobro o
+cierre de caja puede quedar trabado. Fail-open y timeout corto, siempre.
+
+**Qué sale de la empresa se decide una vez, no por feature.** En cuanto esto es una capa del sistema,
+«qué datos viajan a un tercero» deja de ser una decisión de cada pantalla. Es barato diseñarlo de
+entrada y caro retrofitearlo.
+
+#### Y esto vuelve innecesaria la decisión del cherry-pick
+
+No se trae `service/ia/` de esa rama. Se escribe la capa, y el import de facturas puede migrar a
+ella cuando su rama se mergee. Lo de arriba es el resumen de lo aprendido leyéndola, para no
+empezar de cero.
 
 ## 5.6 · Reglas duras que aplican mientras se escribe el código
 

@@ -6,6 +6,7 @@ import com.franco.dev.service.financiero.CuentaBancariaService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.FormatoTerminalPosService;
 import com.franco.dev.service.financiero.TerminalPosService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.personas.ProveedorServicioService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -45,6 +46,22 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private TerminalPosRepository terminalPosRepository;
 
+    /**
+     * Seguridad a mano, como en todo este repo: no hay {@code @PreAuthorize} ni {@code @Secured}
+     * aplicados en ningun lado, y {@code @AdminSecured} esta roto (issue #177).
+     * <p>
+     * <b>Solo en las mutations, a proposito.</b> Las queries de esta clase quedan sin chequeo y no
+     * es un olvido: {@code filterTerminalPos} la consume {@code list-venta-tarjeta} del desktop
+     * contra el central, y esa pantalla la abre hoy quien tiene VENTA TARJETA COMPLETAR sin ser de
+     * tesoreria. Cerrarlas le sacaria la pantalla a quien la usa todos los dias, y eso excede lo
+     * que esta entrega vino a hacer. Queda anotado como hueco preexistente en el plan de fase 2.
+     * <p>
+     * Las escrituras si se cierran: reasignan la cuenta bancaria de una terminal y deciden si una
+     * caja puede cobrar con tarjeta. Eso es tesoreria, no caja.
+     */
+    @Autowired
+    private TesoreriaSecurityService seg;
+
     public Optional<TerminalPos> terminalPos(Long id) {
         return service.findById(id);
     }
@@ -66,6 +83,7 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public TerminalPos saveTerminalPos(TerminalPosInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         TerminalPos e = m.map(input, TerminalPos.class);
         if (input.getUsuarioId() != null) {
@@ -122,6 +140,7 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
      * caja. Desvincular tiene que costar un click deliberado.
      */
     public Boolean desasignarFormatoTerminalPos(Long terminalPosId) {
+        seg.requireGestionar();
         return service.findById(terminalPosId).map(t -> {
             t.setFormatoTerminalPos(null);
             service.save(t);
@@ -130,6 +149,7 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     public Boolean deleteTerminalPos(Long id) {
+        seg.requireGestionar();
         return service.deleteById(id);
     }
 }

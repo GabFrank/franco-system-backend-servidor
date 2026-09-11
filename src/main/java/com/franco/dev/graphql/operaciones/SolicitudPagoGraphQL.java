@@ -290,6 +290,12 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Update estado of solicitud pago
      */
     public SolicitudPago actualizarEstadoSolicitudPago(Long id, SolicitudPagoEstado estado) {
+        // PARCIAL / CONCLUIDO los fija el pago de la caja mayor (PagoProveedorService, que llama al
+        // servicio directo). Marcarlos a mano dejaba las notas pagadas sin que saliera plata.
+        if (estado == SolicitudPagoEstado.PARCIAL || estado == SolicitudPagoEstado.CONCLUIDO) {
+            throw errorParaMostrar(new IllegalStateException("Los pagos se registran desde la caja mayor"
+                    + " (Pagar Compras): una solicitud no se marca como pagada a mano."));
+        }
         try {
             return solicitudPagoService.actualizarEstado(id, estado);
         } catch (Exception e) {

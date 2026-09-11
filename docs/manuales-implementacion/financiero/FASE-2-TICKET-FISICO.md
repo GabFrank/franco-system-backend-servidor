@@ -182,10 +182,19 @@ funcionando.
 > Si alguna vez hiciera falta más velocidad, **PP-OCRv6 con OpenVINO** rinde 1,4× a 2,7× más que
 > PyTorch en CPU.
 
-### 2.2 · El mapa de diseño por POS es **híbrido**
+### 2.2 · El mapa de diseño es **híbrido**
 
-Un editor drag-and-drop sobre la imagen del ticket, **por POS y no por proveedor**: dos POS del
-mismo proveedor pueden imprimir distinto, y atar el patrón al proveedor es matarse.
+Un editor drag-and-drop sobre la imagen del ticket, **no por proveedor**: dos aparatos del mismo
+proveedor pueden imprimir distinto, y atar el patrón al proveedor es matarse.
+
+> **Corregido el 2026-09-11.** Esta sección decía «por POS», o sea una terminal. Era lo correcto
+> cuando se escribió, pero la etapa 3 introdujo `formato_terminal_pos`: el formato es del **modelo
+> de aparato**, y cada terminal apunta al suyo. **Las regiones cuelgan del formato, no de la
+> terminal** — así dos cajas con la misma maquinita comparten el mapa en vez de dibujarlo dos veces,
+> que es justamente el problema que «por POS» venía a resolver, resuelto mejor.
+>
+> El editor quedó además **dentro de la etapa 4, junto con el mapeo**, y no en una etapa aparte
+> condicionada a medir: la medición ya está hecha y es la de §2.9 (`rec` de 3.841 a ~900 ms).
 
 **Las regiones se dibujan a mano pero se anclan a la etiqueta que cae adentro.** El editor se siente
 tan simple como coordenadas absolutas, y el mapa sobrevive a que el ticket cambie de largo — que es

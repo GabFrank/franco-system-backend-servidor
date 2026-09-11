@@ -446,14 +446,14 @@ reabrir los caminos.
 > `MANUAL` garantiza para todos los proveedores. Entregar el camino sin el freno es peor que no
 > entregarlo.
 
-> ⚠️ **La etapa 6 no puede apagar el último camino.** El backlog §3.4 —«campos obligatorios por POS
+> ⚠️ **La última etapa no puede apagar el último camino.** El backlog §3.4 —«campos obligatorios por POS
 > **y si la carga manual está permitida por POS**»— agrega un interruptor que anula la garantía en
 > la que se apoya toda esta etapa. El día que alguien lo apague en una terminal `MAQUINA` cuyo OCR
 > falle (el `Cargo: 002511` → `802511` de §6, el peor error del módulo), el cajero queda **sin
 > ningún camino**: sin QR porque lo cierra el tipo, sin manual porque se apagó. Venta `PENDIENTE` y
 > caja sin cerrar — el agujero que esta etapa dice haber tapado, reabierto por el mismo plan.
 >
-> **Regla dura, decidida el 2026-09-10:** el ABM de la etapa 6 **sólo deja apagar la carga manual si
+> **Regla dura, decidida el 2026-09-10:** el ABM de esa etapa **sólo deja apagar la carga manual si
 > el otro camino está abierto para ese tipo**. Si es el último, el interruptor se rechaza con el
 > motivo. Va al checklist de §7.
 
@@ -556,7 +556,7 @@ pendientes. La razón de ser del módulo depende de que el cajero se acuerde.
 un cobro de 8.000 Gs da diferencia cero, y son ~5900x. Un umbral absoluto heredaría el mismo
 problema; un porcentaje es agnóstico de moneda.
 
-**Las dos columnas de retención entran ahora, el job que las lee sigue en la etapa 6.** No es
+**Las dos columnas de retención entran ahora, el job que las lee sigue en la última etapa.** No es
 configuración muerta por descuido: es más barato agregar las columnas en la misma migración que ya
 toca esta tabla replicada, que coordinar un segundo `ALTER TABLE` filial-primero sobre 24 filiales
 más adelante. La lógica de purga no se adelanta.
@@ -732,49 +732,79 @@ replicada MAIN_TO_ALL. El ADD COLUMN de abajo exige que la columna ya exista en 
 (migracion espejo V81.2 del filial), si no el apply worker se detiene con missing replicated
 column»*.
 
-### 5.4 · Etapa 4 — el texto se convierte en campos
+### 5.4 · Etapa 4 — el texto se convierte en campos, y el mapa se dibuja
+
+**Absorbe lo que antes era la etapa 5** (mapa espacial). Decidido con Gabriel el 2026-09-11, por dos
+razones.
+
+**La primera es de producto.** Separadas, la etapa 4 entregaba el camino difícil —configurar un
+proveedor nuevo escribiendo un regex a mano— y la 5 el fácil. No tiene sentido: **el editor visual
+ES la forma de configurar un formato**, y el regex queda como camino alternativo para los que ya lo
+tienen (todos los `WEB`, que leen una cadena de QR y no tienen imagen sobre la cual dibujar).
+
+**La segunda es que la condición que las separaba ya está resuelta.** §5.5 decía que el mapa
+espacial «se adopta si baja la latencia sin perder campos; si empata o pierde, el editor se archiva».
+Esa medición **ya está hecha** y está en `FASE-2-TICKET-FISICO.md` §2.9: reconocer 6 cajas en vez de
+26 baja `rec` de 3.841 a ~900 ms, y deja a la peor máquina de la flota en ~2,3 s —mejor que la
+típica de hoy. El gate era mío y contradecía el análisis previo, que ya trata al mapa como **la
+palanca de rendimiento**, no como una comodidad de asignación.
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **central** | — (el formato ya existe desde la etapa 3) | — |
-| **filial** | Aplicar el mapeo al texto del OCR: campos canónicos + el resto a `datos_extra` | `V97.5` |
-| **desktop** | ABM del formato. Confirmación con **semáforo por campo** según confianza (§2.6): los buenos se aplican, los dudosos se preguntan |
+| **filial** | Espejo de las regiones (**va primero**) · aplicar el mapeo al texto del OCR: campos canónicos + el resto a `datos_extra` · **restringir el reconocimiento a las regiones** cuando el formato tiene mapa | `V98.5` |
+| **central** | Regiones por campo y por formato · el ABM las valida | `V224.5` |
+| **desktop** | **Editor drag-and-drop sobre la imagen del cupón** · confirmación con **semáforo por campo** según confianza (§2.6): los buenos se aplican, los dudosos se preguntan |
+
+#### El mapa y el patrón conviven; el mapa manda si existe
+
+Decidido el 2026-09-11. Un formato puede tener regiones, patrón, o los dos:
+
+1. Si tiene **mapa**, se usa el mapa.
+2. Si no, se cae a la **búsqueda por etiqueta** sobre el texto ya reconocido — **sin volver a
+   procesar la imagen**, que es la diferencia entre un fallback y una segunda inferencia.
+3. Los formatos `WEB` son patrón puro y no se tocan: no hay imagen que dibujar, la cadena entra por
+   el lector.
+
+Esto es lo que ya decía `FASE-2-TICKET-FISICO.md` §2.2; queda escrito acá porque es la regla que
+decide qué código corre.
+
+#### Lo que el editor NO puede ser
+
+Tres restricciones que vienen de §2.2 del doc de dominio y que se pierden fácil al implementar:
+
+**Las regiones se anclan a la etiqueta que cae adentro, no a coordenadas absolutas.** El editor se
+siente igual de simple —se dibuja un rectángulo— pero el mapa sobrevive al día que el proveedor
+agrega una línea. Con coordenadas absolutas, ese día **se rompen todos los mapas de ese modelo a la
+vez** y nadie entiende por qué.
+
+**El mapa es un intérprete, no una tijera.** Una sola pasada de OCR sobre la imagen produce cajas con
+texto, coordenadas y confianza; el mapa **asigna** cada caja a un campo por posición relativa. No se
+recorta campo por campo: eso serían N inferencias en vez de una, y el tiempo escala con la cantidad
+de líneas, no con el tamaño de la imagen.
+
+**Las regiones cuelgan del formato, no de la terminal.** El doc de dominio dice «por POS» porque se
+escribió antes de la etapa 3. Ahora que el formato es del **modelo de aparato**, dos terminales del
+mismo modelo comparten el mapa en vez de dibujarlo dos veces — que era el problema real que «por
+POS» venía a resolver.
 
 **Un campo declarado numérico rechaza `0i64`.** Eso captura gratis el tipo de error que ni Java ni
 Python evitan, sin perseguir paridad binaria entre motores.
 
-### 5.5 · Etapa 5 — mapa espacial, y la medición que decide
-
-| Repo | Trabajo | Migración |
-|---|---|---|
-| **central** | Regiones por campo y por formato | `V225.5` |
-| **filial** | Restringir el reconocimiento a las regiones del mapa | `V98.5` |
-| **desktop** | Editor de regiones sobre la imagen del cupón |
-
-**Criterio de la comparación, escrito antes de medir:**
-
-1. Sobre el mismo lote de cupones, con los dos caminos activos
-2. Se comparan **latencia total** y **campos correctos contra el papel** — no líneas ni confianza
-   media, que ya demostraron no distinguir nada
-3. El mapa espacial se adopta si **baja la latencia sin perder campos**. Si empata o pierde, se
-   queda el regex y el editor se archiva documentado
-
-### 5.6 · Etapa 6 — terminar el módulo
+### 5.5 · Etapa 5 — terminar el módulo
 
 | Ítem | Repos | Migración |
 |---|---|---|
 | **§3.7 · Input único** | desktop | — |
 | **§3.6 · La terminal viajando dentro del propio QR** | central, desktop | — |
-| **§3.4 · Configuración por POS** | central, filial, desktop | `V226.5` / `V99.5` |
+| **§3.4 · Configuración por POS** | central, filial, desktop | `V225.5` / `V99.5` |
 | **§3.1 · Ticket con seña con QR** | filial (impresión), desktop | — |
-| **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V227.5` / `V100.5` |
+| **§3.3 · Adjuntos al cierre de caja** | central, filial, desktop | `V226.5` / `V100.5` |
 | **Purga de imágenes** (el job) | filial | — |
 
-> ⚠️ **Números corregidos el 2026-09-10.** La versión anterior reusaba `V224.5` y `V99.5` —ya
-> asignados a la etapa 5— en dos filas de esta tabla, y encima ponía «incluida en `V224.5`» en una
-> fila marcada **filial**, cuando `V224.5` es un número del rango de **central**. Dos migraciones
-> distintas con la misma versión no conviven en el mismo repo: Flyway falla al arrancar. Los números
-> de acá son tentativos igual — se re-confirman con `git fetch` el día que se abre el PR (§3.3).
+> ⚠️ **Los números de acá son tentativos** y ya se corrieron dos veces: una el 2026-09-10 por una
+> colisión real, y otra el 2026-09-11 al absorber la vieja etapa 5 dentro de la 4. Dos migraciones
+> con la misma versión no conviven en el mismo repo —Flyway falla al arrancar— así que se
+> re-confirman con `git fetch` el día que se abre el PR (§3.3), no antes.
 
 > **La configuración *general* del módulo se adelantó a la etapa 3** (§5.3.g), con las columnas de
 > retención incluidas. Lo que queda acá es la configuración **por POS** —campos obligatorios y si la
@@ -908,7 +938,7 @@ y reinicia — **nunca toca la base**.
 | **Rendimiento con la filial bajo carga** | Lo medido fue con la máquina ociosa. ORT toma todos los núcleos por defecto: falta decidir si limitar `intra_op_num_threads` para no ahogar la aplicación |
 | **Topología de red de una sucursal real** | La captura se probó en una LAN doméstica. Falta confirmar que la WiFi que usan los cajeros alcanza al filial |
 | **El JAR del filial engorda, y nadie limpia** | +8 MB de ORT podado y +15,5 MB de modelos. Peor: **`check-update.sh` nunca borra `releases/<version>/`** — cada JAR descargado queda en disco para siempre, en 24 sucursales. El incremento no es un evento único: se repite en **cada release futura**. Purgar releases viejas es **prerequisito de promoción**, y va en el script, no en esta entrega |
-| **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. **Las dos columnas (`dias_retencion_imagenes`, `mb_libres_minimos`) se adelantaron a la etapa 3** (§5.3.g); el job que las lee sigue en la etapa 6. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
+| **Disco lleno en un filial** | Las imágenes, `releases/` y la base PostgreSQL **comparten disco**. Un disco lleno no sólo rompe el guardado de fotos: **impide que Postgres escriba WAL y tumba todas las ventas de esa sucursal**. La purga necesita un umbral de espacio libre que alerte, no sólo retención por antigüedad. **Las dos columnas (`dias_retencion_imagenes`, `mb_libres_minimos`) se adelantaron a la etapa 3** (§5.3.g); el job que las lee sigue en la última etapa. Y hay que confirmar en una filial real en qué partición viven las tres cosas |
 | **Un formato reasignado deja ventas viejas ilegibles** | `venta_tarjeta.datos_extra` guarda claves según el `mapeo` vigente al momento, y **ninguna columna dice qué formato las produjo**. Si el formato se corrige o la terminal se reapunta, las ventas archivadas quedan con claves que ya no corresponden a ningún mapeo vivo. Candidato: guardar `formato_terminal_pos_id` en cada `venta_tarjeta`, no sólo el `origen`. **Abierto, no bloquea la etapa 3** |
 | **La pantalla de venta con tarjeta de `mobile` no valida nada** | **Bajo — camino heredado, fuera del circuito de esta fase.** Llama `updateVentaTarjeta` del **central** (`mobile/.../venta-tarjeta.service.ts:82`), un setter genérico sin validación de estado, ni de cupón duplicado, ni de moneda. **No es el camino de la fase 2**: la captura por cámara va por una página web que sirve el filial y que abre el navegador del teléfono, así que los dos caminos vivos —lector del PDV y foto— sí pasan por `completar()`. Y `mobile` está en mantenimiento, reemplazada por `mobile-pwa`. Queda anotado por si esa pantalla se reactiva |
 | **Un `tipo` desconocido llegado por SQL** | `API` entra al enum pero el ABM no lo ofrece — la mitigación vale sólo si el único camino es la pantalla, y este repo tolera (y para arreglos puntuales recomienda) tocar la base a mano. **El desktop cae a carga manual ante un `tipo` que no conoce**, nunca a una pantalla en blanco |

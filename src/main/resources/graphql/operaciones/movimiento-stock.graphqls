@@ -40,6 +40,21 @@ type ResumenMovimientoStock {
     stock: Float
 }
 
+# Insumos de la cantidad sugerida de un producto en una sucursal, para un rango de fechas.
+#
+# Son los cuatro numeros que necesita el diálogo de ítem de compra, no los movimientos: hasta
+# ahora se bajaba hasta 1000 filas por sucursal y por tipo para terminar sumando esto.
+# La cuenta final la hace el cliente, que es el unico que conoce el stock actual.
+#
+# Las fechas usan el mismo escalar Date que MovimientoStock.creadoEn.
+type CantidadSugeridaPorSucursal {
+    sucursalId: ID
+    totalVentas: Float
+    cantidadCompras: Int
+    primeraCompra: Date
+    ultimaCompra: Date
+}
+
 type StockPorTipoMovimientoDto {
     tipoMovimiento: TipoMovimiento
     stock: Float
@@ -76,6 +91,7 @@ extend type Query {
     findMovimientoStockByFilters(inicio: String, fin: String, sucursalList: [ID], productoId: ID,tipoMovimientoList: [TipoMovimiento],usuarioId: ID, page: Int, size: Int): MovimientoStockPage
     findStockWithFilters(inicio: String, fin: String, sucursalList: [ID], productoId: ID,tipoMovimientoList: [TipoMovimiento],usuarioId: ID): Float
     findStockPorTipoMovimiento(inicio: String, fin: String, sucursalList: [ID], productoId: ID,tipoMovimientoList: [TipoMovimiento],usuarioId: ID): [StockPorTipoMovimientoDto]
+    cantidadSugeridaPorSucursales(productoId: ID!, inicio: String!, fin: String!, sucursalList: [ID]): [CantidadSugeridaPorSucursal]!
     productosConCantidadPositiva(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
     productosConCantidadNegativa(sucursalId: ID, productoId: ID, page: Int = 0, size: Int = 10): ProductoSaldoPage
     productosFaltantes(sucursalId: ID!, productoId: ID, fechaInicio: String!, fechaFin: String!, page: Int = 0, size: Int = 10): ProductoSaldoPage

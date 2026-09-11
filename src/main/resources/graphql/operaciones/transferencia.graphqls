@@ -5,6 +5,7 @@ type Transferencia {
     estado: TransferenciaEstado
     tipo: TipoTransferencia
     observacion: String
+    solicitante: Usuario
     usuarioPreTransferencia: Usuario
     usuarioPreparacion: Usuario
     usuarioTransporte: Usuario
@@ -27,6 +28,7 @@ input TransferenciaInput {
     isOrigen: Boolean
     isDestino: Boolean
     etapa: EtapaTransferencia
+    solicitanteId: Int
     usuarioPreTransferenciaId: Int
     usuarioPreparacionId: Int
     usuarioTransporteId: Int

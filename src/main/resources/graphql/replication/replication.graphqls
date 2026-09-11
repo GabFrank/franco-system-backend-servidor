@@ -163,4 +163,8 @@ extend type Mutation {
     
     # Sync existing publications with replication_table (add missing tables on central and all filiales)
     syncPublicationsWithReplicationTable: ReplicationStatus!
+
+    # Pone la secuencia de ids de cada filial por encima de los ids pares que el central ya tiene.
+    # Una vez, despues de desplegar V223.1 en el central y la migracion espejo en los filiales.
+    alinearSecuenciasFiliales: ReplicationStatus!
 } 

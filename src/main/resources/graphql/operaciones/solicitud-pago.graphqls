@@ -160,6 +160,12 @@ extend type Mutation {
     
     # Update estado of solicitud pago
     actualizarEstadoSolicitudPago(id: ID!, estado: SolicitudPagoEstado!): SolicitudPago!
+
+    # Compras cancela la solicitud y libera sus notas. Solo sin pagos registrados; el motivo es obligatorio.
+    cancelarSolicitudPago(id: ID!, motivo: String!): SolicitudPago!
+
+    # Tesorería devuelve a compras una solicitud SOLICITADO que no va a pagar (vuelve a PENDIENTE).
+    devolverSolicitudPago(id: ID!, motivo: String!): SolicitudPago!
     
     # Add nota recepcion to solicitud pago
     agregarNotaASolicitudPago(
@@ -190,6 +196,7 @@ extend type Mutation {
 enum SolicitudPagoEstado {
     PENDIENTE
     SOLICITADO
+    DEVUELTO
     PARCIAL
     CONCLUIDO
     CANCELADO

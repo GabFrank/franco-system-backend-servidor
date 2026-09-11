@@ -790,6 +790,63 @@ POS» venía a resolver.
 **Un campo declarado numérico rechaza `0i64`.** Eso captura gratis el tipo de error que ni Java ni
 Python evitan, sin perseguir paridad binaria entre motores.
 
+#### El asistente que propone el formato
+
+Idea de Gabriel, 2026-09-11. Al dar de alta un formato se juntan ~10-20 cupones de ese aparato y **un
+modelo propone el patrón, el mapeo y las regiones**; después el humano edita. El regex sigue
+existiendo y se puede escribir a mano: el asistente es un atajo, no un reemplazo.
+
+La pieza ya existe: `service/ia/OpenAiVisionService` en la rama `feat/factura-import-ia` de central
+—gpt-4o, JSON mode, `temperature 0`, varias imágenes en un request— con la API key, el modelo y un
+prompt extra saliendo de `ConfiguracionSistema`.
+
+**Al modelo se le manda la salida del OCR, no las imágenes.** Decidido el 2026-09-11. El OCR ya
+devuelve cajas con **texto, coordenadas y confianza**, que es exactamente lo que hace falta para las
+dos cosas: el patrón y el mapeo salen del texto, las regiones de las coordenadas. Es más barato, más
+rápido, y **las fotos de cupones reales no salen del local**. La contra aceptada: un modelo de visión
+entendería mejor un layout raro si nuestro OCR leyó mal una línea.
+
+**La sugerencia se puntúa contra la muestra ANTES de mostrarla.** Es la mitad que vale más, y no
+necesita al modelo:
+
+```
+Patrón propuesto → compila ✓ · anclado ✓ · matchea 18/20
+                   falla en el cupón 7 y en el 13  ← con la línea que no matcheó
+Mapeo propuesto  → los 6 grupos existen en el patrón ✓
+Regiones         → cada una captura una caja en 20/20 ✓
+```
+
+`FormatoTerminalPosService.validar()` ya compila el patrón, verifica el anclaje, que matchee el
+ejemplo y que los grupos existan. Esto es **extenderlo de un ejemplo a N**, no construirlo.
+
+**La muestra queda como corpus de regresión.** Al editar el patrón o el mapa más adelante —o el día
+que el proveedor cambia el ticket— se vuelve a correr contra los N y dice qué se rompió. Es lo que
+hace que un formato se pueda tocar sin miedo, y probablemente valga más que la generación inicial.
+
+**Sólo en el ABM, nunca en el camino de una venta.** Si el modelo no responde, no se puede configurar
+un formato nuevo: molesto y recuperable. En el camino del cobro sería un cajero que no puede cobrar.
+
+> ### ⚠️ Lo que falta resolver: el OCR está en el filial y el ABM en central
+>
+> Para puntuar una propuesta hacen falta los **textos OCR** de los N cupones. El motor OCR vive
+> **sólo en el filial**, y `financiero.captura_cupon` —que ya guarda `imagen_url`, `texto_ocr`,
+> `campos`, `nitidez` y `ms_ocr` de **cada** cupón fotografiado— es **local del filial y no se
+> replica** a propósito (V94.5). Central no la ve.
+>
+> **Lo bueno es que el corpus ya se está juntando solo**: es un efecto secundario de la etapa 2. No
+> hace falta un camino de carga nuevo — hace falta poder **elegir** cuáles de las capturas recientes
+> son muestras de este formato.
+>
+> **Salida propuesta: el desktop es el puente.** Ya habla con los dos backends (`servidor: true` /
+> `false`) y es el único que lo hace. Leería los `texto_ocr` de las capturas del filial y los
+> mandaría al asistente de central. Las imágenes se quedan donde están.
+>
+> **Queda una consecuencia por confirmar:** el editor dibuja regiones **sobre una imagen**, así que
+> central necesita al menos **una** foto de referencia, aunque el corpus de puntuación sea sólo
+> texto. O sea: N textos en central + 1 imagen de referencia, y el resto de las fotos en el filial.
+> Si se quisieran las N imágenes en central, hay que decidir dónde se guardan —central ya tiene
+> integración con Google Drive para imágenes— y que **no** se repliquen.
+
 ### 5.5 · Etapa 5 — terminar el módulo
 
 | Ítem | Repos | Migración |

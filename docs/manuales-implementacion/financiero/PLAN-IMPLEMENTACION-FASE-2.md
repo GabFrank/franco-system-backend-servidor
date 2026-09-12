@@ -1896,3 +1896,84 @@ pública no sea esa.
 El asistente que propone el formato desde N cupones necesitaba **exactamente esta infraestructura**:
 imágenes cargadas en central y puntuadas contra *nuestro* motor. Esa parte ya está. Lo que queda de
 la etapa 6 es el corpus (que sí necesita tabla), el puntaje contra N, y la llamada al modelo.
+
+---
+
+### 8.10 · La prueba de punta a punta, y los dos defectos que sólo ella vio (2026-09-12)
+
+**Se corrió el flujo completo contra los tres servicios reales** —central, filial y el desktop
+servido en Chrome— con un cupón sintético generado para la ocasión. Es la primera vez que la cadena
+entera corre junta, y encontró **dos defectos que las cuatro auditorías de código no habían visto**.
+No por descuido de los auditores: cada pieza por separado es correcta.
+
+#### Lo que se probó, y funcionó
+
+| Paso | Resultado |
+|---|---|
+| Registrar un formato `MAQUINA` con patrón y mapeo | Guarda, con la vista previa llenándose en vivo |
+| Derivar el mapa desde una foto | 4 regiones, OCR de **central** en 1.552 ms |
+| Guardar el mapa | Persistido con campos canónicos y `origen = DERIVADA` |
+| Crear una terminal con `serie` y sucursal | La serie se normaliza a mayúsculas sola |
+| La regla del último camino | **Rechazada en runtime**, y el formato sobrevive |
+| Captura + extracción en el **filial** | **4 campos separados, con confianza por campo** |
+
+Lo que devolvió el filial, textual:
+
+```json
+"campos": {
+  "codigoAutorizacion": "883921", "numeroBoleta": "00045",
+  "monto": "150.000",             "terminal": "JF798SJJ",
+  "confianzas": { "terminal": 0.993, "codigoAutorizacion": 0.989,
+                  "monto": 0.984,    "numeroBoleta": 0.978 }
+}
+```
+
+**El OCR dejó de ser una lupa.** Y el mapa hizo su trabajo: el filial reconoció **7 líneas en vez
+de 12** —el mismo cupón que central leyó entero— porque acotó el reconocimiento a las 4 zonas.
+
+#### Defecto 1 — la derivación era inservible
+
+`DerivadorMapa` nombraba cada región con el **grupo del patrón** (`auth`, `boleta`) en vez de la
+**clave del mapeo** (`codigoAutorizacion`, `numeroBoleta`). Esos nombres difieren siempre, salvo que
+alguien nombre sus grupos igual que las columnas.
+
+El resultado, medido: el ABM rechazaba su propio resultado con *«el mapeo de "DEMO MAQUINITA V1" no
+produce el campo "auth". Los que produce son: terminal, codigoAutorizacion, numeroBoleta, monto»*.
+La función no servía para nada, y **lo único que impidió que pasara desapercibido fue la validación
+que esta misma entrega agregó** en §8.8.
+
+Por qué ninguna auditoría lo vio: `DerivadorMapa` es correcto leído solo —deriva regiones y las
+nombra con lo que tiene—, y `FormatoTerminalPosRegionService` es correcto leído solo —exige que el
+campo exista en el mapeo—. El defecto vive **entre** los dos.
+
+#### Defecto 2 — el ancla se iba a la línea de arriba
+
+El detector separa por componentes conexos y en un ticket térmico `TERMINAL:JF798SJJ` sale como
+**una sola caja**. El caso estaba contemplado, pero se preguntaba recién cuando `anclaDe` devolvía
+`null` — y `anclaDe` casi nunca devuelve null: encuentra la línea de arriba.
+
+Medido: `terminal` quedaba anclado a `FECHA:12/09/2026`, y `codigoAutorizacion` a
+`COMERCI0:00451233`. Anclas frágiles y además equivocadas, cuando la etiqueta correcta estaba en la
+misma caja. Ahora la etiqueta pegada al valor se prueba **primero**: es el ancla más fuerte que
+existe, porque no depende de ninguna otra línea.
+
+#### La mejor evidencia salió sola
+
+El OCR leyó `COMERCIO` como **`COMERCI0`** —cero en vez de O— en una imagen sintética, limpia, con
+tipografía monoespaciada y sin ruido. Es exactamente el modo de falla que el semáforo por confianza
+existe para atajar, y apareció sin buscarlo.
+
+#### Un tercero, visual
+
+En el ABM de formatos, el hint del nombre del modelo y el de la cadena de ejemplo se dibujaban
+**encima del campo siguiente**. Es el mismo tropiezo del `height: 0px !important` global que ya
+estaba documentado para el campo de tipo: cuatro de los seis campos llevaban la clase que reserva el
+alto, y estos dos se habían quedado afuera.
+
+#### Nota de despliegue que salió de la misma prueba
+
+Las tablas **nuevas** —`formato_terminal_pos`, `formato_terminal_pos_region`— **no bajaron solas** al
+filial, aunque `terminal_pos` sí replicó sus columnas nuevas. Es lo esperable: una tabla nueva
+necesita entrar a la publicación y que la suscripción refresque, y el scheduler lo hace por hora.
+Vale saberlo para no leerlo como un bug el día del despliegue. Está anotado en el guion de prueba
+manual.

@@ -1807,3 +1807,92 @@ confianza, disparar y revisar la derivación, el filtro por sucursal y la `serie
 para desasignar formato, y el input único con la terminal dentro del QR. Después: auditoría del diff
 (paso 8), pruebas y UI (paso 9), **`npm run check` al final de todo** (paso 10) y el dry-run contra la
 copia de alpha (§5.8).
+
+---
+
+### 8.9 · El ciclo del formato se mudó entero a central (decidido 2026-09-12)
+
+**Decisión de Gabriel, y corrige un diseño que no cerraba.** El borrador de esta entrega ponía la
+derivación del mapa del lado del filial: el desktop abría una captura contra el filial, el filial
+corría el OCR y devolvía la propuesta, y central sólo persistía. Al ir a implementarlo aparecieron
+dos problemas, y el segundo es el que decide.
+
+**El problema chico: la captura exige una caja abierta.** `CapturaCuponService.crear()` del filial
+rechaza con *«la caja no está abierta»*, y lo valida al **emitir** el token, no al usarlo. Pero el
+ABM de formatos es una pantalla de administración: quien la abre normalmente no está sobre una caja.
+
+**El problema de fondo: antes de registrar el formato no hay ni puede haber capturas de ese ticket.**
+La etapa 3 bloquea la venta con tarjeta cuando la terminal no tiene formato, así que el cajero no
+llega ni a la pantalla que fotografía. Un diseño que dependiera de las capturas del filial sólo
+servía para formatos **que ya operan** — justo los que menos lo necesitan. Es exactamente el agujero
+que §5.4 ya había anotado para el asistente de la etapa 6, y aplica igual a la derivación.
+
+> Palabras de Gabriel: *«El ABM se realiza en el servidor central, filial no tiene nada que ver, todo
+> el proceso debe de ser iniciado y terminado en central, debemos de poder crear los mecanismos de
+> captura también a central, que termina siendo más fácil pues tiene https».*
+
+#### Y lo de HTTPS es concreto, no una comodidad
+
+Verificado leyendo la página, no deduciéndolo: `captura.html` del filial sube la foto con
+`<input type="file" accept="image/*" capture="environment">`, que delega en la **app de cámara del
+teléfono**. No usa `getUserMedia`, y no podría: el filial sirve por **HTTP plano en la LAN**, que no
+es contexto seguro. Central ya corre detrás de nginx con certificado, así que esa restricción no
+existe ahí — la cámara dentro de la página queda disponible el día que se quiera.
+
+#### Lo que central sumó
+
+| Pieza | Detalle |
+|---|---|
+| Motor OCR | `MotorOcr`, `DetectorCajas`, `Imagen`, `CuponOcrService` — portados tal cual del filial |
+| Extractor y derivador | `ExtractorCupon`, `DerivadorMapa` — idem |
+| Dependencias | `onnxruntime-slim:1.23.2` + `ppocr-models:1.0`, **las mismas versiones que el filial**, más el perfil `ocr-mac` |
+| Captura de muestra | `CapturaMuestraService` + `CapturaMuestraController` (`/public/captura-muestra/{token}`) + su página |
+| API | `crearCapturaMuestra`, `capturaMuestra`, `derivarMapaDeMuestra`, `cerrarCapturaMuestra`, `lectorDeCuponesDisponible` |
+
+**Los 47 tests del motor se portaron sin tocar una línea y pasaron.** Es la prueba de que el port es
+fiel, y el gasto más barato de toda esta decisión.
+
+#### Tres cosas que se decidieron al implementarlo
+
+**1 · El motor se carga PEREZOSO en central, al revés que en el filial.** Allá se carga al arrancar
+porque el cajero no puede esperar 2,5 s con un cliente enfrente. Acá derivar un mapa pasa cuando
+entra un modelo de aparato nuevo —unas pocas veces por año— y cargarlo al arranque dejaría las
+sesiones de ONNX ocupando memoria **permanente** en el servidor que le responde a las 24 filiales,
+al desktop y a la PWA.
+
+Y eso además saca del medio el riesgo que §5.4 marcaba en negrita: con la carga en un
+`@PostConstruct`, un `UnsatisfiedLinkError` —que es un `Error`, no una `Exception`— subiría por el
+arranque y se llevaría todo el contexto de Spring. **En el filial esa lección costó que no arrancara
+una sucursal; acá habría costado el HQ de todas.** El `catch (Throwable)` sigue estando igual, pero
+ahora su trabajo es convertir el `Error` en un «no disponible» legible, no salvar el arranque.
+
+**2 · La muestra es efímera y no tiene tabla.** Vive lo que dura configurar un formato. Lo que queda
+persistido es el resultado —las regiones, que sí tienen tabla y se replican—. Guardarla habría
+costado una migración en una banda casi agotada más un job de purga, para conservar algo que se
+descarta en la misma sesión. **La consecuencia hay que saberla: un reinicio de central borra las
+muestras abiertas**, y se rehace sacando otra foto.
+
+De la imagen sólo sobrevive lo que se usa: los bytes del JPEG se descartan apenas corre el OCR y
+queda la lectura más el tamaño. Una muestra en memoria pesa kilobytes, no megabytes. Tope de 50
+vivas y barrido de vencidas al abrir una nueva.
+
+**3 · El token de muestra NO se consume al subir la foto**, a diferencia del de la caja. Acá no hay
+una venta que proteger de un doble registro, y configurando un formato es normal sacar tres o cuatro
+fotos hasta que salga una legible. Vence por tiempo, nada más.
+
+#### La foto entra por dos puertas, y la segunda no es un lujo
+
+El QR abre la página en cualquier teléfono, igual que en la caja. Pero eso exige que **el teléfono
+alcance a central**: en la instancia productiva pasa, en alpha —que vive en mauro sin IP pública—
+puede que no. Por eso el ABM también deja **subir un archivo**, que va por la misma conexión que el
+navegador ya tiene con central y por lo tanto funciona siempre.
+
+Para el QR, la URL sale de la misma dirección con la que el desktop habla con central, que es el
+default correcto. `frc.captura-muestra.base-url` la sobreescribe para el caso en que la dirección
+pública no sea esa.
+
+#### Lo que esto le deja hecho a la etapa 6
+
+El asistente que propone el formato desde N cupones necesitaba **exactamente esta infraestructura**:
+imágenes cargadas en central y puntuadas contra *nuestro* motor. Esa parte ya está. Lo que queda de
+la etapa 6 es el corpus (que sí necesita tabla), el puntaje contra N, y la llamada al modelo.

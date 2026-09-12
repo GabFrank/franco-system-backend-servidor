@@ -1977,3 +1977,85 @@ filial, aunque `terminal_pos` sí replicó sus columnas nuevas. Es lo esperable:
 necesita entrar a la publicación y que la suscripción refresque, y el scheduler lo hace por hora.
 Vale saberlo para no leerlo como un bug el día del despliegue. Está anotado en el guion de prueba
 manual.
+
+---
+
+### 8.11 · ⚠️ El orden de despliegue, corregido — y el paso que estaba al revés (2026-09-12)
+
+**Hallazgo de la auditoría general de riesgo operativo, verificado y matizado.** El auditor concluyó
+que *«no existe una ventana de despliegue»* y que el orden documentado es imposible de cumplir. La
+premisa es correcta y el análisis del mecanismo también; **el veredicto es más fuerte de lo que los
+hechos sostienen**, y la diferencia importa porque de ella sale el procedimiento.
+
+#### Las dos direcciones, y por qué chocan
+
+Verificado contra `configuraciones.replication_table`:
+
+| Tabla | Dirección | Quién publica |
+|---|---|---|
+| `venta_tarjeta` | `BRANCH_TO_MAIN` | **filial** |
+| `terminal_pos`, `configuracion_venta_tarjeta`, `formato_terminal_pos`, `formato_terminal_pos_region` | `MAIN_TO_ALL` | **central** |
+
+De ahí salen dos restricciones **opuestas**, y las dos viajan en el mismo par de JARs:
+
+- **A** · `V93.5` y `V97.5` del filial agregan columnas a `venta_tarjeta`, que el filial **publica**.
+  Central tiene que tener `V220.5`/`V223.5` **antes**.
+- **B** · `V222.5`, `V224.5` y `V226.5` de central agregan columnas a tablas `MAIN_TO_ALL` **que ya
+  están replicando**. Las filiales tienen que tener `V96.5`/`V98.5`/`V100.5` **antes**.
+
+Flyway aplica todas las migraciones pendientes de un JAR en una sola corrida. No hay forma de que el
+filial tenga sus espejos pero todavía no `V97.5`: salen juntas.
+
+#### Por qué igual hay una ventana: los dos lados no se disparan igual
+
+Esto es lo que el veredicto de "imposible" pasa por alto. Una columna nueva no rompe nada por
+existir — rompe cuando **se replica una fila**:
+
+| Violación | Qué la dispara | Frecuencia |
+|---|---|---|
+| **A** (filial adelante) | Una venta con tarjeta cualquiera | **Constante.** Es tráfico normal de caja, nadie lo controla |
+| **B** (central adelante) | Editar una terminal o la configuración del módulo | **Sólo una acción de administración.** Nadie las toca durante la operación normal |
+
+O sea: **central primero es viable**, porque su violación depende de que alguien haga algo, y ese
+alguien somos nosotros.
+
+#### El procedimiento, entonces
+
+1. **Central primero.** Deployar central. Desde ese momento tiene `datos_extra` y `origen`, que es
+   la mitad que no se puede controlar.
+2. **⚠️ NO tocar `terminal_pos` ni `configuracion_venta_tarjeta`** hasta que toda la flota del canal
+   haya actualizado. Ni desde el ABM, ni por SQL.
+3. **Esperar a las filiales.** En alpha es ≤15 minutos, solas. Verificar que la última aplicó
+   `V100.5` antes de seguir.
+4. **Recién ahí**: correr el SQL de asignación de formato, y configurar el módulo.
+
+#### El paso que estaba al revés
+
+§5.7 pedía correr el SQL de asignación de formato como **paso 5**, antes de que las filiales
+actualizaran. Ese SQL es un `UPDATE` sobre `terminal_pos` — **exactamente la escritura que dispara
+la violación B**. Era la única cosa en todo el plan que garantizaba romper la replicación, y estaba
+escrita como parte del procedimiento.
+
+Va al final. Y no es casualidad que se pueda: §5.6 bis ya lo había sacado del MVP por otro motivo
+—«se corre a mano, tiene menos riesgo»— así que no hay que cambiar nada más que el momento.
+
+#### La alternativa, si se quiere ventana cero
+
+Partir el release del filial en dos: los espejos en uno, `V93.5`/`V97.5` en el siguiente. Es lo que
+las ramas A y B hacían antes de unificarse (§5.6 bis).
+
+**No se toma**, por tres razones: el desktop manda `origen` y `datosExtra` en `completar`, así que
+partir el filial obliga a partir también el desktop; la ventana real en alpha son 15 minutos; y la
+violación B exige que alguien edite una terminal justo en esos 15 minutos, con el módulo todavía
+apagado.
+
+Queda anotado como la salida si en beta o en bodega el riesgo se juzga distinto — ahí la flota es de
+6 y de 18 filiales, y no todas actualizan a la vez.
+
+#### Lo que el mismo auditor confirmó como correcto
+
+Vale anotarlo porque son las cosas que en rondas anteriores estuvieron mal: el motor OCR degrada sin
+romper y no tumba el arranque; la purga está apagada y arranca en simulación; ningún campo nuevo de
+input es obligatorio, así que un desktop viejo sigue operando; no se agregó ningún enum de Java
+(se usó `VARCHAR` + `CHECK`, evitando el modo de falla conocido del repo); y
+`registro_obligatorio` nace en `LIBRE`, que es el comportamiento de hoy.

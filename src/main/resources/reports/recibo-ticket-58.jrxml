@@ -11,7 +11,7 @@
 	<field name="concepto" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
 	<title>
-		<band height="120" splitType="Stretch">
+		<band height="88" splitType="Stretch">
 			<textField isStretchWithOverflow="true">
 				<reportElement x="0" y="0" width="152" height="12"/>
 				<textElement textAlignment="Center"><font fontName="SansSerif" size="8" isBold="true"/></textElement>

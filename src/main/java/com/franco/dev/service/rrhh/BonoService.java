@@ -79,6 +79,16 @@ public class BonoService extends CrudService<Bono, BonoRepository, Long> {
      */
     @Transactional
     public Bono saveConRecurrencia(Bono entity, Boolean esRecurrente, BonoFrecuencia frecuencia) {
+        // Un bono nuevo para alguien que ya se fue no lo cobra nadie: el finiquito no paga
+        // bonos y la generacion masiva saltea a los inactivos, asi que quedaria pendiente
+        // para siempre. Solo el alta: editar o anular uno viejo tiene que seguir siendo
+        // posible, es la unica forma de corregir uno mal cargado. Ver issue #296.
+        if (entity.getId() == null && entity.getFuncionario() != null
+                && Boolean.FALSE.equals(entity.getFuncionario().getActivo())) {
+            throw new GraphQLException("El funcionario esta inactivo: no se le puede cargar un bono nuevo."
+                    + " Un bono de alguien que ya egreso no lo paga el finiquito ni la liquidacion mensual.");
+        }
+
         if (entity.getId() != null) {
             Bono previo = repository.findById(entity.getId()).orElse(null);
             String motivo = motivoNoEditable(previo);

@@ -10,10 +10,6 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado;
 import com.franco.dev.domain.rrhh.FuncionarioEgresoHistorico;
-import com.franco.dev.domain.rrhh.Bono;
-import com.franco.dev.domain.rrhh.BonoRecurrente;
-import com.franco.dev.repository.rrhh.BonoRecurrenteRepository;
-import com.franco.dev.repository.rrhh.BonoRepository;
 import com.franco.dev.repository.rrhh.FuncionarioEgresoHistoricoRepository;
 import com.franco.dev.repository.rrhh.LiquidacionFinalRepository;
 import com.franco.dev.service.empresarial.CargoService;
@@ -50,8 +46,6 @@ public class FuncionarioRrhhService {
     private final ClienteService clienteService;
     private final LiquidacionFinalRepository liquidacionFinalRepository;
     private final FuncionarioEgresoHistoricoRepository egresoHistoricoRepository;
-    private final BonoRepository bonoRepository;
-    private final BonoRecurrenteRepository bonoRecurrenteRepository;
 
     /**
      * Cambia el cargo del funcionario dejando rastro: cierra el histórico abierto
@@ -137,42 +131,9 @@ public class FuncionarioRrhhService {
         snap.setMotivoEgreso(guardado.getMotivoEgreso());
         snap.setEgresadoPor(usuarioAutenticado());
         egresoHistoricoRepository.save(snap);
-
-        cancelarBonosPendientes(funcionarioId);
+        // Los bonos pendientes los cancela BonosAlInactivarFuncionarioListener, colgado de la
+        // transicion activo -> inactivo: este boton no es el unico camino de baja (issue #295).
         return guardado;
-    }
-
-    /**
-     * Lo que el funcionario no alcanzo a cobrar deja de corresponderle: anula sus bonos
-     * pendientes y apaga las plantillas que los generan.
-     *
-     * <p>Decision de negocio (issue #276): el finiquito NO paga bonos. Sin esto el bono del
-     * mes queda con {@code liquidacion_id} nulo para siempre -- no lo cobra nadie, porque la
-     * generacion masiva saltea a los inactivos, pero figura como pendiente en la grilla. La
-     * plantilla, por su lado, ya era inerte ({@code BonoRecurrenteService} exige
-     * {@code funcionario.activo}); apagarla es lo que hace visible que se cancelo.</p>
-     *
-     * <p><b>Un bono ya liquidado no se toca:</b> es plata que se pago.</p>
-     */
-    private void cancelarBonosPendientes(Long funcionarioId) {
-        int bonos = 0;
-        for (Bono b : bonoRepository.findByFuncionarioIdOrderByFechaDesc(funcionarioId)) {
-            if (Boolean.TRUE.equals(b.getAnulado())) continue;
-            if (b.getLiquidacionId() != null) continue;
-            b.setAnulado(true);
-            bonoRepository.save(b);
-            bonos++;
-        }
-        int plantillas = 0;
-        for (BonoRecurrente p : bonoRecurrenteRepository.findByFuncionarioIdAndActivoTrue(funcionarioId)) {
-            p.setActivo(false);
-            bonoRecurrenteRepository.save(p);
-            plantillas++;
-        }
-        if (bonos > 0 || plantillas > 0) {
-            log.info("Egreso funcionario={}: {} bono/s pendiente/s anulado/s, {} plantilla/s recurrente/s apagada/s",
-                    funcionarioId, bonos, plantillas);
-        }
     }
 
     /** Foto del estado que el egreso va a destruir. Se arma ANTES de guardar. */

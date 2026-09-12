@@ -9,8 +9,6 @@ import com.franco.dev.domain.rrhh.FuncionarioEgresoHistorico;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado;
 import com.franco.dev.repository.personas.FuncionarioRepository;
-import com.franco.dev.repository.rrhh.BonoRecurrenteRepository;
-import com.franco.dev.repository.rrhh.BonoRepository;
 import com.franco.dev.repository.rrhh.FuncionarioEgresoHistoricoRepository;
 import com.franco.dev.repository.rrhh.LiquidacionFinalRepository;
 import com.franco.dev.service.empresarial.CargoService;
@@ -51,8 +49,6 @@ class RevertirEgresoFuncionarioTest {
     private ClienteService clienteService;
     private LiquidacionFinalRepository liquidacionFinalRepository;
     private FuncionarioEgresoHistoricoRepository egresoHistoricoRepository;
-    private BonoRepository bonoRepository;
-    private BonoRecurrenteRepository bonoRecurrenteRepository;
     private FuncionarioService funcionarioService;
     private FuncionarioRrhhService service;
 
@@ -68,10 +64,9 @@ class RevertirEgresoFuncionarioTest {
         clienteService = mock(ClienteService.class);
         liquidacionFinalRepository = mock(LiquidacionFinalRepository.class);
         egresoHistoricoRepository = mock(FuncionarioEgresoHistoricoRepository.class);
-        bonoRepository = mock(BonoRepository.class);
-        bonoRecurrenteRepository = mock(BonoRecurrenteRepository.class);
 
-        funcionarioService = new FuncionarioService(funcionarioRepository, usuarioService, clienteService);
+        funcionarioService = new FuncionarioService(funcionarioRepository, usuarioService, clienteService,
+                mock(org.springframework.context.ApplicationEventPublisher.class));
 
         service = new FuncionarioRrhhService(
                 funcionarioService,
@@ -82,9 +77,7 @@ class RevertirEgresoFuncionarioTest {
                 mock(FuncionarioSalarioHistoricoService.class),
                 clienteService,
                 liquidacionFinalRepository,
-                egresoHistoricoRepository,
-                bonoRepository,
-                bonoRecurrenteRepository);
+                egresoHistoricoRepository);
 
         persona = new Persona();
         persona.setId(PERSONA_ID);

@@ -40,7 +40,8 @@ class FuncionarioServiceCascadaEstadoTest {
         repository = mock(FuncionarioRepository.class);
         usuarioService = mock(UsuarioService.class);
         clienteService = mock(ClienteService.class);
-        service = new FuncionarioService(repository, usuarioService, clienteService);
+        service = new FuncionarioService(repository, usuarioService, clienteService,
+                mock(org.springframework.context.ApplicationEventPublisher.class));
 
         persona = new Persona();
         persona.setId(7L);

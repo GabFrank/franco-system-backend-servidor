@@ -179,7 +179,12 @@ public class CapturaMuestraService {
             return DerivadorMapa.Resultado.fallo(
                     "esta foto se saco para otro formato; saca una nueva desde este");
         }
-        return derivador.derivar(m.lectura.lineas, formato.getPatron(), m.ancho, m.alto);
+        // El mapeo va junto con el patron: sin el, la region saldria nombrada con el GRUPO
+        // --`auth`-- y no con la clave del mapeo --`codigoAutorizacion`--, y la validacion del ABM
+        // la rechazaria con "el mapeo no produce el campo auth". Medido de punta a punta el
+        // 2026-09-12, corriendo el flujo completo desde la pantalla.
+        return derivador.derivar(m.lectura.lineas, formato.getPatron(), formato.getMapeo(),
+                m.ancho, m.alto);
     }
 
     /**

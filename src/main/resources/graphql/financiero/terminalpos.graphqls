@@ -1,9 +1,31 @@
 type TerminalPos {
     id:ID!
     descripcion: String
+    "Etiqueta interna que el cajero escanea para elegir la terminal. NO es el identificador de la maquina: ese es `serie`."
     codigo: String
+    """
+    Donde esta fisicamente el aparato. null en las terminales viejas: no se puede adivinar, se
+    carga a mano. El objeto entero y no solo el id porque el listado muestra el nombre.
+    """
+    sucursal: Sucursal
+    "Identificador propio de la maquina, el que viene de fabrica y el que el cupon imprime."
+    serie: String
     moneda: Moneda
     proveedorServicio: ProveedorServicio
+    "Formato del modelo de aparato. null = sin configurar: el desktop bloquea la venta con tarjeta."
+    formatoTerminalPos: FormatoTerminalPos
+    """
+    Si en esta terminal se puede tipear el cupon a mano. null = hereda la configuracion general.
+    No puede apagarse si es el ultimo camino abierto para cobrar con tarjeta.
+    """
+    cargaManualPermitida: Boolean
+    "Campos que no se pueden dejar vacios en esta terminal. null = no configurado, hereda del formato."
+    camposObligatorios: [String]
+    """
+    Lo que se le exige de verdad al cajero: la lista por aparato si la hay, y si no, los que el
+    mapeo del formato declara obligatorios. Es con esto que se arma el formulario de carga a mano.
+    """
+    camposObligatoriosEfectivos: [String]
     activo: Boolean
     creadoEn: Date
     usuario: Usuario
@@ -24,9 +46,22 @@ input TerminalPosInput {
     id:ID
     descripcion: String
     codigo: String
+    """
+    Donde esta el aparato. Si NO viene, la sucursal ya asignada NO se toca: el desktop se actualiza
+    con consentimiento del usuario y se puede posponer indefinidamente, asi que un cliente viejo no
+    puede borrar con una edicion trivial el dato que alguien cargo a mano sobre 24 sucursales.
+    """
+    sucursalId: Int
+    "Identificador propio de la maquina. Misma regla que sucursalId: si no viene, no se toca."
+    serie: String
     cuentaBancariaId: Int
     monedaId: Int
     proveedorServicioId: Int
+    """
+    Formato del modelo de aparato. Si NO viene, el formato ya asignado NO se toca: omitir el campo
+    no puede apagar la venta con tarjeta de una caja. Para desvincular, desasignarFormatoTerminalPos.
+    """
+    formatoTerminalPosId: Int
     activo: Boolean
     creadoEn: Date
     usuarioId: Int
@@ -37,10 +72,36 @@ extend type Query {
     terminalesPos(page:Int = 0, size:Int = 10):[TerminalPos]!
     countTerminalPos: Int
     searchTerminalPos(texto: String):[TerminalPos]
-    filterTerminalPos(descripcion: String, codigo: String, activo: Boolean, page: Int = 0, size: Int = 10):TerminalPosPage
+    """
+    Las terminales activas con EXACTAMENTE esta serie. Resuelve de qué aparato salió un cupón.
+
+    Exacta y no LIKE: el valor viene del propio cupón, y quien llama lo acepta sin preguntar
+    cuando hay uno solo. Un `%` ahí adentro sería un comodín de SQL.
+    """
+    terminalesPosPorSerie(serie: String!):[TerminalPos]!
+    """
+    El filtro por sucursal responde "cuantas maquinas deberia tener mi local". Es un filtro de
+    consulta: terminal_pos sigue bajando entera a las 24 filiales, sin filtro de replicacion.
+    """
+    filterTerminalPos(descripcion: String, codigo: String, serie: String, sucursalId: Int, activo: Boolean, page: Int = 0, size: Int = 10):TerminalPosPage
 }
 
 extend type Mutation {
+    """
+    Saca el formato de una terminal. Es el unico camino para dejarla sin formato, y por lo tanto
+    para bloquearle la venta con tarjeta: tiene que ser una decision, no el efecto de omitir un
+    campo en saveTerminalPos.
+    """
+    desasignarFormatoTerminalPos(terminalPosId: ID!): Boolean
+    """
+    Configuracion por aparato. Va aparte de saveTerminalPos porque las dos son tri-estado --null =
+    hereda-- y ahi apagar la configuracion seria el efecto de omitir un campo. Aca mandar la
+    configuracion completa es el contrato.
+
+    cargaManualPermitida: false se rechaza si la terminal no tiene otro camino abierto.
+    camposObligatorios solo puede APRETAR: tiene que contener los que el mapeo ya exige.
+    """
+    configurarTerminalPos(terminalPosId: ID!, cargaManualPermitida: Boolean, camposObligatorios: [String]): TerminalPos!
     saveTerminalPos(terminalPos:TerminalPosInput!):TerminalPos!
     deleteTerminalPos(id:ID!):Boolean!
 }

@@ -1,0 +1,71 @@
+"""
+El cupón de muestra con el que se configura un formato.
+
+Todo el ciclo vive en central: el formato, su patrón, su mapa y las regiones se administran acá y
+bajan a las 24 filiales. Que la foto tuviera que venir del filial era un puente innecesario — y
+además imposible, porque la venta con tarjeta se bloquea cuando la terminal no tiene formato, así
+que antes de configurarlo no hay capturas de ese ticket.
+
+Es efímero y no tiene tabla: vive lo que dura configurar un formato. Lo que queda persistido es el
+resultado, las regiones. Un reinicio de central borra las muestras abiertas.
+"""
+type CapturaMuestraQr {
+    token: String
+    "La ruta en central. El desktop la compone con el endpoint de central que ya está usando."
+    ruta: String
+    """
+    La URL absoluta, sólo si el servidor tiene configurada su dirección pública. null = componerla
+    con `ruta`, que es el default correcto: el teléfono debería llegar al mismo host.
+    """
+    url: String
+    expiraEn: String
+}
+
+type EstadoMuestra {
+    token: String
+    "ESPERANDO | LISTO | ERROR | VENCIDA"
+    estado: String
+    textoOcr: String
+    error: String
+    msOcr: Int
+}
+
+"""
+Una región propuesta por la derivación, o el motivo por el que ese campo no se pudo derivar.
+
+La geometría va como PISTA para acotar el reconocimiento, no como verdad para asignar: lo que ancla
+es la etiqueta impresa. Un campo con `sinRegion` se resuelve por patrón, sin restricción espacial —
+y eso es preferible a inventar una región, que después haría desaparecer un campo que hoy se lee.
+"""
+type RegionDerivada {
+    campo: String
+    etiqueta: String
+    "DERECHA | ABAJO | DENTRO"
+    posicion: String
+    "Lo que se leyó en el cupón de muestra, para verificar de un vistazo"
+    valorLeido: String
+    x1: Float
+    y1: Float
+    x2: Float
+    y2: Float
+    "null si se derivó bien; si no, por qué no se pudo"
+    sinRegion: String
+}
+
+extend type Query {
+    "Si el motor de OCR cargó en este servidor. Sin él no se puede derivar, y la pantalla lo dice."
+    lectorDeCuponesDisponible: Boolean
+    capturaMuestra(token: String!): EstadoMuestra
+}
+
+extend type Mutation {
+    "Abre una captura de muestra para este formato y devuelve lo necesario para dibujar el QR."
+    crearCapturaMuestra(formatoTerminalPosId: ID!): CapturaMuestraQr!
+    """
+    Propone el mapa a partir de la muestra. NO guarda nada: la propuesta la revisa una persona y la
+    persiste guardarRegionesDerivadas, que es quien aplica las reglas de sobrescritura.
+    """
+    derivarMapaDeMuestra(token: String!, formatoTerminalPosId: ID!): [RegionDerivada]!
+    "Libera la muestra antes de que venza sola."
+    cerrarCapturaMuestra(token: String!): Boolean
+}

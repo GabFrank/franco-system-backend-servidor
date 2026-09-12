@@ -10,6 +10,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.repository.financiero.GastoRepository;
 import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.ProveedorService;
+import com.franco.dev.utilitarios.IdCentral;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -120,10 +121,15 @@ public class GastoTesoreriaService {
         gastoService.save(gasto);
     }
 
-    /** Id correlativo dentro de la sucursal 0, igual que el resto de las entidades de clave compuesta. */
+    /**
+     * Id correlativo dentro de la sucursal 0, igual que el resto de las entidades de clave
+     * compuesta, pero siempre IMPAR: en el central el trigger rechazar_id_de_filial (migracion
+     * V223.1) rechaza todo INSERT en financiero.gasto con id par, porque los pares los genera
+     * cada filial y chocarian al replicarse. Es el mismo criterio que usa DevolucionService al
+     * materializar su gasto.
+     */
     private Long siguienteIdServidor() {
-        Long maxId = gastoRepository.findMaxId(SUCURSAL_SERVIDOR);
-        return (maxId == null ? 0L : maxId) + 1;
+        return IdCentral.siguienteImpar(gastoRepository.findMaxId(SUCURSAL_SERVIDOR));
     }
 
     /**

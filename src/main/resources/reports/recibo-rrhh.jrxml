@@ -11,7 +11,7 @@
 	<field name="concepto" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
 	<title>
-		<band height="150" splitType="Stretch">
+		<band height="108" splitType="Stretch">
 			<textField>
 				<reportElement x="0" y="0" width="555" height="18"/>
 				<textElement><font fontName="SansSerif" size="10" isBold="true"/></textElement>
@@ -123,6 +123,15 @@
 				<textElement textAlignment="Center"><font fontName="SansSerif" size="9"/></textElement>
 				<textFieldExpression><![CDATA["C.I. N: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
 			</textField>
+			<staticText>
+				<reportElement x="0" y="160" width="555" height="10"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="7"/></textElement>
+				<text><![CDATA[- - - - -  cortar por aqui  - - - - -]]></text>
+			</staticText>
+			<line>
+				<reportElement x="0" y="172" width="555" height="1"/>
+				<graphicElement><pen lineWidth="0.5" lineStyle="Dashed"/></graphicElement>
+			</line>
 		</band>
 	</summary>
 </jasperReport>

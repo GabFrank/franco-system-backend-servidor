@@ -82,4 +82,17 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "and (c.id is null or c.esRemunerativo is null or c.esRemunerativo = true) " +
             "group by l.periodo order by l.periodo desc")
     List<Object[]> percibidoPorPeriodoDesc(@Param("funcionarioId") Long funcionarioId);
+
+    /**
+     * Indica si un bono ya esta referenciado por un item de una liquidacion APROBADA o
+     * PAGADA. A diferencia de {@code bono.liquidacionId} (que solo se estampa al pagar,
+     * en {@code aplicarEfectosCruzados}), esto cubre tambien la ventana entre aprobar y
+     * pagar, donde el snapshot de la liquidacion ya esta congelado pero el bono todavia
+     * no tiene liquidacionId.
+     */
+    @Query("select case when count(i) > 0 then true else false end from LiquidacionItem i " +
+            "where i.referenciaTipo = 'BONO' and i.referenciaId = :bonoId " +
+            "and i.liquidacion.estado in (com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.APROBADA, " +
+            "com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.PAGADA)")
+    boolean existeEnLiquidacionCerrada(@Param("bonoId") Long bonoId);
 }

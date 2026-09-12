@@ -126,8 +126,31 @@ feature/ocr-cupon-fase2   ← misma rama en central, filial y desktop
 >
 > Corolario para quien ejecute este plan: **no proponer mergear algo para desbloquear el trabajo
 > propio.** Si una rama necesita otra que aún no se mergeó, se ramifica de ella o se espera.
-> Pushear una rama de feature es inocuo —corre CI, no genera release ni deploy—; lo que hay que
-> cuidar es el merge.
+> Pushear una rama de feature es inocuo; lo que hay que cuidar es el merge.
+
+> ### ⚠️ Pushear una rama de feature NO corre el CI — corregido el 2026-09-12
+>
+> Esta sección decía que pushear era inocuo *«—corre CI, no genera release ni deploy—»*. La mitad
+> tranquilizadora es cierta; **la otra mitad es falsa**, y verificada en los tres repos:
+>
+> ```
+> ci.yml       on: pull_request  → branches: [develop, release/*, main, master]
+> release.yml  on: push          → branches: [develop, release/*, main, master]
+> ```
+>
+> O sea: `release.yml` está acotado a las ramas protegidas (por eso el push es inocuo de verdad),
+> pero **`ci.yml` sólo dispara con un `pull_request`**. Se pushearon las tres ramas el 2026-09-12 y
+> `gh run list --branch feature/ocr-cupon-fase2` devolvió **cero ejecuciones** en los tres repos.
+>
+> Consecuencia para el ciclo: el push de cada fase sirve para **sacar el trabajo de la máquina**, no
+> para validarlo. **La primera vez que el CI ve este código es cuando se abre el PR**, y ahí ve la
+> entrega entera de una. Eso sube el costo de un PR grande —que esta entrega ya decidió pagar— y es
+> un argumento más para que el testeo local sea completo antes de abrirlo, no después.
+>
+> Y hay un agujero que esto agranda: el CI del central corre con `-DskipFlyway=true` y los dos
+> únicos tests que levantan contexto Spring están apagados por `@EnabledIfSystemProperty`. O sea que
+> **ni siquiera el PR valida las migraciones**. La única prueba real que tuvieron hasta hoy es
+> haberlas aplicado a mano contra una base central de 226 versiones (§8.8).
 
 > **Corregido el 2026-09-09.** Una versión previa de este plan decía que «un PR por repo» se
 > apartaba de la guía, como si fuera una preferencia de tamaño. **No lo es**: coincide con el paso 7

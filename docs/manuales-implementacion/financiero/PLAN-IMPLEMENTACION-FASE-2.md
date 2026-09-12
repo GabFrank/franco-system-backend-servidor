@@ -895,8 +895,12 @@ palanca de rendimiento**, no como una comodidad de asignación.
 
 | Repo | Trabajo | Migración |
 |---|---|---|
-| **filial** | Espejo de las regiones (**va primero**) · aplicar el mapeo al texto del OCR: campos canónicos + el resto a `datos_extra` · **restringir el reconocimiento a las regiones** cuando el formato tiene mapa · **derivar el mapa solo** desde un cupón de muestra | `V98.5` |
-| **central** | Regiones por campo y por formato · el ABM las valida | `V224.5` |
+| **filial** | Espejo de las regiones (**va primero**) · aplicar el mapeo al texto del OCR: campos canónicos + el resto a `datos_extra` · **restringir el reconocimiento a las regiones** cuando el formato tiene mapa · **derivar el mapa solo** desde un cupón de muestra | `V99.5` |
+| **central** | Regiones por campo y por formato · el ABM las valida | `V225.5` |
+
+> Los números de esta fila estaban desactualizados (`V98.5` / `V224.5`): los corrió un lugar la
+> reserva de §5.3.h, y la tabla autoritativa es la de §5.6 bis. `V98.5` es la identidad de la
+> terminal, no las regiones.
 | **desktop** | Confirmación con **semáforo por campo** según confianza (§2.6): los buenos se aplican, los dudosos se preguntan · disparar la derivación y mostrar el mapa derivado |
 
 #### El mapa se deriva solo; el editor no entra (decidido 2026-09-11)
@@ -1708,3 +1712,75 @@ entrega —cero usos en Java, no está en ningún `.graphqls`— pero el encabez
 presenta como si el mecanismo ya corriera. Falta la misma nota de «etapa pendiente» que sí llevan
 `dias_retencion_imagenes` y `mb_libres_minimos`. Editarlo cambia el checksum de una migración ya
 aplicada en local, así que va junto con un `flyway:repair`.
+
+---
+
+### 8.8 · Lo que central resolvió y el plan no decía (2026-09-12)
+
+Las tres migraciones de central (`V224.5`, `V225.5`, `V226.5`) están escritas y aplicadas, con el
+contrato GraphQL y las validaciones. **587 tests verdes**, 35 de ellos nuevos, y el servidor arranca
+—que es la única prueba real del schema GraphQL, porque un `.graphqls` que no matchea un resolver no
+falla el build ni el CI: revienta al construir el contexto.
+
+Cuatro decisiones que el plan dejaba abiertas y que se cerraron al implementar. Van acá porque las
+cuatro son reglas de producto, no detalles.
+
+**1 · Una región `MANUAL` no se pisa NUNCA, ni con la confirmación.** §5.4 decía «sobre un formato
+que ya tiene regiones: no pisa, muestra el diff y pide confirmación explícita». Eso protege del clic
+distraído, pero no del clic decidido: confirmada la sobrescritura, la corrección que alguien hizo
+mirando un cupón se perdía igual. Y el plan mismo anticipa esa corrección cuando dice que el
+drag-and-drop vuelve para arreglar mapas torcidos. Ahora la confirmación pisa las `DERIVADA` y
+**saltea las `MANUAL`**, informando cuáles conservó. Para reemplazar una hay que editarla o borrarla,
+que es una decisión y no un efecto.
+
+Corolario: `origen` **no está en el input**. Lo decide el camino de entrada —lo que se guarda desde
+el ABM es `MANUAL` por definición—. Si se pudiera elegir, una región derivada podría quedar marcada
+`MANUAL` por error y volverse intocable sin que nadie la haya revisado.
+
+**2 · Una región derivada que el patrón ya no produce se borra.** No es inofensiva: sigue acotando el
+reconocimiento a una zona por un campo que no existe. Se borra con la confirmación, y se informa.
+
+**3 · `campos_obligatorios` sólo puede APRETAR.** §5.5 decía «permite apretarlo en una terminal
+puntual sin tocar el formato», pero la semántica de la columna es de reemplazo (`NULL` = se deduce
+del mapeo), o sea que también podía **aflojar**. Sin una regla, esa pantalla —que parece menor— sería
+una forma de saltear la validación del formato, y el formato lo comparten todas las terminales del
+mismo modelo. Ahora la lista tiene que contener todos los que el mapeo ya declara obligatorios.
+
+Y cada campo tiene que existir en el mapeo: exigir uno que el formato nunca produce **bloquearía
+todas las ventas de esa terminal**, sin que el mensaje diga por qué.
+
+Además del crudo, la API expone `camposObligatoriosEfectivos` —la lista del aparato si la hay, si no
+los del mapeo—. Es con esa que el desktop arma el formulario de carga a mano, y que salga de un solo
+lugar es justamente el punto de §5.3.c: tres listas en tres pantallas se desincronizan.
+
+**4 · La restricción de §5.3.d, en concreto.** «Sólo deja apagar la carga manual si el otro camino
+está abierto para ese tipo» se traduce en dos rechazos: una terminal **sin formato** (ahí la venta
+con tarjeta ya está bloqueada y la carga a mano es lo único que queda) y una con formato **`API`**,
+cuyo driver no existe. `MAQUINA` y `WEB` sí pueden apagarla. La validación vive en el service y no en
+un `CHECK`: depende de otra columna y de otra tabla, y un trigger daría un error de Postgres en vez
+de una frase.
+
+#### Un hueco de §5.3.h que estaba anotado y sin dueño
+
+`codigo` no tenía `UNIQUE`, y `scan-terminal-pos-dialog` hace `onFilter(...)` y se queda con
+`resultados[0]`: **dos terminales con el mismo código y el cobro va contra la máquina equivocada, sin
+aviso**. Estaba listado como «cosa que conviene no confundir» y no como ítem de trabajo. Hoy el campo
+está **vacío en las dos terminales que existen**, así que el índice no puede fallar al crearse: es el
+momento más barato que va a haber. Entró en `V224.5` como índice único parcial sobre `UPPER(codigo)`,
+más la validación con frase en el service.
+
+#### Dry-run, hecho sin querer y por eso vale
+
+Las tres migraciones se aplicaron contra `bodega_fact_test_2` —una base central real, 226 versiones—
+a medida que se escribían: un central de la sesión anterior había quedado vivo con devtools y las fue
+tomando. Las tres entraron limpias, y la estructura resultante se verificó contra
+`information_schema`. No reemplaza el dry-run contra una copia de alpha (§5.8), pero cubre lo que ese
+ejercicio suele encontrar: que el SQL corra.
+
+#### Lo que queda
+
+Desktop: pasar `terminalPosId` a `crearCapturaCupon` y `capturaToken` a `completar`, el semáforo por
+confianza, disparar y revisar la derivación, el filtro por sucursal y la `serie` en el ABM, la UI
+para desasignar formato, y el input único con la terminal dentro del QR. Después: auditoría del diff
+(paso 8), pruebas y UI (paso 9), **`npm run check` al final de todo** (paso 10) y el dry-run contra la
+copia de alpha (§5.8).

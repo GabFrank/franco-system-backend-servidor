@@ -1,0 +1,92 @@
+"""
+Una fila del mapa de un formato: que caja del OCR es que campo.
+
+Anclada a la ETIQUETA impresa, no a coordenadas absolutas. Un mapa por coordenadas se rompe el dia
+que el proveedor agrega una linea al ticket, y se rompen todos los mapas de ese modelo a la vez. La
+geometria esta igual, pero como pista para acotar el reconocimiento, no como verdad para asignar.
+"""
+type FormatoTerminalPosRegion {
+    id: ID!
+    formatoTerminalPos: FormatoTerminalPos
+    "Clave del mapeo del formato, en camelCase: codigoAutorizacion, numeroBoleta, monto, terminal..."
+    campo: String
+    "La etiqueta impresa que ancla la region. null = se resuelve solo por geometria, y es la fragil."
+    etiqueta: String
+    "DERECHA | ABAJO | DENTRO"
+    posicion: String
+    "TEXTO | NUMERO | FECHA. Un campo declarado NUMERO rechaza un \"0i64\" del OCR gratis."
+    tipo: String
+    obligatorio: Boolean
+    "Pista geometrica normalizada 0..1. Las cuatro o ninguna."
+    x1: Float
+    y1: Float
+    x2: Float
+    y2: Float
+    """
+    DERIVADA | MANUAL. Una region MANUAL no la pisa una corrida de derivacion: es una correccion que
+    alguien hizo mirando un cupon.
+    """
+    origen: String
+    orden: Int
+    creadoEn: Date
+}
+
+input FormatoTerminalPosRegionInput {
+    id: ID
+    formatoTerminalPosId: Int
+    campo: String
+    etiqueta: String
+    posicion: String
+    tipo: String
+    obligatorio: Boolean
+    x1: Float
+    y1: Float
+    x2: Float
+    y2: Float
+    orden: Int
+}
+
+"""
+El resultado de una corrida de derivacion.
+
+Cuando el formato ya tiene un mapa, `aplicado` viene en false y `cambios` trae el diff: hay que
+volver a llamar con confirmarSobrescritura. No es un error --es una pregunta-- y por eso viaja como
+resultado y no como excepcion: una excepcion no lleva el diff que el operador tiene que leer.
+"""
+type ResultadoDerivacionRegiones {
+    "false = no se escribio nada todavia; falta confirmar."
+    aplicado: Boolean
+    creadas: Int
+    actualizadas: Int
+    "Regiones derivadas que el patron ya no produce y se borraron: seguian acotando el OCR para nada."
+    eliminadas: Int
+    "Campos cuya region MANUAL se dejo intacta. La derivacion nunca las toca."
+    conservadasManuales: [String]
+    "El diff en frases: que cambiaria por campo."
+    cambios: [String]
+    mensaje: String
+}
+
+extend type Query {
+    regionesDeFormatoTerminalPos(formatoTerminalPosId: ID!): [FormatoTerminalPosRegion]!
+}
+
+extend type Mutation {
+    """
+    Guarda una region escrita o corregida por una persona. Queda siempre con origen MANUAL: es lo
+    unico que protege la correccion de la proxima corrida de derivacion.
+    """
+    saveRegionTerminalPos(region: FormatoTerminalPosRegionInput!): FormatoTerminalPosRegion!
+    deleteRegionTerminalPos(id: ID!): Boolean!
+    """
+    Persiste el mapa que el filial derivo de un cupon de muestra.
+
+    Sobre un formato sin regiones: guarda sin preguntar. Sobre uno que ya tiene mapa: no pisa,
+    devuelve el diff y pide confirmarSobrescritura. Una region MANUAL no se toca nunca.
+    """
+    guardarRegionesDerivadas(
+        formatoTerminalPosId: ID!,
+        regiones: [FormatoTerminalPosRegionInput!]!,
+        confirmarSobrescritura: Boolean = false
+    ): ResultadoDerivacionRegiones!
+}

@@ -343,6 +343,29 @@
 			<version>1.33.0</version>
 		</dependency>
 
+		<!-- OCR del cupon de tarjeta: PP-OCRv4 sobre ONNX Runtime.
+
+		     Es EL MISMO motor que corre en el filial, y eso es una regla y no una coincidencia:
+		     central puntua patrones y deriva mapas que despues se aplican en la caja. Si las dos
+		     versiones divergieran, el puntaje mentiria de forma MAS sutil que si no existiera,
+		     porque los dos motores serian "el nuestro". Las dos se mueven juntas o no se mueven.
+
+		     Artefacto oficial de Microsoft con los nativos de las plataformas que no se despliegan
+		     removidos: 71,8 MB -> 13,1 MB. -->
+		<dependency>
+			<groupId>io.github.gabfrank</groupId>
+			<artifactId>onnxruntime-slim</artifactId>
+			<version>1.23.2</version>
+		</dependency>
+
+		<!-- Modelos PP-OCRv4 (.onnx) + diccionario, como recursos del classpath. Misma version que
+		     el filial, por lo mismo de arriba. -->
+		<dependency>
+			<groupId>io.github.gabfrank</groupId>
+			<artifactId>ppocr-models</artifactId>
+			<version>1.0</version>
+		</dependency>
+
 	</dependencies>
 
 	<repositories>
@@ -358,6 +381,39 @@
 			</snapshots>
 		</repository>
 	</repositories>
+
+	<profiles>
+
+		<!-- Desarrollo en macOS.
+
+		     El jar podado trae los nativos de linux-x64 y win-x64, que son las plataformas donde
+		     corre central; macOS no esta, y no tiene por que estar. Pero los desarrolladores si, y
+		     sin nativo el motor no carga: queda "no disponible" y la derivacion del mapa no se
+		     puede probar en local.
+
+		     Este perfil se activa solo al compilar en una Mac y agrega el artefacto oficial de
+		     Microsoft, que trae osx-aarch64 y osx-x64. No afecta a lo que se despliega: el CI y los
+		     releases corren en Linux, donde el perfil no se activa.
+
+		     Los dos artefactos conviven en el classpath en Mac sin conflicto: las 58 clases de
+		     ai.onnxruntime son byte a byte identicas entre los dos (el podado se hizo sacando
+		     nativos, sin recompilar) y los nativos no se pisan, porque el podado no trae osx.
+		     Es el mismo perfil que ya tiene el filial. -->
+		<profile>
+			<id>ocr-mac</id>
+			<activation>
+				<os><family>mac</family></os>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>com.microsoft.onnxruntime</groupId>
+					<artifactId>onnxruntime</artifactId>
+					<version>1.23.2</version>
+				</dependency>
+			</dependencies>
+		</profile>
+
+	</profiles>
 
 	<build>
 		<plugins>

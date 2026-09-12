@@ -84,6 +84,19 @@ public interface TerminalPosRepository extends HelperRepository<TerminalPos, Lon
     TerminalPos findByProveedorServicioIsNullAndSerie(String serie);
 
     /**
+     * Las terminales activas con EXACTAMENTE esta serie.
+     *
+     * <p><b>Exacta y no {@code LIKE}, a diferencia del filtro de la pantalla.</b> Esto lo consume
+     * la resolucion automatica desde el cupon, que acepta el resultado sin preguntarle nada al
+     * cajero cuando hay uno solo. El valor viene del propio cupon --texto libre capturado por el
+     * regex-- asi que un {@code %} o un {@code _} ahi adentro serian comodines de SQL: ensancharian
+     * la busqueda en silencio y podrian resolver contra la maquina equivocada.
+     *
+     * <p>Y ademas es lo correcto semanticamente: el cupon imprime la serie completa, no un prefijo.
+     */
+    List<TerminalPos> findBySerieIgnoreCaseAndActivoTrue(String serie);
+
+    /**
      * El filtro por sucursal se hace <b>en la consulta</b>, no en memoria: filtrando despues, la
      * paginacion mentiria --{@code getTotalElements} contaria las terminales de las otras
      * sucursales-- que es exactamente el error que el modulo financiero ya documenta para el ACL de

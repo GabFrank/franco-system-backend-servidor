@@ -91,6 +91,18 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.filter(descripcion, codigo, serie, sucursalId, activo, page, size);
     }
 
+    /**
+     * Las terminales activas con exactamente esta serie, para resolver de que aparato salio un
+     * cupon.
+     *
+     * <p>Busqueda EXACTA, no {@code LIKE}: el valor viene del propio cupon --texto libre capturado
+     * por el regex-- y quien llama lo acepta sin preguntar cuando hay uno solo. Un {@code %} ahi
+     * adentro seria un comodin de SQL y podria resolver contra la maquina equivocada.
+     */
+    public List<TerminalPos> terminalesPosPorSerie(String serie) {
+        return service.findPorSerie(serie);
+    }
+
     public Long countTerminalPos() {
         return service.count();
     }
@@ -186,11 +198,9 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
      */
     public Boolean desasignarFormatoTerminalPos(Long terminalPosId) {
         seg.requireGestionar();
-        return service.findById(terminalPosId).map(t -> {
-            t.setFormatoTerminalPos(null);
-            service.save(t);
-            return true;
-        }).orElse(false);
+        // La regla del ultimo camino vive en el service, junto a su hermana: quitarle el formato a
+        // una terminal que ya tiene la carga a mano apagada la deja sin ninguna forma de cobrar.
+        return service.findById(terminalPosId).map(service::desasignarFormato).orElse(false);
     }
 
     /**

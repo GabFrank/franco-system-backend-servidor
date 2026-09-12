@@ -254,4 +254,89 @@ public class TerminalPosServiceTest {
         assertNull(service.camposObligatoriosDe(t));
         assertEquals(Arrays.asList("monto", "codigoAutorizacion"), service.camposObligatoriosEfectivos(t));
     }
+
+    // ── Quitar el formato: el otro lado de la misma regla ───────────────────────────────────
+
+    @Test
+    public void no_se_puede_quitar_el_formato_si_la_carga_a_mano_esta_apagada() {
+        // EL hallazgo de la auditoria, hecho test. La regla del ultimo camino estaba protegida en
+        // una sola direccion: se impedia apagar la carga manual sin otro camino abierto, pero
+        // quedaba la secuencia inversa --apagar la carga manual con el formato puesto, que esta
+        // permitido, y despues quitarle el formato--. La terminal terminaba sin ninguna forma de
+        // cobrar con tarjeta y nadie lo detectaba.
+        TerminalPos t = terminal(FormatoTerminalPos.TIPO_MAQUINA);
+        t.setCargaManualPermitida(Boolean.FALSE);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.desasignarFormato(t));
+
+        assertTrue(e.getMessage().contains("carga a mano"), e.getMessage());
+        assertNotNull(t.getFormatoTerminalPos(), "el formato no se tiene que haber tocado");
+    }
+
+    @Test
+    public void con_la_carga_a_mano_disponible_si_se_puede_quitar() {
+        TerminalPos t = terminal(FormatoTerminalPos.TIPO_MAQUINA);
+        t.setCargaManualPermitida(Boolean.TRUE);
+
+        assertTrue(service.desasignarFormato(t));
+        assertNull(t.getFormatoTerminalPos());
+    }
+
+    @Test
+    public void heredar_la_configuracion_general_no_bloquea_quitar_el_formato() {
+        // null = hereda, y la general hoy permite la carga a mano. Bloquear aca obligaria a tocar
+        // una perilla que nadie configuro.
+        TerminalPos t = terminal(FormatoTerminalPos.TIPO_MAQUINA);
+        t.setCargaManualPermitida(null);
+
+        assertTrue(service.desasignarFormato(t));
+    }
+
+    // ── Normalizacion del codigo ───────────────────────────────────────────────────────────
+
+    @Test
+    public void un_codigo_de_solo_espacios_se_guarda_como_null() {
+        // La validacion se saltea cuando el codigo esta en blanco, pero el indice unico de V224.5
+        // es parcial sobre `codigo <> \'\'` y "   " NO es cadena vacia: dos terminales asi pasaban
+        // la frase y chocaban contra Postgres, y el operador se comia el error crudo.
+        TerminalPos t = terminal(null);
+        t.setCodigo("   ");
+
+        service.save(t);
+
+        assertNull(t.getCodigo());
+    }
+
+    @Test
+    public void el_codigo_se_guarda_sin_espacios_al_borde() {
+        TerminalPos t = terminal(null);
+        t.setCodigo("  A1  ");
+
+        service.save(t);
+
+        assertEquals("A1", t.getCodigo());
+    }
+
+    // ── Busqueda exacta por serie ──────────────────────────────────────────────────────────
+
+    @Test
+    public void la_busqueda_por_serie_no_deja_pasar_comodines_de_like() {
+        // El valor viene del propio cupon --texto libre capturado por el regex-- y quien llama lo
+        // acepta sin preguntar cuando hay uno solo. Por eso la consulta es exacta: un `%` aca
+        // seria un comodin de SQL y podria resolver contra la maquina equivocada.
+        service.findPorSerie("JF%");
+
+        verify(repository).findBySerieIgnoreCaseAndActivoTrue("JF%");
+        verify(repository, never()).filterTerminalPos(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    public void una_serie_vacia_no_consulta_la_base() {
+        assertTrue(service.findPorSerie("   ").isEmpty());
+        assertTrue(service.findPorSerie(null).isEmpty());
+        verify(repository, never()).findBySerieIgnoreCaseAndActivoTrue(anyString());
+    }
 }

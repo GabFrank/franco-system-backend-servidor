@@ -34,6 +34,19 @@ public class TerminalPosService extends CrudService<TerminalPos, TerminalPosRepo
         return repository.countByProveedorServicioId(proveedorServicioId);
     }
 
+    /**
+     * Las terminales activas con exactamente esta serie.
+     *
+     * <p>Lo usa la resolucion automatica desde el cupon. Devuelve la lista y no una sola porque
+     * quien llama tiene que poder distinguir "ninguna" de "mas de una": ante ambiguedad no se
+     * elige, se pregunta.
+     */
+    public List<TerminalPos> findPorSerie(String serie) {
+        String s = serie == null ? null : serie.trim();
+        if (s == null || s.isEmpty()) return new ArrayList<TerminalPos>();
+        return repository.findBySerieIgnoreCaseAndActivoTrue(s);
+    }
+
     public TerminalPos findByCodigo(String codigo) {
         return repository.findByCodigoIgnoreCase(codigo);
     }
@@ -61,6 +74,7 @@ public class TerminalPosService extends CrudService<TerminalPos, TerminalPosRepo
         if (entity.getId() == null) entity.setCreadoEn(LocalDateTime.now());
         if (entity.getCreadoEn() == null) entity.setCreadoEn(LocalDateTime.now());
         normalizarSerie(entity);
+        normalizarCodigo(entity);
         validarSerieUnica(entity);
         validarCodigoUnico(entity);
         return super.save(entity);
@@ -83,6 +97,22 @@ public class TerminalPosService extends CrudService<TerminalPos, TerminalPosRepo
         if (s == null) return;
         s = s.trim().toUpperCase();
         entity.setSerie(s.isEmpty() ? null : s);
+    }
+
+    /**
+     * El codigo se guarda sin espacios al borde, y vacio como NULL.
+     * <p>
+     * Sin esto, la validacion y el indice no coincidian: {@code validarCodigoUnico} se saltea
+     * cuando el codigo esta en blanco --incluidas las cadenas de solo espacios-- pero el indice de
+     * {@code V224.5} es parcial sobre {@code codigo <> ''}, y {@code "   "} no es {@code ''}. O sea
+     * que dos terminales con el codigo en espacios pasaban la frase y chocaban contra Postgres, y
+     * el operador se comia el error crudo.
+     */
+    private static void normalizarCodigo(TerminalPos entity) {
+        String c = entity.getCodigo();
+        if (c == null) return;
+        c = c.trim();
+        entity.setCodigo(c.isEmpty() ? null : c);
     }
 
     /**
@@ -185,6 +215,26 @@ public class TerminalPosService extends CrudService<TerminalPos, TerminalPosRepo
             // estuviera configurada, que es el estado seguro: se cae al mapeo del formato.
             return null;
         }
+    }
+
+    /**
+     * Saca el formato de una terminal.
+     *
+     * <p><b>La regla del ultimo camino vale en las dos direcciones, y esta era la que faltaba.</b>
+     * {@link #configurar} impide apagar la carga manual cuando no hay otro camino abierto, pero sin
+     * esto quedaba la secuencia inversa: apagar la carga manual con el formato puesto --permitido,
+     * porque hay otro camino-- y despues quitarle el formato. La terminal terminaba con cero
+     * caminos para cobrar con tarjeta y nadie lo detectaba.
+     */
+    public boolean desasignarFormato(TerminalPos t) {
+        if (Boolean.FALSE.equals(t.getCargaManualPermitida())) {
+            throw new GraphQLException("\"" + descripcionDe(t) + "\" tiene la carga a mano apagada:"
+                    + " si ademas se le saca el formato, esa caja se queda sin ninguna forma de"
+                    + " cobrar con tarjeta. Volve a permitir la carga a mano antes de quitarlo.");
+        }
+        t.setFormatoTerminalPos(null);
+        save(t);
+        return true;
     }
 
     /**

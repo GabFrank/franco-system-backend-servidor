@@ -171,6 +171,14 @@ public class CapturaMuestraService {
         if (!"LISTO".equals(m.estado) || m.lectura == null) {
             return DerivadorMapa.Resultado.fallo("todavía no hay una lectura buena de esta muestra");
         }
+        // La muestra se abrio PARA un formato, y tiene que derivarse contra ese. Sin este chequeo,
+        // una foto sacada para el formato A se podia aplicar al patron del formato B --por
+        // reutilizar un token entre pantallas-- y el mapa resultante describiria cajas de un
+        // ticket que no es el suyo, sin que nada avisara. Despues ese mapa baja a las 24 filiales.
+        if (m.formatoTerminalPosId != null && !m.formatoTerminalPosId.equals(formato.getId())) {
+            return DerivadorMapa.Resultado.fallo(
+                    "esta foto se saco para otro formato; saca una nueva desde este");
+        }
         return derivador.derivar(m.lectura.lineas, formato.getPatron(), m.ancho, m.alto);
     }
 

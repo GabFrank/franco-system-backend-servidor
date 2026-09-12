@@ -9,6 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -83,17 +86,28 @@ public class CapturaMuestraController {
      * un archivo del disco. Es la misma operacion y no vale la pena duplicarla.
      */
     @PostMapping(value = "/{token}", consumes = MediaType.IMAGE_JPEG_VALUE)
-    public ResponseEntity<?> subir(@PathVariable String token,
-                                   @RequestBody(required = false) byte[] jpeg) {
-        // `required = false` para que el chequeo de abajo sea el que conteste. Con el default
-        // Spring rechaza la request ANTES del handler y responde el JSON de error del framework
-        // --con stack trace-- en un endpoint sin autenticacion. Mismo tropiezo ya visto en el
-        // filial, verificado alla el 2026-09-10 mandando un POST vacio.
-        if (jpeg == null || jpeg.length == 0) {
-            return ResponseEntity.badRequest().body("la foto llego vacia");
+    public ResponseEntity<?> subir(@PathVariable String token, HttpServletRequest request) {
+        // ⚠️ EL TOKEN SE VALIDA ANTES DE LEER UN SOLO BYTE DEL CUERPO.
+        //
+        // Este endpoint cuelga de /public, o sea sin autenticacion, y el token es toda la
+        // credencial. Si primero se leyera la foto, cualquiera podria hacer que central bufferee
+        // megabytes mandando POSTs con un token inventado.
+        Optional<CapturaMuestraService.Muestra> abierta = service.porToken(token);
+        if (!abierta.isPresent() || abierta.get().vencida()) {
+            return ResponseEntity.status(HttpStatus.GONE).body("el codigo ya no sirve");
         }
-        if (jpeg.length > MAX_BYTES) {
+
+        byte[] jpeg;
+        try {
+            jpeg = leerAcotado(request.getInputStream());
+        } catch (CuerpoDemasiadoGrande e) {
             return ResponseEntity.badRequest().body("la foto es demasiado grande");
+        } catch (IOException e) {
+            return ResponseEntity.badRequest().body("no se pudo leer la foto");
+        }
+
+        if (jpeg.length == 0) {
+            return ResponseEntity.badRequest().body("la foto llego vacia");
         }
         try {
             CapturaMuestraService.Muestra m = service.recibir(token, jpeg);
@@ -116,6 +130,39 @@ public class CapturaMuestraController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("no se pudo procesar la foto");
         }
+    }
+
+    /** El cuerpo se paso del tope. Se corta la lectura y se contesta, sin retener lo leido. */
+    private static final class CuerpoDemasiadoGrande extends IOException {
+    }
+
+    /**
+     * Lee el cuerpo hasta el tope y aborta apenas lo pasa.
+     *
+     * <p><b>Por que a mano y no con {@code @RequestBody byte[]}.</b> Ese binding hace que Spring
+     * bufferee el cuerpo ENTERO en memoria antes de que el handler corra, asi que un chequeo de
+     * tamano dentro del metodo llega tarde: para cuando se ejecuta, los bytes ya estan en el heap.
+     * En un endpoint sin autenticacion eso es un camino directo a tumbar el proceso mandando
+     * cuerpos de cientos de MB.
+     *
+     * <p>Y no alcanza con configurar el limite del contenedor:
+     * {@code spring.servlet.multipart.max-request-size} no aplica —esto no es multipart, es un
+     * {@code image/jpeg} crudo—. Verificado contra {@code application.properties}.
+     *
+     * <p>Leyendo de a bloques y cortando en el tope, lo maximo que se retiene son los 8 MB del
+     * limite mas un bloque.
+     */
+    private static byte[] leerAcotado(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[8192];
+        int leidos;
+        int total = 0;
+        while ((leidos = in.read(buffer)) != -1) {
+            total += leidos;
+            if (total > MAX_BYTES) throw new CuerpoDemasiadoGrande();
+            out.write(buffer, 0, leidos);
+        }
+        return out.toByteArray();
     }
 
     private static String aviso(String titulo, String detalle) {

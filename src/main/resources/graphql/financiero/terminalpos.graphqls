@@ -73,6 +73,13 @@ extend type Query {
     countTerminalPos: Int
     searchTerminalPos(texto: String):[TerminalPos]
     """
+    Las terminales activas con EXACTAMENTE esta serie. Resuelve de qué aparato salió un cupón.
+
+    Exacta y no LIKE: el valor viene del propio cupón, y quien llama lo acepta sin preguntar
+    cuando hay uno solo. Un `%` ahí adentro sería un comodín de SQL.
+    """
+    terminalesPosPorSerie(serie: String!):[TerminalPos]!
+    """
     El filtro por sucursal responde "cuantas maquinas deberia tener mi local". Es un filtro de
     consulta: terminal_pos sigue bajando entera a las 24 filiales, sin filtro de replicacion.
     """

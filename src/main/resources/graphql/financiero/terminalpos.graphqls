@@ -1,7 +1,15 @@
 type TerminalPos {
     id:ID!
     descripcion: String
+    "Etiqueta interna que el cajero escanea para elegir la terminal. NO es el identificador de la maquina: ese es `serie`."
     codigo: String
+    """
+    Donde esta fisicamente el aparato. null en las terminales viejas: no se puede adivinar, se
+    carga a mano. El objeto entero y no solo el id porque el listado muestra el nombre.
+    """
+    sucursal: Sucursal
+    "Identificador propio de la maquina, el que viene de fabrica y el que el cupon imprime."
+    serie: String
     moneda: Moneda
     proveedorServicio: ProveedorServicio
     "Formato del modelo de aparato. null = sin configurar: el desktop bloquea la venta con tarjeta."
@@ -26,6 +34,14 @@ input TerminalPosInput {
     id:ID
     descripcion: String
     codigo: String
+    """
+    Donde esta el aparato. Si NO viene, la sucursal ya asignada NO se toca: el desktop se actualiza
+    con consentimiento del usuario y se puede posponer indefinidamente, asi que un cliente viejo no
+    puede borrar con una edicion trivial el dato que alguien cargo a mano sobre 24 sucursales.
+    """
+    sucursalId: Int
+    "Identificador propio de la maquina. Misma regla que sucursalId: si no viene, no se toca."
+    serie: String
     cuentaBancariaId: Int
     monedaId: Int
     proveedorServicioId: Int
@@ -44,7 +60,11 @@ extend type Query {
     terminalesPos(page:Int = 0, size:Int = 10):[TerminalPos]!
     countTerminalPos: Int
     searchTerminalPos(texto: String):[TerminalPos]
-    filterTerminalPos(descripcion: String, codigo: String, activo: Boolean, page: Int = 0, size: Int = 10):TerminalPosPage
+    """
+    El filtro por sucursal responde "cuantas maquinas deberia tener mi local". Es un filtro de
+    consulta: terminal_pos sigue bajando entera a las 24 filiales, sin filtro de replicacion.
+    """
+    filterTerminalPos(descripcion: String, codigo: String, serie: String, sucursalId: Int, activo: Boolean, page: Int = 0, size: Int = 10):TerminalPosPage
 }
 
 extend type Mutation {

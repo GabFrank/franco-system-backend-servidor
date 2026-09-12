@@ -7,6 +7,7 @@ import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.FormatoTerminalPosService;
 import com.franco.dev.service.financiero.TerminalPosService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.personas.ProveedorServicioService;
 import com.franco.dev.service.personas.UsuarioService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -42,6 +43,9 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private FormatoTerminalPosService formatoTerminalPosService;
 
+    @Autowired
+    private SucursalService sucursalService;
+
     /** Para leer el formato actual sin traer la terminal entera. Ver saveTerminalPos. */
     @Autowired
     private TerminalPosRepository terminalPosRepository;
@@ -74,8 +78,17 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return service.searchByAll(texto);
     }
 
-    public Page<TerminalPos> filterTerminalPos(String descripcion, String codigo, Boolean activo, int page, int size) {
-        return service.filter(descripcion, codigo, activo, page, size);
+    /**
+     * El filtro por sucursal responde el caso de uso que motivo la columna: <i>un gerente quiere
+     * saber cuantas maquinas deberia tener en su local</i>.
+     * <p>
+     * Es un filtro de <b>consulta</b>, no de replicacion: {@code terminal_pos} sigue bajando entera
+     * a las 24 filiales. Filtrar la replicacion haria que una terminal sin sucursal asignada deje
+     * de bajar, y si alguna caja dependia de ella para cobrar se queda sin cobrar.
+     */
+    public Page<TerminalPos> filterTerminalPos(String descripcion, String codigo, String serie,
+                                               Long sucursalId, Boolean activo, int page, int size) {
+        return service.filter(descripcion, codigo, serie, sucursalId, activo, page, size);
     }
 
     public Long countTerminalPos() {
@@ -100,6 +113,30 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
         e.setProveedorServicio(input.getProveedorServicioId() != null
                 ? proveedorServicioService.findById(input.getProveedorServicioId()).orElse(null)
                 : null);
+        // ⚠️ MISMA REGLA QUE EL FORMATO MAS ABAJO: si el input no los trae, NO se pisan.
+        //
+        // El motivo es el mismo y vale la pena no perderlo: el desktop se actualiza con
+        // electron-updater, que pide consentimiento y se puede posponer indefinidamente. Despues de
+        // que central suba va a haber cajas corriendo un desktop que no manda estos campos, y como
+        // `m.map(input, TerminalPos.class)` arma la entidad NUEVA desde el input, todo lo que no
+        // venga nace en null y se PERSISTE en null. Cualquier edicion trivial --cambiar la
+        // descripcion, activar la terminal-- borraria la sucursal y la serie que alguien acaba de
+        // cargar a mano sobre las 24 sucursales.
+        //
+        // La diferencia con el formato: aca NO hace falta un camino explicito para desvincular. Una
+        // maquina se muda a otra sucursal, no a ninguna, y una serie se corrige, no se borra.
+        Long sucursalId = input.getSucursalId() != null
+                ? input.getSucursalId()
+                : (input.getId() != null ? terminalPosRepository.findSucursalIdDe(input.getId()) : null);
+        e.setSucursal(sucursalId != null
+                ? sucursalService.findById(sucursalId)
+                        .orElseThrow(() -> new GraphQLException("No existe la sucursal " + sucursalId + "."))
+                : null);
+
+        if (input.getSerie() == null && input.getId() != null) {
+            e.setSerie(terminalPosRepository.findSerieDe(input.getId()));
+        }
+
         // ⚠️ AL REVES QUE proveedorServicio: el formato SOLO se toca si el input lo trae.
         //
         // La version anterior lo seteaba siempre, copiando el patron de arriba, y eso resultaba en

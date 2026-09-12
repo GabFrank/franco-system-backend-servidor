@@ -19,6 +19,9 @@ public interface BonoRecurrenteRepository extends HelperRepository<BonoRecurrent
     @Query("select b.id from BonoRecurrente b where b.activo = true order by b.id asc")
     List<Long> idsActivos();
 
+    /** Plantillas vigentes de un funcionario. Las apaga el egreso: ver FuncionarioRrhhService. */
+    List<BonoRecurrente> findByFuncionarioIdAndActivoTrue(Long funcionarioId);
+
     /** Padron del SaaS: toda lista paginada y filtrada en el backend. */
     @Query("select b from BonoRecurrente b where " +
             "(:funcionarioId is null or b.funcionario.id = :funcionarioId) and " +

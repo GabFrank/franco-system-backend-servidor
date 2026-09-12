@@ -60,6 +60,17 @@ public interface TerminalPosRepository extends HelperRepository<TerminalPos, Lon
     String findSerieDe(@Param("id") Long id);
 
     /**
+     * La configuracion por aparato tampoco viaja en {@code TerminalPosInput} --tiene su propia
+     * mutation, porque es tri-estado-- asi que {@code saveTerminalPos} tiene que devolverla a su
+     * lugar despues del ModelMapper, o una edicion trivial la apagaria.
+     */
+    @Query("select t.cargaManualPermitida from TerminalPos t where t.id = :id")
+    Boolean findCargaManualPermitidaDe(@Param("id") Long id);
+
+    @Query("select t.camposObligatorios from TerminalPos t where t.id = :id")
+    String findCamposObligatoriosDe(@Param("id") Long id);
+
+    /**
      * Para poder rechazar una serie repetida con una frase, en vez de con el error del indice
      * unico de V224.5.
      * <p>

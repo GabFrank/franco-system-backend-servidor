@@ -110,6 +110,33 @@ public class TerminalPos implements Identifiable<Long> {
     @JoinColumn(name = "formato_terminal_pos_id", nullable = true)
     private FormatoTerminalPos formatoTerminalPos;
 
+    /**
+     * Si en esta terminal se puede tipear el cupon a mano.
+     * <p>
+     * Tres estados, no dos: {@code null} = hereda la configuracion general del modulo,
+     * {@code true}/{@code false} = decidido para este aparato. Hay cajas donde tipear es aceptable
+     * y otras donde el cajero tiene el lector al lado y tipear es la puerta de entrada al error.
+     * <p>
+     * <b>No puede apagar el ultimo camino.</b> El tipo del formato ya cierra el camino que no
+     * corresponde --WEB no ofrece camara, MAQUINA no ofrece lector-- y eso solo es seguro porque la
+     * carga a mano es la salida universal. Apagarla en una terminal cuyo otro camino tampoco esta
+     * abierto deja a la caja sin ninguna forma de cobrar con tarjeta, sin que nadie avise: venta
+     * PENDIENTE y caja que no cierra. Lo valida {@code TerminalPosService}.
+     */
+    @Column(name = "carga_manual_permitida")
+    private Boolean cargaManualPermitida;
+
+    /**
+     * JSON array con los campos que no se pueden dejar vacios al registrar la venta de este
+     * aparato. {@code null} = se deduce del {@code mapeo} del formato.
+     * <p>
+     * <b>Solo puede apretar.</b> La lista tiene que contener todos los que el mapeo del formato ya
+     * declara obligatorios: si pudiera aflojarlos, la configuracion por POS seria una forma de
+     * saltear la validacion del formato desde una pantalla que parece menor.
+     */
+    @Column(name = "campos_obligatorios", columnDefinition = "text")
+    private String camposObligatorios;
+
     private Boolean activo;
 
     @CreationTimestamp

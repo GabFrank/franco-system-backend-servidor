@@ -137,6 +137,14 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
             e.setSerie(terminalPosRepository.findSerieDe(input.getId()));
         }
 
+        // La configuracion por aparato ni siquiera esta en el input: tiene su propia mutation,
+        // porque las dos son tri-estado y null significa "hereda". Pero justamente por eso hay que
+        // devolverla a su lugar despues del ModelMapper, o cualquier edicion la apagaria.
+        if (input.getId() != null) {
+            e.setCargaManualPermitida(terminalPosRepository.findCargaManualPermitidaDe(input.getId()));
+            e.setCamposObligatorios(terminalPosRepository.findCamposObligatoriosDe(input.getId()));
+        }
+
         // ⚠️ AL REVES QUE proveedorServicio: el formato SOLO se toca si el input lo trae.
         //
         // La version anterior lo seteaba siempre, copiando el patron de arriba, y eso resultaba en
@@ -183,6 +191,23 @@ public class TerminalPosGraphQL implements GraphQLQueryResolver, GraphQLMutation
             service.save(t);
             return true;
         }).orElse(false);
+    }
+
+    /**
+     * Configuracion por aparato: si se puede tipear el cupon a mano en esta terminal, y que campos
+     * no se pueden dejar vacios.
+     * <p>
+     * Mutation propia y no parte de {@code saveTerminalPos}: las dos son tri-estado --{@code null}
+     * = hereda la configuracion general-- y {@code saveTerminalPos} arma la entidad de cero, asi
+     * que ahi apagar la configuracion de una terminal seria el efecto de omitir un campo. Aca
+     * mandar la configuracion completa ES el contrato.
+     */
+    public TerminalPos configurarTerminalPos(Long terminalPosId, Boolean cargaManualPermitida,
+                                             List<String> camposObligatorios) {
+        seg.requireGestionar();
+        TerminalPos t = service.findById(terminalPosId)
+                .orElseThrow(() -> new GraphQLException("No existe la terminal " + terminalPosId + "."));
+        return service.configurar(t, cargaManualPermitida, camposObligatorios);
     }
 
     public Boolean deleteTerminalPos(Long id) {

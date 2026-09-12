@@ -14,6 +14,18 @@ type TerminalPos {
     proveedorServicio: ProveedorServicio
     "Formato del modelo de aparato. null = sin configurar: el desktop bloquea la venta con tarjeta."
     formatoTerminalPos: FormatoTerminalPos
+    """
+    Si en esta terminal se puede tipear el cupon a mano. null = hereda la configuracion general.
+    No puede apagarse si es el ultimo camino abierto para cobrar con tarjeta.
+    """
+    cargaManualPermitida: Boolean
+    "Campos que no se pueden dejar vacios en esta terminal. null = no configurado, hereda del formato."
+    camposObligatorios: [String]
+    """
+    Lo que se le exige de verdad al cajero: la lista por aparato si la hay, y si no, los que el
+    mapeo del formato declara obligatorios. Es con esto que se arma el formulario de carga a mano.
+    """
+    camposObligatoriosEfectivos: [String]
     activo: Boolean
     creadoEn: Date
     usuario: Usuario
@@ -74,6 +86,15 @@ extend type Mutation {
     campo en saveTerminalPos.
     """
     desasignarFormatoTerminalPos(terminalPosId: ID!): Boolean
+    """
+    Configuracion por aparato. Va aparte de saveTerminalPos porque las dos son tri-estado --null =
+    hereda-- y ahi apagar la configuracion seria el efecto de omitir un campo. Aca mandar la
+    configuracion completa es el contrato.
+
+    cargaManualPermitida: false se rechaza si la terminal no tiene otro camino abierto.
+    camposObligatorios solo puede APRETAR: tiene que contener los que el mapeo ya exige.
+    """
+    configurarTerminalPos(terminalPosId: ID!, cargaManualPermitida: Boolean, camposObligatorios: [String]): TerminalPos!
     saveTerminalPos(terminalPos:TerminalPosInput!):TerminalPos!
     deleteTerminalPos(id:ID!):Boolean!
 }

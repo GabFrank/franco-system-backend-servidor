@@ -1,7 +1,5 @@
 package com.franco.dev.service.financiero;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.domain.financiero.FormatoTerminalPos;
 import com.franco.dev.domain.financiero.FormatoTerminalPosRegion;
 import com.franco.dev.repository.financiero.FormatoTerminalPosRegionRepository;
@@ -15,7 +13,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,8 +44,6 @@ public class FormatoTerminalPosRegionService
     private static final List<String> ORIGENES = Arrays.asList(
             FormatoTerminalPosRegion.ORIGEN_DERIVADA,
             FormatoTerminalPosRegion.ORIGEN_MANUAL);
-
-    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final FormatoTerminalPosRegionRepository repository;
 
@@ -280,7 +275,7 @@ public class FormatoTerminalPosRegionService
 
         // Una region para un campo que el mapeo no produce no solo es peso muerto: ademas acota el
         // reconocimiento a una zona por un campo que nadie va a leer.
-        Set<String> delMapeo = camposDelMapeo(formato.getMapeo());
+        Set<String> delMapeo = MapeoFormato.campos(formato.getMapeo());
         if (!delMapeo.isEmpty() && !delMapeo.contains(e.getCampo())) {
             throw new GraphQLException("El mapeo de \"" + formato.getNombre() + "\" no produce el campo \""
                     + e.getCampo() + "\". Los que produce son: " + String.join(", ", delMapeo) + ".");
@@ -357,29 +352,4 @@ public class FormatoTerminalPosRegionService
         }
     }
 
-    /**
-     * Las claves de primer nivel del mapeo, que son los campos que el formato produce.
-     *
-     * <p>Aca si se parsea con Jackson, a diferencia de {@code FormatoTerminalPosService}, que valida
-     * el mapeo a mano. El motivo de aquella decision era no arrastrar una dependencia de parseo al
-     * filial, que lee el mismo JSON; esto corre solo en el ABM de central, donde Jackson ya esta.
-     * Y aca la precision importa: un regex sobre las claves tambien matchearia las anidadas --el
-     * {@code mapa} de una regla-- y aceptaria una region para un campo que no existe.
-     *
-     * <p>Devuelve vacio si el mapeo no se puede leer: la validacion de forma es responsabilidad de
-     * {@code FormatoTerminalPosService}, y este chequeo no puede bloquear por un motivo ajeno.
-     */
-    private static Set<String> camposDelMapeo(String mapeo) {
-        Set<String> out = new LinkedHashSet<String>();
-        if (mapeo == null || mapeo.trim().isEmpty()) return out;
-        try {
-            JsonNode root = JSON.readTree(mapeo);
-            if (!root.isObject()) return out;
-            Iterator<String> it = root.fieldNames();
-            while (it.hasNext()) out.add(it.next());
-        } catch (Exception ignored) {
-            // Mapeo ilegible: no es asunto de esta validacion.
-        }
-        return out;
-    }
 }

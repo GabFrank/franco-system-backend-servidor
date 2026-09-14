@@ -13,11 +13,21 @@ del C en adelante se puede cortar si no da el tiempo.
 
 | Qué | Cómo |
 |---|---|
-| Central corriendo | `cd frc-comercial/central && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` |
-| Filial corriendo | `cd frc-comercial/filial && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` |
+| Central corriendo | `cd frc-comercial/central && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` → puerto **8081**, base `bodega_fact_test_2` (5551) |
+| Filial corriendo | `cd frc-comercial/filial && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,user-dev -Dspring-boot.run.arguments=--sifen.scheduler.enabled=false` → puerto **8082**, base `general_fact_test_2` (5552) |
 | Desktop | `cd frc-comercial/desktop && npx ng serve -c web --port 4201` |
 | Un teléfono | En la misma wifi que la máquina. Para las pruebas 4 y 12 |
 | Un cupón de papel | De cualquier POS. Si no hay, sirve el sintético: `java CuponDemo.java cupon.jpg` |
+
+> ⚠️ **Los dos perfiles del filial, y por qué.** Con `dev` solo, el filial apunta a
+> `localhost:5551/general`, **una base que no existe en este equipo**: no arranca. `user-dev` es el
+> archivo personal, fuera de git, y es el que lo manda a `5552/general_fact_test_2`. Van los dos.
+>
+> ⚠️ **Y el scheduler de SIFEN se apaga a mano.** El perfil `dev` lo enciende con
+> `sifen.ambiente=PROD` y `user-dev` le da un certificado que sí existe. Hoy la base de prueba no
+> tiene nada pendiente de enviar —0 DEs en PENDIENTE, 0 lotes en PENDIENTE_ENVIO, verificado el
+> 2026-09-14— pero **en esta prueba vamos a registrar ventas**, y una venta genera un documento que
+> ese scheduler mandaría a la SIFEN **de producción** a los 30 segundos.
 
 > ⚠️ **El módulo arranca apagado.** `financiero.configuracion_venta_tarjeta.habilitado` viene en
 > `false`, y eso es a propósito. La prueba 0 lo enciende.

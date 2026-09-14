@@ -596,3 +596,64 @@ nodos (`c4874e6f…`).
 con el servidor levantado desde las 13:58, en un hilo `http-nio-8081-exec`. Es la carga perezosa de
 central funcionando, y la contracara del filial, que carga al arrancar cuando el módulo está
 encendido.
+
+### H13 · ⚠️ El semáforo pintó de verde un valor equivocado
+
+**Lo medido, primera corrida real de punta a punta, sobre el cupón sintético limpio:**
+
+| | |
+|---|---|
+| Lo que dice el cupón | `AUT: 883921` |
+| Lo que leyó el OCR | `AUT:883920` |
+| Confianza del campo | **0.9657** |
+| Umbral del semáforo | 0.9 |
+| Lo que vio el cajero | 🟢 **«Leído con claridad»** |
+
+El último dígito, `1` leído como `0`. Con confianza alta. En un cupón **sintético, limpio, sin
+arrugas ni papel térmico**. A la primera.
+
+**Por qué importa tanto.** Todo el diseño del semáforo descansa en una premisa: *confianza óptica
+alta ⇒ se leyó bien*. **Esta corrida la falsea.** El carácter se vio nítido; simplemente era otro.
+
+**Y subir el umbral no lo arregla.** Los cuatro campos de esta lectura puntuaron parecido:
+
+```
+monto 0.9724 · numeroBoleta 0.9725 · terminal 0.9707 · codigoAutorizacion 0.9657
+```
+
+El equivocado no es el más bajo por un margen que sirva: para marcarlo habría que marcar los
+cuatro, y un semáforo que pinta todo en ámbar no lo mira nadie.
+
+**El chequeo de tipo que se conectó hoy tampoco lo caza**, y hay que decirlo: `883920` es un
+`NUMERO` perfectamente válido. Ese control ataca otra clase —el carácter que **no** encaja— y sigue
+valiendo, pero no cubre ésta.
+
+**Lo que sí queda en pie es el producto, no el lector.** El cajero tiene el papel en la mano y el
+diálogo le pide confirmar. El problema es **qué le dice el verde**: hoy se lee como «no hace falta
+que mires». Para los campos que deciden plata —código de autorización y monto— el verde debería
+significar «el lector está seguro», y la instrucción seguir siendo *confirmá contra el ticket*.
+
+**Un segundo detalle de la misma lectura:** el cupón dice `MONTO: 150.000` y el OCR devolvió
+`150000`, **sin el separador de miles**. Acá es inofensivo porque el guaraní no tiene decimales y el
+número es el mismo. En una moneda con decimales, perder ese punto multiplica por mil.
+
+### H14 · El mapa sí acelera, pero ~35%, no 4×
+
+**Medido en la misma base, mismas imágenes, mismo motor:**
+
+| Captura | Zonas del mapa | ms | caracteres leídos |
+|---|---|---|---|
+| id 8 | **4** | **1599** | 171 |
+| id 7 | **4** | **1588** | 111 |
+| id 6 | 0 | 2278 | 292 |
+| id 5 | 0 | 2356 | 292 |
+| id 4 | 0 | 2683 | 287 |
+| id 3 | 0 | 2502 | 289 |
+
+**Con mapa ~1590 ms, sin mapa ~2450 ms: 35% menos.** El mecanismo se ve en la última columna: con
+mapa se reconocen ~140 caracteres en vez de ~290.
+
+**La cifra de «3.841 → 900 ms» del plan es de la etapa `rec` aislada**, medida en el spike. De punta
+a punta el total incluye la **detección**, que sigue corriendo sobre la imagen entera. La mejora es
+real y consistente, pero conviene citarla como **35% end-to-end** y no como 4×, que es lo que hoy
+sugiere el plan.

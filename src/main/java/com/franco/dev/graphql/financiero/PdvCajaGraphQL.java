@@ -199,6 +199,17 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findActiveBySucursalId(sucursalId);
     }
 
+    /**
+     * Los cajeros que hoy estan en caja en la sucursal.
+     *
+     * Existe aparte de cajaAbiertoPorSucursal porque ese devuelve todo lo que tiene activo = true,
+     * que incluye cajas abandonadas de anios anteriores. Ese comportamiento se deja intacto porque
+     * la grilla de cajas y los balances dependen de el; aca hace falta el criterio estricto.
+     */
+    public List<Usuario> cajerosConCajaAbiertaPorSucursal(Long sucursalId) {
+        return service.findCajerosConCajaAbiertaBySucursalId(sucursalId);
+    }
+
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
         // Ruteo a la filial SOLO cuando el caller no especifica impresora (frc-mobile envia
         // printerName=null y la filial resuelve su propia config). El desktop siempre envia

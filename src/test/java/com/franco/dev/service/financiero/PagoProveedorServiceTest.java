@@ -64,12 +64,16 @@ class PagoProveedorServiceTest {
                 mock(com.franco.dev.service.rrhh.LiquidacionFinalService.class);
         com.franco.dev.service.rrhh.AguinaldoService aguinaldoService =
                 mock(com.franco.dev.service.rrhh.AguinaldoService.class);
+        // Espeja el gasto pagado desde la caja mayor en financiero.gasto; estos tests miran el
+        // motor de pago, no el espejo.
+        GastoTesoreriaService gastoTesoreriaService = mock(GastoTesoreriaService.class);
         // El ACL de cajas acota detalleDePago; estos tests no lo ejercitan.
         TesoreriaSecurityService seguridad = mock(TesoreriaSecurityService.class);
         service = new PagoProveedorService(solicitudPagoService, pagoService, tesoreriaService, bancoLedgerService,
                 chequeGestionService, chequeraRepo, cajaVirtualRepository, monedaRepository, detalleRepo,
                 seguridad, movBancarioRepo,
-                preGastoService, valeService, liquidacionSueldoService, liquidacionFinalService, aguinaldoService);
+                preGastoService, gastoTesoreriaService, valeService, liquidacionSueldoService,
+                liquidacionFinalService, aguinaldoService);
 
         com.franco.dev.domain.personas.Persona persona = new com.franco.dev.domain.personas.Persona(); persona.setNombre("PROV X");
         Proveedor prov = new Proveedor(); prov.setId(7L); prov.setPersona(persona);

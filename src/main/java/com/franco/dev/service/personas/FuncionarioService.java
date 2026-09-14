@@ -7,6 +7,7 @@ import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.personas.enums.TipoCliente;
 import com.franco.dev.repository.personas.FuncionarioRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.personas.event.FuncionarioInactivadoEvent;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,6 +27,7 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
     private final FuncionarioRepository repository;
     private final UsuarioService usuarioService;
     private final ClienteService clienteService;
+    private final org.springframework.context.ApplicationEventPublisher publisher;
 
     @Override
     public FuncionarioRepository getRepository() {
@@ -81,6 +83,12 @@ public class FuncionarioService extends CrudService<Funcionario, FuncionarioRepo
 
         if (!esNuevo && !Objects.equals(activoAnterior, e.getActivo())) {
             aplicarCascadaEstado(e);
+            // La baja se avisa desde la transicion y no desde cada boton: al funcionario lo
+            // inactivan egresar(), el pago del finiquito, el pago por tesoreria y el toggle
+            // del legajo, y solo el primero pasa por egresar(). Ver issue #295.
+            if (Boolean.FALSE.equals(e.getActivo())) {
+                publisher.publishEvent(new FuncionarioInactivadoEvent(this, e.getId()));
+            }
         }
         return e;
     }

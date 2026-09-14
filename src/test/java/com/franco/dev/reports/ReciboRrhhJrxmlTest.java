@@ -48,6 +48,30 @@ public class ReciboRrhhJrxmlTest {
             JasperPrint print = JasperFillManager.fillReport(jr, p, new JRBeanCollectionDataSource(rows));
             byte[] pdf = JasperExportManager.exportReportToPdf(print);
             org.junit.jupiter.api.Assertions.assertTrue(pdf != null && pdf.length > 0, "Fallo plantilla " + tpl);
+
+            // Un staticText cuyo alto no alcanza para su fuente se rellena VACIO, sin error:
+            // el recibo sale sin encabezado de columnas y solo se nota mirando el PDF.
+            // Ver que el texto sobrevivio al fill, no solo que el PDF pesa algo.
+            String textos = textosDelPrint(print);
+            for (String esperado : new String[]{"Concepto", "Monto"}) {
+                org.junit.jupiter.api.Assertions.assertTrue(textos.contains(esperado),
+                        "La plantilla " + tpl + " no imprime el encabezado '" + esperado
+                                + "'. Suele ser el alto del staticText, que no entra para su fuente"
+                                + " y Jasper lo recorta a vacio. Textos: " + textos);
+            }
         }
+    }
+
+    /** Concatena el texto de todos los elementos del print, para aseverar sobre el resultado del fill. */
+    private String textosDelPrint(JasperPrint print) {
+        StringBuilder sb = new StringBuilder();
+        for (net.sf.jasperreports.engine.JRPrintPage page : print.getPages()) {
+            for (Object o : page.getElements()) {
+                if (o instanceof net.sf.jasperreports.engine.JRPrintText) {
+                    sb.append(((net.sf.jasperreports.engine.JRPrintText) o).getFullText()).append(" | ");
+                }
+            }
+        }
+        return sb.toString();
     }
 }

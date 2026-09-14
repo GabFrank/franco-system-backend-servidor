@@ -28,6 +28,8 @@ import javax.persistence.criteria.Predicate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import com.franco.dev.domain.personas.Usuario;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -643,6 +645,14 @@ public class PdvCajaService extends CrudService<PdvCaja, PdvCajaRepository, Long
      */
     public List<PdvCaja> findActiveBySucursalId(Long sucursalId) {
         return repository.findBySucursalIdAndActivo(sucursalId, true);
+    }
+
+    /**
+     * Los cajeros que hoy estan en caja en la sucursal, ya deduplicados: un mismo cajero puede
+     * tener mas de una caja abierta. Ver el detalle del criterio en el repositorio.
+     */
+    public List<Usuario> findCajerosConCajaAbiertaBySucursalId(Long sucursalId) {
+        return repository.findCajerosConCajaAbiertaBySucursalId(sucursalId);
     }
 
     public List<PdvCaja> findCajasWithVentaObservaciones() {

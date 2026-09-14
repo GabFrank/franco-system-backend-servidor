@@ -87,7 +87,9 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
             Long sucId) {
         java.time.LocalDateTime fechaInicio = stringToDate(inicio);
         java.time.LocalDateTime fechaFin = stringToDate(fin);
-        Long sucursalIdFiltro = (sucId != null && sucId > 0) ? sucId : null;
+        // sucId 0 es la sucursal SERVIDOR (gastos pagados desde la caja mayor), no el
+        // centinela de "todas": null es el unico que significa todas.
+        Long sucursalIdFiltro = (sucId != null && sucId >= 0) ? sucId : null;
         List<Object[]> results = sucursalIdFiltro != null
                 ? repository.gastosPorCategoria(fechaInicio, fechaFin, sucursalIdFiltro)
                 : repository.gastosPorCategoriaSinSucursal(fechaInicio, fechaFin);
@@ -105,7 +107,8 @@ public class GastoService extends CrudService<Gasto, GastoRepository, EmbebedPri
     public List<com.franco.dev.domain.financiero.GastoPorMes> gastosPorMes(Integer anio, Long sucId) {
         java.time.LocalDateTime inicio = java.time.LocalDateTime.of(anio, 1, 1, 0, 0);
         java.time.LocalDateTime fin = java.time.LocalDateTime.of(anio, 12, 31, 23, 59, 59);
-        Long sucursalIdFiltro = (sucId != null && sucId > 0) ? sucId : null;
+        // Idem gastosPorCategoria: 0 es SERVIDOR, no "todas".
+        Long sucursalIdFiltro = (sucId != null && sucId >= 0) ? sucId : null;
         List<Object[]> results = sucursalIdFiltro != null
                 ? repository.gastosPorMes(inicio, fin, sucursalIdFiltro)
                 : repository.gastosPorMesSinSucursal(inicio, fin);

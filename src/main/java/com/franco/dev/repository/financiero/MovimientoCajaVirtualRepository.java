@@ -41,13 +41,15 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
      * {@code tipo} llega como String (name del enum) y se compara contra la columna casteada a texto:
      * el enum es nativo de Postgres y un bind param nulo de enum rompe con 42P18. Castear a texto lo evita.
      */
-    @Query("select m from MovimientoCajaVirtual m where m.cajaVirtual.id = :cajaId "
+    String FILTER_JPQL = "select m from MovimientoCajaVirtual m where m.cajaVirtual.id = :cajaId "
             + "and (cast(:desde as timestamp) is null or m.creadoEn >= :desde) "
             + "and (cast(:fin as timestamp) is null or m.creadoEn <= :fin) "
             + "and (:tipo is null or cast(m.tipoMovimiento as string) = :tipo) "
             + "and (:monedaId is null or m.moneda.id = :monedaId) "
             + "and (:soloActivos = false or m.activo = true) "
-            + "order by m.creadoEn desc")
+            + "order by m.creadoEn desc";
+
+    @Query(FILTER_JPQL)
     Page<MovimientoCajaVirtual> filter(@Param("cajaId") Long cajaId,
                                        @Param("desde") LocalDateTime desde,
                                        @Param("fin") LocalDateTime fin,
@@ -55,4 +57,13 @@ public interface MovimientoCajaVirtualRepository extends JpaRepository<Movimient
                                        @Param("monedaId") Long monedaId,
                                        @Param("soloActivos") boolean soloActivos,
                                        Pageable pageable);
+
+    /** Mismo filtro sin paginar: el reporte imprime todo lo que la lista muestra en páginas. */
+    @Query(FILTER_JPQL)
+    List<MovimientoCajaVirtual> filterList(@Param("cajaId") Long cajaId,
+                                           @Param("desde") LocalDateTime desde,
+                                           @Param("fin") LocalDateTime fin,
+                                           @Param("tipo") String tipo,
+                                           @Param("monedaId") Long monedaId,
+                                           @Param("soloActivos") boolean soloActivos);
 }

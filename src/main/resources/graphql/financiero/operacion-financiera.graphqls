@@ -88,7 +88,8 @@ extend type Query {
     operacionesFinancieras(page: Int = 0, size: Int = 10): OperacionFinancieraPage
     operacionFinanciera(id: ID!): OperacionFinanciera
     operacionFinancieraCategorias: [OperacionFinancieraCategoria]
-    movimientosBancarios(cuentaBancariaId: ID!, page: Int = 0, size: Int = 10): MovimientoBancarioPage
+    # tipo: name de MovimientoBancarioTipo (ENTRADA_MANUAL, SALIDA_MANUAL, ...). fin es inclusivo (fin del día).
+    movimientosBancarios(cuentaBancariaId: ID!, desde: String, fin: String, tipo: String, soloActivos: Boolean, page: Int = 0, size: Int = 10): MovimientoBancarioPage
 }
 
 extend type Mutation {

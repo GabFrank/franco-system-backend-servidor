@@ -4,7 +4,9 @@ import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.operaciones.MovimientoStock;
 import com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto;
 import com.franco.dev.domain.operaciones.dto.ProductoSaldoDto;
+import com.franco.dev.domain.operaciones.dto.ComprasPorSucursalDto;
 import com.franco.dev.domain.operaciones.dto.StockPorSucursalDto;
+import com.franco.dev.domain.operaciones.dto.VentasPorSucursalDto;
 import com.franco.dev.domain.operaciones.enums.TipoMovimiento;
 import com.franco.dev.repository.HelperRepository;
 import org.springframework.data.domain.Page;
@@ -53,6 +55,63 @@ public interface MovimientoStockRepository
                         "where p.estado = true and pro.id = ?1 " +
                         "group by p.sucursalId")
         public List<StockPorSucursalDto> stockPorSucursales(Long proId);
+
+        /**
+         * Cuanto se vendio del producto en cada sucursal del rango, en UNA consulta.
+         *
+         * Reemplaza a bajarse los movimientos de VENTA —hasta 1000 por sucursal— para que el
+         * cliente los sume. Se filtra {@code estado = true} a proposito: una venta cancelada no
+         * es consumo, y contarla infla la cantidad sugerida.
+         *
+         * Se compara el tipo con {@code cast(... as text)} porque {@code tipo_movimiento} es un
+         * enum de Postgres, igual que en el resto de las consultas de esta interfaz.
+         */
+        @Query("select new com.franco.dev.domain.operaciones.dto.VentasPorSucursalDto(ms.sucursalId, SUM(ABS(ms.cantidad))) "
+                        +
+                        "from MovimientoStock ms " +
+                        "join ms.producto p " +
+                        "where p.id = (:productoId) " +
+                        "and ((:sucursalList) is null or ms.sucursalId in (:sucursalList)) " +
+                        "and ms.estado = true " +
+                        "and cast(ms.tipoMovimiento as text) = 'VENTA' " +
+                        "and ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp) "
+                        +
+                        "group by ms.sucursalId")
+        public List<VentasPorSucursalDto> ventasPorSucursal(
+                        @Param("productoId") Long productoId,
+                        @Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin,
+                        @Param("sucursalList") List<Long> sucursalList);
+
+        /**
+         * Cuantas veces entro el producto a cada sucursal del rango y entre que fechas, en UNA
+         * consulta.
+         *
+         * Entrada es COMPRA, o TRANSFERENCIA con cantidad positiva: una transferencia negativa es
+         * la salida del otro lado y el cliente ya la descartaba.
+         *
+         * Se cuenta {@code creadoEn} y no la entidad porque {@code MovimientoStock} tiene clave
+         * compuesta ({@code @IdClass}) y {@code count(ms)} genera un {@code count} de dos columnas
+         * que Postgres rechaza.
+         */
+        @Query("select new com.franco.dev.domain.operaciones.dto.ComprasPorSucursalDto(ms.sucursalId, COUNT(ms.creadoEn), MIN(ms.creadoEn), MAX(ms.creadoEn)) "
+                        +
+                        "from MovimientoStock ms " +
+                        "join ms.producto p " +
+                        "where p.id = (:productoId) " +
+                        "and ((:sucursalList) is null or ms.sucursalId in (:sucursalList)) " +
+                        "and ms.estado = true " +
+                        "and (cast(ms.tipoMovimiento as text) = 'COMPRA' " +
+                        "     or (cast(ms.tipoMovimiento as text) = 'TRANSFERENCIA' and ms.cantidad > 0)) "
+                        +
+                        "and ms.creadoEn between cast((:inicio) as timestamp) and cast((:fin) as timestamp) "
+                        +
+                        "group by ms.sucursalId")
+        public List<ComprasPorSucursalDto> comprasPorSucursal(
+                        @Param("productoId") Long productoId,
+                        @Param("inicio") LocalDateTime inicio,
+                        @Param("fin") LocalDateTime fin,
+                        @Param("sucursalList") List<Long> sucursalList);
 
         @Query("select new com.franco.dev.domain.operaciones.dto.MovimientoStockCantidadAndIdDto(COALESCE(SUM(p.cantidad), 0), MAX(p.id), count(p.id)) "
                         +

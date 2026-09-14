@@ -214,20 +214,15 @@ public class ValeService extends CrudService<Vale, ValeRepository, Long> {
 
     private void revertirEgresoCaja(Vale vale) {
         if (vale.getCajaVirtualId() == null) return;
-        CajaVirtual caja = cajaVirtualService.findById(vale.getCajaVirtualId())
-                .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
-        MovimientoCajaVirtual rev = new MovimientoCajaVirtual();
-        rev.setCajaVirtual(caja);
-        rev.setTipoMovimiento(CajaVirtualTipoMovimiento.AJUSTE);
-        rev.setCantidad(vale.getMonto() != null ? vale.getMonto().doubleValue() : 0.0);
-        rev.setMoneda(vale.getMoneda());
-        rev.setReferenciaId(vale.getId());
-        rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_VALE);
-        rev.setOrigenId(vale.getId());
-        rev.setDescripcion("ANULACION VALE #" + vale.getId());
-        rev.setUsuario(vale.getUsuario());
-        rev.setActivo(true);
-        movimientoCajaVirtualService.registrarMovimiento(rev);
+        if (vale.getMovimientoCajaVirtualId() == null) {
+            throw new GraphQLException("El vale #" + vale.getId() + " esta confirmado contra una caja"
+                    + " pero no tiene movimiento asociado: no se puede revertir sin dejar la caja descuadrada.");
+        }
+        // La reversa la arma tesoreria, que recalcula el efecto del movimiento original, lo niega
+        // y marca el original como inactivo. Copiar el monto a mano en un AJUSTE solo revierte
+        // cuando el monto es positivo, y deja el movimiento original sin tachar.
+        movimientoCajaVirtualService.revertirMovimiento(vale.getMovimientoCajaVirtualId(),
+                "ANULACION VALE #" + vale.getId(), vale.getUsuario());
     }
 
     /** Sufijo " - NOMBRE" para las descripciones de los movimientos (vacio si no hay). */

@@ -588,6 +588,15 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     public LiquidacionFinal pagar(Long id, Long cajaVirtualId) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.APROBADA) throw new GraphQLException("Solo se paga una APROBADA");
+        // Total negativo = los descuentos superan a los haberes: el funcionario le debe a la
+        // empresa y no hay finiquito que pagarle. Sin este corte el EGRESO se postea con la
+        // cantidad negada y saca de la caja justamente lo que habria que cobrar.
+        BigDecimal total = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
+        if (total.signum() < 0) {
+            throw new GraphQLException("El finiquito #" + lf.getId() + " tiene total negativo ("
+                    + total.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
+                    + " Corrija los items o cobre la diferencia por separado.");
+        }
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -737,19 +746,15 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() == LiquidacionFinalEstado.ANULADA) return lf;
         if (lf.getEstado() == LiquidacionFinalEstado.PAGADA && lf.getCajaVirtualId() != null) {
-            CajaVirtual caja = cajaVirtualService.findById(lf.getCajaVirtualId())
-                    .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
-            MovimientoCajaVirtual rev = new MovimientoCajaVirtual();
-            rev.setCajaVirtual(caja);
-            rev.setTipoMovimiento(CajaVirtualTipoMovimiento.AJUSTE);
-            rev.setCantidad(lf.getTotalLiquidado() != null ? lf.getTotalLiquidado().doubleValue() : 0.0);
-            rev.setMoneda(lf.getMoneda());
-            rev.setReferenciaId(lf.getId());
-            rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_FINAL);
-            rev.setOrigenId(lf.getId());
-            rev.setDescripcion("ANULACION LIQUIDACION FINAL #" + lf.getId());
-            rev.setActivo(true);
-            movimientoCajaVirtualService.registrarMovimiento(rev);
+            if (lf.getMovimientoCajaVirtualId() == null) {
+                throw new GraphQLException("El finiquito #" + lf.getId() + " esta pagado contra una caja"
+                        + " pero no tiene movimiento asociado: no se puede revertir sin dejar la caja descuadrada.");
+            }
+            // La reversa la arma tesoreria, que recalcula el efecto del movimiento original y lo
+            // niega. Copiar el total a mano en un AJUSTE solo revierte cuando el total es
+            // positivo: con total negativo vuelve a descontar en vez de devolver.
+            movimientoCajaVirtualService.revertirMovimiento(lf.getMovimientoCajaVirtualId(),
+                    "ANULACION LIQUIDACION FINAL #" + lf.getId(), lf.getUsuario());
             // Revertir el saldado de vales/cuotas.
             aplicarEfectosCruzados(lf, false);
         }

@@ -45,6 +45,7 @@ public class ReporteRrhhService {
     private final com.franco.dev.repository.rrhh.BonoRepository bonoRepository;
     private final com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService;
     private final com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService;
+    private final com.franco.dev.service.general.CiudadService ciudadService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales
 
@@ -57,7 +58,8 @@ public class ReporteRrhhService {
                               com.franco.dev.repository.rrhh.PenalizacionRepository penalizacionRepository,
                               com.franco.dev.repository.rrhh.BonoRepository bonoRepository,
                               com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService,
-                              com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService) {
+                              com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService,
+                              com.franco.dev.service.general.CiudadService ciudadService) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
@@ -68,32 +70,79 @@ public class ReporteRrhhService {
         this.bonoRepository = bonoRepository;
         this.numeroALetrasService = numeroALetrasService;
         this.configuracionGeneralService = configuracionGeneralService;
+        this.ciudadService = ciudadService;
     }
 
-    /** Nómina del mes: liquidaciones aprobadas/pagadas del período. */
+    /**
+     * Nómina del mes: liquidaciones aprobadas/pagadas del período.
+     *
+     * @param ciudadId  si viene, solo funcionarios cuya sucursal es de esa ciudad
+     * @param sinCiudad si es true, solo funcionarios sin sucursal asignada (los que no caen
+     *                  en ninguna ciudad). Sin ninguno de los dos, la nómina general.
+     */
     @Transactional(readOnly = true)
-    public String nominaMesBase64(String periodo) {
+    public String nominaMesBase64(String periodo, Long ciudadId, Boolean sinCiudad) {
         validarPeriodo(periodo);
-        List<NominaMesItemDto> filas = new ArrayList<>();
+        boolean soloSinCiudad = Boolean.TRUE.equals(sinCiudad);
+        // El reporte agrupa por forma de cobro, asi que las filas se arman en dos listas y
+        // se concatenan: primero BANCO, despues EFECTIVO. Jasper agrupa sobre el orden del
+        // datasource, no ordena por su cuenta.
+        List<NominaMesItemDto> banco = new ArrayList<>();
+        List<NominaMesItemDto> efectivo = new ArrayList<>();
         BigDecimal totalNeto = BigDecimal.ZERO;
+        BigDecimal totalBanco = BigDecimal.ZERO;
+        BigDecimal totalEfectivo = BigDecimal.ZERO;
         for (LiquidacionSueldo l : liquidacionSueldoRepository.findByPeriodoOrderByIdAsc(periodo)) {
             if (l.getEstado() != LiquidacionSueldoEstado.APROBADA && l.getEstado() != LiquidacionSueldoEstado.PAGADA) {
                 continue;
             }
-            filas.add(new NominaMesItemDto(
+            // La ciudad sale de la sucursal del funcionario, no de la persona: persona.ciudad
+            // no se carga en el legajo. Un funcionario sin sucursal no pertenece a ninguna
+            // ciudad, y por eso tiene su propia opcion en vez de quedar fuera de todo.
+            Long ciudadDeLaFila = ciudadDe(l.getFuncionario());
+            if (soloSinCiudad) {
+                if (ciudadDeLaFila != null) continue;
+            } else if (ciudadId != null && !ciudadId.equals(ciudadDeLaFila)) {
+                continue;
+            }
+            // La forma de cobro es el estado actual del legajo, no una foto del momento del
+            // pago: si el funcionario cambia de efectivo a banco, los periodos ya emitidos
+            // se reagrupan al reimprimirlos.
+            boolean cobraBanco = l.getFuncionario() != null && Boolean.TRUE.equals(l.getFuncionario().getCobraBanco());
+            BigDecimal neto = l.getTotalNeto() != null ? l.getTotalNeto() : BigDecimal.ZERO;
+            NominaMesItemDto fila = new NominaMesItemDto(
                     nombreFuncionario(l.getFuncionario()),
                     formatear(l.getTotalHaberes()),
                     formatear(l.getTotalDescuentos()),
-                    formatear(l.getTotalNeto())));
-            if (l.getTotalNeto() != null) totalNeto = totalNeto.add(l.getTotalNeto());
+                    formatear(l.getTotalNeto()),
+                    cobraBanco ? "BANCO" : "EFECTIVO",
+                    neto);
+            if (cobraBanco) {
+                banco.add(fila);
+                totalBanco = totalBanco.add(neto);
+            } else {
+                efectivo.add(fila);
+                totalEfectivo = totalEfectivo.add(neto);
+            }
+            totalNeto = totalNeto.add(neto);
         }
-        if (filas.isEmpty()) filas.add(new NominaMesItemDto("SIN LIQUIDACIONES", "0", "0", "0"));
+        List<NominaMesItemDto> filas = new ArrayList<>(banco);
+        filas.addAll(efectivo);
+        // Sin filas no se agrega un placeholder: caeria dentro de un grupo (quedaba listado
+        // como "COBRAN EN EFECTIVO") y ademas Jasper lo contaba, con lo que el subtotal decia
+        // "(1)" mientras el total decia "(0)". El jrxml usa whenNoDataType=AllSectionsNoDetail,
+        // asi que el reporte vacio sale con encabezado y totales en cero, sin grupos.
 
         Map<String, Object> params = new HashMap<>();
-        params.put("empresa", empresa(periodo));
+        params.put("empresa", empresa(periodo, ciudadId, soloSinCiudad));
         params.put("periodo", periodo);
         params.put("fecha", LocalDate.now().toString());
         params.put("totalNeto", formatear(totalNeto));
+        params.put("totalBanco", formatear(totalBanco));
+        params.put("totalEfectivo", formatear(totalEfectivo));
+        params.put("cantidadBanco", banco.size());
+        params.put("cantidadEfectivo", efectivo.size());
+        params.put("ciudad", nombreCiudad(ciudadId, soloSinCiudad));
 
         return generar("reports/nomina-mes.jrxml", params, filas);
     }
@@ -495,6 +544,23 @@ public class ReporteRrhhService {
         return formato.format(valor != null ? valor : BigDecimal.ZERO);
     }
 
+    /** Ciudad de la sucursal del funcionario, o null si no tiene sucursal (o la sucursal no tiene ciudad). */
+    private Long ciudadDe(Funcionario f) {
+        if (f == null || f.getSucursal() == null || f.getSucursal().getCiudad() == null) {
+            return null;
+        }
+        return f.getSucursal().getCiudad().getId();
+    }
+
+    /** Subtitulo del reporte segun el filtro aplicado. */
+    private String nombreCiudad(Long ciudadId, boolean soloSinCiudad) {
+        if (soloSinCiudad) return "SIN CIUDAD ASIGNADA";
+        if (ciudadId == null) return "TODAS LAS CIUDADES";
+        return ciudadService.findById(ciudadId)
+                .map(c -> c.getDescripcion() != null ? c.getDescripcion() : "")
+                .orElse("");
+    }
+
     private String nombreFuncionario(Funcionario f) {
         if (f != null && f.getPersona() != null && f.getPersona().getNombre() != null) {
             return f.getPersona().getNombre();
@@ -503,10 +569,22 @@ public class ReporteRrhhService {
     }
 
     private String empresa(String periodo) {
-        // primera liquidación del período con sucursal, si hay
+        return empresa(periodo, null, false);
+    }
+
+    /**
+     * Encabezado: nombre de la primera sucursal del período. Respeta el filtro de ciudad,
+     * porque si no un reporte acotado a una ciudad quedaba encabezado con la sucursal de
+     * otra. Para el corte "sin ciudad" no hay sucursal que mostrar y queda vacío.
+     */
+    private String empresa(String periodo, Long ciudadId, boolean soloSinCiudad) {
+        if (soloSinCiudad) return "";
         for (LiquidacionSueldo l : liquidacionSueldoRepository.findByPeriodoOrderByIdAsc(periodo)) {
             if (l.getFuncionario() != null && l.getFuncionario().getSucursal() != null
                     && l.getFuncionario().getSucursal().getNombre() != null) {
+                if (ciudadId != null && !ciudadId.equals(ciudadDe(l.getFuncionario()))) {
+                    continue;
+                }
                 return l.getFuncionario().getSucursal().getNombre();
             }
         }

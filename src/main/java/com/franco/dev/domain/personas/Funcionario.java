@@ -108,6 +108,10 @@ public class Funcionario implements Identifiable<Long> {
         @JoinColumn(name = "moneda_id", nullable = true)
         private Moneda moneda;
 
+        /** true = cobra por transferencia bancaria; false/null = cobra en efectivo. */
+        @Column(name = "cobra_banco")
+        private Boolean cobraBanco;
+
         @Column(name = "cuenta_bancaria")
         private String cuentaBancaria;
 

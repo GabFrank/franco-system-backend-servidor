@@ -4,6 +4,9 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.dto.CantidadSugeridaPorSucursalDto;
+import com.franco.dev.domain.operaciones.dto.ComprasPorSucursalDto;
+import com.franco.dev.domain.operaciones.dto.VentasPorSucursalDto;
 import com.franco.dev.domain.operaciones.dto.StockPorSucursalDto;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.TransferenciaItemLote;
@@ -26,7 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -69,6 +74,56 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
      */
     public List<StockPorSucursalDto> stockPorSucursales(Long proId) {
         return repository.stockPorSucursales(proId);
+    }
+
+    /**
+     * Los insumos de la cantidad sugerida del producto en cada sucursal, en DOS consultas.
+     *
+     * El diálogo de ítem de compra necesita, por sucursal, cuanto se vendio y cuantas compras hubo
+     * entre que fechas. Hasta ahora los sacaba bajandose los movimientos: dos requests encadenados
+     * por sucursal —el de ventas recien salia cuando volvia el de compras—, cada uno con
+     * {@code size: 1000}. Con 10 distribuciones eran 20 idas y vueltas y decenas de miles de filas
+     * al navegador para terminar en cuatro numeros por fila.
+     *
+     * Son dos consultas y no una con {@code CASE} adentro de los agregados a proposito:
+     * {@code tipo_movimiento} es un enum de Postgres, y un {@code SUM(case ...)} proyectado a un
+     * DTO deja el tipo de retorno —{@code Double} o {@code BigDecimal}— a merced de como lo infiera
+     * Hibernate. Lo que habia que bajar son los requests HTTP, no las consultas: las dos salen en
+     * el mismo request y usan el mismo indice.
+     *
+     * A diferencia de {@code findByFilters}, que es lo que usaba el cliente, acá se filtra
+     * {@code estado = true}: una venta cancelada o una transferencia rechazada no son consumo.
+     *
+     * Una sucursal sin movimientos en el rango no vuelve en la lista —no hay filas que agrupar—;
+     * el llamador la muestra en cero.
+     */
+    public List<CantidadSugeridaPorSucursalDto> cantidadSugeridaPorSucursales(Long productoId,
+            LocalDateTime inicio, LocalDateTime fin, List<Long> sucursalList) {
+        Map<Long, CantidadSugeridaPorSucursalDto> porSucursal = new TreeMap<>();
+
+        for (VentasPorSucursalDto fila : repository.ventasPorSucursal(productoId, inicio, fin, sucursalList)) {
+            filaDe(porSucursal, fila.getSucursalId())
+                    .setTotalVentas(fila.getTotalVentas() != null ? fila.getTotalVentas() : 0.0);
+        }
+
+        for (ComprasPorSucursalDto fila : repository.comprasPorSucursal(productoId, inicio, fin, sucursalList)) {
+            CantidadSugeridaPorSucursalDto destino = filaDe(porSucursal, fila.getSucursalId());
+            destino.setCantidadCompras(fila.getCantidadCompras() != null ? fila.getCantidadCompras() : 0L);
+            destino.setPrimeraCompra(fila.getPrimeraCompra());
+            destino.setUltimaCompra(fila.getUltimaCompra());
+        }
+
+        return new ArrayList<>(porSucursal.values());
+    }
+
+    /**
+     * La fila de esa sucursal, creandola en cero si todavia no esta. Una sucursal puede venir en
+     * una sola de las dos consultas —vendio pero no compro, o al reves— y en ese caso el otro lado
+     * vale cero, no null: es lo que el cliente espera para hacer la cuenta.
+     */
+    private CantidadSugeridaPorSucursalDto filaDe(Map<Long, CantidadSugeridaPorSucursalDto> acc, Long sucursalId) {
+        return acc.computeIfAbsent(sucursalId,
+                id -> new CantidadSugeridaPorSucursalDto(id, 0.0, 0L, null, null));
     }
 
     public Double stockByProductoId(Long proId) {

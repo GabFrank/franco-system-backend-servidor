@@ -63,6 +63,7 @@ public class PagoProveedorService {
     private final TesoreriaSecurityService seguridad;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final PreGastoService preGastoService;
+    private final GastoTesoreriaService gastoTesoreriaService;
     // Sin ciclo: ValeService no conoce el motor de pago (el que sí lo usa es ValeTesoreriaService).
     private final com.franco.dev.service.rrhh.ValeService valeService;
     private final com.franco.dev.service.rrhh.LiquidacionSueldoService liquidacionSueldoService;
@@ -534,6 +535,9 @@ public class PagoProveedorService {
             }
             // Si el gasto vino de un PreGasto (workflow de aprobación), sincronizar su estado.
             preGastoService.sincronizarDesdeSolicitudPago(sp);
+            // Un gasto pagado desde la caja mayor se materializa en financiero.gasto (sucursal 0),
+            // que es lo que leen el gráfico por categoría y la lista de gastos.
+            gastoTesoreriaService.sincronizarDesdeSolicitudPago(sp);
             // Si la obligación era de un vale de RRHH, dejarlo CONFIRMADO (es lo que mira la
             // liquidación para descontarlo del sueldo).
             valeService.sincronizarDesdeSolicitudPago(sp);
@@ -620,6 +624,8 @@ public class PagoProveedorService {
             solicitudPagoService.desmarcarNotasComoPagadas(sp.getId());
             // Si es un gasto con PreGasto, revertir su estado (PAGADO → ENVIADO_A_TESORERIA).
             preGastoService.sincronizarDesdeSolicitudPago(sp);
+            // El gasto materializado queda cancelado: deja de sumar en el gráfico y en la lista.
+            gastoTesoreriaService.sincronizarDesdeSolicitudPago(sp);
             // Si era el pago de un vale, vuelve a quedar pendiente de entrega (CONFIRMADO → SOLICITADO).
             valeService.sincronizarDesdeSolicitudPago(sp);
             // Idem para los demas conceptos de RRHH pagables desde el hub de la caja

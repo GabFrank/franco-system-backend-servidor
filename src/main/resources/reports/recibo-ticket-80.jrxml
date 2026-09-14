@@ -11,7 +11,7 @@
 	<field name="concepto" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
 	<title>
-		<band height="120" splitType="Stretch">
+		<band height="95" splitType="Stretch">
 			<textField isStretchWithOverflow="true">
 				<reportElement x="0" y="0" width="215" height="12"/>
 				<textElement textAlignment="Center"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
@@ -46,17 +46,17 @@
 				<graphicElement><pen lineWidth="0.75"/></graphicElement>
 			</line>
 			<staticText>
-				<reportElement x="0" y="77" width="140" height="12" positionType="Float"/>
+				<reportElement x="0" y="77" width="140" height="14" positionType="Float"/>
 				<textElement><font fontName="SansSerif" size="9" isBold="true"/></textElement>
 				<text><![CDATA[Concepto]]></text>
 			</staticText>
 			<staticText>
-				<reportElement x="140" y="77" width="75" height="12" positionType="Float"/>
+				<reportElement x="140" y="77" width="75" height="14" positionType="Float"/>
 				<textElement textAlignment="Right"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
 				<text><![CDATA[Monto]]></text>
 			</staticText>
 			<line>
-				<reportElement x="0" y="90" width="215" height="1" positionType="Float"/>
+				<reportElement x="0" y="92" width="215" height="1" positionType="Float"/>
 				<graphicElement><pen lineWidth="0.5"/></graphicElement>
 			</line>
 		</band>

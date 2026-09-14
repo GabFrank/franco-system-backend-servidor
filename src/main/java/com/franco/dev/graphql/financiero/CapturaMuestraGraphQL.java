@@ -77,6 +77,7 @@ public class CapturaMuestraGraphQL implements GraphQLQueryResolver, GraphQLMutat
         public Double getX2() { return r.x2 == null ? null : r.x2.doubleValue(); }
         public Double getY2() { return r.y2 == null ? null : r.y2.doubleValue(); }
         public String getSinRegion() { return r.sinRegion; }
+        public String getTipo() { return r.tipo; }
     }
 
     @Autowired

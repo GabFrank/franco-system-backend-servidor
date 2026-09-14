@@ -47,6 +47,19 @@ public class DerivadorMapa {
         public final BigDecimal x1, y1, x2, y2;
         /** Null si se derivo bien. Si no, por que no se pudo. */
         public final String sinRegion;
+        /**
+         * TEXTO | NUMERO | FECHA, deducido del valor de la muestra.
+         *
+         * <p>Se deduce aca y no se pide al operador porque el valor leido ya lo dice: si la muestra
+         * trajo {@code 883921}, ese campo es numerico en ese modelo de aparato. Lo consume el filial
+         * al leer un cupon: un valor que no encaja con su tipo se marca como dudoso y el semaforo lo
+         * levanta.
+         *
+         * <p>Es la defensa contra el modo de falla mas caro del OCR, que no es no leer sino
+         * <b>leer plausible y mal</b>: {@code O} por {@code 0} en un codigo de autorizacion pasa
+         * inadvertido, y un cobro se concilia contra un codigo que no existe.
+         */
+        public final String tipo;
 
         RegionPropuesta(String campo, String etiqueta, String posicion, String valorLeido,
                         BigDecimal x1, BigDecimal y1, BigDecimal x2, BigDecimal y2, String sinRegion) {
@@ -54,9 +67,28 @@ public class DerivadorMapa {
             this.valorLeido = valorLeido;
             this.x1 = x1; this.y1 = y1; this.x2 = x2; this.y2 = y2;
             this.sinRegion = sinRegion;
+            this.tipo = tipoDe(valorLeido);
         }
 
         public boolean derivada() { return sinRegion == null; }
+
+        /**
+         * De que tipo es un campo, mirando el valor de la muestra.
+         *
+         * <p>Conservador a proposito: ante la duda devuelve {@code TEXTO}, que no restringe nada.
+         * Declarar {@code NUMERO} de mas convertiria una lectura buena en una sospecha, y el costo
+         * de eso --preguntarle al cajero por un dato que estaba bien-- se paga en cada venta.
+         */
+        static String tipoDe(String valor) {
+            if (valor == null) return null;
+            String v = valor.trim();
+            if (v.isEmpty()) return null;
+            if (v.matches("\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4}")
+                    || v.matches("\\d{4}[/-]\\d{1,2}[/-]\\d{1,2}")) return "FECHA";
+            // Digitos, con separadores de miles o decimales. Un guion o una letra lo sacan de aca.
+            if (v.matches("\\d[\\d.,]*")) return "NUMERO";
+            return "TEXTO";
+        }
 
         static RegionPropuesta noDerivada(String campo, String valor, String motivo) {
             return new RegionPropuesta(campo, null, null, valor, null, null, null, null, motivo);

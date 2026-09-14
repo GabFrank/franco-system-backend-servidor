@@ -50,6 +50,12 @@ type RegionDerivada {
     y2: Float
     "null si se derivó bien; si no, por qué no se pudo"
     sinRegion: String
+    """
+    TEXTO | NUMERO | FECHA, deducido del valor de la muestra. El desktop lo manda tal cual al
+    guardar el mapa; el filial lo usa al leer un cupón para marcar como dudoso un valor que no
+    encaja con su tipo.
+    """
+    tipo: String
 }
 
 extend type Query {

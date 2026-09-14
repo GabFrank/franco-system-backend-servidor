@@ -14,8 +14,19 @@ type FormatoTerminalPosRegion {
     etiqueta: String
     "DERECHA | ABAJO | DENTRO"
     posicion: String
-    "TEXTO | NUMERO | FECHA. Un campo declarado NUMERO rechaza un \"0i64\" del OCR gratis."
+    """
+    TEXTO | NUMERO | FECHA. Lo deduce la derivación del valor de la muestra, y lo lee el filial:
+    un valor extraído que no encaja con su tipo se marca como dudoso y el semáforo lo levanta.
+    No rechaza la lectura — la manda a revisar, que es lo que corresponde cuando el OCR lee algo
+    plausible y mal.
+    """
     tipo: String
+    """
+    ⚠️ NO es la fuente de la obligatoriedad. Lo que se le exige al cajero sale del `mapeo` del
+    formato y de `camposObligatorios` de la terminal — ver `camposObligatoriosEfectivos`. Este flag
+    no lo consume nadie hoy; queda por compatibilidad de la tabla y no hay que escribirlo esperando
+    que haga algo.
+    """
     obligatorio: Boolean
     "Pista geometrica normalizada 0..1. Las cuatro o ninguna."
     x1: Float

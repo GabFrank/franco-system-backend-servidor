@@ -290,4 +290,45 @@ public class DerivadorMapaTest {
         assertTrue(r.ok(), r.error);
         assertEquals(4, r.regiones.size());
     }
+
+    // ---- Deduccion del tipo del campo, a partir del valor de la muestra ----
+    //
+    // Importa el lado conservador: declarar NUMERO de mas convierte una lectura buena en una
+    // sospecha, y ese costo se paga en cada venta. Ante la duda, TEXTO, que no restringe nada.
+
+    @Test
+    void deduce_numero_de_un_valor_de_solo_digitos() {
+        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("883921"));
+        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("00045"));
+    }
+
+    @Test
+    void deduce_numero_aunque_traiga_separadores_de_miles_o_decimales() {
+        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("150.000"));
+        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("1.234,56"));
+    }
+
+    @Test
+    void deduce_fecha_en_los_dos_ordenes_usuales() {
+        assertEquals("FECHA", DerivadorMapa.RegionPropuesta.tipoDe("12/09/2026"));
+        assertEquals("FECHA", DerivadorMapa.RegionPropuesta.tipoDe("2026-09-12"));
+    }
+
+    @Test
+    void una_serie_alfanumerica_es_TEXTO_y_no_NUMERO() {
+        // JF798SJJ es una serie real de terminal: tiene digitos, pero no es un numero. Declararla
+        // NUMERO haria que toda lectura correcta de ese campo saliera a revision.
+        assertEquals("TEXTO", DerivadorMapa.RegionPropuesta.tipoDe("JF798SJJ"));
+    }
+
+    @Test
+    void un_valor_que_empieza_con_letra_nunca_es_NUMERO() {
+        assertEquals("TEXTO", DerivadorMapa.RegionPropuesta.tipoDe("O0451233"));
+    }
+
+    @Test
+    void sin_valor_no_se_deduce_nada() {
+        assertNull(DerivadorMapa.RegionPropuesta.tipoDe(null));
+        assertNull(DerivadorMapa.RegionPropuesta.tipoDe("   "));
+    }
 }

@@ -136,6 +136,28 @@ Cada región propuesta queda así:
 > posterior. Es la regla que hace seguro volver a derivar cuando cambia el papel: lo que alguien
 > ajustó mirando un cupón real sobrevive.
 
+### Una foto por derivación, y la última pisa a las anteriores
+
+**El mapa no se arma sumando fotos.** Cada corrida reemplaza lo derivado:
+
+| Región que ya existía | Qué le pasa |
+|---|---|
+| `MANUAL` | **se conserva siempre** — la derivación no la toca |
+| `DERIVADA`, y el campo está en la propuesta nueva | se actualiza |
+| `DERIVADA`, y el campo **no** está en la propuesta nueva | **se borra** |
+
+Lo último es deliberado: una región derivada que el patrón ya no produce **sigue acotando el
+reconocimiento** a una zona por un campo que no existe, y eso hace daño en silencio.
+
+**La consecuencia operativa:** derivar con una segunda foto donde salen menos campos **borra** los
+que la primera había encontrado. Para combinar entre fotos hay un rodeo —marcar como `MANUAL` lo que
+quedó bien, que entonces sobrevive— pero **derivación multi-imagen no existe**, y tendría sentido:
+dos tickets del mismo modelo varían en largo, líneas opcionales y dígitos del monto.
+
+**Y el patrón tiene que matchear antes de derivar.** Si no, no se propone nada y el mensaje lo dice.
+Por eso el paso «Lo que se leyó» **muestra el texto aunque el patrón no matchee**: es lo que se usa
+para escribir el patrón contra un cupón real.
+
 **La foto de muestra se descarta después de leerla.** No se guarda: la captura vive en memoria, con
 TTL de 20 minutos y tope de 50 capturas vivas.
 

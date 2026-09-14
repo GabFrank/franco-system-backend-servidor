@@ -438,3 +438,57 @@ Medido sobre los dos listados vecinos:
 
 La lista de terminales, que está al lado y es del mismo módulo, **ya implementa el patrón completo**.
 No hay que inventar nada: sirve de referencia directa para arreglar la de formatos.
+
+### H9 · El diálogo de imprimir código deja al usuario encerrado — y la causa es sistémica
+
+**Qué pasó.** Abriendo *Imprimir código* sobre una terminal, el diálogo quedó con el spinner
+girando para siempre, **«Cancelar» deshabilitado**, y la única salida fue la tecla `ESC`.
+
+**La cadena completa, de afuera hacia adentro:**
+
+1. `print-terminal-pos-dialog.component.html:53` —
+   `<button mat-button (click)="onCancel()" [disabled]="loading">Cancelar</button>`.
+   **Cancelar se apaga mientras `loading` sea true.** Cancelar un diálogo siempre es seguro:
+   deshabilitar la única salida visible es lo que convierte un cuelgue en una trampa.
+2. `loading` solo vuelve a `false` en los caminos previstos de `loadPrinters()` (`next` y `error`).
+3. `ElectronService.getPrinters()` hace `from(ipcRenderer.invoke('get-system-printers'))`
+   **sin chequear que haya Electron**. En el navegador `ipcRenderer` es `null`, así que eso lanza un
+   `TypeError` **sincrónico, antes de que exista el observable**: no lo ve el `catchError` del
+   `ThermalPrinterService`, no lo ve el handler `error` del `subscribe`, y `loading` se queda en
+   `true` para siempre.
+
+**Y el archivo declara la invariante que él mismo rompe**
+`[desktop:src/app/commons/core/electron/electron.service.ts:14]`:
+
+> *«Todo consumidor de `electron`/`ipcRenderer` está detrás del getter `isElectron` (false en web),
+> así que en browser quedan null sin romper.»*
+
+Medido sobre ese archivo: **de 12 métodos que tocan `ipcRenderer`, 11 no tienen guarda.** El único
+que chequea es `getAppVersion`. Sin guarda: `relaunch`, `print`, `getPrinters`, `detectLocalDevices`,
+`detectNetworkPrinters`, `getLocalIp`, `shareLocalPrinter`, `installLocalPrinter`, `printLocal`,
+`printTestLocal`, `printWithPosPrinter`.
+
+**Por qué importa más que antes.** El desktop **ya no es solo Electron**: la misma app se publica
+como web en Cloudflare Pages (`alpha.desk`, `beta.desk`, `farmacia.desk`, `bodega.desk`). Cada uno de
+esos 11 métodos revienta ahí.
+
+**Hay un segundo camino a la misma trampa**, todavía sin disparar: el `subscribe` de la impresión
+tiene solo handler `next`, sin `error`
+`[print-terminal-pos-dialog.component.ts:~134]`. Si la impresión falla, `loading` tampoco se
+restablece.
+
+**Tres arreglos, de más barato a más profundo:**
+
+| | Qué | Alcance |
+|---|---|---|
+| 1 | Sacar `[disabled]="loading"` de Cancelar | Este diálogo. Convierte una trampa en una molestia |
+| 2 | Agregar handler `error` al `subscribe` de impresión | Este diálogo |
+| 3 | Poner la guarda `isElectron` en los 11 métodos | **Todo el desktop web** |
+
+**Detalle visual del mismo diálogo:** el texto de error del select de impresora
+(*«Seleccione una impresora»*) **se superpone con la etiqueta «Cantidad\*»** del campo de abajo. Es
+el mismo problema de espaciado que el alta de terminal ya tuvo que resolver con márgenes explícitos.
+
+> **Nota de entorno:** la impresión térmica es Electron-only y el ciclo de implementación ya lo dice
+> —servir el desktop en el navegador no la cubre—. Pero eso explica *por qué no imprime*, no por qué
+> **encierra al usuario**. Lo segundo es un defecto real, y visible también en el desktop web.

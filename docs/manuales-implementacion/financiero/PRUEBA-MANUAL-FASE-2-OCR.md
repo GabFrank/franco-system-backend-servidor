@@ -492,3 +492,47 @@ el mismo problema de espaciado que el alta de terminal ya tuvo que resolver con 
 > **Nota de entorno:** la impresión térmica es Electron-only y el ciclo de implementación ya lo dice
 > —servir el desktop en el navegador no la cubre—. Pero eso explica *por qué no imprime*, no por qué
 > **encierra al usuario**. Lo segundo es un defecto real, y visible también en el desktop web.
+
+### H10 · El diálogo del mapa crece entre pasos, y el texto leído no tiene contraste
+
+**Contraste — es un bug, no una preferencia.** `.texto-ocr` pone
+`background: rgba(0, 0, 0, 0.25)` sobre una superficie que **ya es oscura**, y **nunca define
+`color`** `[desktop:.../derivar-mapa-dialog/derivar-mapa-dialog.component.scss:46]`. El `<pre>`
+hereda el gris atenuado del tema y queda gris oscuro sobre gris oscuro. Es el bloque **que hay que
+leer** para decidir si el OCR entendió el cupón.
+
+Toda superficie que oscurece su fondo tiene que declarar su color de texto: heredarlo es apostar a
+que el tema no cambie.
+
+**Tamaño.** El diálogo es `max-width: 620px` **sin alto definido**, así que arranca chico en el paso
+1 (dos botones) y da un salto en el paso 2 (texto leído + tabla). Pedido en la corrida: **tamaño
+estable desde el inicio**, y la disposición en dos columnas —
+
+| Izquierda | Derecha |
+|---|---|
+| la foto subida | lo que se leyó, y después la propuesta |
+
+Eso además aprovecha el ancho: hoy la foto **ni se muestra**, y es justamente contra lo que uno
+querría comparar el texto.
+
+> Nota: la convención de diálogos del repo es 65vw × 70vh. Este usa 620px fijos. Con la disposición
+> en dos cards, ir a la convención tiene sentido — al revés que el alta de terminal (H5), donde 45vw
+> es una excepción deliberada porque son ocho campos cortos.
+
+### H11 · El OCR volvió a leer `COMERCIO` como `COMERCI0` — y eso es una buena noticia
+
+En la corrida, sobre el cupón sintético **limpio**, la lectura devolvió:
+
+```
+COMERCI0:00451233
+```
+
+Con **cero** en lugar de la O. No es un defecto nuevo: es el mismo caso que motivó el semáforo de
+confianza, reproducido en vivo. Vale anotarlo porque es la evidencia de por qué el umbral existe:
+un campo puede salir **plausible y estar mal**, y sin el semáforo el cajero no tendría cómo notarlo.
+
+`COMERCIO` no es de los campos que el mapeo captura, así que no afecta esta prueba. Si algún formato
+futuro lo necesitara, es candidato a `tipo: NUMERO`, que rechaza la confusión gratis.
+
+**Tiempo medido:** 1505 ms para el cupón entero, **sin mapa**. Consistente con los 1552 ms de la
+prueba automatizada. Es exactamente el número que el mapa viene a bajar.

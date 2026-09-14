@@ -536,3 +536,63 @@ futuro lo necesitara, es candidato a `tipo: NUMERO`, que rechaza la confusión g
 
 **Tiempo medido:** 1505 ms para el cupón entero, **sin mapa**. Consistente con los 1552 ms de la
 prueba automatizada. Es exactamente el número que el mapa viene a bajar.
+
+### H12 · Dos columnas de la región no tienen lector — y una está documentada haciendo algo que no hace
+
+La derivación guardó las cuatro regiones bien: nombres canónicos, etiquetas ancla, `origen` y las
+cuatro coordenadas. **Pero `tipo` y `obligatorio` quedaron vacíos, y al buscar quién los lee,
+resultó que nadie.**
+
+**Cómo consume el filial el mapa.** `CapturaCuponService.zonasDe()` recorre las regiones y arma las
+zonas **leyendo solo `x1, y1, x2, y2`**
+`[filial:.../CapturaCuponService.java:278-286]`. La geometría es todo lo que llega al motor.
+
+| Columna | Quién la usa | Veredicto |
+|---|---|---|
+| `x1 y1 x2 y2` | `zonasDe()` → acota el reconocimiento | ✅ es el punto de todo esto |
+| `etiqueta`, `posicion` | la derivación para calcular las coordenadas, y la UI para que un humano revise y corrija | ✅ procedencia legítima |
+| `origen` | protege lo `MANUAL` de la siguiente derivación | ✅ |
+| **`tipo`** | `diff()`, `copiarEn()`, `validar()` — **nadie lo consume** | ❌ **sin lector** |
+| **`obligatorio`** | idem — y la obligatoriedad real sale del **mapeo** | ❌ **sin lector, y duplica** |
+
+**`tipo` es el caso serio, porque el schema afirma un comportamiento que no existe.**
+`formato-terminal-pos-region.graphqls` dice:
+
+> *«TEXTO | NUMERO | FECHA. Un campo declarado NUMERO rechaza un `"0i64"` del OCR gratis.»*
+
+**No lo rechaza.** Nada valida el valor extraído contra el `tipo` de la región. Y el ejemplo que la
+propia documentación elige —confundir `0` con `O`— es **justo el que apareció en esta corrida**
+(`COMERCI0`, H11). O sea: la defensa está documentada, tiene columna, se replica a las 24
+sucursales… y no está conectada.
+
+**`obligatorio` es más leve pero peor diseñado**: la obligatoriedad efectiva sale del mapeo del
+formato y de `camposObligatorios` de la terminal (`camposObligatoriosEfectivos`). Tener un tercer
+lugar donde declarar lo mismo, que nadie lee, es una fuente de verdad de más esperando divergir.
+
+**Es la misma clase que `datos_extra`**, el defecto que esta entrega vino a cerrar: columna,
+migración, espejo en filial, replicación — y ningún consumidor. Reproducido dos veces dentro de la
+propia corrección. Es exactamente lo que la **tabla de datos nuevos** del paso 4 del ciclo existe
+para atrapar, y esta entrega es anterior a esa regla.
+
+**Opciones, y no son equivalentes:**
+
+1. **Conectar `tipo`** en la extracción: validar/coercionar el valor según `TEXTO | NUMERO | FECHA`.
+   Es lo que el schema promete y lo que habría cazado `COMERCI0`.
+2. **Borrar los dos** y sacar la promesa del schema.
+
+Lo que **no** se puede dejar es el estado actual: documentación que afirma una defensa inexistente.
+
+### Prueba 4 — resultado
+
+✅ **Pasa.** Cuatro regiones derivadas con los nombres **canónicos** (`terminal`,
+`codigoAutorizacion`, `numeroBoleta`, `monto`) — no los grupos del patrón, así que la regresión del
+2026-09-12 no volvió. Etiquetas ancla correctas, `posicion = DENTRO`, `origen = DERIVADA`, las
+cuatro coordenadas presentes en todas.
+
+**Replicaron al filial idénticas**: md5 de campo+etiqueta+posición+coordenadas coincide en los dos
+nodos (`c4874e6f…`).
+
+**Y el motor de central cargó recién al usarlo**, no al arrancar: `OCR listo en 2287 ms` a las 15:16,
+con el servidor levantado desde las 13:58, en un hilo `http-nio-8081-exec`. Es la carga perezosa de
+central funcionando, y la contracara del filial, que carga al arrancar cuando el módulo está
+encendido.

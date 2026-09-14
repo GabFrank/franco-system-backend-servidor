@@ -412,3 +412,29 @@ va a ver siempre el pedido de escanear el código, que es el camino degradado.
 
 **Resuelto en la corrida**: la terminal vieja (`DEMO CAJA PRUEBA`, id 4) pasó a serie
 `DEMO-VIEJA-1`, y `JF798SJJ` ahora resuelve a una sola. Verificado que replicó al filial.
+
+### H8 · «Quitar formato» está en el menú de la fila, no en Configurar
+
+**Qué pasó.** Durante la corrida se indicó buscar la opción en el diálogo *Configurar*, y ahí no
+está. No es que falte: **está en el `mat-menu` de la fila del listado**, como *Quitar formato*, y se
+deshabilita sola cuando la terminal no tiene formato asignado
+`[desktop:.../list-terminal-pos/list-terminal-pos.component.html:197]`.
+
+Y está bien que esté ahí y no en un select con opción vacía: **quitar el formato le bloquea la venta
+con tarjeta a esa caja**, así que tiene que ser una acción deliberada y con confirmación, no el
+efecto lateral de dejar un campo vacío.
+
+**Para probar el candado:** en la terminal, apagar primero la carga a mano desde *Configurar*, y
+recién entonces intentar *Quitar formato* desde el menú de la fila. Se tiene que rechazar.
+
+### H2 bis · El contraste está dentro del mismo módulo
+
+Medido sobre los dos listados vecinos:
+
+| Listado | `mat-paginator` | `mat-menu` | filtros (`matInput`) | iconos sueltos |
+|---|---|---|---|---|
+| **Terminales POS** | 1 | 7 | 3 | 0 |
+| **Formatos de terminal POS** | **0** | **0** | **0** | **3** |
+
+La lista de terminales, que está al lado y es del mismo módulo, **ya implementa el patrón completo**.
+No hay que inventar nada: sirve de referencia directa para arreglar la de formatos.

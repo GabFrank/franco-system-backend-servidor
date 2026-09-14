@@ -353,3 +353,62 @@ tiene componente. Lo que hace falta es que esta pantalla lo use.
 Ya estaba documentado arriba, en la prueba 1: `150.000` se muestra como `150` porque la vista previa
 usa el parser de QR. **Confirmado en esta corrida.** No afecta la extracción real, que corre en el
 filial y se verifica en la prueba 5.
+
+### H4 · El error de negocio llega con DOS prefijos, los dos sistémicos
+
+**Qué se vio**, al intentar una serie repetida:
+
+```
+Ups! Algo salió mal en operacion: Exception while fetching data (/data) : La serie "JF798SJJ" ya
+esta registrada en la terminal "DEMO CAJA PRUEBA". Dos aparatos no pueden compartir identificador:
+el cupon no diria de cual salio.
+```
+
+El mensaje **de la derecha es bueno**: dice qué pasó, con qué terminal chocó y por qué importa. Lo
+que sobra es todo lo de adelante, y viene de dos lugares distintos, **ninguno de este módulo**:
+
+| Capa | Origen | Alcance |
+|---|---|---|
+| `"Ups! Algo salió mal: "` | `desktop:src/app/generics/generic-crud.service.ts:103, 159, 228` | **Todos** los módulos: es el CRUD base |
+| `"Exception while fetching data (/data) : "` | kickstart, no desenvuelto — ver **H1** | **Todo** `throw new GraphQLException` del backend |
+
+Son dos correcciones de una línea cada una, en dos archivos, y arreglan todos los módulos a la vez.
+
+### H5 · Diálogo de alta de terminal — ancho y disposición
+
+Pedido en la corrida: llevarlo a **45vw** y poner dos campos por línea, que hoy van de a uno:
+
+| Línea | Campos |
+|---|---|
+| 1 | descripción |
+| 2 | código · serie |
+| 3 | sucursal · moneda |
+| 4 | proveedor · formato |
+
+Hoy el diálogo tiene `max-width: 500px`
+`[desktop:.../add-terminal-pos-dialog/add-terminal-pos-dialog.component.scss:3]`, más angosto que
+la convención de diálogos del repo (65vw × 70vh). **45vw es una excepción deliberada**, no el
+default: este formulario tiene ocho campos cortos y a 65vw quedaría vacío a los costados.
+
+### H6 · El selector de proveedor puede ser un `mat-select`
+
+La lista de proveedores de servicio **nunca va a ser larga** —son las procesadoras de la plaza— así
+que no necesita buscador ni diálogo: entra en un select simple.
+
+### H7 · Dos terminales pueden compartir serie, y el sistema lo tolera a propósito
+
+**Lo que pasó.** Quedaron cargadas dos terminales con serie `JF798SJJ`: una **sin** proveedor y otra
+**con** proveedor. Ni los índices ni `validarSerieUnica` lo impiden, porque los dos trabajan **por
+ámbito**: con proveedor se compara contra las de ese proveedor, sin proveedor contra las que no
+tienen ninguno.
+
+**No es un bug, y el desktop lo maneja bien.** `resolverTerminalDelCupon` pide la serie exacta y, si
+vuelve más de una, **no elige**: le dice al cajero que escanee el código de la terminal. Adivinar
+sería cobrar contra la máquina equivocada y romper la conciliación sin que nadie lo note.
+
+**Pero tiene una consecuencia práctica para esta prueba**: mientras dos terminales compartan la
+serie del cupón de ejemplo, la resolución automática de la prueba 5 **no se puede ejercitar** — se
+va a ver siempre el pedido de escanear el código, que es el camino degradado.
+
+**Resuelto en la corrida**: la terminal vieja (`DEMO CAJA PRUEBA`, id 4) pasó a serie
+`DEMO-VIEJA-1`, y `JF798SJJ` ahora resuelve a una sola. Verificado que replicó al filial.

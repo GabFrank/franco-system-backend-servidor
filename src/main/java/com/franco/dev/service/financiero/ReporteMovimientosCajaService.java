@@ -166,7 +166,7 @@ public class ReporteMovimientosCajaService {
                     etiquetaCaja(m.getOrigenTipo(), m.getTipoMovimiento()),
                     m.getDescripcion(),
                     conSimbolo(monto(cantidad, mon), mon),
-                    m.getSaldoPosterior() != null ? monto(BigDecimal.valueOf(m.getSaldoPosterior()), mon) : "",
+                    m.getSaldoPosterior() != null ? conSimbolo(monto(BigDecimal.valueOf(m.getSaldoPosterior()), mon), mon) : "",
                     anulado));
             // El total no cuenta ni el anulado ni su contra-movimiento: sumados se cancelan, pero con
             // "ver anulaciones" apagado el anulado no viene y el contra sí, y el total cambiaría.
@@ -197,7 +197,7 @@ public class ReporteMovimientosCajaService {
                     TIPO_BANCO_LABELS.getOrDefault(tipoName, tipoName),
                     m.getDescripcion(),
                     conSimbolo(monto(monto, mon), mon),
-                    m.getSaldoPosterior() != null ? monto(m.getSaldoPosterior(), mon) : "",
+                    m.getSaldoPosterior() != null ? conSimbolo(monto(m.getSaldoPosterior(), mon), mon) : "",
                     anulado));
             if (!anulado && !OrigenMovimientoTipo.ANULACION.name().equals(m.getOrigenTipo())) {
                 BigDecimal efecto = BancoLedgerService.esEgreso(m.getTipoMovimiento()) ? monto.abs().negate() : monto.abs();
@@ -321,10 +321,11 @@ public class ReporteMovimientosCajaService {
             else egresos = egresos.add(efecto.negate());
         }
 
+        /** Una línea por moneda; cada importe lleva su símbolo, así se lee sin mirar el encabezado. */
         String linea() {
-            return etiquetaMoneda(moneda) + ":   Ingresos " + monto(ingresos, moneda)
-                    + "   ·   Egresos " + monto(egresos, moneda)
-                    + "   ·   Total " + monto(ingresos.subtract(egresos), moneda);
+            return "Ingresos: " + conSimbolo(monto(ingresos, moneda), moneda)
+                    + " - Egresos: " + conSimbolo(monto(egresos, moneda), moneda)
+                    + " - Total: " + conSimbolo(monto(ingresos.subtract(egresos), moneda), moneda);
         }
     }
 

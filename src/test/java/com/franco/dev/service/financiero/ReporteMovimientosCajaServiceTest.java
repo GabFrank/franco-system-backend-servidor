@@ -35,6 +35,7 @@ class ReporteMovimientosCajaServiceTest {
             new ReporteMovimientosCajaService(null, null, null, null, null, null);
 
     private static final LocalDateTime FECHA = LocalDateTime.of(2026, 9, 10, 14, 30);
+    private static final String NOMBRE_LARGO = "MAURO ROLANDO RIVAS FERNÁNDEZ";
 
     @Test
     void cajaTotalizaPorMonedaSinContarAnuladosNiSusContraMovimientos() {
@@ -62,8 +63,9 @@ class ReporteMovimientosCajaServiceTest {
         assertEquals("12,50 US$", c.filas.get(5).getMonto());
 
         String totales = (String) c.parametros.get("totales");
-        assertTrue(totales.contains("GUARANIES (Gs.):   Ingresos 100.000   ·   Egresos 32.000   ·   Total 68.000"), totales);
-        assertTrue(totales.contains("DOLARES (US$):   Ingresos 12,50   ·   Egresos 0,00   ·   Total 12,50"), totales);
+        assertTrue(totales.contains("Ingresos: 100.000 Gs. - Egresos: 32.000 Gs. - Total: 68.000 Gs."), totales);
+        assertTrue(totales.contains("Ingresos: 12,50 US$ - Egresos: 0,00 US$ - Total: 12,50 US$"), totales);
+        assertEquals("1.000.000 Gs.", c.filas.get(0).getSaldo(), "el saldo lleva el símbolo: sin filtro de moneda se mezclan");
         assertEquals("Caja Mayor", c.parametros.get("fuente"));
         assertEquals("Todas", c.parametros.get("monedaFiltro"));
         assertEquals("01/09/2026", c.parametros.get("desdeFiltro"));
@@ -94,7 +96,7 @@ class ReporteMovimientosCajaServiceTest {
         assertEquals("Sin límite", c.parametros.get("desdeFiltro"));
         assertEquals("No incluidos", c.parametros.get("anuladosFiltro"));
         assertEquals("Ajuste −", c.filas.get(3).getTipo());
-        assertTrue(((String) c.parametros.get("totales")).contains("Ingresos 5.000   ·   Egresos 1.000   ·   Total 4.000"));
+        assertTrue(((String) c.parametros.get("totales")).contains("Ingresos: 5.000 Gs. - Egresos: 1.000 Gs. - Total: 4.000 Gs."));
     }
 
     @Test
@@ -130,12 +132,16 @@ class ReporteMovimientosCajaServiceTest {
         String textos = textos(print);
         for (String esperado : new String[]{
                 "Movimientos de CAJA MAYOR CENTRAL", "Fuente: Caja Mayor", "Filtros aplicados", "01/09/2026",
-                "Sin límite", "Ingreso", "GUARANIES (Gs.)", "Incluidos (tachados)", "Resumen", "JUAN PEREZ",
-                "Generado el:", "Total por moneda (sin anulados)", "Total 250.000",
+                "Sin límite", "Ingreso", "GUARANIES (Gs.)", "Incluidos (tachados)", "Resumen", "| JUAN PEREZ ",
+                "Generado el:", "Total por moneda (sin anulados)", "Total: 250.000 Gs.",
                 "Fecha", "Responsable", "Tipo", "Descripción", "Monto", "Saldo",
-                "10/09/26 14:30", "Retiro de PDV", "DESCRIPCION DE PRUEBA", "250.000 Gs.", "Página 1 de"}) {
+                "10/09/26 14:30", "Retiro de PDV", "DESCRIPCION DE PRUEBA", "250.000 Gs.", "1.000.000 Gs.",
+                "Página 1 de"}) {
             assertTrue(textos.contains(esperado), "Falta '" + esperado + "' en el reporte. Textos: " + textos);
         }
+        // Nombre largo: tiene que salir completo en la columna Responsable, no cortado a lo que entra
+        // en una línea (Jasper recorta sin avisar).
+        assertTrue(textos.contains("| " + NOMBRE_LARGO + " |"), "El responsable salió cortado. Textos: " + textos);
     }
 
     @Test
@@ -159,7 +165,11 @@ class ReporteMovimientosCajaServiceTest {
     private static void juntar(List<?> elementos, StringBuilder sb) {
         for (Object o : elementos) {
             if (o instanceof JRPrintText) {
-                sb.append(((JRPrintText) o).getFullText()).append(" | ");
+                // Texto que efectivamente se imprime: si Jasper lo truncó, solo hasta el índice de corte.
+                JRPrintText t = (JRPrintText) o;
+                String texto = t.getFullText() != null ? t.getFullText() : "";
+                Integer corte = t.getTextTruncateIndex();
+                sb.append("| ").append(corte != null && corte < texto.length() ? texto.substring(0, corte) : texto).append(" ");
             } else if (o instanceof net.sf.jasperreports.engine.JRPrintFrame) {
                 juntar(((net.sf.jasperreports.engine.JRPrintFrame) o).getElements(), sb);
             }
@@ -173,9 +183,14 @@ class ReporteMovimientosCajaServiceTest {
         return c;
     }
 
+    /** Quien genera el reporte. Distinto del responsable de los movimientos, para aseverar cada columna por separado. */
     private static Usuario usuario() {
+        return usuario("JUAN PEREZ");
+    }
+
+    private static Usuario usuario(String nombre) {
         Persona p = new Persona();
-        p.setNombre("JUAN PEREZ");
+        p.setNombre(nombre);
         Usuario u = new Usuario();
         u.setPersona(p);
         return u;
@@ -201,7 +216,7 @@ class ReporteMovimientosCajaServiceTest {
         m.setSaldoPosterior(1000000d);
         m.setDescripcion("DESCRIPCION DE PRUEBA");
         m.setCreadoEn(FECHA);
-        m.setUsuario(usuario());
+        m.setUsuario(usuario(NOMBRE_LARGO));
         return m;
     }
 

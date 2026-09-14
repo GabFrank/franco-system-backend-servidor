@@ -120,8 +120,11 @@ class ReporteMovimientosCajaServiceTest {
     @Test
     void plantillaImprimeEncabezadoResumenYFilas() throws Exception {
         Moneda gs = moneda(1L, "GUARANIES", "Gs.", 0);
-        List<MovimientoCajaVirtual> movs = Collections.singletonList(
-                movCaja(CajaVirtualTipoMovimiento.INGRESO, 250000d, gs, OrigenMovimientoTipo.RETIRO_CAJA, true));
+        // El segundo movimiento lleva un importe grande: las columnas Monto/Saldo son angostas y
+        // Jasper corta sin avisar si el número no entra.
+        List<MovimientoCajaVirtual> movs = Arrays.asList(
+                movCaja(CajaVirtualTipoMovimiento.INGRESO, 250000d, gs, OrigenMovimientoTipo.RETIRO_CAJA, true),
+                movCaja(CajaVirtualTipoMovimiento.AJUSTE, -12345678d, gs, OrigenMovimientoTipo.MANUAL, true));
         ReporteMovimientosCajaService.Contenido c = service.armarCaja(caja(), movs,
                 "2026-09-01 00:00", null, CajaVirtualTipoMovimiento.INGRESO, gs, false, usuario());
 
@@ -133,7 +136,7 @@ class ReporteMovimientosCajaServiceTest {
         for (String esperado : new String[]{
                 "Movimientos de CAJA MAYOR CENTRAL", "Fuente: Caja Mayor", "Filtros aplicados", "01/09/2026",
                 "Sin límite", "Ingreso", "GUARANIES (Gs.)", "Incluidos (tachados)", "Resumen", "| JUAN PEREZ ",
-                "Generado el:", "Total por moneda (sin anulados)", "Total: 250.000 Gs.",
+                "Generado el:", "Total por moneda (sin anulados)", "Total: -12.095.678 Gs.", "| -12.345.678 Gs. ",
                 "Fecha", "Responsable", "Tipo", "Descripción", "Monto", "Saldo",
                 "10/09/26 14:30", "Retiro de PDV", "DESCRIPCION DE PRUEBA", "250.000 Gs.", "1.000.000 Gs.",
                 "Página 1 de"}) {

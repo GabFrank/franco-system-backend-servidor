@@ -26,7 +26,8 @@ public class BancoLedgerService {
     private final CuentaBancariaRepository cuentaRepository;
     private final MovimientoBancarioRepository movimientoRepository;
 
-    private static boolean esEgreso(MovimientoBancarioTipo t) {
+    /** Package-private: el reporte de movimientos totaliza con la misma regla de signo. */
+    static boolean esEgreso(MovimientoBancarioTipo t) {
         return t == MovimientoBancarioTipo.SALIDA_MANUAL || t == MovimientoBancarioTipo.AJUSTE_NEGATIVO;
     }
 

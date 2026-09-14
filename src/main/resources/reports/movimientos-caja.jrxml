@@ -311,8 +311,7 @@
 			</textField>
 			<textField isBlankWhenNull="true">
 				<reportElement stretchType="RelativeToTallestObject" x="485" y="1" width="70" height="14" uuid="7c1e2d3f-0006-4000-8000-000000000006"/>
-				<box rightPadding="3"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle">
+				<textElement textAlignment="Center" verticalAlignment="Middle">
 					<font fontName="SansSerif" size="7"/>
 				</textElement>
 				<textFieldExpression><![CDATA[$F{saldo}]]></textFieldExpression>

@@ -292,3 +292,64 @@ aparece, es eso y no un bug — verificar con:
 ```sql
 select * from pg_publication_tables where tablename like 'formato_terminal_pos%';
 ```
+
+---
+
+## Hallazgos de la corrida del 2026-09-14
+
+Se anotan y se sigue, como dice el encabezado. Ninguno bloquea las pruebas siguientes.
+
+### H1 · El prefijo crudo de GraphQL llega al usuario — **sistémico, no de esta pantalla**
+
+**Qué se vio.** Al guardar un formato con el patrón sin anclar, el snackbar mostró:
+
+```
+Exception while fetching data (/data) : El patron debe estar anclado: empezar con ^ y terminar con $.
+```
+
+**Por qué.** No es que falte manejo de errores: `mensaje-error.ts` extrae bien `e.message`, y el
+backend manda el motivo exacto. El prefijo **ya viene dentro del mensaje**.
+
+`GraphqlExceptionHandler.getNested()` existe justamente para desenvolver esto, pero solo actúa
+cuando la excepción anidada **implementa `GraphQLError`**:
+
+```java
+if (exceptionError.getException() instanceof GraphQLError) {
+    return (GraphQLError) exceptionError.getException();
+}
+```
+
+`graphql.GraphQLException` extiende `RuntimeException`, **no** `GraphQLError`. El `instanceof` da
+false, no desenvuelve nada, y pasa el `ExceptionWhileDataFetching` entero — cuyo `getMessage()` es
+`"Exception while fetching data (/ruta) : " + mensaje`.
+
+**Alcance.** No es de venta con tarjeta: **todo `throw new GraphQLException(...)` del sistema**
+llega así. Son cientos de mensajes de negocio —"ese cupón ya fue registrado", "no hay saldo
+suficiente"— con basura técnica adelante.
+
+**Fix propuesto:** en `getNested`, contemplar también el caso `GraphQLException` y devolver un
+error con el mensaje pelado. Una línea en un solo archivo, y mejora todos los módulos a la vez.
+`[central:src/main/java/com/franco/dev/graphql/exceptions/GraphqlExceptionHandler.java:34]`
+
+### H2 · El listado de formatos no sigue el patrón de listados del repo
+
+**Qué se vio.** Sin filtros, sin paginación, y las acciones como **iconos sueltos** en vez de un
+`mat-menu`.
+
+**No es que falte el patrón: existe y se ignoró.** `.cursor/rules/create-edit-list-entity.md` manda
+`MatPaginator`, controles de filtro y columna `acciones`; y `shared/components/generic-list` es el
+componente que ya lo resuelve —lo usa, por ejemplo, `list-caja-virtual`.
+
+Medido sobre `formato-terminal-pos.component.html`: **0** `app-generic-list`, **0** `mat-paginator`,
+**0** `mat-menu`, **3** `matTooltip` (los iconos sueltos).
+
+**Por eso no se abre issue pidiendo un documento de patrones de diseño**: el patrón está escrito y
+tiene componente. Lo que hace falta es que esta pantalla lo use.
+
+**Alcance:** revisar también `formato-qr-pos`, que se construyó con el mismo molde.
+
+### H3 · El monto en la vista previa
+
+Ya estaba documentado arriba, en la prueba 1: `150.000` se muestra como `150` porque la vista previa
+usa el parser de QR. **Confirmado en esta corrida.** No afecta la extracción real, que corre en el
+filial y se verifica en la prueba 5.

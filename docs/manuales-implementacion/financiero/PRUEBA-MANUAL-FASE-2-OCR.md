@@ -597,45 +597,58 @@ con el servidor levantado desde las 13:58, en un hilo `http-nio-8081-exec`. Es l
 central funcionando, y la contracara del filial, que carga al arrancar cuando el módulo está
 encendido.
 
-### H13 · ⚠️ El semáforo pintó de verde un valor equivocado
+### H13 · ⚠️ El OCR convierte la letra O en cero, y el chequeo de tipo no llega a enterarse
 
-**Lo medido, primera corrida real de punta a punta, sobre el cupón sintético limpio:**
+> **Corrección.** La primera redacción de este hallazgo decía que el OCR había leído mal un `1` en
+> un cupón limpio. **Era incorrecto**: la imagen que se subió fue `cupon-adulterado.jpg`, hecha a
+> propósito con la letra `O`. Se verificó abriendo el archivo que el filial guardó
+> (`cupones/2026/09/8.jpg`). El hallazgo real es distinto y más importante.
+
+**Lo medido, primera corrida de punta a punta:**
 
 | | |
 |---|---|
-| Lo que dice el cupón | `AUT: 883921` |
-| Lo que leyó el OCR | `AUT:883920` |
+| Lo que dice el cupón | `AUT: 88392O` ← **letra O**, puesta a propósito |
+| Lo que devolvió el OCR | `AUT:883920` ← **dígito cero** |
 | Confianza del campo | **0.9657** |
 | Umbral del semáforo | 0.9 |
 | Lo que vio el cajero | 🟢 **«Leído con claridad»** |
 
-El último dígito, `1` leído como `0`. Con confianza alta. En un cupón **sintético, limpio, sin
-arrugas ni papel térmico**. A la primera.
+**El OCR normalizó la letra en un dígito, en silencio y con confianza alta.**
 
-**Por qué importa tanto.** Todo el diseño del semáforo descansa en una premisa: *confianza óptica
-alta ⇒ se leyó bien*. **Esta corrida la falsea.** El carácter se vio nítido; simplemente era otro.
+**Y esto invalida buena parte de la defensa que se conectó hoy.** El chequeo de tipo compara el
+valor extraído contra `TEXTO | NUMERO | FECHA`, pero **cuando lo recibe ya es `883920`: dígitos
+puros**. No hay nada que detectar. El caracter ofensor no sobrevive al OCR.
 
-**Y subir el umbral no lo arregla.** Los cuatro campos de esta lectura puntuaron parecido:
+Lo mismo vale para la idea de «capturar laxo y validar por tipo» que se probó antes de esta corrida:
+con `(?<auth>\S+)` el grupo habría capturado `883920` igual, porque el texto que le llega al regex
+**ya venía corregido**. La prueba de escritorio con `88392O` daba bien porque ahí el texto era
+sintético; con el OCR en el medio, no.
+
+**Qué queda en pie del chequeo de tipo.** Sigue sirviendo para el caso en que el OCR **conserva** lo
+que no encaja —una letra en medio de un monto, una `/` de una fecha en un campo numérico— y esos
+casos existen. Pero **no cubre el modo de falla de este hallazgo**, y el plan no debería decir que
+sí.
+
+**Lo que este hallazgo dice del semáforo.** El valor que el cajero vio en verde **no coincidía con
+el papel**. Esa parte se sostiene y es el problema de producto: hoy el verde se lee como «no hace
+falta que mires». Para los campos que deciden plata —código de autorización y monto— el verde
+debería significar «el lector está seguro», y la instrucción seguir siendo *confirmá contra el
+ticket*. En esta corrida el operador lo corrigió a mano; un cajero apurado, con el campo en verde,
+no lo haría.
+
+**Subir el umbral tampoco sirve.** Los cuatro campos puntuaron casi igual:
 
 ```
 monto 0.9724 · numeroBoleta 0.9725 · terminal 0.9707 · codigoAutorizacion 0.9657
 ```
 
-El equivocado no es el más bajo por un margen que sirva: para marcarlo habría que marcar los
-cuatro, y un semáforo que pinta todo en ámbar no lo mira nadie.
+Para marcar el equivocado habría que marcar los cuatro, y un semáforo que pinta todo en ámbar no lo
+mira nadie.
 
-**El chequeo de tipo que se conectó hoy tampoco lo caza**, y hay que decirlo: `883920` es un
-`NUMERO` perfectamente válido. Ese control ataca otra clase —el carácter que **no** encaja— y sigue
-valiendo, pero no cubre ésta.
-
-**Lo que sí queda en pie es el producto, no el lector.** El cajero tiene el papel en la mano y el
-diálogo le pide confirmar. El problema es **qué le dice el verde**: hoy se lee como «no hace falta
-que mires». Para los campos que deciden plata —código de autorización y monto— el verde debería
-significar «el lector está seguro», y la instrucción seguir siendo *confirmá contra el ticket*.
-
-**Un segundo detalle de la misma lectura:** el cupón dice `MONTO: 150.000` y el OCR devolvió
-`150000`, **sin el separador de miles**. Acá es inofensivo porque el guaraní no tiene decimales y el
-número es el mismo. En una moneda con decimales, perder ese punto multiplica por mil.
+**Un detalle más de la misma lectura:** el cupón dice `MONTO: 150.000` y el OCR devolvió `150000`,
+**sin el separador de miles**. Acá es inofensivo porque el guaraní no tiene decimales. En una moneda
+que los tenga, perder ese punto multiplica por mil.
 
 ### H14 · El mapa sí acelera, pero ~35%, no 4×
 

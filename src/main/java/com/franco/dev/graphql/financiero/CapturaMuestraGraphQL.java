@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.FormatoTerminalPos;
 import com.franco.dev.service.financiero.CapturaMuestraService;
 import com.franco.dev.service.financiero.FormatoTerminalPosService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
+import com.franco.dev.domain.financiero.CapturaMuestra;
 import com.franco.dev.service.financiero.ocr.DerivadorMapa;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -102,6 +103,36 @@ public class CapturaMuestraGraphQL implements GraphQLQueryResolver, GraphQLMutat
     public Boolean lectorDeCuponesDisponible() {
         seg.requireVer();
         return service.lectorDisponible();
+    }
+
+    /**
+     * Las muestras guardadas de un formato.
+     *
+     * <p>La imagen no viaja acá: va por {@code GET /api/captura-muestra/imagen/{id}}. Meter un
+     * JPEG de 200 KB en base64 dentro de la respuesta GraphQL hincharia la query un 33% y la
+     * dejaria sin cachear del lado del navegador, que es justo lo que una galeria necesita.
+     */
+    public List<MuestraGuardada> muestrasDeFormato(Long formatoTerminalPosId) {
+        seg.requireVer();
+        List<MuestraGuardada> out = new ArrayList<MuestraGuardada>();
+        for (CapturaMuestra m : service.guardadasDe(formatoTerminalPosId)) {
+            out.add(new MuestraGuardada(m));
+        }
+        return out;
+    }
+
+    /** Una muestra ya guardada, como la ve la pantalla. */
+    public static final class MuestraGuardada {
+        private final CapturaMuestra m;
+
+        MuestraGuardada(CapturaMuestra m) { this.m = m; }
+
+        public Long getId() { return m.getId(); }
+        public String getCreadoEn() { return m.getCreadoEn() == null ? null : m.getCreadoEn().toString(); }
+        public Integer getAncho() { return m.getAncho(); }
+        public Integer getAlto() { return m.getAlto(); }
+        public String getTextoOcr() { return m.getTextoOcr(); }
+        public Integer getMsOcr() { return m.getMsOcr(); }
     }
 
     public EstadoMuestra capturaMuestra(String token) {

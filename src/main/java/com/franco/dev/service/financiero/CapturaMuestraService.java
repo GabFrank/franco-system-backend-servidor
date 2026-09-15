@@ -1,13 +1,21 @@
 package com.franco.dev.service.financiero;
 
+import com.franco.dev.domain.financiero.CapturaMuestra;
 import com.franco.dev.domain.financiero.FormatoTerminalPos;
+import com.franco.dev.repository.financiero.CapturaMuestraRepository;
 import com.franco.dev.service.financiero.ocr.CuponOcrService;
 import com.franco.dev.service.financiero.ocr.DerivadorMapa;
 import com.franco.dev.service.financiero.ocr.MotorOcr;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
+import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Iterator;
@@ -26,7 +34,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * haber capturas de ese ticket</b>. Solo habria servido para formatos que ya operan, que son
  * justamente los que menos lo necesitan.
  *
- * <p><b>Es deliberadamente efimero: no hay tabla.</b> Una muestra vive lo que dura configurar un
+ * <p><b>El ciclo vivo sigue siendo en memoria; lo que se guarda es la evidencia.</b> El Map de
+ * abajo es el estado de la captura mientras dura --ESPERANDO, LISTO, ERROR-- y se pierde en un
+ * reinicio, que es aceptable porque el ciclo dura minutos. Pero la foto y lo que el OCR leyo SI se
+ * persisten en {@code financiero.captura_muestra} apenas la lectura sale bien: sin eso no hay forma
+ * de volver a mirar el cupon que produjo un mapa, ni de juntar el corpus que la etapa 6 necesita
+ * para proponer el patron sola.
+ *
+ * <p><b>Lo que sigue siendo cierto del diseno original:</b> Una muestra vive lo que dura configurar un
  * formato --se sube la foto, se lee, se revisa el mapa propuesto, se guarda-- y despues no le
  * sirve a nadie. Lo que queda persistido es el resultado: las regiones, que si tienen tabla y se
  * replican. Guardar la muestra habria costado una migracion en una banda que ya esta casi agotada,
@@ -57,6 +72,8 @@ public class CapturaMuestraService {
         /** Lo que la derivacion necesita. Se guarda esto y NO los bytes de la foto. */
         volatile MotorOcr.Resultado lectura;
         volatile int ancho, alto;
+        /** El id de la fila persistida, cuando la lectura salio bien. */
+        public volatile Long guardadaId;
 
         Muestra(String token, Long formatoId, LocalDateTime expira) {
             this.token = token;
@@ -87,10 +104,20 @@ public class CapturaMuestraService {
 
     private final CuponOcrService ocr;
     private final DerivadorMapa derivador;
+    private final CapturaMuestraRepository repository;
 
-    public CapturaMuestraService(CuponOcrService ocr, DerivadorMapa derivador) {
+    /** Donde van los JPEG. Relativo al working dir si no es absoluto, igual que el filial. */
+    private final String rutaImagenes;
+
+    private static final DateTimeFormatter CARPETA = DateTimeFormatter.ofPattern("yyyy/MM");
+
+    public CapturaMuestraService(CuponOcrService ocr, DerivadorMapa derivador,
+                                 CapturaMuestraRepository repository,
+                                 @Value("${frc.captura-muestra.ruta-imagenes:muestras}") String rutaImagenes) {
         this.ocr = ocr;
         this.derivador = derivador;
+        this.repository = repository;
+        this.rutaImagenes = rutaImagenes;
     }
 
     /** Abre una muestra y devuelve su token. */
@@ -148,13 +175,97 @@ public class CapturaMuestraService {
             m.msOcr = (int) r.msTotal;
             m.error = null;
             m.estado = "LISTO";
+            // Recien acá, con una lectura buena: una foto que no se pudo leer no es evidencia de
+            // nada y solo ocuparia disco.
+            persistir(m, jpeg);
         } catch (Exception e) {
             log.error("fallo el OCR de la muestra {}", token, e);
             m.estado = "ERROR";
             m.error = "no se pudo leer la foto";
         }
-        // Los bytes del JPEG quedan afuera a proposito: ver el comentario de la clase.
         return m;
+    }
+
+    /**
+     * Guarda la foto en disco y la fila que la describe.
+     *
+     * <p><b>No puede tumbar la captura.</b> Si el disco esta lleno o el directorio no se puede
+     * crear, se loguea y se sigue: el operador ya tiene su lectura en pantalla y el mapa se deriva
+     * igual desde la muestra en memoria. Perder la evidencia es molesto; perder la configuracion
+     * del formato a mitad de camino, no.
+     *
+     * <p>Se guarda la fila primero para tener el id, y con el id se nombra el archivo: asi dos
+     * muestras del mismo minuto no se pisan.
+     */
+    private void persistir(Muestra m, byte[] jpeg) {
+        try {
+            FormatoTerminalPos formato = new FormatoTerminalPos();
+            formato.setId(m.formatoTerminalPosId);
+
+            CapturaMuestra fila = new CapturaMuestra();
+            fila.setFormatoTerminalPos(formato);
+            fila.setToken(m.token);
+            fila.setAncho(m.ancho);
+            fila.setAlto(m.alto);
+            fila.setTextoOcr(m.textoOcr);
+            fila.setMsOcr(m.msOcr);
+            fila = repository.save(fila);
+
+            String relativa = LocalDateTime.now().format(CARPETA) + "/" + fila.getId() + ".jpg";
+            Path destino = Paths.get(rutaImagenes, relativa);
+            Files.createDirectories(destino.getParent());
+            Files.write(destino, jpeg);
+
+            fila.setRutaImagen(relativa);
+            repository.save(fila);
+            m.guardadaId = fila.getId();
+        } catch (IOException e) {
+            log.error("no se pudo guardar la imagen de la muestra {}", m.token, e);
+        } catch (Exception e) {
+            log.error("no se pudo persistir la muestra {}", m.token, e);
+        }
+    }
+
+    /** Las muestras guardadas de un formato, la mas nueva primero. */
+    public List<CapturaMuestra> guardadasDe(Long formatoTerminalPosId) {
+        return repository.findByFormatoTerminalPosIdOrderByCreadoEnDesc(formatoTerminalPosId);
+    }
+
+    /** Los bytes de una muestra guardada, si el archivo sigue estando. */
+    public Optional<byte[]> imagenDe(Long id) {
+        return repository.findById(id).flatMap(f -> {
+            if (f.getRutaImagen() == null) return Optional.<byte[]>empty();
+            try {
+                Path p = Paths.get(rutaImagenes, f.getRutaImagen());
+                if (!Files.exists(p)) return Optional.<byte[]>empty();
+                return Optional.of(Files.readAllBytes(p));
+            } catch (IOException e) {
+                log.error("no se pudo leer la imagen de la muestra {}", id, e);
+                return Optional.<byte[]>empty();
+            }
+        });
+    }
+
+    /**
+     * Borra las muestras mas viejas que la fecha dada, con su archivo. Devuelve cuantas borro.
+     *
+     * <p>El archivo primero y la fila despues: al reves, un fallo entre las dos deja un archivo
+     * huerfano que nadie va a volver a mirar ni a borrar.
+     */
+    public int purgarAnterioresA(LocalDateTime limite) {
+        int borradas = 0;
+        for (CapturaMuestra f : repository.findByCreadoEnBefore(limite)) {
+            try {
+                if (f.getRutaImagen() != null) {
+                    Files.deleteIfExists(Paths.get(rutaImagenes, f.getRutaImagen()));
+                }
+                repository.delete(f);
+                borradas++;
+            } catch (Exception e) {
+                log.error("no se pudo purgar la muestra {}", f.getId(), e);
+            }
+        }
+        return borradas;
     }
 
     /**

@@ -6,8 +6,10 @@ bajan a las 24 filiales. Que la foto tuviera que venir del filial era un puente 
 además imposible, porque la venta con tarjeta se bloquea cuando la terminal no tiene formato, así
 que antes de configurarlo no hay capturas de ese ticket.
 
-Es efímero y no tiene tabla: vive lo que dura configurar un formato. Lo que queda persistido es el
-resultado, las regiones. Un reinicio de central borra las muestras abiertas.
+El ciclo vivo es en memoria y un reinicio de central borra las muestras abiertas — aceptable porque
+dura minutos. Pero la foto y lo que el OCR leyó **sí se guardan** (`muestrasDeFormato`): sin eso no
+hay forma de volver a mirar el cupón que produjo un mapa, ni de juntar el corpus que la etapa 6
+necesita para proponer el patrón sola.
 """
 type CapturaMuestraQr {
     token: String
@@ -65,6 +67,8 @@ extend type Query {
     "Si el motor de OCR cargó en este servidor. Sin él no se puede derivar, y la pantalla lo dice."
     lectorDeCuponesDisponible: Boolean
     capturaMuestra(token: String!): EstadoMuestra
+    "Las muestras guardadas de un formato, la más nueva primero."
+    muestrasDeFormato(formatoTerminalPosId: ID!): [MuestraGuardada]
 }
 
 extend type Mutation {
@@ -77,4 +81,23 @@ extend type Mutation {
     derivarMapaDeMuestra(token: String!, formatoTerminalPosId: ID!): [RegionDerivada]!
     "Libera la muestra antes de que venza sola."
     cerrarCapturaMuestra(token: String!): Boolean
+}
+
+
+"""
+Una muestra ya guardada: la foto de un cupón real con la que se configuró este formato.
+
+La imagen no viaja por GraphQL — se pide a `GET /api/captura-muestra/imagen/{id}`, que va
+autenticado porque son cupones reales con importe, boleta y serie de terminal.
+
+`ancho` y `alto` no son decoración: las regiones están normalizadas 0..1, así que son lo que
+permite dibujarlas encima de la foto.
+"""
+type MuestraGuardada {
+    id: ID
+    creadoEn: String
+    ancho: Int
+    alto: Int
+    textoOcr: String
+    msOcr: Int
 }

@@ -34,6 +34,29 @@ del C en adelante se puede cortar si no da el tiempo.
 
 ---
 
+## ⚠️ Qué hay que repetir de la corrida del 2026-09-14
+
+La corrida anterior llegó hasta la prueba 5. Los cambios del **2026-09-15** —el tipo declarado por el
+formato, la unión acumulativa del mapa y las correcciones de la auditoría— **invalidan tres de esas
+pruebas**. No alcanza con seguir en la 6:
+
+| Prueba | ¿Se repite? | Qué cambió |
+|---|---|---|
+| **0** — módulo apagado | no | Sin cambios |
+| **1** — registrar el formato | **sí, entera** | El mapeo ahora declara `tipo` por campo, y el alta **rechaza** un tipo mal escrito o escondido en un objeto anidado. Cuatro casos de rechazo nuevos |
+| **2** — la terminal | no | Sin cambios. Rehacerla sólo si se borró el formato |
+| **3** — filtro por sucursal | no | Sin cambios |
+| **4** — el mapa que se deriva solo | **sí, y es más larga** | Es la que más cambió: columna de tipo, dos botones en vez de uno, y **cuatro corridas** —misma foto, foto distinta, y desde cero— porque el mapa ahora acumula |
+| **5** — el OCR deja de ser una lupa | **sí** | Depende del mapa que deja la prueba 4. Si la zona quedó acumulada de dos fotos, los milisegundos cambian y hay que volver a medirlos |
+| **6** — el semáforo por campo | **sí** | El chequeo de tipo antes no corría (ningún formato declaraba tipo). Ahora sí, y hay un caso nuevo: sin tipo declarado, el campo no se valida |
+
+Las pruebas **7 a 14 nunca se corrieron**.
+
+> **Antes de empezar, reiniciar los dos backends.** Los que quedaron levantados de la corrida
+> anterior tienen el código viejo: el mapa reemplaza en vez de acumular y el mapeo no valida el tipo.
+
+---
+
 ## Bloque A · Que el sistema sepa qué aparato tiene enfrente
 
 ### Prueba 0 — el módulo apagado no carga el motor
@@ -61,8 +84,12 @@ Financiero → Venta con tarjeta → **Formatos de terminal POS** → Nuevo.
 | Nombre del modelo | `BANCARD FIRMWARE V5.5` |
 | Cómo se lee el ticket | **Maquinita (ticket sin QR)** |
 | Patrón | `^[\s\S]*TERMINAL:\s*(?<terminal>[A-Z0-9]+)[\s\S]*AUT:\s*(?<auth>[0-9]+)[\s\S]*BOLETA:\s*(?<boleta>[0-9]+)[\s\S]*MONTO:\s*(?<monto>[0-9.]+)[\s\S]*$` |
-| Mapeo | `{"terminal":{"de":"terminal"},"codigoAutorizacion":{"de":"auth","obligatorio":true},"numeroBoleta":{"de":"boleta"},"monto":{"de":"monto","obligatorio":true}}` |
+| Mapeo | `{"terminal":{"de":"terminal","tipo":"TEXTO"},"codigoAutorizacion":{"de":"auth","obligatorio":true,"tipo":"NUMERO"},"numeroBoleta":{"de":"boleta","tipo":"NUMERO"},"monto":{"de":"monto","obligatorio":true,"tipo":"NUMERO"}}` |
 | Cadena de ejemplo | `TERMINAL: JF798SJJ AUT: 883921 BOLETA: 00045 MONTO: 150.000` |
+
+> **El mapeo cambió respecto de la corrida del 2026-09-14**: ahora declara `tipo` por campo. El tipo
+> dejó de deducirse del valor de la muestra —una sola foto no alcanza para afirmarlo— y lo declara el
+> formato. Sin `tipo` declarado el chequeo no corre y la **prueba 6 no prueba nada**.
 
 **Esperado:** la **vista previa** de abajo se llena sola mientras tipeás, y guarda.
 
@@ -70,6 +97,13 @@ Financiero → Venta con tarjeta → **Formatos de terminal POS** → Nuevo.
 - Un patrón sin `^` al principio → *"El patrón debe estar anclado"*.
 - Un patrón que no matchee el ejemplo → *"El patrón no reconoce la cadena de ejemplo"*.
 - Un mapeo que use un grupo que el patrón no declara → dice **cuál** grupo.
+- **`"tipo":"ALFANUMERICO"`** → nombra el valor que escribiste y dice cuáles valen.
+- **`"tipo":"NUMER0"`** (con cero en vez de O) → **tiene que fallar**. Es el caso que antes se
+  degradaba a silencio: el campo quedaba sin tipo y nadie se enteraba. Si esto guarda, es una
+  regresión del 2026-09-15.
+- **`{"monto":{"de":"monto","mapa":{"A":"B"},"tipo":"NUMERO"}}`** → falla diciendo que la derivación
+  no lo va a leer. Es válido como JSON pero el objeto anidado lo esconde del parseo.
+- **`"tipo":"numero"`** en minúscula → **tiene que guardar** (se normaliza).
 
 > **Hallazgo conocido, no es un bug de esta prueba:** en la vista previa el monto `150.000` se
 > muestra como `150`. Esa vista usa el parser de QR, donde los importes vienen sin separador de
@@ -121,22 +155,62 @@ Volver a **Formatos** → en `BANCARD FIRMWARE V5.5`, el ícono de **grilla** �
 2. Esperar a que aparezca *"Lo que se leyó"* con el texto y los milisegundos.
 3. **Proponer el mapa**.
 
-**Esperado:** una fila por campo, con la etiqueta que lo ancla:
+**Esperado:** una fila por campo, con la etiqueta que lo ancla y **el tipo que declaró el mapeo**:
 
-| Campo | Etiqueta | Posición |
-|---|---|---|
-| terminal | `TERMINAL:` | dentro |
-| codigoAutorizacion | `AUT:` | dentro |
-| numeroBoleta | `BOLETA:` | dentro |
-| monto | `MONTO:` | dentro |
+| Campo | Etiqueta | Posición | Tipo |
+|---|---|---|---|
+| terminal | `TERMINAL:` | dentro | texto |
+| codigoAutorizacion | `AUT:` | dentro | numero |
+| numeroBoleta | `BOLETA:` | dentro | numero |
+| monto | `MONTO:` | dentro | numero |
 
 ⚠️ **Los campos tienen que ser los canónicos** (`codigoAutorizacion`), **no** los nombres de los
 grupos del patrón (`auth`). Si aparece `auth`, es la regresión que se corrigió el 2026-09-12.
 
-4. **Guardar el mapa**.
+⚠️ **La columna Tipo tiene que coincidir con lo que declaró el mapeo.** Un campo que diga *«sin
+tipo»* teniendo `tipo` en el mapeo es la falla silenciosa del 2026-09-15: el alta del formato ahora
+la rechaza, así que si llegaste hasta acá con un tipo que no aparece, hay una regresión.
 
-**Después, volver a entrar y proponer de nuevo:** ahora tiene que aparecer el **diff** y pedir
-confirmación, con el aviso de que baja a todas las sucursales. Cancelar.
+4. **Guardar el mapa** — el botón dice **«Sumar esta foto al mapa»**.
+
+**Segunda corrida, la misma foto.** Volver a entrar y proponer de nuevo con **el mismo cupón**.
+
+**Esperado:** guarda **sin pedir confirmación**. Nada cambia —la unión de una zona consigo misma es
+esa misma zona— y no hay sobrescritura que confirmar. Si aparece *«Esto es lo que cambiaría»*
+seguido de una lista vacía, es el defecto corregido el 2026-09-15.
+
+**Tercera corrida, una foto distinta.** Sacar otra foto del **mismo modelo de aparato** pero con el
+cupón corrido: más arriba, más abajo, o un ticket de otra operación que tenga un renglón de
+diferencia.
+
+**Esperado:** ahora **sí** pide confirmación, y el diff dice para cada campo que se mueve:
+
+> `monto: la zona se ensancha, de 3,2% a 5,1% del cupón`
+
+**Lo que tiene que decir y lo que no:**
+
+- Un campo que **esta foto no trae** dice *«no aparece en esta foto, se conserva lo que ya estaba
+  mapeado»*. **No** puede decir *«se elimina»* — al acumular no se elimina nada, y ese texto era la
+  mentira que se corrigió el 2026-09-15.
+- Si la zona resultante pasa del **25% del cupón**, el diff agrega que ya casi no acota el
+  reconocimiento y sugiere empezar de cero. Para verlo, derivar a propósito con una foto **de otro
+  modelo de aparato**.
+
+Confirmar, y verificar en la DB que la caja creció en vez de moverse:
+
+```sql
+select campo, x1, y1, x2, y2, tipo, origen
+from financiero.formato_terminal_pos_region
+where formato_terminal_pos_id = (select id from financiero.formato_terminal_pos
+                                 where nombre = 'BANCARD FIRMWARE V5.5')
+order by campo;
+```
+
+**Cuarta corrida, «Empezar de cero».** Con el botón **«Empezar de cero»**.
+
+**Esperado:** el diff habla de **reemplazo** (*«se reemplaza, … → …»*) y, para un campo que esta foto
+no produce, **sí** dice *«se elimina, esta foto no lo produce»*. Confirmar y verificar que la caja
+volvió al tamaño de una sola foto.
 
 ---
 
@@ -174,6 +248,18 @@ En esa misma pantalla de confirmación:
 
 > Si el cupón sale muy limpio y no hay ningún dudoso, forzarlo: sacar la foto movida o con poca luz.
 > Un cupón térmico gastado sirve mejor que uno nuevo.
+
+**El chequeo de tipo, que ahora sale del mapeo.** `codigoAutorizacion` está declarado `NUMERO` en la
+prueba 1. Si el OCR devuelve algo con letras para ese campo, tiene que salir **ámbar** con el motivo
+del tipo, no verde.
+
+⚠️ **Recordá H13:** el OCR normaliza la letra `O` en cero **antes** de que el patrón vea el texto, así
+que esa clase de error el chequeo de tipo no la puede atrapar —no es una falla del chequeo—. Para
+ejercitarlo hace falta un valor que llegue con una letra que el OCR **no** normalice.
+
+**Y el contrario, que importa igual:** con `tipo` **sin declarar** en el mapeo, el campo **no se
+valida** y sale verde aunque el valor no tenga la forma esperada. Es el default a propósito —declarar
+de más manda a revisión lecturas correctas— pero conviene verlo una vez para saber qué se pierde.
 
 ---
 

@@ -417,6 +417,10 @@ suficiente"— con basura técnica adelante.
 error con el mensaje pelado. Una línea en un solo archivo, y mejora todos los módulos a la vez.
 `[central:src/main/java/com/franco/dev/graphql/exceptions/GraphqlExceptionHandler.java:34]`
 
+> ✅ **La parte del menú se cerró el 2026-09-15**: las acciones de la fila pasaron a un `mat-menu`
+> (⋮), como `list-caja-virtual`. Queda pendiente lo otro que dice este hallazgo: el listado sigue
+> sin filtro ni paginación.
+
 ### H2 · El listado de formatos no sigue el patrón de listados del repo
 
 **Qué se vio.** Sin filtros, sin paginación, y las acciones como **iconos sueltos** en vez de un
@@ -973,10 +977,13 @@ en `/graphql` y 401 en `/api`. Corregido.
 
 **El ancho del diálogo bajó a 50vw**: con el contenido repartido en solapas ya no necesita 65.
 
-**Cambia el recorrido de la prueba 4.** El mapa ya no se abre desde el ícono de grilla como diálogo
-aparte: se entra al formato y se va a la solapa **«El mapa del cupón»** —o se toca la grilla, que
-lleva ahí directo—. El flujo de adentro (QR, subir foto, proponer, el diff, sumar o empezar de cero)
-es exactamente el mismo.
+**Cambia el recorrido de la prueba 4.** El mapa ya no se abre como diálogo aparte: se entra al
+formato —**⋮ → Editar**— y se va a la solapa **«El mapa del cupón»**. El flujo de adentro (QR, subir
+foto, proponer, el diff, sumar o empezar de cero) es exactamente el mismo.
+
+**Y el listado usa ⋮ en vez de íconos sueltos** (cierra H2). El ícono de grilla ya no está: la
+acción del mapa desapareció de la fila porque se llega editando. Las opciones del menú son
+**Editar** y **Dejar de ofrecerlo**.
 
 **No bloquea la prueba 1** — son los mismos campos. Pero hay que rehacerla sobre el diálogo nuevo:
 el mapeo con los tipos se pega en el tab **«Qué campos produce»**, y los cuatro casos de rechazo del

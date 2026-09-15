@@ -169,7 +169,11 @@ public class CapturaMuestraGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
         CapturaMuestraService.Muestra m;
         try {
-            m = service.abrir(formatoTerminalPosId);
+            // El usuario se captura ACA. La foto entra despues por /public, sin sesion --del otro
+            // lado hay un telefono-- asi que este es el unico punto del ciclo donde hay a quien
+            // preguntarle quien esta configurando el formato.
+            com.franco.dev.domain.personas.Usuario u = seg.currentUsuario();
+            m = service.abrir(formatoTerminalPosId, u != null ? u.getId() : null);
         } catch (IllegalStateException e) {
             throw new GraphQLException(e.getMessage());
         }

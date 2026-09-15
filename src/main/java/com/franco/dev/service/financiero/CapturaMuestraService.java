@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.List;
@@ -75,6 +76,15 @@ public class CapturaMuestraService {
         /** El id de la fila persistida, cuando la lectura salio bien. */
         public volatile Long guardadaId;
 
+        /**
+         * Quien abrio la muestra desde el ABM.
+         *
+         * <p>Se captura ACA y no al recibir la foto: la foto entra por {@code /public}, sin sesion
+         * --del otro lado hay un telefono-- asi que en ese momento no hay a quien preguntarle. El
+         * unico punto del ciclo con un usuario autenticado es la apertura.
+         */
+        volatile Long usuarioId;
+
         Muestra(String token, Long formatoId, LocalDateTime expira) {
             this.token = token;
             this.formatoTerminalPosId = formatoId;
@@ -122,6 +132,11 @@ public class CapturaMuestraService {
 
     /** Abre una muestra y devuelve su token. */
     public Muestra abrir(Long formatoTerminalPosId) {
+        return abrir(formatoTerminalPosId, null);
+    }
+
+    /** @param usuarioId quien la abrio, para que la muestra guardada diga de quien es. */
+    public Muestra abrir(Long formatoTerminalPosId, Long usuarioId) {
         if (!ocr.disponible()) {
             throw new IllegalStateException(
                     "El lector de cupones no esta disponible en el servidor, asi que no se puede "
@@ -139,6 +154,7 @@ public class CapturaMuestraService {
 
         Muestra m = new Muestra(token, formatoTerminalPosId,
                 LocalDateTime.now().plusMinutes(MINUTOS_VALIDEZ));
+        m.usuarioId = usuarioId;
         muestras.put(token, m);
         return m;
     }
@@ -209,26 +225,51 @@ public class CapturaMuestraService {
             fila.setAlto(m.alto);
             fila.setTextoOcr(m.textoOcr);
             fila.setMsOcr(m.msOcr);
+            fila.setUsuarioId(m.usuarioId);
             fila = repository.save(fila);
 
+            // La fila primero porque el archivo se nombra con su id: dos muestras del mismo minuto
+            // no se pisan. El precio es que hay un instante con la fila sin imagen, y por eso el
+            // catch de abajo la deshace.
             String relativa = LocalDateTime.now().format(CARPETA) + "/" + fila.getId() + ".jpg";
             Path destino = Paths.get(rutaImagenes, relativa);
-            Files.createDirectories(destino.getParent());
-            Files.write(destino, jpeg);
-
-            fila.setRutaImagen(relativa);
-            repository.save(fila);
+            try {
+                Files.createDirectories(destino.getParent());
+                Files.write(destino, jpeg);
+                fila.setRutaImagen(relativa);
+                repository.save(fila);
+            } catch (Exception e) {
+                // Sin imagen la fila no le sirve a nadie: se ve en la galeria y da 404 al abrirla,
+                // y sobrevive hasta la purga --seis meses--. Se deshace todo lo que se alcance.
+                log.error("no se pudo guardar la imagen de la muestra {}; se descarta la fila", m.token, e);
+                try {
+                    Files.deleteIfExists(destino);
+                } catch (IOException borrado) {
+                    log.error("ademas quedo el archivo {}", destino, borrado);
+                }
+                repository.delete(fila);
+                return;
+            }
             m.guardadaId = fila.getId();
-        } catch (IOException e) {
-            log.error("no se pudo guardar la imagen de la muestra {}", m.token, e);
         } catch (Exception e) {
             log.error("no se pudo persistir la muestra {}", m.token, e);
         }
     }
 
-    /** Las muestras guardadas de un formato, la mas nueva primero. */
+    /**
+     * Las muestras guardadas de un formato, la mas nueva primero.
+     *
+     * <p>Sin las que no tienen imagen. Una fila sin archivo no se puede mirar --da 404-- asi que
+     * en la galeria solo seria una miniatura rota. {@link #persistir} deshace la fila cuando la
+     * escritura falla, pero un corte del proceso entre las dos operaciones igual puede dejar una;
+     * la purga se la lleva a los seis meses.
+     */
     public List<CapturaMuestra> guardadasDe(Long formatoTerminalPosId) {
-        return repository.findByFormatoTerminalPosIdOrderByCreadoEnDesc(formatoTerminalPosId);
+        List<CapturaMuestra> out = new ArrayList<CapturaMuestra>();
+        for (CapturaMuestra m : repository.findByFormatoTerminalPosIdOrderByCreadoEnDesc(formatoTerminalPosId)) {
+            if (m.getRutaImagen() != null) out.add(m);
+        }
+        return out;
     }
 
     /** Los bytes de una muestra guardada, si el archivo sigue estando. */

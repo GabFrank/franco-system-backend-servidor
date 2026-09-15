@@ -890,6 +890,7 @@ Los tres tabs son las tres preguntas que un formato responde:
 | **Cómo se lee el cupón** | patrón y cadena de ejemplo — se corrigen mirándose |
 | **Qué campos produce** | el mapeo |
 | **El mapa del cupón** | la derivación desde una foto — **antes era otro diálogo** |
+| **Vista previa** | el cupón real y el ticket sintético, lado a lado |
 
 **El mapa se mudó acá adentro.** Era un diálogo aparte, abierto desde el ícono de grilla de la fila,
 y es una propiedad del formato como el patrón o el mapeo: tenerlo en otra ventana obligaba a cerrar
@@ -944,6 +945,33 @@ indenta al abrir, con un botón **Indentar** para el JSON que se pega en una sol
    botones de abajo quedaban cortados y no se veían.
 
 **Verificado en pantalla, no deducido:** cero superposiciones, en los tres tabs.
+
+### La vista previa dejó de ser una lista y pasó a ser la última solapa
+
+Antes colgaba abajo del diálogo y decía **qué** se extrae, no **dónde** — que es justamente lo que
+un mapa necesita para poder evaluarse: una lista de coordenadas no dice si la región quedó sobre el
+importe o sobre el renglón de al lado.
+
+Ahora tiene las dos cosas lado a lado: a la izquierda **el cupón real** (las fotos de muestra
+guardadas, la más nueva elegida sola) **con las regiones dibujadas encima**, y a la derecha **el
+ticket sintético**, con cada campo en su región mapeada. Abajo, el detalle campo / ancla / tipo /
+valor.
+
+**Esto necesitó que las fotos se guarden**, que antes no pasaba: la muestra era efímera y el JPEG se
+descartaba apenas corría el OCR. Ahora va a disco y a `financiero.captura_muestra`, central-only
+(no se replica) y con purga a los 180 días. Es además el corpus que la etapa 6 necesita.
+
+> ⚠️ **Las fotos empiezan a juntarse desde ahora.** Un formato configurado antes de este cambio no
+> tiene ninguna, y la solapa lo dice en vez de mostrar un hueco. Aparecen a partir de la primera
+> derivación que se haga de acá en más.
+
+**Hallazgo grande que salió de esto:** `/api/**` estaba declarado `.authenticated()` en
+`SecurityConfig` pero **ningún filtro lo procesaba** — `JwtAuthenticationTokenFilter` se construye
+con `super("/graphql/**")`. O sea que devolvía **401 siempre, también con un token válido**, y los
+seis controllers que cuelgan de `/api` eran inalcanzables desde la app. Medido: el mismo token, 200
+en `/graphql` y 401 en `/api`. Corregido.
+
+**El ancho del diálogo bajó a 50vw**: con el contenido repartido en solapas ya no necesita 65.
 
 **Cambia el recorrido de la prueba 4.** El mapa ya no se abre desde el ícono de grilla como diálogo
 aparte: se entra al formato y se va a la solapa **«El mapa del cupón»** —o se toca la grilla, que

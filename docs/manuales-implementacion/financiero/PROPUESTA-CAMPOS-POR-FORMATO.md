@@ -126,3 +126,71 @@ tickets reales antes de darle uso.
 
 **No se agrega detección de cupones múltiples.** Confirmado con Gabriel que en operación normal no
 pasa; la foto con tres cupones fue un accidente de la recolección.
+
+---
+
+## 5 · Lo que encontró la auditoría de los dos cambios (2026-09-15)
+
+Implementados 2 y 3, dos agentes auditaron cada uno por separado. Lo que sobrevivió a verificarse
+contra el código, y qué se hizo:
+
+### El diff mentía en el modo que pasó a ser el default
+
+`diff()` se calculaba sin mirar `desdeCero`, así que **acumulando** —el modo normal desde el cambio
+3— anunciaba «se elimina, el patrón ya no lo produce» para campos que en realidad sobreviven
+intactos. Es lo único que el operador lee antes de confirmar algo que baja a 24 sucursales.
+
+El daño no es la falsa alarma: es que **enseña a ignorar el aviso**, justo para el modo (`desdeCero`)
+donde el borrado sí ocurre. El texto ahora depende del modo, y el test que cubría el caso
+(`acumulando_NO_se_borra_...`) verificaba los contadores pero **nunca miraba `r.cambios`** — por eso
+la mentira pasaba en verde. Ahora hay tres tests que leen el texto.
+
+### Los dos cuidados que el §2 pedía, ahora están
+
+- **Cuánto creció la caja**: cada región unida reporta el tamaño antes y después, en porcentaje del
+  cupón.
+- **El aviso de unión grande**: pasando el **25%** el texto dice que la zona ya no acota y sugiere
+  empezar de cero. El umbral sale de que el motor agrega 4% de margen a cada caja y el filtro es
+  fail-open: una zona así deja pasar casi toda caja detectada, que es exactamente la ganancia que el
+  mapa venía a dar.
+
+### Tres defectos menores, reales
+
+1. **`unirEn` cortaba antes de fusionar la etiqueta** cuando la propuesta no traía caja,
+   contradiciendo su propio javadoc. Una región solo por etiqueta es válida y ya estaba testeada
+   como tal.
+2. **El tipo se acumulaba** como si fuera evidencia de la foto. No lo es: lo declara el mapeo. Si
+   alguien lo saca del mapeo a propósito, re-derivar tiene que reflejarlo.
+3. **Campo repetido en la misma tanda**: se guardaba dos veces sobre la misma fila. Ahora se rechaza
+   con un mensaje, en vez de depender del índice único para fallar como error de constraint.
+
+### El typo en `"tipo"` se degradaba a silencio total
+
+`"NUMER0"` con cero no matchea el regex de la derivación. El campo quedaba sin tipo, **sin error en
+ningún punto de la cadena**: `validarMapeo` no miraba el tipo, la validación de la región ve `null`
+y lo acepta (sin tipo es el default seguro), y la pantalla de revisión no mostraba el tipo.
+
+El administrador creía haber declarado una defensa y se quedaba sin ella. El alta del formato es el
+único lugar donde todavía hay a quien avisarle, así que ahí se **confrontan las dos lecturas del
+mismo JSON**: Jackson —lo que se escribió— contra el regex de la derivación —lo que se va a usar—.
+Si no coinciden, o si el valor no es TEXTO/NUMERO/FECHA, el guardado falla diciendo qué corregir.
+Ninguno de los tres formatos cargados declara tipo hoy: no invalida nada existente.
+
+La pantalla de revisión ahora muestra el tipo de cada campo, o «sin tipo».
+
+### Lo que ningún auditor vio, y salió de revisar los dos informes juntos
+
+**Las dos copias de `DerivadorMapa` habían divergido.** El tipo entró en central y no en el filial,
+que tiene su propio camino de derivación (`derivarMapaDeCaptura`, el de la foto sacada desde la
+caja) cuyas regiones viajan a central para que las guarde. Hoy el desktop no consume ese camino, así
+que no había nada roto; lo que se cerró es la trampa. Las dos copias vuelven a ser idénticas.
+
+Cada auditor miró un repo. **El defecto vivía en la diferencia entre los dos**, que es justo lo que
+un auditor por cambio no puede ver.
+
+### Y el javadoc del schema seguía diciendo lo contrario
+
+`captura-muestra.graphqls` y `formato-terminal-pos-region.graphqls` describían el tipo como
+«deducido del valor de la muestra» —exactamente lo que el cambio 2 eliminó por producir falsos
+positivos—. Visible por introspección a cualquiera que integre contra el schema. Corregido, junto
+con los dos comentarios equivalentes del desktop.

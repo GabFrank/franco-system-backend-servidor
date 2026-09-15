@@ -865,3 +865,43 @@ Con PYXPAY el cajero vería un campo **«Número de boleta» vacío en cada vent
 proveedor no imprime. No rompe, pero es ruido permanente y una invitación a escribir cualquier cosa.
 El fix es filtrar por el mapeo, conservando el fallback de mostrar los cuatro cuando no hay mapeo
 —que es la salida de emergencia y no puede depender de que la configuración esté impecable—.
+
+---
+
+## Hallazgos de la corrida del 2026-09-15
+
+### H17 · El diálogo del formato repartía el ancho al revés, y dos campos se dibujaban fuera de su recuadro
+
+Lo levantó Gabriel apenas abrió la prueba 1: *«hay inputs demasiado grandes para datos chicos y
+justamente el que debería de ser un campo de descripción queda chico»*. En una sola columna, un
+nombre de modelo de 20 caracteres recibía el mismo ancho que un regex de 120 y que un JSON de varias
+líneas —los dos campos donde de verdad se trabaja—.
+
+**Ahora son dos columnas:** izquierda *qué aparato es* (nombre, cómo se lee, proveedor, elegible),
+derecha *cómo se lee el cupón* (patrón, mapeo, cadena de ejemplo). La vista previa queda abajo a todo
+el ancho. El regex y el JSON van en monoespaciada: se leen caracter por caracter y un `0` tiene que
+distinguirse de una `O`.
+
+**Y al dividirlo salieron dos defectos de alto que ya estaban:**
+
+1. **El textarea no respetaba su alto.** Medido: con `rows="8"` puesto, el textarea del mapeo medía
+   190px dentro de un `.mat-mdc-form-field-flex` de **48px** — el JSON se dibujaba fuera del
+   recuadro, encima del hint. Es lo que se ve en la captura que disparó el cambio. Hay que soltar
+   **tres** contenedores, no uno, y el atributo `rows` no gobierna nada en MDC.
+
+2. **El hint se comía el campo de abajo.** El repo fija global
+   `.mat-mdc-form-field-subscript-wrapper { height: 0 !important }` y acá había un `margin-bottom`
+   fijo de 34px para compensarlo. Andaba mientras cada hint entrara en un renglón; en columnas
+   angostas pasan a dos y se volvían a pisar. **Un número fijo no puede seguir al contenido.** Ahora
+   el wrapper recupera su alto y el hint vuelve al flujo.
+
+> ⚠️ **La trampa, documentada en el SCSS porque ya me comí una vez:** al wrapper **no** se le toca el
+> `position: relative`. El hint cuelga de él en `absolute`; si se lo sacás, todos los hints se van al
+> primer ancestro posicionado y aparecen **apilados arriba del diálogo, encima de los labels**. Lo
+> probé y pasa. Lo que hay que hacer estático es el hint, no el wrapper.
+
+**Verificado en pantalla, no deducido:** cero superposiciones entre el label de cada campo y el hint
+del anterior, en las dos columnas.
+
+**No bloquea la prueba 1** — es la misma pantalla y los mismos campos. Pero conviene rehacerla sobre
+el diálogo nuevo, que es donde hay que pegar el mapeo con los tipos.

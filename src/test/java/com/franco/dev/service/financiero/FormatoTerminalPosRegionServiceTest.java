@@ -15,6 +15,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -198,18 +199,40 @@ public class FormatoTerminalPosRegionServiceTest {
     }
 
     @Test
-    public void con_la_confirmacion_si_pisa() {
+    public void con_la_confirmacion_la_caja_se_ENSANCHA_no_se_pisa() {
+        // El mismo modelo imprime mas de un layout --medido en INFONET: el ticket con QR tiene dos
+        // renglones menos y el monto queda mas arriba-- asi que la segunda foto tiene que cubrir
+        // las dos posiciones, no reemplazar a la primera.
         FormatoTerminalPosRegion vieja = region("monto", "IMPORTE", 0.1, 0.1, 0.5, 0.2);
         vieja.setId(1L);
         conRegionesExistentes(vieja);
 
         FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
-                Collections.singletonList(region("monto", "MONTO", 0.3, 0.1, 0.7, 0.2)), true);
+                Collections.singletonList(region("monto", "MONTO", 0.3, 0.1, 0.7, 0.3)), true);
 
         assertTrue(r.aplicado);
         assertEquals(1, r.actualizadas);
-        assertEquals("MONTO", vieja.getEtiqueta(), "se copia sobre la fila existente");
+        assertEquals(0.1, vieja.getX1().doubleValue(), 0.0001, "x1 al minimo de las dos");
+        assertEquals(0.7, vieja.getX2().doubleValue(), 0.0001, "x2 al maximo de las dos");
+        assertEquals(0.3, vieja.getY2().doubleValue(), 0.0001, "y2 al maximo de las dos");
+        assertEquals("IMPORTE", vieja.getEtiqueta(),
+                "el ancla de la primera derivacion no se pisa: si no, el mapa dependeria del orden de carga");
         assertEquals(FormatoTerminalPosRegion.ORIGEN_DERIVADA, vieja.getOrigen());
+    }
+
+    @Test
+    public void desde_cero_SI_pisa_la_caja() {
+        // La salida para cuando alguien derivo con un ticket de otro modelo y la union quedo
+        // inservible.
+        FormatoTerminalPosRegion vieja = region("monto", "IMPORTE", 0.1, 0.1, 0.5, 0.2);
+        vieja.setId(1L);
+        conRegionesExistentes(vieja);
+
+        service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.3, 0.1, 0.7, 0.3)), true, true);
+
+        assertEquals(0.3, vieja.getX1().doubleValue(), 0.0001, "se copia, no se une");
+        assertEquals("MONTO", vieja.getEtiqueta());
     }
 
     @Test
@@ -233,17 +256,32 @@ public class FormatoTerminalPosRegionServiceTest {
     }
 
     @Test
-    public void una_derivada_que_el_patron_ya_no_produce_se_borra() {
-        // Si sobrevive, sigue acotando el reconocimiento a una zona por un campo que ya no existe.
+    public void acumulando_NO_se_borra_el_campo_ausente_de_esta_foto() {
+        // Al acumular, un campo que esta foto no trae no significa que el patron no lo produzca:
+        // significa que ESTA variante del ticket no lo tiene. Borrarlo dejaria al otro layout sin
+        // su region.
+        FormatoTerminalPosRegion otraVariante = region("terminal", "TERM", 0.1, 0.8, 0.5, 0.9);
+        otraVariante.setId(2L);
+        conRegionesExistentes(otraVariante);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), true);
+
+        assertEquals(0, r.eliminadas);
+        assertEquals(1, r.creadas);
+        verify(repository, never()).delete(otraVariante);
+    }
+
+    @Test
+    public void desde_cero_SI_borra_lo_que_esta_foto_no_produce() {
         FormatoTerminalPosRegion huerfana = region("terminal", "TERM", 0.1, 0.8, 0.5, 0.9);
         huerfana.setId(2L);
         conRegionesExistentes(huerfana);
 
         FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
-                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), true);
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), true, true);
 
         assertEquals(1, r.eliminadas);
-        assertEquals(1, r.creadas);
         verify(repository).delete(huerfana);
     }
 

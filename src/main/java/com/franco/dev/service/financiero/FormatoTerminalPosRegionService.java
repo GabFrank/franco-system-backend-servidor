@@ -129,6 +129,34 @@ public class FormatoTerminalPosRegionService
     public ResultadoDerivacion guardarDerivadas(FormatoTerminalPos formato,
                                                 List<FormatoTerminalPosRegion> propuestas,
                                                 boolean confirmarSobrescritura) {
+        return guardarDerivadas(formato, propuestas, confirmarSobrescritura, false);
+    }
+
+    /**
+     * Igual, pero pudiendo empezar de cero en vez de acumular.
+     *
+     * <p><b>Por que la derivacion ACUMULA y no reemplaza.</b> Un mismo modelo de aparato imprime
+     * mas de un layout: medido en INFONET el 2026-09-15, el ticket con QR tiene dos renglones menos
+     * que el de tarjeta, asi que el monto queda mas arriba. Las dos operaciones salen de la misma
+     * terminal, el mismo dia, en la misma caja. Un mapa derivado de un ticket de tarjeta deja de
+     * servir para uno de QR, y al reves.
+     *
+     * <p>Por eso una segunda foto <b>ensancha</b> la caja hasta cubrir las dos posiciones, en vez
+     * de pisarla. La union se calcula por campo: {@code x1,y1} al minimo y {@code x2,y2} al maximo.
+     *
+     * <p><b>Y por que union y no una lista de variantes.</b> El filtro de zonas se aplica DESPUES
+     * de detectar, asi que probar N variantes en secuencia serian N pasadas completas del pipeline
+     * --deteccion incluida, que es la etapa que no se ahorra--. La union cuesta una sola pasada y
+     * reconoce unas cajas mas. Y no hace falta "elegir la variante": el patron ya hace eso sobre el
+     * texto.
+     *
+     * @param desdeCero descarta lo derivado y deja solo esta foto. Es la salida para cuando alguien
+     *                  derivo con un ticket de otro modelo y la union quedo inservible.
+     */
+    public ResultadoDerivacion guardarDerivadas(FormatoTerminalPos formato,
+                                                List<FormatoTerminalPosRegion> propuestas,
+                                                boolean confirmarSobrescritura,
+                                                boolean desdeCero) {
         exigirFormatoQueAdmiteMapa(formato);
         if (propuestas == null || propuestas.isEmpty()) {
             throw new GraphQLException("La derivacion no propuso ninguna region. Proba el patron"
@@ -168,13 +196,15 @@ public class FormatoTerminalPosRegionService
         Set<String> camposPropuestos = new HashSet<String>();
         for (FormatoTerminalPosRegion p : aplicables) camposPropuestos.add(p.getCampo());
 
-        // Una region derivada que el patron ya no produce no es inofensiva: sigue acotando el
-        // reconocimiento a una zona por un campo que no existe. Se borra, y se informa.
+        // Al acumular, un campo ausente de ESTA foto no significa que el patron no lo produzca:
+        // significa que esta variante del ticket no lo trae. Solo se borra al empezar de cero.
         int eliminadas = 0;
-        for (FormatoTerminalPosRegion vieja : derivadasViejas) {
-            if (!camposPropuestos.contains(vieja.getCampo())) {
-                repository.delete(vieja);
-                eliminadas++;
+        if (desdeCero) {
+            for (FormatoTerminalPosRegion vieja : derivadasViejas) {
+                if (!camposPropuestos.contains(vieja.getCampo())) {
+                    repository.delete(vieja);
+                    eliminadas++;
+                }
             }
         }
 
@@ -186,7 +216,7 @@ public class FormatoTerminalPosRegionService
                 super.save(p);
                 creadas++;
             } else {
-                copiarEn(p, existente);
+                if (desdeCero) copiarEn(p, existente); else unirEn(p, existente);
                 super.save(existente);
                 actualizadas++;
             }
@@ -194,6 +224,34 @@ public class FormatoTerminalPosRegionService
 
         return new ResultadoDerivacion(true, creadas, actualizadas, eliminadas, conservadas, cambios,
                 "Mapa guardado.");
+    }
+
+    /**
+     * Ensancha la region existente para que cubra tambien la nueva.
+     *
+     * <p>La geometria se une; <b>la etiqueta y la posicion NO se pisan</b> si la existente ya
+     * tenia una. El ancla describe de que texto cuelga el campo, y la primera derivacion ya la
+     * eligio; cambiarla en cada foto haria que el mapa dependiera del orden en que se cargaron los
+     * tickets. Si la existente no tenia ancla y la nueva si, se toma la nueva: es informacion que
+     * antes faltaba.
+     *
+     * <p>Una region sin las cuatro coordenadas no aporta geometria, asi que no se une: se copia la
+     * que si las tenga.
+     */
+    private static void unirEn(FormatoTerminalPosRegion nueva, FormatoTerminalPosRegion existente) {
+        if (!nueva.tieneCaja()) return;                      // nada que unir
+        if (!existente.tieneCaja()) { copiarEn(nueva, existente); return; }
+
+        existente.setX1(existente.getX1().min(nueva.getX1()));
+        existente.setY1(existente.getY1().min(nueva.getY1()));
+        existente.setX2(existente.getX2().max(nueva.getX2()));
+        existente.setY2(existente.getY2().max(nueva.getY2()));
+
+        if (existente.getEtiqueta() == null && nueva.getEtiqueta() != null) {
+            existente.setEtiqueta(nueva.getEtiqueta());
+            existente.setPosicion(nueva.getPosicion());
+        }
+        if (existente.getTipo() == null) existente.setTipo(nueva.getTipo());
     }
 
     /** El diff en frases. Es lo que el operador lee antes de confirmar. */

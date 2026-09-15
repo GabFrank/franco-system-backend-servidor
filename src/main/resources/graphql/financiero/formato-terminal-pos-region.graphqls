@@ -99,5 +99,12 @@ extend type Mutation {
         formatoTerminalPosId: ID!,
         regiones: [FormatoTerminalPosRegionInput!]!,
         confirmarSobrescritura: Boolean = false
+        """
+        Descarta lo derivado y deja solo esta foto. Por defecto la derivación **acumula**: una
+        segunda foto ensancha la caja para cubrir también su posición, porque un mismo modelo
+        imprime más de un layout. Esta es la salida para cuando alguien derivó con un ticket de
+        otro modelo y la unión quedó inservible.
+        """
+        desdeCero: Boolean = false
     ): ResultadoDerivacionRegiones!
 }

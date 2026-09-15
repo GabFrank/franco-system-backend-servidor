@@ -78,7 +78,8 @@ public class FormatoTerminalPosRegionGraphQL implements GraphQLQueryResolver, Gr
     public FormatoTerminalPosRegionService.ResultadoDerivacion guardarRegionesDerivadas(
             Long formatoTerminalPosId,
             List<FormatoTerminalPosRegionInput> regiones,
-            Boolean confirmarSobrescritura) {
+            Boolean confirmarSobrescritura,
+            Boolean desdeCero) {
         seg.requireGestionar();
         FormatoTerminalPos formato = formatoService.findById(formatoTerminalPosId)
                 .orElseThrow(() -> new GraphQLException("No existe el formato de terminal "
@@ -94,7 +95,8 @@ public class FormatoTerminalPosRegionGraphQL implements GraphQLQueryResolver, Gr
             }
         }
         return service.guardarDerivadas(formato, propuestas,
-                Boolean.TRUE.equals(confirmarSobrescritura));
+                Boolean.TRUE.equals(confirmarSobrescritura),
+                Boolean.TRUE.equals(desdeCero));
     }
 
     /**

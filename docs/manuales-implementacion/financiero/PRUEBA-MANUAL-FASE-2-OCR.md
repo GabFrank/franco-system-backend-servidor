@@ -988,3 +988,171 @@ acción del mapa desapareció de la fila porque se llega editando. Las opciones 
 **No bloquea la prueba 1** — son los mismos campos. Pero hay que rehacerla sobre el diálogo nuevo:
 el mapeo con los tipos se pega en el tab **«Qué campos produce»**, y los cuatro casos de rechazo del
 tipo se prueban ahí mismo.
+
+---
+
+## El ABM de formatos, después de la jornada del 2026-09-15
+
+Lo que empezó como *«el diálogo tiene inputs grandes para datos chicos»* terminó reescribiendo la
+pantalla entera. Queda acá lo que hay que saber para probarla, y lo que se decidió y por qué.
+
+### Cinco solapas
+
+| Solapa | Qué tiene |
+|---|---|
+| **Qué aparato es** | nombre, cómo se lee el ticket, proveedor, elegible |
+| **Cómo se lee el cupón** | patrón, cadena de ejemplo, y **el resultado de cruzarlos** |
+| **Qué campos produce** | el mapeo, indentado, con botón para indentar el que se pega en una línea |
+| **El mapa del cupón** | la derivación desde una foto — antes era otro diálogo |
+| **Vista previa** | el cupón real con las regiones encima, el ticket sintético, y **el editor** |
+
+El diálogo mide **50vw**, los botones están **fijos abajo** y no scrollea en ninguna solapa. Eso no
+era estético: los cinco cuerpos de solapa viven en el DOM a la vez y el más alto arrastraba a los
+demás, así que **en la vista previa los botones quedaban 357px por debajo del borde** — para guardar
+había que scrollear a ciegas.
+
+### El orden importa, y no es el que parece
+
+Subir la foto **no** es derivar. Son dos acciones distintas:
+
+| Acción | ¿Necesita el patrón guardado? |
+|---|---|
+| Subir la foto / sacarla con el teléfono | **No** — corre el OCR y muestra el texto |
+| **Proponer el mapa** | **Sí** — usa el patrón **guardado**, no el que está en pantalla |
+
+El recorrido que funciona: **foto → «Usar como cadena de ejemplo» → patrón → Guardar → derivar**.
+
+> ⚠️ **La cadena de ejemplo no se escribe a mano.** El patrón se aplica sobre el texto que devuelve
+> el OCR, con sus rarezas: en el ticket INFONET real leyó `JULI0` con cero, `（B)` con paréntesis de
+> ancho completo y `C008` donde el papel dice `0008`. Y el espaciado **cambia entre lecturas del
+> mismo ticket** (`Lote:1199 Carg0:` una vez, `Lote:1199Cargo:` la otra) — por eso los patrones usan
+> `\s*` y por eso existe el botón.
+
+### Las fotos de muestra se guardan
+
+Antes eran efímeras: el JPEG se descartaba apenas corría el OCR. Ahora van a disco y a
+`financiero.captura_muestra` (V227.5), central-only, con purga a los 180 días. Es además el corpus
+que la etapa 6 necesita para el asistente.
+
+**Las fotos empiezan a juntarse desde este cambio.** Un formato configurado antes no tiene ninguna.
+
+Se pueden borrar una por una (✕ en la miniatura), con confirmación.
+
+### El editor del mapa
+
+**«Editar el mapa»** en la vista previa: el cupón se agranda, las regiones se arrastran y tienen
+tirador para el tamaño, con **zoom de 1× a 4×**. Cada campo tiene su **ancla** editable, Guardar y
+Borrar; los campos del mapeo sin región se agregan con un clic.
+
+No hubo que tocar backend: `saveRegionTerminalPos` ya forzaba `origen = MANUAL` y **la derivación no
+pisa una MANUAL nunca**. Lo que faltaba era la foto.
+
+> **Verde = a mano, ámbar = derivada.** De un vistazo se ve cuál sobrevive a la próxima derivación.
+
+⚠️ **El ancla no es opcional en la práctica.** Una región sólo por coordenadas se rompe entera el día
+que el proveedor agrega un renglón, y sin aviso. El campo de ancla se marca en ámbar mientras esté
+vacío.
+
+### Qué probar de esto
+
+1. Que las cinco solapas **no scrolleen** y los botones se vean siempre, también en modo edición.
+2. Que **«Usar como cadena de ejemplo»** traiga el texto exacto y el patrón lo reconozca.
+3. Que **«Empezar de cero»** borre las anclas del formato anterior, y **«Sumar esta foto»** las
+   conserve y ensanche las cajas.
+4. Que una región **arrastrada y guardada** quede `MANUAL` y que una derivación posterior **no la
+   mueva**.
+5. Que borrar una muestra borre la foto del disco, no sólo la fila.
+6. Que un cupón de **otro formato** dispare el aviso en vez de dibujar regiones que no corresponden.
+
+### El formato INFONET real, como quedó
+
+Primer formato configurado con tickets de verdad. Sirve de referencia:
+
+```
+Patrón:  ^[\s\S]*C\.N\.:\s*(?<cn>[A-Z0-9]+)[\s\S]*BOLETA:\s*(?<boleta>[0-9]+)[\s\S]*C\.AUT:\s*(?<auth>[A-Z0-9]+)[\s\S]*MONTO:\s*G\.(?<monto>[0-9.]+)[\s\S]*$
+
+Mapeo:   {"terminal":{"de":"cn","tipo":"TEXTO"},
+          "numeroBoleta":{"de":"boleta","obligatorio":true,"tipo":"NUMERO"},
+          "codigoAutorizacion":{"de":"auth","obligatorio":true,"tipo":"TEXTO"},
+          "monto":{"de":"monto","obligatorio":true,"tipo":"NUMERO"}}
+```
+
+| campo | ancla | tipo | origen |
+|---|---|---|---|
+| terminal | `C.N.:` | TEXTO | DERIVADA |
+| numeroBoleta | `BOLETA:` | NUMERO | DERIVADA |
+| codigoAutorizacion | `C.AUT:` | TEXTO | **MANUAL** |
+| monto | `G.` | NUMERO | DERIVADA |
+
+⚠️ **`codigoAutorizacion` va `TEXTO`, no `NUMERO`.** Acá salió numérico (`436954`) porque es débito
+con QR; en crédito la misma terminal imprime `D380AD`. Declararlo `NUMERO` mandaría **a revisión cada
+venta con crédito**.
+
+> **Por qué quedó MANUAL:** el código de autorización de INFONET es **la cola del número de boleta**
+> (`BOLETA:5671436954` / `C.AUT:436954`), así que la derivación encontraba el valor en dos cajas y se
+> declaraba ambigua. Se corrigió —ahora la caja que lo tiene entero le gana a la que lo tiene como
+> pedazo— pero la región ya estaba dibujada a mano, y una MANUAL no se pisa.
+
+**Pendiente de confirmar con más tickets:** si `C.N.:82829` cambia entre cajas es la terminal; si es
+el mismo para toda la sucursal es el comercio, y ahí conviene sacarlo del mapeo. Y el ticket de
+**crédito** tiene dos renglones menos que el de QR: hay que probar el patrón contra uno antes de dar
+el formato por cerrado.
+
+### Agregar un campo que no es canónico (ej. `lote`)
+
+Consultado el 2026-09-15. **Capturarlo es sólo configuración**: un grupo más en el patrón
+(`Lote:\s*(?<lote>[0-9]+)`) y una clave más en el mapeo. Como `lote` no es uno de los seis
+contenedores canónicos, el valor va a `datos_extra`, que ya funciona.
+
+**Ponerlo obligatorio de verdad necesita código.** El backend ya está listo —`MapeoFormato.obligatorios()`
+lee cualquier clave, no sólo las canónicas— pero el desktop tiene dos listas fijas:
+
+| Lista | Dónde | Qué rompe |
+|---|---|---|
+| `CAMPOS` (4) | `carga-manual-cupon-dialog` | El cajero **no puede tipear** el campo, y el `obligatorio: true` **se ignora en silencio** |
+| `ETIQUETAS` (6) | `configurar-terminal-pos-dialog` | No se puede exigir por terminal |
+
+Es exactamente el **«cambio 1»** de `PROPUESTA-CAMPOS-POR-FORMATO.md`, diferido a su propio PR. El
+primer campo no canónico que se quiera exigir es el que lo va a forzar.
+
+### Lo que encontraron los tres auditores (2026-09-15, cierre de jornada)
+
+Tres agentes, uno por superficie: persistencia+seguridad, derivador+tipos, editor del desktop.
+
+**Derivador y validación de tipos: limpio.** Ningún hallazgo que rompa. Se verificó que el desempate
+por token entero no puede empeorar un caso que antes funcionaba —el filtro sólo corre cuando hay más
+de una caja, y si no desempata deja todo como estaba— y que las dos copias de `DerivadorMapa` son
+idénticas byte a byte. Queda anotado que `validarTipos` **no corre para formatos tipo API**, que hoy
+no tienen consumidor: el día que se implemente lectura por API, un tipo mal declarado ahí se va a
+degradar en silencio igual que el bug que este cambio vino a cerrar.
+
+**Persistencia: dos huecos reales, corregidos.**
+
+- `usuario_id` prometía trazabilidad y **ninguna línea la escribía**. El problema es de dónde
+  sacarlo: la foto entra por `/public`, sin sesión, porque del otro lado hay un teléfono. Se captura
+  en `crearCapturaMuestra`, que es el único punto del ciclo con un usuario autenticado.
+- Un fallo a mitad de `persistir` dejaba **una fila sin imagen** —visible en la galería, 404 al
+  abrirla, viva hasta la purga— y a veces un archivo huérfano. Ahora se deshace lo que se alcance.
+
+Verificado y correcto: el cambio del filtro a `/api/**` es aditivo, no hay path traversal, la
+migración es aditiva y `V227.5` es única.
+
+**Editor del desktop: uno que rompía y tres de convención.**
+
+- **Fuga de object URLs.** Sólo se revocaban al destruir el componente, y cada vuelta a la solapa
+  recarga la foto: el flujo normal —derivar, mirar, volver, derivar— acumulaba blobs de ~200 KB
+  mientras el diálogo estuviera abierto.
+- **`posicion` se inventaba.** El editor mandaba `DENTRO` siempre que hubiera ancla, pero `DENTRO`
+  significa *«la etiqueta salió en la MISMA caja que el valor»* y dibujando a mano no hay forma de
+  saberlo. Peor: el dato queda permanente, porque una región MANUAL no se vuelve a derivar nunca.
+- **Una llamada a función en un binding** (`formGroup.get('patron').value`), que la regla #1 del repo
+  prohíbe: se re-evalúa en cada ciclo de change detection.
+- **El índice de la solapa de vista previa estaba mal para formatos WEB**: se comparaba contra 4,
+  pero la solapa del mapa sólo existe para MAQUINA.
+
+La matemática del arrastre —con zoom, con scroll del visor, y los límites que impiden una caja
+inválida— se verificó correcta. El sondeo del QR se corta siempre.
+
+> **Nota de método.** Los tres auditores corrieron sobre código que ya estaba commiteado y probado a
+> mano en pantalla, y aun así encontraron una fuga de memoria y un dato que se guardaba mal para
+> siempre. Ninguno de los dos se ve mirando la pantalla.

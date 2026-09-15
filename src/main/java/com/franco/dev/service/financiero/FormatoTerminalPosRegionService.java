@@ -45,6 +45,14 @@ public class FormatoTerminalPosRegionService
             FormatoTerminalPosRegion.ORIGEN_DERIVADA,
             FormatoTerminalPosRegion.ORIGEN_MANUAL);
 
+    private static final BigDecimal CIEN = new BigDecimal("100");
+
+    /**
+     * A partir de aca una zona ya no acota: el 25% del cupon con el margen del motor encima deja
+     * pasar casi toda caja detectada, que es justo la ganancia que el mapa venia a dar.
+     */
+    private static final BigDecimal ZONA_GRANDE = new BigDecimal("0.25");
+
     private final FormatoTerminalPosRegionRepository repository;
 
     @Override
@@ -172,10 +180,19 @@ public class FormatoTerminalPosRegionService
 
         // Lo que la derivacion puede tocar: todo menos lo que una persona corrigio.
         List<FormatoTerminalPosRegion> aplicables = new ArrayList<FormatoTerminalPosRegion>();
+        Set<String> vistos = new LinkedHashSet<String>();
         for (FormatoTerminalPosRegion p : propuestas) {
             p.setFormatoTerminalPos(formato);
             p.setOrigen(FormatoTerminalPosRegion.ORIGEN_DERIVADA);
             validar(p);
+            // Un campo repetido en la misma tanda se guardaria dos veces sobre la misma fila: el
+            // diff mostraria dos lineas para el mismo campo, los contadores quedarian inflados y
+            // el resultado dependeria del orden. El indice unico lo atajaria como error de
+            // constraint, que no le dice nada al operador.
+            if (!vistos.add(p.getCampo())) {
+                throw new GraphQLException("El campo \"" + p.getCampo() + "\" viene dos veces en la"
+                        + " misma derivacion. Cada campo va una sola vez.");
+            }
             if (!camposManuales.contains(p.getCampo())) aplicables.add(p);
         }
 
@@ -185,7 +202,7 @@ public class FormatoTerminalPosRegionService
         }
 
         List<String> conservadas = new ArrayList<String>(camposManuales);
-        List<String> cambios = diff(derivadasViejas, aplicables);
+        List<String> cambios = diff(derivadasViejas, aplicables, desdeCero);
 
         if (!derivadasViejas.isEmpty() && !confirmarSobrescritura) {
             return new ResultadoDerivacion(false, 0, 0, 0, conservadas, cambios,
@@ -239,24 +256,42 @@ public class FormatoTerminalPosRegionService
      * que si las tenga.
      */
     private static void unirEn(FormatoTerminalPosRegion nueva, FormatoTerminalPosRegion existente) {
-        if (!nueva.tieneCaja()) return;                      // nada que unir
-        if (!existente.tieneCaja()) { copiarEn(nueva, existente); return; }
+        // El ancla y el tipo se completan SIEMPRE, aunque esta foto no haya aportado geometria:
+        // una region solo por etiqueta es valida, y es informacion que a la existente le faltaba.
+        if (existente.getEtiqueta() == null && nueva.getEtiqueta() != null) {
+            existente.setEtiqueta(nueva.getEtiqueta());
+            existente.setPosicion(nueva.getPosicion());
+        }
+        // El tipo NO se acumula: no es evidencia de la foto, es lo que el mapeo del formato
+        // declara. Si alguien edito el mapeo para sacarle el tipo a un campo --relajando la
+        // validacion a proposito-- una re-derivacion tiene que reflejarlo, no arrastrar el viejo.
+        existente.setTipo(nueva.getTipo());
+
+        if (!nueva.tieneCaja()) return;                      // no hay geometria que unir
+        if (!existente.tieneCaja()) {
+            existente.setX1(nueva.getX1());
+            existente.setY1(nueva.getY1());
+            existente.setX2(nueva.getX2());
+            existente.setY2(nueva.getY2());
+            return;
+        }
 
         existente.setX1(existente.getX1().min(nueva.getX1()));
         existente.setY1(existente.getY1().min(nueva.getY1()));
         existente.setX2(existente.getX2().max(nueva.getX2()));
         existente.setY2(existente.getY2().max(nueva.getY2()));
-
-        if (existente.getEtiqueta() == null && nueva.getEtiqueta() != null) {
-            existente.setEtiqueta(nueva.getEtiqueta());
-            existente.setPosicion(nueva.getPosicion());
-        }
-        if (existente.getTipo() == null) existente.setTipo(nueva.getTipo());
     }
 
-    /** El diff en frases. Es lo que el operador lee antes de confirmar. */
+    /**
+     * El diff en frases. Es lo que el operador lee antes de confirmar, y es lo unico que lee antes
+     * de un cambio que baja a las 24 sucursales: <b>tiene que describir el modo en el que se va a
+     * guardar</b>. Acumulando y desde cero hacen cosas distintas con el mismo par de regiones --una
+     * ensancha, la otra pisa; una conserva lo ausente, la otra lo borra-- asi que el texto depende
+     * de {@code desdeCero}. Anunciar un borrado que no va a ocurrir es peor que no decir nada:
+     * ensena al operador a ignorar el aviso, justo para el modo donde si es cierto.
+     */
     private static List<String> diff(List<FormatoTerminalPosRegion> viejas,
-                                     List<FormatoTerminalPosRegion> nuevas) {
+                                     List<FormatoTerminalPosRegion> nuevas, boolean desdeCero) {
         List<String> out = new ArrayList<String>();
         Set<String> camposNuevos = new LinkedHashSet<String>();
         for (FormatoTerminalPosRegion n : nuevas) {
@@ -264,16 +299,78 @@ public class FormatoTerminalPosRegionService
             FormatoTerminalPosRegion vieja = buscarCampo(viejas, n.getCampo());
             if (vieja == null) {
                 out.add(n.getCampo() + ": se agrega (" + describir(n) + ")");
-            } else if (!mismaRegion(vieja, n)) {
-                out.add(n.getCampo() + ": " + describir(vieja) + " -> " + describir(n));
+            } else if (desdeCero) {
+                if (!mismaRegion(vieja, n)) {
+                    out.add(n.getCampo() + ": se reemplaza, " + describir(vieja) + " -> " + describir(n));
+                }
+            } else {
+                String union = describirUnion(vieja, n);
+                if (union != null) out.add(n.getCampo() + ": " + union);
             }
         }
         for (FormatoTerminalPosRegion v : viejas) {
             if (!camposNuevos.contains(v.getCampo())) {
-                out.add(v.getCampo() + ": se elimina, el patron ya no lo produce");
+                out.add(v.getCampo() + (desdeCero
+                        ? ": se elimina, esta foto no lo produce"
+                        : ": no aparece en esta foto, se conserva lo que ya estaba mapeado"));
             }
         }
         return out;
+    }
+
+    /**
+     * Que le pasa a una region cuando se acumula. {@code null} si no le pasa nada.
+     *
+     * <p>Tiene que espejar exactamente lo que hace {@link #unirEn}: el operador confirma sobre este
+     * texto. Y dice el tamano resultante en porcentaje del cupon porque el riesgo de acumular es la
+     * caja que crece de mas --una foto de otro modelo la estira hasta cubrir medio ticket y el
+     * filtro de zonas deja de acotar nada--, y no hay otra senal de que eso paso.
+     */
+    private static String describirUnion(FormatoTerminalPosRegion vieja, FormatoTerminalPosRegion nueva) {
+        List<String> partes = new ArrayList<String>();
+
+        if (nueva.tieneCaja()) {
+            if (!vieja.tieneCaja()) {
+                partes.add("se le agrega la zona (" + pct(area(nueva)) + " del cupon)");
+            } else {
+                BigDecimal x1 = vieja.getX1().min(nueva.getX1());
+                BigDecimal y1 = vieja.getY1().min(nueva.getY1());
+                BigDecimal x2 = vieja.getX2().max(nueva.getX2());
+                BigDecimal y2 = vieja.getY2().max(nueva.getY2());
+                boolean crece = !(igualesNum(x1, vieja.getX1()) && igualesNum(y1, vieja.getY1())
+                        && igualesNum(x2, vieja.getX2()) && igualesNum(y2, vieja.getY2()));
+                if (crece) {
+                    BigDecimal unida = area(x1, y1, x2, y2);
+                    String frase = "la zona se ensancha, de " + pct(area(vieja)) + " a "
+                            + pct(unida) + " del cupon";
+                    if (unida.compareTo(ZONA_GRANDE) > 0) {
+                        frase += " -- es una zona muy grande, ya casi no acota el reconocimiento;"
+                                + " si esta foto es de otro modelo de aparato conviene empezar de cero";
+                    }
+                    partes.add(frase);
+                }
+            }
+        }
+        if (vieja.getEtiqueta() == null && nueva.getEtiqueta() != null) {
+            partes.add("se toma el ancla \"" + nueva.getEtiqueta() + "\"");
+        }
+        if (!iguales(vieja.getTipo(), nueva.getTipo())) {
+            partes.add("el tipo pasa a " + (nueva.getTipo() == null ? "sin declarar" : nueva.getTipo()));
+        }
+        if (partes.isEmpty()) return null;
+        return String.join("; ", partes);
+    }
+
+    private static BigDecimal area(FormatoTerminalPosRegion r) {
+        return r.tieneCaja() ? area(r.getX1(), r.getY1(), r.getX2(), r.getY2()) : BigDecimal.ZERO;
+    }
+
+    private static BigDecimal area(BigDecimal x1, BigDecimal y1, BigDecimal x2, BigDecimal y2) {
+        return x2.subtract(x1).multiply(y2.subtract(y1));
+    }
+
+    private static String pct(BigDecimal fraccion) {
+        return fraccion.multiply(CIEN).setScale(1, java.math.RoundingMode.HALF_UP) + "%";
     }
 
     private static FormatoTerminalPosRegion buscarCampo(List<FormatoTerminalPosRegion> lista, String campo) {

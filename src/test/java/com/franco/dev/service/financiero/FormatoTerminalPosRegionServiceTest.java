@@ -285,6 +285,128 @@ public class FormatoTerminalPosRegionServiceTest {
         verify(repository).delete(huerfana);
     }
 
+    // --- El diff, que es lo unico que el operador lee antes de confirmar --------------------
+
+    @Test
+    public void acumulando_el_diff_NO_anuncia_un_borrado_que_no_va_a_pasar() {
+        // El bug: el texto decia "se elimina, el patron ya no lo produce" tambien al acumular,
+        // donde el campo sobrevive intacto. Anunciar un borrado que no ocurre ensena al operador a
+        // ignorar el aviso, justo para el modo donde si es cierto.
+        FormatoTerminalPosRegion otraVariante = region("terminal", "TERM", 0.1, 0.8, 0.5, 0.9);
+        otraVariante.setId(2L);
+        conRegionesExistentes(otraVariante);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), true);
+
+        String linea = lineaDe(r, "terminal");
+        assertNotNull(linea, "el operador tiene que saber que paso con ese campo");
+        assertFalse(linea.contains("se elimina"), "no se elimina: se conserva. Dice: " + linea);
+        assertTrue(linea.contains("se conserva"), linea);
+    }
+
+    @Test
+    public void desde_cero_el_diff_SI_anuncia_el_borrado() {
+        FormatoTerminalPosRegion huerfana = region("terminal", "TERM", 0.1, 0.8, 0.5, 0.9);
+        huerfana.setId(2L);
+        conRegionesExistentes(huerfana);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), true, true);
+
+        assertTrue(lineaDe(r, "terminal").contains("se elimina"));
+    }
+
+    @Test
+    public void el_diff_dice_cuanto_crece_la_zona_al_acumular() {
+        // El riesgo de acumular es la caja que crece de mas. Sin este numero el operador solo se
+        // entera cuando el reconocimiento se puso lento.
+        FormatoTerminalPosRegion vieja = region("monto", "MONTO", 0.1, 0.1, 0.2, 0.2);
+        vieja.setId(1L);
+        conRegionesExistentes(vieja);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.9, 0.9)), true);
+
+        String linea = lineaDe(r, "monto");
+        assertTrue(linea.contains("se ensancha"), linea);
+        assertTrue(linea.contains("1,0%") || linea.contains("1.0%"), "el tamano de antes: " + linea);
+        assertTrue(linea.contains("64,0%") || linea.contains("64.0%"), "el de despues: " + linea);
+        assertTrue(linea.contains("empezar de cero"),
+                "pasado el umbral la zona ya no acota nada y hay que decirlo: " + linea);
+    }
+
+    @Test
+    public void acumulando_una_foto_que_cae_dentro_de_la_zona_no_reporta_cambio() {
+        FormatoTerminalPosRegion vieja = region("monto", "MONTO", 0.1, 0.1, 0.5, 0.5);
+        vieja.setId(1L);
+        conRegionesExistentes(vieja);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.2, 0.2, 0.3, 0.3)), true);
+
+        assertNull(lineaDe(r, "monto"), "no cambia nada, no hay nada que avisar");
+    }
+
+    // --- Lo que la union completa aunque esta foto no aporte geometria ----------------------
+
+    @Test
+    public void una_propuesta_sin_caja_igual_completa_el_ancla_que_faltaba() {
+        // Una region solo por etiqueta es valida. Si esta foto no pudo ubicar la zona pero si
+        // reconocio la etiqueta, eso es informacion que a la existente le faltaba.
+        FormatoTerminalPosRegion sinAncla = region("monto", null, 0.1, 0.1, 0.5, 0.5);
+        sinAncla.setId(1L);
+        sinAncla.setPosicion(null);
+        conRegionesExistentes(sinAncla);
+
+        FormatoTerminalPosRegion soloEtiqueta = new FormatoTerminalPosRegion();
+        soloEtiqueta.setFormatoTerminalPos(formato);
+        soloEtiqueta.setCampo("monto");
+        soloEtiqueta.setEtiqueta("MONTO");
+        soloEtiqueta.setPosicion(FormatoTerminalPosRegion.POSICION_ABAJO);
+
+        service.guardarDerivadas(formato, Collections.singletonList(soloEtiqueta), true);
+
+        assertEquals("MONTO", sinAncla.getEtiqueta());
+        assertEquals(FormatoTerminalPosRegion.POSICION_ABAJO, sinAncla.getPosicion());
+        assertEquals(0.1, sinAncla.getX1().doubleValue(), 0.0001, "la zona que ya tenia no se pierde");
+    }
+
+    @Test
+    public void el_tipo_NO_se_acumula_lo_dice_el_mapeo_de_hoy() {
+        // El tipo no es evidencia de la foto: es lo que el formato declara. Si alguien lo saco del
+        // mapeo a proposito --para relajar la validacion de un campo-- re-derivar tiene que
+        // reflejarlo, no arrastrar el viejo para siempre.
+        FormatoTerminalPosRegion vieja = region("monto", "MONTO", 0.1, 0.1, 0.5, 0.5);
+        vieja.setId(1L);
+        vieja.setTipo(FormatoTerminalPosRegion.TIPO_NUMERO);
+        conRegionesExistentes(vieja);
+
+        FormatoTerminalPosRegion sinTipo = region("monto", "MONTO", 0.1, 0.1, 0.5, 0.5);
+        service.guardarDerivadas(formato, Collections.singletonList(sinTipo), true);
+
+        assertNull(vieja.getTipo(), "el mapeo ya no lo declara");
+    }
+
+    // --- Higiene de la tanda ----------------------------------------------------------------
+
+    @Test
+    public void el_mismo_campo_dos_veces_en_la_misma_tanda_se_rechaza() {
+        // Guardaria dos veces sobre la misma fila: el diff mostraria dos lineas del mismo campo,
+        // los contadores quedarian inflados y el resultado dependeria del orden.
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.guardarDerivadas(
+                formato,
+                Arrays.asList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.5),
+                              region("monto", "TOTAL", 0.2, 0.2, 0.6, 0.6)),
+                true));
+        assertTrue(e.getMessage().contains("dos veces"), e.getMessage());
+    }
+
+    private static String lineaDe(FormatoTerminalPosRegionService.ResultadoDerivacion r, String campo) {
+        for (String linea : r.cambios) if (linea.startsWith(campo + ":")) return linea;
+        return null;
+    }
+
     @Test
     public void una_MANUAL_no_se_borra_aunque_el_patron_ya_no_la_produzca() {
         FormatoTerminalPosRegion manual = region("terminal", "TERM", 0.1, 0.8, 0.5, 0.9);

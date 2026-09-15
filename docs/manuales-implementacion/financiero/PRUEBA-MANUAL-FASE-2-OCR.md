@@ -889,6 +889,21 @@ Los tres tabs son las tres preguntas que un formato responde:
 | **Qué aparato es** | nombre, cómo se lee el ticket, proveedor, elegible |
 | **Cómo se lee el cupón** | patrón y cadena de ejemplo — se corrigen mirándose |
 | **Qué campos produce** | el mapeo |
+| **El mapa del cupón** | la derivación desde una foto — **antes era otro diálogo** |
+
+**El mapa se mudó acá adentro.** Era un diálogo aparte, abierto desde el ícono de grilla de la fila,
+y es una propiedad del formato como el patrón o el mapeo: tenerlo en otra ventana obligaba a cerrar
+una para abrir la otra cuando se está haciendo lo mismo. El diálogo suelto **ya no existe** —no
+quedan dos lugares donde hacer lo mismo— y el ícono de grilla abre el ABM directo en esa solapa.
+
+Tres reglas de esa solapa:
+
+- **Solo aparece para formatos MAQUINA.** Un WEB es patrón puro y no hay imagen donde ubicar
+  regiones.
+- **En un formato nuevo explica en vez de funcionar**: las regiones cuelgan del id del formato, que
+  todavía no existe. Dice qué hacer en vez de mostrar un panel que no podría guardar.
+- **La vista previa se oculta ahí**: habla del patrón y del mapeo, y en esa solapa no se toca
+  ninguno.
 
 **La vista previa queda fuera de los tabs**, abajo y siempre visible: es el resultado de combinar el
 patrón, el ejemplo y el mapeo, que viven en dos tabs distintos. Escondida detrás de uno, se editaría
@@ -929,6 +944,11 @@ indenta al abrir, con un botón **Indentar** para el JSON que se pega en una sol
    botones de abajo quedaban cortados y no se veían.
 
 **Verificado en pantalla, no deducido:** cero superposiciones, en los tres tabs.
+
+**Cambia el recorrido de la prueba 4.** El mapa ya no se abre desde el ícono de grilla como diálogo
+aparte: se entra al formato y se va a la solapa **«El mapa del cupón»** —o se toca la grilla, que
+lleva ahí directo—. El flujo de adentro (QR, subir foto, proponer, el diff, sumar o empezar de cero)
+es exactamente el mismo.
 
 **No bloquea la prueba 1** — son los mismos campos. Pero hay que rehacerla sobre el diálogo nuevo:
 el mapeo con los tipos se pega en el tab **«Qué campos produce»**, y los cuatro casos de rechazo del

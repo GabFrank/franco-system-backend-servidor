@@ -291,44 +291,47 @@ public class DerivadorMapaTest {
         assertEquals(4, r.regiones.size());
     }
 
-    // ---- Deduccion del tipo del campo, a partir del valor de la muestra ----
+    // ---- El tipo del campo lo declara el MAPEO, no la muestra ----
     //
-    // Importa el lado conservador: declarar NUMERO de mas convierte una lectura buena en una
-    // sospecha, y ese costo se paga en cada venta. Ante la duda, TEXTO, que no restringe nada.
+    // Se intento deducirlo del valor leido y esta medido que falla: el codigo de autorizacion de
+    // INFONET sale alfanumerico en credito (D380AD) y numerico en debito y QR (467769), por la
+    // misma terminal. Deducir NUMERO desde un ticket de debito mandaria a revision toda venta con
+    // credito. Una muestra no alcanza para afirmar el tipo de un campo.
 
     @Test
-    void deduce_numero_de_un_valor_de_solo_digitos() {
-        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("883921"));
-        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("00045"));
+    void el_tipo_sale_del_mapeo() {
+        String mapeo = "{\"codigoAutorizacion\":{\"de\":\"auth\",\"tipo\":\"TEXTO\"},"
+                     + "\"numeroBoleta\":{\"de\":\"boleta\",\"tipo\":\"NUMERO\"}}";
+        DerivadorMapa.Resultado r = derivador.derivar(cuponTermico(), PATRON_REAL, mapeo, 720, 1000);
+
+        assertTrue(r.ok(), r.error);
+        assertEquals("TEXTO", tipoDe(r, "codigoAutorizacion"));
+        assertEquals("NUMERO", tipoDe(r, "numeroBoleta"));
     }
 
     @Test
-    void deduce_numero_aunque_traiga_separadores_de_miles_o_decimales() {
-        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("150.000"));
-        assertEquals("NUMERO", DerivadorMapa.RegionPropuesta.tipoDe("1.234,56"));
+    void un_campo_sin_tipo_declarado_queda_en_null() {
+        // El default seguro: el filial no valida nada para ese campo. Declarar de mas cuesta una
+        // lectura correcta convertida en sospecha; declarar de menos solo pierde una defensa.
+        DerivadorMapa.Resultado r = derivador.derivar(
+                cuponTermico(), PATRON_REAL, MAPEO_REAL, 720, 1000);
+
+        assertTrue(r.ok(), r.error);
+        assertNull(tipoDe(r, "codigoAutorizacion"),
+                "MAPEO_REAL no declara tipo: no se puede inventar uno");
     }
 
     @Test
-    void deduce_fecha_en_los_dos_ordenes_usuales() {
-        assertEquals("FECHA", DerivadorMapa.RegionPropuesta.tipoDe("12/09/2026"));
-        assertEquals("FECHA", DerivadorMapa.RegionPropuesta.tipoDe("2026-09-12"));
+    void sin_mapeo_ningun_campo_tiene_tipo() {
+        DerivadorMapa.Resultado r = derivador.derivar(cupon(),
+                "^[\\s\\S]*AUT: (?<auth>[0-9]+)[\\s\\S]*$", 400, 200);
+
+        assertTrue(r.ok(), r.error);
+        for (DerivadorMapa.RegionPropuesta pr : r.regiones) assertNull(pr.tipo);
     }
 
-    @Test
-    void una_serie_alfanumerica_es_TEXTO_y_no_NUMERO() {
-        // JF798SJJ es una serie real de terminal: tiene digitos, pero no es un numero. Declararla
-        // NUMERO haria que toda lectura correcta de ese campo saliera a revision.
-        assertEquals("TEXTO", DerivadorMapa.RegionPropuesta.tipoDe("JF798SJJ"));
-    }
-
-    @Test
-    void un_valor_que_empieza_con_letra_nunca_es_NUMERO() {
-        assertEquals("TEXTO", DerivadorMapa.RegionPropuesta.tipoDe("O0451233"));
-    }
-
-    @Test
-    void sin_valor_no_se_deduce_nada() {
-        assertNull(DerivadorMapa.RegionPropuesta.tipoDe(null));
-        assertNull(DerivadorMapa.RegionPropuesta.tipoDe("   "));
+    private static String tipoDe(DerivadorMapa.Resultado r, String campo) {
+        for (DerivadorMapa.RegionPropuesta p : r.regiones) if (campo.equals(p.campo)) return p.tipo;
+        return null;
     }
 }

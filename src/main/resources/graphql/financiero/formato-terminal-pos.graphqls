@@ -6,7 +6,23 @@ type FormatoTerminalPos {
     tipo: String
     "Regex con grupos nombrados, anclado con ^ y $. Obligatorio para MAQUINA y WEB; solo API puede no tenerlo."
     patron: String
-    "JSON: campo destino -> {de, obligatorio, ...}. Los obligatorios definen tambien el formulario de carga a mano."
+    """
+    JSON: campo destino -> `{de, obligatorio, tipo}`.
+
+    - `de`: el grupo nombrado del patrón del que sale el valor.
+    - `obligatorio`: define también el formulario de carga a mano.
+    - `tipo`: TEXTO | NUMERO | FECHA. Lo lee el filial: un valor que no encaja con su tipo se
+      manda a revisión. **Declararlo es opcional y conviene ser conservador** — un campo sin tipo
+      simplemente no se valida, mientras que un tipo mal puesto convierte lecturas correctas en
+      sospechas, en cada venta. Ejemplo medido: el código de autorización de INFONET es
+      alfanumérico en crédito (`D380AD`) y numérico en débito (`467769`), por la misma terminal;
+      ahí corresponde TEXTO, o ninguno.
+
+    Los campos destino que `venta_tarjeta` tiene como columna —`codigoAutorizacion`,
+    `numeroBoleta`, `monto`, `terminal`, `identificadorTransaccion`, `moneda`— son
+    **contenedores**: el proveedor le da el nombre que quiera a su dato y el mapeo decide en cuál
+    cae. Lo que no mapea a ninguno va a `datos_extra`.
+    """
     mapeo: String
     ejemplo: String
     "false = no elegible para asignar a terminales nuevas. Las que ya lo tienen siguen operando."

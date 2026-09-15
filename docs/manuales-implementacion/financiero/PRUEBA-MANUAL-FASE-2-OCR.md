@@ -716,3 +716,66 @@ distribución de nitidez ahí puede ser completamente distinta —y separar bien
 3. **Si no separa** → dejarla registrada como telemetría y **decirlo en el schema**, para que nadie
    vuelva a intentar esto sin datos. Hoy el módulo ya arrastra tres campos guardados sin lector; el
    valor de cerrar este es documentar por qué no se usa.
+
+### H16 · Dos proveedores reales, y lo que rompen de nuestros supuestos
+
+Material del 2026-09-15: **13 transacciones INFONET** y **6 PYXPAY**, tickets de papel reales
+fotografiados con teléfono.
+
+#### INFONET — dos variantes estructurales
+
+| | C.N. | Renglones entre BOLETA y MONTO | Marcas propias |
+|---|---|---|---|
+| **Tarjeta** | 5098108 | 5 | `A0000…`, marca, `NO REQUIERE PIN NI FIRMA` |
+| **QR** | 82829 | 3 | `Con QR (B)`, tarjeta enmascarada `*XXX0` |
+
+**El monto cambia de altura según el tipo de operación.** No es un artefacto de la foto: un solo
+mapa geométrico no cubre los dos caminos. Es la evidencia que faltaba para decidir lo de acumular
+variantes.
+
+**El código de autorización es ALFANUMÉRICO**: `D380AD`, `0HNDMK` junto a `467769`, `038116`.
+⚠️ **Esto rompe la deducción de tipo que se conectó el 2026-09-14**: derivando desde un ticket con
+código numérico, `tipoDe` deduce `NUMERO`, y después **toda venta con VISA crédito iría a revisión**
+porque `D380AD` no encaja. Es el falso positivo contra el que el propio código advierte, producido
+por mirar **una sola muestra**.
+
+**Verificación gratis, propia del camino QR:** `C.AUT` es igual a los últimos 6 dígitos de `BOLETA`
+en los 8 tickets QR, y no se cumple en ninguno de tarjeta. Es objetiva, como el cruce del monto, y
+mucho más confiable que la confianza del OCR.
+
+#### PYXPAY — la mitad de los campos, y la moneda peligrosa
+
+```
+VIA EMPRESA / BODEGA FRANCO
+COD TRANS.:      3775906
+DATA:      02/09/2026 23:36:40
+TOTAL:           R$50,48
+```
+
+| Supuesto nuestro | PYXPAY |
+|---|---|
+| hay código de autorización | **no existe**; el único id es `COD TRANS.` |
+| hay número de boleta | **no existe** |
+| el cupón identifica la terminal | **no trae ninguno** — el cajero siempre va a tener que escanear el código |
+| la etiqueta del importe es `MONTO:` | es **`TOTAL:`** |
+| el importe es entero | **`R$50,48`: reales, con coma decimal** |
+
+**De los cuatro campos canónicos, PYXPAY llena dos.** Confirma que la elección de campos por formato
+no es una comodidad sino un requisito estructural.
+
+**Y la moneda con decimales es el caso peligroso que estaba anotado sin ejemplo.** Si el OCR se come
+la coma, `50,48` se vuelve `5048`: **cien veces más**. Ya está medido que el motor pierde
+separadores (el 2026-09-14 devolvió `150000` por `150.000`). El parser del diálogo maneja bien la
+coma; el riesgo es lo que llega desde el OCR, y ahí **el cruce contra lo cobrado es la única
+defensa**.
+
+#### Un defecto que sólo aparece con un segundo proveedor
+
+`camposSegunFormato()` recorre **los cuatro campos siempre** y usa el mapeo sólo para decidir cuál
+es obligatorio — **no filtra los que el formato no declara**
+`[desktop:.../carga-manual-cupon-dialog.component.ts:307-321]`.
+
+Con PYXPAY el cajero vería un campo **«Número de boleta» vacío en cada venta**, para un dato que ese
+proveedor no imprime. No rompe, pero es ruido permanente y una invitación a escribir cualquier cosa.
+El fix es filtrar por el mapeo, conservando el fallback de mostrar los cuatro cuando no hay mapeo
+—que es la salida de emergencia y no puede depender de que la configuración esté impecable—.

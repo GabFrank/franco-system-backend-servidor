@@ -161,6 +161,18 @@ desembolso (EGRESO), cobro directo de cuota (INGRESO), plan de cuotas con
 `CuotaCalculator` (la última absorbe el redondeo). Job `PrestamoCuotaScheduler`
 (diario 6:00 AM) marca cuotas vencidas. Migración `V143.0`. Estado: Compila + Tests.
 
+**Cobro de cuota sin duplicados (issue #299, 2026-09-15)** — `cobrarCuota` toma la cuota y el
+préstamo con lock pesimista (`lockById`, siempre en ese orden) y rechaza cuotas `PAGADA` y
+`CANCELADA`. Acepta `montoPagadoEsperado` (opcional): el monto pagado que mostraba la pantalla; si
+no coincide con la base (tolerancia 0.005), rechaza antes de registrar el `INGRESO`. Es lo que
+separa un reintento de un segundo cobro parcial legítimo. El desktop lo manda y deshabilita
+«Cobrar» mientras el cobro está en vuelo. `marcarVencidas` es un `UPDATE` que toca solo el estado:
+cargar y guardar la entidad entera pisaba el `monto_pagado` de un cobro concurrente (sin
+`@DynamicUpdate` ni `@Version`). Verificado con dos cobros simultáneos contra un central local: un
+solo `INGRESO` por cobro aceptado. **Pendiente**: la liquidación descuenta cuotas sin lock ni control
+de estado y puede cobrar dos veces una cuota ya cobrada por caja (#300); con el lock nuevo, ese cruce
+exacto termina en deadlock detectado en vez de doble cobro.
+
 ---
 
 ## 5. Vacaciones, aguinaldo y bonos (Fase 4)

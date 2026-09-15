@@ -38,7 +38,7 @@ y desktop, las dos desde `origin/develop` (central `a472b8ab`, desktop `a7d5ac8d
      **antes** de registrar el movimiento;
    - toma el préstamo con `lockById` antes de sumar `montoPagado`. Orden de locks fijo: cuota → préstamo
      (dos cuotas distintas del mismo préstamo no forman ciclo);
-   - se conserva la sobrecarga de 3 argumentos, que delega con `null`.
+   - la sobrecarga de 3 argumentos se quitó en la auditoría del diff (D5): ningún llamador de producción.
 3. `PrestamoGraphQL.cobrarCuota(..., BigDecimal montoPagadoEsperado)` y el `.graphqls`:
    `cobrarCuota(cuotaId: ID!, cajaVirtualId: ID!, montoPago: Float, montoPagadoEsperado: Float): PrestamoCuota`.
    Argumento **opcional**: el desktop viejo no lo manda y conserva el comportamiento de hoy (con lock).
@@ -141,11 +141,12 @@ Mutations desde la página con la sesión del usuario, 2026-09-15 16:23.
 | **Cliente viejo**: dos cobros **simultáneos** del resto, sin `montoPagadoEsperado` | uno cobra 200.000 (cuota `PAGADA`); el otro sale «La cuota ya esta pagada» |
 | Base (`movimiento_caja_virtual`, `origen_tipo = RRHH_PRESTAMO`, `origen_id = 1`) | `EGRESO` 300.000 + `INGRESO` 100.000 + `INGRESO` 200.000: **un solo INGRESO por cobro aceptado**. Préstamo `PAGADO` con 300.000; cuota `PAGADA` |
 | Log del central | solo los dos rechazos de negocio; sin deadlock ni error de lock |
+| **Desktop (fase 2) contra el central nuevo**: préstamo #2 de 200.000 Gs, Préstamos → ⋮ → Ver cuotas / cobrar → Caja «RRHH» → Cobrar → Sí | una sola mutation con `montoPago: 200000` y `montoPagadoEsperado: 0`; un aviso («Guardado con éxito»); la fila queda `PAGADA` y sin botón. En la base: `EGRESO` 200.000 + **un** `INGRESO` 200.000, préstamo `PAGADO` |
 
 Auditoría de datos existentes (B3): la copia local `bodega` no tenía préstamos (`rrhh.prestamo_cuota` vacía), así que
 no hay nada que auditar en local. **Producción queda sin verificar.**
 
-Datos de prueba que quedan en la `bodega` local: préstamo #1 y sus movimientos 10, 11 y 12 en la Caja Mayor «RRHH».
+Datos de prueba que quedan en la `bodega` local: préstamos #1 y #2 y sus movimientos 10 a 14 en la Caja Mayor «RRHH».
 Al arrancar, Flyway aplicó a esa base `V222.3`, `V223.1` y `V224.3`, que venían de `develop`.
 
 ## Auditoría del plan (paso 5)

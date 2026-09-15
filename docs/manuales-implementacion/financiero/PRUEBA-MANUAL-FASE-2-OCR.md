@@ -877,10 +877,30 @@ justamente el que debería de ser un campo de descripción queda chico»*. En un
 nombre de modelo de 20 caracteres recibía el mismo ancho que un regex de 120 y que un JSON de varias
 líneas —los dos campos donde de verdad se trabaja—.
 
-**Ahora son dos columnas:** izquierda *qué aparato es* (nombre, cómo se lee, proveedor, elegible),
-derecha *cómo se lee el cupón* (patrón, mapeo, cadena de ejemplo). La vista previa queda abajo a todo
-el ancho. El regex y el JSON van en monoespaciada: se leen caracter por caracter y un `0` tiene que
-distinguirse de una `O`.
+**Terminó en tres tabs, no en dos columnas.** Las columnas fueron el primer intento y mejoraban el
+reparto, pero el regex y el JSON seguían compartiendo el ancho con campos que no lo necesitan — lo
+levantó Gabriel: *«qué opinás si abrimos un solo diálogo con tabs»*. Con tabs cada uno se queda con
+el diálogo entero: el patrón de 120 caracteres entra en un renglón y el mapeo tiene 300px de alto.
+
+Los tres tabs son las tres preguntas que un formato responde:
+
+| Tab | Qué tiene |
+|---|---|
+| **Qué aparato es** | nombre, cómo se lee el ticket, proveedor, elegible |
+| **Cómo se lee el cupón** | patrón y cadena de ejemplo — se corrigen mirándose |
+| **Qué campos produce** | el mapeo |
+
+**La vista previa queda fuera de los tabs**, abajo y siempre visible: es el resultado de combinar el
+patrón, el ejemplo y el mapeo, que viven en dos tabs distintos. Escondida detrás de uno, se editaría
+el mapeo sin ver el efecto — justo lo que esa vista existe para evitar.
+
+**El precio de los tabs** es que un requerido vacío puede quedar escondido detrás de otra solapa. Por
+eso cada tab muestra un punto ámbar cuando le falta algo, y **Guardar dejó de estar deshabilitado**:
+un botón muerto cuya causa está en otra solapa no se puede diagnosticar. Ahora avisa qué falta y
+lleva al tab donde está el hueco.
+
+El regex y el JSON van en monoespaciada —un `0` tiene que distinguirse de una `O`— y el mapeo se
+indenta al abrir, con un botón **Indentar** para el JSON que se pega en una sola línea.
 
 **Y al dividirlo salieron dos defectos de alto que ya estaban:**
 
@@ -900,8 +920,16 @@ distinguirse de una `O`.
 > primer ancestro posicionado y aparecen **apilados arriba del diálogo, encima de los labels**. Lo
 > probé y pasa. Lo que hay que hacer estático es el hint, no el wrapper.
 
-**Verificado en pantalla, no deducido:** cero superposiciones entre el label de cada campo y el hint
-del anterior, en las dos columnas.
+**Y dos más que salieron al pasar a tabs**, las dos medidas en pantalla:
 
-**No bloquea la prueba 1** — es la misma pantalla y los mismos campos. Pero conviene rehacerla sobre
-el diálogo nuevo, que es donde hay que pegar el mapeo con los tipos.
+3. **El tab group cedía altura.** El diálogo es flex column con `max-height`, así que el grupo se
+   encogía —419px con 486px de contenido adentro— y el contenido se dibujaba **encima de la vista
+   previa**. El que tiene que scrollear es el diálogo, no el tab.
+4. **MDC recorta en tres capas** (wrapper, body y content). Sin las tres, el hint del mapeo y los
+   botones de abajo quedaban cortados y no se veían.
+
+**Verificado en pantalla, no deducido:** cero superposiciones, en los tres tabs.
+
+**No bloquea la prueba 1** — son los mismos campos. Pero hay que rehacerla sobre el diálogo nuevo:
+el mapeo con los tipos se pega en el tab **«Qué campos produce»**, y los cuatro casos de rechazo del
+tipo se prueban ahí mismo.

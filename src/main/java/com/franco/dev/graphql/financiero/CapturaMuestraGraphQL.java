@@ -121,6 +121,17 @@ public class CapturaMuestraGraphQL implements GraphQLQueryResolver, GraphQLMutat
         return out;
     }
 
+    /**
+     * Borra una muestra guardada.
+     *
+     * <p>Exige {@code requireGestionar} y no {@code requireVer}: mirar las fotos es una cosa y
+     * borrar la evidencia de como se configuro un formato es otra.
+     */
+    public Boolean eliminarMuestra(Long id) {
+        seg.requireGestionar();
+        return service.eliminar(id);
+    }
+
     /** Una muestra ya guardada, como la ve la pantalla. */
     public static final class MuestraGuardada {
         private final CapturaMuestra m;

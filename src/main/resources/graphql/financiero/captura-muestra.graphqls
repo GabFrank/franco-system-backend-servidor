@@ -75,6 +75,11 @@ extend type Mutation {
     "Abre una captura de muestra para este formato y devuelve lo necesario para dibujar el QR."
     crearCapturaMuestra(formatoTerminalPosId: ID!): CapturaMuestraQr!
     """
+    Borra una muestra guardada, con su foto. Pide rol de gestión: mirar las fotos es una cosa
+    y borrar la evidencia de cómo se configuró un formato es otra.
+    """
+    eliminarMuestra(id: ID!): Boolean
+    """
     Propone el mapa a partir de la muestra. NO guarda nada: la propuesta la revisa una persona y la
     persiste guardarRegionesDerivadas, que es quien aplica las reglas de sobrescritura.
     """

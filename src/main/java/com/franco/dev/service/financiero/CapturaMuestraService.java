@@ -247,6 +247,32 @@ public class CapturaMuestraService {
     }
 
     /**
+     * Borra una muestra guardada, con su archivo.
+     *
+     * <p>Hace falta poder borrar: una foto salio movida, se derivo con el cupon equivocado, o el
+     * ticket quedo con datos que no se quieren conservar. Sin esto la unica salida era esperar la
+     * purga, que son seis meses.
+     *
+     * <p>El archivo primero y la fila despues, igual que la purga: al reves, un fallo entre las dos
+     * deja un archivo huerfano que nadie va a volver a mirar ni a borrar.
+     */
+    public boolean eliminar(Long id) {
+        return repository.findById(id).map(f -> {
+            try {
+                if (f.getRutaImagen() != null) {
+                    Files.deleteIfExists(Paths.get(rutaImagenes, f.getRutaImagen()));
+                }
+            } catch (IOException e) {
+                // Se borra la fila igual: una fila que apunta a un archivo que no se pudo borrar es
+                // peor que un archivo suelto --sigue mostrandose en la pantalla y falla al abrirla--.
+                log.error("no se pudo borrar la imagen de la muestra {}", id, e);
+            }
+            repository.delete(f);
+            return true;
+        }).orElse(false);
+    }
+
+    /**
      * Borra las muestras mas viejas que la fecha dada, con su archivo. Devuelve cuantas borro.
      *
      * <p>El archivo primero y la fila despues: al reves, un fallo entre las dos deja un archivo

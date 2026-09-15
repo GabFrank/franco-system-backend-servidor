@@ -128,6 +128,26 @@ Sin migración y sin columnas. `N/A para filial porque rrhh.* no se publica [ev:
   corregir datos de producción queda fuera de este PR.
 - Karma y e2e del desktop: no corren.
 
+## Prueba de runtime (paso 9)
+
+Central local (`fix/rrhh-cobro-cuota-idempotente`, perfil `dev`, `SPRING_DATASOURCE_URL` a `bodega` porque el
+worktree no tiene `application-user-dev.properties` y el default de `application-dev` es `bodega_fact_test_2`).
+Mutations desde la página con la sesión del usuario, 2026-09-15 16:23.
+
+| Paso | Resultado |
+|---|---|
+| `crearPrestamo` 300.000 Gs, 1 cuota, Caja Mayor «RRHH» (id 1) | préstamo #1 `ACTIVO`, cuota #1 `PENDIENTE` |
+| **Caso del issue**: dos `cobrarCuota` parciales de 100.000 **simultáneos**, `montoPagadoEsperado = 0` | uno cobra (cuota `PARCIAL`, 100.000); el otro espera el lock y sale «La cuota #1 cambio desde que se cargo la pantalla: ya tiene pagado 100000.00» |
+| **Cliente viejo**: dos cobros **simultáneos** del resto, sin `montoPagadoEsperado` | uno cobra 200.000 (cuota `PAGADA`); el otro sale «La cuota ya esta pagada» |
+| Base (`movimiento_caja_virtual`, `origen_tipo = RRHH_PRESTAMO`, `origen_id = 1`) | `EGRESO` 300.000 + `INGRESO` 100.000 + `INGRESO` 200.000: **un solo INGRESO por cobro aceptado**. Préstamo `PAGADO` con 300.000; cuota `PAGADA` |
+| Log del central | solo los dos rechazos de negocio; sin deadlock ni error de lock |
+
+Auditoría de datos existentes (B3): la copia local `bodega` no tenía préstamos (`rrhh.prestamo_cuota` vacía), así que
+no hay nada que auditar en local. **Producción queda sin verificar.**
+
+Datos de prueba que quedan en la `bodega` local: préstamo #1 y sus movimientos 10, 11 y 12 en la Caja Mayor «RRHH».
+Al arrancar, Flyway aplicó a esa base `V222.3`, `V223.1` y `V224.3`, que venían de `develop`.
+
 ## Auditoría del plan (paso 5)
 
 | # | Eje | Hallazgo | Verificación | Qué se hizo |
@@ -142,3 +162,14 @@ Sin migración y sin columnas. `N/A para filial porque rrhh.* no se publica [ev:
 | B4 | B · media | Mockito solo prueba que se llama `lockById`, no la carrera | Correcto | **Aplicado**: la prueba con dos mutations simultáneas pasa a ser gate antes del PR del central |
 | B5 | B · media | Sin timeout HTTP, la bandera `cobrando` puede quedar encendida si la request cuelga | Preexistente (desktop #304). La bandera vive en el diálogo: cerrarlo y reabrirlo la reinicia | Anotado, fuera de alcance |
 | B6 | B · baja | Desktop viejo con doble clic: el lock ya cierra el duplicado; precisión `Float` sin riesgo en guaraníes enteros | Leído | Sin cambio |
+
+## Auditoría del diff (paso 8)
+
+| # | Fijo | Hallazgo | Verificación | Qué se hizo |
+|---|---|---|---|---|
+| D1 | 1 | Rol, fuga del monto en el mensaje, ACL de caja, gating del botón | `cobrarCuota` exige rol como primera línea; `marcarVencidas` sin resolver; el monto ya se lee con `requireVer()` (gate más laxo); el ACL de caja se chequea después de los locks **igual que en develop**, y un rechazo hace rollback y los libera | Sin hallazgos |
+| D2 | 2 · media | Sin `lock_timeout`: un segundo cobro de la misma cuota espera sin límite | Es el comportamiento buscado (la espera dura una transacción de cobro). Mismo patrón que `LiquidacionFinalRepository.lockById` | Anotado como riesgo conocido, sin cambio |
+| D3 | 2 · baja | `@Modifying` sin `clearAutomatically` | El único llamador es el scheduler, sin lecturas previas en su transacción. Limpiar el contexto le desengancharía entidades a un llamador futuro (LazyInitialization) | Rechazado |
+| D4 | 2 | Semántica de `marcarVencidas`, JPQL, sin migración, `rrhh.*` no replicado, filas clonadas del desktop | Verificado | Sin hallazgos |
+| D5 | 3 · baja | La sobrecarga `cobrarCuota` de 3 argumentos quedó sin llamador de producción (solo el test) | grep | **Aplicado**: se quita; el caso «cliente viejo» se prueba con `null` en la de 4 |
+| D6 | 3 | Cliente viejo contra central nuevo, desktop nuevo contra central viejo (error visible y `cobrando` se apaga), único llamador del service desktop, mobile y mobile-pwa sin consumidores, orden de despliegue | Verificado | Sin hallazgos |

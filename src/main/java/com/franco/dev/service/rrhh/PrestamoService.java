@@ -125,11 +125,6 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
     /** Diferencia tolerada entre el monto pagado que vio el cliente y el de la base (la de tesoreria). */
     private static final BigDecimal TOLERANCIA_MONTO = new BigDecimal("0.005");
 
-    @Transactional
-    public PrestamoCuota cobrarCuota(Long cuotaId, Long cajaVirtualId, BigDecimal montoPago) {
-        return cobrarCuota(cuotaId, cajaVirtualId, montoPago, null);
-    }
-
     /**
      * Cobra (total o parcialmente) una cuota directamente por caja:
      * INGRESO en la Caja Mayor. Actualiza estado de cuota y prestamo.

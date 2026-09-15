@@ -108,7 +108,7 @@ class PrestamoServiceCobroCuotaTest {
     void sinMontoEsperadoCobraComoLosClientesViejos() {
         cuota(PrestamoCuotaEstado.PENDIENTE, 0);
 
-        service.cobrarCuota(70L, 1L, BigDecimal.valueOf(500_000));
+        service.cobrarCuota(70L, 1L, BigDecimal.valueOf(500_000), null);
 
         verify(movimientoService, times(1)).registrarMovimiento(any(MovimientoCajaVirtual.class));
     }

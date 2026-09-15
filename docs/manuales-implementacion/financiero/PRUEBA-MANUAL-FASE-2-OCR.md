@@ -670,3 +670,49 @@ mapa se reconocen ~140 caracteres en vez de ~290.
 a punta el total incluye la **detección**, que sigue corriendo sobre la imagen entera. La mejora es
 real y consistente, pero conviene citarla como **35% end-to-end** y no como 4×, que es lo que hoy
 sugiere el plan.
+
+### TODO · Medir `nitidez` contra tickets reales antes de darle un uso
+
+**Estado:** el filial calcula la nitidez de cada foto, la recibe por el header `X-Nitidez`, la
+guarda en `captura_cupon.nitidez` — y **nadie la lee**. Es deliberado, no un olvido: hoy no hay
+evidencia que justifique un umbral.
+
+**Lo que se midió el 2026-09-15**, sobre cupones sintéticos fotografiados de una pantalla:
+
+| Captura | nitidez | ¿extrajo los campos? |
+|---|---|---|
+| 13 (desenfoque 5×5) | **173.9** | **sí**, los cuatro |
+| 14 (desenfoque 15×15) | 150.2 | no |
+| 6 | 359.1 | **no** |
+| 11 | 362.4 | sí |
+| 8 | 651.1 | sí |
+| 10 | 928.6 | sí |
+
+**No discrimina.** Una captura con 173 extrajo todo y otra con 359 no extrajo nada. Con estos datos,
+cualquier umbral sería un número inventado, y el costo de equivocarse no es simétrico: avisar «la
+foto salió borrosa» cuando el problema era el **formato mal asignado** manda al cajero a repetir
+fotos que nunca van a funcionar.
+
+**Por qué la muestra no alcanza, y no es solo que sea chica.** Las seis capturas son **fotos de una
+pantalla mostrando un JPEG**: iluminación pareja, sin curvatura, sin papel. Un ticket térmico real
+fotografiado con un teléfono trae reflejos, sombra de la mano, papel arqueado y tinta despareja. La
+distribución de nitidez ahí puede ser completamente distinta —y separar bien, o no separar nada—.
+**No se puede saber desde acá.**
+
+**Qué hay que juntar**, y es barato porque ya se guarda solo:
+
+- **20–30 capturas de tickets de papel reales**, de varios modelos de POS, sacadas por cajeros con
+  sus propios teléfonos y no en condiciones de laboratorio.
+- Por cada una: `nitidez`, si `campos` salió o no, y **si los valores eran correctos** —que no es lo
+  mismo que si extrajo: el 2026-09-14 una lectura extrajo los cuatro campos con uno equivocado—.
+- La foto queda en `imagen_url`, así que se puede revisar después.
+
+**Qué decidiría ese dato:**
+
+1. **Si separa bien** → avisar en el teléfono *antes de subir*: «esta foto salió borrosa, sacá otra».
+   Ahorra el viaje de ida y vuelta y el tiempo de OCR.
+2. **Si separa a medias** → usarla solo para redactar el aviso de H15 con más precisión, en vez de
+   nombrar las dos causas posibles.
+3. **Si no separa** → dejarla registrada como telemetría y **decirlo en el schema**, para que nadie
+   vuelva a intentar esto sin datos. Hoy el módulo ya arrastra tres campos guardados sin lector; el
+   valor de cerrar este es documentar por qué no se usa.

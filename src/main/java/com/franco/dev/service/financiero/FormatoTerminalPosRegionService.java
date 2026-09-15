@@ -204,7 +204,16 @@ public class FormatoTerminalPosRegionService
         List<String> conservadas = new ArrayList<String>(camposManuales);
         List<String> cambios = diff(derivadasViejas, aplicables, desdeCero);
 
-        if (!derivadasViejas.isEmpty() && !confirmarSobrescritura) {
+        // Nada que confirmar cuando nada cambia. Acumulando, volver a derivar con la misma foto
+        // --o con otra que caiga dentro de las zonas ya mapeadas-- no modifica una sola region, y
+        // el diff sale vacio: pedir confirmacion ahi seria mostrar "esto es lo que cambiaria"
+        // seguido de nada, y hacer clic en aceptar para no hacer nada. Aplicar es un no-op.
+        //
+        // Solo en ese camino. Desde cero se copia la propuesta entera --`orden` y `obligatorio`
+        // incluidos, que el diff no describe-- asi que ahi un diff vacio NO prueba que no cambie
+        // nada, y la confirmacion se pide igual.
+        boolean nadaQueHacer = !desdeCero && cambios.isEmpty();
+        if (!derivadasViejas.isEmpty() && !confirmarSobrescritura && !nadaQueHacer) {
             return new ResultadoDerivacion(false, 0, 0, 0, conservadas, cambios,
                     "Este formato ya tiene un mapa derivado. Revisa los cambios y confirma para"
                             + " reemplazarlo: baja a todas las sucursales.");

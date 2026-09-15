@@ -402,6 +402,19 @@ public class FormatoTerminalPosRegionServiceTest {
         assertTrue(e.getMessage().contains("dos veces"), e.getMessage());
     }
 
+    @Test
+    public void con_algo_que_cambiar_sigue_pidiendo_confirmacion() {
+        FormatoTerminalPosRegion vieja = region("monto", "MONTO", 0.1, 0.1, 0.5, 0.5);
+        vieja.setId(1L);
+        conRegionesExistentes(vieja);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.9, 0.9)), false);
+
+        assertFalse(r.aplicado);
+        assertEquals(0.5, vieja.getX2().doubleValue(), 0.0001, "no se toco nada todavia");
+    }
+
     private static String lineaDe(FormatoTerminalPosRegionService.ResultadoDerivacion r, String campo) {
         for (String linea : r.cambios) if (linea.startsWith(campo + ":")) return linea;
         return null;
@@ -422,7 +435,9 @@ public class FormatoTerminalPosRegionServiceTest {
 
     @Test
     public void derivar_dos_veces_el_mismo_mapa_no_reporta_cambios() {
-        // La derivacion es deterministica por construccion: no hay estado acumulado.
+        // La derivacion es deterministica por construccion: no hay estado acumulado. Y como la
+        // union de una caja consigo misma es esa misma caja, la segunda corrida no cambia nada:
+        // no hay sobrescritura que confirmar.
         FormatoTerminalPosRegion vieja = region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2);
         vieja.setId(1L);
         conRegionesExistentes(vieja);
@@ -430,8 +445,25 @@ public class FormatoTerminalPosRegionServiceTest {
         FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
                 Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), false);
 
-        assertFalse(r.aplicado, "igual pide confirmacion: ya hay mapa");
-        assertTrue(r.cambios.isEmpty(), "pero el diff tiene que venir vacio");
+        assertTrue(r.cambios.isEmpty(), "el diff tiene que venir vacio");
+        assertTrue(r.aplicado, "y sin nada que cambiar no hay nada que confirmar");
+    }
+
+    @Test
+    public void desde_cero_pide_confirmacion_aunque_el_diff_venga_vacio() {
+        // Desde cero se copia la propuesta entera --`orden` y `obligatorio` incluidos, que el diff
+        // no describe--, asi que un diff vacio no prueba que no cambie nada.
+        FormatoTerminalPosRegion vieja = region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2);
+        vieja.setId(1L);
+        vieja.setOrden(5);
+        conRegionesExistentes(vieja);
+
+        FormatoTerminalPosRegionService.ResultadoDerivacion r = service.guardarDerivadas(formato,
+                Collections.singletonList(region("monto", "MONTO", 0.1, 0.1, 0.5, 0.2)), false, true);
+
+        assertTrue(r.cambios.isEmpty());
+        assertFalse(r.aplicado, "igual pide confirmacion");
+        assertEquals(5, vieja.getOrden().intValue(), "no se toco nada todavia");
     }
 
     @Test

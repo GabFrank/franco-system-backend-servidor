@@ -58,6 +58,25 @@ final class MapeoFormato {
         return out;
     }
 
+    /**
+     * campo -> el texto que el mapeo puso en {@code tipo}, tal cual, sin normalizar.
+     *
+     * <p>Sin normalizar a proposito: quien lo usa es la validacion del ABM, que tiene que poder
+     * decirle al administrador lo que <b>el</b> escribio cuando lo escribio mal.
+     */
+    static Map<String, String> tipos(String mapeo) {
+        Map<String, String> out = new java.util.LinkedHashMap<String, String>();
+        JsonNode root = leer(mapeo);
+        if (root == null) return out;
+        Iterator<Map.Entry<String, JsonNode>> it = root.fields();
+        while (it.hasNext()) {
+            Map.Entry<String, JsonNode> e = it.next();
+            JsonNode tipo = e.getValue() != null ? e.getValue().get("tipo") : null;
+            if (tipo != null && !tipo.isNull()) out.put(e.getKey(), tipo.asText());
+        }
+        return out;
+    }
+
     private static JsonNode leer(String mapeo) {
         if (mapeo == null || mapeo.trim().isEmpty()) return null;
         try {

@@ -51,9 +51,12 @@ type RegionDerivada {
     "null si se derivó bien; si no, por qué no se pudo"
     sinRegion: String
     """
-    TEXTO | NUMERO | FECHA, deducido del valor de la muestra. El desktop lo manda tal cual al
-    guardar el mapa; el filial lo usa al leer un cupón para marcar como dudoso un valor que no
-    encaja con su tipo.
+    TEXTO | NUMERO | FECHA, tomado del `mapeo` del formato — NO deducido del valor de la muestra.
+    Deducirlo falla y está medido: el código de autorización de INFONET sale alfanumérico en las
+    ventas con crédito y numérico en las de débito y QR, por la misma terminal el mismo día, así que
+    una muestra numérica marcaría `NUMERO` y después toda venta con crédito iría a revisión. El
+    filial lo usa al leer un cupón para marcar como dudoso un valor que no encaja con su tipo; sin
+    tipo declarado no valida nada, que es el default seguro.
     """
     tipo: String
 }

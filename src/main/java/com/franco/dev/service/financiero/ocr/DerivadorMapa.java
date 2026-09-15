@@ -310,8 +310,13 @@ public class DerivadorMapa {
      *
      * <p>Mismo parseo por regex que {@link #destinosPorGrupo} y por el mismo motivo: no arrastrar
      * una dependencia de JSON a un metodo que tambien corre dentro del filial.
+     *
+     * <p>Publico porque el ABM del formato lo usa para <b>verificar que lo que el administrador
+     * declaro es lo que este parseo va a leer</b>. Un tipo mal tipeado no matchea el regex y el
+     * campo queda sin tipo en silencio, que es exactamente el estado que la declaracion venia a
+     * evitar; confrontar las dos lecturas en el alta es lo que lo convierte en un error visible.
      */
-    private static Map<String, String> tiposPorCampo(String mapeo) {
+    public static Map<String, String> tiposPorCampo(String mapeo) {
         Map<String, String> out = new LinkedHashMap<String, String>();
         if (mapeo == null || mapeo.trim().isEmpty()) return out;
         Matcher m = Pattern.compile(

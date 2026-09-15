@@ -15,10 +15,10 @@ type FormatoTerminalPosRegion {
     "DERECHA | ABAJO | DENTRO"
     posicion: String
     """
-    TEXTO | NUMERO | FECHA. Lo deduce la derivación del valor de la muestra, y lo lee el filial:
-    un valor extraído que no encaja con su tipo se marca como dudoso y el semáforo lo levanta.
-    No rechaza la lectura — la manda a revisar, que es lo que corresponde cuando el OCR lee algo
-    plausible y mal.
+    TEXTO | NUMERO | FECHA, tomado del `mapeo` del formato — NO deducido del valor de la muestra
+    (ver `RegionDerivada.tipo` en captura-muestra). Lo lee el filial: un valor extraído que no
+    encaja con su tipo se marca como dudoso y el semáforo lo levanta. No rechaza la lectura — la
+    manda a revisar, que es lo que corresponde cuando el OCR lee algo plausible y mal.
     """
     tipo: String
     """

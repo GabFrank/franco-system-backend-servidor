@@ -4,12 +4,14 @@ import com.franco.dev.domain.financiero.FormatoTerminalPos;
 import com.franco.dev.repository.financiero.FormatoTerminalPosRepository;
 import com.franco.dev.repository.financiero.TerminalPosRepository;
 import com.franco.dev.service.CrudService;
+import com.franco.dev.service.financiero.ocr.DerivadorMapa;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -40,6 +42,11 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
 
     private static final List<String> TIPOS = Arrays.asList(
             FormatoTerminalPos.TIPO_MAQUINA, FormatoTerminalPos.TIPO_WEB, FormatoTerminalPos.TIPO_API);
+
+    private static final List<String> TIPOS_VALIDOS = Arrays.asList(
+            com.franco.dev.domain.financiero.FormatoTerminalPosRegion.TIPO_TEXTO,
+            com.franco.dev.domain.financiero.FormatoTerminalPosRegion.TIPO_NUMERO,
+            com.franco.dev.domain.financiero.FormatoTerminalPosRegion.TIPO_FECHA);
 
     private final FormatoTerminalPosRepository repository;
 
@@ -226,6 +233,40 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
         }
         if (!alguno) {
             throw new GraphQLException("El mapeo no vincula ningun campo con un grupo del patron.");
+        }
+        validarTipos(m);
+    }
+
+    /**
+     * El {@code tipo} declarado tiene que ser uno de los tres, y tiene que quedar donde la
+     * derivacion lo va a leer.
+     *
+     * <p>Sin esto un typo se degrada a silencio total: la derivacion lo parsea por regex, un
+     * {@code "NUMER0"} no matchea, el campo queda sin tipo, y el administrador que creyo estar
+     * declarando una defensa se queda sin ella sin que nada se lo diga. El chequeo confronta las
+     * dos lecturas del mismo JSON --Jackson, que ve lo que se escribio, contra el regex de
+     * {@link DerivadorMapa#tiposPorCampo}, que ve lo que la derivacion va a usar-- y falla cuando
+     * no coinciden. Aca todavia hay a quien avisarle.
+     */
+    private void validarTipos(String mapeo) {
+        Map<String, String> declarados = MapeoFormato.tipos(mapeo);
+        if (declarados.isEmpty()) return;
+        Map<String, String> queVeLaDerivacion = DerivadorMapa.tiposPorCampo(mapeo);
+
+        for (Map.Entry<String, String> e : declarados.entrySet()) {
+            String campo = e.getKey();
+            String valor = e.getValue() == null ? "" : e.getValue().trim();
+            String normalizado = valor.toUpperCase();
+            if (!TIPOS_VALIDOS.contains(normalizado)) {
+                throw new GraphQLException("El tipo de \"" + campo + "\" dice \"" + e.getValue()
+                        + "\". Tiene que ser uno de: " + String.join(", ", TIPOS_VALIDOS) + ".");
+            }
+            if (!normalizado.equals(queVeLaDerivacion.get(campo))) {
+                throw new GraphQLException("El tipo de \"" + campo + "\" esta declarado de una forma"
+                        + " que la derivacion no va a leer, y el campo quedaria sin validacion de"
+                        + " tipo. Escribilo como \"tipo\": \"" + normalizado + "\" dentro del objeto"
+                        + " de \"" + campo + "\", sin objetos anidados antes.");
+            }
         }
     }
 }

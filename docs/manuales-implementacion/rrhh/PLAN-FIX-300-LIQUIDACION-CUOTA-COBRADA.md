@@ -156,6 +156,18 @@ manual del workflow «Deploy» para la instancia. Sin cambio de schema GraphQL: 
 - Estado de datos en producción (solo lectura, fuera del PR).
 - Karma y e2e del desktop: no corren.
 
+## Auditoría del diff (paso 8)
+
+| # | Fijo | Hallazgo | Verificación | Qué se hizo |
+|---|---|---|---|---|
+| D1 | 1 · alta | El error de `aplicar` expone préstamo, cuota y deuda del funcionario a quien paga por el **hub genérico de tesorería**, que no exige rol RRHH | **Confirmado, preexistente el bypass**: `PagoProveedorService.listarPendientes` solo excluye `GASTO`, y el modo COMPRAS del desktop la usa (`solicitudesPagoPendientes`). Una obligación RRHH se paga por ahí sin `validarYSaldo`; `aplicar` lanza y hace rollback (sin doble cobro), pero con detalle | **Aplicado**: mensaje de `aplicar` sin montos ni ids. El bypass del hub genérico queda para un issue aparte (toca flujos de CPP) |
+| D2 | 1 · media | El ajuste de `montoTotal` de la obligación no deja rastro y saltea `actualizarSolicitudPago` | Correcto (`actualizarSolicitudPago` solo edita borradores de compras; `agregarObservacion` es privado). El id no viene del cliente: no hay acceso cruzado | **Aplicado**: nota «MONTO AJUSTADO … viejo → nuevo (fecha)» en `observaciones` + assert en el test |
+| D3 | 1 · baja | Locks de cuotas antes del ACL de caja | Extiende el patrón ya existente con la fila de la liquidación; solo con `RRHH PAGAR`; el rollback libera | Aceptado |
+| D4 | 2 · baja | `aplicar`/`revertir` mueven `montoPagado` de un préstamo `CANCELADO` | Nada produce `CANCELADO` (auditoría A); una cuota `CANCELADA` se rechaza antes | Aceptado |
+| D5 | 2 | Estados, `fechaPago`, doble ítem de la misma cuota, OSIV, `Double` del monto, orden de constructores en tests | Verificado | Sin hallazgos |
+| D6 | 3 · baja | `pagar-compras-dialog` no recarga tras un error: un reintento manda el saldo viejo | Preexistente; el hub recalcula el saldo del documento y exige que lo aplicado lo cubra entero, así que rechaza | Anotado, fuera de alcance |
+| D7 | 3 | Schema sin cambios; los dos diálogos del desktop muestran el mensaje real y no quedan trabados; aguinaldo no pasa por el bean; sin código muerto; comentarios sin acentos | Verificado | Sin hallazgos |
+
 ## Auditoría del plan (paso 5)
 
 | # | Eje | Hallazgo | Verificación | Qué se hizo |

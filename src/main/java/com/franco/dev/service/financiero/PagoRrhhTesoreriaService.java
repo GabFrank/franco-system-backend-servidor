@@ -334,6 +334,12 @@ public class PagoRrhhTesoreriaService {
                     + " sobre un total de " + montoSolicitud.toPlainString() + ", distinto del total actual ("
                     + actual.toPlainString() + "). Anule el pago desde la caja antes de volver a pagar.");
         }
+        // Queda asentado en la obligacion: el monto se ajusta fuera de actualizarSolicitudPago (que solo
+        // edita borradores de compras), y una auditoria contable tiene que poder ver por que cambio.
+        String nota = "MONTO AJUSTADO AL TOTAL ACTUAL DEL DOCUMENTO: " + montoSolicitud.toPlainString()
+                + " -> " + actual.toPlainString() + " (" + java.time.LocalDateTime.now().withNano(0) + ")";
+        sp.setObservaciones(sp.getObservaciones() != null && !sp.getObservaciones().isEmpty()
+                ? sp.getObservaciones() + "\n" + nota : nota);
         sp.setMontoTotal(actual.doubleValue());
         solicitudPagoService.save(sp);
         return vigente;

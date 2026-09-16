@@ -106,6 +106,8 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         service.pagarRrhhMixto(List.of(pago(5L, 900_000)), null);
 
         assertEquals(900_000.0, sp.getMontoTotal());
+        assertTrue(sp.getObservaciones().contains("MONTO AJUSTADO") && sp.getObservaciones().contains("900000"),
+                "el ajuste tiene que quedar asentado, observaciones: " + sp.getObservaciones());
         verify(solicitudPagoService).save(sp);
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<PagoProveedorService.SolicitudConLineas>> lote = ArgumentCaptor.forClass(List.class);

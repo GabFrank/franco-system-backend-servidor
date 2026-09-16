@@ -83,9 +83,11 @@ public class PrestamoCuotaDescuentoService {
         BigDecimal m = nz(monto);
         if (c.getEstado() == PrestamoCuotaEstado.PAGADA || c.getEstado() == PrestamoCuotaEstado.CANCELADA
                 || pendiente(c).add(TOLERANCIA).compareTo(m) < 0) {
-            throw new GraphQLException("La " + etiqueta(c) + " ya no admite un descuento de " + m.toPlainString()
-                    + " (esta " + c.getEstado() + ", pendiente " + pendiente(c).toPlainString()
-                    + "). Vuelva a borrador y regenere.");
+            // Mensaje sin montos ni ids a proposito: esta guarda tambien la alcanza un pago de la obligacion
+            // RRHH hecho desde el hub generico de tesoreria, que no exige rol de RRHH. El detalle lo da
+            // validar(), que solo se llega con RRHH PAGAR.
+            throw new GraphQLException("Una cuota de prestamo descontada en este documento cambio desde que se"
+                    + " genero. Vuelva a borrador y regenere.");
         }
         c.setMontoPagado(nz(c.getMontoPagado()).add(m));
         actualizarEstado(c);

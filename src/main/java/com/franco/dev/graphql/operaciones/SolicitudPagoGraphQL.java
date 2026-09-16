@@ -9,6 +9,7 @@ import com.franco.dev.domain.operaciones.SolicitudPagoNotaRecepcion;
 import com.franco.dev.graphql.operaciones.input.SolicitudPagoDetalleInput;
 import com.franco.dev.graphql.operaciones.dto.DatosInicialesSolicitudPagoDTO;
 import com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado;
+import com.franco.dev.domain.operaciones.enums.TipoSolicitudPago;
 import com.franco.dev.domain.personas.Proveedor;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.service.financiero.FormaPagoService;
@@ -20,6 +21,8 @@ import com.franco.dev.service.operaciones.SolicitudPagoService;
 import com.franco.dev.service.personas.ProveedorService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.impresion.ImpresionService;
+import com.franco.dev.service.rrhh.RrhhSecurityService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import graphql.schema.DataFetchingEnvironment;
@@ -74,12 +77,16 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     @Autowired
     private TesoreriaSecurityService tesoreriaSecurityService;
 
+    @Autowired
+    private RrhhSecurityService rrhhSecurityService;
+
     // ========== QUERIES ==========
 
     /**
      * Get single solicitud pago by ID
      */
     public SolicitudPago solicitudPago(Long id) {
+        exigirLectura(id);
         return solicitudPagoService.findById(id).orElse(null);
     }
 
@@ -142,6 +149,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Get all notas asociadas with a solicitud pago
      */
     public List<NotaRecepcion> notasAsociadasASolicitud(Long solicitudPagoId) {
+        exigirLectura(solicitudPagoId);
         return solicitudPagoService.getNotasAsociadas(solicitudPagoId);
     }
 
@@ -245,6 +253,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Usado en: Desktop Sí (editar pago desde lista).
      */
     public SolicitudPago actualizarSolicitudPago(SolicitudPagoInput input) {
+        exigirSolicitudDeCompra(input.getId());
         try {
             if (input.getId() == null) {
                 throw new IllegalArgumentException("Se requiere id para actualizar");
@@ -279,6 +288,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Delete solicitud pago (only if in PENDIENTE state)
      */
     public Boolean deleteSolicitudPago(Long id) {
+        exigirSolicitudDeCompra(id);
         try {
             return solicitudPagoService.eliminarSolicitud(id);
         } catch (Exception e) {
@@ -290,6 +300,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Update estado of solicitud pago
      */
     public SolicitudPago actualizarEstadoSolicitudPago(Long id, SolicitudPagoEstado estado) {
+        exigirSolicitudDeCompra(id);
         // PARCIAL / CONCLUIDO los fija el pago de la caja mayor (PagoProveedorService, que llama al
         // servicio directo). Marcarlos a mano dejaba las notas pagadas sin que saliera plata.
         if (estado == SolicitudPagoEstado.PARCIAL || estado == SolicitudPagoEstado.CONCLUIDO) {
@@ -340,10 +351,43 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
     }
 
     /**
+     * Una obligacion de pago de RRHH (vale, liquidacion, finiquito, aguinaldo) solo se lee con rol de tesoreria o de
+     * RRHH (issue #306). Compras y gastos siguen sin rol. Id inexistente o sin tipo: sigue el flujo de siempre.
+     */
+    private void exigirLectura(Long solicitudPagoId) {
+        if (solicitudPagoId == null) return;
+        TipoSolicitudPago tipo = solicitudPagoService.getRepository().findTipoById(solicitudPagoId).orElse(null);
+        if (tipo == TipoSolicitudPago.RRHH && !puedeVerObligacionesRrhh()) {
+            throw new GraphQLException("No autorizado: la solicitud #" + solicitudPagoId
+                    + " es una obligación de pago de RRHH.");
+        }
+    }
+
+    /** Mismo criterio que PagoResolver y cajaVirtualesActivas: rol de tesoreria o de RRHH (ambos con bypass ADMIN). */
+    private boolean puedeVerObligacionesRrhh() {
+        return tesoreriaSecurityService.hasAnyRole(TesoreriaSecurityService.TODOS)
+                || rrhhSecurityService.hasAnyRole(RrhhSecurityService.TODOS);
+    }
+
+    /**
+     * Las mutations de compras solo tocan solicitudes de compra: las de gasto y RRHH se gestionan desde su modulo
+     * (issue #306). Va en el resolver y no en el servicio: el motor de pago usa el servicio para concluirlas.
+     */
+    private void exigirSolicitudDeCompra(Long solicitudPagoId) {
+        if (solicitudPagoId == null) return;
+        TipoSolicitudPago tipo = solicitudPagoService.getRepository().findTipoById(solicitudPagoId).orElse(null);
+        if (tipo != null && tipo != TipoSolicitudPago.COMPRA) {
+            throw errorParaMostrar(new IllegalStateException("La solicitud #" + solicitudPagoId + " es de " + tipo
+                    + ": se gestiona desde su propio módulo, no desde compras."));
+        }
+    }
+
+    /**
      * Add nota recepcion to solicitud pago
      */
     public SolicitudPagoNotaRecepcion agregarNotaASolicitudPago(Long solicitudPagoId, Long notaRecepcionId,
             Double montoIncluido) {
+        exigirSolicitudDeCompra(solicitudPagoId);
         try {
             return solicitudPagoNotaRecepcionService.agregarNotaASolicitud(solicitudPagoId, notaRecepcionId,
                     montoIncluido);
@@ -356,6 +400,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Remove nota recepcion from solicitud pago
      */
     public Boolean removerNotaDeSolicitudPago(Long solicitudPagoId, Long notaRecepcionId) {
+        exigirSolicitudDeCompra(solicitudPagoId);
         try {
             return solicitudPagoNotaRecepcionService.removerNotaDeSolicitud(solicitudPagoId, notaRecepcionId);
         } catch (Exception e) {
@@ -369,6 +414,9 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * pago).
      */
     public Boolean eliminarSolicitudPagoDetalle(Long id) {
+        if (id != null) {
+            solicitudPagoDetalleService.getRepository().findSolicitudIdById(id).ifPresent(this::exigirSolicitudDeCompra);
+        }
         try {
             Boolean deleted = solicitudPagoDetalleService.deleteById(id);
             return deleted != null ? deleted : false;
@@ -383,6 +431,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public SolicitudPagoDetalle agregarSolicitudPagoDetalle(Long solicitudPagoId,
             SolicitudPagoDetalleInput detalleInput) {
+        exigirSolicitudDeCompra(solicitudPagoId);
         SolicitudPago solicitud = solicitudPagoService.findById(solicitudPagoId)
                 .orElseThrow(() -> new RuntimeException("Solicitud de pago no encontrada: " + solicitudPagoId));
         SolicitudPagoDetalleService.DetalleInput in = new SolicitudPagoDetalleService.DetalleInput();
@@ -403,6 +452,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      * Print solicitud pago PDF
      */
     public String imprimirSolicitudPagoPDF(Long solicitudPagoId) {
+        exigirLectura(solicitudPagoId);
         try {
             SolicitudPago solicitudPago = solicitudPagoService.getRepository()
                     .findByIdWithUsuarioAndMoneda(solicitudPagoId)
@@ -529,6 +579,7 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
      */
     public Boolean imprimirSolicitudPagoTicket(java.lang.Number solicitudPagoId, String printerName,
             DataFetchingEnvironment env) {
+        exigirLectura(solicitudPagoId != null ? solicitudPagoId.longValue() : null);
         try {
             Long id = solicitudPagoId != null ? solicitudPagoId.longValue() : null;
             if (id == null) {

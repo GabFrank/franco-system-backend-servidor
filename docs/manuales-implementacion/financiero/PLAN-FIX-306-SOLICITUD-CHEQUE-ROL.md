@@ -91,6 +91,17 @@ sin llamar al servicio. **Falla** con el código viejo.
 
 Build `./mvnw -o clean verify -B -DskipFlyway=true` leído del log. Revert check: neutralizar las guardas.
 
+### Implementación (fase 1) — resultado de los tests
+
+- `SolicitudPagoGraphQL`: `exigirLectura` en 4 queries y `exigirSolicitudDeCompra` en 7 mutations, antes de los `try`;
+  `SolicitudPagoDetalleRepository.findSolicitudIdById`. `PagoResolver.solicitudesPago` omite `RRHH` sin rol.
+  `ChequeGraphQL`/`ChequeraGraphQL`: `requireVer` en 11 queries y `requireGestionar` en 4 mutations.
+- `SolicitudPagoGraphQLTipoTest` 9/9, `PagoResolverTest` 4/4, `ChequeYChequeraGraphQLSeguridadTest` 3/3. Los roles se
+  stubbean con los arreglos exactos (`hasAnyRole(TODOS)`): `any(String[].class)` no calza con varargs en Mockito 4.
+- **Con guardas y filtro neutralizados**: fallan los 7 casos de protección; siguen pasando lectura con rol, compras/gastos
+  sin rol, id inexistente, delegación sobre compras, detalle inexistente y pago sin RRHH.
+- `./mvnw -o clean verify -B -DskipFlyway=true` → 688/688, BUILD SUCCESS.
+
 ### Desktop / mobile / mobile-pwa
 
 **N/A**: ninguna pantalla usa estas operaciones sobre `RRHH`, ni mutations de compras sobre `GASTO`, ni `ChequeGraphQL`. Las

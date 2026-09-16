@@ -145,3 +145,17 @@ Un PR (central). `deploy-auto.yml` no se dispara: deploy manual del workflow «D
 | B-5 | B | `autorizadoPor` editable razonable; `programado` inerte | grep | Anotado |
 | B-7 | B · media | Resolvers con `@Autowired` de campo: el patrón por constructor no aplica | Correcto | **Aplicado**: `@InjectMocks` |
 | B-8 | B | Rollback limpio; mensajes sin datos sensibles | verificado | Sin cambio |
+
+## Auditoría del diff (paso 8)
+
+| # | Fijo | Hallazgo | Verificación | Qué se hizo |
+|---|---|---|---|---|
+| D-1 | 1 | Las 16 operaciones de `pago*.graphqls` tienen guarda; `pago.graphql`/`pago-detalle.graphql` (sin `s`) no se cargan | cruce schema/resolvers | Sin cambio |
+| D-2 | 1 · alta (preexistente) | `SolicitudPagoGraphQL` expone sus queries sin rol (`solicitudPago`, `solicitudesPagoPaginated`, `solicitudesPagoPorPedido`) y por `solicitudPago(id) { pago { … } }` se sigue leyendo el `Pago` | **Confirmado**; compras no tiene rol propio a propósito (solo `devolverSolicitudPago` exige `requirePagarCpp`) | Fuera de alcance: propuesta de issue aparte |
+| D-3 | 1 · alta (preexistente) | `ChequeGraphQL` sin ningún rol, incluidas `saveCheque`/`deleteCheque`; llega a `PagoDetalleCuota` → `Pago` | **Confirmado** | Fuera de alcance: propuesta de issue aparte |
+| D-4 | 1 | `guardarManual` no permite alta con id arbitrario (el alta nunca setea id) ni tocar pagos del motor; mensajes sin datos; `requireVer`/`requireGestionar` sin bypass de sistema, correcto porque el motor no pasa por el resolver | `AssignedIdentityGenerator`, `TesoreriaSecurityService` | Sin cambio |
+| D-5 | 2 | Sin schema/migración; dirty checking conserva `usuario`/`creadoEn`; Lombok no mete el `static` en el constructor; `@InjectMocks` sin tipos ambiguos | verificado | Sin cambio |
+| D-6 | 2 · baja | Faltaban casos: pago `PARCIAL`, edición sin estado, alta con `PENDIENTE` (nace `ABIERTO`, igual que antes) | Correcto | **Aplicado**: 3 tests → `PagoServiceGuardarManualTest` 10/10; build 672/672 |
+| D-7 | 2 · cosmética | El `creadoEn` del input en el alta ya se ignoraba antes (el `save` lo pisa) | Correcto | Sin cambio (no es regresión) |
+| D-8 | 3 | Ningún cliente vivo usa estas operaciones; el campo anidado `solicitudPago.pago` de compras lo resuelve otro resolver y no cambia; motor y `ChequeGraphQL` usan los servicios, no los resolvers | grep desktop/mobile/mobile-pwa/filial | Anotar en el PR |
+| D-9 | 3 · info | `PagoGraphQL.solicitudPagoService` sin uso (preexistente) | Correcto | Sin cambio |

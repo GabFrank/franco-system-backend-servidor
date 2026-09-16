@@ -80,6 +80,32 @@ class PagoServiceGuardarManualTest {
     }
 
     @Test
+    void no_edita_un_pago_parcial() {
+        Pago p = pagoEnBase(PagoEstado.PARCIAL, usuario(1), LocalDateTime.of(2026, 9, 1, 10, 0));
+
+        assertThrows(GraphQLException.class, () -> service.guardarManual(5L, PagoEstado.PENDIENTE, false, null, null));
+        assertEquals(PagoEstado.PARCIAL, p.getEstado());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void editar_sin_estado_conserva_el_estado_de_la_base() {
+        pagoEnBase(PagoEstado.PENDIENTE, usuario(1), LocalDateTime.of(2026, 9, 1, 10, 0));
+
+        Pago guardado = service.guardarManual(5L, null, true, null, null);
+
+        assertEquals(PagoEstado.PENDIENTE, guardado.getEstado());
+        assertTrue(guardado.getProgramado());
+    }
+
+    @Test
+    void un_alta_siempre_nace_abierta() {
+        Pago guardado = service.guardarManual(null, PagoEstado.PENDIENTE, false, usuario(1), null);
+
+        assertEquals(PagoEstado.ABIERTO, guardado.getEstado());
+    }
+
+    @Test
     void un_alta_no_acepta_un_estado_del_motor() {
         GraphQLException e = assertThrows(GraphQLException.class,
                 () -> service.guardarManual(null, PagoEstado.CONCLUIDO, false, usuario(1), null));

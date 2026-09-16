@@ -50,7 +50,7 @@ que **el mobile ya consume** para abrir `RegistroVentaTarjetaComponent`.
 > tarde» y pasa a ser cualquier línea de tarjeta que quede sin cupón. **[auditoría]** — escribir un
 > plan paralelo habría producido dos implementaciones con contratos distintos.
 
-### 3.1 · Columnas `Venta` y `Cajero`, y filtro por cajero
+### 3.1 · Columnas `Venta` y `Cajero`, y filtro por cajero — ✅ HECHO (2026-09-16)
 
 - Columna **Venta** con `ventaId` — render puro, el dato ya viene (`graphql-query.ts:206`).
 - Columna **Cajero** — agregar `usuario { id nickname }` a la query. El campo existe en el type del
@@ -75,7 +75,7 @@ tarjeta produce dos filas con el mismo número de venta — medido: las filas 24
 prueba son las dos de la venta 35512. Lo que las separa sin ambigüedad es el `ventaTarjetaId`, que
 es justamente lo que lleva el QR de §3.2. Los dos pasos se necesitan.
 
-### 3.2 · Seña impresa al finalizar la venta
+### 3.2 · Seña impresa al finalizar la venta — ✅ HECHO (2026-09-16)
 
 Por **cada línea de tarjeta que quede sin cupón**, imprimir un ticket chico con el QR, y en texto:
 venta, caja, terminal, monto, moneda, hora, con encabezado **COMPROBANTE INTERNO — NO ENTREGAR AL
@@ -100,10 +100,18 @@ el servidor, y el `id` sólo existe dentro de `registrarPagosConTarjeta`
 
 El tercero no puede imprimir nada y necesita otra salida (avisar, no un papel mudo).
 
-**Impresión**: `ImpresionService` es genérico, manda ESC/POS por IPC y **nunca bloquea** — sólo
-notifica. Hay precedente de «se guardó pero no se pudo imprimir, reimprimí desde la lista»
-(`add-factura-legal-dialog`), y esta pantalla tiene dónde poner ese reimprimir. **A definir**: si el
-ESC/POS se arma en el frontend o en el backend; hay precedente de las dos.
+**Impresión — RESUELTO: se arma en el BACKEND, en el filial.** El «A definir» de este plan estaba
+mal planteado y me llevó a proponer dos veces infraestructura que ya existía. El PDV **no** usa el
+`ImpresionService` del desktop para el ticket de venta: lo imprime el **filial**, porque ahí está la
+impresora. `venta.service.ts:144` le pasa a la mutation `saveVenta` el `ticket`, el `printerName`
+(de `configuracion-local.json` → `printers.ticket`) y el `local`; del otro lado,
+`filial/service/impresion/ImpresionService.java` tiene los diseños (`printBalance`, `printGasto`,
+`printRetiro`) y `VentaGraphQL:924` ya escribe un QR con la clase `QRCode` del ESC/POS.
+
+Así que la seña **no era un servicio nuevo: era un diseño de ticket más**, modelado sobre
+`printRetiro`. Lo único que se arma en el frontend es la **cadena del QR**, porque el contrato de
+`codificarQr()` vive ahí y lo comparte el mobile — reimplementarlo en Java sería un segundo lugar
+donde desincronizarse en silencio.
 
 ⚠️ **El separador.** `codificarQr` une con `-` y `descodificarQr` hace `split('-')` por posición; por
 eso `data` usa `|` adentro. Ningún campo puede contener `-`. **[auditoría]** no hay test que cubra un
@@ -111,7 +119,7 @@ monto con decimales o negativo.
 
 ⚠️ **Es Electron-only.** La impresión térmica no existe en el build web.
 
-### 3.3 · Escaneo en el diálogo
+### 3.3 · Escaneo en el diálogo — ✅ HECHO (2026-09-16)
 
 Un input que espera el disparo del lector —**no una cámara**— que decodifica y salta a la fila.
 
@@ -140,3 +148,55 @@ papel, y toda seña que se pierda, se moje o no se imprima cae en el mismo caso.
 - No filtra por usuario en el backend (ver 3.1).
 - No cambia cómo se decide que una `venta_tarjeta` queda PENDIENTE.
 - No toca la conciliación en sí (`completar`), sólo cómo se elige la fila.
+
+## 6 · Lo que quedó implementado (2026-09-16)
+
+### §3.2 · La seña
+
+| dónde | qué |
+|---|---|
+| `filial` | `SenaCuponDto` + `ImpresionService.printSenaCupon()` — el diseño, modelado sobre `printRetiro` |
+| `filial` | `SenaCuponInput` + `imprimirSenaCupon(input, printerName, local)` en `venta-tarjeta.graphqls` / `VentaTarjetaGraphQL` |
+| `desktop` | `VentaTarjetaService.onImprimirSena()` — arma el QR con `codificarQr()` **desde valores locales** |
+| `desktop` | `TarjetaPago` lleva `monedaSimbolo` / `monedaDecimales`, resueltos en `pago-touch` donde está el objeto `Moneda` |
+| `desktop` | `venta-touch.registrarPagosConTarjeta` llama en los **dos** puntos que dejan un PENDIENTE |
+
+**El papel**: encabezado `COMPROBANTE INTERNO / NO ENTREGAR AL CLIENTE`, sucursal, local, venta,
+cobro (`ventaTarjetaId`), caja, cajero, terminal, monto con su moneda, fecha, el QR, y el pie
+«Grapá este comprobante al cupón de la terminal».
+
+**El tercer camino** (falla el `forkJoin`) no imprime nada, como decía el plan: no hay
+`ventaTarjetaId` y un papel sin ese número no concilia nada. Sale un aviso `danger` de 12 s, y es el
+único caso donde el cobro queda **sin registro de ningún tipo** — ni siquiera PENDIENTE — así que el
+cierre de caja tampoco lo va a reclamar.
+
+`printSenaCupon` devuelve `Boolean` y **nunca lanza**: si el papel no sale, el cajero ve los números
+en pantalla para anotarlos en el cupón. La venta ya se guardó; reventar ahí no arregla nada.
+
+### §3.3 · El escaneo
+
+Banda propia arriba de los filtros en `ventas-tarjeta-caja-dialog` — es una acción, no un filtro.
+Input de lector (debounce 350 ms + `keyup.enter`), y las cuatro guardas de la auditoría:
+
+1. **No es una seña** — prefijo `frc-` y `tipoEntidad === VT`.
+2. **Otra sucursal / otra caja** — se dice con el número puesto, no se ignora en silencio. La caja
+   cubre también el «QR viejo»: una seña de otro día apunta a una caja ya cerrada.
+3. **La fila no está en la página cargada** — nueva query `ventaTarjetaCompletaPorIdQuery` contra el
+   filial. Separada de `ventaTarjetaPorIdQuery`, que trae sólo `id`+`estado` porque la usa un poller
+   y engordarla le haría arrastrar la terminal y su formato en cada vuelta.
+4. **Fila ya COMPLETADO/CANCELADO** — mismo gate que el `*ngIf` del botón manual de la fila.
+
+⚠️ **Sin `distinctUntilChanged`**, a diferencia de `scan-terminal-pos-dialog`. Allá el diálogo se
+cierra al acertar; acá queda abierto, así que escanear una seña, cancelar y volver a escanear **la
+misma** habría sido descartado por repetido —el reset va con `emitEvent: false`— y el lector quedaba
+muerto sin aviso. La guarda contra consultas dobles es `buscandoQr`.
+
+## 7 · Lo que sigue pendiente
+
+- **Prueba manual de §3.2 y §3.3.** Nada de esto se probó todavía contra hardware: la impresión
+  térmica **no existe en el build web**, así que necesita Electron y una impresora de verdad.
+- **Reimprimir la seña** desde la tabla de conciliación, para cuando el papel se perdió o no salió.
+  Hay precedente (`add-factura-legal-dialog`, `reimprimirRetiro`) y esta pantalla tiene dónde
+  ponerlo. No es bloqueante: los números quedan visibles en la fila.
+- **El ancho del papel** está asumido en 32 caracteres (58 mm), igual que `printRetiro`. Sin
+  verificar contra una impresora de 80 mm.

@@ -86,6 +86,15 @@ SecurityContext, lee roles de DB, bypass ADMIN. Roles `TESORERIA VER`/`TESORERIA
 `V176.5`). **Todos** los resolvers financieros llaman `seg.requireVer()` (queries) / `seg.requireGestionar()`
 (mutations). `cajaVirtualesActivas` es lectura compartida tesorería **o** RRHH.
 
+**`Pago` es un evento del motor (issue #304).** Lo crean y lo cambian solo `PagoProveedorService` (pago →
+`CONCLUIDO`, `anularPagoCpp` → `CANCELADO`, con la reversión de caja/banco y la reapertura de solicitudes), por
+`pagoService.save` en Java. La mutation vieja `savePago` (pantalla «Pagos» del desktop, hoy inalcanzable) pasa por
+`PagoService.guardarManual`: exige `GESTIONAR`, solo asigna `ABIERTO`/`PENDIENTE`, rechaza editar un pago
+`CONCLUIDO`/`PARCIAL`/`CANCELADO` y conserva `usuario`/`creadoEn`. Las mutations de `PagoDetalle`/`PagoDetalleCuota`
+exigen `GESTIONAR` y sus queries `VER`.
+**Pendiente conocido:** `SolicitudPagoGraphQL` (queries sin rol; compras no tiene rol propio) y `ChequeGraphQL` (sin
+ningún rol) siguen abiertos y llegan a `Pago` por campos anidados (issue #306).
+
 ## 9. Migraciones (todas aditivas, sufijo `.5`)
 `V176.5` roles · `V177.5` núcleo (saldo por moneda, origen, backfill) · `V178.5` config base ·
 `V179.5` puente retiro · `V180.5` bancos + operaciones · `V181.5` CPC/cuenta cliente ·

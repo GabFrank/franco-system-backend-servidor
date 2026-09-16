@@ -128,3 +128,18 @@ Un PR (central). **`deploy-auto.yml` no se dispara**: deploy manual del workflow
 | B-2 | B · media | Guarda en un método nuevo deja `pagarLoteMixto` público sin guarda: un resolver nuevo reabre el hueco | Correcto | **Aplicado**: guarda en `pagarLoteMixto`; los hubs usan `pagarLoteMixtoObligacionesRrhh` |
 | B-3/B-5 | B · media | Obligación RRHH `PARCIAL` heredada: ¿queda trabada? Falta test | No queda trabada: el hub calcula sobre el saldo restante | **Aplicado**: test + caso en la prueba de runtime |
 | B-4/B-6 | B | Rollback limpio (sin migración); mensaje sin datos sensibles y accionable | verificado | Sin cambio |
+
+## Auditoría del diff (paso 8)
+
+| # | Fijo | Hallazgo | Verificación | Qué se hizo |
+|---|---|---|---|---|
+| D-1 | 2 · media | La guarda hacía `findById` antes del `lockById` del motor: la solicitud quedaba en el contexto de persistencia y la query con lock devuelve esa instancia **sin refrescar** → un pago parcial concurrente calcularía el saldo con un `montoPagado` viejo. Invisible a Mockito | Correcto: antes `lockById` era la primera lectura en la transacción | **Aplicado**: `SolicitudPagoRepository.findTipoById` (proyección `select s.tipo`, no gestiona la entidad); test `un_gasto_se_sigue_pagando_por_el_camino_generico` verifica `findTipoById` y `never().findById`. Con la guarda en `findById`, ese test falla |
+| D-2 | 1 · alta | `anularPagoCpp` anula pagos RRHH con rol de tesorería | Ya decidido por el usuario (sección Decisión) | Sin cambio |
+| D-3 | 1 · alta | `detalleDePago` (`requireVer` de tesorería) muestra monto y descripción de obligaciones RRHH | Preexistente y no ampliado por el diff: el mismo rol ya ve los movimientos de caja con la etiqueta del pago (`PagoProveedorService` `m.setDescripcion(etiquetaPago)`) | Sin cambio (riesgo conocido) |
+| D-4 | 1 | Hubs exigen su rol RRHH en el resolver antes del service; `tipo` es `NOT NULL` desde V54 (backfill a `GASTO`); mensaje sin datos sensibles | verificado | Sin cambio |
+| D-5 | 3 | Ningún modo del diálogo ni otra pantalla depende de que el listado genérico traiga RRHH; GASTOS sigue por el genérico; único llamador restante de `pagarLoteMixto` es el resolver; compatible con desktops viejos | grep desktop/central | Sin cambio |
+| D-6 | 3 · info | `PagarComprasService.onPagarLote` (desktop) sin llamador | Preexistente | Fuera de alcance |
+
+Tras D-1: 3 clases 30/30; `./mvnw -o clean verify -B -DskipFlyway=true` → 659/659, BUILD SUCCESS. Central reiniciado
+(la query JPQL nueva arranca sin error): `pagarSolicitudesMixto` y `pagarSolicitudesLoteCajaMayor` con la #3 siguen
+rechazando con el mensaje de RRHH; `solicitudesPagoPendientes` vacío.

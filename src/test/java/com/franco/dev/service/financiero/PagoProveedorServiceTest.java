@@ -85,6 +85,9 @@ class PagoProveedorServiceTest {
         when(solicitudPagoService.getRepository()).thenReturn(spRepo);
         when(spRepo.lockById(1L)).thenReturn(Optional.of(sp));
         when(spRepo.findById(1L)).thenReturn(Optional.of(sp));
+        // La guarda de #302 lee solo el tipo; se resuelve en el momento para ver el tipo que fija cada test.
+        when(spRepo.findTipoById(anyLong())).thenAnswer(inv ->
+                spRepo.lockById(inv.getArgument(0)).map(SolicitudPago::getTipo));
         when(solicitudPagoService.save(any())).thenAnswer(i -> i.getArgument(0));
         // FIX #1: la conclusión del pago delega en actualizarEstado (que en prod fija el estado
         // y marca las notas como pagadas). El mock reproduce el efecto de estado sobre la solicitud
@@ -307,6 +310,9 @@ class PagoProveedorServiceTest {
         service.pagarLoteMixto(Collections.singletonList(conLineas(1L)), null);
 
         assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+        // La guarda no carga la entidad antes del lock del motor (evita un saldo viejo en pagos concurrentes).
+        verify(solicitudPagoService.getRepository()).findTipoById(1L);
+        verify(solicitudPagoService.getRepository(), never()).findById(1L);
     }
 
     @Test

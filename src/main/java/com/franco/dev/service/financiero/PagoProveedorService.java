@@ -342,8 +342,9 @@ public class PagoProveedorService {
         if (solicitudIds == null) return;
         for (Long id : solicitudIds) {
             if (id == null) continue;
-            SolicitudPago sol = solicitudPagoService.getRepository().findById(id).orElse(null);
-            if (sol != null && sol.getTipo() == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) {
+            // Proyeccion del tipo, no findById: la entidad no debe entrar al contexto antes del lockById del motor.
+            if (solicitudPagoService.getRepository().findTipoById(id).orElse(null)
+                    == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) {
                 throw new GraphQLException("La solicitud #" + id + " es una obligación de pago de RRHH: se paga desde"
                         + " su modo (vale, liquidación, finiquito o aguinaldo) en el diálogo de pagos.");
             }

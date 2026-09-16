@@ -76,6 +76,18 @@ el pago desde la caja):
 2. `pagarSolicitudesMixto` con esa solicitud → rechaza sin movimiento.
 3. `pagarRrhhMixto` la paga igual.
 
+### Resultado (2026-09-16, `1fe0a2b1`, central local contra `bodega`, mutations desde la página con la sesión del usuario)
+
+| Paso | Resultado |
+|---|---|
+| Anular el pago #5 de la liquidación #488 (#300) → #488 `APROBADA`, obligación #3 `SOLICITADO` | pago #5 `CANCELADO` |
+| `solicitudesPagoPendientes` | no incluye la #3; 0 filas de tipo RRHH |
+| `pagarSolicitudesMixto` con la #3 | **rechaza**: «La solicitud #3 es una obligación de pago de RRHH: se paga desde su modo (vale, liquidación, finiquito o aguinaldo) en el diálogo de pagos.» |
+| `pagarSolicitudesLoteCajaMayor` con la #3 | **rechaza** con el mismo mensaje |
+| `pagarRrhhMixto` liquidación #488 | pago #6 `CONCLUIDO` |
+| Base | solo mov 25 (AJUSTE de la anulación) y 26 (pago del hub): **los rechazos no movieron caja**; #488 `PAGADA`, obligación #3 `CONCLUIDO` |
+| Log del central | solo los dos rechazos esperados |
+
 ## Datos nuevos
 
 Ninguno.

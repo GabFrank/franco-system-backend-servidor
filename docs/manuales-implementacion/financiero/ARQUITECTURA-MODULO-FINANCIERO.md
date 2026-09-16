@@ -92,8 +92,23 @@ SecurityContext, lee roles de DB, bypass ADMIN. Roles `TESORERIA VER`/`TESORERIA
 `PagoService.guardarManual`: exige `GESTIONAR`, solo asigna `ABIERTO`/`PENDIENTE`, rechaza editar un pago
 `CONCLUIDO`/`PARCIAL`/`CANCELADO` y conserva `usuario`/`creadoEn`. Las mutations de `PagoDetalle`/`PagoDetalleCuota`
 exigen `GESTIONAR` y sus queries `VER`.
-**Pendiente conocido:** `SolicitudPagoGraphQL` (queries sin rol; compras no tiene rol propio) y `ChequeGraphQL` (sin
-ningún rol) siguen abiertos y llegan a `Pago` por campos anidados (issue #306).
+**Solicitudes de pago por el resolver de compras (issue #306).** Compras no tiene rol propio, así que
+`SolicitudPagoGraphQL` decide por el **tipo** de la solicitud (`findTipoById`, proyección) y no por rol:
+- `COMPRA`: lectura y mutations sin rol. `GASTO`: lectura e impresión sin rol (el módulo de gastos tampoco tiene rol).
+- `RRHH`: `solicitudPago`, `notasAsociadasASolicitud` e `imprimirSolicitudPago*` exigen rol de tesorería **o** de RRHH
+  (mismo idioma que `cajaVirtualesActivas`).
+- Las mutations de compras (actualizar, borrar, cambiar estado, notas, detalles) rechazan todo lo que no sea `COMPRA`.
+  **La guarda va en el resolver, no en `SolicitudPagoService`**: el motor concluye las obligaciones con
+  `solicitudPagoService.actualizarEstado`.
+- Los rechazos no nombran el tipo («No autorizado para ver la solicitud #n.», «no es de compras»), para no revelar qué id
+  es una obligación de RRHH.
+- `Pago.solicitudesPago` (`PagoResolver`) omite las `RRHH` sin rol: desde una compra se llega al pago, y un pago previo a
+  #302 pudo mezclar tipos. Consulta roles solo si el pago tiene alguna `RRHH`; si un listado llegara a pedir ese campo,
+  cachear los roles por request.
+
+`ChequeGraphQL` (CRUD plano, sin consumidores) y `ChequeraGraphQL` exigen `requireVer` en queries y `requireGestionar` en
+mutations; emitir/cobrar/anular siguen por `ChequePosGraphQL`. `SolicitudPagoRecepcionGraphQL` es código muerto (tabla
+dropeada en `V95.5`).
 
 ## 9. Migraciones (todas aditivas, sufijo `.5`)
 `V176.5` roles · `V177.5` núcleo (saldo por moneda, origen, backfill) · `V178.5` config base ·

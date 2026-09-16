@@ -219,7 +219,11 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
         String m = validarFormaDeJson(mapeo);
         // Cada "de":"grupo" del mapeo tiene que existir en el patron. Un grupo mal escrito dejaria
         // el campo vacio en silencio, que es peor que no guardar.
-        Matcher refs = Pattern.compile("\"de\"\\s*:\\s*\"([A-Za-z][A-Za-z0-9]*)\"").matcher(m);
+        //
+        // `deHora` entra en el mismo chequeo: es la otra clave del vocabulario que nombra un grupo
+        // del patron, y un typo ahi dejaria la fecha en medianoche sin avisar --o sea, el control
+        // de antiguedad avisando de mas en todos los cupones de ayer a la tarde--.
+        Matcher refs = Pattern.compile("\"(?:de|deHora)\"\\s*:\\s*\"([A-Za-z][A-Za-z0-9]*)\"").matcher(m);
         boolean alguno = false;
         while (refs.find()) {
             alguno = true;

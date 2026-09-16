@@ -54,7 +54,8 @@ se rechaza con «vuelva a borrador y regenere». El cobro por caja no se bloquea
 5. **Solicitud de pago con monto viejo** (auditoría B-1): `PagoRrhhTesoreriaService.asegurarSolicitud`, antes de
    reusar la solicitud vigente, compara su `montoTotal` con el total actual del documento (`totalNeto` /
    `totalLiquidado`). Si difiere en más de `0.005`:
-   - sin nada pagado → `SolicitudPagoService.cancelar` («DOCUMENTO REGENERADO») y crea una nueva con el total actual;
+   - sin nada pagado → le actualiza el `montoTotal` al total actual (en la implementación: `cancelar` no sirve, porque
+     `cambiarEstado` exige `exigirSolicitudDeCompra` para pasar a `CANCELADO` y rechaza una solicitud RRHH);
    - con pagos aplicados → rechaza: «la liquidación tiene pagos aplicados por un monto distinto; anule el pago antes de
      regenerar».
 6. **Lote en orden canónico** (auditoría B-2): `pagarRrhhMixto` ordena `pagos` por (concepto, documento id) antes del
@@ -80,6 +81,20 @@ se rechaza con «vuelva a borrador y regenere». El cobro por caja no se bloquea
 | `pagarRrhhMixto` con documentos desordenados | procesa en orden (concepto, id) | — |
 
 Revertir el fix y comprobar que los marcados fallan. Build: `./mvnw clean verify -B -DskipFlyway=true` del log.
+
+### Implementación (fase 1) — diferencias con lo planeado y resultado de los tests
+
+- La validación vive **en el bean** (`validarLiquidacion(id)` / `validarFiniquito(id)`, que leen los ítems con sus
+  repositorios): el hub no depende de los dos servicios de liquidación. El bean sigue dependiendo solo de repositorios
+  y recorre las cuotas con un `TreeMap` (id ascendente).
+- Cambio 5: se **actualiza el monto** de la obligación sin pagos, no se cancela (`cancelar` rechaza solicitudes RRHH).
+- Estado recalculado: `PAGADA` si cubre; si no, **`VENCIDA` antes que `PARCIAL`** cuando ya venció (mismo criterio del
+  scheduler, que pasa una `PARCIAL` vencida a `VENCIDA`).
+- Tests: `PrestamoCuotaDescuentoServiceTest` (9), `PagoRrhhTesoreriaServiceCuotaTest` (4), y un caso nuevo en
+  `LiquidacionSueldoNetoNegativoTest` y en `ContraAsientoRrhhTest` → 22/22 verdes.
+- **Con el fix neutralizado** (validación no-op, `aplicar`/`revertir` con la lógica vieja, hub sin orden y reusando la
+  obligación tal cual): **13 fallan** por la razón esperada. Siguen pasando solo «cuota vigente pasa» y «préstamo
+  cancelado no revive», que no dependen del fix.
 
 ### Desktop
 

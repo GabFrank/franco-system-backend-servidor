@@ -176,3 +176,17 @@ Un PR (central). `deploy-auto.yml` no se dispara: deploy manual del workflow «D
 | B-6 | B · baja | «Mockito devuelve `null` para `Optional`» | **Incorrecto**: Mockito 4 devuelve `Optional.empty()`; igual se stubbea explícito | Stub explícito en los tests |
 | B-7 | B | Faltaban casos: ADMIN, detalle inexistente | Correcto | **Aplicado** |
 | B-8 | B · media | El desktop puede mostrar el rechazo solo en consola | Ningún flujo legítimo lo dispara | Verificar en runtime |
+
+## Auditoría del diff (paso 8)
+
+| # | Fijo | Hallazgo | Verificación | Qué se hizo |
+|---|---|---|---|---|
+| D-1 | 1 | Cobertura completa; sin guarda propia y justificadas: `isNotaIncludedInSolicitud`, `notasDisponibles*`, `datosIniciales*` (compras), `cancelarSolicitudPago`/`devolverSolicitudPago` (el servicio ya exige compra), `solicitudesPagoPorPedido` | Confirmado | Sin cambio |
+| D-2 | 1 | Sin otra vía sin rol a una obligación RRHH completa (`SolicitudPagoResolver` solo con la solicitud ya autorizada; entidades RRHH exponen `solicitudPagoId` escalar) | Confirmado | Sin cambio |
+| D-3 | 1 | `eliminarSolicitudPagoDetalle` resuelve la dueña real desde el detalle; `removerNota` borra por par (solicitud, nota) | Confirmado | Sin cambio |
+| D-4 | 1 · baja | Los mensajes nombraban el tipo: con una mutation de compras un usuario sin rol podía saber qué id es RRHH | Correcto | **Aplicado**: «No autorizado para ver la solicitud #n.» y «La solicitud #n no es de compras: se gestiona desde su propio módulo.»; el test verifica que no nombra `RRHH`/`GASTO`. Build 688/688 |
+| D-5 | 1 · info | Un usuario solo RRHH no llega a `pago(id)` (tesorería) pero sí ve las RRHH por `solicitudPago(compra).pago.solicitudesPago` | Coherente con la decisión (RRHH puede leer obligaciones RRHH) | Sin cambio |
+| D-6 | 2 | JPQL `findSolicitudIdById` usa la FK sin join; guardas antes de los `try` en los 11 sitios; mensajes limpios; imports y comentarios en regla | Confirmado | Sin cambio |
+| D-7 | 2 · baja | `PagoResolver` consulta roles (2 queries) por cada pago con obligaciones RRHH: N+1 si una query de lista pidiera `pago { solicitudesPago }` | Hoy ningún cliente lo pide en listas; sin RRHH no consulta | Deuda anotada: cachear roles por request si se agrega a un listado |
+| D-8 | 3 | Ninguna pantalla viva se rompe: chequeras con rol de tesorería (incluye `CPP PAGAR`), gastos imprime `GASTO` sin rol, compras/mobile/pwa solo `COMPRA`; sin cambio de contrato | grep desktop/mobile/pwa | Sin cambio |
+| D-9 | 3 · media (preexistente, desktop) | `create-edit-solicitud-pago-dialog` traga el error en `onGuardar` y el resto muestra un genérico: un rechazo no mostraría el motivo | Ningún flujo legítimo lo dispara | Follow-up del desktop (fuera de alcance) |

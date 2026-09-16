@@ -81,16 +81,18 @@ class SolicitudPagoGraphQLTipoTest {
     private static void rechaza(Executable llamada, String mensaje) {
         GraphQLException e = assertThrows(GraphQLException.class, llamada);
         assertTrue(e.getMessage().contains(mensaje), e.getMessage());
+        // El rechazo no revela el tipo de la solicitud.
+        assertFalse(e.getMessage().contains("RRHH") || e.getMessage().contains("GASTO"), e.getMessage());
     }
 
     // ── Lectura ──
 
     @Test
     void una_obligacion_rrhh_no_se_lee_sin_rol() {
-        rechaza(() -> resolver.solicitudPago(RRHH), "obligación de pago de RRHH");
-        rechaza(() -> resolver.notasAsociadasASolicitud(RRHH), "obligación de pago de RRHH");
-        rechaza(() -> resolver.imprimirSolicitudPagoPDF(RRHH), "obligación de pago de RRHH");
-        rechaza(() -> resolver.imprimirSolicitudPagoTicket(RRHH, "X", null), "obligación de pago de RRHH");
+        rechaza(() -> resolver.solicitudPago(RRHH), "No autorizado para ver la solicitud #3");
+        rechaza(() -> resolver.notasAsociadasASolicitud(RRHH), "No autorizado para ver la solicitud #3");
+        rechaza(() -> resolver.imprimirSolicitudPagoPDF(RRHH), "No autorizado para ver la solicitud #3");
+        rechaza(() -> resolver.imprimirSolicitudPagoTicket(RRHH, "X", null), "No autorizado para ver la solicitud #3");
 
         verify(solicitudPagoService, never()).findById(anyLong());
         verify(solicitudPagoService, never()).getNotasAsociadas(anyLong());
@@ -134,7 +136,7 @@ class SolicitudPagoGraphQLTipoTest {
     private void todasLasMutationsRechazan(long id) {
         SolicitudPagoGraphQL.SolicitudPagoInput in = new SolicitudPagoGraphQL.SolicitudPagoInput();
         in.setId(id);
-        String msg = "se gestiona desde su propio módulo";
+        String msg = "La solicitud #" + id + " no es de compras: se gestiona desde su propio módulo.";
         rechaza(() -> resolver.actualizarSolicitudPago(in), msg);
         rechaza(() -> resolver.deleteSolicitudPago(id), msg);
         rechaza(() -> resolver.actualizarEstadoSolicitudPago(id, SolicitudPagoEstado.SOLICITADO), msg);

@@ -358,8 +358,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (solicitudPagoId == null) return;
         TipoSolicitudPago tipo = solicitudPagoService.getRepository().findTipoById(solicitudPagoId).orElse(null);
         if (tipo == TipoSolicitudPago.RRHH && !puedeVerObligacionesRrhh()) {
-            throw new GraphQLException("No autorizado: la solicitud #" + solicitudPagoId
-                    + " es una obligación de pago de RRHH.");
+            // Sin nombrar el tipo: el mensaje no debe revelar que el id es una obligacion de RRHH.
+            throw new GraphQLException("No autorizado para ver la solicitud #" + solicitudPagoId + ".");
         }
     }
 
@@ -377,8 +377,8 @@ public class SolicitudPagoGraphQL implements GraphQLQueryResolver, GraphQLMutati
         if (solicitudPagoId == null) return;
         TipoSolicitudPago tipo = solicitudPagoService.getRepository().findTipoById(solicitudPagoId).orElse(null);
         if (tipo != null && tipo != TipoSolicitudPago.COMPRA) {
-            throw errorParaMostrar(new IllegalStateException("La solicitud #" + solicitudPagoId + " es de " + tipo
-                    + ": se gestiona desde su propio módulo, no desde compras."));
+            throw errorParaMostrar(new IllegalStateException("La solicitud #" + solicitudPagoId
+                    + " no es de compras: se gestiona desde su propio módulo."));
         }
     }
 

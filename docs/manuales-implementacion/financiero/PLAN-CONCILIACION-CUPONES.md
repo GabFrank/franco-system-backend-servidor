@@ -117,7 +117,12 @@ donde desincronizarse en silencio.
 eso `data` usa `|` adentro. Ningún campo puede contener `-`. **[auditoría]** no hay test que cubra un
 monto con decimales o negativo.
 
-⚠️ **Es Electron-only.** La impresión térmica no existe en el build web.
+⚠️ ~~**Es Electron-only.** La impresión térmica no existe en el build web.~~ **FALSO, corregido el
+2026-09-16.** Eso valía mientras se asumía que el ESC/POS lo armaba el frontend por IPC. Lo arma el
+**filial**: `PrintingService.getPrintService()` → `PrinterOutputStream.getPrintServiceByName()`, o
+sea `javax.print` **en la máquina del filial**. La impresora cuelga del servidor, no del cliente. Y
+`ConfiguracionService.getConfig()` lee de `localStorage` (línea 698), sin Electron, así que
+`printerName` y `local` también están en el build web. **Se puede probar desde el navegador.**
 
 ### 3.3 · Escaneo en el diálogo — ✅ HECHO (2026-09-16)
 
@@ -193,8 +198,11 @@ muerto sin aviso. La guarda contra consultas dobles es `buscandoQr`.
 
 ## 7 · Lo que sigue pendiente
 
-- **Prueba manual de §3.2 y §3.3.** Nada de esto se probó todavía contra hardware: la impresión
-  térmica **no existe en el build web**, así que necesita Electron y una impresora de verdad.
+- **Prueba manual de §3.2 y §3.3.** Nada de esto se probó todavía contra una impresora real. **No
+  hace falta Electron** (ver la corrección en §3.2): lo único que se necesita es que la impresora
+  esté en la máquina donde corre el **filial** y que `printerName` coincida con un nombre que
+  `javax.print` vea ahí. Si no encuentra la impresora, `printSenaCupon` devuelve `false` y el PDV
+  avisa — no rompe la venta.
 - **Reimprimir la seña** desde la tabla de conciliación, para cuando el papel se perdió o no salió.
   Hay precedente (`add-factura-legal-dialog`, `reimprimirRetiro`) y esta pantalla tiene dónde
   ponerlo. No es bloqueante: los números quedan visibles en la fila.

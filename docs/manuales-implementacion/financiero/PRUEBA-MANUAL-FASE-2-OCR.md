@@ -1068,21 +1068,31 @@ vacío.
 
 Primer formato configurado con tickets de verdad. Sirve de referencia:
 
+> ⚠️ **Este bloque se corrigió TRES veces el 2026-09-16, siempre por lo mismo.** Ver
+> «Los tres patrones que se rompieron» más abajo antes de copiarlo como plantilla.
+
 ```
-Patrón:  ^[\s\S]*C\.N\.:\s*(?<cn>[A-Z0-9]+)[\s\S]*BOLETA:\s*(?<boleta>[0-9]+)[\s\S]*C\.AUT:\s*(?<auth>[A-Z0-9]+)[\s\S]*MONTO:\s*G\.(?<monto>[0-9.]+)[\s\S]*$
+Patrón:  ^[\s\S]*C\.N\.:\s*(?<cn>[A-Z0-9]+)\s*(?:F:\s*(?<fecha>\d{2}/\d{2}/\d{4})\s*H:\s*(?<hora>\d{2}:\d{2}:\d{2}))?[\s\S]*BOLETA:\s*(?<boleta>[0-9]+)[\s\S]*C\.AUT:\s*(?<auth>[A-Z0-9]+)[\s\S]*G\.\s*(?<monto>[0-9][0-9.]*)(?:[\s\S]*Lote:\s*(?<lote>[0-9]+))?[\s\S]*$
 
 Mapeo:   {"terminal":{"de":"cn","tipo":"TEXTO"},
           "numeroBoleta":{"de":"boleta","obligatorio":true,"tipo":"NUMERO"},
           "codigoAutorizacion":{"de":"auth","obligatorio":true,"tipo":"TEXTO"},
-          "monto":{"de":"monto","obligatorio":true,"tipo":"NUMERO"}}
+          "monto":{"de":"monto","obligatorio":true,"tipo":"NUMERO"},
+          "lote":{"de":"lote","obligatorio":true,"tipo":"NUMERO"},
+          "fecha":{"de":"fecha","deHora":"hora","formato":"dd/MM/yyyy","tipo":"FECHA"}}
 ```
 
-| campo | ancla | tipo | origen |
-|---|---|---|---|
-| terminal | `C.N.:` | TEXTO | DERIVADA |
-| numeroBoleta | `BOLETA:` | NUMERO | DERIVADA |
-| codigoAutorizacion | `C.AUT:` | TEXTO | **MANUAL** |
-| monto | `G.` | NUMERO | DERIVADA |
+| campo | ancla | tipo | origen | en el patrón |
+|---|---|---|---|---|
+| terminal | `C.N.:` | TEXTO | DERIVADA | obligatorio |
+| numeroBoleta | `BOLETA:` | NUMERO | DERIVADA | obligatorio |
+| codigoAutorizacion | `C.AUT:` | TEXTO | **MANUAL** | obligatorio |
+| monto | `G.` | NUMERO | DERIVADA | obligatorio |
+| lote | `lote:` | NUMERO | **MANUAL** | **opcional** |
+| fecha | `F:` | FECHA | — | **opcional** |
+
+> **`lote` obligatorio fue una palanca de prueba, no un requisito.** Se declaró así a propósito para
+> endurecer el testeo; en producción probablemente no lo sea. Lo que destapó vale igual (ver abajo).
 
 ⚠️ **`codigoAutorizacion` va `TEXTO`, no `NUMERO`.** Acá salió numérico (`436954`) porque es débito
 con QR; en crédito la misma terminal imprime `D380AD`. Declararlo `NUMERO` mandaría **a revisión cada
@@ -1100,20 +1110,30 @@ el formato por cerrado.
 
 ### Agregar un campo que no es canónico (ej. `lote`)
 
-Consultado el 2026-09-15. **Capturarlo es sólo configuración**: un grupo más en el patrón
-(`Lote:\s*(?<lote>[0-9]+)`) y una clave más en el mapeo. Como `lote` no es uno de los seis
-contenedores canónicos, el valor va a `datos_extra`, que ya funciona.
+**Resuelto el 2026-09-16.** Ya no hace falta código para que un campo no canónico sea un campo de
+verdad: basta declararlo en el mapeo. Lo que decide qué se muestra, qué se valida y qué se exige es
+**la declaración del formato**, no una lista fija.
 
-**Ponerlo obligatorio de verdad necesita código.** El backend ya está listo —`MapeoFormato.obligatorios()`
-lee cualquier clave, no sólo las canónicas— pero el desktop tiene dos listas fijas:
+Lo que había antes, y por qué era un problema medible:
 
-| Lista | Dónde | Qué rompe |
+| Lista fija | Dónde | Qué rompía |
 |---|---|---|
-| `CAMPOS` (4) | `carga-manual-cupon-dialog` | El cajero **no puede tipear** el campo, y el `obligatorio: true` **se ignora en silencio** |
-| `ETIQUETAS` (6) | `configurar-terminal-pos-dialog` | No se puede exigir por terminal |
+| `CANONICOS` (6) | `ExtractorCupon`, los dos backends | El valor caía en `datos_extra`, **sin confianza**, así que el chequeo de tipo lo salteaba (`if (!confianzas.containsKey(campo)) continue`) |
+| `CAMPOS` (4) | `carga-manual-cupon-dialog` | El cajero **no podía tipearlo**, y el `"obligatorio": true` **se ignoraba en silencio** |
 
-Es exactamente el **«cambio 1»** de `PROPUESTA-CAMPOS-POR-FORMATO.md`, diferido a su propio PR. El
-primer campo no canónico que se quiera exigir es el que lo va a forzar.
+Medido con `lote` de INFONET: se leía con confianza 0,94 y no se dibujaba en ninguna parte.
+
+**Cómo quedó.** `CANONICOS` sigue existiendo pero cambió de rol: ahora sólo dice **qué campo tiene
+columna propia en `venta_tarjeta`** — un hecho de almacenamiento. Lo que el mapeo declara entra en
+`campos` con su rango, y el rango es lo que le da confianza y semáforo. En el desktop, `CAMPOS` pasó
+a ser un **diccionario de nombres conocidos**, no la lista de lo que se dibuja: los campos salen del
+mapeo, los conocidos primero en orden de lectura y los propios del proveedor después, con etiqueta
+derivada del nombre y teclado numérico según el `tipo` **declarado**. Al guardar, lo que no tiene
+lugar propio en `CompletarVentaTarjetaInput` va a `datos_extra` **con las correcciones del cajero**
+—reenviar el `datosExtra` original habría descartado una corrección en silencio—.
+
+**Queda pendiente** `ETIQUETAS` (6) en `configurar-terminal-pos-dialog`: sigue impidiendo exigir un
+campo no canónico **por terminal**. Por formato ya se puede.
 
 ### Lo que encontraron los tres auditores (2026-09-15, cierre de jornada)
 
@@ -1156,3 +1176,146 @@ inválida— se verificó correcta. El sondeo del QR se corta siempre.
 > **Nota de método.** Los tres auditores corrieron sobre código que ya estaba commiteado y probado a
 > mano en pantalla, y aun así encontraron una fuga de memoria y un dato que se guardaba mal para
 > siempre. Ninguno de los dos se ve mirando la pantalla.
+
+---
+
+## La jornada del 2026-09-16 — el cupón se leyó en una venta real
+
+Primera vez que el circuito completo corre con un ticket de papel, en una venta, de punta a punta.
+
+### Lo que quedó probado
+
+| Prueba | Estado | Evidencia |
+|---|---|---|
+| **5** — el OCR deja de ser una lupa | ✅ | 5 campos, confianzas 0,94–0,99, 1923 ms |
+| **7** — la foto queda atada a la venta | ✅ **primera corrida** | `origen=OCR`, `imagen_url=cupones/2026/09/18.jpg` (85.749 bytes en disco) |
+| **6** — el semáforo por campo | ⚠️ **parcial** | ver abajo |
+
+⚠️ **La 6 NO está pasada.** Se vieron el verde y el bloqueo del botón, pero **ningún campo salió en
+ámbar**: las confianzas dieron todas por encima de 0,94 y el semáforo nunca tuvo que decidir. Y el
+`Confirmar` bloqueado que se observó vino de `Validators.required` sobre un campo vacío, **no** del
+contador de dudosos: son dos caminos distintos del código y sólo se ejercitó uno. Faltan el ámbar,
+el tilde «Coincide con el ticket», el contador, «corregir cuenta como confirmar» y el chequeo de
+tipo.
+
+**Camino nuevo, que la prueba 6 no contempla:** *campo no leído*. Un tercer estado —ni verde ni
+ámbar— para el campo que el lector no encontró. Hay que agregarlo a la prueba.
+
+### Los tres patrones que se rompieron, y por qué es el mismo error
+
+En una mañana hubo que corregir el patrón de INFONET **tres veces**, siempre con un cupón nuevo en
+la mano y siempre interrumpiendo una venta:
+
+| Se rompió en | El patrón exigía | Lo que pasó |
+|---|---|---|
+| Lectura 5 del mismo ticket | `MONTO:\s*G\.` | El OCR perdió la palabra `MONTO:` entera |
+| Un ticket VISA DÉBITO CTLS | `Lote:` al final | El OCR leyó `Lpte:` (papel dañado + la letra más chica) |
+| — | — | Y con él se perdían monto, boleta y autorización, que se habían leído perfecto |
+
+**Medición que lo resume.** Cinco lecturas OCR del **mismo papel**, línea del lote:
+
+```
+Caja Nro:C008 Lote:1199 Carg0:017748
+Caja Nro:C008 Lote:1199Cargo:017748
+CajaNro:C008Lote:1199 Cargo:017748
+Caja Nro:0008 Lote:1199 Cargo:017748
+Caja Nro:0008 Lpte:1199 Cergo:017734
+```
+
+Las cinco tienen al menos un error en ese renglón, **aun con el papel sano**. El OCR no devuelve el
+mismo texto dos veces.
+
+**Las dos reglas que salen de esto:**
+
+1. **Anclas cortas.** `G.` sobrevivió las cinco lecturas; `MONTO:` no llegó a las dos. Cuanto más
+   larga la etiqueta, más superficie para que el OCR falle.
+2. **Opcional en el patrón, obligatorio en el mapeo.** Salvo lo que identifica al cupón, todo grupo
+   va opcional. Un campo que el lector no encuentra tiene que dejar **el campo vacío**, no tirar el
+   ticket entero. Sigue siendo exigible: lo tipea el cajero.
+
+⚠️ **La tentación a evitar:** aflojar el ancla a `L[o0p]te:` para atrapar el `Lpte`. Eso es
+sobreajustar a un error ya visto; la próxima lectura inventa otro. El renglón es poco confiable **en
+general**, no de una manera específica.
+
+### El control de antigüedad estaba muerto
+
+`cuponVencido` corta a las 24 horas y existía desde el principio. Por el camino del **OCR** nunca
+pudo dispararse: el payload que devolvía el diálogo **no llevaba `fecha`**, así que comparaba contra
+`undefined` y devolvía `false` siempre. Funcionaba sólo para cupones con QR, donde
+`qr-pos-parser.ts` sí arma la fecha — justo al revés de donde hace falta, porque el papel
+traspapelado es el caso de la maquinita.
+
+**Cómo se revivió.** El vocabulario cerrado del mapeo suma dos claves: `formato` y **`deHora`**. La
+hora va aparte porque los proveedores meten texto entre fecha y hora —INFONET imprime
+`F:02/09/2026H:19:53:30`— y un solo grupo obligaría a capturar esa basura adentro del valor. El
+extractor devuelve la fecha normalizada a **ISO local** (`2026-09-02T19:53:30`); si no puede
+normalizarla devuelve el valor crudo, igual que con `escala`. Sin hora asume medianoche: adelanta el
+vencimiento hasta un día, o sea **avisa de más, nunca de menos**.
+
+Tres cosas que habrían fallado en silencio y se atajaron:
+
+- `encaja` con tipo `FECHA` no reconocía la forma ISO → **todo cupón con la fecha bien leída se
+  habría marcado dudoso**.
+- `validarMapeo` valida los grupos de `"de"`; el regex se extendió a `deHora`, si no un typo ahí
+  dejaba la fecha en medianoche sin avisar.
+- El grupo de la hora se guardaba **además** en `datos_extra` —el mismo dato dos veces— porque
+  `deHora` no se marcaba como grupo consumido. Es exactamente lo que el comentario de `consumidos`
+  advierte, cometido en la línea de al lado.
+
+En el desktop, `aFecha` construye la fecha componente a componente y **no** con `new Date(string)`:
+una fecha sin zona puede interpretarse como UTC y llegar corrida tres horas. Mismo criterio que ya
+usaba el parser de QR.
+
+### INFONET: lo que confirmaron tres tickets distintos
+
+**El código de autorización es la cola del número de boleta.** Tres tickets, tres veces:
+
+| boleta | C.AUT |
+|---|---|
+| `5671436954` | `436954` |
+| `005671038116` | `038116` |
+| `5671077557` | `77557` |
+| Ya no es casualidad: es cómo INFONET numera. |
+
+**Una terminal apunta a UN formato.** Así que el patrón tiene que absorber **todo** lo que esa
+máquina imprima: QR, débito CTLS, crédito, anulación. No se crea un formato por tipo de operación.
+El ticket de débito CTLS trae un bloque entero que el de QR no tiene (`VENTA(CTLS)`, `VISA DEBITO`,
+el AID `A0000000031010`, el criptograma) y el patrón lo absorbe con `[\s\S]*`.
+
+**Sigue pendiente el ticket de CRÉDITO**, que es el que puede romper `G.` como ancla del monto: si
+imprime un segundo importe (cuotas), el `[\s\S]*` codicioso se queda con el último.
+
+### Otros arreglos de la jornada
+
+- **El selector de Terminal quedaba vacío** en «Ventas con tarjeta» de la caja, con
+  `Field 'sucursal' in type 'TerminalPos' is undefined`. La consulta iba al **filial** con el set de
+  campos de **central** (`sucursal` como objeto vs `sucursalId` pelado), y GraphQL valida el
+  documento **entero**: pedir un campo que el backend no declara rechaza la consulta completa, no
+  ese campo. El repo ya tenía el patrón resuelto para `filterTerminalPos`; faltaba aplicarlo a
+  `terminalesPos`.
+- **Columna de fecha y hora** en esa misma lista, segunda y no al final: una caja puede quedar
+  abierta varios días.
+- **«Referencia del proveedor» ya no aparece siempre.** Es el EndToEndId de Pix; Infonet, Dinelco,
+  Stone, BXX y PlugPay no lo imprimen. Ahora sale sólo si el mapeo lo declara.
+- **La página del celular** lleva la marca FRC en los dos modos —claro y oscuro siguen al teléfono,
+  la identidad no— y un botón **«Cerrar esta pestaña»** al terminar. ⚠️ `window.close()` sólo cierra
+  ventanas que abrió un script, y esta la abrió el lector de QR del sistema: el botón **intenta** y,
+  si el navegador no deja, se convierte en la instrucción. Motivo: 30 cupones al día son 30 pestañas.
+- **`central/muestras/` no estaba en `.gitignore`** y contenía una foto de un cupón real con boleta,
+  monto y serie de terminal. El filial ya ignoraba su carpeta equivalente. Corregido.
+
+### Lo que esta jornada deja como prioridad
+
+**El botón «Probar» del ABM de formatos.** Hoy cada patrón frágil costó una venta interrumpida. El
+diseño lo definió Gabriel: **exactamente como el PDV** — abre un QR, se escanea un ticket de papel,
+**pasa o no pasa**. No un banco de textos guardados: probar contra texto guardado es probar contra el
+pasado, y está medido que el OCR devuelve un texto distinto en cada lectura del mismo papel.
+
+Se reusa `crearCapturaMuestra` (QR, subida, OCR y persistencia ya existen en central); falta un
+segundo consumidor de esa captura que corra `ExtractorCupon` con el patrón y el mapeo del formato y
+devuelva pasa/no pasa. Cada prueba deja una muestra, así que el corpus se arma solo.
+
+**Hueco relacionado, abierto.** La señal de formato roto nace en el **filial** —`captura_cupon` con
+`estado='LISTO'` y `campos IS NULL` significa «el OCR leyó el papel y el patrón no lo reconoció»— y
+**nunca llega a central**, que es donde se administra el formato. En producción son 24 filiales
+fallando en silencio mientras el ABM muestra un formato sano.

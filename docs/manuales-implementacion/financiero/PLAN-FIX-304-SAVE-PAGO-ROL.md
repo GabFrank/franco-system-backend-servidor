@@ -73,6 +73,15 @@ cinco hermanas y las queries rechazan **sin llamar al servicio**. Con el código
 Build: `./mvnw -o clean verify -B -DskipFlyway=true` leído del log. Revert check: neutralizar guarda y validaciones y
 correr los tests nuevos esperando los fallos marcados.
 
+### Implementación (fase 1) — resultado de los tests
+
+- `PagoService.guardarManual(id, estado, programado, usuario, autorizadoPor)`; `savePago` exige `GESTIONAR` y delega. Las 5
+  mutations hermanas exigen `GESTIONAR`; las 9 queries de los tres resolvers, `VER` (usuario confirmó incluirlas).
+- `PagoServiceGuardarManualTest` 7/7 y `PagoLegacyGraphQLSeguridadTest` 3/3 (`@InjectMocks` + `MockitoAnnotations.openMocks`).
+- **Con guardas y validaciones neutralizadas**: fallan los 6 casos esperados (4 rechazos del servicio, mutations y queries
+  sin rol). Siguen pasando alta, id inexistente y conservación de usuario/fecha (no dependen de lo neutralizado).
+- `./mvnw -o clean verify -B -DskipFlyway=true` → 669/669, BUILD SUCCESS.
+
 ### Desktop
 
 **N/A** (decisión): la pantalla vieja no es alcanzable; si se reactivara, su flujo (`ABIERTO`/`PENDIENTE`/`programado`)

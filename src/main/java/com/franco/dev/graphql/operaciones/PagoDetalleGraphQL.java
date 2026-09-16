@@ -7,6 +7,7 @@ import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.FormaPagoService;
 import com.franco.dev.service.financiero.MonedaService;
 import com.franco.dev.service.financiero.PdvCajaService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.PagoDetalleService;
 import com.franco.dev.service.operaciones.PagoService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -44,15 +45,21 @@ public class PagoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired
     private PdvCajaService pdvCajaService;
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
     public PagoDetalle pagoDetalle(Long id){
+        seg.requireVer();
         return service.findById(id).orElse(null);
     }
     
     public List<PagoDetalle> pagoDetallesPorPagoId(Long pagoId) {
+        seg.requireVer();
         return service.findByPagoId(pagoId);
     }
 
     public PagoDetalle savePagoDetalle(PagoDetalleInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         PagoDetalle e = m.map(input, PagoDetalle.class);
 
@@ -85,10 +92,12 @@ public class PagoDetalleGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
     
     public Boolean deletePagoDetalle(Long id) {
+        seg.requireGestionar();
         return service.deleteById(id);
     }
 
     public PagoDetalle updatePagoDetalleCajaySucursal(Long pagoDetalleId, Long sucursalId, Long cajaId) {
+        seg.requireGestionar();
         if(pagoDetalleId == null || sucursalId == null) {
             return null;
         }

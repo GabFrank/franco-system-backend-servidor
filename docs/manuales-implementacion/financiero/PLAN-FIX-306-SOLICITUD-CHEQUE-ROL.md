@@ -118,6 +118,24 @@ Central local contra `bodega`, sesión del usuario (ADMIN o tesorería). Solicit
 5. `chequerasPorCuenta` y `chequesDashboard` responden con la sesión.
 6. Sin rol: no hay usuario sin roles con sesión; cubierto por los tests del resolver.
 
+### Resultado (2026-09-16, `4578da48`, central local contra `bodega`, sesión del usuario con rol)
+
+Datos de prueba insertados con permiso del usuario: #4 `COMPRA` y #5 `GASTO`, ambas `PENDIENTE` (borradas al final).
+
+| Paso | Resultado |
+|---|---|
+| `solicitudPago(3)` (`RRHH`) y `notasAsociadasASolicitud(3)` con rol | responden |
+| `actualizarEstadoSolicitudPago(3, CANCELADO)`, `deleteSolicitudPago(3)`, `agregarSolicitudPagoDetalle(3, …)` | **rechazan**: «La solicitud #3 es de RRHH: se gestiona desde su propio módulo, no desde compras.» (mensaje limpio, sin prefijo) |
+| `solicitudPago(5)` (`GASTO`) | responde |
+| `actualizarEstadoSolicitudPago(5, SOLICITADO)`, `deleteSolicitudPago(5)` | **rechazan** con el mensaje de GASTO |
+| `solicitudPago(4)` (`COMPRA`) y `actualizarEstadoSolicitudPago(4, SOLICITADO)` | responden; la #4 pasa a `SOLICITADO` |
+| `pago(6) { solicitudesPago }` con rol | trae la #3 `RRHH` |
+| `cheques`, `chequeras`, `chequerasPorCuenta` con rol | responden (vacíos: no hay datos) |
+| Base | #2 y #3 sin cambios (`CONCLUIDO`, montos iguales); #5 siguió `PENDIENTE`; ningún `solicitud_pago_detalle` creado |
+| Log | solo los rechazos esperados (más Firebase, preexistente) |
+
+Sin usuario sin roles con sesión: el camino «sin rol» queda cubierto por los tests de los resolvers.
+
 ## Datos nuevos
 
 Ninguno.

@@ -56,6 +56,7 @@ class LiquidacionSueldoNetoNegativoTest {
     private LiquidacionItemRepository itemRepository;
     private LiquidacionSueldoService service;
     private MovimientoCajaVirtualService movimientoCajaVirtualService;
+    private PrestamoCuotaDescuentoService descuento;
 
     private CajaVirtual caja;
     private Moneda gs;
@@ -112,6 +113,7 @@ class LiquidacionSueldoNetoNegativoTest {
         itemRepository = mock(LiquidacionItemRepository.class);
         when(itemRepository.findByLiquidacionIdOrderByIdAsc(any())).thenReturn(Collections.emptyList());
 
+        descuento = mock(PrestamoCuotaDescuentoService.class);
         service = new LiquidacionSueldoService(
                 repository,
                 itemRepository,
@@ -136,6 +138,7 @@ class LiquidacionSueldoNetoNegativoTest {
                 mock(CreditoConvenioService.class),
                 mock(LiquidacionConceptoService.class),
                 mock(PlatformTransactionManager.class),
+                descuento,
                 mock(javax.persistence.EntityManager.class));
 
         liq = new LiquidacionSueldo();
@@ -164,6 +167,25 @@ class LiquidacionSueldoNetoNegativoTest {
                 "no tenia que moverse plata, la caja quedo en " + saldo.getSaldo());
         assertEquals(LiquidacionSueldoEstado.APROBADA, liq.getEstado(),
                 "la liquidacion no tenia que quedar pagada");
+    }
+
+    /**
+     * Issue #300: una cuota descontada que se cobro por caja despues del borrador. La validacion corre
+     * antes de tocar la caja: si rechaza, no se mueve plata y la liquidacion sigue APROBADA.
+     */
+    @Test
+    void unaCuotaCambiadaDesdeElBorradorNoMueveLaCaja() {
+        liq.setTotalHaberes(new BigDecimal("1500000"));
+        liq.setTotalDescuentos(BigDecimal.ZERO);
+        liq.setTotalNeto(new BigDecimal("1500000"));
+        org.mockito.Mockito.doThrow(new GraphQLException("cambiaron cuotas de prestamo. Vuelva a borrador y regenere."))
+                .when(descuento).validarLiquidacion(486L);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> service.pagar(486L, CAJA_ID));
+        assertTrue(e.getMessage().contains("regenere"), e.getMessage());
+        assertEquals(0, SALDO_INICIAL.compareTo(saldo.getSaldo()),
+                "no tenia que moverse plata, la caja quedo en " + saldo.getSaldo());
+        assertEquals(LiquidacionSueldoEstado.APROBADA, liq.getEstado());
     }
 
     /**

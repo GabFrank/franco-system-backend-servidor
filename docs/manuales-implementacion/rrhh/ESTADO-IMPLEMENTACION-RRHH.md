@@ -169,9 +169,24 @@ separa un reintento de un segundo cobro parcial legítimo. El desktop lo manda y
 «Cobrar» mientras el cobro está en vuelo. `marcarVencidas` es un `UPDATE` que toca solo el estado:
 cargar y guardar la entidad entera pisaba el `monto_pagado` de un cobro concurrente (sin
 `@DynamicUpdate` ni `@Version`). Verificado con dos cobros simultáneos contra un central local: un
-solo `INGRESO` por cobro aceptado. **Pendiente**: la liquidación descuenta cuotas sin lock ni control
-de estado y puede cobrar dos veces una cuota ya cobrada por caja (#300); con el lock nuevo, ese cruce
-exacto termina en deadlock detectado en vez de doble cobro.
+solo `INGRESO` por cobro aceptado.
+
+**Cuota cobrada por caja y descontada en la liquidación (issue #300, 2026-09-16)** — El borrador
+congela el descuento de cada cuota (`referenciaTipo = CPP_CUOTA`) por lo pendiente al generarlo, y ese
+monto ya está dentro del neto. Antes de mover plata, los tres caminos de pago
+(`LiquidacionSueldoService.pagar`, `LiquidacionFinalService.pagar` y
+`PagoRrhhTesoreriaService.validarYSaldo`) llaman a `PrestamoCuotaDescuentoService`, que toma cada cuota
+con lock (id ascendente, antes que el saldo de caja) y rechaza si ya no coincide con lo pendiente:
+hay que volver a borrador y regenerar. Ese bean es el único que escribe cuota y préstamo desde una
+liquidación (`aplicar` / `revertir`, llamados por `aplicarEfectosCruzados`): al pagar el préstamo
+suma lo descontado y pasa a `PAGADO` solo desde `ACTIVO`; al anular, la cuota recalcula su estado
+(`PAGADA` / `VENCIDA` / `PARCIAL` / `PENDIENTE`) en vez de volver siempre a `PENDIENTE`. El hub además
+procesa el lote en orden y, al reusar una obligación de pago cuyo monto ya no coincide con el
+documento (pago anulado y documento regenerado), ajusta el monto si no tiene pagos (queda en
+`observaciones`) o rechaza si los tiene. Verificado contra un central local: cuota cobrada por caja
+rechaza el pago; regenerado, sale con un solo cobro. **Pendiente**: las obligaciones RRHH también se
+pagan desde el diálogo de compras, sin rol RRHH ni estas validaciones (#302); ahí el pago igual se
+deshace en `aplicar`, con un mensaje genérico.
 
 ---
 

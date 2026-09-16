@@ -96,6 +96,20 @@ Central local contra `bodega`, mutations desde la página con la sesión del usu
    borra la fila de prueba al final (base local).
 4. Sin rol: no hay usuario sin rol de tesorería con sesión; queda cubierto por el test del resolver.
 
+### Resultado (2026-09-16, `451a8cee`, central local contra `bodega`, sesión del usuario)
+
+| Paso | Resultado |
+|---|---|
+| `savePago` #6 (`CONCLUIDO`) → `CANCELADO` | **rechaza**: «El estado CANCELADO no se asigna a mano: los pagos se concluyen y se anulan desde la caja.» |
+| `savePago` #6 → `ABIERTO` | **rechaza**: «El pago #6 está CONCLUIDO: se gestiona desde la caja (para revertirlo, anular desde su movimiento).» |
+| `savePago` #5 (`CANCELADO`) → `ABIERTO` | **rechaza** (mismo mensaje con CANCELADO) |
+| Alta con `CONCLUIDO` | **rechaza** |
+| Alta con `ABIERTO` | crea #7 `ABIERTO` |
+| #7 → `PENDIENTE`, `programado`, con `usuarioId: 1` y `creadoEn: 2020-01-01` en el input | `PENDIENTE`, `programado = true`; **conserva** usuario 410 y la fecha real |
+| `pago(6)` con rol | responde |
+| Base | pagos #2–6 sin cambios; máximo de `movimiento_caja_virtual` sigue en 26; #7 sin detalles, borrado al final |
+| Log del central | solo los 4 rechazos esperados (más Firebase, preexistente) |
+
 ## Datos nuevos
 
 Ninguno.

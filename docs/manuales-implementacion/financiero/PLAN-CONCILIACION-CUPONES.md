@@ -166,9 +166,29 @@ papel, y toda seña que se pierda, se moje o no se imprima cae en el mismo caso.
 | `desktop` | `TarjetaPago` lleva `monedaSimbolo` / `monedaDecimales`, resueltos en `pago-touch` donde está el objeto `Moneda` |
 | `desktop` | `venta-touch.registrarPagosConTarjeta` llama en los **dos** puntos que dejan un PENDIENTE |
 
-**El papel**: encabezado `COMPROBANTE INTERNO / NO ENTREGAR AL CLIENTE`, sucursal, local, venta,
-cobro (`ventaTarjetaId`), caja, cajero, terminal, monto con su moneda, fecha, el QR, y el pie
-«Grapá este comprobante al cupón de la terminal».
+**El papel** (ajustado el 2026-09-16 con la impresora delante):
+
+```
+   NO ENTREGAR AL CLIENTE
+        [ QR ]
+   Venta 35518 / Cobro 36
+    32.000 Gs.  16-09 16:17
+```
+
+La primera versión llevaba encabezado de tres líneas, tres separadores de 32 guiones, sucursal,
+local, caja, cajero, terminal, fecha en renglón propio y un pie de dos líneas: **salía el triple de
+largo que el ticket de la venta que acompaña**, y es un papel que se grapa a otro papel. Quedaron
+tres renglones y el QR. Lo que sobrevive es lo mínimo para conciliar a mano si el QR no se lee:
+**Cobro** —el id de `venta_tarjeta`, único dato que desempata dos cobros de la misma venta—, la
+venta, el monto y la hora. Caja, cajero y terminal salieron: la caja y el monto ya viajan dentro del
+QR, y la terminal la dice el cupón que se está grapando.
+
+⚠️ **El `feed(1)` inicial no es decoración, es funcional.** Al sacarlo, la impresora se comió los
+primeros bytes del trabajo: desapareció el encabezado y el `GS` que abre el comando del QR, con lo
+cual el resto del comando salió **impreso como texto** (`(k1E1Venta 35518 / Cobro 36`) y no hubo QR.
+Con una línea de sacrificio adelante sale todo. Medido con papel, no deducido — y explica por qué el
+diseño viejo, que arrancaba con `feed(2)`, nunca mostró el problema. Vale para cualquier diseño
+nuevo sobre esta impresora (Xprinter 58 mm).
 
 **El tercer camino** (falla el `forkJoin`) no imprime nada, como decía el plan: no hay
 `ventaTarjetaId` y un papel sin ese número no concilia nada. Sale un aviso `danger` de 12 s, y es el
@@ -198,13 +218,23 @@ muerto sin aviso. La guarda contra consultas dobles es `buscandoQr`.
 
 ## 7 · Lo que sigue pendiente
 
-- **Prueba manual de §3.2 y §3.3.** Nada de esto se probó todavía contra una impresora real. **No
-  hace falta Electron** (ver la corrección en §3.2): lo único que se necesita es que la impresora
-  esté en la máquina donde corre el **filial** y que `printerName` coincida con un nombre que
-  `javax.print` vea ahí. Si no encuentra la impresora, `printSenaCupon` devuelve `false` y el PDV
-  avisa — no rompe la venta.
+- ✅ **§3.2 probado contra la impresora real (2026-09-16).** Se confirmó que **no hace falta
+  Electron**: la mutation se disparó desde el navegador y el papel salió por la impresora del host
+  del filial (`javax.print`). Quedó pendiente sólo el escaneo de §3.3 end-to-end.
+
+  ⚠️ **Trampa encontrada en la prueba: `printerName` puede llegar `undefined` sin que nada avise.**
+  `ConfiguracionService.getConfig()` lee **localStorage**, no `configuracion-local.json` — ese
+  archivo no lo consulta nadie en este camino. El perfil de prueba tenía la config guardada **sin la
+  clave `printers`**, así que `getConfig()?.printers?.ticket` daba `undefined`, `printSenaCupon`
+  devolvía `false` y no salía papel. La clave legacy `printerTicket` estaba bien puesta pero no
+  ayuda: sólo se migra cuando **no** hay config guardada. Cualquier caja que haya guardado su
+  configuración antes de que existiera el bloque `printers` tiene el mismo agujero.
 - **Reimprimir la seña** desde la tabla de conciliación, para cuando el papel se perdió o no salió.
   Hay precedente (`add-factura-legal-dialog`, `reimprimirRetiro`) y esta pantalla tiene dónde
   ponerlo. No es bloqueante: los números quedan visibles en la fila.
 - **El ancho del papel** está asumido en 32 caracteres (58 mm), igual que `printRetiro`. Sin
-  verificar contra una impresora de 80 mm.
+  verificar contra una impresora de 80 mm. Con el diseño recortado el riesgo bajó: el renglón más
+  largo es `Venta 35518 / Cobro 36` (22 caracteres) y ya no hay nada que dependa de rellenar los 32.
+- **El QR está en tamaño 6** y a 58 mm entra con margen (78 caracteres de payload). Si se necesita
+  acortar más el papel, bajarlo a 5 es lo que más altura ahorra — pero hay que volver a probar el
+  lector, que es lo único que valida ese cambio.

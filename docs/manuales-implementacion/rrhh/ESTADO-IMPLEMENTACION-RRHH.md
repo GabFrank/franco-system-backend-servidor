@@ -586,6 +586,18 @@ acceso self-contained que resuelve al usuario autenticado desde el principal del
 > mantiene acceso por el bypass. `COMISION GESTIONAR/APROBAR` siguen sin uso (no hay
 > módulo de comisiones).
 
+**Obligaciones de pago RRHH en tesorería (issue #302).** Vale, liquidación, finiquito y aguinaldo se pagan con el
+motor de CPP a través de una `SolicitudPago` de tipo `RRHH`, pero **solo por su hub**: `pagarValesMixto` (`RRHH
+APROBAR`) y `pagarRrhhMixto` (`RRHH PAGAR`), que llaman a `PagoProveedorService.pagarLoteMixtoObligacionesRrhh`.
+Las entradas genéricas de compras (`pagarSolicitud`, `pagarSolicitudesMixto`, `pagarSolicitudesLoteCajaMayor`,
+que solo exigen rol de tesorería) rechazan cualquier solicitud `RRHH`, y `solicitudesPagoPendientes` no las lista.
+La guarda está en los métodos públicos del motor (seguro por defecto): un llamador nuevo de `pagarLoteMixto` queda
+cerrado sin acordarse. Lee solo el tipo (`SolicitudPagoRepository.findTipoById`), nunca la entidad: una lectura previa
+al `lockById` del motor dejaría un saldo sin refrescar ante pagos concurrentes.
+Decisión consciente: **la anulación (`anularPagoCpp`) sigue con rol de tesorería**, sin exigir rol RRHH (devuelve la
+plata a la caja y reabre el documento; la caja es de tesorería). `detalleDePago` también muestra las líneas RRHH con
+el rol de lectura de tesorería, que ya ve la etiqueta del movimiento de caja.
+
 > **Regla para nuevas implementaciones RRHH:** toda mutation nueva debe llamar
 > `seg.requireAnyRole(...)` con el rol adecuado, y toda query que exponga datos de
 > nómina/personales `seg.requireVer()`; en el frontend, gatear el botón con un flag

@@ -94,7 +94,7 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         assertThrows(GraphQLException.class, () -> service.pagarRrhhMixto(List.of(pago(5L, 1_500_000)), null));
 
         verify(solicitudPagoService, never()).crearSolicitudVale(any(), any(), any(), any());
-        verify(motor, never()).pagarLoteMixto(any(), any());
+        verify(motor, never()).pagarLoteMixtoObligacionesRrhh(any(), any());
     }
 
     @Test
@@ -111,7 +111,7 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         verify(solicitudPagoService).save(sp);
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<PagoProveedorService.SolicitudConLineas>> lote = ArgumentCaptor.forClass(List.class);
-        verify(motor).pagarLoteMixto(lote.capture(), any());
+        verify(motor).pagarLoteMixtoObligacionesRrhh(lote.capture(), any());
         assertEquals(40L, lote.getValue().get(0).getSolicitudId());
     }
 
@@ -123,7 +123,7 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         GraphQLException e = assertThrows(GraphQLException.class,
                 () -> service.pagarRrhhMixto(List.of(pago(5L, 800_000)), null));
         assertTrue(e.getMessage().contains("pagos aplicados"), e.getMessage());
-        verify(motor, never()).pagarLoteMixto(any(), any());
+        verify(motor, never()).pagarLoteMixtoObligacionesRrhh(any(), any());
     }
 
     @Test
@@ -136,5 +136,20 @@ class PagoRrhhTesoreriaServiceCuotaTest {
         InOrder orden = inOrder(descuento);
         orden.verify(descuento).validarLiquidacion(5L);
         orden.verify(descuento).validarLiquidacion(9L);
+    }
+
+    @Test
+    void obligacionParcialHeredadaSeTerminaDePagarPorElSaldoRestante() {
+        // Issue #302: una obligacion que alguien pago en parte por el camino generico deja de verse en compras;
+        // el hub la termina de pagar por lo que falta, no por el total.
+        liquidacion(5L, 1_000_000, 40L);
+        solicitud(40L, 1_000_000.0, 400_000);
+
+        service.pagarRrhhMixto(List.of(pago(5L, 600_000)), null);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<PagoProveedorService.SolicitudConLineas>> lote = ArgumentCaptor.forClass(List.class);
+        verify(motor).pagarLoteMixtoObligacionesRrhh(lote.capture(), any());
+        assertEquals(40L, lote.getValue().get(0).getSolicitudId());
     }
 }

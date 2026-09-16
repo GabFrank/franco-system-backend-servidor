@@ -109,6 +109,20 @@ período → `generarLiquidacion` del funcionario → aprobar → `cobrarCuota` 
 pagar: un EGRESO por el neto sin descuento, la cuota con **un** cobro. Y un caso vigente (sin cobro por caja) que
 deje cuota y préstamo `PAGADO`, más `anular` con cuota previa `PARCIAL`.
 
+### Resultado (2026-09-16, `8f4c4d7d`, central local contra `bodega`, mutations desde la página con la sesión del usuario)
+
+| Caso | Resultado | Verificado en base |
+|---|---|---|
+| 1. Préstamo #3 (300.000) → liquidación #487 2026-10 con la cuota → aprobar → `cobrarCuota` por caja → pagar por el hub | **rechaza**: «No se puede pagar la liquidacion #487: cambiaron cuotas de prestamo desde que se genero (cuota #1 del prestamo #3 ya esta PAGADA). Vuelva a borrador y regenere.» | sin movimiento del pago |
+| 2. Volver a borrador → regenerar → aprobar → pagar | sale | #487 `PAGADA`, neto 2.550.000 **sin** descuento; cuota #3 con **un** `INGRESO` (mov 16) y 300.000 pagado |
+| 3. Préstamo #4 (200.000) → liquidación #488 2026-11 con la cuota → pagar por el hub | cuota #4 `PAGADA` y préstamo #4 `PAGADO` con 200.000 (**el préstamo acompaña**) | — |
+| 3b. Anular ese pago (`anularPagoCpp`) | cuota #4 `PENDIENTE` con 0, préstamo `ACTIVO` con 0, #488 `APROBADA` | movs 19/20 y 21/22 inactivos con su AJUSTE |
+| 4. **Auditoría B-1**: #488 con obligación #3 de 2.350.000 → volver a borrador → cobrar la cuota #4 por caja → regenerar (neto 2.550.000) → aprobar → pagar | sale | obligación #3 **actualizada a 2.550.000** y `CONCLUIDO`; #488 `PAGADA`; cuota #4 con un `INGRESO` (mov 23) |
+| Log del central | solo el rechazo esperado del caso 1; sin deadlock ni otros errores | — |
+
+Datos de prueba que quedan en la `bodega` local: préstamos #3 y #4, liquidaciones #487 (2026-10) y #488 (2026-11) del
+funcionario 1, obligaciones #2 y #3, movimientos 15 a 24 en la Caja Mayor «RRHH».
+
 ## Datos nuevos
 
 Ninguno persistido. `N/A` tabla de datos nuevos.

@@ -236,4 +236,83 @@ class PagoProveedorServiceTest {
         assertThrows(GraphQLException.class,
                 () -> service.pagar(1L, Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 1)), null));
     }
+
+    // ── Issue #302: obligaciones de RRHH por el camino generico de compras ──
+
+    private PagoProveedorService.SolicitudConLineas conLineas(long solicitudId) {
+        PagoProveedorService.SolicitudConLineas s = new PagoProveedorService.SolicitudConLineas();
+        s.setSolicitudId(solicitudId);
+        s.setLineas(Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 100000)));
+        return s;
+    }
+
+    @Test
+    void listar_pendientes_excluye_obligaciones_rrhh_y_gastos() {
+        SolicitudPago compra = new SolicitudPago(); compra.setId(11L);
+        compra.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.COMPRA);
+        SolicitudPago gasto = new SolicitudPago(); gasto.setId(12L);
+        gasto.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO);
+        SolicitudPago rrhh = new SolicitudPago(); rrhh.setId(13L);
+        rrhh.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH);
+        SolicitudPago sinTipo = new SolicitudPago(); sinTipo.setId(14L);
+        when(solicitudPagoService.getRepository().findByEstadoIn(any())).thenReturn(Arrays.asList(compra, gasto, rrhh, sinTipo));
+
+        assertEquals(Arrays.asList(compra, sinTipo), service.listarPendientes(null));
+    }
+
+    @Test
+    void pagar_rechaza_una_obligacion_rrhh_sin_mover_plata() {
+        sp.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH);
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.pagar(1L, Collections.singletonList(linea(FuentePago.CAJA_MAYOR, 100000)), null));
+        assertTrue(e.getMessage().contains("obligación de pago de RRHH"), e.getMessage());
+        verify(tesoreriaService, never()).registrar(any());
+    }
+
+    @Test
+    void pago_lote_mixto_rechaza_una_obligacion_rrhh_sin_mover_plata() {
+        sp.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH);
+
+        assertThrows(GraphQLException.class, () -> service.pagarLoteMixto(Collections.singletonList(conLineas(1L)), null));
+        verify(tesoreriaService, never()).registrar(any());
+        verify(pagoService, never()).save(any());
+    }
+
+    @Test
+    void pago_lote_caja_mayor_rechaza_una_obligacion_rrhh_sin_mover_plata() {
+        sp.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH);
+        PagoProveedorService.PagoLote p = new PagoProveedorService.PagoLote();
+        p.setSolicitudId(1L);
+        p.setMonto(new BigDecimal("100000"));
+
+        assertThrows(GraphQLException.class, () -> service.pagarLoteCajaMayor(9L, Collections.singletonList(p), null));
+        verify(tesoreriaService, never()).registrar(any());
+    }
+
+    @Test
+    void los_hubs_de_rrhh_pagan_la_obligacion_por_el_metodo_explicito() {
+        sp.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH);
+
+        service.pagarLoteMixtoObligacionesRrhh(Collections.singletonList(conLineas(1L)), null);
+
+        assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+        verify(tesoreriaService).registrar(any());
+    }
+
+    @Test
+    void un_gasto_se_sigue_pagando_por_el_camino_generico() {
+        sp.setTipo(com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO);
+
+        service.pagarLoteMixto(Collections.singletonList(conLineas(1L)), null);
+
+        assertEquals(SolicitudPagoEstado.CONCLUIDO, sp.getEstado());
+    }
+
+    @Test
+    void un_id_inexistente_da_el_error_de_siempre() {
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.pagarLoteMixto(Collections.singletonList(conLineas(99L)), null));
+        assertTrue(e.getMessage().contains("no encontrada"), e.getMessage());
+    }
 }

@@ -156,7 +156,7 @@ public class PagoRrhhTesoreriaService {
             s.setLineas(p.getLineas());
             lote.add(s);
         }
-        return pagoProveedorService.pagarLoteMixto(lote, usuario);
+        return pagoProveedorService.pagarLoteMixtoObligacionesRrhh(lote, usuario);
     }
 
     // ───────────────────────────── proyecciones a DTO ─────────────────────────────

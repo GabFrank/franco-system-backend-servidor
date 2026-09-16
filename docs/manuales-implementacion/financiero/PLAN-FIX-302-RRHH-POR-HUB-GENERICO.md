@@ -53,6 +53,16 @@ Sin cambio de schema GraphQL ni migración.
 
 Build: `./mvnw clean verify -B -DskipFlyway=true` leído del log.
 
+### Implementación (fase 1) — resultado de los tests
+
+- Guarda en `pagar`, `pagarLoteCajaMayor` y `pagarLoteMixto`; los hubs (`PagoRrhhTesoreriaService`, `ValeTesoreriaService`)
+  llaman a `pagarLoteMixtoObligacionesRrhh`. El único llamador que queda de `pagarLoteMixto` es el resolver genérico.
+- Tests: 7 casos nuevos en `PagoProveedorServiceTest` y 1 en `PagoRrhhTesoreriaServiceCuotaTest` (obligación `PARCIAL`
+  heredada, se paga por el saldo restante); `ValeTesoreriaServiceTest` y `PagoRrhhTesoreriaServiceCuotaTest` ajustados al
+  nombre nuevo → 30/30 verdes en las tres clases.
+- **Con el fix neutralizado** (guarda no-op, listado solo sin `GASTO`): **fallan los 4 casos esperados** (listado, `pagar`,
+  `pagarLoteMixto`, `pagarLoteCajaMayor`). Siguen pasando hubs, gasto por el genérico e id inexistente.
+
 ### Desktop
 
 **N/A** en código: el modo COMPRAS deja de listar obligaciones RRHH, que siguen en sus modos (VALES, LIQUIDACION,

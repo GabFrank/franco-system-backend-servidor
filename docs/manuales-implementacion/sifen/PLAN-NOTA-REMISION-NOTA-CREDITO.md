@@ -1019,3 +1019,32 @@ Flyway: `Current version 224.3` → `Successfully applied 1 migration, now at ve
 (107 ms), y la app levantó. Verificado después: las tres columnas nullable, los cuatro roles
 sembrados, la UNIQUE `uk_documento_electronico_factura_legal` intacta y las 534.741 filas en su
 lugar. El seed se volvió a correr a mano: sigue habiendo cuatro roles (idempotente). Copia borrada.
+
+### 13.4 · Resto de la Fase 0.B (2026-09-17)
+
+- **`procesarLotesAtrasados` portado del filial** a `SifenSchedulerService` de central, como PASO 0
+  de `procesarLotesAutomaticamente` (hallazgo B2 / R12). Recupera lotes `PENDIENTE_ENVIO`,
+  `ERROR_ENVIO` y `ERROR_RED`, sin límite de reintentos, salteando los de menos de un minuto
+  (pueden estar enviándose) y marcando `ERROR_PERMANENTE` los que no tienen documentos. Necesitó
+  `LoteDERepository.findByEstadoInOrderByCreadoEnAsc` + `LoteDEService.findByEstados`.
+- **`reconstruirDE(de)` despacha por `tipoDocumento`**: la factura se regenera desde sus datos como
+  siempre; una nota sin XML original falla con un mensaje explícito en vez de un
+  `NullPointerException` sobre una factura inexistente. Es el fallback de `enviarLote`.
+- **`SifenEnvioSincronoService`**, bean **aparte** de `SifenService` y **sin `@Transactional`**: crea
+  el lote de uno, vincula y envía. Va en otra clase a propósito — la auto-invocación dentro de
+  `SifenService` no pasa por el proxy de Spring y las tres etapas caerían en una sola transacción,
+  que es justo lo que D8 prohíbe (un timeout de lectura revertiría número y CDC ya aceptados por
+  SIFEN). Al llamarlas desde otro bean, cada `@Transactional` commitea por separado.
+- **Tests nuevos** (7): `SifenSchedulerLotesAtrasadosTest` (5: reenvía, busca los tres estados,
+  saltea el reciente, marca el vacío, y ante un fallo de envío conserva el estado recuperable e
+  incrementa intentos) y `SifenEnvioSincronoServiceTest` (2: orden crear→vincular→enviar, y sin
+  documento persistido no toca SIFEN). Batería: **709 tests, 0 fallas, BUILD SUCCESS**.
+
+**No se creó `SifenNotasValidator`**: el plan lo pedía vacío en 0.B y una clase sin contenido es
+código muerto. Nace en 1.B con la primera validación (`validarNRE`).
+
+**Tampoco entran `DocumentoElectronicoService.createFromNotaRemision/createFromNotaCredito`**:
+necesitan las entidades `NotaRemision` / `NotaCredito`, que son de 1.A. Van ahí.
+
+Con esto la **Fase 0 queda cerrada**. Sigue la Fase 1 (Nota de Remisión), cuyo cierre (1.F) depende
+de la confirmación del timbrado ante la SET (R5, §10 punto 4): pendiente de Gabriel.

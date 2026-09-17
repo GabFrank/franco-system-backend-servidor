@@ -45,6 +45,9 @@ public interface LoteDERepository extends HelperRepository<LoteDE, EmbebedPrimar
 
     List<LoteDE> findByEstado(EstadoLoteDE estado);
 
+    /** Lotes atrasados: los que quedaron sin enviarse (PENDIENTE_ENVIO, ERROR_ENVIO, ERROR_RED). */
+    List<LoteDE> findByEstadoInOrderByCreadoEnAsc(List<EstadoLoteDE> estados);
+
     Optional<LoteDE> findByProtocolo(String protocolo);
 
     @Query("SELECT l FROM LoteDE l WHERE l.id = :id AND l.sucursalId = :sucursalId")

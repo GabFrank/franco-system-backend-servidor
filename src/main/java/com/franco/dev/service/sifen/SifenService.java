@@ -284,11 +284,11 @@ public class SifenService {
                     }
         } catch (Exception e) {
                     log.warn("      ⚠ Error al reconstruir desde XML: {}", e.getMessage());
-                    deSifen = reconstruirDEDesdeFactura(de);
+                    deSifen = reconstruirDE(de);
                 }
             } else {
-                log.warn("      ⚠ XML original no disponible - regenerando desde factura");
-                deSifen = reconstruirDEDesdeFactura(de);
+                log.warn("      ⚠ XML original no disponible - regenerando desde el documento origen");
+                deSifen = reconstruirDE(de);
             }
             
             // Asegurar URL QR
@@ -1340,6 +1340,28 @@ public class SifenService {
     /**
      * Reconstruye un DE desde la factura cuando no hay XML original disponible.
      */
+    /**
+     * Reconstruye el DE de SIFEN cuando no se puede partir del XML guardado, despachando por
+     * {@code tipoDocumento}. Solo la factura se puede regenerar desde sus datos; una nota de
+     * crédito o de remisión existe únicamente como XML, así que sin él no hay reconstrucción
+     * posible y falla con un mensaje claro en vez de con un NullPointerException sobre una factura
+     * que no existe.
+     */
+    private com.roshka.sifen.core.beans.DocumentoElectronico reconstruirDE(
+            com.franco.dev.domain.financiero.DocumentoElectronico de) throws SifenException {
+
+        String tipo = de.getTipoDocumento() != null
+            ? de.getTipoDocumento()
+            : com.franco.dev.service.sifen.util.TipoDocumentoElectronico.FACTURA;
+
+        if (com.franco.dev.service.sifen.util.TipoDocumentoElectronico.FACTURA.equals(tipo)) {
+            return reconstruirDEDesdeFactura(de);
+        }
+
+        throw new IllegalStateException("El documento " + de.getId() + " (" + tipo
+            + ") no tiene XML original y no puede reconstruirse: hay que regenerarlo desde su nota.");
+    }
+
     private com.roshka.sifen.core.beans.DocumentoElectronico reconstruirDEDesdeFactura(
             com.franco.dev.domain.financiero.DocumentoElectronico de) throws SifenException {
         

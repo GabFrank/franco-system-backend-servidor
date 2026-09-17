@@ -54,6 +54,10 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Embebed
         return repository.findByEstado(estado);
     }
 
+    public List<LoteDE> findByEstados(List<EstadoLoteDE> estados) {
+        return repository.findByEstadoInOrderByCreadoEnAsc(estados);
+    }
+
     public Optional<LoteDE> findByProtocolo(String protocolo) {
         return repository.findByProtocolo(protocolo);
     }

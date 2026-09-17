@@ -1306,6 +1306,10 @@ imprime un segundo importe (cuotas), el `[\s\S]*` codicioso se queda con el últ
 
 ### Lo que esta jornada deja como prioridad
 
+> ✅ **Hecho el 2026-09-17.** Ver [BOTON-PROBAR-FORMATO.md](BOTON-PROBAR-FORMATO.md). Lo que sigue
+> es el planteo original, que se cumplió tal cual salvo un detalle: la prueba corre contra el
+> formato **guardado**, y el botón guarda solo si hay cambios, en vez de probar el borrador.
+
 **El botón «Probar» del ABM de formatos.** Hoy cada patrón frágil costó una venta interrumpida. El
 diseño lo definió Gabriel: **exactamente como el PDV** — abre un QR, se escanea un ticket de papel,
 **pasa o no pasa**. No un banco de textos guardados: probar contra texto guardado es probar contra el

@@ -238,3 +238,67 @@ muerto sin aviso. La guarda contra consultas dobles es `buscandoQr`.
 - **El QR está en tamaño 6** y a 58 mm entra con margen (78 caracteres de payload). Si se necesita
   acortar más el papel, bajarlo a 5 es lo que más altura ahorra — pero hay que volver a probar el
   lector, que es lo único que valida ese cambio.
+
+---
+
+## 8 · El cierre de caja: salida con motivo, no puerta trabada (2026-09-17)
+
+### El péndulo
+
+Este gate ya se movió dos veces, y las dos por buenas razones:
+
+1. **Advertencia con «Cerrar igualmente»** a mano del cajero. El escape convertía cada venta sin
+   registrar en un `NO_COMPLETADO` silencioso: plata cobrada con tarjeta que después no se puede
+   conciliar contra la liquidación del proveedor.
+2. **Bloqueo total para el cajero**, sólo ADMIN puede forzar. Cerró ese agujero y abrió el opuesto:
+   un cupón que no se imprimió o un POS que falló dejaban la caja trabada de noche, esperando a un
+   supervisor que no estaba.
+
+### Lo que cambia ahora
+
+**No cambia quién puede: cambia qué queda.** El cajero vuelve a poder cerrar, pero tiene que decir
+**por qué**, y eso se guarda con su usuario y la hora en cada fila.
+
+| dónde | qué |
+|---|---|
+| `filial` | `V102.5` — `no_completado_motivo`, `no_completado_observacion`, `no_completado_por_id`, `no_completado_en`. Con CHECK y FK: es el lado que escribe |
+| `central` | `V228.5` — las mismas cuatro columnas, **sin CHECK ni FK**: es el subscriber |
+| `filial` | `marcarNoCompletada(id, …)` para un cobro, y `marcarNoCompletadas(caja, …)` para el cierre; las dos exigen motivo |
+| `desktop` | `motivo-no-conciliar-dialog` — lista fija + texto libre, obligatorio cuando el motivo es OTRO |
+| `desktop` | Acción **«Dejar sin conciliar»** por fila en el diálogo de conciliación |
+| `desktop` | El cierre de caja pide el motivo en vez de pedir un supervisor |
+
+Los motivos son cerrados —`CUPON_NO_IMPRESO`, `POS_FALLADO`, `CUPON_PERDIDO`, `OTRO`— porque con
+texto libre solo no se puede responder «cuántas veces falló el POS este mes»: cada cajero escribe
+distinto. El texto libre queda para lo que la lista no cubre, y ahí es obligatorio.
+
+⚠️ **Por fila y no sólo por caja.** De tres pendientes, dos tienen su cupón y el tercero se perdió;
+marcar los tres con el mismo motivo sería escribir dos mentiras para registrar una verdad. El
+marcado en bloque sigue existiendo para el cierre, donde el cajero ya decidió por todos.
+
+⚠️ **Orden de despliegue, igual que con `origen`:** `financiero.venta_tarjeta` es BRANCH_TO_MAIN y
+su fila en `pg_publication_rel` no tiene column list, así que PostgreSQL publica las columnas nuevas
+solo. **Central primero, desplegado y confirmado; recién después el filial.** Al revés, el apply
+worker de central se detiene con *missing replicated column* y entra en crash-loop con el slot
+reteniendo WAL — el corte del 2026-08-20.
+
+### Lo que sigue abierto
+
+- **El aviso al supervisor.** Los `NO_COMPLETADO` quedan visibles en el diálogo de la caja con su
+  motivo y su autor, pero nadie los persigue: no hay pantalla que junte los de todas las cajas ni
+  aviso a nadie. Las columnas ya están en central, así que es sólo la vista.
+- **Reimprimir la seña** — ✅ hecho el 2026-09-17: acción «print» en cada fila PENDIENTE.
+
+## 9 · Reimprimir la seña (2026-09-17)
+
+Acción por fila en el diálogo de conciliación, sólo sobre PENDIENTE. Reimprime con los datos de la
+fila, así que el QR sale idéntico al original salvo el sello de tiempo, que no se valida.
+
+Para cuando el papel no está: no salió, se mojó, se traspapeló. Sin esto la única salida era buscar
+la fila a ojo entre cobros del mismo monto, que es justamente lo que la seña existe para evitar.
+
+⚠️ **Y se arregló el modo de falla silencioso que encontró la prueba del 2026-09-16:** si la
+configuración guardada de la caja no tiene el bloque `printers` —porque se guardó antes de que
+existiera—, `printerName` llegaba `undefined`, `printSenaCupon` devolvía `false` y el cajero leía
+«no se pudo imprimir» sin ninguna pista de que el problema era la configuración de su propia caja.
+Ahora `onImprimirSena` no llama al filial sin impresora y el aviso dice dónde configurarla.

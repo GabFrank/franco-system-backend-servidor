@@ -1129,3 +1129,34 @@ no es un problema de código: hay que pedir la ampliación del timbrado a la SET
   uno por regla). Batería: **747 tests, 0 fallas, BUILD SUCCESS**.
 - El XML firmado **no** se prueba en CI (hace falta el certificado): se valida en 1.F contra el
   ambiente TEST de SIFEN. Sigue como NO VERIFICADO en §10 punto 5.
+
+### 13.9 · Fase 1.C — GraphQL de la Nota de Remisión (2026-09-17)
+
+- **`nota-remision.graphqls`** completo: tipos `NotaRemision`, `NotaRemisionItem`,
+  `NotaRemisionPage`, `NotaRemisionPrellenada`, inputs, 6 queries y 4 mutations.
+- **`NotaRemisionGraphQL`**: `notaRemision`, `notaRemisiones` (paginado), `notaRemisionItems`,
+  `notaRemisionPorTransferencia` (para que el desktop deshabilite el botón), el DE de la nota y
+  `prellenarNotaRemision`. Mutations: `saveNotaRemision`, `generarYEnviarNotaRemision`,
+  `reenviarNotaRemision`, `anularNotaRemision`. Las tres etapas del envío se encadenan **desde el
+  resolver**, fuera de toda transacción (D8).
+- **`NotaRemisionPrellenadoService`**: el borrador según el origen. Transferencia → motivo traslado
+  entre locales con el receptor = la propia empresa (SIFEN exige mismo RUC), salida y entrega de las
+  sucursales, vehículo y chofer de la hoja de ruta, ítems de la etapa más avanzada. Factura → motivo
+  traslado por ventas, receptor y ítems de la factura. Manual → solo la salida.
+- **Regenerar vs reenviar**: si el DE ya existe no se vuelve a generar. Un envío fallido se reintenta
+  con el mismo CDC, sin consumir otro número (R11).
+- **Tests**: `NotaRemisionGraphQLSeguridadTest`, 5 casos: las queries exigen ver, emitir y reenviar
+  exigen el rol de emisión, y alta/anulación/prellenado delegan en el servicio, que es donde vive el
+  control. Batería: **752 tests, 0 fallas, BUILD SUCCESS**.
+
+**Verificación que el CI no hace**: el pareo tipo-GraphQL ↔ clase Java solo se comprueba al arrancar
+el contexto. Se levantó el central con perfil `dev` contra una copia del esquema de `bodega` (con su
+`flyway_schema_history`, sin el cual Flyway intenta correr `V0` de cero): aplicó `V225.1`, `V226.1` y
+`V227.1` en 142 ms y **arrancó**. En el camino apareció el error clásico: la clase del resultado del
+prellenado se llamaba `Prellenado` y el tipo `NotaRemisionPrellenada`; kickstart parea por nombre y el
+contexto no levanta. Renombrada.
+
+**Desvío del plan anotado**: el schema expone las FK como ids (`vehiculoId`, `choferPersonaId`,
+`transferenciaId`…) en vez de objetos anidados. Los `NotaRemisionResolver` de campo se agregan si el
+desktop los necesita; hoy las pantallas usan el snapshot que ya guarda la nota (matrícula, nombre del
+chofer, receptor), que es además lo que fue al XML.

@@ -46,3 +46,147 @@ enum OrigenNotaRemision {
     FACTURA
     MANUAL
 }
+
+type NotaRemision {
+    id: ID!
+    sucursalId: Int
+    timbradoDetalleId: Int
+    numeroNotaRemision: Int
+    fecha: Date
+    origen: OrigenNotaRemision
+    transferenciaId: Int
+    facturaLegalId: Int
+    motivoEmision: MotivoEmisionNotaRemision
+    responsableEmision: ResponsableEmisionNr
+    kmEstimado: Int
+    fechaInicioTraslado: Date
+    fechaFinTraslado: Date
+    fechaEstimadaFactura: Date
+    clienteId: Int
+    receptorNombre: String
+    receptorRuc: String
+    receptorDireccion: String
+    receptorDepartamento: String
+    receptorCodigoCiudad: Int
+    receptorCiudad: String
+    salidaDireccion: String
+    salidaDepartamento: String
+    salidaCodigoCiudad: Int
+    salidaCiudad: String
+    entregaDireccion: String
+    entregaDepartamento: String
+    entregaCodigoCiudad: Int
+    entregaCiudad: String
+    tipoTransporte: TipoTransporteNr
+    modalidadTransporte: ModalidadTransporteNr
+    transportistaNombre: String
+    transportistaRuc: String
+    transportistaDireccion: String
+    vehiculoId: Int
+    vehiculoMarca: String
+    vehiculoMatricula: String
+    choferPersonaId: Int
+    choferNombre: String
+    choferDocumento: String
+    choferDireccion: String
+    activo: Boolean
+    usuarioId: Int
+    creadoEn: Date
+}
+
+type NotaRemisionItem {
+    id: ID!
+    sucursalId: Int
+    notaRemisionId: Int
+    productoId: Int
+    presentacionId: Int
+    codigo: String
+    descripcion: String
+    cantidad: Float
+    unidadMedida: String
+}
+
+type NotaRemisionPage {
+    getContent: [NotaRemision]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+"""Borrador que arma el backend segun el origen. El desktop no calcula datos fiscales."""
+type NotaRemisionPrellenada {
+    notaRemision: NotaRemision
+    items: [NotaRemisionItem]
+}
+
+input NotaRemisionInput {
+    id: ID
+    sucursalId: Int!
+    timbradoDetalleId: Int!
+    fecha: String
+    origen: String!
+    transferenciaId: Int
+    facturaLegalId: Int
+    motivoEmision: String!
+    responsableEmision: String
+    kmEstimado: Int
+    fechaInicioTraslado: String
+    fechaFinTraslado: String
+    fechaEstimadaFactura: String
+    clienteId: Int
+    receptorNombre: String!
+    receptorRuc: String!
+    receptorDireccion: String
+    receptorDepartamento: String
+    receptorCodigoCiudad: Int
+    receptorCiudad: String
+    salidaDireccion: String
+    salidaDepartamento: String
+    salidaCodigoCiudad: Int
+    salidaCiudad: String
+    entregaDireccion: String
+    entregaDepartamento: String
+    entregaCodigoCiudad: Int
+    entregaCiudad: String
+    tipoTransporte: String
+    modalidadTransporte: String
+    transportistaNombre: String
+    transportistaRuc: String
+    transportistaDireccion: String
+    vehiculoId: Int
+    vehiculoMarca: String
+    vehiculoMatricula: String
+    choferPersonaId: Int
+    choferNombre: String
+    choferDocumento: String
+    choferDireccion: String
+    usuarioId: Int
+}
+
+input NotaRemisionItemInput {
+    id: ID
+    productoId: Int
+    presentacionId: Int
+    codigo: String
+    descripcion: String!
+    cantidad: Float!
+    unidadMedida: String
+}
+
+extend type Query {
+    notaRemision(id: ID!, sucursalId: ID!): NotaRemision
+    notaRemisiones(sucursalId: ID, fechaInicio: String, fechaFin: String, page: Int!, size: Int!): NotaRemisionPage
+    notaRemisionItems(notaRemisionId: ID!, sucursalId: ID!): [NotaRemisionItem]
+    notaRemisionPorTransferencia(transferenciaId: ID!): NotaRemision
+    documentoElectronicoDeNotaRemision(notaRemisionId: ID!, sucursalId: ID!): DocumentoElectronico
+    prellenarNotaRemision(origen: String!, referenciaId: ID, sucursalId: ID!): NotaRemisionPrellenada
+}
+
+extend type Mutation {
+    saveNotaRemision(input: NotaRemisionInput!, items: [NotaRemisionItemInput!]!): NotaRemision!
+    generarYEnviarNotaRemision(id: ID!, sucursalId: ID!): DocumentoElectronico
+    reenviarNotaRemision(id: ID!, sucursalId: ID!): DocumentoElectronico
+    anularNotaRemision(id: ID!, sucursalId: ID!): NotaRemision
+}

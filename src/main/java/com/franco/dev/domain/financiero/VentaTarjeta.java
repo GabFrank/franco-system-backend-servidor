@@ -159,11 +159,15 @@ public class VentaTarjeta implements Serializable {
      * Quien decidio cerrar sin conciliar este cobro.
      * <p>
      * Sin FK a proposito: si la fila del usuario todavia no llego a central, una FK frenaria el
-     * stream entero de ventas con tarjeta. Por eso se mapea con {@code insertable/updatable false}
-     * sobre la columna cruda, que es lo que la replicacion escribe.
+     * stream entero de ventas con tarjeta.
+     * <p>
+     * Y de solo lectura ({@code insertable/updatable false}): esta columna la escribe el filial y
+     * llega por replicacion. Sin eso, cualquier guardado de central que arme la entidad de cero
+     * --en vez de cargarla de la base-- la pisaria con null y borraria quien decidio no conciliar
+     * ese cobro.
      */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "no_completado_por_id", nullable = true,
+    @JoinColumn(name = "no_completado_por_id", nullable = true, insertable = false, updatable = false,
             foreignKey = @javax.persistence.ForeignKey(value = javax.persistence.ConstraintMode.NO_CONSTRAINT))
     private Usuario noCompletadoPor;
 

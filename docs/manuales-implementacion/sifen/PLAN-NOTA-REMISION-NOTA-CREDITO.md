@@ -1048,3 +1048,26 @@ necesitan las entidades `NotaRemision` / `NotaCredito`, que son de 1.A. Van ahí
 
 Con esto la **Fase 0 queda cerrada**. Sigue la Fase 1 (Nota de Remisión), cuyo cierre (1.F) depende
 de la confirmación del timbrado ante la SET (R5, §10 punto 4): pendiente de Gabriel.
+
+### 13.5 · Fase 0.D — partición de ids en central (2026-09-17)
+
+`V226.1__particion_ids_facturacion_electronica_impares.sql`: las secuencias de
+`documento_electronico`, `lote_de`, `evento_cancelacion_de` y `evento_nominacion_de` pasan a
+impares, y las cuatro tablas reciben el trigger `rechazar_id_de_filial` (la función ya existe desde
+`V223.1`). Misma técnica que `V223.1`, espejo del `V96.1` del filial.
+
+Validación sobre una copia del esquema de `bodega` con los valores reales de las cuatro secuencias,
+aplicada dos veces (idempotente): las cuatro quedan en `INCREMENT BY 2`, `nextval` devuelve impar,
+los cuatro triggers quedan creados y un `INSERT` local con id par se rechaza con el mensaje
+esperado. El dry-run contra la copia completa de `bodega` se repite junto con el resto de las
+migraciones antes del PR (paso 10).
+
+⚠️ **Corrección de registro**: el mensaje anterior de esta sesión dio la Fase 0 por cerrada cuando
+faltaba esta migración. Queda cerrada con este commit.
+
+### 13.6 · R5 — timbrado (2026-09-17)
+
+Gabriel confirmó que **«en teoría está habilitado»** para Nota de Crédito y Nota de Remisión. Se
+toma como luz verde para seguir, **no** como verificación: lo definitivo es el timbrado en Marangatu,
+y si no estuviera habilitado el síntoma aparecería recién como rechazo de SIFEN en 1.F. Si eso pasa,
+no es un problema de código: hay que pedir la ampliación del timbrado a la SET.

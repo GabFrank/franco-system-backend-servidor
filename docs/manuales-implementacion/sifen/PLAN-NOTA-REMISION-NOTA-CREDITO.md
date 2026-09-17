@@ -805,3 +805,125 @@ Las seis preguntas abiertas del plan se resolvieron en sesión; todas con la opc
 Con esto el plan queda **aprobado para implementar** (paso 6 del ciclo). Próximo paso: Fase 0 en el
 orden de §7 (PR del filial primero), empezando por el spike de 0.B sobre la persistencia de
 `factura_legal_id`.
+
+---
+
+## 12 · Entrega entre repos y prompt de arranque para el agente que implementa
+
+Este plan cruza **tres repos** y cada uno lleva su propia rama y su propio archivo de plan. Ningún
+repo se entiende solo: el orden de merges y despliegues lo fija la dirección de replicación (§7).
+
+### 12.1 · Dónde vive cada pieza
+
+| Repo | Rama de trabajo (sale de `develop`) | Archivo del plan en esa rama | Qué contiene |
+|---|---|---|---|
+| central `GabFrank/franco-system-backend-servidor` | `feature/sifen-nota-remision-nota-credito` | `docs/manuales-implementacion/sifen/PLAN-NOTA-REMISION-NOTA-CREDITO.md` (**este**) | Arquitectura, decisiones, Fases 0/1/2 de backend, migraciones, riesgos, auditoría, orden de despliegue |
+| filial `GabFrank/franco-system-backend-filial` | `fix/sifen-espejo-documento-electronico-notas` | `docs/manuales-implementacion/sifen/PLAN-ESPEJO-NR-NC-FILIAL.md` | Fase 0.C/0.D del filial: `V91.5`, `V91.7`, guarda del scheduler, tests |
+| desktop `GabFrank/frc-sistemas-integrados-angular` | `feature/sifen-nota-remision-nota-credito` | `docs/manuales-implementacion/sifen/PLAN-NR-NC-DESKTOP.md` | Fases 1 y 2 de UI |
+
+Los tres archivos se **borran en el PR final de cada repo** (paso 11 del ciclo); lo que sobrevive
+va a los docs de dominio.
+
+### 12.2 · Entrelazado de entregas (qué se mergea cuándo)
+
+```
+ENTREGA A — Fase 0 (infraestructura)
+  1. filial   commits V91.5 + V91.7 + guarda + tests ──► PR a develop ──► merge ──► alpha ≤15 min
+  2. central  spike factura_legal_id → V225.5 → 0.B → V225.7 (0.D)  (commits en la rama; sin PR aún)
+  ⚠ central NO se despliega en un canal hasta que TODAS las filiales de ese canal estén en V91.5
+    (query de precondición en §7).
+
+ENTREGA B — Fase 1 (Nota de Remisión)
+  3. central  1.A → 1.B → 1.C → 1.D → prueba local contra SIFEN TEST (1.F) ──► PR a develop
+              (Fase 0 + Fase 1 juntas; si supera ~400 líneas netas de código, dos PRs: 0 y 1)
+              ──► merge ──► deploy alpha (workflow Deploy, sin reviewer)
+  4. desktop  1.1 → 1.7 → npm run check ──► PR a develop ──► merge (SIEMPRE después del central)
+              ──► auto-update alpha en ≤5 min
+
+ENTREGA C — Fase 2 (Nota de Crédito)
+  5. central  2.A → 2.E → prueba local (2.H) ──► PR ──► merge ──► deploy alpha
+  6. desktop  2.1 → 2.6 → npm run check ──► PR ──► merge
+
+PROMOCIÓN POR CANAL (alpha → farmacia/release-beta → bodega/master), siempre en este orden:
+  filial (se propaga solo, sin gate humano) → central (Deploy con 1 reviewer) → desktop
+  "Cliente y backend van juntos por canal": nunca promover el desktop antes que su central.
+```
+
+Reglas del entrelazado que no se negocian:
+
+- **El PR del filial se mergea primero y se promueve primero.** Es la única pieza que se propaga
+  sola (≤15 min, 6 filiales farmacia / 18 bodega según la rama). Su contenido es solo DDL aditivo
+  y una guarda: no depende de nada de central.
+- **Central no escribe una fila de nota hasta que el canal entero tenga `V91.5`.** Una sola filial
+  atrasada corta la réplica de esa filial (R1).
+- **Desktop nunca antes que central en el mismo canal** (incidente v4.1.0, 2026-08-19).
+- **Nada se mergea para "probar en alpha"**: alpha es compartido y recibe trabajo terminado (§3.4
+  del ciclo). La prueba de runtime es local: central `spring-boot:run` (perfil `dev`,
+  `sifen.ambiente=TEST`), desktop `ng serve -c web`.
+- **Un PR por repo**, no un PR por fase (salvo que el de central supere las 400 líneas netas).
+
+### 12.3 · Prompt de arranque (copiar y pegar como primer mensaje al agente nuevo)
+
+```
+Sos el agente que implementa "Nota de Remisión y Nota de Crédito electrónicas SIFEN" en FRC
+Comercial. El plan ya está escrito, auditado con dos ejes (paso 5 del ciclo) y aprobado por
+Gabriel el 2026-09-17 (paso 6), con las seis decisiones abiertas ya tomadas. NO lo vuelvas a
+planificar ni reabras esas decisiones: arrancás en el paso 7 (implementación por fases) del ciclo
+de 12 pasos.
+
+1. Cargá las skills, en este orden: frc-cicd (y leé entero
+   frc-cicd/ciclo-implementacion-frc-comercial.md, §1 y §3), frc-central, frc-filial,
+   frc-desktop y frc-efact-expert (de esta última solo domains/notas-cdr.md, sifen-core.md,
+   transporte-remision.md y conventions/sifen-gotchas.md: frc-efact es la implementación de
+   referencia, no un repo a tocar).
+
+2. Leé los tres planes, en este orden, completos:
+   - central, rama feature/sifen-nota-remision-nota-credito:
+     docs/manuales-implementacion/sifen/PLAN-NOTA-REMISION-NOTA-CREDITO.md (plan maestro)
+   - filial, rama fix/sifen-espejo-documento-electronico-notas:
+     docs/manuales-implementacion/sifen/PLAN-ESPEJO-NR-NC-FILIAL.md
+   - desktop, rama feature/sifen-nota-remision-nota-credito:
+     docs/manuales-implementacion/sifen/PLAN-NR-NC-DESKTOP.md
+   Las tres ramas ya existen y salen de develop. Trabajá sobre ellas; antes de empezar cada
+   repo hacé git fetch origin develop y traé develop a la rama (merge, no rebase) para no probar
+   una combinación que nunca va a existir en producción.
+
+3. Orden de trabajo (§12.2 del plan maestro; no se altera):
+   ENTREGA A: filial primero (V91.5, V91.7, guarda en los tres métodos del scheduler, test que
+   falla sin la guarda) → PR a develop del filial. Después central Fase 0: EMPEZÁ POR EL SPIKE de
+   0.B (cómo persiste hoy documento_electronico.factura_legal_id con el mapping insertable=false)
+   y no toques entidad ni migración hasta tener la respuesta con evidencia.
+   ENTREGA B: central Fase 1 (Nota de Remisión) → prueba local contra SIFEN TEST → PR central →
+   desktop Fase 1 → npm run check → PR desktop.
+   ENTREGA C: central Fase 2 (Nota de Crédito) → PR → desktop Fase 2 → PR.
+   Promoción por canal siempre filial → central → desktop.
+
+4. Reglas duras mientras codeás (están en el ciclo y en los CLAUDE.md; las más caras acá):
+   - Nunca push ni merge a develop, release/beta o master; nunca mergeás vos un PR; nunca
+     proponés mergear para destrabarte. Una fase = un commit + push a la rama de trabajo.
+   - Migraciones con sufijo .5 (y .7 para las de partición), aditivas, nunca modificar una ya
+     aplicada. Dry-run de Flyway contra una copia de la base real antes de cada PR (el CI no
+     valida Flyway).
+   - Un enum Java nuevo va con su .graphqls en el mismo commit (SchemaEnumsSincronizadosTest).
+   - Toda mutation nueva empieza con FacturacionSecurityService.require*(...) (no hay
+     @PreAuthorize en el repo; @AdminSecured está roto, issue #177).
+   - GraphQL, no REST. Sin variables de entorno nuevas (el plan usa solo properties con default).
+   - .jrxml solo con fontName="SansSerif", validados en local con fillReport antes de pushear.
+   - Desktop: nada de funciones en el HTML; roles en ngOnInit; npm run check una sola vez al
+     final, redirigido a archivo y leído entero.
+   - Filial: lo que mergeás a develop sale solo a las filiales alpha en ≤15 min.
+   - Auditoría del diff (paso 8: 3 ejes fijos + condicionales) y batería (paso 9) antes de cada
+     PR; PR con las seis secciones (Qué resuelve / Cómo probarlo / Impacto en DB / Impacto en
+     rollback / Riesgo / Nota de despliegue). CI verde sobre el SHA final (gh pr checks).
+
+5. Cuando algo no se pueda cumplir, avisá en el momento y anotalo en el plan del repo (el plan
+   es registro, un paso incumplido no se borra). Lo que el plan marca como NO VERIFICADO (§10)
+   se verifica en el momento en que la fase lo necesita, y el resultado se escribe ahí.
+
+6. Antes de la Fase 1.F (prueba contra SIFEN TEST) confirmá con Gabriel que el timbrado
+   electrónico vigente habilita Nota de Crédito y Nota de Remisión ante la SET (R5): no es un
+   problema de código y bloquea la prueba real.
+
+Empezá por el punto 1 y reportá, antes de escribir código, un resumen de 10 líneas de lo que
+entendiste del entrelazado entre repos y qué vas a hacer primero.
+```

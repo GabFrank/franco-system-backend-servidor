@@ -983,3 +983,30 @@ existía (`espejo_formato_qr_pos`) y la mayor de `develop` era `V94.1`. En centr
 criterio, las migraciones de este trabajo arrancan en **`V225.1`** con sufijo `.1` (convención de
 Franco) y un entero por migración: `V225.1` (espejo + roles), `V226.1` (ids impares), `V227.1`
 (nota de remisión), `V228.1` (nota de crédito).
+
+### 13.3 · Fase 0.A + primera mitad de 0.B (2026-09-17)
+
+Commiteado en `feature/sifen-nota-remision-nota-credito`. Numeración `.1` (convención de Franco).
+
+- **`V225.1__documento_electronico_notas_y_roles.sql`**: `factura_legal_id` a nullable, columnas
+  `nota_credito_id` / `nota_remision_id` (sin FK todavía: van con las tablas, en `V227.1` / `V228.1`,
+  igual que el `CHECK` de un solo origen) y seed idempotente de los cuatro roles `FACTURACION *`.
+- **`DocumentoElectronico`**: nacen las cuatro columnas planas escribibles (`facturaLegalId`,
+  `notaCreditoId`, `notaRemisionId`, `loteDeId`) junto a las relaciones de solo lectura, y
+  `setFacturaLegal` / `setLoteDe` se escriben a mano para mantenerlas en sincronía. Esto **arregla
+  de paso dos caminos rotos de central** (§13.1): crear un DE propio y vincularlo a un lote.
+- **`TipoDocumentoElectronico`** (constantes `FACTURA` / `NOTA_CREDITO` / `NOTA_REMISION`), sin enum
+  para no arrastrar `.graphqls` ni `CHECK`.
+- **`FacturacionSecurityService`**: patrón `TesoreriaSecurityService`, con `requireVer`,
+  `requireEmitirNr`, `requireEmitirNc`, `requireAnular` y bypass ADMIN.
+- **`SifenTimbradoHelper`**: `codigoEstablecimiento(Sucursal)` (`%03d`, default `001`) y
+  `fechaFirmaSegura(LocalDateTime)` (nunca adelantada respecto de la hora de Paraguay). La ruta de
+  la factura no se toca.
+- **Tests nuevos** (14): `FacturacionSecurityServiceTest` (6), `SifenTimbradoHelperTest` (5),
+  `DocumentoElectronicoFkTest` (3, incluye que las cuatro columnas sean `insertable`/`updatable`).
+  Batería completa: **702 tests, 0 fallas, BUILD SUCCESS**.
+
+**Queda de 0.B para la fase siguiente**: portar `procesarLotesAtrasados` desde el filial,
+`reconstruirDE` despachando por `tipoDocumento`, `generarYEnviarSincrono`, los
+`DocumentoElectronicoService.createFromNota*` (necesitan las entidades de 1.A) y
+`SifenNotasValidator`.

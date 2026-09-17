@@ -34,7 +34,7 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
 
 | Repo | Toca | PR |
 |---|---|---|
-| filial (`GabFrank/franco-system-backend-filial`) | 1 migración espejo `V91.5` + guarda de 2 líneas en `SifenSchedulerService` | **PR 1 — va primero** (ver §7) |
+| filial (`GabFrank/franco-system-backend-filial`) | 2 migraciones (`V91.5` espejo de `documento_electronico`, `V91.7` partición de ids a pares) + guarda en los tres métodos de `SifenSchedulerService` + test | **PR 1 — va primero** (ver §7) |
 | central (`GabFrank/franco-system-backend-servidor`) | migraciones `V225.5`/`V226.5`/`V227.5`, 4 entidades + ítems, `SifenService` (2 constructores de DE nuevos), 2 resolvers + `.graphqls`, 2 KuDE `.jrxml`, servicio de seguridad por rol | **PR 2** (o dos PRs: Fase 0+1 y Fase 2) |
 | desktop (`GabFrank/frc-sistemas-integrados-angular`) | módulo UI de NR y de NC bajo `modules/financiero/`, botón "Nota de crédito" en la lista de facturas, botón "Nota de remisión" en transferencias, menú + roles | **PR 3** (plan del cliente: `desktop/docs/manuales-implementacion/sifen/PLAN-NR-NC-DESKTOP.md`) |
 | mobile-pwa / mobile | **N/A**: no consumen ningún campo que cambie (`documento_electronico.factura_legal_id` pasa a nullable, pero ningún cliente móvil lee DE) `[ev: grep documentoElectronico en mobile-pwa — NO VERIFICADO en esta sesión, el repo no está clonado; se asume por el mapa de módulos de la skill frc-cicd]` | — |
@@ -237,13 +237,34 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
   `departamento` (nombre → `mapearDepartamento`), `codigo_ciudad`, `descripcion_ciudad`, `direccion`,
   precargados desde `TimbradoDetalle` de la sucursal (salida) y desde `Sucursal.ciudad.codigo` +
   `direccion` (entrega entre locales) o del cliente (`Persona`/`Cliente`).
-- **D8 — Envío síncrono, consulta asíncrona.** `generarYEnviarNotaRemision(id, sucursalId)` /
-  `generarYEnviarNotaCredito(...)`: crea el DE, crea un `LoteDE` de un documento, `enviarLote` en la
-  misma operación y devuelve `{documentoElectronico, lote}`. El estado final (`APROBADO`/`RECHAZADO`)
-  lo trae el scheduler de central **si está habilitado** o el botón "Consultar" (mutation
-  `consultarLote` ya existente). No se depende de `sifen.scheduler.enabled` (default `false`; su
-  valor en producción es **NO VERIFICADO**, §10). Reintento: `reenviarNota*(id)` = vincular a lote
-  nuevo + enviar, sin regenerar (solo si el DE está `PENDIENTE`/`RECHAZADO` con error transitorio).
+- **D8 — Envío "en un paso" para el usuario, pero en TRES transacciones separadas.**
+  `generarYEnviarNotaRemision(id, sucursalId)` / `generarYEnviarNotaCredito(...)` encadenan desde el
+  resolver (sin `@Transactional` envolvente) tres llamadas que ya son transaccionales por separado
+  en `SifenService` (`crearDocumentoElectronico`, `crearLote` + `vincularDocumentosALote`,
+  `enviarLote` `[ev: SifenService.java — cada método lleva su propio @Transactional REQUIRED]`):
+  1. **T1** — asignar número (D4) + persistir la nota + crear el DE con CDC/XML/QR (`PENDIENTE`).
+     Commit. A partir de acá el número y el CDC existen en la base pase lo que pase con SIFEN.
+  2. **T2** — crear `LoteDE` de un documento y vincularlo (`EN_LOTE`). Commit.
+  3. **T3** — `enviarLote`: llamada a SIFEN; según respuesta el lote queda `EN_PROCESO` (protocolo)
+     o `ERROR_ENVIO`/`ERROR_RED`, y **el DE queda `EN_LOTE`** (hoy `EstadoDE` no tiene estado de
+     error `[ev: domain/financiero/enums/EstadoDE.java]`).
+  **Por qué no una sola transacción** (hallazgo B1 de la auditoría): con un `@Transactional` que
+  englobe todo, un timeout de *lectura* (SIFEN ya aceptó el lote, el cliente HTTP no vio la respuesta)
+  haría rollback del número y del CDC; el reintento tomaría `MAX+1` = **el mismo número con otro CDC**
+  → dos documentos en SIFEN bajo el mismo número comercial. Con T1 commiteada, el peor caso es un DE
+  `EN_LOTE` con lote en error, recuperable.
+  **Recuperación** (hallazgo B2: central **no tiene** `procesarLotesAtrasados`, solo el filial lo
+  tiene `[ev: central SifenSchedulerService.java — dos métodos; filial :354]`; un lote `ERROR_ENVIO`
+  queda huérfano porque `crearYEnviarLotes` busca DE `PENDIENTE` y `consultarLotesPendientes` lotes
+  `EN_PROCESO`): `reenviarNota*(id, sucursalId)` se habilita cuando el DE está `PENDIENTE` **o**
+  `EN_LOTE` con lote en `{ERROR_ENVIO, ERROR_RED, ERROR_PERMANENTE}` o `RECHAZADO` por error
+  transitorio, y **antes de reenviar consulta `consultarDE(cdc)`** (existente, `:417`): si SIFEN ya
+  lo tiene (`0422`), solo actualiza estado y no reenvía; si no (`0420`/`0421`), vincula a un lote
+  nuevo y envía. Además, Fase 0.B porta a central `procesarLotesAtrasados` del filial (recupera
+  lotes `PENDIENTE_ENVIO`/`ERROR_ENVIO`/`ERROR_RED` con más de 1 min) para que, con el scheduler
+  habilitado, no haga falta el botón. El estado final (`APROBADO`/`RECHAZADO`) lo trae el scheduler de
+  central **si está habilitado** (`sifen.scheduler.enabled`, default `false` en código; valor en
+  producción **NO VERIFICADO**, §10) o el botón "Consultar" (`consultarLote` existente).
 - **D9 — Seguridad por rol nueva y obligatoria.** `FacturacionSecurityService` (patrón
   `TesoreriaSecurityService`) con roles `FACTURACION VER`, `FACTURACION NR EMITIR`,
   `FACTURACION NC EMITIR`, `FACTURACION ANULAR` (seed idempotente, sin espejo). Primera línea de cada
@@ -262,12 +283,33 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
   `cancelarFacturaLegal` de central se agrega la validación local de **48 h** desde
   `fechaRecepcionSifen`; si venció, el resolver devuelve `ERROR_PLAZO_NC` y el desktop ofrece "Emitir
   nota de crédito" (Fase 2.5).
-- **D12 — Filial: espejo mínimo + guarda.** Migración `V91.5` (solo `documento_electronico`: `DROP NOT
-  NULL` de `factura_legal_id`, `ADD COLUMN nota_credito_id/nota_remision_id BIGINT NULL` **sin FK**,
-  porque el filial no tiene las tablas de notas). Guarda: su scheduler pasa a
-  `findByEstadoAndSucursalIdAndFacturaLegalIsNotNull(PENDIENTE, sucursalPropia)` (repo nuevo método), y
-  `consultarLotesPendientes` filtra `sucursal_id = propia` **y** lotes cuyo primer DE tenga factura.
-  Sin esto, un DE de NC replicado en `PENDIENTE` sería reenviado por el filial.
+- **D12 — Filial: espejo mínimo + guarda en los TRES métodos del scheduler.** Migración `V91.5`
+  (solo `documento_electronico`: `DROP NOT NULL` de `factura_legal_id`, `ADD COLUMN
+  nota_credito_id/nota_remision_id BIGINT NULL` **sin FK**, porque el filial no tiene las tablas de
+  notas) + `@JoinColumn(nullable = true)` en su entidad. Guarda (hallazgos A2 y B5: hoy **ninguno**
+  de los tres métodos filtra por sucursal ni por tipo, y el scheduler del filial está habilitado por
+  default `[ev: filial SifenSchedulerService.java:50,137,235,365]`): un único predicado
+  `esPropioDeEstaFilial(DE) = de.sucursalId == sucursalPropia && de.facturaLegal != null`, aplicado
+  en `crearYEnviarLotes` (DE `PENDIENTE`), en `consultarLotesPendientes` (lotes `EN_PROCESO` cuyos DE
+  cumplan **todos** el predicado) y en `procesarLotesAtrasados` (lotes `PENDIENTE_ENVIO`/`ERROR_ENVIO`/
+  `ERROR_RED`, mismo criterio). El filtro solo por sucursal **no alcanza**: un lote de NC que central
+  crea para la sucursal 3 y falla al enviarse llega a la filial 3 con `sucursal_id = 3` y estado
+  `ERROR_ENVIO`, y `procesarLotesAtrasados` lo reenviaría (doble envío). Sin la guarda, un DE de NC
+  replicado en `PENDIENTE` también sería reenviado por el filial.
+- **D13 — Partición de ids en `documento_electronico`, `lote_de`, `evento_cancelacion_de`,
+  `evento_nominacion_de` (Fase 0.D, prerrequisito de la Fase 1).** Las dos auditorías confirmaron
+  que R3 no es hipotético: las secuencias son `BIGSERIAL` planas sin reparto
+  `[ev: V0__initial_schema.sql:2460-2472,2887-2903]`, `V223.1` no incluye estas tablas
+  `[ev: V223.1:18-23,66-75]`, y central ya inserta DE con `sucursal_id` de cualquier filial vía
+  `crearDocumentoElectronicoDesdeFactura(facturaId, sucursalId)` `[ev: DocumentoElectronicoGraphQL.java:79-94]`.
+  Se extiende el esquema de `V223.1` (central impar, filial par, trigger `rechazar_id_de_filial`) a
+  esas cuatro tablas, con su espejo en filial (`V91.7`, secuencias pares). **Orden**: primero el
+  filial (pasa a pares; sus ids nuevos no chocan con nada), después central (pasa a impares). Entre
+  ambos deploys no hay riesgo nuevo (los espacios viejos ya eran los de hoy). Nota: en el filial la
+  PK de `documento_electronico` es **simple** (`id BIGSERIAL PRIMARY KEY`, `V34:5`, entidad sin
+  `@IdClass`) mientras en central es compuesta `(id, sucursal_id)` (`V77:92`); la partición evita
+  la colisión en los dos espacios sin necesidad de alinear la forma de la PK — alinearla queda como
+  issue aparte (se anota en §Fuera de alcance).
 
 ---
 
@@ -362,10 +404,19 @@ INSERT INTO personas.role (nombre, creado_en) SELECT r.nombre, now() FROM (VALUE
 Retrocompatible: la versión anterior del JAR sigue insertando `factura_legal_id` siempre.
 
 **0.B Central — código base**
+- **Spike bloqueante (antes de escribir entidad o migración)**: determinar cómo persiste hoy
+  `documento_electronico.factura_legal_id`, dado que la única anotación es `@JoinColumns(...,
+  insertable=false, updatable=false)` (`DocumentoElectronico.java:50-55`), `CrudService.save()` es
+  `repository.save` puro (`service/CrudService.java:47-50`) y la columna es `NOT NULL`. Método:
+  `spring-boot:run` local con `spring.jpa.show-sql=true` y ejecutar `crearDocumentoElectronicoDesdeFactura`;
+  leer el `INSERT`. Resultado esperado: o hay un mecanismo no visto (listener, converter) que se
+  replica para `nota_*_id`, o la mutation está rota en producción y se corrige mapeando columnas
+  planas `facturaLegalId`/`notaCreditoId`/`notaRemisionId` (`@Column`) junto a las relaciones de
+  solo lectura. Hasta que esto no esté resuelto, no se toca 0.A ni 0.B (hallazgo A3).
 - `domain/financiero/DocumentoElectronico`: relaciones `notaCredito`, `notaRemision` (`@OneToOne`,
-  `@JoinColumns` compuestas, `insertable=false`) **más** las columnas planas `notaCreditoId`,
-  `notaRemisionId` (**NO VERIFICADO** cómo persiste hoy `factura_legal_id` con el mapping
-  `insertable=false` de `:53` — resolver en la primera hora de la fase, ver §10).
+  `@JoinColumns` compuestas, `insertable=false`) **más** las columnas planas según el spike.
+- Portar a central `procesarLotesAtrasados` del filial (`filial SifenSchedulerService.java:354`) y
+  agregarlo a `procesarLotesAutomaticamente` como PASO 0 (D8).
 - `TipoDocumentoElectronico` (constantes `FACTURA`, `NOTA_CREDITO`, `NOTA_REMISION`).
 - `DocumentoElectronicoService.createFromNotaRemision/createFromNotaCredito`;
   `findByNotaRemisionId`, `findByNotaCreditoId`.
@@ -391,15 +442,28 @@ Retrocompatible: la versión anterior del JAR sigue insertando `factura_legal_id
   ```
 - Entidad `DocumentoElectronico`: `@JoinColumn(name="factura_legal_id", nullable = true)` (solo el
   flag; sin mapear las columnas nuevas).
-- Guarda del scheduler (D12): `DocumentoElectronicoRepository.findByEstadoAndSucursalIdAndFacturaLegalIsNotNullOrderByIdAsc`
-  y su uso en `SifenSchedulerService.crearYEnviarLotes` (`:137`); `consultarLotesPendientes` y
-  `procesarLotesAtrasados` filtran `sucursalId = sucursalPropia` (leída de `application.properties`
-  como hoy hace el resto del filial).
-- **Tests** (filial): `SifenSchedulerServiceGuardaTest` con Mockito: un DE `PENDIENTE` sin factura y
-  otro de otra sucursal **no** entran al lote; revertida la guarda, el test falla (regla "test que
-  falla con el código viejo").
+- Guarda del scheduler (D12) en los **tres** métodos: `DocumentoElectronicoRepository.findByEstadoAndSucursalIdAndFacturaLegalIsNotNullOrderByIdAsc`
+  para `crearYEnviarLotes` (`:137`); para `consultarLotesPendientes` (`:235`) y
+  `procesarLotesAtrasados` (`:365`), filtrar los lotes cuyos DE cumplan **todos**
+  `sucursalId == sucursalPropia && facturaLegal != null` (`sucursalId` leído de
+  `application.properties` como hoy hace el resto del filial).
+- **Tests** (filial): `SifenSchedulerServiceGuardaTest` con Mockito, un caso por método: un DE
+  `PENDIENTE` sin factura y otro de otra sucursal **no** entran al lote; un lote `EN_PROCESO` y otro
+  `ERROR_ENVIO` cuyos DE no tienen factura **no** se consultan ni se reenvían; revertida la guarda,
+  los tres casos fallan (regla "test que falla con el código viejo").
+- **Migración `V91.7__particion_ids_documento_electronico_par.sql`** (D13): las secuencias de
+  `documento_electronico`, `lote_de`, `evento_cancelacion_de`, `evento_nominacion_de` pasan a
+  `INCREMENT BY 2` desde el próximo **par** (espejo del `V223.1` de central, misma técnica `DO $$`
+  con `GREATEST(MAX(id), last_value)`).
 - **Impacto**: sale a alpha ≤ 15 min tras merge a `develop`; a **6 filiales farmacia** por
   `release/beta`; a **18 de bodega** por `master`. Es prerrequisito del despliegue de central (§7).
+
+**0.D Central — migración `V225.7__particion_ids_documento_electronico_impar.sql`** (D13): mismas
+cuatro tablas, secuencias a impares + trigger `configuraciones.rechazar_id_de_filial` (ya existe
+desde `V223.1`) sobre cada una. Va en un archivo aparte de `V225.5` para poder revertir la decisión
+sin tocar el resto de la Fase 0. Se aplica **después** de que el filial esté en `V91.7` en el canal.
+Tests: `N/A` (DDL puro); verificación = dry-run contra copia de la base + `SELECT nextval` par/impar
+en cada nodo.
 
 ### FASE 1 — Nota de Remisión Electrónica
 
@@ -462,8 +526,13 @@ Retrocompatible: la versión anterior del JAR sigue insertando `factura_legal_id
 - Field resolvers: `NotaRemisionResolver` (`items`, `documentoElectronico`, `sucursal`, `vehiculo`,
   `chofer`, `transferencia`, `facturaLegal`).
 - `EventosSifenGraphQL.inutilizarNumeros`: agregar parámetro `tipoDE: TipoDeSifen` (enum GraphQL nuevo
-  `FACTURA_ELECTRONICA | NOTA_DE_CREDITO_ELECTRONICA | NOTA_DE_REMISION_ELECTRONICA`, default
-  factura para no romper al desktop actual — **campo nuevo opcional, no breaking**).
+  `FACTURA_ELECTRONICA | NOTA_DE_CREDITO_ELECTRONICA | NOTA_DE_REMISION_ELECTRONICA`). **Criterio de
+  aceptación** (hallazgo A5): en el `.graphqls` el argumento va **sin `!`** y el resolver hace
+  `tipoDE == null ? TTiDE.FACTURA_ELECTRONICA : …` — el desktop actual no envía esa variable
+  `[ev: desktop evento-inutilizacion-de/graphql/graphql-query.ts:245-265]` y hoy el resolver la
+  hardcodea `[ev: EventosSifenGraphQL.java:205-206]`. Un `!` sin default rompería al cliente viejo.
+  Al ser enum GraphQL nuevo sin enum Java pareado (se mapea a `TTiDE` de la librería), verificar que
+  `SchemaEnumsSincronizadosTest` no lo exija: si lo hace, crear el enum Java espejo `TipoDeSifen`.
 - **Tests**: `NotaRemisionGraphQLSeguridadTest` (patrón `PagoLegacyGraphQLSeguridadTest`): cada
   mutation llama a `seg.*` antes de tocar el service; query `notaRemisiones` sin rol VER → excepción.
 
@@ -487,7 +556,20 @@ chars; anular NR → evento aprobado; inutilizar rango de NR. Registrar CDCs en 
 **2.A Central — dominio + migración `V227.5__nota_credito.sql`**
 - Tablas `financiero.nota_credito`, `nota_credito_item` (§3.4, §3.5) con PK compuesta, FK compuesta a
   `factura_legal` **NOT NULL**, `UNIQUE (timbrado_detalle_id, numero_nota_credito)`, FK desde
-  `documento_electronico.nota_credito_id`.
+  `documento_electronico.nota_credito_id`, y el `CHECK` de D3 (hallazgo B4: estaba en el diseño y no
+  en ningún SQL):
+  ```sql
+  ALTER TABLE financiero.documento_electronico
+      ADD CONSTRAINT ck_documento_electronico_un_origen CHECK (
+          (CASE WHEN factura_legal_id  IS NOT NULL THEN 1 ELSE 0 END +
+           CASE WHEN nota_credito_id   IS NOT NULL THEN 1 ELSE 0 END +
+           CASE WHEN nota_remision_id  IS NOT NULL THEN 1 ELSE 0 END) = 1
+      ) NOT VALID;
+  ALTER TABLE financiero.documento_electronico VALIDATE CONSTRAINT ck_documento_electronico_un_origen;
+  ```
+  Aditivo: toda fila existente tiene solo `factura_legal_id`; el JAR viejo sigue cumpliéndolo.
+  **No** va en el espejo del filial (el filial nunca escribe `nota_*_id`, y un `CHECK` ahí solo
+  agregaría un modo de falla al apply worker).
 - Enum `MotivoEmisionNotaCredito` (8 valores, espejo de `TiMotEmi`) + `.graphqls` mismo commit.
 - `NotaCreditoService.crearDesdeFactura(facturaId, sucursalId, motivo, descripcion, [itemsParciales])`:
   `requireEmitirNc()`; factura `activo`, con DE `APROBADO` y CDC; hereda cliente/snapshot/moneda/
@@ -542,6 +624,9 @@ anular NC → evento aprobado.
 - Emisión de notas desde el filial / desde la PWA.
 - Corregir `dEst` hardcodeado en la ruta de factura (issue aparte).
 - Control por rol de las mutations SIFEN preexistentes (issue #177).
+- Alinear la PK de `documento_electronico` del filial a compuesta `(id, sucursal_id)` como en
+  central (`V77`), y marcar `documento_electronico` como bidireccional en `replication_table`
+  (hallazgos A4/B3): issue aparte, con su propio dry-run.
 
 ---
 
@@ -551,14 +636,19 @@ anular NC → evento aprobado.
 |---|---|---|---|
 | central | `V225.5__documento_electronico_notas_y_roles.sql` | `DROP NOT NULL`, 2 columnas nullable, seed de 4 roles | Sí (el JAR viejo sigue escribiendo `factura_legal_id`; ignora las columnas nuevas) |
 | central | `V226.5__nota_remision.sql` | 2 tablas nuevas + FK desde `documento_electronico` | Sí (tablas nuevas sin lector viejo) |
-| central | `V227.5__nota_credito.sql` | 2 tablas nuevas + FK | Sí |
+| central | `V225.7__particion_ids_documento_electronico_impar.sql` | secuencias a impares + trigger en 4 tablas (D13) | Sí (solo cambia qué ids genera el nodo) |
+| central | `V227.5__nota_credito.sql` | 2 tablas nuevas + FK + `CHECK` un-origen | Sí |
 | filial | `V91.5__espejo_documento_electronico_notas.sql` | `DROP NOT NULL` + 2 columnas nullable, **sin FK** | Sí |
+| filial | `V91.7__particion_ids_documento_electronico_par.sql` | secuencias a pares en 4 tablas (D13) | Sí |
 
 Última migración en `develop` de central: `V224.3`; en `master` de filial: `V90.7`
-`[ev: ls db/migration en ambos]`. Sufijo `.5` en los cuatro (regla del repo). Sin `DROP`/`RENAME`/
-cambio de tipo. `DROP NOT NULL` no figura en la tabla de permitidos/prohibidos del `CLAUDE.md`: se
-clasifica como **relajación aditiva** (la fila nueva es válida para el esquema viejo y el nuevo) y se
-deja explícito en la descripción del PR.
+`[ev: ls db/migration en ambos]`. Sin `DROP`/`RENAME`/cambio de tipo. `DROP NOT NULL` no figura en
+la tabla de permitidos/prohibidos del `CLAUDE.md`: se clasifica como **relajación aditiva** (la fila
+nueva es válida para el esquema viejo y el nuevo) y se deja explícito en la descripción del PR.
+Sufijos: `.5` según la regla del `CLAUDE.md`; las últimas siete migraciones de `develop` usan `.1`/`.3`
+por slotting entre ramas (hallazgo B6) — se aclara en el PR que se retoma `.5` a propósito, y `.7`
+para las de partición para que queden después de las de esquema del mismo entero. El filial usa
+`.5`/`.7` en su historial reciente (`V88.5`, `V89.5`, `V90.5`, `V90.7`), consistente.
 
 **Dry-run obligatorio (paso 10)**: restaurar un dump reciente de `bodega` y de `farmacia` en local y
 correr `flyway:migrate` con las tres migraciones de central; en filial, contra un dump de una filial.
@@ -579,16 +669,27 @@ Es la única validación de Flyway que existe (el CI corre con `-DskipFlyway=tru
 
 ## 7 · Orden de PRs, canales y despliegue
 
-**Dirección que manda**: los DE de NC/NR los escribe central en `documento_electronico`, tabla
-`MAIN_TO_ALL` (también en `central_pub` sin filtro) → **el filial tiene que estar actualizado antes de
-que central inserte la primera fila con `factura_legal_id NULL`**; si no, el apply worker de todas
-las filiales del canal muere con "null value in column factura_legal_id violates not-null" y la
-réplica se corta (mismo mecanismo que el incidente V192.5 / V90.7).
+**Dirección que manda**: los DE de NC/NR los escribe central en `documento_electronico`, que baja a
+las filiales por `central_pub` (sin filtro) y `central_filialN_pub` (filtrada) → **el filial tiene
+que estar actualizado antes de que central inserte la primera fila con `factura_legal_id NULL`**; si
+no, el apply worker de todas las filiales del canal muere con "null value in column factura_legal_id
+violates not-null" y la réplica se corta (mismo mecanismo que el incidente V192.5 / V90.7).
 `[ev: V0 ALTER PUBLICATION central_pub ADD TABLE financiero.documento_electronico; V112 MAIN_TO_ALL; filial V34 NOT NULL]`
 
-1. **PR filial** (`fix/sifen-espejo-documento-electronico-notas` → `develop`): merge → alpha en
-   ≤ 15 min. Promover a `release/beta` (6 filiales farmacia) y `master` (18 bodega) **antes** de
-   desplegar central en esos canales. Nada escribe todavía: la migración es solo DDL.
+⚠️ **`documento_electronico` es bidireccional de facto** (hallazgo A4): `replication_table` la
+cataloga como `MAIN_TO_ALL` sin el flag `replicate_central_to_branch_with_filter` `[ev: V112:52; V113:10-19]`,
+pero cada filial la publica hacia central en `filialN_pub` con `REPLICA IDENTITY FULL`
+`[ev: filial V50:39-42; V52]`. Para este plan no cambia el orden (las filas que suben del filial
+siempre tienen `factura_legal_id`), pero sí el alcance de D13. Corregir el catálogo
+(`UPDATE replication_table SET replicate_central_to_branch_with_filter = true WHERE table_name =
+'financiero.documento_electronico'`) es una escritura de configuración sobre una tabla que lee
+`LogicalReplicationService`: **issue aparte**, no en este PR.
+
+1. **PR filial** (`fix/sifen-espejo-documento-electronico-notas` → `develop`): `V91.5` (espejo) +
+   `V91.7` (partición a pares) + guarda del scheduler. Merge → alpha en ≤ 15 min. Promover a
+   `release/beta` (6 filiales farmacia) y `master` (18 bodega) **antes** de desplegar central en
+   esos canales. Nada escribe todavía en las columnas nuevas: `V91.5` es solo DDL; `V91.7` solo
+   cambia la paridad de los ids que el filial genera de ahí en adelante (no choca con nada).
 2. **PR central** (`feature/sifen-nota-remision-nota-credito` → `develop`; opcionalmente dos PRs:
    Fase 0+1 y Fase 2, cada uno < 400 líneas netas de código productivo — las plantillas `.jrxml` se
    cuentan aparte). Deploy manual por workflow `Deploy` (`alpha` sin reviewer; `farmacia`/`bodega`
@@ -618,23 +719,50 @@ rompen nada. Filial: idem.
 |---|---|---|
 | R1 | **Réplica cortada** por insertar DE con `factura_legal_id NULL` en una filial sin espejo | Orden §7 + precondición de deploy verificada por query |
 | R2 | **Doble envío a SIFEN**: el scheduler del filial toma un DE de nota replicado en `PENDIENTE` | D8 (el DE nace y se envía en la misma operación → replica como `EN_LOTE`) + guarda D12 en filial |
-| R3 | **Colisión de PK `(id, sucursal_id)` en `documento_electronico`/`lote_de`**: central y el filial N escriben filas con `sucursal_id = N` y secuencias independientes; una NC de la sucursal 3 puede tomar un `id` que la filial 3 ya usó → el INSERT replicado (en la dirección que llegue segundo) choca y corta la suscripción. **Ya existe hoy** para los DE que central crea con `crearDocumentoElectronicoDesdeFactura` y para `evento_cancelacion_de`; NC/NR aumentan la frecuencia | **Propuesta (a confirmar)**: extender el reparto de `V223.1` (central impar / filial par) a `documento_electronico`, `lote_de` y `evento_cancelacion_de`, con su espejo en filial, como Fase 0.D. Alternativa mínima: aceptar el riesgo y documentar el `SKIP (lsn)` del runbook |
+| R3 | **Colisión de PK en `documento_electronico`/`lote_de`/`evento_*`** — **confirmado por las dos auditorías, no hipotético**: secuencias `BIGSERIAL` planas sin reparto, `V223.1` no las incluye, y central ya inserta DE con `sucursal_id` de cualquier filial vía `crearDocumentoElectronicoDesdeFactura`; el filial N escribe en el mismo espacio para su sucursal. Agravante: la PK del filial es simple (`id`) y la de central compuesta `(id, sucursal_id)`. NC/NR multiplican la frecuencia | **D13 / Fase 0.D + filial `V91.7`, prerrequisito de la Fase 1** (dejó de ser "a confirmar"; queda en §11 solo la confirmación de alcance porque toca 24 filiales). Si se decide NO incluirlo, el plan lo anota como riesgo aceptado con el `SKIP (lsn)` del runbook como único remedio |
+| R11 | **Duplicado fiscal por rollback tras aceptación de SIFEN** (hallazgo B1): una sola transacción que englobe numeración + DE + envío revierte el número si el timeout llega después de que SIFEN aceptó; el reintento reusa `MAX+1` con otro CDC | D8 reescrito: tres transacciones separadas (T1 número+DE, T2 lote, T3 envío) y `consultarDE(cdc)` antes de todo reenvío |
+| R12 | **Lote huérfano en `ERROR_ENVIO`** (hallazgo B2): central no tiene `procesarLotesAtrasados`; el DE queda `EN_LOTE` y nadie lo retoma | `reenviarNota*` habilitado para `EN_LOTE` + lote en error; se porta `procesarLotesAtrasados` a central (0.B); el desktop muestra "Reenviar" también en ese estado |
 | R4 | SIFEN rechaza por un campo que la referencia no cubre (ej. `cCondNeg` omitido, chofer en propio) | Property `sifen.nre.chofer-en-propio`; validador local con mensajes explícitos; prueba en ambiente TEST antes del PR; **no** fallbacks silenciosos |
 | R5 | El timbrado electrónico vigente **no habilita** NC/NR ante la SET | Verificar con el contador antes de la Fase 1.F; si no, solicitar ampliación del timbrado — no es un cambio de código |
 | R6 | Tests de `generarXml` no viables en CI (certificado) | Los tests unitarios assertan sobre el **bean** antes de firmar; el XML se prueba en local |
 | R7 | `.jrxml` roto en producción (no se compila en build) | Validación local con `fillReport` + PDF adjunto al PR (regla del repo) |
 | R8 | Cambio de contrato: `documentoElectronico.facturaLegal` puede ser `null` para el desktop actual | El desktop solo lo lee vía `FacturaLegal.documentoElectronico` (nunca al revés) `[ev: desktop documento-electronico.model.ts / list-lote-de]`; la lista de lotes muestra `numeroDocumento` + `tipoDocumento` (String ya existente) |
 | R9 | Numeración duplicada bajo concurrencia | Lock pesimista sobre `timbrado_detalle` + `UNIQUE` |
-| R10 | `descargarXml`/`consultarDE` y otros lectores asumen `facturaLegal != null` en `DocumentoElectronico` | Grep en Fase 0.B de todos los usos de `getFacturaLegal()` sobre un DE (`SifenService`, `EventosSifenGraphQL`, `SifenEventoService.cancelarDE` que hace `factura.setActivo(false)`) y null-safe con despacho por tipo |
+| R10 | Lectores de `DocumentoElectronico.getFacturaLegal()` con un DE de NC/NR (`facturaLegal == null`) | **Verificado en la auditoría** (hallazgos A-c1 / B7): los tres usos reales — `SifenService.java:955`, `:1346` (`reconstruirDEDesdeFactura`) y `SifenEventoService.java:543` (`nominarReceptor`) — ya son null-safe (lanzan `IllegalArgumentException` o loguean y retornan). `SifenEventoService.cancelarDE` **no** toca `FacturaLegal` (la versión anterior de esta tabla lo citaba mal; el `factura.setActivo(false)` vive en `FacturaLegalGraphQL.cancelarFacturaLegal:1367-1403` sobre una factura buscada por id, que NC/NR nunca invocan). Queda: `reconstruirDE` despacha por `tipoDocumento` (0.B) para que el fallback de `enviarLote` funcione con notas |
 
 ---
 
 ## 9 · Hallazgos de la auditoría del plan (paso 5)
 
-_Se completa con la salida de los dos auditores (Eje A — contrato y propagación; Eje B —
-reversibilidad y estado) antes de presentar el plan. Cada hallazgo indica qué se hizo con él._
+Dos auditores independientes, con el plan, las skills, `gotchas.md` y el código real como insumo;
+corrieron sin verse. Cada hallazgo dice qué se hizo con él en esta versión del plan.
 
-(ver sección al final del archivo)
+### Eje A — Contrato y propagación
+
+| # | Severidad | Hallazgo | Qué se hizo |
+|---|---|---|---|
+| A1 | ALTA | R3 (colisión de PK) es real y ya explotable hoy: secuencias planas, `V223.1` no cubre estas tablas, `crearDocumentoElectronicoDesdeFactura` acepta cualquier `sucursalId` | **Incorporado**: D13 + Fase 0.D + filial `V91.7`, prerrequisito de la Fase 1. Queda en §11 solo la confirmación de alcance |
+| A2 | MEDIA-ALTA | La guarda del filial (D12) solo cubría `crearYEnviarLotes`; `consultarLotesPendientes` y `procesarLotesAtrasados` tampoco filtran hoy, y el scheduler del filial está habilitado por default | **Incorporado**: D12 y Fase 0.C reescritos con el predicado en los tres métodos y un test por método |
+| A3 | MEDIA | No se sabe cómo persiste hoy `factura_legal_id` (mapping `insertable=false`); el plan repetía el patrón para las FK nuevas | **Incorporado**: spike bloqueante al inicio de 0.B, con método de verificación |
+| A4 | MEDIA | `documento_electronico` es bidireccional de facto (filial `V50`/`V52`) aunque el catálogo diga `MAIN_TO_ALL` | **Incorporado** en §7 como advertencia; la corrección del catálogo va como issue aparte (es una escritura de configuración) |
+| A5 | BAJA | `tipoDE` de `inutilizarNumeros` debe ir sin `!` y con default en el resolver, como criterio verificable | **Incorporado** en 1.C |
+| A6 | BAJA | El modelo TS del desktop tipa `facturaLegal` como no opcional | **Incorporado** en el plan del cliente (1.5) |
+| A-c1 | — | R10 citaba `SifenEventoService.cancelarDE` como si tocara la factura: falso | **Corregido** en R10 |
+
+### Eje B — Reversibilidad y estado
+
+| # | Severidad | Hallazgo | Qué se hizo |
+|---|---|---|---|
+| B1 | ALTA | Un `@Transactional` que englobe número + DE + envío puede duplicar el número fiscal si el timeout llega después de que SIFEN aceptó | **Incorporado**: D8 reescrito en tres transacciones; nuevo R11 |
+| B2 | ALTA | Central no reintenta lotes `ERROR_ENVIO` (no tiene `procesarLotesAtrasados`); `reenviarNota*` no cubría `EN_LOTE` | **Incorporado**: D8 (`reenviar` para `EN_LOTE` + lote en error, `consultarDE` previo), 0.B porta `procesarLotesAtrasados`; nuevo R12; plan del cliente actualizado |
+| B3 | ALTA | PK simple en filial vs compuesta en central; la partición no alinea la forma de la PK | **Incorporado** en D13 como nota; alinear la PK del filial queda en "Fuera de alcance" como issue aparte |
+| B4 | MEDIA | El `CHECK` "exactamente una FK" de D3 no aparecía en ningún SQL | **Incorporado** en `V227.5` (2.A) con `NOT VALID` + `VALIDATE` |
+| B5 | MEDIA | `procesarLotesAtrasados` del filial necesita el filtro "todos los DE tienen factura", no solo el de sucursal | **Incorporado** (mismo cambio que A2) |
+| B6 | BAJA | Las últimas siete migraciones usan `.1`/`.3`; retomar `.5` puede confundir a un revisor | **Incorporado** en §5 (nota para el PR) |
+| B7 | BAJA | Misma cita errónea de R10; los tres usos reales de `getFacturaLegal()` ya son null-safe | **Corregido** en R10 |
+
+**Contradicciones entre auditores**: ninguna. Los dos convergen en que R3 debe decidirse ahora
+(no "a confirmar") y en que la guarda del filial debe cubrir los tres métodos.
 
 ---
 
@@ -665,8 +793,11 @@ reversibilidad y estado) antes de presentar el plan. Cada hallazgo indica qué s
 
 1. **D1**: ¿confirmás emisión **solo desde central**? (Alternativa: también desde el filial, con el
    doble de código y partición de ids en las tablas nuevas.)
-2. **R3 / Fase 0.D**: ¿incluimos la partición impar/par de `documento_electronico`, `lote_de` y
-   `evento_cancelacion_de` (central + filial) en este trabajo, o se abre como issue aparte?
+2. **D13 / Fase 0.D**: la partición impar/par de `documento_electronico`, `lote_de`, `evento_cancelacion_de`
+   y `evento_nominacion_de` (central `V225.7` + filial `V91.7`) quedó como **prerrequisito** de la
+   Fase 1 porque las dos auditorías confirmaron que la colisión ya es posible hoy. ¿Confirmás que
+   entra en esta entrega (toca las 24 filiales vía el PR del filial), o preferís abrirla como issue
+   y aceptar el riesgo mientras tanto?
 3. **D6 / 2.G**: ¿NC parcial (ítems y cantidades editables) entra en esta entrega o queda para
    después? Cambia el diálogo y ~150 líneas de backend.
 4. **D7**: ¿los tres orígenes de NR (transferencia, factura, manual) van en la Fase 1, o arrancamos

@@ -1010,3 +1010,12 @@ Commiteado en `feature/sifen-nota-remision-nota-credito`. Numeración `.1` (conv
 `reconstruirDE` despachando por `tipoDocumento`, `generarYEnviarSincrono`, los
 `DocumentoElectronicoService.createFromNota*` (necesitan las entidades de 1.A) y
 `SifenNotasValidator`.
+
+**Dry-run de `V225.1` (2026-09-17)**: copia completa de `bodega@5551` (14 GB, `pg_dump
+--no-subscriptions`) restaurada en `central_dryrun_v225`, y central arrancado contra ella con perfil
+`dev` (la copia se apunta desde `application-user-dev.properties`, que es personal y está fuera de
+git; levantarlo sin perfil encendería los schedulers de replicación, que llegan a filiales reales).
+Flyway: `Current version 224.3` → `Successfully applied 1 migration, now at version v225.1`
+(107 ms), y la app levantó. Verificado después: las tres columnas nullable, los cuatro roles
+sembrados, la UNIQUE `uk_documento_electronico_factura_legal` intacta y las 534.741 filas en su
+lugar. El seed se volvió a correr a mano: sigue habiendo cuatro roles (idempotente). Copia borrada.

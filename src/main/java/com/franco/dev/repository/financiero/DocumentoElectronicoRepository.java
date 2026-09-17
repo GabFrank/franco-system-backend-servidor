@@ -30,6 +30,11 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
 
     List<DocumentoElectronico> findByEstado(EstadoDE estado);
 
+    @Query("SELECT d FROM DocumentoElectronico d WHERE d.notaRemisionId = :notaRemisionId "
+           + "AND d.sucursalId = :sucursalId")
+    Optional<DocumentoElectronico> findByNotaRemisionId(@Param("notaRemisionId") Long notaRemisionId,
+                                                        @Param("sucursalId") Long sucursalId);
+
     @Query("SELECT d FROM DocumentoElectronico d " +
            "LEFT JOIN d.loteDe l " +
            "WHERE (:loteId IS NULL OR l.id = :loteId) AND " +

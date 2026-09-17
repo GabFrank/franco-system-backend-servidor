@@ -1099,3 +1099,33 @@ no es un problema de código: hay que pedir la ampliación del timbrado a la SET
   de la ventana). Batería: **721 tests, 0 fallas, BUILD SUCCESS**.
 - **Validación SQL**: las tres migraciones del central aplicadas en orden sobre una copia del
   esquema de `bodega`: las dos tablas, las seis FK, la FK del DE y la UNIQUE quedan creadas.
+
+### 13.8 · Fase 1.B — el DE de la Nota de Remisión (2026-09-17)
+
+- **`SifenNotaRemisionBuilder`** (clase aparte, no dentro de `SifenService`, que ya tiene ~1.750
+  líneas): arma el bean de jsifenlib. `iTiDE = 7`, `dInfoFisc` obligatorio, `PYG` fijo, ítems **sin**
+  `gValorItem` ni `gCamIVA`, **sin** `gTotSub`, `gCamNRE` con motivo y responsable, transporte
+  completo (salida, entrega, vehículo, transportista, chofer) y `gCamDEAsoc` solo si hay factura con
+  CDC. `dEst` sale de la sucursal vía `SifenTimbradoHelper`.
+- **Los cinco defectos de la referencia que NO se portaron**: el motivo se mapea por
+  `valueOf(name())` (en frc-efact `valueOf("1")` caía siempre en traslado por ventas); `iTipCont` del
+  emisor sale de la property; `iRespFlete` se deriva del tipo de transporte; `cCondNeg` se omite; el
+  chofer en transporte propio depende de `sifen.nre.chofer-en-propio`.
+- **`SifenNotasValidator.validarNRE`**: port del validador de la referencia **más** las dos reglas de
+  geografía que allá se tapaban con un fallback silencioso a Asunción. Acá una ciudad que falta se
+  rechaza: un traslado declarado desde una ciudad inventada es un dato fiscal falso, y vuelve como
+  rechazo o como multa, no como excepción.
+- **`SifenGeografiaHelper`**: departamento por nombre (el mismo switch que ya usa la factura, extraído
+  sin tocar esa ruta) y abreviatura de marca de vehículo a 10 caracteres (error E962).
+- **`SifenService.crearDocumentoElectronicoNotaRemision`**: construye, valida, saca el CDC, genera el
+  XML, extrae el QR y persiste el DE en `PENDIENTE`. Es la T1 de D8. No envía: eso lo encadena el
+  resolver con `SifenEnvioSincronoService`.
+- **`DocumentoElectronicoService.createFromNotaRemision`** + `findByNotaRemisionId`.
+- **Tests nuevos** (26): `SifenNotaRemisionBuilderTest` (13: tipo 7, mensaje fiscal, sin totales,
+  ítems sin precio ni IVA, motivo por nombre —el caso que la referencia tiene roto—, establecimiento
+  y número formateados, marca abreviada, responsable del flete derivado, chofer según property en
+  propio y siempre en terceros, documento asociado solo con CDC, fecha estimada acotada a 5 días con
+  `dKmR` mínimo, receptor con RUC y con cédula, transporte completo) y `SifenNotasValidatorTest` (13,
+  uno por regla). Batería: **747 tests, 0 fallas, BUILD SUCCESS**.
+- El XML firmado **no** se prueba en CI (hace falta el certificado): se valida en 1.F contra el
+  ambiente TEST de SIFEN. Sigue como NO VERIFICADO en §10 punto 5.

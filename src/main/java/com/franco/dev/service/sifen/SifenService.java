@@ -88,6 +88,7 @@ public class SifenService {
     private final EventoNominacionDEService eventoNominacionDEService;
     private final FacturaLegalService facturaLegalService;
     private final com.roshka.sifen.core.SifenConfig sifenConfig;
+    private final SifenNotaRemisionBuilder notaRemisionBuilder;
 
     @Value("${tipoContribuyenteEmisor:2}")
     private Integer tipoContribuyenteEmisor;
@@ -100,7 +101,8 @@ public class SifenService {
             EventoCancelacionDEService eventoCancelacionDEService,
             EventoNominacionDEService eventoNominacionDEService,
             @Lazy FacturaLegalService facturaLegalService,
-            com.roshka.sifen.core.SifenConfig sifenConfig) {
+            com.roshka.sifen.core.SifenConfig sifenConfig,
+            SifenNotaRemisionBuilder notaRemisionBuilder) {
         this.documentoElectronicoService = documentoElectronicoService;
         this.loteDEService = loteDEService;
         this.facturaLegalItemService = facturaLegalItemService;
@@ -109,6 +111,7 @@ public class SifenService {
         this.eventoNominacionDEService = eventoNominacionDEService;
         this.facturaLegalService = facturaLegalService;
         this.sifenConfig = sifenConfig;
+        this.notaRemisionBuilder = notaRemisionBuilder;
     }
 
     // ===================== CREACIÓN DE DOCUMENTOS ELECTRÓNICOS =====================
@@ -176,6 +179,58 @@ public class SifenService {
         
         log.info("✅ DE creado exitosamente - ID: {}, CDC: {}", deGuardado.getId(), deGuardado.getCdc());
         return deGuardado;
+    }
+
+    /**
+     * Crea el DE de una nota de remision y lo persiste en PENDIENTE, con su CDC, su XML original y
+     * su URL de QR. Es la T1 del envio en un paso (D8): cuando termina, el documento existe en la
+     * base pase lo que pase despues con SIFEN.
+     *
+     * No envia nada: eso lo encadena el resolver con {@link SifenEnvioSincronoService}.
+     */
+    @Transactional
+    public com.franco.dev.domain.financiero.DocumentoElectronico crearDocumentoElectronicoNotaRemision(
+            com.franco.dev.domain.financiero.NotaRemision nota,
+            List<com.franco.dev.domain.financiero.NotaRemisionItem> items,
+            com.franco.dev.domain.financiero.TimbradoDetalle timbradoDetalle,
+            com.franco.dev.domain.empresarial.Sucursal sucursal,
+            String cdcFacturaAsociada) throws SifenException {
+
+        log.info("📝 Creando DE para la nota de remisión ID: {}", nota.getId());
+
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("La nota de remisión no tiene ítems");
+        }
+
+        com.franco.dev.domain.financiero.DocumentoElectronico de =
+            documentoElectronicoService.createFromNotaRemision(nota);
+
+        com.roshka.sifen.core.beans.DocumentoElectronico deSifen =
+            notaRemisionBuilder.construir(nota, items, timbradoDetalle, sucursal, cdcFacturaAsociada);
+        SifenNotasValidator.validarNRE(deSifen);
+
+        de.setCdc(deSifen.obtenerCDC());
+
+        try {
+            com.roshka.sifen.internal.ctx.GenerationCtx ctx =
+                com.roshka.sifen.internal.ctx.GenerationCtx.getDefaultFromConfig(sifenConfig);
+            String xmlOriginal = deSifen.generarXml(ctx);
+            de.setXmlOriginal(xmlOriginal);
+            String urlQr = com.franco.dev.service.sifen.util.SifenXmlParser.extractUrlQr(xmlOriginal);
+            if (urlQr != null) {
+                de.setUrlQr(urlQr);
+            } else {
+                log.warn("   URL QR no encontrada en el XML de la nota de remisión {}", nota.getId());
+            }
+        } catch (Exception e) {
+            log.error("   Error al generar el XML de la nota de remisión {}: {}", nota.getId(), e.getMessage());
+            throw new RuntimeException("Error al generar el XML de la nota de remisión", e);
+        }
+
+        de.setEstado(EstadoDE.PENDIENTE);
+        com.franco.dev.domain.financiero.DocumentoElectronico guardado = documentoElectronicoService.save(de);
+        log.info("✅ DE de nota de remisión creado - ID: {}, CDC: {}", guardado.getId(), guardado.getCdc());
+        return guardado;
     }
 
     // ===================== GESTIÓN DE LOTES =====================

@@ -157,23 +157,40 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.count();
     }
 
+    /**
+     * Refresca la cotizacion de mercado desde nortecambios.com.py.
+     *
+     * <p>Devuelve {@code false} cuando no se pudo actualizar nada — no lanza. Es una
+     * lectura best-effort de un sitio de terceros: que no responda no es un error del
+     * sistema, y un error GraphQL aca aborta toda la operacion del cliente que lo pidio.
+     * Los dos llamadores del desktop (lista de cambios y gestion de compras) ya tratan
+     * el {@code false} como "no se pudo actualizar" y siguen con la ultima cotizacion.
+     */
     public Boolean actualizarCotizacionesMercado() {
-        java.util.Map<String, double[]> rates = norteCambiosScraper.fetchRates();
-        if (rates.isEmpty()) {
-            throw new RuntimeException("No se pudieron obtener cotizaciones de nortecambios.com.py. Verifique la conexion a internet.");
+        try {
+            java.util.Map<String, double[]> rates = norteCambiosScraper.fetchRates();
+            if (rates.isEmpty()) {
+                return false;
+            }
+            int count = 0;
+            for (java.util.Map.Entry<String, double[]> entry : rates.entrySet()) {
+                try {
+                    Moneda moneda = monedaService.findByDescripcion(entry.getKey());
+                    if (moneda == null) continue;
+                    Cambio ultimo = service.findLastByMonedaId(moneda.getId());
+                    if (ultimo == null) continue;
+                    ultimo.setValorEnGsVentaMercado(entry.getValue()[0]);
+                    ultimo.setValorEnGsCompraMercado(entry.getValue()[1]);
+                    service.save(ultimo);
+                    count++;
+                } catch (Exception e) {
+                    // Una moneda que falla no arrastra a las demas.
+                }
+            }
+            return count > 0;
+        } catch (Exception e) {
+            return false;
         }
-        int count = 0;
-        for (java.util.Map.Entry<String, double[]> entry : rates.entrySet()) {
-            Moneda moneda = monedaService.findByDescripcion(entry.getKey());
-            if (moneda == null) continue;
-            Cambio ultimo = service.findLastByMonedaId(moneda.getId());
-            if (ultimo == null) continue;
-            ultimo.setValorEnGsVentaMercado(entry.getValue()[0]);
-            ultimo.setValorEnGsCompraMercado(entry.getValue()[1]);
-            service.save(ultimo);
-            count++;
-        }
-        return count > 0;
     }
 
 }

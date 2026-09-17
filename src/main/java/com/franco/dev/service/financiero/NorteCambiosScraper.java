@@ -7,11 +7,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PreDestroy;
 import javax.net.ssl.*;
 import java.io.*;
 import java.net.URL;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +22,16 @@ import java.util.regex.Pattern;
  * Scraper de cotizaciones de mercado desde nortecambios.com.py.
  * Replica el protocolo Livewire 3: GET home + POST /livewire/update con setActiveBranch(8).
  * Usa HttpsURLConnection directamente (no RestTemplate) para control total de SSL y headers.
+ *
+ * <p><b>Esta integracion es best-effort y NUNCA debe bloquear a nadie.</b> Es un adorno
+ * informativo: si nortecambios no responde, el sistema tiene que seguir operando igual.
+ * Por eso {@link #fetchRates()} corre en un hilo propio con presupuesto total de tiempo
+ * ({@code cotizacion.mercado.timeout-ms}) y jamas propaga excepciones: ante cualquier
+ * problema devuelve un mapa vacio.
+ *
+ * <p>El presupuesto duro existe porque los timeouts de {@code HttpsURLConnection} no
+ * cubren la resolucion DNS: sin internet (o con un DNS en blackhole) la llamada puede
+ * quedarse colgada muchisimo mas que {@code connectTimeout + readTimeout}.
  */
 @Service
 public class NorteCambiosScraper {
@@ -35,15 +48,42 @@ public class NorteCambiosScraper {
     private static final Pattern SNAPSHOT_PATTERN = Pattern.compile("wire:snapshot=\"([^\"]+)\"");
     private static final Pattern RATE_PATTERN = Pattern.compile("Compra:\\s*([\\d.,]+).*?Venta:\\s*([\\d.,]+)");
 
+    private static final long DEFAULT_TIMEOUT_MS = 20000L;
+
     private final ObjectMapper objectMapper;
     private final SSLSocketFactory sslSocketFactory;
     private final HostnameVerifier hostnameVerifier;
 
+    /** Presupuesto total del scrape (DNS + handshake + GET + POST). */
+    private final long timeoutMs;
+
+    /**
+     * Pool propio: el scrape nunca corre en el hilo que lo pide. El pool es cached y de
+     * hilos daemon a proposito — si un hilo queda clavado en una resolucion DNS (no
+     * interrumpible), el siguiente intento arranca en otro hilo en vez de encolarse
+     * detras del colgado, y un hilo daemon no impide que la JVM termine.
+     */
+    private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "nortecambios-scraper");
+        t.setDaemon(true);
+        return t;
+    });
+
+    /** Un solo scrape en vuelo a la vez: evita acumular hilos si el sitio esta caido. */
+    private final AtomicBoolean enVuelo = new AtomicBoolean(false);
+
     @Autowired
-    public NorteCambiosScraper(ObjectMapper objectMapper) {
+    public NorteCambiosScraper(ObjectMapper objectMapper,
+                               @org.springframework.beans.factory.annotation.Value("${cotizacion.mercado.timeout-ms:20000}") long timeoutMs) {
         this.objectMapper = objectMapper;
+        this.timeoutMs = timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS;
         this.sslSocketFactory = createTrustAllSocketFactory();
         this.hostnameVerifier = (hostname, session) -> true;
+    }
+
+    @PreDestroy
+    void shutdown() {
+        executor.shutdownNow();
     }
 
     private static SSLSocketFactory createTrustAllSocketFactory() {
@@ -73,6 +113,40 @@ public class NorteCambiosScraper {
      *         Retorna mapa vacio si falla cualquier paso.
      */
     public Map<String, double[]> fetchRates() {
+        if (!enVuelo.compareAndSet(false, true)) {
+            log.warn("NorteCambiosScraper: ya hay un intento en curso (probablemente colgado); se omite este");
+            return Collections.emptyMap();
+        }
+        Future<Map<String, double[]>> future;
+        try {
+            future = executor.submit(this::doFetchRates);
+        } catch (RejectedExecutionException e) {
+            enVuelo.set(false);
+            log.warn("NorteCambiosScraper: no se pudo encolar el scrape: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+        try {
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            log.warn("NorteCambiosScraper: se agoto el presupuesto de {} ms; se continua sin cotizacion de mercado", timeoutMs);
+            return Collections.emptyMap();
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            return Collections.emptyMap();
+        } catch (Exception e) {
+            log.warn("NorteCambiosScraper: error al obtener cotizaciones: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+        // El flag lo libera siempre el hilo que corre doFetchRates, en su finally. No se
+        // libera aca: tras un timeout, cancel(true) deja isDone()==true pero el hilo puede
+        // seguir clavado (DNS no es interrumpible), y liberar el flag permitiria encolar
+        // otro scrape sobre el mismo problema.
+    }
+
+    /** Cuerpo real del scrape. Corre siempre en el pool propio, nunca en el hilo del llamador. */
+    private Map<String, double[]> doFetchRates() {
         try {
             // Paso 1: GET home — extraer CSRF, snapshot, session cookie
             HttpsURLConnection getConn = openConnection(BASE_URL);
@@ -84,6 +158,7 @@ public class NorteCambiosScraper {
             int getStatus = getConn.getResponseCode();
             if (getStatus != 200) {
                 log.warn("NorteCambiosScraper: GET home retorno status {}", getStatus);
+                getConn.disconnect();
                 return Collections.emptyMap();
             }
 
@@ -164,6 +239,8 @@ public class NorteCambiosScraper {
         } catch (Exception e) {
             log.warn("NorteCambiosScraper: error al obtener cotizaciones: {}", e.getMessage());
             return Collections.emptyMap();
+        } finally {
+            enVuelo.set(false);
         }
     }
 

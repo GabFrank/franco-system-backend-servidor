@@ -137,6 +137,40 @@ public class VentaTarjeta implements Serializable {
     @JoinColumn(name = "usuario_id", nullable = true)
     private Usuario usuario;
 
+    /**
+     * Por que este cobro quedo sin conciliar: CUPON_NO_IMPRESO | POS_FALLADO | CUPON_PERDIDO |
+     * OTRO.
+     * <p>
+     * <b>Lo escribe el FILIAL, no este repo.</b> Central lo recibe por replicacion y lo muestra:
+     * esta es la unica pantalla donde un supervisor ve los cobros no conciliados de TODAS las
+     * sucursales, que es donde la revision tiene sentido.
+     * <p>
+     * Sin CHECK ni FK en la base: central es el SUBSCRIBER de esta tabla (BRANCH_TO_MAIN), y
+     * cualquiera de los dos puede abortar el apply de una fila que el filial considera valida.
+     */
+    @Column(name = "no_completado_motivo", length = 40)
+    private String noCompletadoMotivo;
+
+    /** Lo que el cajero escribio. Obligatorio del lado del filial cuando el motivo es OTRO. */
+    @Column(name = "no_completado_observacion", length = 255)
+    private String noCompletadoObservacion;
+
+    /**
+     * Quien decidio cerrar sin conciliar este cobro.
+     * <p>
+     * Sin FK a proposito: si la fila del usuario todavia no llego a central, una FK frenaria el
+     * stream entero de ventas con tarjeta. Por eso se mapea con {@code insertable/updatable false}
+     * sobre la columna cruda, que es lo que la replicacion escribe.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "no_completado_por_id", nullable = true,
+            foreignKey = @javax.persistence.ForeignKey(value = javax.persistence.ConstraintMode.NO_CONSTRAINT))
+    private Usuario noCompletadoPor;
+
+    /** Cuando se marco. Con {@link #noCompletadoPor} es lo que permite revisar la decision. */
+    @Column(name = "no_completado_en")
+    private LocalDateTime noCompletadoEn;
+
     @CreationTimestamp
     @Column(name = "creado_en", nullable = false, updatable = false)
     private LocalDateTime creadoEn;

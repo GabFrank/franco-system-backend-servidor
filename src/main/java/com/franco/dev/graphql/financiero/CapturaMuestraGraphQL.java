@@ -6,6 +6,9 @@ import com.franco.dev.service.financiero.FormatoTerminalPosService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.domain.financiero.CapturaMuestra;
 import com.franco.dev.service.financiero.ocr.DerivadorMapa;
+import com.franco.dev.service.financiero.ocr.ExtractorCupon;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
@@ -15,7 +18,11 @@ import org.springframework.stereotype.Component;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * El cupon de muestra con el que se configura un formato, y el mapa que sale de el.
@@ -89,6 +96,11 @@ public class CapturaMuestraGraphQL implements GraphQLQueryResolver, GraphQLMutat
 
     @Autowired
     private TesoreriaSecurityService seg;
+
+    @Autowired
+    private ExtractorCupon extractor;
+
+    private final ObjectMapper json = new ObjectMapper();
 
     /**
      * La direccion publica de central, para armar la URL del QR.
@@ -210,5 +222,138 @@ public class CapturaMuestraGraphQL implements GraphQLQueryResolver, GraphQLMutat
         seg.requireGestionar();
         service.cerrar(token);
         return true;
+    }
+
+    /** Un campo tal como la prueba lo encontro, o el motivo por el que no lo encontro. */
+    public static final class CampoProbado {
+        private final String campo, valor, problema;
+        private final Boolean declarado, obligatorio;
+
+        CampoProbado(String campo, String valor, Boolean declarado, Boolean obligatorio, String problema) {
+            this.campo = campo; this.valor = valor; this.declarado = declarado;
+            this.obligatorio = obligatorio; this.problema = problema;
+        }
+
+        public String getCampo() { return campo; }
+        public String getValor() { return valor; }
+        public Boolean getDeclarado() { return declarado; }
+        public Boolean getObligatorio() { return obligatorio; }
+        public String getProblema() { return problema; }
+    }
+
+    /** Que haria este formato con un cupon real. */
+    public static final class ResultadoPruebaFormato {
+        private final Boolean pasa;
+        private final String error, texto;
+        private final List<CampoProbado> campos, extras;
+
+        ResultadoPruebaFormato(Boolean pasa, String error, List<CampoProbado> campos,
+                               List<CampoProbado> extras, String texto) {
+            this.pasa = pasa; this.error = error; this.campos = campos;
+            this.extras = extras; this.texto = texto;
+        }
+
+        public Boolean getPasa() { return pasa; }
+        public String getError() { return error; }
+        public List<CampoProbado> getCampos() { return campos; }
+        public List<CampoProbado> getExtras() { return extras; }
+        public String getTexto() { return texto; }
+    }
+
+    /**
+     * Pasa un cupon real por el formato guardado y dice si lo lee bien.
+     *
+     * <p><b>Es el ensayo que antes habia que hacer cobrando.</b> Sin esto, la unica forma de saber
+     * si un patron aguantaba un cupon de verdad era guardarlo y esperar al proximo cliente que
+     * pagara con tarjeta; si fallaba, la venta quedaba interrumpida con el cliente delante.
+     *
+     * <p>Corre contra el formato <b>guardado</b>, no contra un borrador: es lo que las filiales van
+     * a recibir. La pantalla se encarga de guardar antes de llamar, para que lo que se prueba y lo
+     * que se despliega sean la misma cosa.
+     *
+     * <p>No escribe nada y no consume el token: se puede probar el mismo cupon las veces que haga
+     * falta mientras se ajusta el patron.
+     */
+    public ResultadoPruebaFormato probarFormato(Long formatoTerminalPosId, String token, String texto) {
+        seg.requireGestionar();
+        FormatoTerminalPos f = formatos.findById(formatoTerminalPosId)
+                .orElseThrow(() -> new GraphQLException("No existe el formato de terminal "
+                        + formatoTerminalPosId + "."));
+
+        String leido = texto != null && !texto.trim().isEmpty() ? texto : null;
+        if (leido == null) {
+            if (token == null || token.trim().isEmpty()) {
+                throw new GraphQLException("No hay cupon que probar: falta la foto o la cadena del lector.");
+            }
+            CapturaMuestraService.Muestra m = service.porToken(token)
+                    .orElseThrow(() -> new GraphQLException("La captura vencio o no existe. Saca otra foto."));
+            if (m.textoOcr == null || m.textoOcr.trim().isEmpty()) {
+                // El estado ERROR ya trae su motivo; el ESPERANDO es que la foto todavia no llego.
+                throw new GraphQLException(m.error != null ? m.error
+                        : "Todavia no se leyo la foto de esa captura.");
+            }
+            leido = m.textoOcr;
+        }
+
+        ExtractorCupon.Resultado r = extractor.extraer(leido, f);
+        if (!r.ok()) {
+            return new ResultadoPruebaFormato(false, r.error,
+                    new ArrayList<CampoProbado>(), new ArrayList<CampoProbado>(), leido);
+        }
+
+        List<CampoProbado> campos = new ArrayList<CampoProbado>();
+        List<CampoProbado> extras = new ArrayList<CampoProbado>();
+        boolean pasa = true;
+
+        // Se recorre el MAPEO, no lo extraido: un campo declarado que el cupon no trajo tiene que
+        // aparecer en la lista diciendo que falta. Recorrer solo lo extraido lo haria invisible, y
+        // ese es justamente el caso que la prueba existe para encontrar.
+        Set<String> declarados = new LinkedHashSet<String>();
+        JsonNode mapeo = leerMapeo(f.getMapeo());
+        if (mapeo != null) {
+            Iterator<String> it = mapeo.fieldNames();
+            while (it.hasNext()) {
+                String nombre = it.next();
+                declarados.add(nombre);
+                JsonNode regla = mapeo.get(nombre);
+                boolean obligatorio = regla != null && regla.path("obligatorio").asBoolean(false);
+                Object valor = r.campos.get(nombre);
+                String problema = null;
+                if (valor == null) {
+                    problema = obligatorio
+                            ? "el formato lo declara obligatorio y este cupon no lo trae"
+                            : "este cupon no lo trae (el formato no lo exige)";
+                    if (obligatorio) pasa = false;
+                }
+                campos.add(new CampoProbado(nombre, valor == null ? null : String.valueOf(valor),
+                        Boolean.TRUE, obligatorio, problema));
+            }
+        }
+
+        // Lo canonico que el patron capturo sin que el mapeo lo mencione: se guarda igual, asi que
+        // se muestra igual. Que no este declarado no lo hace menos real en la venta.
+        for (Map.Entry<String, Object> e : r.campos.entrySet()) {
+            if (declarados.contains(e.getKey())) continue;
+            campos.add(new CampoProbado(e.getKey(), String.valueOf(e.getValue()),
+                    Boolean.FALSE, Boolean.FALSE, null));
+        }
+
+        for (Map.Entry<String, Object> e : r.extras.entrySet()) {
+            extras.add(new CampoProbado(e.getKey(), String.valueOf(e.getValue()),
+                    Boolean.FALSE, Boolean.FALSE, null));
+        }
+
+        return new ResultadoPruebaFormato(pasa, null, campos, extras, leido);
+    }
+
+    /** El mapeo mal formado no revienta la prueba: el extractor ya lo reporto a su manera. */
+    private JsonNode leerMapeo(String mapeo) {
+        if (mapeo == null || mapeo.trim().isEmpty()) return null;
+        try {
+            JsonNode n = json.readTree(mapeo);
+            return n != null && n.isObject() ? n : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

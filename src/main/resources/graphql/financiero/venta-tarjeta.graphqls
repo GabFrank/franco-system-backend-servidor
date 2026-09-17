@@ -25,6 +25,18 @@ type VentaTarjeta {
     """
     origen: String
     usuario: Usuario
+    """
+    Por que el cobro quedo sin conciliar: CUPON_NO_IMPRESO | POS_FALLADO | CUPON_PERDIDO | OTRO.
+    Lo escribe el filial cuando el cajero cierra su caja sin registrar el cupon; central lo recibe
+    por replicacion. null en todo lo que no sea NO_COMPLETADO, y en los NO_COMPLETADO anteriores a
+    esta columna.
+    """
+    noCompletadoMotivo: String
+    """Lo que el cajero escribio. Obligatorio cuando el motivo es OTRO."""
+    noCompletadoObservacion: String
+    """Quien decidio cerrar sin conciliar. Es a quien preguntarle al revisar."""
+    noCompletadoPor: Usuario
+    noCompletadoEn: Date
     creadoEn: Date
 }
 

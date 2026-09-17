@@ -63,9 +63,55 @@ type RegionDerivada {
     tipo: String
 }
 
+"""
+Un campo tal como la prueba lo encontró — o el motivo por el que no lo encontró.
+
+`valor` es lo que quedó DESPUÉS del mapeo (escala, mapa, mayúsculas): es lo que vería el cajero,
+no el grupo crudo. Mostrar el crudo haría pasar por bueno un mapeo que escala mal.
+"""
+type CampoProbado {
+    campo: String
+    valor: String
+    "El `mapeo` lo declara. false = grupo suelto del patrón, que iría a datos_extra."
+    declarado: Boolean
+    "El `mapeo` lo marca obligatorio. Un obligatorio vacío es lo que hace fallar la prueba."
+    obligatorio: Boolean
+    "null si este campo está bien; si no, qué le pasa."
+    problema: String
+}
+
+"""
+Qué haría este formato con un cupón real, sin que haya una venta de por medio.
+
+Existe porque la única forma de probar un patrón era cobrar de verdad: se editaba el formato, se
+guardaba, y el siguiente cliente que pagaba con tarjeta era el conejillo de indias. Un patrón
+frágil costaba una venta interrumpida.
+
+Corre contra el formato **guardado**, no contra lo que hay en el formulario: es lo que las 24
+filiales van a recibir. La pantalla guarda antes de probar para que las dos cosas coincidan.
+"""
+type ResultadoPruebaFormato {
+    "Pasa si el patrón reconoció el cupón y ningún campo obligatorio quedó vacío."
+    pasa: Boolean
+    "Por qué no pasó, cuando el patrón ni siquiera reconoció el cupón."
+    error: String
+    campos: [CampoProbado]
+    extras: [CampoProbado]
+    "El texto sobre el que corrió el patrón. Es lo primero que hay que mirar cuando no matchea."
+    texto: String
+}
+
 extend type Query {
     "Si el motor de OCR cargó en este servidor. Sin él no se puede derivar, y la pantalla lo dice."
     lectorDeCuponesDisponible: Boolean
+    """
+    Pasa un cupón real por el formato guardado y dice si lo lee bien.
+
+    Es una consulta, no una mutation: no escribe nada. El cupón llega por `token` --una captura de
+    muestra ya fotografiada y leída, el camino de los formatos MAQUINA-- o por `texto`, que es la
+    cadena que escupe el lector en los formatos de QR. Uno de los dos, no los dos.
+    """
+    probarFormato(formatoTerminalPosId: ID!, token: String, texto: String): ResultadoPruebaFormato
     capturaMuestra(token: String!): EstadoMuestra
     "Las muestras guardadas de un formato, la más nueva primero."
     muestrasDeFormato(formatoTerminalPosId: ID!): [MuestraGuardada]

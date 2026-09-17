@@ -927,3 +927,59 @@ de 12 pasos.
 Empezá por el punto 1 y reportá, antes de escribir código, un resumen de 10 líneas de lo que
 entendiste del entrelazado entre repos y qué vas a hacer primero.
 ```
+
+---
+
+## 13 · Registro de implementación
+
+### 13.1 · Spike 0.B — cómo persiste hoy `documento_electronico.factura_legal_id` (2026-09-17)
+
+**Resultado: no persiste. La mutation `crearDocumentoElectronicoDesdeFactura` está rota en central,
+y `vincularDocumentosALote` tampoco escribe el lote.** Hallazgo A3 cerrado.
+
+Método: `spring-boot:run` local con perfil `dev` (puerto 8081, DB `bodega@5551`, los dos schedulers
+de replicación en «Did not match» del reporte de condiciones) y
+`--logging.level.org.hibernate.persister.entity=DEBUG`, que imprime el SQL estático de cada entidad
+al arrancar. No hizo falta llamar a SIFEN ni tener certificado.
+
+```
+Static SQL for entity: com.franco.dev.domain.financiero.DocumentoElectronico
+ Insert 0: insert into financiero.documento_electronico (activo, actualizado_en, cdc,
+   codigo_respuesta_sifen, creado_en, estado, fecha_emision, fecha_recepcion_sifen,
+   mensaje_respuesta_sifen, numero_documento, tipo_documento, url_qr, usuario_id,
+   xml_firmado, xml_original, id, sucursal_id) values (...)
+ Update 0: update financiero.documento_electronico set activo=?, ... where id=? and sucursal_id=?
+```
+
+Ni `factura_legal_id` ni `lote_de_id` aparecen en el INSERT **ni en el UPDATE**: las dos relaciones
+están mapeadas solo con `@JoinColumns(insertable = false, updatable = false)`
+(`DocumentoElectronico.java`). Como la columna es `NOT NULL` en central
+(`V0__initial_schema.sql:2433`), cualquier INSERT desde central falla con
+`null value in column "factura_legal_id"`.
+
+Evidencia de datos, coherente: en `bodega@5551` las 534.741 filas de `documento_electronico`
+pertenecen a sucursales de filiales (1, 3, 7, 9, 11, 12…) y **ninguna a la sucursal 0 (SERVIDOR)**.
+Todas llegaron por replicación desde las filiales, donde la misma entidad sí mapea
+`factura_legal_id` como columna escribible. Central nunca creó un DE propio.
+
+**Consecuencia para el plan** (afecta 0.A, 0.B y D8, no las decisiones de §11):
+
+1. Las entidades de central necesitan **columnas planas escribibles** —`facturaLegalId`,
+   `notaCreditoId`, `notaRemisionId`, `loteDeId`— junto a las relaciones de solo lectura. Sin eso,
+   NR y NC nacen sin FK y sin lote, y el T2 de D8 no vincula nada.
+2. `vincularDocumentosALote` de central (`SifenService`) **no funciona hoy**: `setLoteDe(lote)` +
+   `save` no escribe `lote_de_id`. Es prerrequisito del envío de notas, así que se arregla en 0.B
+   con la misma columna plana. Para las facturas no cambia nada (ese camino lo ejecuta el filial).
+3. La UNIQUE `(factura_legal_id, sucursal_id)` y el `CHECK` de D3 siguen igual.
+4. `crearDocumentoElectronicoDesdeFactura` queda operativa de rebote. Se prueba en 1.F.
+
+Queda **sin verificar**: si alguna vez se intentó usar esa mutation en producción (no hay filas de
+central, así que o nunca se usó o siempre falló).
+
+### 13.2 · Filial (Entrega A) — ver `filial/docs/manuales-implementacion/sifen/PLAN-ESPEJO-NR-NC-FILIAL.md` §7
+
+Numeración real: **`V95.1`** (espejo) y **`V96.1`** (ids pares), no `V91.5`/`V91.7`: `V91.5` ya
+existía (`espejo_formato_qr_pos`) y la mayor de `develop` era `V94.1`. En central, por el mismo
+criterio, las migraciones de este trabajo arrancan en **`V225.1`** con sufijo `.1` (convención de
+Franco) y un entero por migración: `V225.1` (espejo + roles), `V226.1` (ids impares), `V227.1`
+(nota de remisión), `V228.1` (nota de crédito).

@@ -182,7 +182,7 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
 
 ## 2 · Decisiones de diseño
 
-- **D1 — Emite solo central; el filial recibe espejo + guarda.** _(Recomendado, a confirmar.)_
+- **D1 — Emite solo central; el filial recibe espejo + guarda.** _(✅ Confirmado por Gabriel el 2026-09-17.)_
   Razones: (a) el desktop ya administra facturación contra central; (b) central tiene replicadas
   la factura, sus ítems y el DE con CDC de todas las sucursales, y el certificado/CSC de la misma
   empresa (`sifen.enabled` debe seguir `true` — gotcha "SIFEN no se puede desactivar vía env var");
@@ -219,11 +219,11 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
   **La ruta de factura no se toca** en este trabajo (deuda anotada, issue aparte).
 - **D6 — NC: siempre contra una factura electrónica APROBADA con CDC; MVP = copia 1:1.** Motivo del
   catálogo `TiMotEmi` (enum Java propio `MotivoEmisionNotaCredito` espejo 1:1 por `name()`, con su
-  `.graphqls`). Moneda/cambio heredados. **Fase 2.4 (opcional, a confirmar): NC parcial** por
+  `.graphqls`). Moneda/cambio heredados. _(✅ Confirmado el 2026-09-17: **solo NC total** en esta entrega.)_ **Fase 2.G (fuera de esta entrega): NC parcial** por
   selección de ítems y cantidades, con validación `cantidad ≤ cantidad facturada` por ítem y
   `totalNC ≤ totalFactura − Σ NC previas activas`. Sin NC standalone (SIFEN la permite contra
   documento impreso, pero no hay caso de negocio hoy).
-- **D7 — NR: tres orígenes, una sola entidad.** `origen` ∈ `TRANSFERENCIA` | `FACTURA` | `MANUAL`:
+- **D7 — NR: tres orígenes, una sola entidad.** _(✅ Confirmado el 2026-09-17: los tres entran en la Fase 1.)_ `origen` ∈ `TRANSFERENCIA` | `FACTURA` | `MANUAL`:
   - `TRANSFERENCIA` (motivo `TRASLADO_ENTRE_LOCALES`): precarga salida = sucursal origen, entrega =
     sucursal destino, receptor = **la propia empresa** (RUC del timbrado; SIFEN exige RUC receptor =
     emisor para motivo 7), vehículo/chofer desde `HojaRuta`, ítems desde `transferencia_item`
@@ -265,7 +265,7 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
   habilitado, no haga falta el botón. El estado final (`APROBADO`/`RECHAZADO`) lo trae el scheduler de
   central **si está habilitado** (`sifen.scheduler.enabled`, default `false` en código; valor en
   producción **NO VERIFICADO**, §10) o el botón "Consultar" (`consultarLote` existente).
-- **D9 — Seguridad por rol nueva y obligatoria.** `FacturacionSecurityService` (patrón
+- **D9 — Seguridad por rol nueva y obligatoria.** _(✅ Confirmado el 2026-09-17: roles nuevos `FACTURACION *`.)_ `FacturacionSecurityService` (patrón
   `TesoreriaSecurityService`) con roles `FACTURACION VER`, `FACTURACION NR EMITIR`,
   `FACTURACION NC EMITIR`, `FACTURACION ANULAR` (seed idempotente, sin espejo). Primera línea de cada
   mutation nueva: `seg.requireAnyRole(...)`. Desktop: `visibilityRoles` en el menú y flags en
@@ -297,7 +297,7 @@ contra SIFEN real. NC reutiliza esa infraestructura y suma las reglas fiscales (
   `ERROR_ENVIO`, y `procesarLotesAtrasados` lo reenviaría (doble envío). Sin la guarda, un DE de NC
   replicado en `PENDIENTE` también sería reenviado por el filial.
 - **D13 — Partición de ids en `documento_electronico`, `lote_de`, `evento_cancelacion_de`,
-  `evento_nominacion_de` (Fase 0.D, prerrequisito de la Fase 1).** Las dos auditorías confirmaron
+  `evento_nominacion_de` (Fase 0.D, prerrequisito de la Fase 1).** _(✅ Confirmado el 2026-09-17: entra en esta entrega.)_ Las dos auditorías confirmaron
   que R3 no es hipotético: las secuencias son `BIGSERIAL` planas sin reparto
   `[ev: V0__initial_schema.sql:2460-2472,2887-2903]`, `V223.1` no incluye estas tablas
   `[ev: V223.1:18-23,66-75]`, y central ya inserta DE con `sucursal_id` de cualquier filial vía
@@ -606,7 +606,7 @@ llamar.
 si se aprueba 2.G), lista "Notas de crédito", estado SIFEN, impresión, y en `onCancelarFactura` el
 manejo de `ERROR_PLAZO_NC` → ofrecer "Emitir nota de crédito".
 
-**2.G (opcional, a confirmar) NC parcial**: ítems editables (cantidad ≤ facturada, quitar ítems),
+**2.G (fuera de esta entrega, decidido el 2026-09-17) NC parcial**: ítems editables (cantidad ≤ facturada, quitar ítems),
 recálculo de parciales por IVA en backend (misma fórmula que `FacturaLegal`: 10 % → `total/11`,
 5 % → `total/21`), validación de saldo `Σ NC ≤ factura`. Tests de redondeo.
 
@@ -617,8 +617,8 @@ anular NC → evento aprobado.
 ### Fuera de alcance (anotado, no olvidado)
 
 - Impacto contable de la NC en **cuenta corriente del cliente / CPC** (`Cliente.saldoActual`,
-  `venta_credito`): la NC fiscal no toca saldos en este trabajo. Requiere decisión con Tesorería
-  (skill `frc-financiero-expert`).
+  `venta_credito`): la NC fiscal no toca saldos en este trabajo. _(✅ Decidido el 2026-09-17: solo
+  fiscal; el impacto en CPC es issue aparte con Tesorería, skill `frc-financiero-expert`.)_
 - Nota de Débito (`iTiDE=6`), autofactura, NC contra factura **impresa** (`TiTipDocAso.IMPRESO`).
 - Ticket térmico de NC/NR; envío por email.
 - Emisión de notas desde el filial / desde la PWA.
@@ -789,20 +789,19 @@ corrieron sin verse. Cada hallazgo dice qué se hizo con él en esta versión de
 
 ---
 
-## 11 · Preguntas para el usuario (decisiones que cambian el trabajo)
+## 11 · Decisiones tomadas (2026-09-17, Gabriel)
 
-1. **D1**: ¿confirmás emisión **solo desde central**? (Alternativa: también desde el filial, con el
-   doble de código y partición de ids en las tablas nuevas.)
-2. **D13 / Fase 0.D**: la partición impar/par de `documento_electronico`, `lote_de`, `evento_cancelacion_de`
-   y `evento_nominacion_de` (central `V225.7` + filial `V91.7`) quedó como **prerrequisito** de la
-   Fase 1 porque las dos auditorías confirmaron que la colisión ya es posible hoy. ¿Confirmás que
-   entra en esta entrega (toca las 24 filiales vía el PR del filial), o preferís abrirla como issue
-   y aceptar el riesgo mientras tanto?
-3. **D6 / 2.G**: ¿NC parcial (ítems y cantidades editables) entra en esta entrega o queda para
-   después? Cambia el diálogo y ~150 líneas de backend.
-4. **D7**: ¿los tres orígenes de NR (transferencia, factura, manual) van en la Fase 1, o arrancamos
-   solo con transferencia + manual?
-5. **D9**: ¿los nombres de rol `FACTURACION VER / NR EMITIR / NC EMITIR / ANULAR` te sirven, o
-   preferís reutilizar `CREAR FACTURAS` / `EDITAR FACTURAS` (existen en el desktop sin uso)?
-6. **Fuera de alcance**: ¿la NC debe impactar la cuenta corriente del cliente (CPC) en esta entrega?
-   Si sí, hay que traer a Tesorería al plan (skill `frc-financiero-expert`) y crece bastante.
+Las seis preguntas abiertas del plan se resolvieron en sesión; todas con la opción recomendada.
+
+| # | Decisión | Respuesta | Efecto en el plan |
+|---|---|---|---|
+| 1 | D1 — quién emite | **Solo central**; el filial recibe espejo DDL + guarda | Sin cambios: es el diseño base |
+| 2 | D13 / Fase 0.D — partición impar/par de ids en `documento_electronico`, `lote_de`, `evento_cancelacion_de`, `evento_nominacion_de` | **Entra en esta entrega** (central `V225.7` + filial `V91.7`) | Prerrequisito de la Fase 1; el PR del filial lleva las dos migraciones |
+| 3 | D6 — NC parcial | **Solo NC total** (copia 1:1 de la factura) | 2.G sale de la entrega; el diálogo de NC muestra los ítems de solo lectura |
+| 4 | D7 — orígenes de NR | **Los tres** (transferencia, factura, manual) | Sin cambios: la Fase 1 incluye `prellenarNotaRemision` para los tres |
+| 5 | D9 — roles | **Roles nuevos `FACTURACION VER / NR EMITIR / NC EMITIR / ANULAR`** | Seed en `V225.5`; `ROLES.*` nuevos en el desktop; `CREAR/EDITAR FACTURAS` siguen sin uso |
+| 6 | NC y cuenta corriente (CPC) | **Solo fiscal** en esta entrega | Sigue en "Fuera de alcance"; issue aparte con Tesorería |
+
+Con esto el plan queda **aprobado para implementar** (paso 6 del ciclo). Próximo paso: Fase 0 en el
+orden de §7 (PR del filial primero), empezando por el spike de 0.B sobre la persistencia de
+`factura_legal_id`.

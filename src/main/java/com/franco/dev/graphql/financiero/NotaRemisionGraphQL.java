@@ -48,6 +48,7 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     @Autowired private TimbradoDetalleService timbradoDetalleService;
     @Autowired private SucursalService sucursalService;
     @Autowired private FacturacionSecurityService seg;
+    @Autowired private KudeNotaRemisionService kudeService;
     @Autowired(required = false) private SifenService sifenService;
     @Autowired(required = false) private SifenEnvioSincronoService envioSincronoService;
 
@@ -87,6 +88,29 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     public NotaRemisionPrellenadoService.NotaRemisionPrellenada prellenarNotaRemision(String origen, Long referenciaId,
                                                                          Long sucursalId) {
         return prellenadoService.prellenar(OrigenNotaRemision.valueOf(origen), referenciaId, sucursalId);
+    }
+
+    /**
+     * KuDE en PDF (base64). {@code escpos} queda para el ticket térmico, que no entra en esta
+     * entrega: se rechaza explícitamente en vez de devolver un PDF que la impresora no entiende.
+     */
+    public String imprimirNotaRemision(Long id, Long sucursalId, Integer anchoMm, Boolean escpos) {
+        seg.requireVer();
+        if (Boolean.TRUE.equals(escpos)) {
+            throw new GraphQLException("El ticket térmico de la nota de remisión todavía no está disponible");
+        }
+        NotaRemision nota = service.findByIdAndSucursalId(id, sucursalId)
+                .orElseThrow(() -> new GraphQLException("No existe la nota de remisión"));
+        List<NotaRemisionItem> items = service.findItems(id, sucursalId);
+        TimbradoDetalle timbrado = timbradoDetalleService
+                .findByIdAndSucursalId(nota.getTimbradoDetalleId(), sucursalId).orElse(null);
+        DocumentoElectronico de = documentoElectronicoService.findByNotaRemisionId(id, sucursalId).orElse(null);
+        try {
+            return kudeService.generarPdfBase64(nota, items, timbrado, de);
+        } catch (Exception e) {
+            log.error("Error al generar el KuDE de la nota de remisión {}: {}", id, e.getMessage());
+            throw new GraphQLException("No se pudo generar el PDF de la nota de remisión: " + e.getMessage());
+        }
     }
 
     // ===================== MUTATIONS =====================

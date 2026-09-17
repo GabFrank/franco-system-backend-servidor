@@ -182,6 +182,8 @@ extend type Query {
     notaRemisionPorTransferencia(transferenciaId: ID!): NotaRemision
     documentoElectronicoDeNotaRemision(notaRemisionId: ID!, sucursalId: ID!): DocumentoElectronico
     prellenarNotaRemision(origen: String!, referenciaId: ID, sucursalId: ID!): NotaRemisionPrellenada
+    """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""
+    imprimirNotaRemision(id: ID!, sucursalId: ID!, anchoMm: Int, escpos: Boolean): String
 }
 
 extend type Mutation {

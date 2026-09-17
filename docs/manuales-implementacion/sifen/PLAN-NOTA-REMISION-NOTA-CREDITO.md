@@ -1160,3 +1160,27 @@ contexto no levanta. Renombrada.
 `transferenciaId`…) en vez de objetos anidados. Los `NotaRemisionResolver` de campo se agregan si el
 desktop los necesita; hoy las pantallas usan el snapshot que ya guarda la nota (matrícula, nombre del
 chofer, receptor), que es además lo que fue al XML.
+
+### 13.10 · Fase 1.D — KuDE de la Nota de Remisión (2026-09-17)
+
+- **`reports/nota-remision-kude.jrxml`**: portado de frc-efact, con su único `fontName="Monospaced"`
+  reemplazado por `SansSerif`. Quedan 23 `<font>`, todos `SansSerif` (fuente lógica de Java: no
+  depende de nada instalado en el servidor).
+- **`KudeNotaRemisionService`**: compila la plantilla, arma los parámetros (emisor, número
+  `001-001-0000042`, traslado, receptor, salida/entrega, transporte, vehículo, chofer, CDC), genera
+  el QR con `QRCodeImageGenerator` en un archivo temporal que **se borra en un `finally`**, y
+  devuelve el PDF en base64. El KuDE muestra la marca de vehículo **completa**; la abreviatura a 10
+  caracteres es solo para el XML.
+- **`imprimirNotaRemision(id, sucursalId, anchoMm, escpos)`** en el resolver: `escpos = true` se
+  rechaza con un mensaje claro en vez de devolver un PDF que la impresora térmica no entiende (el
+  ticket no entra en esta entrega).
+- **`NotaRemisionKudeJrxmlTest`, 5 casos**, incluido el que importa de verdad: **se lee el TEXTO
+  renderizado**, no el tamaño del archivo. Un campo con alto insuficiente sale vacío sin que Jasper
+  falle y el PDF igual pesa; el test exige que aparezcan número, razón social, RUC, motivo, matrícula,
+  chofer, los dos ítems y el CDC. Para eso el servicio expone `llenar(...)` además de
+  `generarPdfBase64(...)`. También valida que la plantilla solo use fuentes permitidas y que una nota
+  todavía sin DE se pueda imprimir.
+- Batería: **757 tests, 0 fallas, BUILD SUCCESS**.
+
+Con esto la Fase 1 queda completa salvo **1.E** (UI del desktop, va después del PR del central) y
+**1.F** (prueba contra SIFEN TEST, que necesita el certificado y el entorno levantado).

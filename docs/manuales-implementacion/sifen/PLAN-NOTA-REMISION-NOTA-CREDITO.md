@@ -1071,3 +1071,31 @@ Gabriel confirmó que **«en teoría está habilitado»** para Nota de Crédito 
 toma como luz verde para seguir, **no** como verificación: lo definitivo es el timbrado en Marangatu,
 y si no estuviera habilitado el síntoma aparecería recién como rechazo de SIFEN en 1.F. Si eso pasa,
 no es un problema de código: hay que pedir la ampliación del timbrado a la SET.
+
+### 13.7 · Fase 1.A — dominio de la Nota de Remisión (2026-09-17)
+
+- **`V227.1__nota_remision.sql`**: `financiero.nota_remision` y `nota_remision_item`, PK compuesta
+  `(id, sucursal_id)`, `UNIQUE (timbrado_detalle_id, numero_nota_remision)`, FK a `factura_legal`,
+  `transferencia`, `vehiculo`, `persona` y `cliente`, más la FK de `documento_electronico.nota_remision_id`.
+  Central-only: no entra a `replication_table` ni a ninguna publicación.
+- ⚠️ **Corrección al plan**: `timbrado_detalle` tiene PK **compuesta** `(id, sucursal_id)`, no simple
+  como decía §4 (1.A). La FK de la nota es compuesta.
+- ⚠️ **`unidad_medida` es VARCHAR**, no INTEGER: es lo que hay en `factura_legal_item`, de donde se
+  precarga. La conversión al código `cUniMed` de SIFEN se hace al construir el DE (1.B).
+- **5 enums Java + los mismos 5 en `nota-remision.graphqls`**, en este commit (regla del repo).
+  Por ahora el `.graphqls` lleva **solo enums**: los tipos y operaciones entran en 1.C con el
+  resolver, porque kickstart exige clase pareada para cada tipo declarado.
+  `SchemaEnumsSincronizadosTest` pasa.
+- **Entidades `NotaRemision` / `NotaRemisionItem`** con las FK como **columnas planas**, no
+  relaciones: las relaciones compuestas de este repo van `insertable = false` y no se persisten
+  (§13.1). Los resolvers resolverán cada objeto por su id en 1.C.
+- **`NotaRemisionService`**: `crear` (T1 de D8) toma el timbrado con **lock pesimista**
+  (`TimbradoDetalleRepository.lockById`) antes de calcular `MAX+1`, valida receptor nominado, ítems,
+  origen y transferencia sin nota previa; `anular` valida la ventana de **168 h**. Primera línea de
+  las dos: `seg.requireEmitirNr()` / `seg.requireAnular()`.
+- **Tests**: `NotaRemisionServiceTest`, 12 casos (numeración desde 1 y desde el máximo, orden
+  lock→MAX, ítems heredando nota y sucursal, sin ítems, receptor innominado, cantidad no positiva,
+  transferencia con nota previa, origen sin referencia, timbrado inactivo, anulación dentro y fuera
+  de la ventana). Batería: **721 tests, 0 fallas, BUILD SUCCESS**.
+- **Validación SQL**: las tres migraciones del central aplicadas en orden sobre una copia del
+  esquema de `bodega`: las dos tablas, las seis FK, la FK del DE y la UNIQUE quedan creadas.

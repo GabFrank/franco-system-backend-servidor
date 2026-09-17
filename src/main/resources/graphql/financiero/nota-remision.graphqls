@@ -1,0 +1,48 @@
+# Nota de Remision Electronica (NRE, iTiDE 7).
+# Por ahora solo los enums: los tipos, queries y mutations entran con el resolver (fase 1.C).
+# Cada enum es espejo del enum Java de domain/financiero/enums; SchemaEnumsSincronizadosTest
+# falla el build si se desincronizan.
+
+enum MotivoEmisionNotaRemision {
+    TRASLADO_POR_VENTAS
+    TRASLADO_POR_CONSIGNACION
+    EXPORTACION
+    TRASLADO_POR_COMPRA
+    IMPORTACION
+    TRASLADO_POR_DEVOLUCION
+    TRASLADO_ENTRE_LOCALES
+    TRASLADO_BIENES_TRANSFORMACION
+    TRASLADO_BIENES_REPARACION
+    TRASLADO_POR_EMISOR_MOVIL
+    EXHIBICION_O_DEMOSTRACION
+    PARTICIPACION_EN_FERIAS
+    TRASLADO_DE_ENCOMIENDAS
+    DECOMISO
+    OTRO
+}
+
+enum ResponsableEmisionNr {
+    EMISOR_FACTURA
+    POSEEDOR_FACTURA_Y_BIENES
+    EMPRESA_TRANSPORTISTA
+    DESPACHANTE_DE_ADUANAS
+    AGENTE_DE_TRANSPORTE_O_INTERMEDIARIO
+}
+
+enum TipoTransporteNr {
+    PROPIO
+    TERCERO
+}
+
+enum ModalidadTransporteNr {
+    TERRESTRE
+    FLUVIAL
+    AEREO
+    MULTIMODAL
+}
+
+enum OrigenNotaRemision {
+    TRANSFERENCIA
+    FACTURA
+    MANUAL
+}

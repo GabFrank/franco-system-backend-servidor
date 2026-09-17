@@ -54,6 +54,9 @@ class NotaRemisionServiceTest {
         });
         when(itemRepository.save(any(NotaRemisionItem.class))).thenAnswer(i -> i.getArgument(0));
         when(repository.findActivasByTransferenciaId(any())).thenReturn(Collections.emptyList());
+        // Con @IdClass no se puede usar @GeneratedValue: el id sale de la secuencia.
+        when(repository.siguienteId()).thenReturn(500L);
+        when(itemRepository.siguienteId()).thenReturn(900L);
     }
 
     @Test
@@ -93,6 +96,7 @@ class NotaRemisionServiceTest {
         service.crear(notaManual(), items);
 
         assertEquals(500L, items.get(0).getNotaRemisionId());
+        assertEquals(900L, items.get(0).getId(), "el ítem también toma su id de la secuencia");
         assertEquals(SUCURSAL, items.get(0).getSucursalId());
     }
 

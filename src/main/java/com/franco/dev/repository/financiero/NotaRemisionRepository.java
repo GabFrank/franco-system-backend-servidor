@@ -22,6 +22,10 @@ public interface NotaRemisionRepository extends HelperRepository<NotaRemision, E
         return NotaRemision.class;
     }
 
+    /** Siguiente id de la secuencia de la tabla: la PK compuesta impide usar @GeneratedValue. */
+    @Query(value = "SELECT nextval('financiero.nota_remision_id_seq')", nativeQuery = true)
+    Long siguienteId();
+
     @Query("SELECT n FROM NotaRemision n WHERE n.id = :id AND n.sucursalId = :sucursalId")
     Optional<NotaRemision> findByIdAndSucursalId(@Param("id") Long id, @Param("sucursalId") Long sucursalId);
 

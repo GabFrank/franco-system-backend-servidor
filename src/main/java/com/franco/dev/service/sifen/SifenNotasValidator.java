@@ -22,6 +22,10 @@ public final class SifenNotasValidator {
     private SifenNotasValidator() {
     }
 
+    private static boolean vacio(String valor) {
+        return valor == null || valor.trim().isEmpty();
+    }
+
     public static void validarNRE(DocumentoElectronico de) {
         if (de == null) {
             throw new GraphQLException("No se pudo construir el documento electrónico de la nota de remisión");
@@ -83,6 +87,38 @@ public final class SifenNotasValidator {
         }
         if (gTransp.getgCamTrans() == null) {
             throw new GraphQLException("Faltan los datos del transportista");
+        }
+        // SIFEN rechaza con 0160 ("XML malformado") si falta cualquiera de los tres.
+        if (vacio(gTransp.getgCamTrans().getdNomTrans())) {
+            throw new GraphQLException("Falta el nombre del transportista");
+        }
+        if (vacio(gTransp.getgCamTrans().getdRucTrans())) {
+            throw new GraphQLException("Falta el RUC del transportista");
+        }
+        if (vacio(gTransp.getgCamTrans().getdDomFisc())) {
+            throw new GraphQLException("Falta el domicilio fiscal del transportista");
+        }
+        // El chofer va completo o no va: SIFEN exige dNomChof, dNumIDChof y dDirChof juntos
+        // (rechazo 0160 "Elemento esperado: dDirChof dentro de: gCamTrans").
+        boolean algunDatoDeChofer = !vacio(gTransp.getgCamTrans().getdNomChof())
+                || !vacio(gTransp.getgCamTrans().getdNumIDChof())
+                || !vacio(gTransp.getgCamTrans().getdDirChof());
+        if (algunDatoDeChofer) {
+            if (vacio(gTransp.getgCamTrans().getdNomChof())) {
+                throw new GraphQLException("Falta el nombre del chofer");
+            }
+            if (vacio(gTransp.getgCamTrans().getdNumIDChof())) {
+                throw new GraphQLException("Falta el documento del chofer");
+            }
+            if (vacio(gTransp.getgCamTrans().getdDirChof())) {
+                throw new GraphQLException("Falta la dirección del chofer");
+            }
+        }
+
+        // Fechas del traslado: sin dIniTras, jsifenlib falla al serializar con un NullPointer
+        // sobre this.dIniTras, que no dice nada de lo que falta.
+        if (gTransp.getdIniTras() == null) {
+            throw new GraphQLException("Falta la fecha de inicio del traslado");
         }
 
         // Sin fallback a Asunción: el código de ciudad es obligatorio y no puede ser 0.

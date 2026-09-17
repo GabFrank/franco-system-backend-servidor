@@ -27,16 +27,17 @@ class SifenEnvioSincronoServiceTest {
     void enviaElDocumentoEnUnLoteDeUnoYEnEseOrden() throws Exception {
         DocumentoElectronico de = new DocumentoElectronico();
         de.setId(55L);
+        de.setSucursalId(1L);   // el lote nace con la sucursal del documento: la columna es NOT NULL
         LoteDE lote = new LoteDE();
         lote.setId(9L);
         lote.setEstado(EstadoLoteDE.PENDIENTE_ENVIO);
-        when(sifenService.crearLote()).thenReturn(lote);
+        when(sifenService.crearLote(1L)).thenReturn(lote);
 
         LoteDE resultado = envio.generarYEnviarSincrono(de);
 
         assertSame(lote, resultado);
         InOrder orden = inOrder(sifenService);
-        orden.verify(sifenService).crearLote();
+        orden.verify(sifenService).crearLote(1L);
         orden.verify(sifenService).vincularDocumentosALote(lote, Collections.singletonList(de));
         orden.verify(sifenService).enviarLote(lote);
     }
@@ -47,7 +48,7 @@ class SifenEnvioSincronoServiceTest {
         assertThrows(IllegalArgumentException.class,
                 () -> envio.generarYEnviarSincrono(new DocumentoElectronico()));
 
-        verify(sifenService, never()).crearLote();
+        verify(sifenService, never()).crearLote(any());
         verify(sifenService, never()).enviarLote(any());
     }
 }

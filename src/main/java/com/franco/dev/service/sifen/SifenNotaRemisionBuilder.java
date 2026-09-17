@@ -92,7 +92,7 @@ public class SifenNotaRemisionBuilder {
         de.setgDatGralOpe(datGralOpe);
 
         // Grupo E: gCamNRE + ítems sin valores + transporte
-        de.setgDtipDE(construirDatosItems(nota, items));
+        de.setgDtipDE(construirDatosItems(nota, items, timbradoDetalle));
 
         // Grupo H: documento asociado, solo si el traslado tiene factura con CDC
         if (cdcFacturaAsociada != null && !cdcFacturaAsociada.trim().isEmpty()) {
@@ -166,7 +166,8 @@ public class SifenNotaRemisionBuilder {
         return gDatRec;
     }
 
-    private TgDtipDE construirDatosItems(NotaRemision nota, List<NotaRemisionItem> items) {
+    private TgDtipDE construirDatosItems(NotaRemision nota, List<NotaRemisionItem> items,
+                                        TimbradoDetalle timbradoDetalle) {
         TgDtipDE gDtipDE = new TgDtipDE();
 
         // E500 - gCamNRE, obligatorio
@@ -207,7 +208,7 @@ public class SifenNotaRemisionBuilder {
         }
         gDtipDE.setgCamItemList(gCamItemList);
 
-        gDtipDE.setgTransp(construirTransporte(nota));
+        gDtipDE.setgTransp(construirTransporte(nota, timbradoDetalle));
         return gDtipDE;
     }
 
@@ -249,7 +250,7 @@ public class SifenNotaRemisionBuilder {
         }
     }
 
-    private TgTransp construirTransporte(NotaRemision nota) {
+    private TgTransp construirTransporte(NotaRemision nota, TimbradoDetalle timbradoDetalle) {
         TgTransp gTransp = new TgTransp();
         TipoTransporteNr tipo = nota.getTipoTransporte() != null
                 ? nota.getTipoTransporte() : TipoTransporteNr.PROPIO;
@@ -265,8 +266,14 @@ public class SifenNotaRemisionBuilder {
         // contra SIFEN; si rechaza, se restaura CFR como en la referencia).
         gTransp.setcPaisDest(PaisType.PRY);
 
-        if (nota.getFechaInicioTraslado() != null) gTransp.setdIniTras(nota.getFechaInicioTraslado());
-        if (nota.getFechaFinTraslado() != null) gTransp.setdFinTras(nota.getFechaFinTraslado());
+        // dIniTras es obligatorio en una NRE: jsifenlib revienta al serializar si falta
+        // ("Cannot invoke LocalDate.toString() because this.dIniTras is null"). Si no vino, el
+        // traslado empieza el dia de emision.
+        LocalDate inicio = nota.getFechaInicioTraslado() != null
+                ? nota.getFechaInicioTraslado()
+                : (nota.getFecha() != null ? nota.getFecha().toLocalDate() : LocalDate.now());
+        gTransp.setdIniTras(inicio);
+        gTransp.setdFinTras(nota.getFechaFinTraslado() != null ? nota.getFechaFinTraslado() : inicio);
 
         TgCamSal gCamSal = new TgCamSal();
         gCamSal.setdDirLocSal(nota.getSalidaDireccion());
@@ -291,18 +298,43 @@ public class SifenNotaRemisionBuilder {
         }
         gTransp.setgVehTrasList(new ArrayList<>(Collections.singletonList(gVehTras)));
 
-        gTransp.setgCamTrans(construirTransportista(nota, tipo));
+        gTransp.setgCamTrans(construirTransportista(nota, tipo, timbradoDetalle));
         return gTransp;
     }
 
-    private TgCamTrans construirTransportista(NotaRemision nota, TipoTransporteNr tipo) {
+    /**
+     * SIFEN exige nombre, RUC y domicilio del transportista (dNomTrans, dRucTrans, dDomFisc) en toda
+     * NRE: si faltan, rechaza con 0160 "XML malformado". En transporte **propio** el transportista
+     * es la propia empresa, asi que se completan desde el timbrado cuando la nota no los trae.
+     */
+    private TgCamTrans construirTransportista(NotaRemision nota, TipoTransporteNr tipo,
+                                              TimbradoDetalle timbradoDetalle) {
         TgCamTrans gCamTrans = new TgCamTrans();
         gCamTrans.setiNatTrans(TiNatRec.CONTRIBUYENTE);
 
-        if (nota.getTransportistaNombre() != null && !nota.getTransportistaNombre().trim().isEmpty()) {
-            gCamTrans.setdNomTrans(nota.getTransportistaNombre().trim());
+        boolean propio = tipo == TipoTransporteNr.PROPIO;
+        String nombre = nota.getTransportistaNombre();
+        String rucTransportista = nota.getTransportistaRuc();
+        String domicilio = nota.getTransportistaDireccion();
+        if (propio) {
+            if (nombre == null || nombre.trim().isEmpty()) {
+                nombre = timbradoDetalle.getTimbrado().getRazonSocial();
+            }
+            if (rucTransportista == null || rucTransportista.trim().isEmpty()) {
+                rucTransportista = timbradoDetalle.getTimbrado().getRuc();
+            }
+            if (domicilio == null || domicilio.trim().isEmpty()) {
+                domicilio = timbradoDetalle.getDireccion();
+            }
         }
-        String ruc = nota.getTransportistaRuc();
+
+        if (nombre != null && !nombre.trim().isEmpty()) {
+            gCamTrans.setdNomTrans(nombre.trim());
+        }
+        if (domicilio != null && !domicilio.trim().isEmpty()) {
+            gCamTrans.setdDomFisc(domicilio.trim());
+        }
+        String ruc = rucTransportista;
         if (ruc != null && !ruc.trim().isEmpty()) {
             String[] partes = ruc.trim().split("-");
             gCamTrans.setdRucTrans(partes[0]);
@@ -314,10 +346,6 @@ public class SifenNotaRemisionBuilder {
                 }
             }
         }
-        if (nota.getTransportistaDireccion() != null && !nota.getTransportistaDireccion().trim().isEmpty()) {
-            gCamTrans.setdDomFisc(nota.getTransportistaDireccion().trim());
-        }
-
         boolean informarChofer = tipo == TipoTransporteNr.TERCERO
                 || Boolean.TRUE.equals(choferEnTransportePropio);
         if (informarChofer) {

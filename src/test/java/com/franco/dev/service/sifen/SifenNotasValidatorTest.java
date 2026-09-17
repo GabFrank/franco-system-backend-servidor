@@ -116,6 +116,45 @@ class SifenNotasValidatorTest {
     }
 
     @Test
+    void sinFechaDeInicioDeTrasladoFalla() {
+        // jsifenlib revienta con un NullPointer sobre dIniTras al serializar: sin esta regla el
+        // error que ve el usuario no dice nada.
+        DocumentoElectronico de = deValido();
+        de.getgDtipDE().getgTransp().setdIniTras(null);
+
+        assertMensaje(de, "fecha de inicio del traslado");
+    }
+
+    @Test
+    void sinDatosDelTransportistaFalla() {
+        // Rechazo real de SIFEN DEV (0160): "El valor del elemento: dNomTrans es invalido,
+        // dRucTrans es invalido, Elemento esperado: dDomFisc dentro de: gCamTrans".
+        DocumentoElectronico sinNombre = deValido();
+        sinNombre.getgDtipDE().getgTransp().getgCamTrans().setdNomTrans(null);
+        assertMensaje(sinNombre, "nombre del transportista");
+
+        DocumentoElectronico sinRuc = deValido();
+        sinRuc.getgDtipDE().getgTransp().getgCamTrans().setdRucTrans(null);
+        assertMensaje(sinRuc, "RUC del transportista");
+
+        DocumentoElectronico sinDomicilio = deValido();
+        sinDomicilio.getgDtipDE().getgTransp().getgCamTrans().setdDomFisc(null);
+        assertMensaje(sinDomicilio, "domicilio fiscal");
+    }
+
+    @Test
+    void elChoferVaCompletoONoVa() {
+        // Rechazo real de SIFEN DEV (0160): "Elemento esperado: dDirChof dentro de: gCamTrans".
+        DocumentoElectronico sinDireccion = deValido();
+        sinDireccion.getgDtipDE().getgTransp().getgCamTrans().setdDirChof(null);
+        assertMensaje(sinDireccion, "dirección del chofer");
+
+        DocumentoElectronico sinDocumento = deValido();
+        sinDocumento.getgDtipDE().getgTransp().getgCamTrans().setdNumIDChof(null);
+        assertMensaje(sinDocumento, "documento del chofer");
+    }
+
+    @Test
     void sinTransporteFalla() {
         DocumentoElectronico de = deValido();
         de.getgDtipDE().setgTransp(null);
@@ -168,12 +207,23 @@ class SifenNotasValidatorTest {
         gCamEnt.setcCiuEnt(12);
         TgVehTras gVehTras = new TgVehTras();
         gVehTras.setdMarVeh("TOYOTA");
+        // Transportista y chofer completos: SIFEN rechaza con 0160 si falta cualquiera de estos
+        // campos, y lo aprendimos contra el ambiente DEV (ver §13.11 del plan).
+        TgCamTrans gCamTrans = new TgCamTrans();
+        gCamTrans.setdNomTrans("FRANCO AREVALOS S.A.");
+        gCamTrans.setdRucTrans("80099482");
+        gCamTrans.setdDomFisc("AVDA MCAL LOPEZ 1234");
+        gCamTrans.setdNomChof("JUAN PEREZ");
+        gCamTrans.setdNumIDChof("1234567");
+        gCamTrans.setdDirChof("BARRIO SAN BLAS");
+
         TgTransp gTransp = new TgTransp();
         gTransp.setiTipTrans(TiTTrans.PROPIO);
+        gTransp.setdIniTras(LocalDate.now());
         gTransp.setgCamSal(gCamSal);
         gTransp.setgCamEntList(new ArrayList<>(Collections.singletonList(gCamEnt)));
         gTransp.setgVehTrasList(new ArrayList<>(Collections.singletonList(gVehTras)));
-        gTransp.setgCamTrans(new TgCamTrans());
+        gTransp.setgCamTrans(gCamTrans);
 
         TgDtipDE gDtipDE = new TgDtipDE();
         gDtipDE.setgCamNRE(gCamNRE);

@@ -65,5 +65,13 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Embebed
     public Optional<LoteDE> findByIdAndSucursalId(Long id, Long sucursalId) {
         return repository.findByIdAndSucursalId(id, sucursalId);
     }
+
+    @Override
+    public LoteDE save(LoteDE entity) {
+        if (entity.getId() == null) {
+            entity.setId(repository.siguienteId());
+        }
+        return super.save(entity);
+    }
     
 }

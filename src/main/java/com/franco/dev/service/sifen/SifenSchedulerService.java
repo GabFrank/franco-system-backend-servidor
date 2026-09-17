@@ -247,7 +247,7 @@ public class SifenSchedulerService {
                 
                 try {
                     // 3.1. Crear lote en BD
-                    LoteDE lote = sifenService.crearLote();
+                    LoteDE lote = sifenService.crearLote(loteDEs.get(0).getSucursalId());
                     log.info("✅ Lote creado con ID: {}", lote.getId());
                     
                     // 3.2. Vincular DEs al lote

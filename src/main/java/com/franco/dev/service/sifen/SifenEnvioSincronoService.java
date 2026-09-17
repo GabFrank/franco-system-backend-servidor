@@ -51,7 +51,7 @@ public class SifenEnvioSincronoService {
             throw new IllegalArgumentException("No hay documento electrónico para enviar");
         }
 
-        LoteDE lote = sifenService.crearLote();                                   // T2
+        LoteDE lote = sifenService.crearLote(de.getSucursalId());                 // T2
         sifenService.vincularDocumentosALote(lote, Collections.singletonList(de)); // T2
         log.info("📤 Enviando el documento {} en el lote {}", de.getId(), lote.getId());
         sifenService.enviarLote(lote);                                            // T3

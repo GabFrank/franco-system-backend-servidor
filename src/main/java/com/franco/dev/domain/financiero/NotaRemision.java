@@ -39,8 +39,13 @@ public class NotaRemision implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * El id se toma de la secuencia en el service, no con @GeneratedValue: con @IdClass,
+     * Hibernate intenta escribir POST_INSERT_INDICATOR en el campo de la clase de la PK y el
+     * INSERT falla ("Could not set field value [POST_INSERT_INDICATOR]"). Es la misma razon por
+     * la que en central nunca se inserto una factura ni un documento electronico a mano.
+     */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
 

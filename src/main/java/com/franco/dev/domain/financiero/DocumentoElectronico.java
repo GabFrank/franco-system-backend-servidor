@@ -34,8 +34,13 @@ public class DocumentoElectronico implements Serializable{
   
   private static final long serialVersionUID = 1L;
 
+  /**
+   * El id lo asigna DocumentoElectronicoService desde la secuencia, no @GeneratedValue: con
+   * @IdClass, Hibernate intenta escribir POST_INSERT_INDICATOR en el campo de la clase de la PK y
+   * el INSERT falla. Por eso central nunca pudo crear un DE propio (spike §13.1 del plan); las
+   * filas que hay llegaron todas por replicacion desde las filiales.
+   */
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "id")
   private Long id;
 

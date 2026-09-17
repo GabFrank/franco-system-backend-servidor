@@ -93,6 +93,9 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
             nota.setFecha(LocalDateTime.now());
         }
         nota.setActivo(true);
+        if (nota.getId() == null) {
+            nota.setId(repository.siguienteId());
+        }
 
         NotaRemision guardada = repository.save(nota);
 
@@ -100,6 +103,9 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         for (NotaRemisionItem item : items) {
             item.setNotaRemisionId(guardada.getId());
             item.setSucursalId(guardada.getSucursalId());
+            if (item.getId() == null) {
+                item.setId(itemRepository.siguienteId());
+            }
             guardados.add(itemRepository.save(item));
         }
         log.info("Nota de remisión {} creada con número {} y {} ítems",

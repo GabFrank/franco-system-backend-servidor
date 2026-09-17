@@ -242,9 +242,20 @@ public class SifenService {
      */
     @Transactional
     public LoteDE crearLote() {
+        return crearLote(null);
+    }
+
+    /**
+     * Crea el lote ya con su sucursal. {@code lote_de.sucursal_id} es NOT NULL, asi que un lote
+     * creado sin sucursal no entra: el camino sin sucursal nunca se habia ejecutado en central
+     * (los lotes que hay llegaron por replicacion desde las filiales).
+     */
+    @Transactional
+    public LoteDE crearLote(Long sucursalId) {
         log.info("📦 Creando lote vacío...");
         
         LoteDE lote = new LoteDE();
+        lote.setSucursalId(sucursalId);
         lote.setEstado(EstadoLoteDE.PENDIENTE_ENVIO);
         lote.setFechaUltimoIntento(LocalDateTime.now());
         lote.setIntentos(0);

@@ -1184,3 +1184,55 @@ chofer, receptor), que es además lo que fue al XML.
 
 Con esto la Fase 1 queda completa salvo **1.E** (UI del desktop, va después del PR del central) y
 **1.F** (prueba contra SIFEN TEST, que necesita el certificado y el entorno levantado).
+
+### 13.11 · Fase 1.F — prueba contra SIFEN (2026-09-17)
+
+Corrida con Franco, sobre **su `bodega` local** (autorizado) y contra el ambiente de pruebas de la
+SET. Emisor real: FRANCO AREVALOS S.A., RUC 80099482-5, timbrado 18270044, sucursal 1, punto de
+expedición 001.
+
+⚠️ **Corrección al plan: `sifen.ambiente=TEST` no existe.** La librería solo acepta `DEV` y `PROD`
+(`SifenConfig.TipoAmbiente`). El ambiente de pruebas es **`DEV`**; con `TEST` el arranque falla.
+El certificado tampoco estaba donde decía la config (`/home/franco/Documents/franco-sa.pfx` no
+existe; el real es `/home/franco/FRC/certificate.pfx`).
+
+**Cuatro defectos encontrados, todos de código y todos corregidos en esta fase:**
+
+1. **Ninguna entidad con `@IdClass` podía insertarse.** `@GeneratedValue(IDENTITY)` + `@IdClass`
+   falla con `Could not set field value [POST_INSERT_INDICATOR] ... EmbebedPrimaryKey.id`. Afectaba
+   a `NotaRemision`, `NotaRemisionItem`, **`DocumentoElectronico` y `LoteDE`**: es la otra mitad del
+   hallazgo de §13.1 y termina de explicar por qué central nunca creó un DE propio. Solución: el id
+   se toma de la secuencia de la tabla (`nextval`) en el service, y el `@GeneratedValue` se saca.
+   En `documento_electronico` y `lote_de` ese `nextval` es además lo que respeta la partición
+   impar/par de `V226.1`.
+2. **`crearLote()` de central no asignaba la sucursal** y `lote_de.sucursal_id` es `NOT NULL`. Se
+   agregó `crearLote(sucursalId)`; lo usan el envío síncrono y el scheduler.
+3. **`dIniTras` (inicio del traslado) es obligatorio** y jsifenlib falla al serializar con un
+   `NullPointerException` que no dice qué falta. Ahora se toma la fecha de emisión si no vino, y el
+   validador lo exige.
+4. **Rechazos reales de SIFEN, incorporados como reglas del validador:**
+   - `0160 XML malformado: dNomTrans / dRucTrans inválidos, Elemento esperado: dDomFisc` — el
+     transportista es obligatorio siempre. En transporte **propio** se completa con los datos del
+     emisor (razón social, RUC y dirección del timbrado), como hace la referencia.
+   - `0160 XML malformado: Elemento esperado: dDirChof dentro de: gCamTrans` — el chofer va
+     **completo o no va**: nombre, documento y dirección.
+
+**Documentos emitidos en DEV** (cada uno consumió su número de la serie):
+
+| Nota | CDC | Resultado |
+|---|---|---|
+| 1 | `07800994825001001000000122026091717674449608` | `0160` transportista incompleto |
+| 2 | `07800994825001001000000222026091710133404280` | `0160` falta dirección del chofer |
+| 4 | `07800994825001001000000422026091717241673277` | **`2450` Certificado digital no vigente [Certificado Expirado]** |
+
+El CDC arranca con `07` (tipo 7 = nota de remisión) y el QR apunta a `ekuatia.set.gov.py/consultas-test`:
+el circuito completo —numeración, CDC, XML firmado, lote, envío y consulta de estado— **funciona**.
+
+🚩 **Bloqueo, y no es de código: el certificado de firma venció el 2026-08-20.**
+`/home/franco/FRC/certificate.pfx` y el `certificados/certificado.pfx` del repo son el mismo, de
+GUILLERMO FRANCO AREVALOS, válido del 2025-08-20 al **2026-08-20**. Hoy es 2026-09-17. Hasta que no
+haya un certificado vigente no se puede obtener un `APROBADO`, ni en DEV ni en PROD. Runbook:
+`frc-cicd` → `runbooks/rotacion-certificado-sifen.md`.
+
+**Queda sin probar** hasta tener certificado vigente: la aprobación de SIFEN, los otros dos orígenes
+(transferencia y factura), la anulación por evento y la inutilización de rango.

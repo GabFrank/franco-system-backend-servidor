@@ -101,6 +101,9 @@ public class DocumentoElectronicoService extends CrudService<DocumentoElectronic
 
     @Override
     public DocumentoElectronico save(DocumentoElectronico entity) {
+        if (entity.getId() == null) {
+            entity.setId(repository.siguienteId());
+        }
         return super.save(entity);
     }
 }

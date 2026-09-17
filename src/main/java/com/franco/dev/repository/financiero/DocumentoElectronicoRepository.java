@@ -30,6 +30,13 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
 
     List<DocumentoElectronico> findByEstado(EstadoDE estado);
 
+    /**
+     * Siguiente id de la secuencia. Desde V226.1 el central genera impares y cada filial pares, asi
+     * que este nextval es tambien lo que mantiene separados los dos espacios de ids.
+     */
+    @Query(value = "SELECT nextval('financiero.documento_electronico_id_seq')", nativeQuery = true)
+    Long siguienteId();
+
     @Query("SELECT d FROM DocumentoElectronico d WHERE d.notaRemisionId = :notaRemisionId "
            + "AND d.sucursalId = :sucursalId")
     Optional<DocumentoElectronico> findByNotaRemisionId(@Param("notaRemisionId") Long notaRemisionId,

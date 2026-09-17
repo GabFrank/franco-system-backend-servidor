@@ -16,6 +16,10 @@ public interface NotaRemisionItemRepository extends HelperRepository<NotaRemisio
         return NotaRemisionItem.class;
     }
 
+    /** Siguiente id de la secuencia de la tabla (ver NotaRemisionRepository.siguienteId). */
+    @Query(value = "SELECT nextval('financiero.nota_remision_item_id_seq')", nativeQuery = true)
+    Long siguienteId();
+
     @Query("SELECT i FROM NotaRemisionItem i WHERE i.notaRemisionId = :notaRemisionId "
             + "AND i.sucursalId = :sucursalId ORDER BY i.id ASC")
     List<NotaRemisionItem> findByNotaRemision(@Param("notaRemisionId") Long notaRemisionId,

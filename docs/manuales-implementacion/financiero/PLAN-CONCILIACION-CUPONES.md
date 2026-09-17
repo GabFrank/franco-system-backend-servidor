@@ -302,3 +302,132 @@ configuración guardada de la caja no tiene el bloque `printers` —porque se gu
 existiera—, `printerName` llegaba `undefined`, `printSenaCupon` devolvía `false` y el cajero leía
 «no se pudo imprimir» sin ninguna pista de que el problema era la configuración de su propia caja.
 Ahora `onImprimirSena` no llama al filial sin impresora y el aviso dice dónde configurarla.
+
+---
+
+## 10 · Pulidos pendientes del PR (2026-09-17)
+
+Cosas chicas, encontradas corriendo la prueba manual. Ninguna bloquea, pero todas le cuestan
+minutos a alguien que no sabe lo que nosotros sabemos.
+
+### 10.1 · El rechazo del cupón manda al lugar equivocado cuando lo que se pegó es una seña
+
+Hay **dos campos de escaneo a un clic uno del otro**, y esperan vocabularios distintos:
+
+| campo | dónde | acepta | rechaza con |
+|---|---|---|---|
+| «Escaneá la seña del cobro» | arriba de la lista de conciliación | `frc-…` | «Ese código no es la seña de un cobro con tarjeta» |
+| «Escaneá el QR del cupón» | dentro del diálogo de completar | `FRCP1*…` | «El código leído no corresponde a ningún formato conocido. Registralo desde el celular» |
+
+El de la izquierda dice **qué es lo que esperaba**. El de la derecha no: dice que no reconoce el
+código y propone el celular, que es la salida correcta para un cupón ilegible y la equivocada para
+una seña pegada en el campo de al lado. Pasó en la prueba del 2026-09-17: la cadena era correcta y
+el campo era el otro.
+
+**Arreglo propuesto** en `qr-pos-parser.ts`: antes de devolver el error genérico, mirar si la cadena
+empieza con `frc-`; si empieza, decir «Eso es la seña del cobro, no el cupón de la terminal. La seña
+va en el campo de arriba de la lista». Es una rama de tres líneas y no toca el contrato de parseo.
+
+### 10.2 · Reabrir un cobro marcado NO_COMPLETADO — APROBADO para este PR
+
+Pedido de Gabriel el 2026-09-17: hoy `NO_COMPLETADO` es terminal, y los dos casos en que eso está
+mal son reales y frecuentes.
+
+- **Se marcó por error.** El cajero eligió la fila equivocada de tres del mismo monto.
+- **Apareció el cupón.** `CUPON_PERDIDO` es literalmente «todavía no lo encontré». Que el papel
+  aparezca al día siguiente es el caso normal, no el raro.
+
+Hoy, en los dos, la plata queda sin conciliar para siempre por una decisión tomada con información
+incompleta, que es exactamente lo que §8 quería evitar.
+
+**Lo que hay que resolver antes de escribirlo:**
+
+1. **Qué pasa con el rastro.** Limpiar `no_completado_*` borra justamente lo que §8 existe para
+   guardar. Lo mínimo honesto es conservarlas y agregar `reabierto_por_id` + `reabierto_en`: un
+   nivel de historia, sin tabla nueva. Una tabla de historial completo sería lo correcto en abstracto
+   y abre superficie de replicación nueva en una tabla BRANCH_TO_MAIN — no en esta entrega.
+2. **Caja cerrada.** El caso realista ocurre *después* del cierre, y el diálogo de conciliación está
+   atado a una caja. La pantalla que sirve es `ListVentaTarjetaComponent`, que ya filtra por estado
+   y tiene columna de acciones.
+3. **Quién.** Deshacer el propio error dentro de la propia caja abierta es del cajero. Reabrir el
+   cobro de una caja ya cerrada es de supervisor: es tocar un turno que alguien dio por cerrado.
+
+⚠️ **El costo no es simétrico en el tiempo.** Las columnas `reabierto_*` van sobre
+`financiero.venta_tarjeta`, que es BRANCH_TO_MAIN: agregarlas después es **otro** par de migraciones
+con la misma secuencia obligatoria central-primero-filial-después. Agregarlas ahora, dentro de
+`V102.5` / `V228.5`, es gratis.
+
+**Decidido el 2026-09-17 (Gabriel): entra completo en este PR** —columnas, mutation y UI—, pero
+**se escribe recién cuando termine la prueba manual en curso**. Primero se cierra lo que ya está
+implementado; después se agrega esto y se prueba **sólo el camino nuevo**, no la guía entera. El
+orden importa: meterlo ahora obligaría a reabrir bloques de la prueba que ya pasaron.
+
+Alcance acordado:
+
+| dónde | qué |
+|---|---|
+| `filial` `V102.5` | `reabierto_por_id` (FK a `personas.usuario`) + `reabierto_en`, en la **misma** migración que las cuatro de §8 |
+| `central` `V228.5` | las mismas dos columnas, sin FK — es el subscriber |
+| `filial` | `reabrir(id, sucursalId, usuario)`: sólo `NO_COMPLETADO` → `PENDIENTE`; conserva `no_completado_*` y sella quién reabrió y cuándo |
+| `desktop` | acción en `ListVentaTarjetaComponent` (la lista general, no el diálogo de una caja: el caso real ocurre con la caja ya cerrada), con gate de rol |
+
+### 10.3 · «Escanear otro» deja el código de la terminal en el campo del próximo escaneo
+
+Encontrado por Gabriel el 2026-09-17 y reproducido con un grabador de DOM en la app en vivo.
+
+**Qué pasa.** En el PDV, al registrar un cobro con tarjeta cuyo cupón no coincide con el monto, el
+diálogo ofrece «Registrar igual» / «Escanear otro». Al elegir «Escanear otro»,
+`PagoTouchComponent.confirmarDiferenciaCupon()` llama a `escanearTarjeta(item)`, que reabre
+`ScanTerminalPosDialogComponent` pasándole `terminalPos: item.terminalPos`. El constructor de ese
+diálogo hace:
+
+```ts
+if (data?.terminalPos != null) {
+  this.selectedTerminalPos = data.terminalPos;
+  this.codigoControl.setValue(data.terminalPos.codigo);   // ← queda "VP-CAJA1" en el campo
+}
+```
+
+Medido en la página, justo después de tocar «Escanear otro»:
+
+```json
+{ "value": "VP-CAJA1", "focused": true, "selStart": 8, "selEnd": 8 }
+```
+
+El campo tiene el foco, con el texto **puesto y sin seleccionar**, y el cursor al final.
+
+**Por qué importa.** Ese mismo campo —«Código de la terminal o QR del cupón»— es donde el cajero
+tiene que pasar el cupón siguiente, y el lector es keyboard-wedge: escribe donde está el cursor. El
+resultado es `VP-CAJA1FRCP1*J1K2L3*...`, que **no matchea ningún patrón** (están anclados con `^`) y
+tampoco encuentra ninguna terminal por código. O sea: el cajero escanea un cupón perfectamente bueno
+y recibe un error que no tiene nada que ver. La única salida es borrar el campo a mano, y nada en la
+pantalla se lo dice.
+
+El prefill no está de más en el caso normal —reabrir el diálogo desde el ícono de QR para ver o
+cambiar la terminal—, pero en el camino de «Escanear otro» lo que viene es un **cupón**, no un
+código de terminal.
+
+**El arreglo — y por qué no alcanzaba seleccionar el texto.** El primer intento fue dejar el prefill
+y agregar `input.select()`, para que el escaneo lo pisara. Gabriel lo rechazó con la pregunta
+correcta: *¿qué utilidad tiene que el texto se mantenga ahí?*
+
+La respuesta, mirando el template: **el diálogo no muestra la terminal elegida en ningún lado**. No
+hay chip, ni nombre, ni nada — `selectedTerminalPos` no aparece en el HTML. El input precargado era
+el único indicio, y encima mostraba `codigo` (`VP-CAJA1`, la etiqueta interna) en vez de
+`descripcion` (`VALIDAPIX CAJA 1`, que es como el cajero la conoce). O sea: un cartel informativo
+puesto adentro del campo donde entra el próximo escaneo.
+
+Lo implementado:
+
+| archivo | cambio |
+|---|---|
+| `scan-terminal-pos-dialog.component.ts` | El constructor ya **no** precarga `codigoControl`. Sigue recordando `selectedTerminalPos` |
+| `scan-terminal-pos-dialog.component.html` | Línea nueva que muestra la terminal de la línea por **nombre** y dice qué hace cada salida |
+| `scan-terminal-pos-dialog.component.ts` | `enfocarInput()` agrega `select()` como defensa: si algo vuelve a dejar texto, el lector lo reemplaza |
+
+No se pierde ninguna capacidad: conservar la terminal sin volver a escanear es **Cancelar**, que en
+`pago-touch` deja la línea como estaba (`if (!result?.terminalPos) return;`). El botón Confirmar ya
+estaba atado a `codigoControl.invalid`, así que con el campo vacío queda deshabilitado — que es lo
+correcto, porque sin escanear nada no hay nada que confirmar.
+
+Va en este PR: está en el camino principal del cajero, no en un borde.

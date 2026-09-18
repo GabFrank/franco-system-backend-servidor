@@ -89,6 +89,7 @@ public class SifenService {
     private final FacturaLegalService facturaLegalService;
     private final com.roshka.sifen.core.SifenConfig sifenConfig;
     private final SifenNotaRemisionBuilder notaRemisionBuilder;
+    private final SifenNotaCreditoBuilder notaCreditoBuilder;
 
     @Value("${tipoContribuyenteEmisor:2}")
     private Integer tipoContribuyenteEmisor;
@@ -102,7 +103,8 @@ public class SifenService {
             EventoNominacionDEService eventoNominacionDEService,
             @Lazy FacturaLegalService facturaLegalService,
             com.roshka.sifen.core.SifenConfig sifenConfig,
-            SifenNotaRemisionBuilder notaRemisionBuilder) {
+            SifenNotaRemisionBuilder notaRemisionBuilder,
+            SifenNotaCreditoBuilder notaCreditoBuilder) {
         this.documentoElectronicoService = documentoElectronicoService;
         this.loteDEService = loteDEService;
         this.facturaLegalItemService = facturaLegalItemService;
@@ -112,6 +114,7 @@ public class SifenService {
         this.facturaLegalService = facturaLegalService;
         this.sifenConfig = sifenConfig;
         this.notaRemisionBuilder = notaRemisionBuilder;
+        this.notaCreditoBuilder = notaCreditoBuilder;
     }
 
     // ===================== CREACIÓN DE DOCUMENTOS ELECTRÓNICOS =====================
@@ -230,6 +233,56 @@ public class SifenService {
         de.setEstado(EstadoDE.PENDIENTE);
         com.franco.dev.domain.financiero.DocumentoElectronico guardado = documentoElectronicoService.save(de);
         log.info("✅ DE de nota de remisión creado - ID: {}, CDC: {}", guardado.getId(), guardado.getCdc());
+        return guardado;
+    }
+
+    /**
+     * Crea el DE de una nota de credito y lo persiste en PENDIENTE con su CDC, su XML y su QR.
+     * Igual que la remision, es la T1 del envio en un paso (D8): no envia nada.
+     */
+    @Transactional
+    public com.franco.dev.domain.financiero.DocumentoElectronico crearDocumentoElectronicoNotaCredito(
+            com.franco.dev.domain.financiero.NotaCredito nota,
+            List<com.franco.dev.domain.financiero.NotaCreditoItem> items,
+            com.franco.dev.domain.financiero.TimbradoDetalle timbradoDetalle,
+            com.franco.dev.domain.empresarial.Sucursal sucursal,
+            String cdcFactura) throws SifenException {
+
+        log.info("📝 Creando DE para la nota de crédito ID: {}", nota.getId());
+
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("La nota de crédito no tiene ítems");
+        }
+
+        com.franco.dev.domain.financiero.DocumentoElectronico de =
+            documentoElectronicoService.createFromNotaCredito(nota);
+
+        com.roshka.sifen.core.beans.DocumentoElectronico deSifen =
+            notaCreditoBuilder.construir(nota, items, timbradoDetalle, sucursal, cdcFactura);
+        SifenNotasValidator.validarNCE(deSifen);
+        aplicarFixTotalesIVA(deSifen.getgTotSub());
+
+        de.setCdc(deSifen.obtenerCDC());
+
+        try {
+            com.roshka.sifen.internal.ctx.GenerationCtx ctx =
+                com.roshka.sifen.internal.ctx.GenerationCtx.getDefaultFromConfig(sifenConfig);
+            String xmlOriginal = deSifen.generarXml(ctx);
+            de.setXmlOriginal(xmlOriginal);
+            String urlQr = com.franco.dev.service.sifen.util.SifenXmlParser.extractUrlQr(xmlOriginal);
+            if (urlQr != null) {
+                de.setUrlQr(urlQr);
+            } else {
+                log.warn("   URL QR no encontrada en el XML de la nota de crédito {}", nota.getId());
+            }
+        } catch (Exception e) {
+            log.error("   Error al generar el XML de la nota de crédito {}: {}", nota.getId(), e.getMessage());
+            throw new RuntimeException("Error al generar el XML de la nota de crédito", e);
+        }
+
+        de.setEstado(EstadoDE.PENDIENTE);
+        com.franco.dev.domain.financiero.DocumentoElectronico guardado = documentoElectronicoService.save(de);
+        log.info("✅ DE de nota de crédito creado - ID: {}, CDC: {}", guardado.getId(), guardado.getCdc());
         return guardado;
     }
 

@@ -1,0 +1,151 @@
+package com.franco.dev.graphql.financiero;
+
+import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.DocumentoElectronico;
+import com.franco.dev.domain.financiero.NotaCredito;
+import com.franco.dev.domain.financiero.NotaCreditoItem;
+import com.franco.dev.domain.financiero.TimbradoDetalle;
+import com.franco.dev.domain.financiero.enums.EstadoDE;
+import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaCredito;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.service.financiero.*;
+import com.franco.dev.service.sifen.SifenEnvioSincronoService;
+import com.franco.dev.service.sifen.SifenService;
+import com.franco.dev.utilitarios.DateUtils;
+import graphql.GraphQLException;
+import graphql.kickstart.tools.GraphQLMutationResolver;
+import graphql.kickstart.tools.GraphQLQueryResolver;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+/**
+ * Notas de crédito electrónicas. Igual que la remisión: control de rol en la primera línea y el
+ * envío encadenado en tres transacciones separadas desde el resolver (D8).
+ */
+@Slf4j
+@Component
+public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+
+    @Autowired private NotaCreditoService service;
+    @Autowired private DocumentoElectronicoService documentoElectronicoService;
+    @Autowired private TimbradoDetalleService timbradoDetalleService;
+    @Autowired private SucursalService sucursalService;
+    @Autowired private FacturacionSecurityService seg;
+    @Autowired(required = false) private SifenService sifenService;
+    @Autowired(required = false) private SifenEnvioSincronoService envioSincronoService;
+
+    // ===================== QUERIES =====================
+
+    public NotaCredito notaCredito(Long id, Long sucursalId) {
+        seg.requireVer();
+        return service.findByIdAndSucursalId(id, sucursalId).orElse(null);
+    }
+
+    public Page<NotaCredito> notaCreditos(Long sucursalId, String fechaInicio, String fechaFin,
+                                          int page, int size) {
+        seg.requireVer();
+        LocalDateTime desde = fechaInicio != null ? DateUtils.stringToDate(fechaInicio) : null;
+        LocalDateTime hasta = fechaFin != null ? DateUtils.stringToDate(fechaFin) : null;
+        return service.findByFilters(sucursalId, desde, hasta, PageRequest.of(page, size));
+    }
+
+    public List<NotaCreditoItem> notaCreditoItems(Long notaCreditoId, Long sucursalId) {
+        seg.requireVer();
+        return service.findItems(notaCreditoId, sucursalId);
+    }
+
+    /** Las notas activas de una factura: el desktop deshabilita el botón si ya hay una. */
+    public List<NotaCredito> notaCreditosPorFactura(Long facturaLegalId, Long sucursalId) {
+        seg.requireVer();
+        return service.findActivasByFactura(facturaLegalId, sucursalId);
+    }
+
+    public DocumentoElectronico documentoElectronicoDeNotaCredito(Long notaCreditoId, Long sucursalId) {
+        seg.requireVer();
+        return documentoElectronicoService.findByNotaCreditoId(notaCreditoId, sucursalId).orElse(null);
+    }
+
+    // ===================== MUTATIONS =====================
+
+    public NotaCredito crearNotaCreditoDesdeFactura(Long facturaLegalId, Long sucursalId, String motivo,
+                                                    String descripcionMotivo, Long usuarioId) {
+        // requireEmitirNc lo llama el service, que es donde también se valida la factura
+        return service.crearDesdeFactura(facturaLegalId, sucursalId,
+                motivo != null ? MotivoEmisionNotaCredito.valueOf(motivo) : null,
+                descripcionMotivo, usuarioId);
+    }
+
+    public DocumentoElectronico generarYEnviarNotaCredito(Long id, Long sucursalId) {
+        seg.requireEmitirNc();
+        exigirSifenHabilitado();
+
+        NotaCredito nota = service.findByIdAndSucursalId(id, sucursalId)
+                .orElseThrow(() -> new GraphQLException("No existe la nota de crédito"));
+
+        DocumentoElectronico de = documentoElectronicoService.findByNotaCreditoId(id, sucursalId)
+                .orElseGet(() -> crearDocumento(nota, sucursalId));
+
+        try {
+            envioSincronoService.generarYEnviarSincrono(de);
+        } catch (Exception e) {
+            log.error("Error al enviar la nota de crédito {} a SIFEN: {}", id, e.getMessage());
+            throw new GraphQLException("La nota quedó creada pero SIFEN no la recibió: " + e.getMessage());
+        }
+        return documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(de);
+    }
+
+    /** Reenvía el mismo DE, con su CDC: no genera otro ni consume otro número. */
+    public DocumentoElectronico reenviarNotaCredito(Long id, Long sucursalId) {
+        seg.requireEmitirNc();
+        exigirSifenHabilitado();
+
+        DocumentoElectronico de = documentoElectronicoService.findByNotaCreditoId(id, sucursalId)
+                .orElseThrow(() -> new GraphQLException("La nota de crédito todavía no tiene documento electrónico"));
+        if (de.getEstado() == EstadoDE.APROBADO) {
+            throw new GraphQLException("La nota de crédito ya fue aprobada por SIFEN");
+        }
+        try {
+            envioSincronoService.generarYEnviarSincrono(de);
+        } catch (Exception e) {
+            throw new GraphQLException("No se pudo reenviar la nota de crédito: " + e.getMessage());
+        }
+        return documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(de);
+    }
+
+    public NotaCredito anularNotaCredito(Long id, Long sucursalId) {
+        return service.anular(id, sucursalId);
+    }
+
+    // ===================== INTERNO =====================
+
+    private DocumentoElectronico crearDocumento(NotaCredito nota, Long sucursalId) {
+        List<NotaCreditoItem> items = service.findItems(nota.getId(), sucursalId);
+        TimbradoDetalle timbrado = timbradoDetalleService
+                .findByIdAndSucursalId(nota.getTimbradoDetalleId(), sucursalId)
+                .orElseThrow(() -> new GraphQLException("No se encontró el timbrado de la nota"));
+        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+
+        String cdcFactura = documentoElectronicoService
+                .findByFacturaLegalId(nota.getFacturaLegalId(), sucursalId)
+                .map(DocumentoElectronico::getCdc)
+                .orElseThrow(() -> new GraphQLException("La factura asociada no tiene CDC"));
+
+        try {
+            return sifenService.crearDocumentoElectronicoNotaCredito(nota, items, timbrado, sucursal, cdcFactura);
+        } catch (Exception e) {
+            throw new GraphQLException("No se pudo generar el documento electrónico: " + e.getMessage());
+        }
+    }
+
+    private void exigirSifenHabilitado() {
+        if (sifenService == null || envioSincronoService == null) {
+            throw new GraphQLException("SIFEN está deshabilitado en este servidor (sifen.enabled=false)");
+        }
+    }
+}

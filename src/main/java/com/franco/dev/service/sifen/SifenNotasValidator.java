@@ -4,6 +4,7 @@ import com.roshka.sifen.core.beans.DocumentoElectronico;
 import com.roshka.sifen.core.fields.request.de.TgCamItem;
 import com.roshka.sifen.core.fields.request.de.TgCamNRE;
 import com.roshka.sifen.core.fields.request.de.TgTransp;
+import com.roshka.sifen.core.types.CMondT;
 import com.roshka.sifen.core.types.TTiDE;
 import com.roshka.sifen.core.types.TiMotivTras;
 import com.roshka.sifen.core.types.TiTipDocRec;
@@ -20,6 +21,57 @@ import graphql.GraphQLException;
 public final class SifenNotasValidator {
 
     private SifenNotasValidator() {
+    }
+
+    /**
+     * Reglas de la nota de credito. Menos que la remision porque el grueso lo comparte con la
+     * factura, pero las tres que importan son fiscales: documento asociado, moneda y totales.
+     */
+    public static void validarNCE(DocumentoElectronico de) {
+        if (de == null) {
+            throw new GraphQLException("No se pudo construir el documento electrónico de la nota de crédito");
+        }
+        if (de.getgTimb() == null || de.getgTimb().getiTiDE() != TTiDE.NOTA_DE_CREDITO_ELECTRONICA) {
+            throw new GraphQLException("El tipo de documento tiene que ser Nota de Crédito Electrónica");
+        }
+        if (de.getgDatGralOpe() == null || de.getgDatGralOpe().getgEmis() == null
+                || de.getgDatGralOpe().getgDatRec() == null) {
+            throw new GraphQLException("Faltan los datos del emisor o del receptor");
+        }
+        if (de.getgDtipDE() == null || de.getgDtipDE().getgCamNCDE() == null
+                || de.getgDtipDE().getgCamNCDE().getiMotEmi() == null) {
+            throw new GraphQLException("Falta el motivo de la nota de crédito");
+        }
+        if (de.getgDtipDE().getgCamItemList() == null || de.getgDtipDE().getgCamItemList().isEmpty()) {
+            throw new GraphQLException("La nota de crédito necesita al menos un ítem");
+        }
+        // A diferencia de la remisión, acá los ítems SI llevan precio e IVA: sin ellos la nota
+        // acredita cero.
+        for (TgCamItem item : de.getgDtipDE().getgCamItemList()) {
+            if (item.getgValorItem() == null) {
+                throw new GraphQLException("Los ítems de una nota de crédito llevan precio");
+            }
+            if (item.getgCamIVA() == null) {
+                throw new GraphQLException("Los ítems de una nota de crédito llevan IVA");
+            }
+        }
+        if (de.getgTotSub() == null) {
+            throw new GraphQLException("La nota de crédito tiene que llevar totales");
+        }
+        // El documento asociado es lo que convierte la nota en crédito DE esa factura.
+        if (de.getgCamDEAsocList() == null || de.getgCamDEAsocList().isEmpty()) {
+            throw new GraphQLException("La nota de crédito necesita el CDC de la factura asociada");
+        }
+        // Moneda: en guaraníes no se informa tipo de cambio; en extranjera es obligatorio.
+        if (de.getgDatGralOpe().getgOpeCom() != null) {
+            CMondT moneda = de.getgDatGralOpe().getgOpeCom().getcMoneOpe();
+            java.math.BigDecimal cambio = de.getgDatGralOpe().getgOpeCom().getdTiCam();
+            if (moneda != null && moneda != CMondT.PYG
+                    && (cambio == null || cambio.signum() <= 0)) {
+                throw new GraphQLException("Una nota de crédito en " + moneda
+                        + " necesita el tipo de cambio de su factura");
+            }
+        }
     }
 
     private static boolean vacio(String valor) {

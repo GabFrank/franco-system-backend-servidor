@@ -1236,3 +1236,43 @@ haya un certificado vigente no se puede obtener un `APROBADO`, ni en DEV ni en P
 
 **Queda sin probar** hasta tener certificado vigente: la aprobación de SIFEN, los otros dos orígenes
 (transferencia y factura), la anulación por evento y la inutilización de rango.
+
+### 13.12 · Fase 2 — Nota de Crédito (2026-09-18)
+
+Backend completo salvo el KuDE (2.D) y la prueba contra SIFEN (2.H), que espera certificado vigente.
+
+- **`V228.1__nota_credito.sql`**: `financiero.nota_credito` y `nota_credito_item`, PK compuesta,
+  `UNIQUE (timbrado_detalle_id, numero_nota_credito)`, FK compuestas a `timbrado_detalle` y
+  `factura_legal` (esta **NOT NULL**: no hay NC sin factura en este alcance), FK desde
+  `documento_electronico.nota_credito_id` y el **`CHECK` de un solo origen** (`NOT VALID` +
+  `VALIDATE`, que valida sin bloquear porque toda fila existente tiene solo `factura_legal_id`).
+- **`MotivoEmisionNotaCredito`** (8 valores, espejo de `TiMotEmi`) con su `.graphqls` en el mismo
+  commit.
+- **`NotaCreditoService.crearDesdeFactura`**: exige factura activa, **electrónica y con DE
+  `APROBADO`** (sin eso el CDC asociado no existe y SIFEN rechaza), una sola NC activa por factura,
+  número por timbrado bajo el mismo lock pesimista que la remisión. Copia **1:1** ítems y totales, y
+  **hereda moneda y tipo de cambio**: recalcular introduce diferencias de redondeo contra la factura
+  que se acredita, y eso es una inconsistencia que SIFEN ve en los totales.
+- **`SifenNotaCreditoBuilder`**: `iTiDE = 5`, `gCamNCDE` con el motivo por nombre de enum,
+  `gCamCond` **CONTADO** con entrega inicial en efectivo (una NC no se financia), ítems **con**
+  precio e IVA vía `GCamIvaMapper` (el mismo de la factura), `gCamDEAsoc` con el CDC de la factura en
+  el DE raíz, y `gTotSub` + `aplicarFixTotalesIVA`. En guaraníes **no** se informan `dTiCam` ni
+  `dCondTiCam`; en moneda extranjera el cambio va con 6 decimales y el precio unitario se convierte.
+- **`SifenNotasValidator.validarNCE`**: tipo 5, emisor y receptor, motivo, ítems con precio e IVA
+  (al revés que la remisión), totales presentes, **documento asociado obligatorio** y coherencia de
+  moneda contra tipo de cambio.
+- **2.E — ventana de 48 h en `cancelarFacturaLegal`**: si pasaron más de 48 h desde
+  `fechaRecepcionSifen`, devuelve `ERROR_PLAZO_NC: …` **sin llamar a SIFEN**, y el desktop ofrece
+  emitir la nota. Sin fecha de aprobación no se bloquea nada: decide SIFEN, como hasta ahora.
+- **`NotaCreditoGraphQL`** + schema: 5 queries y 4 mutations, control de rol en la primera línea, y
+  el envío encadenado en tres transacciones como la remisión.
+- **Tests nuevos (23)**: `NotaCreditoServiceTest` (10), `SifenNotaCreditoBuilderTest` (8),
+  `CancelarFacturaLegalPlazoTest` (5, el caso que **no existía** antes de este cambio: la factura de
+  72 h llamaba a SIFEN igual y el usuario veía un rechazo genérico). Batería: **783 tests, 0 fallas,
+  BUILD SUCCESS**.
+- **Verificación de arranque** (lo que el CI no hace): central levantado contra una copia del esquema
+  de `bodega`; aplicó las **cuatro** migraciones en 165 ms y arrancó. Verificado después: las dos
+  tablas, la FK del DE y el `CHECK` validado; un `INSERT` con factura **y** nota a la vez se rechaza.
+
+**Falta de la Fase 2**: el KuDE (2.D) y la prueba contra SIFEN (2.H). **Falta de la Fase 1**: la
+prueba (1.F) más allá de lo ya emitido. Las dos esperan el **certificado vigente** (§13.11).

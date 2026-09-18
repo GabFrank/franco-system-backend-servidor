@@ -37,6 +37,11 @@ public interface DocumentoElectronicoRepository extends HelperRepository<Documen
     @Query(value = "SELECT nextval('financiero.documento_electronico_id_seq')", nativeQuery = true)
     Long siguienteId();
 
+    @Query("SELECT d FROM DocumentoElectronico d WHERE d.notaCreditoId = :notaCreditoId "
+           + "AND d.sucursalId = :sucursalId")
+    Optional<DocumentoElectronico> findByNotaCreditoId(@Param("notaCreditoId") Long notaCreditoId,
+                                                       @Param("sucursalId") Long sucursalId);
+
     @Query("SELECT d FROM DocumentoElectronico d WHERE d.notaRemisionId = :notaRemisionId "
            + "AND d.sucursalId = :sucursalId")
     Optional<DocumentoElectronico> findByNotaRemisionId(@Param("notaRemisionId") Long notaRemisionId,

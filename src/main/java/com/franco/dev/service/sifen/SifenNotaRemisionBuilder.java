@@ -175,18 +175,16 @@ public class SifenNotaRemisionBuilder {
         gCamNRE.setiMotEmiNR(TiMotivTras.valueOf(nota.getMotivoEmision().name()));
         gCamNRE.setiRespEmiNR(TiRespEmiNR.valueOf(nota.getResponsableEmision().name()));
 
-        int km = nota.getKmEstimado() != null && nota.getKmEstimado() > 0 ? nota.getKmEstimado() : 0;
-        if (km > 0) {
-            gCamNRE.setdKmR(km);
-        }
+        // dKmR es OBLIGATORIO siempre, no solo cuando hay fecha estimada de factura. Lo dijo
+        // SIFEN de producción el 2026-09-18, rechazando con
+        // «0160 XML malformado: [Elemento esperado: dKmR dentro de: gCamNRE]».
+        // El validador exige que venga cargado; el mínimo de 1 es la red para una nota vieja.
+        int km = nota.getKmEstimado() != null && nota.getKmEstimado() > 0 ? nota.getKmEstimado() : 1;
+        gCamNRE.setdKmR(km);
 
         LocalDate fechaEstimada = fechaEstimadaFactura(nota);
         if (fechaEstimada != null) {
             gCamNRE.setdFecEm(fechaEstimada);
-            // El XSD exige dKmR antes de dFecEm: si no hay kilómetros, va el mínimo.
-            if (km <= 0) {
-                gCamNRE.setdKmR(1);
-            }
         }
         gDtipDE.setgCamNRE(gCamNRE);
 
@@ -277,14 +275,14 @@ public class SifenNotaRemisionBuilder {
 
         TgCamSal gCamSal = new TgCamSal();
         gCamSal.setdDirLocSal(nota.getSalidaDireccion());
-        gCamSal.setcDepSal(SifenGeografiaHelper.departamento(nota.getSalidaDepartamento()));
+        gCamSal.setcDepSal(SifenGeografiaHelper.departamentoExigido(nota.getSalidaDepartamento(), "salida"));
         if (nota.getSalidaCodigoCiudad() != null) gCamSal.setcCiuSal(nota.getSalidaCodigoCiudad());
         gCamSal.setdDesCiuSal(nota.getSalidaCiudad());
         gTransp.setgCamSal(gCamSal);
 
         TgCamEnt gCamEnt = new TgCamEnt();
         gCamEnt.setdDirLocEnt(nota.getEntregaDireccion());
-        gCamEnt.setcDepEnt(SifenGeografiaHelper.departamento(nota.getEntregaDepartamento()));
+        gCamEnt.setcDepEnt(SifenGeografiaHelper.departamentoExigido(nota.getEntregaDepartamento(), "entrega"));
         if (nota.getEntregaCodigoCiudad() != null) gCamEnt.setcCiuEnt(nota.getEntregaCodigoCiudad());
         gCamEnt.setdDesCiuEnt(nota.getEntregaCiudad());
         gTransp.setgCamEntList(new ArrayList<>(Collections.singletonList(gCamEnt)));

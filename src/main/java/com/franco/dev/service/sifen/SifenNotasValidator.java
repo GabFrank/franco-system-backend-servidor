@@ -106,6 +106,11 @@ public final class SifenNotasValidator {
         if (gCamNRE == null) {
             throw new GraphQLException("Falta el grupo de la nota de remisión (gCamNRE)");
         }
+        // dKmR es obligatorio SIEMPRE. SIFEN de producción rechaza el lote entero con
+        // «0160 XML malformado: [Elemento esperado: dKmR dentro de: gCamNRE]».
+        if (gCamNRE.getdKmR() <= 0) {
+            throw new GraphQLException("Falta la distancia estimada del traslado en km: SIFEN la exige");
+        }
 
         if (de.getgDtipDE().getgCamItemList() == null || de.getgDtipDE().getgCamItemList().isEmpty()) {
             throw new GraphQLException("La nota de remisión necesita al menos un ítem");

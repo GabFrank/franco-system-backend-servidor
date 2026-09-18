@@ -48,6 +48,29 @@ class SifenNotaRemisionBuilderTest {
     }
 
     @Test
+    void elKilometrajeSiempreViaja_aunqueLaNotaNoLoTenga() {
+        // SIFEN de produccion rechazo el lote entero el 2026-09-18 con
+        // «0160 XML malformado: [Elemento esperado: dKmR dentro de: gCamNRE]»: dKmR es
+        // obligatorio siempre, no solo cuando hay fecha estimada de factura.
+        NotaRemision nota = notaManual();
+        nota.setKmEstimado(null);
+
+        DocumentoElectronico de = construir(nota, items());
+
+        assertEquals(1, de.getgDtipDE().getgCamNRE().getdKmR(), "dKmR es obligatorio en toda NRE");
+    }
+
+    @Test
+    void elKilometrajeCargadoSeRespeta() {
+        NotaRemision nota = notaManual();
+        nota.setKmEstimado(143);
+
+        DocumentoElectronico de = construir(nota, items());
+
+        assertEquals(143, de.getgDtipDE().getgCamNRE().getdKmR());
+    }
+
+    @Test
     void losItemsViajanSinPrecioNiIva() {
         DocumentoElectronico de = construir(notaManual(), items());
 

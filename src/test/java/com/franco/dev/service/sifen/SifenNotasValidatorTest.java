@@ -70,6 +70,16 @@ class SifenNotasValidatorTest {
     }
 
     @Test
+    void sinKilometrajeFalla() {
+        // SIFEN de produccion rechazo el lote entero el 2026-09-18 con
+        // «0160 XML malformado: [Elemento esperado: dKmR dentro de: gCamNRE]».
+        DocumentoElectronico de = deValido();
+        de.getgDtipDE().getgCamNRE().setdKmR(0);
+
+        assertMensaje(de, "km");
+    }
+
+    @Test
     void trasladoPorVentasSinFacturaNiFechaEstimadaFalla() {
         DocumentoElectronico de = deValido();
         de.getgDtipDE().getgCamNRE().setiMotEmiNR(TiMotivTras.TRASLADO_POR_VENTAS);
@@ -193,6 +203,7 @@ class SifenNotasValidatorTest {
         TgCamNRE gCamNRE = new TgCamNRE();
         gCamNRE.setiMotEmiNR(TiMotivTras.TRASLADO_POR_CONSIGNACION);
         gCamNRE.setiRespEmiNR(TiRespEmiNR.EMISOR_FACTURA);
+        gCamNRE.setdKmR(25);
         gCamNRE.setdFecEm(LocalDate.now().plusDays(1));
 
         TgCamItem item = new TgCamItem();

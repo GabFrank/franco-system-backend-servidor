@@ -1363,3 +1363,48 @@ la lista de notas de crédito lo muestra con el chip rojo.
 **Pendiente de limpieza:** la NC 1 de la sucursal 7 y su lote 38383 quedaron en la copia local de
 `bodega`. No se replican a ningún lado (la copia es local), pero conviene borrarlos antes de
 reusar esa base.
+
+### 13.16 · Emisión en PRODUCCIÓN (2026-09-18) — §10 cerrado, y tres defectos que solo se veían acá
+
+Franco autorizó emitir en el ambiente **PROD** de la SET. Se hizo con el central local apuntando a
+`--sifen.ambiente=PROD`, con el scheduler de SIFEN y los de replicación apagados.
+
+**Resultado: la nota de remisión 001-001-0000009 fue APROBADA.**
+CDC `07800994825001001000000922026091812480063589`, código `0260 Aprobado`, protocolo de
+autorización `3579170801`. Con esto queda **verificado el §10**: el XML se arma, se firma con el
+certificado, SIFEN lo recibe y lo aprueba.
+
+Hicieron falta tres intentos, y cada rechazo fue un defecto real. **Ninguno era visible en DEV**,
+porque ahí el timbrado se rechaza (`1101`) antes de que la SET valide el contenido.
+
+| Nº | Respuesta de SIFEN | Defecto | Dónde se corrigió |
+|---|---|---|---|
+| 7 | `0160 XML malformado: [Elemento esperado: dKmR dentro de: gCamNRE]` | `dKmR` solo se mandaba si había fecha estimada de factura. Es obligatorio **siempre**. | `SifenNotaRemisionBuilder` (lo manda siempre, mínimo 1), `SifenNotasValidator` (lo exige), y el diálogo del desktop (campo obligatorio) |
+| 8 | `2203 El Departamento, el Distrito y la Ciudad del local de entrega no están relacionados` | `entregaDepartamento` **nunca se completaba** —`general.ciudad` no guarda departamento y el formulario no tenía el campo— y `SifenGeografiaHelper.departamento` caía en silencio a **CAPITAL**. Una nota de remisión solo podía aprobarse si la entrega era en Asunción. | `departamentoExigido(...)` que rechaza nulo o desconocido, prellenado que propone el departamento de salida, y dos campos nuevos en el diálogo |
+| 9 | `0260 Aprobado` | — | — |
+
+**Hallazgo adicional, encontrado al intentar cancelar:** `anular` hacía **solo la baja lógica** y
+nunca mandaba el evento de cancelación a SIFEN, pese a que el diálogo dice «Se va a cancelar ante
+SIFEN» y a que hay un control de 168 h que únicamente tiene sentido si cancelara. Corregido en
+`NotaRemisionGraphQL.anularNotaRemision` y `NotaCreditoGraphQL.anularNotaCredito`: primero se
+cancela ante SIFEN y **solo si la SET acepta** se da de baja. Lo cubren los tres casos de
+`NotaRemisionAnulacionTest`.
+
+**Otra cosa que conviene saber:** `enviarLote` reenvía el **XML ya guardado** y solo lo reconstruye
+si falta. Por eso, después de arreglar un defecto del builder, `reenviar` **no** toma el arreglo:
+hay que emitir una nota nueva. Es deliberado (mantiene el CDC), pero sorprende al depurar.
+
+#### ⚠️ Pendiente operativo: el número 9 quedó consumido en la SET
+
+La nota 9 **no se pudo cancelar**: SIFEN respondió «Plazo de solicitud de cancelación
+extemporáneo». Para una nota de remisión el plazo corre contra el **inicio del traslado**
+(`dIniTras`), que era ese mismo día, no contra las 48 h de la aprobación.
+
+Consecuencia: ante la SET existe una nota de remisión válida de FRANCO AREVALOS S.A. con
+**timbrado 18270044, establecimiento 001, punto de expedición 001, número 0000009**. Las notas 7 y
+8 fueron rechazadas, así que **no** se registraron: el único número quemado es el 9.
+
+**Al desplegar hay que arrancar la numeración de ese timbrado_detalle en 10.** La tabla
+`financiero.nota_remision` de producción nace vacía y `MAX(numero)+1` daría 1; al llegar a 9
+chocaría con el documento ya registrado. Alcanza con insertar una fila inactiva con el número 9, o
+equivalente, antes de emitir la primera nota real.

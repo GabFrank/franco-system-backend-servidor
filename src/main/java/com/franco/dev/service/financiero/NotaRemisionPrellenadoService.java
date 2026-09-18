@@ -125,6 +125,13 @@ public class NotaRemisionPrellenadoService {
                 nota.setEntregaCodigoCiudad(codigoCiudad(destino.getCiudad().getCodigo()));
             }
         }
+        // `general.ciudad` no guarda el departamento, asi que no hay de donde sacar el de la
+        // sucursal destino: se propone el mismo de la salida, que es lo correcto en la enorme
+        // mayoria de los traslados entre locales de la empresa. El usuario puede cambiarlo, y
+        // SIFEN rechaza el lote entero si no coincide con la ciudad (2203).
+        if (nota.getEntregaDepartamento() == null) {
+            nota.setEntregaDepartamento(nota.getSalidaDepartamento());
+        }
 
         HojaRuta hojaRuta = transferencia.getHojaRuta();
         if (hojaRuta != null) {

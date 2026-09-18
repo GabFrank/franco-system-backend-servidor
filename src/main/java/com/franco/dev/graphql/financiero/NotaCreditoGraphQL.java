@@ -10,6 +10,7 @@ import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaCredito;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.financiero.*;
 import com.franco.dev.service.sifen.SifenEnvioSincronoService;
+import com.franco.dev.service.sifen.SifenEventoService;
 import com.franco.dev.service.sifen.SifenService;
 import com.franco.dev.utilitarios.DateUtils;
 import graphql.GraphQLException;
@@ -39,6 +40,7 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired private FacturacionSecurityService seg;
     @Autowired private KudeNotaCreditoService kudeService;
     @Autowired(required = false) private SifenService sifenService;
+    @Autowired(required = false) private SifenEventoService sifenEventoService;
     @Autowired(required = false) private SifenEnvioSincronoService envioSincronoService;
 
     // ===================== QUERIES =====================
@@ -142,8 +144,36 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
         return documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(de);
     }
 
+
+    /**
+     * Cancela ante SIFEN y recién entonces da de baja localmente.
+     *
+     * Antes solo hacía la baja lógica: el sistema mostraba la nota anulada y la SET la seguía
+     * teniendo por válida. Se descubrió emitiendo en producción el 2026-09-18 (nota de remisión
+     * 001-001-0000009, que quedó aprobada y no se pudo cancelar). El orden importa: si SIFEN
+     * rechaza el evento, la nota NO se da de baja, porque sigue siendo un documento válido.
+     */
     public NotaCredito anularNotaCredito(Long id, Long sucursalId) {
+        seg.requireEmitir();
+        cancelarEnSifen(documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(null),
+                "Cancelación de nota de crédito solicitada por el usuario");
         return service.anular(id, sucursalId);
+    }
+
+    /** Sin documento electrónico aprobado no hay nada que cancelar: la baja es solo local. */
+    private void cancelarEnSifen(DocumentoElectronico de, String motivo) {
+        if (de == null || de.getEstado() != EstadoDE.APROBADO) {
+            return;
+        }
+        if (sifenEventoService == null) {
+            throw new GraphQLException("SIFEN está deshabilitado: no se puede cancelar un documento aprobado");
+        }
+        try {
+            sifenEventoService.cancelarDE(de.getCdc(), motivo);
+        } catch (Exception e) {
+            throw new GraphQLException("SIFEN rechazó la cancelación, así que la nota sigue vigente: "
+                    + e.getMessage());
+        }
     }
 
     // ===================== INTERNO =====================

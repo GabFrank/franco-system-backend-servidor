@@ -74,7 +74,7 @@ class NotaCreditoServiceTest {
         assertEquals(0, new BigDecimal("10000").compareTo(nota.getIvaParcial10()));
         assertEquals(0, new BigDecimal("110000").compareTo(nota.getTotalParcial10()));
         assertEquals(1, nota.getNumeroNotaCredito());
-        verify(seg).requireEmitirNc();
+        verify(seg).requireEmitir();
     }
 
     @Test

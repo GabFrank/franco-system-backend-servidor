@@ -77,7 +77,7 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
      */
     @Transactional
     public NotaRemision crear(NotaRemision nota, List<NotaRemisionItem> items) {
-        seg.requireEmitirNr();
+        seg.requireEmitir();
         validar(nota, items);
 
         // Lock pesimista sobre el timbrado: serializa la asignación del número entre emisiones
@@ -119,7 +119,7 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
      */
     @Transactional
     public NotaRemision anular(Long id, Long sucursalId) {
-        seg.requireAnular();
+        seg.requireEmitir();
         NotaRemision nota = repository.findByIdAndSucursalId(id, sucursalId)
                 .orElseThrow(() -> new GraphQLException("No existe la nota de remisión"));
         if (Boolean.FALSE.equals(nota.getActivo())) {

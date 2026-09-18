@@ -99,14 +99,14 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     public NotaCredito crearNotaCreditoDesdeFactura(Long facturaLegalId, Long sucursalId, String motivo,
                                                     String descripcionMotivo, Long usuarioId) {
-        // requireEmitirNc lo llama el service, que es donde también se valida la factura
+        // requireEmitir lo llama el service, que es donde también se valida la factura
         return service.crearDesdeFactura(facturaLegalId, sucursalId,
                 motivo != null ? MotivoEmisionNotaCredito.valueOf(motivo) : null,
                 descripcionMotivo, usuarioId);
     }
 
     public DocumentoElectronico generarYEnviarNotaCredito(Long id, Long sucursalId) {
-        seg.requireEmitirNc();
+        seg.requireEmitir();
         exigirSifenHabilitado();
 
         NotaCredito nota = service.findByIdAndSucursalId(id, sucursalId)
@@ -126,7 +126,7 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
 
     /** Reenvía el mismo DE, con su CDC: no genera otro ni consume otro número. */
     public DocumentoElectronico reenviarNotaCredito(Long id, Long sucursalId) {
-        seg.requireEmitirNc();
+        seg.requireEmitir();
         exigirSifenHabilitado();
 
         DocumentoElectronico de = documentoElectronicoService.findByNotaCreditoId(id, sucursalId)

@@ -116,7 +116,7 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     // ===================== MUTATIONS =====================
 
     public NotaRemision saveNotaRemision(NotaRemisionInput input, List<NotaRemisionItemInput> items) {
-        // requireEmitirNr lo llama el service, que es donde también se valida
+        // requireEmitir lo llama el service, que es donde también se valida
         NotaRemision nota = aEntidad(input);
         List<NotaRemisionItem> itemsEntidad = new ArrayList<>();
         if (items != null) {
@@ -132,7 +132,7 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
      * no se regenera: se reenvía el mismo, con su CDC.
      */
     public DocumentoElectronico generarYEnviarNotaRemision(Long id, Long sucursalId) {
-        seg.requireEmitirNr();
+        seg.requireEmitir();
         exigirSifenHabilitado();
 
         NotaRemision nota = service.findByIdAndSucursalId(id, sucursalId)
@@ -153,7 +153,7 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
 
     /** Reenvía un DE que quedó sin llegar a SIFEN. No genera un documento nuevo. */
     public DocumentoElectronico reenviarNotaRemision(Long id, Long sucursalId) {
-        seg.requireEmitirNr();
+        seg.requireEmitir();
         exigirSifenHabilitado();
 
         DocumentoElectronico de = documentoElectronicoService.findByNotaRemisionId(id, sucursalId)

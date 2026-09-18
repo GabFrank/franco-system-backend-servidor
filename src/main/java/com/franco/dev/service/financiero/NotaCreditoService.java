@@ -90,7 +90,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     public NotaCredito crearDesdeFactura(Long facturaLegalId, Long sucursalId,
                                          MotivoEmisionNotaCredito motivo, String descripcionMotivo,
                                          Long usuarioId) {
-        seg.requireEmitirNc();
+        seg.requireEmitir();
 
         if (motivo == null) {
             throw new GraphQLException("Falta el motivo de la nota de crédito");
@@ -194,7 +194,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     /** Baja lógica; el evento de cancelación ante SIFEN lo dispara el resolver. */
     @Transactional
     public NotaCredito anular(Long id, Long sucursalId) {
-        seg.requireAnular();
+        seg.requireEmitir();
         NotaCredito nota = repository.findByIdAndSucursalId(id, sucursalId)
                 .orElseThrow(() -> new GraphQLException("No existe la nota de crédito"));
         if (Boolean.FALSE.equals(nota.getActivo())) {

@@ -35,24 +35,21 @@ public class FacturacionSecurityService {
 
     public static final String ADMIN = "ADMIN";
     public static final String VER = "FACTURACION VER";
-    public static final String NR_EMITIR = "FACTURACION NR EMITIR";
-    public static final String NC_EMITIR = "FACTURACION NC EMITIR";
-    public static final String ANULAR = "FACTURACION ANULAR";
+    public static final String EMITIR = "FACTURACION EMITIR";
 
-    /** Cualquier rol de facturacion habilita la lectura. */
-    public static final String[] TODOS = {VER, NR_EMITIR, NC_EMITIR, ANULAR};
+    /** Cualquiera de los dos roles habilita la lectura: quien emite tambien ve. */
+    public static final String[] TODOS = {VER, EMITIR};
 
     /** Ver notas de credito y de remision. */
     public void requireVer() { requireAnyRole(TODOS); }
 
-    /** Emitir una nota de remision (crear, generar y enviar, reenviar). */
-    public void requireEmitirNr() { requireAnyRole(NR_EMITIR); }
-
-    /** Emitir una nota de credito (crear, generar y enviar, reenviar). */
-    public void requireEmitirNc() { requireAnyRole(NC_EMITIR); }
-
-    /** Anular una nota ya emitida (evento de cancelacion + baja logica). */
-    public void requireAnular() { requireAnyRole(ANULAR); }
+    /**
+     * Emitir o anular una nota, de remision o de credito: crear, generar y enviar, reenviar y
+     * anular. Un unico rol para las dos notas y para la anulacion, por decision de Franco
+     * (2026-09-18): el esquema de cuatro roles separados era mas granularidad de la que la
+     * operacion necesita hoy. Quien puede emitir puede tambien anular lo que emitio.
+     */
+    public void requireEmitir() { requireAnyRole(EMITIR); }
 
     private String currentNickname() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

@@ -40,7 +40,7 @@ class NotaRemisionGraphQLSeguridadTest {
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
         doThrow(new GraphQLException("No autorizado")).when(seg).requireVer();
-        doThrow(new GraphQLException("No autorizado")).when(seg).requireEmitirNr();
+        doThrow(new GraphQLException("No autorizado")).when(seg).requireEmitir();
     }
 
     @AfterEach

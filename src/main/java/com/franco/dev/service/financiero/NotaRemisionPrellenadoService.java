@@ -70,7 +70,7 @@ public class NotaRemisionPrellenadoService {
 
     /** Cabecera + ítems sugeridos. No persiste nada. */
     public NotaRemisionPrellenada prellenar(OrigenNotaRemision origen, Long referenciaId, Long sucursalId) {
-        seg.requireEmitirNr();
+        seg.requireEmitir();
         if (origen == null) {
             throw new GraphQLException("Falta el origen de la nota de remisión");
         }

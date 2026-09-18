@@ -66,7 +66,7 @@ class NotaRemisionServiceTest {
         NotaRemision guardada = service.crear(notaManual(), items());
 
         assertEquals(1, guardada.getNumeroNotaRemision());
-        verify(seg).requireEmitirNr();
+        verify(seg).requireEmitir();
         verify(timbradoDetalleRepository).lockById(TIMBRADO);
     }
 
@@ -180,7 +180,7 @@ class NotaRemisionServiceTest {
         service.anular(2L, SUCURSAL);
 
         assertFalse(reciente.getActivo());
-        verify(seg).requireAnular();
+        verify(seg).requireEmitir();
     }
 
     private static NotaRemision notaManual() {

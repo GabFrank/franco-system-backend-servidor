@@ -37,9 +37,7 @@ INSERT INTO personas.role (nombre, creado_en)
 SELECT r.nombre, now()
 FROM (VALUES
     ('FACTURACION VER'),
-    ('FACTURACION NR EMITIR'),
-    ('FACTURACION NC EMITIR'),
-    ('FACTURACION ANULAR')
+    ('FACTURACION EMITIR')
 ) AS r(nombre)
 WHERE NOT EXISTS (
     SELECT 1 FROM personas.role pr WHERE upper(pr.nombre) = r.nombre

@@ -49,34 +49,46 @@ class FacturacionSecurityServiceTest {
     @Test
     void sinUsuarioAutenticado_rechaza() {
         assertThrows(GraphQLException.class, () -> seg.requireVer());
-        assertThrows(GraphQLException.class, () -> seg.requireEmitirNr());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitir());
     }
 
     @Test
-    void conElRolExacto_deja() {
-        autenticar("cajera", "FACTURACION NR EMITIR");
+    void conElRolDeEmitir_deja() {
+        autenticar("cajera", "FACTURACION EMITIR");
 
-        seg.requireEmitirNr();
+        seg.requireEmitir();
+        seg.requireVer();   // quien emite tambien ve
+    }
+
+    @Test
+    void conSoloElRolDeVer_noDejaEmitir() {
+        autenticar("auditor", "FACTURACION VER");
+
         seg.requireVer();
 
-        assertThrows(GraphQLException.class, () -> seg.requireEmitirNc());
-        assertThrows(GraphQLException.class, () -> seg.requireAnular());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitir());
+    }
+
+    @Test
+    void sinNingunRolDeFacturacion_noDejaNada() {
+        autenticar("cajera", "RRHH VER");
+
+        assertThrows(GraphQLException.class, () -> seg.requireVer());
+        assertThrows(GraphQLException.class, () -> seg.requireEmitir());
     }
 
     @Test
     void elRolSeComparaSinEspaciosNiMayusculas() {
-        autenticar("cajera", "  facturacion nc emitir ");
+        autenticar("cajera", "  facturacion emitir ");
 
-        seg.requireEmitirNc();
+        seg.requireEmitir();
     }
 
     @Test
     void elRolAdminEsBypass() {
         autenticar("supervisor", "ADMIN");
 
-        seg.requireEmitirNr();
-        seg.requireEmitirNc();
-        seg.requireAnular();
+        seg.requireEmitir();
         seg.requireVer();
     }
 
@@ -86,12 +98,12 @@ class FacturacionSecurityServiceTest {
                 new UsernamePasswordAuthenticationToken("ADMIN", null, Collections.emptyList());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        seg.requireAnular();
+        seg.requireEmitir();
     }
 
     @Test
     void verLoHabilitaCualquierRolDeFacturacion() {
-        autenticar("auditor", "FACTURACION ANULAR");
+        autenticar("auditor", "FACTURACION EMITIR");
 
         seg.requireVer();
     }

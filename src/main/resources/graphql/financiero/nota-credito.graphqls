@@ -71,6 +71,8 @@ extend type Query {
     notaCreditoItems(notaCreditoId: ID!, sucursalId: ID!): [NotaCreditoItem]
     notaCreditosPorFactura(facturaLegalId: ID!, sucursalId: ID!): [NotaCredito]
     documentoElectronicoDeNotaCredito(notaCreditoId: ID!, sucursalId: ID!): DocumentoElectronico
+    """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""
+    imprimirNotaCredito(id: ID!, sucursalId: ID!, anchoMm: Int, escpos: Boolean): String
 }
 
 extend type Mutation {

@@ -1276,3 +1276,35 @@ Backend completo salvo el KuDE (2.D) y la prueba contra SIFEN (2.H), que espera 
 
 **Falta de la Fase 2**: el KuDE (2.D) y la prueba contra SIFEN (2.H). **Falta de la Fase 1**: la
 prueba (1.F) más allá de lo ya emitido. Las dos esperan el **certificado vigente** (§13.11).
+
+### 13.13 · Fase 2.D — KuDE de la Nota de Crédito (2026-09-18)
+
+- **`reports/nota-credito-kude.jrxml`** portado de frc-efact. La plantilla de origen **no declaraba
+  ninguna fuente**: las 40 etiquetas `<font>` ahora llevan `fontName="SansSerif"` explícito, y el
+  test lo verifica contando etiquetas contra nombres (no alcanza con que las que haya sean válidas).
+- **`KudeNotaCreditoService`**: parámetros del emisor, número `001-001-0000007`, motivo legible,
+  receptor, moneda (con tipo de cambio solo si es extranjera), totales, el CDC de la nota **y el de
+  la factura acreditada**, QR en temporal borrado en `finally`. Cada ítem cae en la columna de su
+  tasa de IVA (exenta / 5 % / 10 %), que es como lo lee el contador.
+- **`imprimirNotaCredito(id, sucursalId, anchoMm, escpos)`** en el resolver; `escpos = true` se
+  rechaza con un mensaje claro.
+- 🔍 **Dos defectos de la plantilla portada, encontrados por el test** (ninguno da error en Jasper):
+  1. **Totales como texto.** La plantilla declara `subtotalExentas`, `totalIva`, `totalOperacion` y
+     compañía como `java.lang.Double`; pasarlos como String revienta el fill con
+     `ClassCastException: String cannot be cast to Double`, sin decir qué parámetro.
+  2. **El número no se imprimía.** El campo tenía `height="12"` con fuente 9 en negrita: **Jasper
+     recortaba el texto hasta dejarlo vacío, sin fallar**. Se verificó poniendo un literal en la
+     expresión: también salía vacío. Con `height="14"` entra. Es exactamente el modo de falla que
+     este test existe para atrapar — el PDF pesaba lo mismo en los dos casos.
+- **Tests**: `NotaCreditoKudeJrxmlTest`, 6 casos (fuentes explícitas y permitidas, compila y exporta,
+  **texto renderizado** con número, emisor, cliente, RUC, motivo, ítem y los dos CDC, moneda
+  extranjera y guaraníes, y la columna de IVA por ítem). Batería: **789 tests, 0 fallas,
+  BUILD SUCCESS**.
+
+Con esto el backend de las dos notas está completo. Queda la prueba contra SIFEN de ambas (1.F y 2.H)
+y la UI del desktop (1.E, 2.F).
+
+**Certificado**: resuelto. El vigente estaba en la filial `172.25.1.1`
+(`~/FRC/certificados/certificado.pfx`, titular RODOLFO ALEJANDRO FRANCO AREVALOS, vence
+**2027-08-19**) y se copió a la máquina de Franco en la misma ruta. El que estaba en su `~/FRC` y en
+`src/main/resources/certificados/` es el viejo, vencido el 2026-08-20.

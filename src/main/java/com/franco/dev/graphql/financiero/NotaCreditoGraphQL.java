@@ -37,6 +37,7 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     @Autowired private TimbradoDetalleService timbradoDetalleService;
     @Autowired private SucursalService sucursalService;
     @Autowired private FacturacionSecurityService seg;
+    @Autowired private KudeNotaCreditoService kudeService;
     @Autowired(required = false) private SifenService sifenService;
     @Autowired(required = false) private SifenEnvioSincronoService envioSincronoService;
 
@@ -69,6 +70,29 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     public DocumentoElectronico documentoElectronicoDeNotaCredito(Long notaCreditoId, Long sucursalId) {
         seg.requireVer();
         return documentoElectronicoService.findByNotaCreditoId(notaCreditoId, sucursalId).orElse(null);
+    }
+
+    /** KuDE en PDF (base64). El ticket termico no entra en esta entrega. */
+    public String imprimirNotaCredito(Long id, Long sucursalId, Integer anchoMm, Boolean escpos) {
+        seg.requireVer();
+        if (Boolean.TRUE.equals(escpos)) {
+            throw new GraphQLException("El ticket térmico de la nota de crédito todavía no está disponible");
+        }
+        NotaCredito nota = service.findByIdAndSucursalId(id, sucursalId)
+                .orElseThrow(() -> new GraphQLException("No existe la nota de crédito"));
+        List<NotaCreditoItem> items = service.findItems(id, sucursalId);
+        TimbradoDetalle timbrado = timbradoDetalleService
+                .findByIdAndSucursalId(nota.getTimbradoDetalleId(), sucursalId).orElse(null);
+        DocumentoElectronico de = documentoElectronicoService.findByNotaCreditoId(id, sucursalId).orElse(null);
+        String cdcFactura = documentoElectronicoService
+                .findByFacturaLegalId(nota.getFacturaLegalId(), sucursalId)
+                .map(DocumentoElectronico::getCdc).orElse(null);
+        try {
+            return kudeService.generarPdfBase64(nota, items, timbrado, de, cdcFactura);
+        } catch (Exception e) {
+            log.error("Error al generar el KuDE de la nota de crédito {}: {}", id, e.getMessage());
+            throw new GraphQLException("No se pudo generar el PDF de la nota de crédito: " + e.getMessage());
+        }
     }
 
     // ===================== MUTATIONS =====================

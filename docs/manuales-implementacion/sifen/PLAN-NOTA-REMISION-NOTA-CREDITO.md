@@ -1326,3 +1326,40 @@ Es un caso que ni el build del desktop ni la batería del central atrapan: el ti
 ejecutar la query, no al compilar. Verificado después contra la transferencia 51344: el borrador
 vuelve con el receptor = la propia empresa (RUC 80099482-5), motivo `TRASLADO_ENTRE_LOCALES` y el
 ítem de la transferencia.
+
+### 13.15 · Prueba de UI de la Nota de Crédito (2026-09-18)
+
+Recorrido completo en el browser, contra el central local con `--sifen.enabled=true` y
+**`--sifen.ambiente=DEV`** (importa: nada de esto llegó a producción).
+
+Factura usada: **#118529 de SUC. KATUETE 1** (nº 15819, 24.000 Gs, 1/4/26), electrónica y aprobada.
+Está muy fuera de las 48 h, así que sirvió para las dos cosas a la vez.
+
+**El plazo de las 48 h funciona.** «Cancelar» sobre esa factura devolvió `ERROR_PLAZO_NC` **sin
+llamar a SIFEN** (el corte es anterior, en `FacturaLegalGraphQL.validarPlazoDeCancelacion`) y el
+desktop ofreció emitir la nota de crédito.
+
+**Defecto encontrado y corregido:** ese aviso salía **sin texto**. `ConfirmDialogComponent` lee
+`data.title` / `data.message` y el diálogo se abría con `titulo` / `mensaje`, así que se veía una
+caja gris con dos botones. Pasa a `DialogosService.confirm` (el padrón del repo). El mismo bug
+existe desde antes en el primer diálogo de `onCancelarFactura` (línea 661): **no se tocó**, es
+preexistente y queda fuera del alcance de esta rama.
+
+**La nota se emite y se imprime.** Quedó la NC 001-001-0000001, `DEVOLUCION`, 24.000 Gs, ligada a
+la factura #118529; el lote se creó y SIFEN lo recibió (`0300 Lote recibido con éxito`, protocolo
+107860821105879872). El KuDE sale completo: emisor, número, cliente, motivo, CDC de la factura
+relacionada, el ítem, los subtotales por tasa, el CDC propio y el QR.
+
+**Sigue sin poder cerrarse el §10 «aprobación de SIFEN».** La consulta del lote volvió
+`RECHAZADO` con **`1101 TEST - Número de timbrado inválido`**, exactamente el mismo bloqueo
+ambiental que ya frenó a la nota de remisión (13.11): el timbrado no está habilitado en el
+ambiente DEV de la SET. **No es un defecto del XML de la nota de crédito** — el lote fue recibido,
+firmado y procesado; lo que rechaza es el timbrado. Queda pendiente de una emisión con un timbrado
+válido en el ambiente que se use.
+
+Lo que sí quedó verificado de paso: **el camino de rechazo funciona**. El DE pasó a `RECHAZADO` y
+la lista de notas de crédito lo muestra con el chip rojo.
+
+**Pendiente de limpieza:** la NC 1 de la sucursal 7 y su lote 38383 quedaron en la copia local de
+`bodega`. No se replican a ningún lado (la copia es local), pero conviene borrarlos antes de
+reusar esa base.

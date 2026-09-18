@@ -170,6 +170,14 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
                 && !repository.findActivasByTransferenciaId(nota.getTransferenciaId()).isEmpty()) {
             throw new GraphQLException("La transferencia ya tiene una nota de remisión activa");
         }
+        // Mismo guard para el origen FACTURA, que no lo tenía: sin él, dos clicks en «Guardar»
+        // creaban dos notas activas y quemaban dos números de la serie. Es el equivalente del que
+        // NotaCreditoService ya hace con findActivasByFactura.
+        if (nota.getOrigen() == OrigenNotaRemision.FACTURA
+                && !repository.findActivasByFacturaLegalId(nota.getFacturaLegalId(),
+                        nota.getSucursalId()).isEmpty()) {
+            throw new GraphQLException("La factura ya tiene una nota de remisión activa");
+        }
         if (nota.getMotivoEmision() == MotivoEmisionNotaRemision.TRASLADO_ENTRE_LOCALES
                 && esVacio(nota.getReceptorRuc())) {
             // Para traslado entre locales SIFEN exige que el receptor sea la propia empresa

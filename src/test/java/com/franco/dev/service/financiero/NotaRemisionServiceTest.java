@@ -139,6 +139,21 @@ class NotaRemisionServiceTest {
     }
 
     @Test
+    void laFacturaTampocoPuedeTenerDosNotasActivas() {
+        // El origen FACTURA no tenía guard: dos clicks en «Guardar» creaban dos notas y quemaban
+        // dos números de la serie. Lo destapó la auditoría del plan de ajustes operativos.
+        NotaRemision desdeFactura = notaManual();
+        desdeFactura.setOrigen(OrigenNotaRemision.FACTURA);
+        desdeFactura.setFacturaLegalId(555L);
+        when(repository.findActivasByFacturaLegalId(555L, desdeFactura.getSucursalId()))
+                .thenReturn(Collections.singletonList(new NotaRemision()));
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.crear(desdeFactura, items()));
+        assertTrue(e.getMessage().contains("ya tiene una nota de remisión activa"));
+    }
+
+    @Test
     void elOrigenTransferenciaExigeLaTransferencia() {
         NotaRemision sinReferencia = notaManual();
         sinReferencia.setOrigen(OrigenNotaRemision.TRANSFERENCIA);

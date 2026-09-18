@@ -260,7 +260,9 @@ public class NotaRemisionPrellenadoService {
                 .filter(d -> d.getTimbrado() != null && Boolean.TRUE.equals(d.getTimbrado().getIsElectronico()))
                 .findFirst()
                 .orElseThrow(() -> new GraphQLException(
-                        "La sucursal " + sucursalId + " no tiene un timbrado electrónico activo"));
+                        "La sucursal " + sucursalId + " no tiene un timbrado electrónico activo, "
+                        + "así que no puede emitir notas de remisión. Hay que asignarle uno desde "
+                        + "Financiero → Maestros → Timbrados."));
     }
 
     private static Presentacion presentacionDeLaEtapa(TransferenciaItem item) {

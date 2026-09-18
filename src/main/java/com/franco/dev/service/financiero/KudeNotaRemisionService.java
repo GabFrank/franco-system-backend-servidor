@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.NotaRemision;
 import com.franco.dev.domain.financiero.NotaRemisionItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
+import com.franco.dev.domain.financiero.enums.TipoTransporteNr;
 import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import lombok.extern.slf4j.Slf4j;
@@ -119,8 +120,19 @@ public class KudeNotaRemisionService {
         p.put("tipoTransporte", nota.getTipoTransporte() != null ? legible(nota.getTipoTransporte().name()) : "");
         p.put("modalidadTransporte", nota.getModalidadTransporte() != null
                 ? legible(nota.getModalidadTransporte().name()) : "");
-        p.put("transportistaNombre", texto(nota.getTransportistaNombre()));
-        p.put("transportistaRuc", texto(nota.getTransportistaRuc()));
+        // En transporte propio el transportista es la propia empresa: al XML va asi (SIFEN lo exige)
+        // y el KuDE tiene que mostrar lo mismo, no un "(RUC: )" vacio.
+        boolean propio = nota.getTipoTransporte() == null
+                || nota.getTipoTransporte() == TipoTransporteNr.PROPIO;
+        String transportista = nota.getTransportistaNombre();
+        String rucTransportista = nota.getTransportistaRuc();
+        if (propio && (transportista == null || transportista.trim().isEmpty())
+                && timbradoDetalle != null && timbradoDetalle.getTimbrado() != null) {
+            transportista = timbradoDetalle.getTimbrado().getRazonSocial();
+            rucTransportista = timbradoDetalle.getTimbrado().getRuc();
+        }
+        p.put("transportistaNombre", texto(transportista));
+        p.put("transportistaRuc", texto(rucTransportista));
         // El KuDE muestra la marca completa; al XML va abreviada a 10 caracteres (regla de SIFEN).
         p.put("vehiculoMarca", texto(nota.getVehiculoMarca()));
         p.put("vehiculoMatricula", texto(nota.getVehiculoMatricula()));

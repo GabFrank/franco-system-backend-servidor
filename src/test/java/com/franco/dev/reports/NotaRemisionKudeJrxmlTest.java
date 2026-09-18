@@ -112,6 +112,34 @@ class NotaRemisionKudeJrxmlTest {
     }
 
     @Test
+    void enTransportePropioElTransportistaEsElEmisor() {
+        // Salia "Transportista: (RUC: )" vacio: en transporte propio la nota no guarda
+        // transportista porque es la propia empresa, igual que en el XML que se firma.
+        KudeNotaRemisionService service = new KudeNotaRemisionService();
+        NotaRemision nota = nota();
+        nota.setTransportistaNombre(null);
+        nota.setTransportistaRuc(null);
+
+        var p = service.parametros(nota, timbrado(), documentoElectronico());
+
+        assertEquals("FRANCO SA", p.get("transportistaNombre"));
+        assertEquals("80012345-6", p.get("transportistaRuc"));
+    }
+
+    @Test
+    void conTransportistaCargadoNoSePisaConElEmisor() {
+        KudeNotaRemisionService service = new KudeNotaRemisionService();
+        NotaRemision nota = nota();
+        nota.setTransportistaNombre("FLETES DEL ESTE SRL");
+        nota.setTransportistaRuc("80055555-1");
+
+        var p = service.parametros(nota, timbrado(), documentoElectronico());
+
+        assertEquals("FLETES DEL ESTE SRL", p.get("transportistaNombre"));
+        assertEquals("80055555-1", p.get("transportistaRuc"));
+    }
+
+    @Test
     void sinDocumentoElectronicoTodaviaGeneraElPdf() throws Exception {
         // Una nota recién creada, antes de mandarla a SIFEN, también se puede imprimir.
         KudeNotaRemisionService service = new KudeNotaRemisionService();

@@ -33,6 +33,10 @@ import java.util.Optional;
 @Service
 public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepository, EmbebedPrimaryKey> {
 
+    /** El buscador muestra la fecha al usuario, no un ISO con microsegundos. */
+    private static final java.time.format.DateTimeFormatter FECHA_BUSCADOR =
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
     /** Ventana de SIFEN para cancelar un DE que no es factura. */
     public static final int HORAS_PARA_ANULAR = 168;
 
@@ -245,7 +249,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
             candidatas.add(new FacturaParaNotaCredito(
                     factura.getId(), sucursalId,
                     factura.getNumeroFactura() != null ? factura.getNumeroFactura().intValue() : null,
-                    factura.getFecha() != null ? factura.getFecha().toString() : null,
+                    factura.getFecha() != null ? factura.getFecha().format(FECHA_BUSCADOR) : null,
                     factura.getNombre(), factura.getRuc(),
                     factura.getTotalFinal() != null ? factura.getTotalFinal().doubleValue() : null,
                     factura.getMonedaExtranjera() != null ? factura.getMonedaExtranjera() : "GS"));

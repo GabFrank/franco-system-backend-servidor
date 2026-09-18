@@ -197,16 +197,19 @@ public interface FacturaLegalRepository
 
 
     /**
-     * Facturas electronicas (con CDC) y activas de una sucursal, opcionalmente filtradas por
-     * numero. El resto de los requisitos de la nota de credito se chequea en el service, que es
-     * donde ya viven. Orden descendente: la factura que se acredita suele ser reciente.
+     * Facturas electronicas (con CDC) y activas de una sucursal, filtradas por numero EXACTO.
+     * El resto de los requisitos de la nota de credito se chequea en el service, que es donde ya
+     * viven. Orden descendente: la factura que se acredita suele ser reciente.
+     *
+     * Exacto y no LIKE: buscando 1000 un LIKE devuelve 10000, 10008 y 10009, y elegir la factura
+     * equivocada para una nota de credito no tiene vuelta atras.
      */
     @Query("SELECT f FROM FacturaLegal f WHERE f.sucursalId = :sucursalId "
             + "AND f.cdc IS NOT NULL AND (f.activo IS NULL OR f.activo = true) "
-            + "AND (:numero IS NULL OR CAST(f.numeroFactura AS string) LIKE CONCAT('%', :numero, '%')) "
+            + "AND (:numero IS NULL OR f.numeroFactura = :numero) "
             + "ORDER BY f.numeroFactura DESC")
     List<FacturaLegal> buscarCandidatasANotaCredito(@Param("sucursalId") Long sucursalId,
-                                                    @Param("numero") String numero,
+                                                    @Param("numero") Integer numero,
                                                     Pageable pageable);
 
 }

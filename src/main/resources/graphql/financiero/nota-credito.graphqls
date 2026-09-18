@@ -1,0 +1,84 @@
+# Nota de Credito Electronica (NCE, iTiDE 5).
+# El enum es espejo del enum Java de domain/financiero/enums; SchemaEnumsSincronizadosTest falla
+# el build si se desincronizan.
+
+enum MotivoEmisionNotaCredito {
+    DEVOLUCION_Y_AJUSTES_DE_PRECIOS
+    DEVOLUCION
+    DESCUENTO
+    BONIFICACION
+    CREDITO_INCOBRABLE
+    RECUPERO_DE_COSTO
+    RECUPERO_DE_GASTO
+    AJUSTE_DE_PRECIO
+}
+
+type NotaCredito {
+    id: ID!
+    sucursalId: Int
+    timbradoDetalleId: Int
+    numeroNotaCredito: Int
+    fecha: Date
+    facturaLegalId: Int
+    motivoEmision: MotivoEmisionNotaCredito
+    descripcionMotivo: String
+    clienteId: Int
+    nombre: String
+    ruc: String
+    direccion: String
+    monedaExtranjera: String
+    tipoCambio: Float
+    ivaParcial0: Float
+    ivaParcial5: Float
+    ivaParcial10: Float
+    totalParcial0: Float
+    totalParcial5: Float
+    totalParcial10: Float
+    descuento: Float
+    totalFinal: Float
+    activo: Boolean
+    usuarioId: Int
+    creadoEn: Date
+}
+
+type NotaCreditoItem {
+    id: ID!
+    sucursalId: Int
+    notaCreditoId: Int
+    facturaLegalItemId: Int
+    productoId: Int
+    presentacionId: Int
+    descripcion: String
+    cantidad: Float
+    unidadMedida: String
+    precioUnitario: Float
+    total: Float
+    iva: Int
+}
+
+type NotaCreditoPage {
+    getContent: [NotaCredito]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+extend type Query {
+    notaCredito(id: ID!, sucursalId: ID!): NotaCredito
+    notaCreditos(sucursalId: ID, fechaInicio: String, fechaFin: String, page: Int!, size: Int!): NotaCreditoPage
+    notaCreditoItems(notaCreditoId: ID!, sucursalId: ID!): [NotaCreditoItem]
+    notaCreditosPorFactura(facturaLegalId: ID!, sucursalId: ID!): [NotaCredito]
+    documentoElectronicoDeNotaCredito(notaCreditoId: ID!, sucursalId: ID!): DocumentoElectronico
+    """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""
+    imprimirNotaCredito(id: ID!, sucursalId: ID!, anchoMm: Int, escpos: Boolean): String
+}
+
+extend type Mutation {
+    """Crea la nota de credito TOTAL de una factura electronica aprobada: copia sus items y totales."""
+    crearNotaCreditoDesdeFactura(facturaLegalId: ID!, sucursalId: ID!, motivo: String!, descripcionMotivo: String, usuarioId: ID): NotaCredito!
+    generarYEnviarNotaCredito(id: ID!, sucursalId: ID!): DocumentoElectronico
+    reenviarNotaCredito(id: ID!, sucursalId: ID!): DocumentoElectronico
+    anularNotaCredito(id: ID!, sucursalId: ID!): NotaCredito
+}

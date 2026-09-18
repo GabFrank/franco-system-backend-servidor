@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="nota-remision-kude" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="b1a2c3d4-e5f6-7890-1234-567890abcdef">
+	<property name="com.jaspersoft.studio.data.defaultdataadapter" value="One Empty Record"/>
+	<parameter name="logo" class="java.lang.String"/>
+	<parameter name="razonSocial" class="java.lang.String"/>
+	<parameter name="rucEmisor" class="java.lang.String"/>
+	<parameter name="numeroTimbrado" class="java.lang.String"/>
+	<parameter name="fechaInicioVigencia" class="java.lang.String"/>
+	<parameter name="direccionEmisor" class="java.lang.String"/>
+	<parameter name="telefonoEmisor" class="java.lang.String"/>
+	<parameter name="emailEmisor" class="java.lang.String"/>
+	<parameter name="actividadEconomica" class="java.lang.String"/>
+	<parameter name="numeroNotaRemision" class="java.lang.String"/>
+	<parameter name="cdc" class="java.lang.String"/>
+	<parameter name="fechaEmision" class="java.lang.String"/>
+	<parameter name="nombreDestinatario" class="java.lang.String"/>
+	<parameter name="rucDestinatario" class="java.lang.String"/>
+	<parameter name="motivoEmision" class="java.lang.String"/>
+	<parameter name="fechaInicioTraslado" class="java.lang.String"/>
+	<parameter name="fechaFinTraslado" class="java.lang.String"/>
+	<parameter name="fechaEstimadaFactura" class="java.lang.String"/>
+	<parameter name="kmEstimado" class="java.lang.String"/>
+	<parameter name="direccionPartida" class="java.lang.String"/>
+	<parameter name="ciudadPartida" class="java.lang.String"/>
+	<parameter name="departamentoPartida" class="java.lang.String"/>
+	<parameter name="distritoPartida" class="java.lang.String"/>
+	<parameter name="direccionLlegada" class="java.lang.String"/>
+	<parameter name="ciudadLlegada" class="java.lang.String"/>
+	<parameter name="departamentoLlegada" class="java.lang.String"/>
+	<parameter name="distritoLlegada" class="java.lang.String"/>
+	<parameter name="tipoTransporte" class="java.lang.String"/>
+	<parameter name="modalidadTransporte" class="java.lang.String"/>
+	<parameter name="vehiculoMarca" class="java.lang.String"/>
+	<parameter name="vehiculoMatricula" class="java.lang.String"/>
+	<parameter name="transportistaNombre" class="java.lang.String"/>
+	<parameter name="transportistaRuc" class="java.lang.String"/>
+	<parameter name="transportistaDireccion" class="java.lang.String"/>
+	<parameter name="conductorNombre" class="java.lang.String"/>
+	<parameter name="conductorDoc" class="java.lang.String"/>
+	<parameter name="numeroFacturaAsociada" class="java.lang.String"/>
+	<parameter name="urlValidacion" class="java.lang.String"/>
+	<parameter name="qrImagePath" class="java.lang.String"/>
+	<field name="codigo" class="java.lang.String"/>
+	<field name="descripcion" class="java.lang.String"/>
+	<field name="unidadMedida" class="java.lang.String"/>
+	<field name="cantidad" class="java.lang.Double"/>
+	<title>
+		<band height="110" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="105" forecolor="#000000" uuid="cb4a485f-9439-4e06-9352-8f1bfe4b76ce"/>
+			</rectangle>
+			<image onErrorType="Blank">
+				<reportElement isPrintRepeatedValues="false" x="10" y="5" width="130" height="40" uuid="b2c3d4e5-f6a7-8901-2345-678901bcdef0">
+					<printWhenExpression><![CDATA[$P{logo} != null && !$P{logo}.isEmpty()]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="150" y="5" width="230" height="14" uuid="c3d4e5f6-a7b8-9012-3456-789012cdef01"/>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{razonSocial}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="150" y="20" width="230" height="20" uuid="d0e1f2a3-b4c5-6789-0123-456789345678"/>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{actividadEconomica}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="150" y="45" width="230" height="55" uuid="a7b8c9d0-e1f2-3456-7890-123456012345"/>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{direccionEmisor} + "\nTeléfono: " + $P{telefonoEmisor} + "\nEmail: " + $P{emailEmisor}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="390" y="5" width="70" height="12" uuid="e1f2a3b4-c5d6-7890-1234-567890456789"/>
+				<textElement>
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[RUC:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="460" y="5" width="90" height="12" uuid="d4e5f6a7-b8c9-0123-4567-890123def012"/>
+				<textElement>
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{rucEmisor}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="390" y="17" width="70" height="12" uuid="e5f6a7b8-c9d0-1234-5678-901234ef0123"/>
+				<textElement>
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Timbrado N°:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="460" y="17" width="90" height="12" uuid="f6a7b8c9-d0e1-2345-6789-012345f01234"/>
+				<textElement>
+					<font fontName="SansSerif" size="8"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{numeroTimbrado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="390" y="29" width="70" height="12" uuid="6743e433-af9e-407b-9606-809f589df378"/>
+				<textElement>
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Inicio vigencia:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="460" y="29" width="90" height="12" uuid="b8c9d0e1-f2a3-4567-8901-234567123456"/>
+				<textElement>
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{fechaInicioVigencia}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="390" y="50" width="160" height="14" uuid="f2a3b4c5-d6e7-8901-2345-678901567890"/>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="9" isBold="true"/>
+				</textElement>
+				<text><![CDATA[NOTA DE REMISIÓN]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="390" y="65" width="160" height="14" uuid="ad60a593-f27a-4da7-b6a7-b9ae3474d0c6"/>
+				<textElement textAlignment="Center">
+					<font fontName="SansSerif" size="10" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA["N°: " + $P{numeroNotaRemision}]]></textFieldExpression>
+			</textField>
+		</band>
+	</title>
+	<columnHeader>
+		<band height="300" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="15" backcolor="#E0E0E0" uuid="4dcfafe6-9e75-4a1b-af57-b8d36c290032"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="0" width="555" height="15" uuid="e37c3e7f-6da5-4f4c-acaf-8899e7edcf4d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Documento Asociado]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="15" width="555" height="30" uuid="7d5d0adc-3c71-4100-a660-ad96b54fc6e5"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="5" y="18" width="100" height="12" uuid="3a955579-d838-456d-9b53-2bd4d64f8208"/>
+				<textElement>
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Facturas asociadas:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="110" y="18" width="440" height="12" uuid="a5fa0e20-2a06-4b4f-afe5-37e67ae5d5ca"/>
+				<textElement>
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{numeroFacturaAsociada}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="0" y="45" width="555" height="15" backcolor="#E0E0E0" uuid="cb0434c6-a93d-49b1-9887-d8b057e1d91a"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="45" width="555" height="15" uuid="1f3ad919-f3d0-46ea-9808-485fe788e3a6"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Destinatario de la Mercadería]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="60" width="555" height="20" uuid="c50d499a-357b-4f2e-af4c-6f84e6357863"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="5" y="64" width="100" height="12" uuid="db4cb5a3-3137-49a6-a80a-2e77f8951cf8"/>
+				<textElement>
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Nombre o Razón Social:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="110" y="64" width="250" height="12" uuid="dd2fd501-b8e8-43ec-ad58-8962c40e1d5d"/>
+				<textElement>
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{nombreDestinatario}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="370" y="64" width="50" height="12" uuid="f891f1e6-9c28-4e64-98c2-42f9e995844c"/>
+				<textElement>
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[RUC / CI N°:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="425" y="64" width="125" height="12" uuid="fb3d939e-13a1-4a8f-afa3-08802b558323"/>
+				<textElement>
+					<font fontName="SansSerif" size="7"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{rucDestinatario}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="0" y="80" width="555" height="15" backcolor="#E0E0E0" uuid="d9842e59-54c2-46c3-b3cc-b888f7ecc3fd"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="80" width="555" height="15" uuid="0c2b79b4-0c67-4fe9-8df2-8475a147c56e"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Datos del Traslado]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="95" width="555" height="90" uuid="8c45f085-b5a4-4846-a8b0-3fd79619ca3d"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="5" y="98" width="115" height="10" uuid="ea82f810-61b7-4aaa-83f5-03bd5de0a055"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Motivo de la emisión:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="125" y="98" width="200" height="10" uuid="797694b1-6688-49d3-821f-2dd8faa6abbc"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{motivoEmision}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="350" y="98" width="90" height="10" uuid="e8b2ae09-1727-47fc-84ad-2a8f183ad813"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Fecha de Emisión:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="445" y="98" width="105" height="10" uuid="f87c3031-4da4-430a-8166-698756644da1"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{fechaEmision}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="110" width="115" height="10" uuid="2291fccd-3248-485b-a8bb-5c5b7823a416"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Dirección del Punto de Partida:]]></text>
+			</staticText>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="125" y="110" width="200" height="10" uuid="5e2fb534-4f24-4b90-a46c-b62391d40cf8"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{direccionPartida}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="350" y="110" width="90" height="10" uuid="456532f2-9a76-4041-84af-aa399bf054b9"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Fecha inicio traslado:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="445" y="110" width="105" height="10" uuid="fd03b78f-d744-49b8-8208-46e06e30b651"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{fechaInicioTraslado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="122" width="115" height="10" uuid="e4f08c88-1484-46a1-b30a-efa98dc82a45"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Localidad/Ciudad:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="125" y="122" width="200" height="10" uuid="c99fb094-27bb-49f0-aaac-b9bfc43bd014"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{ciudadPartida}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="350" y="122" width="90" height="10" uuid="26e5b8d9-6f48-4890-9ac2-6009cfc650aa"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Fecha fin del traslado:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="445" y="122" width="105" height="10" uuid="91b6494e-4a66-4d8a-851a-6661d170cd01"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{fechaFinTraslado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="134" width="115" height="10" uuid="8785f456-5bac-4683-b1a1-c03bd791e3bd"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Departamento:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="125" y="134" width="200" height="10" uuid="4dcfafe6-9e75-4a1b-af57-b8d36c290032"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{departamentoPartida}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="350" y="134" width="90" height="10" uuid="ab77cc66-2bff-412a-9771-fee47b754a4f"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Fecha estimada factura:]]></text>
+			</staticText>
+			<textField isBlankWhenNull="true">
+				<reportElement x="445" y="134" width="105" height="10" uuid="21362cf3-a29a-4320-8e64-58d7184505ae"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{fechaEstimadaFactura}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="146" width="115" height="10" uuid="8fb18c84-93e2-4a9f-9853-1cf136af1eb4"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Dirección Punto Llegada:]]></text>
+			</staticText>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="125" y="146" width="200" height="10" uuid="13102bd7-5b31-4d0b-bac7-4fb223c8a73b"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{direccionLlegada}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="350" y="146" width="90" height="10" uuid="90e83fb0-46f7-4c4d-aca8-9eea1f3ca785"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Km estimados recorrido:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="445" y="146" width="105" height="10" uuid="2caaaaed-4221-434a-a955-b0da0b4b1460"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{kmEstimado}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="158" width="115" height="10" uuid="0b646438-3b10-44cb-b896-cfcf1817383c"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Localidad Punto Llegada:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="125" y="158" width="200" height="10" uuid="11b046a7-13b7-4c1f-a22d-44b24c0ab735"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{ciudadLlegada}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="170" width="115" height="10" uuid="8cad3e7f-a3c6-4657-aaf7-af0e16769fc9"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Departamento Llegada:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="125" y="170" width="200" height="10" uuid="9d334b9e-3585-4781-858d-397e29c9c31a"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{departamentoLlegada}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="0" y="185" width="555" height="15" backcolor="#E0E0E0" uuid="010f6e23-79bb-4900-8b6e-7aaa463f0e99"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="185" width="555" height="15" uuid="3e4121ed-3f35-4236-be0e-f03cb22fa965"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Datos del Vehículo / Transporte]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="200" width="555" height="40" uuid="c8995a44-d703-4df5-b1cf-e82abbd10f51"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="5" y="203" width="100" height="10" uuid="5f01a188-e7f2-4b0a-a25c-f31da709b98f"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Tipo de transporte:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="110" y="203" width="150" height="10" uuid="0505bad3-4a65-4d2d-bf6b-ff37216c80db"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{tipoTransporte}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="270" y="203" width="100" height="10" uuid="b94e100c-752a-4bb4-93dc-aaf7328b9f6f"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Modalidad:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="375" y="203" width="150" height="10" uuid="30bd4298-51ce-4030-a122-ebc02d5de3b5"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{modalidadTransporte}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="215" width="100" height="10" uuid="dfdbdf5f-e664-4eee-b2a1-e7579648a702"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Marca vehículo:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="110" y="215" width="150" height="10" uuid="17230727-f87a-43d8-a4af-96df9913a5fc"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{vehiculoMarca}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="270" y="215" width="100" height="10" uuid="b2f7f6a2-eeef-48dc-b31d-e6b193d9c6f2"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Matrícula:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="375" y="215" width="150" height="10" uuid="1d1a70e6-50ca-4f06-a02c-84f9a5df4c54"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{vehiculoMatricula}]]></textFieldExpression>
+			</textField>
+			<rectangle>
+				<reportElement x="0" y="240" width="555" height="15" backcolor="#E0E0E0" uuid="57db5acf-1d1a-4b5a-b1e2-c638f8c877ab"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="240" width="555" height="15" uuid="95e398fd-7283-4dd7-a551-7a5dd03934ac"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Datos del Transportista / Conductor]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="255" width="555" height="40" uuid="44516183-1201-43de-aecb-86dd9e984c3b"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="5" y="258" width="100" height="10" uuid="57633603-2425-4d83-a4b7-9dd1947be54c"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Transportista:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="110" y="258" width="250" height="10" uuid="8016a37d-ddb0-4ea2-bed8-89523a42eb5e"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{transportistaNombre} + " (RUC: " + $P{transportistaRuc} + ")"]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="5" y="270" width="100" height="10" uuid="82f8820e-f0b5-4341-a997-4ef2668ca745"/>
+				<textElement><font size="6" isBold="true"/></textElement>
+				<text><![CDATA[Conductor:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="110" y="270" width="250" height="10" uuid="ac535b87-793e-4fd3-909b-cff4fe06deae"/>
+				<textElement><font size="6"/></textElement>
+				<textFieldExpression><![CDATA[$P{conductorNombre} + " (Doc: " + $P{conductorDoc} + ")"]]></textFieldExpression>
+			</textField>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="18" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="555" height="18" uuid="b15ccd9f-b03c-438d-bcd5-3a9088dd9ce8"/>
+			</rectangle>
+			<textField>
+				<reportElement x="2" y="4" width="60" height="10" uuid="ce62d78e-201c-436f-8b4b-e6819ff2702b"/>
+				<textElement textAlignment="Center"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{codigo}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="65" y="4" width="40" height="10" uuid="59994ed3-d0f6-470f-ab3b-b0e7cb60868f"/>
+				<textElement textAlignment="Center"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{unidadMedida}]]></textFieldExpression>
+			</textField>
+			<textField pattern="#,##0.###">
+				<reportElement x="110" y="4" width="60" height="10" uuid="e2397ec8-59e3-47a7-a13f-8e973825ebe1"/>
+				<textElement textAlignment="Center"><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{cantidad}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="175" y="4" width="375" height="10" uuid="205e5d0c-fdfd-459b-923c-6150a1d4262d"/>
+				<textElement><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$F{descripcion}]]></textFieldExpression>
+			</textField>
+			<line>
+				<reportElement x="62" y="0" width="1" height="18" uuid="d7128019-4e71-4106-a078-141804256e46"/>
+			</line>
+			<line>
+				<reportElement x="107" y="0" width="1" height="18" uuid="5fb68330-480d-4de2-ab0a-63e8a11efe66"/>
+			</line>
+			<line>
+				<reportElement x="172" y="0" width="1" height="18" uuid="7e1ba995-3700-4cfc-8dfc-2fa34daede47"/>
+			</line>
+		</band>
+	</detail>
+	<pageFooter>
+		<band height="120" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="5" width="555" height="110" uuid="12c280b5-b77e-4f2d-9e4c-106f3372b3cf"/>
+			</rectangle>
+			<image onErrorType="Blank">
+				<reportElement x="10" y="10" width="90" height="90" uuid="24ad888b-d708-41e0-a880-21cd95381b6a">
+					<printWhenExpression><![CDATA[$P{qrImagePath} != null && !$P{qrImagePath}.isEmpty()]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{qrImagePath}]]></imageExpression>
+			</image>
+			<staticText>
+				<reportElement x="110" y="10" width="435" height="12" uuid="88159c85-819b-4a9f-a03d-a97253432229"/>
+				<textElement><font size="8" isBold="true"/></textElement>
+				<text><![CDATA[Consulte esta Nota de Remisión con el número impreso abajo o QR:]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="110" y="22" width="435" height="10" uuid="e71f3c3a-bcac-4d8d-947c-0a6a75ce1a82"/>
+				<textElement><font size="7"/></textElement>
+				<textFieldExpression><![CDATA[$P{urlValidacion}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="35" width="435" height="10" uuid="538a39a0-b68e-46ea-95ca-4c74b521bcb8"/>
+				<textElement><font size="7" isBold="true"/></textElement>
+				<text><![CDATA[CDC (Código de Control):]]></text>
+			</staticText>
+			<textField textAdjust="StretchHeight">
+				<reportElement x="110" y="45" width="435" height="15" uuid="95e3ed88-a1d1-4c30-9588-a10e0f11c7c7"/>
+				<textElement><font fontName="SansSerif" size="8" isBold="true"/></textElement>
+				<textFieldExpression><![CDATA[$P{cdc}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement x="110" y="65" width="435" height="40" uuid="7c4c8d5f-da87-49cb-99dd-7ff044d64749"/>
+				<textElement><font size="6"/></textElement>
+				<text><![CDATA[ESTE DOCUMENTO ES UNA REPRESENTACIÓN GRÁFICA DE UN DOCUMENTO ELECTRÓNICO (XML).
+Si su documento electrónico presenta algun error solicitar la cancelación dentro de las 48 horas siguientes de la emisión de este comprobante.]]></text>
+			</staticText>
+		</band>
+	</pageFooter>
+</jasperReport>

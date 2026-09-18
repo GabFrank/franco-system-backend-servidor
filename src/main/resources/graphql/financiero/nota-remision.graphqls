@@ -1,0 +1,196 @@
+# Nota de Remision Electronica (NRE, iTiDE 7).
+# Por ahora solo los enums: los tipos, queries y mutations entran con el resolver (fase 1.C).
+# Cada enum es espejo del enum Java de domain/financiero/enums; SchemaEnumsSincronizadosTest
+# falla el build si se desincronizan.
+
+enum MotivoEmisionNotaRemision {
+    TRASLADO_POR_VENTAS
+    TRASLADO_POR_CONSIGNACION
+    EXPORTACION
+    TRASLADO_POR_COMPRA
+    IMPORTACION
+    TRASLADO_POR_DEVOLUCION
+    TRASLADO_ENTRE_LOCALES
+    TRASLADO_BIENES_TRANSFORMACION
+    TRASLADO_BIENES_REPARACION
+    TRASLADO_POR_EMISOR_MOVIL
+    EXHIBICION_O_DEMOSTRACION
+    PARTICIPACION_EN_FERIAS
+    TRASLADO_DE_ENCOMIENDAS
+    DECOMISO
+    OTRO
+}
+
+enum ResponsableEmisionNr {
+    EMISOR_FACTURA
+    POSEEDOR_FACTURA_Y_BIENES
+    EMPRESA_TRANSPORTISTA
+    DESPACHANTE_DE_ADUANAS
+    AGENTE_DE_TRANSPORTE_O_INTERMEDIARIO
+}
+
+enum TipoTransporteNr {
+    PROPIO
+    TERCERO
+}
+
+enum ModalidadTransporteNr {
+    TERRESTRE
+    FLUVIAL
+    AEREO
+    MULTIMODAL
+}
+
+enum OrigenNotaRemision {
+    TRANSFERENCIA
+    FACTURA
+    MANUAL
+}
+
+type NotaRemision {
+    """Nulo en el borrador que devuelve prellenarNotaRemision: la nota todavia no existe."""
+    id: ID
+    sucursalId: Int
+    timbradoDetalleId: Int
+    numeroNotaRemision: Int
+    fecha: Date
+    origen: OrigenNotaRemision
+    transferenciaId: Int
+    facturaLegalId: Int
+    motivoEmision: MotivoEmisionNotaRemision
+    responsableEmision: ResponsableEmisionNr
+    kmEstimado: Int
+    fechaInicioTraslado: Date
+    fechaFinTraslado: Date
+    fechaEstimadaFactura: Date
+    clienteId: Int
+    receptorNombre: String
+    receptorRuc: String
+    receptorDireccion: String
+    receptorDepartamento: String
+    receptorCodigoCiudad: Int
+    receptorCiudad: String
+    salidaDireccion: String
+    salidaDepartamento: String
+    salidaCodigoCiudad: Int
+    salidaCiudad: String
+    entregaDireccion: String
+    entregaDepartamento: String
+    entregaCodigoCiudad: Int
+    entregaCiudad: String
+    tipoTransporte: TipoTransporteNr
+    modalidadTransporte: ModalidadTransporteNr
+    transportistaNombre: String
+    transportistaRuc: String
+    transportistaDireccion: String
+    vehiculoId: Int
+    vehiculoMarca: String
+    vehiculoMatricula: String
+    choferPersonaId: Int
+    choferNombre: String
+    choferDocumento: String
+    choferDireccion: String
+    activo: Boolean
+    usuarioId: Int
+    creadoEn: Date
+}
+
+type NotaRemisionItem {
+    """Nulo en los items del borrador, por la misma razon que el id de la nota."""
+    id: ID
+    sucursalId: Int
+    notaRemisionId: Int
+    productoId: Int
+    presentacionId: Int
+    codigo: String
+    descripcion: String
+    cantidad: Float
+    unidadMedida: String
+}
+
+type NotaRemisionPage {
+    getContent: [NotaRemision]
+    getTotalElements: Int
+    getTotalPages: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+}
+
+"""Borrador que arma el backend segun el origen. El desktop no calcula datos fiscales."""
+type NotaRemisionPrellenada {
+    notaRemision: NotaRemision
+    items: [NotaRemisionItem]
+}
+
+input NotaRemisionInput {
+    id: ID
+    sucursalId: Int!
+    timbradoDetalleId: Int!
+    fecha: String
+    origen: String!
+    transferenciaId: Int
+    facturaLegalId: Int
+    motivoEmision: String!
+    responsableEmision: String
+    kmEstimado: Int
+    fechaInicioTraslado: String
+    fechaFinTraslado: String
+    fechaEstimadaFactura: String
+    clienteId: Int
+    receptorNombre: String!
+    receptorRuc: String!
+    receptorDireccion: String
+    receptorDepartamento: String
+    receptorCodigoCiudad: Int
+    receptorCiudad: String
+    salidaDireccion: String
+    salidaDepartamento: String
+    salidaCodigoCiudad: Int
+    salidaCiudad: String
+    entregaDireccion: String
+    entregaDepartamento: String
+    entregaCodigoCiudad: Int
+    entregaCiudad: String
+    tipoTransporte: String
+    modalidadTransporte: String
+    transportistaNombre: String
+    transportistaRuc: String
+    transportistaDireccion: String
+    vehiculoId: Int
+    vehiculoMarca: String
+    vehiculoMatricula: String
+    choferPersonaId: Int
+    choferNombre: String
+    choferDocumento: String
+    choferDireccion: String
+    usuarioId: Int
+}
+
+input NotaRemisionItemInput {
+    id: ID
+    productoId: Int
+    presentacionId: Int
+    codigo: String
+    descripcion: String!
+    cantidad: Float!
+    unidadMedida: String
+}
+
+extend type Query {
+    notaRemision(id: ID!, sucursalId: ID!): NotaRemision
+    notaRemisiones(sucursalId: ID, fechaInicio: String, fechaFin: String, page: Int!, size: Int!): NotaRemisionPage
+    notaRemisionItems(notaRemisionId: ID!, sucursalId: ID!): [NotaRemisionItem]
+    notaRemisionPorTransferencia(transferenciaId: ID!, sucursalId: ID!): NotaRemision
+    documentoElectronicoDeNotaRemision(notaRemisionId: ID!, sucursalId: ID!): DocumentoElectronico
+    prellenarNotaRemision(origen: String!, referenciaId: ID, sucursalId: ID!): NotaRemisionPrellenada
+    """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""
+    imprimirNotaRemision(id: ID!, sucursalId: ID!, anchoMm: Int, escpos: Boolean): String
+}
+
+extend type Mutation {
+    saveNotaRemision(input: NotaRemisionInput!, items: [NotaRemisionItemInput!]!): NotaRemision!
+    generarYEnviarNotaRemision(id: ID!, sucursalId: ID!): DocumentoElectronico
+    reenviarNotaRemision(id: ID!, sucursalId: ID!): DocumentoElectronico
+    anularNotaRemision(id: ID!, sucursalId: ID!): NotaRemision
+}

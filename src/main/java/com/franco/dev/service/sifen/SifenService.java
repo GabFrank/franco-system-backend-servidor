@@ -88,6 +88,8 @@ public class SifenService {
     private final EventoNominacionDEService eventoNominacionDEService;
     private final FacturaLegalService facturaLegalService;
     private final com.roshka.sifen.core.SifenConfig sifenConfig;
+    private final SifenNotaRemisionBuilder notaRemisionBuilder;
+    private final SifenNotaCreditoBuilder notaCreditoBuilder;
 
     @Value("${tipoContribuyenteEmisor:2}")
     private Integer tipoContribuyenteEmisor;
@@ -100,7 +102,9 @@ public class SifenService {
             EventoCancelacionDEService eventoCancelacionDEService,
             EventoNominacionDEService eventoNominacionDEService,
             @Lazy FacturaLegalService facturaLegalService,
-            com.roshka.sifen.core.SifenConfig sifenConfig) {
+            com.roshka.sifen.core.SifenConfig sifenConfig,
+            SifenNotaRemisionBuilder notaRemisionBuilder,
+            SifenNotaCreditoBuilder notaCreditoBuilder) {
         this.documentoElectronicoService = documentoElectronicoService;
         this.loteDEService = loteDEService;
         this.facturaLegalItemService = facturaLegalItemService;
@@ -109,6 +113,8 @@ public class SifenService {
         this.eventoNominacionDEService = eventoNominacionDEService;
         this.facturaLegalService = facturaLegalService;
         this.sifenConfig = sifenConfig;
+        this.notaRemisionBuilder = notaRemisionBuilder;
+        this.notaCreditoBuilder = notaCreditoBuilder;
     }
 
     // ===================== CREACIÓN DE DOCUMENTOS ELECTRÓNICOS =====================
@@ -178,6 +184,108 @@ public class SifenService {
         return deGuardado;
     }
 
+    /**
+     * Crea el DE de una nota de remision y lo persiste en PENDIENTE, con su CDC, su XML original y
+     * su URL de QR. Es la T1 del envio en un paso (D8): cuando termina, el documento existe en la
+     * base pase lo que pase despues con SIFEN.
+     *
+     * No envia nada: eso lo encadena el resolver con {@link SifenEnvioSincronoService}.
+     */
+    @Transactional
+    public com.franco.dev.domain.financiero.DocumentoElectronico crearDocumentoElectronicoNotaRemision(
+            com.franco.dev.domain.financiero.NotaRemision nota,
+            List<com.franco.dev.domain.financiero.NotaRemisionItem> items,
+            com.franco.dev.domain.financiero.TimbradoDetalle timbradoDetalle,
+            com.franco.dev.domain.empresarial.Sucursal sucursal,
+            String cdcFacturaAsociada) throws SifenException {
+
+        log.info("📝 Creando DE para la nota de remisión ID: {}", nota.getId());
+
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("La nota de remisión no tiene ítems");
+        }
+
+        com.franco.dev.domain.financiero.DocumentoElectronico de =
+            documentoElectronicoService.createFromNotaRemision(nota);
+
+        com.roshka.sifen.core.beans.DocumentoElectronico deSifen =
+            notaRemisionBuilder.construir(nota, items, timbradoDetalle, sucursal, cdcFacturaAsociada);
+        SifenNotasValidator.validarNRE(deSifen);
+
+        de.setCdc(deSifen.obtenerCDC());
+
+        try {
+            com.roshka.sifen.internal.ctx.GenerationCtx ctx =
+                com.roshka.sifen.internal.ctx.GenerationCtx.getDefaultFromConfig(sifenConfig);
+            String xmlOriginal = deSifen.generarXml(ctx);
+            de.setXmlOriginal(xmlOriginal);
+            String urlQr = com.franco.dev.service.sifen.util.SifenXmlParser.extractUrlQr(xmlOriginal);
+            if (urlQr != null) {
+                de.setUrlQr(urlQr);
+            } else {
+                log.warn("   URL QR no encontrada en el XML de la nota de remisión {}", nota.getId());
+            }
+        } catch (Exception e) {
+            log.error("   Error al generar el XML de la nota de remisión {}: {}", nota.getId(), e.getMessage());
+            throw new RuntimeException("Error al generar el XML de la nota de remisión", e);
+        }
+
+        de.setEstado(EstadoDE.PENDIENTE);
+        com.franco.dev.domain.financiero.DocumentoElectronico guardado = documentoElectronicoService.save(de);
+        log.info("✅ DE de nota de remisión creado - ID: {}, CDC: {}", guardado.getId(), guardado.getCdc());
+        return guardado;
+    }
+
+    /**
+     * Crea el DE de una nota de credito y lo persiste en PENDIENTE con su CDC, su XML y su QR.
+     * Igual que la remision, es la T1 del envio en un paso (D8): no envia nada.
+     */
+    @Transactional
+    public com.franco.dev.domain.financiero.DocumentoElectronico crearDocumentoElectronicoNotaCredito(
+            com.franco.dev.domain.financiero.NotaCredito nota,
+            List<com.franco.dev.domain.financiero.NotaCreditoItem> items,
+            com.franco.dev.domain.financiero.TimbradoDetalle timbradoDetalle,
+            com.franco.dev.domain.empresarial.Sucursal sucursal,
+            String cdcFactura) throws SifenException {
+
+        log.info("📝 Creando DE para la nota de crédito ID: {}", nota.getId());
+
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("La nota de crédito no tiene ítems");
+        }
+
+        com.franco.dev.domain.financiero.DocumentoElectronico de =
+            documentoElectronicoService.createFromNotaCredito(nota);
+
+        com.roshka.sifen.core.beans.DocumentoElectronico deSifen =
+            notaCreditoBuilder.construir(nota, items, timbradoDetalle, sucursal, cdcFactura);
+        SifenNotasValidator.validarNCE(deSifen);
+        aplicarFixTotalesIVA(deSifen.getgTotSub());
+
+        de.setCdc(deSifen.obtenerCDC());
+
+        try {
+            com.roshka.sifen.internal.ctx.GenerationCtx ctx =
+                com.roshka.sifen.internal.ctx.GenerationCtx.getDefaultFromConfig(sifenConfig);
+            String xmlOriginal = deSifen.generarXml(ctx);
+            de.setXmlOriginal(xmlOriginal);
+            String urlQr = com.franco.dev.service.sifen.util.SifenXmlParser.extractUrlQr(xmlOriginal);
+            if (urlQr != null) {
+                de.setUrlQr(urlQr);
+            } else {
+                log.warn("   URL QR no encontrada en el XML de la nota de crédito {}", nota.getId());
+            }
+        } catch (Exception e) {
+            log.error("   Error al generar el XML de la nota de crédito {}: {}", nota.getId(), e.getMessage());
+            throw new RuntimeException("Error al generar el XML de la nota de crédito", e);
+        }
+
+        de.setEstado(EstadoDE.PENDIENTE);
+        com.franco.dev.domain.financiero.DocumentoElectronico guardado = documentoElectronicoService.save(de);
+        log.info("✅ DE de nota de crédito creado - ID: {}, CDC: {}", guardado.getId(), guardado.getCdc());
+        return guardado;
+    }
+
     // ===================== GESTIÓN DE LOTES =====================
 
     /**
@@ -187,9 +295,20 @@ public class SifenService {
      */
     @Transactional
     public LoteDE crearLote() {
+        return crearLote(null);
+    }
+
+    /**
+     * Crea el lote ya con su sucursal. {@code lote_de.sucursal_id} es NOT NULL, asi que un lote
+     * creado sin sucursal no entra: el camino sin sucursal nunca se habia ejecutado en central
+     * (los lotes que hay llegaron por replicacion desde las filiales).
+     */
+    @Transactional
+    public LoteDE crearLote(Long sucursalId) {
         log.info("📦 Creando lote vacío...");
         
         LoteDE lote = new LoteDE();
+        lote.setSucursalId(sucursalId);
         lote.setEstado(EstadoLoteDE.PENDIENTE_ENVIO);
         lote.setFechaUltimoIntento(LocalDateTime.now());
         lote.setIntentos(0);
@@ -284,11 +403,11 @@ public class SifenService {
                     }
         } catch (Exception e) {
                     log.warn("      ⚠ Error al reconstruir desde XML: {}", e.getMessage());
-                    deSifen = reconstruirDEDesdeFactura(de);
+                    deSifen = reconstruirDE(de);
                 }
             } else {
-                log.warn("      ⚠ XML original no disponible - regenerando desde factura");
-                deSifen = reconstruirDEDesdeFactura(de);
+                log.warn("      ⚠ XML original no disponible - regenerando desde el documento origen");
+                deSifen = reconstruirDE(de);
             }
             
             // Asegurar URL QR
@@ -1340,6 +1459,28 @@ public class SifenService {
     /**
      * Reconstruye un DE desde la factura cuando no hay XML original disponible.
      */
+    /**
+     * Reconstruye el DE de SIFEN cuando no se puede partir del XML guardado, despachando por
+     * {@code tipoDocumento}. Solo la factura se puede regenerar desde sus datos; una nota de
+     * crédito o de remisión existe únicamente como XML, así que sin él no hay reconstrucción
+     * posible y falla con un mensaje claro en vez de con un NullPointerException sobre una factura
+     * que no existe.
+     */
+    private com.roshka.sifen.core.beans.DocumentoElectronico reconstruirDE(
+            com.franco.dev.domain.financiero.DocumentoElectronico de) throws SifenException {
+
+        String tipo = de.getTipoDocumento() != null
+            ? de.getTipoDocumento()
+            : com.franco.dev.service.sifen.util.TipoDocumentoElectronico.FACTURA;
+
+        if (com.franco.dev.service.sifen.util.TipoDocumentoElectronico.FACTURA.equals(tipo)) {
+            return reconstruirDEDesdeFactura(de);
+        }
+
+        throw new IllegalStateException("El documento " + de.getId() + " (" + tipo
+            + ") no tiene XML original y no puede reconstruirse: hay que regenerarlo desde su nota.");
+    }
+
     private com.roshka.sifen.core.beans.DocumentoElectronico reconstruirDEDesdeFactura(
             com.franco.dev.domain.financiero.DocumentoElectronico de) throws SifenException {
         

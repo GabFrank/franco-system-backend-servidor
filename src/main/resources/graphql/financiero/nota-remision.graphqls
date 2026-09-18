@@ -181,7 +181,7 @@ extend type Query {
     notaRemision(id: ID!, sucursalId: ID!): NotaRemision
     notaRemisiones(sucursalId: ID, fechaInicio: String, fechaFin: String, page: Int!, size: Int!): NotaRemisionPage
     notaRemisionItems(notaRemisionId: ID!, sucursalId: ID!): [NotaRemisionItem]
-    notaRemisionPorTransferencia(transferenciaId: ID!): NotaRemision
+    notaRemisionPorTransferencia(transferenciaId: ID!, sucursalId: ID!): NotaRemision
     documentoElectronicoDeNotaRemision(notaRemisionId: ID!, sucursalId: ID!): DocumentoElectronico
     prellenarNotaRemision(origen: String!, referenciaId: ID, sucursalId: ID!): NotaRemisionPrellenada
     """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""

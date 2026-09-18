@@ -67,8 +67,8 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         return repository.findByFilters(sucursalId, desde, hasta, pageable);
     }
 
-    public List<NotaRemision> findActivasByTransferencia(Long transferenciaId) {
-        return repository.findActivasByTransferenciaId(transferenciaId);
+    public List<NotaRemision> findActivasByTransferencia(Long transferenciaId, Long sucursalId) {
+        return repository.findActivasByTransferenciaIdAndSucursalId(transferenciaId, sucursalId);
     }
 
     /**

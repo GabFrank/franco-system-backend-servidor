@@ -96,6 +96,14 @@ public class NotaRemisionPrellenadoService {
         Transferencia transferencia = transferenciaService.findById(transferenciaId)
                 .orElseThrow(() -> new GraphQLException("No existe la transferencia " + transferenciaId));
 
+        // La nota la emite quien despacha. Sin esta validación, el id de transferencia es global y
+        // cualquiera podía prellenar con el chofer, el vehículo y las direcciones de otra sucursal.
+        Sucursal sucursalOrigen = transferencia.getSucursalOrigen();
+        if (sucursalOrigen != null && sucursalId != null && !sucursalId.equals(sucursalOrigen.getId())) {
+            throw new GraphQLException("La transferencia " + transferenciaId
+                    + " sale de otra sucursal: la nota de remisión la emite la sucursal de origen");
+        }
+
         NotaRemision nota = base(sucursalId, timbrado);
         nota.setOrigen(OrigenNotaRemision.TRANSFERENCIA);
         nota.setTransferenciaId(transferenciaId);
@@ -194,7 +202,9 @@ public class NotaRemisionPrellenadoService {
         nota.setReceptorDireccion(factura.getDireccion());
 
         List<NotaRemisionItem> items = new ArrayList<>();
-        for (FacturaLegalItem origen : facturaLegalItemService.findByFacturaLegalId(facturaId)) {
+        // Con sucursalId: la PK de factura_legal_item es compuesta (id, sucursal_id), asi que el
+        // overload sin sucursal puede traer los items de la factura del mismo numero de OTRA sucursal.
+        for (FacturaLegalItem origen : facturaLegalItemService.findByFacturaLegalId(facturaId, sucursalId)) {
             NotaRemisionItem item = new NotaRemisionItem();
             item.setSucursalId(sucursalId);
             item.setDescripcion(origen.getDescripcion());

@@ -41,6 +41,15 @@ public interface NotaRemisionRepository extends HelperRepository<NotaRemision, E
     @Query("SELECT n FROM NotaRemision n WHERE n.transferenciaId = :transferenciaId AND n.activo = true")
     List<NotaRemision> findActivasByTransferenciaId(@Param("transferenciaId") Long transferenciaId);
 
+    /**
+     * La que se expone por GraphQL. El id de transferencia es global, asi que sin el filtro de
+     * sucursal cualquier usuario podia leer el chofer, el vehiculo y las direcciones de otra.
+     */
+    @Query("SELECT n FROM NotaRemision n WHERE n.transferenciaId = :transferenciaId "
+            + "AND n.sucursalId = :sucursalId AND n.activo = true")
+    List<NotaRemision> findActivasByTransferenciaIdAndSucursalId(
+            @Param("transferenciaId") Long transferenciaId, @Param("sucursalId") Long sucursalId);
+
     @Query("SELECT n FROM NotaRemision n WHERE "
             + "(:sucursalId IS NULL OR n.sucursalId = :sucursalId) AND "
             + "(cast(:fechaInicio as timestamp) IS NULL OR n.fecha >= :fechaInicio) AND "

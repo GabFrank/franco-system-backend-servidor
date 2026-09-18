@@ -73,9 +73,9 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     /** La nota activa de una transferencia, para que el desktop deshabilite el botón si ya existe. */
-    public NotaRemision notaRemisionPorTransferencia(Long transferenciaId) {
+    public NotaRemision notaRemisionPorTransferencia(Long transferenciaId, Long sucursalId) {
         seg.requireVer();
-        List<NotaRemision> notas = service.findActivasByTransferencia(transferenciaId);
+        List<NotaRemision> notas = service.findActivasByTransferencia(transferenciaId, sucursalId);
         return notas.isEmpty() ? null : notas.get(0);
     }
 

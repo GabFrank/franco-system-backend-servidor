@@ -53,7 +53,7 @@ class NotaRemisionGraphQLSeguridadTest {
         rechaza(() -> resolver.notaRemision(1L, 1L));
         rechaza(() -> resolver.notaRemisiones(1L, null, null, 0, 10));
         rechaza(() -> resolver.notaRemisionItems(1L, 1L));
-        rechaza(() -> resolver.notaRemisionPorTransferencia(5L));
+        rechaza(() -> resolver.notaRemisionPorTransferencia(5L, 1L));
         rechaza(() -> resolver.documentoElectronicoDeNotaRemision(1L, 1L));
 
         verifyNoInteractions(service);

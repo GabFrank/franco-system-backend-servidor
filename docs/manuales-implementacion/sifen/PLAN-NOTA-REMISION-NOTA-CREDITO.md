@@ -1308,3 +1308,21 @@ y la UI del desktop (1.E, 2.F).
 (`~/FRC/certificados/certificado.pfx`, titular RODOLFO ALEJANDRO FRANCO AREVALOS, vence
 **2027-08-19**) y se copió a la máquina de Franco en la misma ruta. El que estaba en su `~/FRC` y en
 `src/main/resources/certificados/` es el viejo, vencido el 2026-08-20.
+
+### 13.14 · Prueba de UI (2026-09-18) — el borrador no tiene id
+
+Al abrir el diálogo desde una transferencia, la query del prellenado fallaba:
+
+```
+The field at path '/data/notaRemision/id' was declared as a non null type,
+but the code involved in retrieving data has wrongly returned a null value
+```
+
+`NotaRemision.id` y `NotaRemisionItem.id` estaban declarados `ID!`, pero el borrador que devuelve
+`prellenarNotaRemision` **todavía no existe en la base**: no tiene id hasta que se guarda. Se
+relajaron a `ID` con el comentario que explica por qué.
+
+Es un caso que ni el build del desktop ni la batería del central atrapan: el tipo se valida al
+ejecutar la query, no al compilar. Verificado después contra la transferencia 51344: el borrador
+vuelve con el receptor = la propia empresa (RUC 80099482-5), motivo `TRASLADO_ENTRE_LOCALES` y el
+ítem de la transferencia.

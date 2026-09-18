@@ -48,7 +48,8 @@ enum OrigenNotaRemision {
 }
 
 type NotaRemision {
-    id: ID!
+    """Nulo en el borrador que devuelve prellenarNotaRemision: la nota todavia no existe."""
+    id: ID
     sucursalId: Int
     timbradoDetalleId: Int
     numeroNotaRemision: Int
@@ -95,7 +96,8 @@ type NotaRemision {
 }
 
 type NotaRemisionItem {
-    id: ID!
+    """Nulo en los items del borrador, por la misma razon que el id de la nota."""
+    id: ID
     sucursalId: Int
     notaRemisionId: Int
     productoId: Int

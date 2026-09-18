@@ -65,6 +65,22 @@ type NotaCreditoPage {
     isLast: Boolean
 }
 
+"""
+Una factura que hoy admite nota de credito. Los datos son para que el operador CONFIRME que
+eligio la correcta: al emitir desde un buscador se tiene menos contexto que desde el menu de una
+factura concreta, y una NC aprobada es irreversible.
+"""
+type FacturaParaNotaCredito {
+    facturaLegalId: ID!
+    sucursalId: ID!
+    numeroFactura: Int
+    fecha: String
+    cliente: String
+    ruc: String
+    total: Float
+    moneda: String
+}
+
 extend type Query {
     notaCredito(id: ID!, sucursalId: ID!): NotaCredito
     notaCreditos(sucursalId: ID, fechaInicio: String, fechaFin: String, page: Int!, size: Int!): NotaCreditoPage
@@ -73,6 +89,11 @@ extend type Query {
     documentoElectronicoDeNotaCredito(notaCreditoId: ID!, sucursalId: ID!): DocumentoElectronico
     """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""
     imprimirNotaCredito(id: ID!, sucursalId: ID!, anchoMm: Int, escpos: Boolean): String
+    """
+    Facturas que hoy admiten nota de credito. Filtra los CINCO requisitos que exige
+    crearNotaCreditoDesdeFactura, para que el buscador no ofrezca una que va a fallar al emitir.
+    """
+    facturasParaNotaCredito(sucursalId: ID!, numero: String, page: Int!, size: Int!): [FacturaParaNotaCredito!]!
 }
 
 extend type Mutation {

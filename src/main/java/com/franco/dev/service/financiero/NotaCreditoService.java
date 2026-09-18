@@ -212,4 +212,79 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     private static BigDecimal decimal(Double valor) {
         return valor != null ? BigDecimal.valueOf(valor) : null;
     }
+
+    /**
+     * Facturas que HOY admiten nota de crédito, para el buscador del botón «Adicionar».
+     *
+     * Aplica los mismos CINCO requisitos que {@link #crearDesdeFactura}: electrónica con DE
+     * aprobado y CDC, activa, sin nota de crédito activa y con ítems. Filtrar acá y no al emitir
+     * es la diferencia entre no ver una factura y verla, elegirla y recibir un error.
+     */
+    public List<FacturaParaNotaCredito> facturasParaNotaCredito(Long sucursalId, String numero,
+                                                                int page, int size) {
+        seg.requireEmitir();
+        if (sucursalId == null) {
+            throw new GraphQLException("Falta la sucursal");
+        }
+        List<FacturaParaNotaCredito> candidatas = new ArrayList<>();
+        for (FacturaLegal factura : facturaLegalService.buscarCandidatasANotaCredito(
+                sucursalId, numero, page, size)) {
+            if (Boolean.FALSE.equals(factura.getActivo())) continue;
+
+            DocumentoElectronico de = documentoElectronicoService
+                    .findByFacturaLegalId(factura.getId(), sucursalId).orElse(null);
+            if (de == null || de.getEstado() != EstadoDE.APROBADO) continue;
+            if (de.getCdc() == null || de.getCdc().trim().isEmpty()) continue;
+
+            if (!repository.findActivasByFactura(factura.getId(), sucursalId).isEmpty()) continue;
+
+            List<FacturaLegalItem> items = facturaLegalItemService
+                    .findByFacturaLegalId(factura.getId(), sucursalId);
+            if (items == null || items.isEmpty()) continue;
+
+            candidatas.add(new FacturaParaNotaCredito(
+                    factura.getId(), sucursalId,
+                    factura.getNumeroFactura() != null ? factura.getNumeroFactura().intValue() : null,
+                    factura.getFecha() != null ? factura.getFecha().toString() : null,
+                    factura.getNombre(), factura.getRuc(),
+                    factura.getTotalFinal() != null ? factura.getTotalFinal().doubleValue() : null,
+                    factura.getMonedaExtranjera() != null ? factura.getMonedaExtranjera() : "GS"));
+        }
+        return candidatas;
+    }
+
+    /** Lo que el buscador muestra para que el operador confirme que eligió bien. */
+    public static class FacturaParaNotaCredito {
+        private final Long facturaLegalId;
+        private final Long sucursalId;
+        private final Integer numeroFactura;
+        private final String fecha;
+        private final String cliente;
+        private final String ruc;
+        private final Double total;
+        private final String moneda;
+
+        public FacturaParaNotaCredito(Long facturaLegalId, Long sucursalId, Integer numeroFactura,
+                                      String fecha, String cliente, String ruc, Double total,
+                                      String moneda) {
+            this.facturaLegalId = facturaLegalId;
+            this.sucursalId = sucursalId;
+            this.numeroFactura = numeroFactura;
+            this.fecha = fecha;
+            this.cliente = cliente;
+            this.ruc = ruc;
+            this.total = total;
+            this.moneda = moneda;
+        }
+
+        public Long getFacturaLegalId() { return facturaLegalId; }
+        public Long getSucursalId() { return sucursalId; }
+        public Integer getNumeroFactura() { return numeroFactura; }
+        public String getFecha() { return fecha; }
+        public String getCliente() { return cliente; }
+        public String getRuc() { return ruc; }
+        public Double getTotal() { return total; }
+        public String getMoneda() { return moneda; }
+    }
+
 }

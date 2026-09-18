@@ -75,6 +75,13 @@ public class NotaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutation
     }
 
     /** KuDE en PDF (base64). El ticket termico no entra en esta entrega. */
+    /** Facturas que hoy admiten nota de credito, para el buscador del boton «Adicionar». */
+    public List<NotaCreditoService.FacturaParaNotaCredito> facturasParaNotaCredito(
+            Long sucursalId, String numero, Integer page, Integer size) {
+        return service.facturasParaNotaCredito(sucursalId, numero,
+                page != null ? page : 0, size != null ? size : 15);
+    }
+
     public String imprimirNotaCredito(Long id, Long sucursalId, Integer anchoMm, Boolean escpos) {
         seg.requireVer();
         if (Boolean.TRUE.equals(escpos)) {

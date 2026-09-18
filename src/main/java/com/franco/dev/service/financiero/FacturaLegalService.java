@@ -591,4 +591,12 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 numeroInicio,
                 numeroFin);
     }
+
+    /** Candidatas a nota de credito: electronicas y activas de la sucursal. Ver NotaCreditoService. */
+    public List<FacturaLegal> buscarCandidatasANotaCredito(Long sucursalId, String numero,
+                                                           int page, int size) {
+        String filtro = numero != null && !numero.trim().isEmpty() ? numero.trim() : null;
+        return repository.buscarCandidatasANotaCredito(sucursalId, filtro, PageRequest.of(page, size));
+    }
+
 }

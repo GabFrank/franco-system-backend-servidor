@@ -291,6 +291,67 @@ public class NotaRemisionPrellenadoService {
      * (NotaRemisionPrellenada): kickstart parea tipo y clase por nombre, y si no coinciden el
      * contexto de Spring no levanta — algo que el CI no atrapa porque no arranca la app.
      */
+    /**
+     * Sucursales que pueden ser local de salida: las que tienen timbrado electrónico activo.
+     * Los datos fiscales salen de ese timbrado_detalle, no de `empresarial.sucursal`, porque
+     * `general.ciudad.codigo` guarda abreviaturas internas (SDG, KTT) y no el código de SIFEN.
+     */
+    public List<LocalDeSalida> localesDeSalida(String texto) {
+        seg.requireEmitir();
+        String filtro = texto != null ? texto.trim().toUpperCase() : "";
+        List<LocalDeSalida> locales = new ArrayList<>();
+        for (Sucursal sucursal : sucursalService.findAll(null)) {
+            if (Boolean.FALSE.equals(sucursal.getActivo())) continue;
+            if (!filtro.isEmpty() && (sucursal.getNombre() == null
+                    || !sucursal.getNombre().toUpperCase().contains(filtro))) {
+                continue;
+            }
+            TimbradoDetalle timbrado = timbradoElectronicoDeONulo(sucursal.getId());
+            if (timbrado == null) continue;   // sin timbrado no puede ser local de salida
+            locales.add(new LocalDeSalida(sucursal.getId(), sucursal.getNombre(),
+                    timbrado.getDireccion(), timbrado.getCiudad(),
+                    codigoCiudad(timbrado.getCodigoCiudad()), timbrado.getDepartamento()));
+        }
+        return locales;
+    }
+
+    /** Igual que {@link #timbradoElectronicoDe}, pero sin lanzar: para listar. */
+    private TimbradoDetalle timbradoElectronicoDeONulo(Long sucursalId) {
+        List<TimbradoDetalle> detalles = timbradoDetalleService.findBySucursalId(sucursalId);
+        if (detalles == null) return null;
+        return detalles.stream()
+                .filter(d -> Boolean.TRUE.equals(d.getActivo()))
+                .filter(d -> d.getTimbrado() != null && Boolean.TRUE.equals(d.getTimbrado().getIsElectronico()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static class LocalDeSalida {
+        private final Long sucursalId;
+        private final String nombre;
+        private final String direccion;
+        private final String ciudad;
+        private final Integer codigoCiudad;
+        private final String departamento;
+
+        public LocalDeSalida(Long sucursalId, String nombre, String direccion, String ciudad,
+                             Integer codigoCiudad, String departamento) {
+            this.sucursalId = sucursalId;
+            this.nombre = nombre;
+            this.direccion = direccion;
+            this.ciudad = ciudad;
+            this.codigoCiudad = codigoCiudad;
+            this.departamento = departamento;
+        }
+
+        public Long getSucursalId() { return sucursalId; }
+        public String getNombre() { return nombre; }
+        public String getDireccion() { return direccion; }
+        public String getCiudad() { return ciudad; }
+        public Integer getCodigoCiudad() { return codigoCiudad; }
+        public String getDepartamento() { return departamento; }
+    }
+
     public static class NotaRemisionPrellenada {
         private final NotaRemision notaRemision;
         private final List<NotaRemisionItem> items;

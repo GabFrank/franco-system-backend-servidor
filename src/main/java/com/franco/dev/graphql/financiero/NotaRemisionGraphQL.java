@@ -87,6 +87,11 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
     }
 
     /** Borrador según el origen: el desktop no arma datos fiscales. */
+    /** Sucursales que pueden ser local de salida, para el buscador del diálogo. */
+    public List<NotaRemisionPrellenadoService.LocalDeSalida> localesDeSalida(String texto) {
+        return prellenadoService.localesDeSalida(texto);
+    }
+
     public NotaRemisionPrellenadoService.NotaRemisionPrellenada prellenarNotaRemision(String origen, Long referenciaId,
                                                                          Long sucursalId) {
         return prellenadoService.prellenar(OrigenNotaRemision.valueOf(origen), referenciaId, sucursalId);

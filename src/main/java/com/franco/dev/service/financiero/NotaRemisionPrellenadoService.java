@@ -117,18 +117,27 @@ public class NotaRemisionPrellenadoService {
         nota.setReceptorCiudad(timbrado.getCiudad());
         nota.setReceptorCodigoCiudad(codigoCiudad(timbrado.getCodigoCiudad()));
 
+        // La entrega sale del timbrado de la sucursal destino, igual que la salida del de origen:
+        // es el unico lugar con el codigo de ciudad de SIFEN y el departamento. `general.ciudad`
+        // no sirve para esto: su `codigo` es una abreviatura interna (SDG, KTT) y no parsea.
         Sucursal destino = transferencia.getSucursalDestino();
         if (destino != null) {
-            nota.setEntregaDireccion(destino.getDireccion());
-            if (destino.getCiudad() != null) {
+            TimbradoDetalle timbradoDestino = timbradoElectronicoDeONulo(destino.getId());
+            if (timbradoDestino != null) {
+                nota.setEntregaDireccion(timbradoDestino.getDireccion());
+                nota.setEntregaCiudad(timbradoDestino.getCiudad());
+                nota.setEntregaCodigoCiudad(codigoCiudad(timbradoDestino.getCodigoCiudad()));
+                nota.setEntregaDepartamento(timbradoDestino.getDepartamento());
+            } else if (destino.getCiudad() != null) {
                 nota.setEntregaCiudad(destino.getCiudad().getDescripcion());
-                nota.setEntregaCodigoCiudad(codigoCiudad(destino.getCiudad().getCodigo()));
+            }
+            if (destino.getDireccion() != null) {
+                nota.setEntregaDireccion(destino.getDireccion());
             }
         }
-        // `general.ciudad` no guarda el departamento, asi que no hay de donde sacar el de la
-        // sucursal destino: se propone el mismo de la salida, que es lo correcto en la enorme
-        // mayoria de los traslados entre locales de la empresa. El usuario puede cambiarlo, y
-        // SIFEN rechaza el lote entero si no coincide con la ciudad (2203).
+        // Destino sin timbrado (o sin departamento cargado): se propone el de la salida, que es
+        // lo correcto en la enorme mayoria de los traslados entre locales de la empresa. El
+        // usuario puede cambiarlo, y SIFEN rechaza el lote entero si no coincide con la ciudad (2203).
         if (nota.getEntregaDepartamento() == null) {
             nota.setEntregaDepartamento(nota.getSalidaDepartamento());
         }
@@ -260,7 +269,9 @@ public class NotaRemisionPrellenadoService {
                 .filter(d -> d.getTimbrado() != null && Boolean.TRUE.equals(d.getTimbrado().getIsElectronico()))
                 .findFirst()
                 .orElseThrow(() -> new GraphQLException(
-                        "La sucursal " + sucursalId + " no tiene un timbrado electrónico activo"));
+                        "La sucursal " + sucursalId + " no tiene un timbrado electrónico activo, "
+                        + "así que no puede emitir notas de remisión. Hay que asignarle uno desde "
+                        + "Financiero → Maestros → Timbrados."));
     }
 
     private static Presentacion presentacionDeLaEtapa(TransferenciaItem item) {
@@ -289,6 +300,73 @@ public class NotaRemisionPrellenadoService {
      * (NotaRemisionPrellenada): kickstart parea tipo y clase por nombre, y si no coinciden el
      * contexto de Spring no levanta — algo que el CI no atrapa porque no arranca la app.
      */
+    /**
+     * Sucursales que pueden ser local de salida: las que tienen timbrado electrónico activo.
+     * Los datos fiscales salen de ese timbrado_detalle, no de `empresarial.sucursal`, porque
+     * `general.ciudad.codigo` guarda abreviaturas internas (SDG, KTT) y no el código de SIFEN.
+     */
+    public List<LocalDeSalida> localesDeSalida(String texto) {
+        seg.requireEmitir();
+        // El buscador del desktop manda '%' con el campo vacío: es «todas», no un texto a buscar.
+        String filtro = texto != null ? texto.trim().toUpperCase() : "";
+        if ("%".equals(filtro)) filtro = "";
+        List<LocalDeSalida> locales = new ArrayList<>();
+        for (Sucursal sucursal : sucursalService.findAll(null)) {
+            if (Boolean.FALSE.equals(sucursal.getActivo())) continue;
+            if (!filtro.isEmpty() && (sucursal.getNombre() == null
+                    || !sucursal.getNombre().toUpperCase().contains(filtro))) {
+                continue;
+            }
+            TimbradoDetalle timbrado = timbradoElectronicoDeONulo(sucursal.getId());
+            if (timbrado == null) continue;   // sin timbrado no puede ser local de salida
+            // Misma regla que el prellenado: la dirección cargada en la sucursal manda sobre la del
+            // timbrado. Si no, elegir en la lupa la misma sucursal que propuso el prellenado daba
+            // otra dirección.
+            String direccion = sucursal.getDireccion() != null ? sucursal.getDireccion() : timbrado.getDireccion();
+            locales.add(new LocalDeSalida(sucursal.getId(), sucursal.getNombre(),
+                    direccion, timbrado.getCiudad(),
+                    codigoCiudad(timbrado.getCodigoCiudad()), timbrado.getDepartamento()));
+        }
+        return locales;
+    }
+
+    /** Igual que {@link #timbradoElectronicoDe}, pero sin lanzar: para listar. */
+    private TimbradoDetalle timbradoElectronicoDeONulo(Long sucursalId) {
+        List<TimbradoDetalle> detalles = timbradoDetalleService.findBySucursalId(sucursalId);
+        if (detalles == null) return null;
+        return detalles.stream()
+                .filter(d -> Boolean.TRUE.equals(d.getActivo()))
+                .filter(d -> d.getTimbrado() != null && Boolean.TRUE.equals(d.getTimbrado().getIsElectronico()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public static class LocalDeSalida {
+        private final Long sucursalId;
+        private final String nombre;
+        private final String direccion;
+        private final String ciudad;
+        private final Integer codigoCiudad;
+        private final String departamento;
+
+        public LocalDeSalida(Long sucursalId, String nombre, String direccion, String ciudad,
+                             Integer codigoCiudad, String departamento) {
+            this.sucursalId = sucursalId;
+            this.nombre = nombre;
+            this.direccion = direccion;
+            this.ciudad = ciudad;
+            this.codigoCiudad = codigoCiudad;
+            this.departamento = departamento;
+        }
+
+        public Long getSucursalId() { return sucursalId; }
+        public String getNombre() { return nombre; }
+        public String getDireccion() { return direccion; }
+        public String getCiudad() { return ciudad; }
+        public Integer getCodigoCiudad() { return codigoCiudad; }
+        public String getDepartamento() { return departamento; }
+    }
+
     public static class NotaRemisionPrellenada {
         private final NotaRemision notaRemision;
         private final List<NotaRemisionItem> items;

@@ -22,6 +22,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
+
 import static org.mockito.Mockito.*;
 
 class NotaRemisionServiceTest {
@@ -33,6 +35,7 @@ class NotaRemisionServiceTest {
     private NotaRemisionItemRepository itemRepository;
     private TimbradoDetalleRepository timbradoDetalleRepository;
     private FacturacionSecurityService seg;
+    private SerieDeNumeracionValidator serieValidator;
     private NotaRemisionService service;
 
     @BeforeEach
@@ -41,7 +44,9 @@ class NotaRemisionServiceTest {
         itemRepository = mock(NotaRemisionItemRepository.class);
         timbradoDetalleRepository = mock(TimbradoDetalleRepository.class);
         seg = mock(FacturacionSecurityService.class);
-        service = new NotaRemisionService(repository, itemRepository, timbradoDetalleRepository, seg);
+        serieValidator = mock(SerieDeNumeracionValidator.class);
+        service = new NotaRemisionService(repository, itemRepository, timbradoDetalleRepository,
+                seg, serieValidator);
 
         TimbradoDetalle timbrado = new TimbradoDetalle();
         timbrado.setId(TIMBRADO);
@@ -139,6 +144,21 @@ class NotaRemisionServiceTest {
     }
 
     @Test
+    void laFacturaTampocoPuedeTenerDosNotasActivas() {
+        // El origen FACTURA no tenía guard: dos clicks en «Guardar» creaban dos notas y quemaban
+        // dos números de la serie. Lo destapó la auditoría del plan de ajustes operativos.
+        NotaRemision desdeFactura = notaManual();
+        desdeFactura.setOrigen(OrigenNotaRemision.FACTURA);
+        desdeFactura.setFacturaLegalId(555L);
+        when(repository.findActivasByFacturaLegalId(555L, desdeFactura.getSucursalId()))
+                .thenReturn(Collections.singletonList(new NotaRemision()));
+
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> service.crear(desdeFactura, items()));
+        assertTrue(e.getMessage().contains("ya tiene una nota de remisión activa"));
+    }
+
+    @Test
     void elOrigenTransferenciaExigeLaTransferencia() {
         NotaRemision sinReferencia = notaManual();
         sinReferencia.setOrigen(OrigenNotaRemision.TRANSFERENCIA);
@@ -200,5 +220,33 @@ class NotaRemisionServiceTest {
         item.setDescripcion("PRODUCTO DE PRUEBA");
         item.setCantidad(new BigDecimal("3"));
         return new java.util.ArrayList<>(Arrays.asList(item));
+    }
+
+    @Test
+    void notasDeVariasTransferenciasSaleEnUnaSolaConsulta() {
+        NotaRemision nota = new NotaRemision();
+        nota.setId(11L);
+        nota.setTransferenciaId(51338L);
+        List<Long> ids = Arrays.asList(51338L, 51322L);
+        when(repository.findActivasByTransferenciaIdIn(ids)).thenReturn(Collections.singletonList(nota));
+
+        assertEquals(Collections.singletonList(nota), service.findActivasByTransferencias(ids));
+        verify(repository, times(1)).findActivasByTransferenciaIdIn(ids);
+    }
+
+    @Test
+    void sinTransferenciasNoConsulta() {
+        assertTrue(service.findActivasByTransferencias(Collections.emptyList()).isEmpty());
+        assertTrue(service.findActivasByTransferencias(null).isEmpty());
+        verify(repository, never()).findActivasByTransferenciaIdIn(any());
+    }
+
+    @Test
+    void masDeDoscientasTransferenciasSeRechazan() {
+        List<Long> ids = new java.util.ArrayList<>();
+        for (long i = 0; i <= NotaRemisionService.MAX_TRANSFERENCIAS_POR_CONSULTA; i++) ids.add(i);
+
+        assertThrows(GraphQLException.class, () -> service.findActivasByTransferencias(ids));
+        verify(repository, never()).findActivasByTransferenciaIdIn(any());
     }
 }

@@ -117,6 +117,20 @@ type NotaRemisionPage {
     isLast: Boolean
 }
 
+"""
+Una sucursal como local de salida de un traslado. Los datos fiscales (ciudad, codigo y
+departamento) salen de su timbrado_detalle electronico activo, no de `empresarial.sucursal`:
+`general.ciudad.codigo` guarda abreviaturas internas (SDG, KTT), no el codigo de SIFEN.
+"""
+type LocalDeSalida {
+    sucursalId: ID!
+    nombre: String!
+    direccion: String
+    ciudad: String
+    codigoCiudad: Int
+    departamento: String
+}
+
 """Borrador que arma el backend segun el origen. El desktop no calcula datos fiscales."""
 type NotaRemisionPrellenada {
     notaRemision: NotaRemision
@@ -182,8 +196,12 @@ extend type Query {
     notaRemisiones(sucursalId: ID, fechaInicio: String, fechaFin: String, page: Int!, size: Int!): NotaRemisionPage
     notaRemisionItems(notaRemisionId: ID!, sucursalId: ID!): [NotaRemisionItem]
     notaRemisionPorTransferencia(transferenciaId: ID!, sucursalId: ID!): NotaRemision
+    """Notas activas de varias transferencias (hasta 200), para que la lista sepa cuales ya tienen."""
+    notasRemisionPorTransferencias(transferenciaIds: [ID!]!): [NotaRemision!]!
     documentoElectronicoDeNotaRemision(notaRemisionId: ID!, sucursalId: ID!): DocumentoElectronico
     prellenarNotaRemision(origen: String!, referenciaId: ID, sucursalId: ID!): NotaRemisionPrellenada
+    """Sucursales que pueden ser local de salida, para el buscador del dialogo."""
+    localesDeSalida(texto: String): [LocalDeSalida!]!
     """KuDE en PDF (base64). anchoMm y escpos quedan para el ticket termico, que todavia no esta."""
     imprimirNotaRemision(id: ID!, sucursalId: ID!, anchoMm: Int, escpos: Boolean): String
 }

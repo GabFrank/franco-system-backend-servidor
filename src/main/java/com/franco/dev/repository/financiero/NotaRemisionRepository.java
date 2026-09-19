@@ -41,6 +41,23 @@ public interface NotaRemisionRepository extends HelperRepository<NotaRemision, E
     @Query("SELECT n FROM NotaRemision n WHERE n.transferenciaId = :transferenciaId AND n.activo = true")
     List<NotaRemision> findActivasByTransferenciaId(@Param("transferenciaId") Long transferenciaId);
 
+    /** Para el guard de duplicados del origen FACTURA. Filtra por sucursal: la PK es compuesta. */
+    @Query("SELECT n FROM NotaRemision n WHERE n.facturaLegalId = :facturaLegalId "
+            + "AND n.sucursalId = :sucursalId AND n.activo = true")
+    List<NotaRemision> findActivasByFacturaLegalId(@Param("facturaLegalId") Long facturaLegalId,
+                                                   @Param("sucursalId") Long sucursalId);
+
+    /**
+     * Las activas de varias transferencias de una vez: la lista de transferencias pagina de a 25.
+     * Solo las emitidas por la sucursal de ORIGEN de cada transferencia, la misma regla que la
+     * consulta individual de abajo: el id de transferencia es global y sin ese filtro se leerian
+     * notas de otra sucursal (chofer, vehiculo, direcciones).
+     */
+    @Query("SELECT n FROM NotaRemision n, Transferencia t WHERE t.id = n.transferenciaId "
+            + "AND n.sucursalId = t.sucursalOrigen.id "
+            + "AND n.transferenciaId IN :transferenciaIds AND n.activo = true")
+    List<NotaRemision> findActivasByTransferenciaIdIn(@Param("transferenciaIds") List<Long> transferenciaIds);
+
     /**
      * La que se expone por GraphQL. El id de transferencia es global, asi que sin el filtro de
      * sucursal cualquier usuario podia leer el chofer, el vehiculo y las direcciones de otra.

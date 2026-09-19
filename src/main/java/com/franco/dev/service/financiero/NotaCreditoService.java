@@ -7,6 +7,7 @@ import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaCredito;
 import com.franco.dev.repository.financiero.NotaCreditoItemRepository;
 import com.franco.dev.repository.financiero.NotaCreditoRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
+import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,10 @@ import java.util.Optional;
 @Service
 public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepository, EmbebedPrimaryKey> {
 
+    /** El buscador muestra la fecha al usuario, no un ISO con microsegundos. */
+    private static final java.time.format.DateTimeFormatter FECHA_BUSCADOR =
+            java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
     /** Ventana de SIFEN para cancelar un DE que no es factura. */
     public static final int HORAS_PARA_ANULAR = 168;
 
@@ -43,6 +48,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     private final FacturaLegalItemService facturaLegalItemService;
     private final DocumentoElectronicoService documentoElectronicoService;
     private final FacturacionSecurityService seg;
+    private final SerieDeNumeracionValidator serieValidator;
 
     public NotaCreditoService(NotaCreditoRepository repository,
                               NotaCreditoItemRepository itemRepository,
@@ -50,7 +56,8 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
                               FacturaLegalService facturaLegalService,
                               FacturaLegalItemService facturaLegalItemService,
                               DocumentoElectronicoService documentoElectronicoService,
-                              FacturacionSecurityService seg) {
+                              FacturacionSecurityService seg,
+                              SerieDeNumeracionValidator serieValidator) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.timbradoDetalleRepository = timbradoDetalleRepository;
@@ -58,6 +65,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         this.facturaLegalItemService = facturaLegalItemService;
         this.documentoElectronicoService = documentoElectronicoService;
         this.seg = seg;
+        this.serieValidator = serieValidator;
     }
 
     @Override
@@ -137,6 +145,8 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         nota.setId(repository.siguienteId());
         nota.setSucursalId(sucursalId);
         nota.setTimbradoDetalleId(timbrado.getId());
+        // Ver el comentario gemelo en NotaRemisionService: misma serie, contadores separados.
+        serieValidator.exigirSerieSinColision(timbrado, sucursalId);
         nota.setNumeroNotaCredito(repository.findMaxNumeroByTimbradoDetalleId(timbrado.getId()) + 1);
         nota.setFecha(LocalDateTime.now());
         nota.setFacturaLegalId(facturaLegalId);
@@ -212,4 +222,79 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     private static BigDecimal decimal(Double valor) {
         return valor != null ? BigDecimal.valueOf(valor) : null;
     }
+
+    /**
+     * Facturas que HOY admiten nota de crédito, para el buscador del botón «Adicionar».
+     *
+     * Aplica los mismos CINCO requisitos que {@link #crearDesdeFactura}: electrónica con DE
+     * aprobado y CDC, activa, sin nota de crédito activa y con ítems. Filtrar acá y no al emitir
+     * es la diferencia entre no ver una factura y verla, elegirla y recibir un error.
+     */
+    public List<FacturaParaNotaCredito> facturasParaNotaCredito(Long sucursalId, String numero,
+                                                                int page, int size) {
+        seg.requireEmitir();
+        if (sucursalId == null) {
+            throw new GraphQLException("Falta la sucursal");
+        }
+        List<FacturaParaNotaCredito> candidatas = new ArrayList<>();
+        for (FacturaLegal factura : facturaLegalService.buscarCandidatasANotaCredito(
+                sucursalId, numero, page, size)) {
+            if (Boolean.FALSE.equals(factura.getActivo())) continue;
+
+            DocumentoElectronico de = documentoElectronicoService
+                    .findByFacturaLegalId(factura.getId(), sucursalId).orElse(null);
+            if (de == null || de.getEstado() != EstadoDE.APROBADO) continue;
+            if (de.getCdc() == null || de.getCdc().trim().isEmpty()) continue;
+
+            if (!repository.findActivasByFactura(factura.getId(), sucursalId).isEmpty()) continue;
+
+            List<FacturaLegalItem> items = facturaLegalItemService
+                    .findByFacturaLegalId(factura.getId(), sucursalId);
+            if (items == null || items.isEmpty()) continue;
+
+            candidatas.add(new FacturaParaNotaCredito(
+                    factura.getId(), sucursalId,
+                    factura.getNumeroFactura() != null ? factura.getNumeroFactura().intValue() : null,
+                    factura.getFecha() != null ? factura.getFecha().format(FECHA_BUSCADOR) : null,
+                    factura.getNombre(), factura.getRuc(),
+                    factura.getTotalFinal() != null ? factura.getTotalFinal().doubleValue() : null,
+                    factura.getMonedaExtranjera() != null ? factura.getMonedaExtranjera() : "GS"));
+        }
+        return candidatas;
+    }
+
+    /** Lo que el buscador muestra para que el operador confirme que eligió bien. */
+    public static class FacturaParaNotaCredito {
+        private final Long facturaLegalId;
+        private final Long sucursalId;
+        private final Integer numeroFactura;
+        private final String fecha;
+        private final String cliente;
+        private final String ruc;
+        private final Double total;
+        private final String moneda;
+
+        public FacturaParaNotaCredito(Long facturaLegalId, Long sucursalId, Integer numeroFactura,
+                                      String fecha, String cliente, String ruc, Double total,
+                                      String moneda) {
+            this.facturaLegalId = facturaLegalId;
+            this.sucursalId = sucursalId;
+            this.numeroFactura = numeroFactura;
+            this.fecha = fecha;
+            this.cliente = cliente;
+            this.ruc = ruc;
+            this.total = total;
+            this.moneda = moneda;
+        }
+
+        public Long getFacturaLegalId() { return facturaLegalId; }
+        public Long getSucursalId() { return sucursalId; }
+        public Integer getNumeroFactura() { return numeroFactura; }
+        public String getFecha() { return fecha; }
+        public String getCliente() { return cliente; }
+        public String getRuc() { return ruc; }
+        public Double getTotal() { return total; }
+        public String getMoneda() { return moneda; }
+    }
+
 }

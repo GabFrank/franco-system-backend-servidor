@@ -10,6 +10,7 @@ import com.franco.dev.domain.financiero.enums.ResponsableEmisionNr;
 import com.franco.dev.repository.financiero.NotaRemisionItemRepository;
 import com.franco.dev.repository.financiero.NotaRemisionRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
+import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,15 +40,18 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
     private final NotaRemisionItemRepository itemRepository;
     private final TimbradoDetalleRepository timbradoDetalleRepository;
     private final FacturacionSecurityService seg;
+    private final SerieDeNumeracionValidator serieValidator;
 
     public NotaRemisionService(NotaRemisionRepository repository,
                                NotaRemisionItemRepository itemRepository,
                                TimbradoDetalleRepository timbradoDetalleRepository,
-                               FacturacionSecurityService seg) {
+                               FacturacionSecurityService seg,
+                               SerieDeNumeracionValidator serieValidator) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.timbradoDetalleRepository = timbradoDetalleRepository;
         this.seg = seg;
+        this.serieValidator = serieValidator;
     }
 
     @Override
@@ -71,6 +76,22 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         return repository.findActivasByTransferenciaIdAndSucursalId(transferenciaId, sucursalId);
     }
 
+    /** Tope de ids por consulta: una página de la lista son 25, y un IN sin límite no tiene razón. */
+    static final int MAX_TRANSFERENCIAS_POR_CONSULTA = 200;
+
+    /**
+     * Las notas activas de varias transferencias, para que la lista sepa de entrada cuáles ya tienen
+     * y el menú diga «Imprimir». Antes se enteraba recién al hacer clic.
+     */
+    public List<NotaRemision> findActivasByTransferencias(List<Long> transferenciaIds) {
+        if (transferenciaIds == null || transferenciaIds.isEmpty()) return Collections.emptyList();
+        if (transferenciaIds.size() > MAX_TRANSFERENCIAS_POR_CONSULTA) {
+            throw new GraphQLException("Se pueden consultar hasta " + MAX_TRANSFERENCIAS_POR_CONSULTA
+                    + " transferencias por vez");
+        }
+        return repository.findActivasByTransferenciaIdIn(transferenciaIds);
+    }
+
     /**
      * Crea la nota con su número de serie. Es la T1 del plan (D8): al terminar, número y nota están
      * commiteados, pase lo que pase después con SIFEN.
@@ -88,6 +109,9 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
             throw new GraphQLException("El timbrado no está activo");
         }
 
+        // El número sale del id de la fila, pero la serie ante la SET es establecimiento+punto:
+        // si otra fila activa declara la misma, los dos contadores emiten el mismo número.
+        serieValidator.exigirSerieSinColision(timbrado, nota.getSucursalId());
         nota.setNumeroNotaRemision(repository.findMaxNumeroByTimbradoDetalleId(timbrado.getId()) + 1);
         if (nota.getFecha() == null) {
             nota.setFecha(LocalDateTime.now());
@@ -169,6 +193,14 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
         if (nota.getOrigen() == OrigenNotaRemision.TRANSFERENCIA
                 && !repository.findActivasByTransferenciaId(nota.getTransferenciaId()).isEmpty()) {
             throw new GraphQLException("La transferencia ya tiene una nota de remisión activa");
+        }
+        // Mismo guard para el origen FACTURA, que no lo tenía: sin él, dos clicks en «Guardar»
+        // creaban dos notas activas y quemaban dos números de la serie. Es el equivalente del que
+        // NotaCreditoService ya hace con findActivasByFactura.
+        if (nota.getOrigen() == OrigenNotaRemision.FACTURA
+                && !repository.findActivasByFacturaLegalId(nota.getFacturaLegalId(),
+                        nota.getSucursalId()).isEmpty()) {
+            throw new GraphQLException("La factura ya tiene una nota de remisión activa");
         }
         if (nota.getMotivoEmision() == MotivoEmisionNotaRemision.TRASLADO_ENTRE_LOCALES
                 && esVacio(nota.getReceptorRuc())) {

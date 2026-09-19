@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -73,6 +74,22 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
 
     public List<NotaRemision> findActivasByTransferencia(Long transferenciaId, Long sucursalId) {
         return repository.findActivasByTransferenciaIdAndSucursalId(transferenciaId, sucursalId);
+    }
+
+    /** Tope de ids por consulta: una página de la lista son 25, y un IN sin límite no tiene razón. */
+    static final int MAX_TRANSFERENCIAS_POR_CONSULTA = 200;
+
+    /**
+     * Las notas activas de varias transferencias, para que la lista sepa de entrada cuáles ya tienen
+     * y el menú diga «Imprimir». Antes se enteraba recién al hacer clic.
+     */
+    public List<NotaRemision> findActivasByTransferencias(List<Long> transferenciaIds) {
+        if (transferenciaIds == null || transferenciaIds.isEmpty()) return Collections.emptyList();
+        if (transferenciaIds.size() > MAX_TRANSFERENCIAS_POR_CONSULTA) {
+            throw new GraphQLException("Se pueden consultar hasta " + MAX_TRANSFERENCIAS_POR_CONSULTA
+                    + " transferencias por vez");
+        }
+        return repository.findActivasByTransferenciaIdIn(transferenciaIds);
     }
 
     /**

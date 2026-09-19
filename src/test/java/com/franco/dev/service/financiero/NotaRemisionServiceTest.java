@@ -221,4 +221,32 @@ class NotaRemisionServiceTest {
         item.setCantidad(new BigDecimal("3"));
         return new java.util.ArrayList<>(Arrays.asList(item));
     }
+
+    @Test
+    void notasDeVariasTransferenciasSaleEnUnaSolaConsulta() {
+        NotaRemision nota = new NotaRemision();
+        nota.setId(11L);
+        nota.setTransferenciaId(51338L);
+        List<Long> ids = Arrays.asList(51338L, 51322L);
+        when(repository.findActivasByTransferenciaIdIn(ids)).thenReturn(Collections.singletonList(nota));
+
+        assertEquals(Collections.singletonList(nota), service.findActivasByTransferencias(ids));
+        verify(repository, times(1)).findActivasByTransferenciaIdIn(ids);
+    }
+
+    @Test
+    void sinTransferenciasNoConsulta() {
+        assertTrue(service.findActivasByTransferencias(Collections.emptyList()).isEmpty());
+        assertTrue(service.findActivasByTransferencias(null).isEmpty());
+        verify(repository, never()).findActivasByTransferenciaIdIn(any());
+    }
+
+    @Test
+    void masDeDoscientasTransferenciasSeRechazan() {
+        List<Long> ids = new java.util.ArrayList<>();
+        for (long i = 0; i <= NotaRemisionService.MAX_TRANSFERENCIAS_POR_CONSULTA; i++) ids.add(i);
+
+        assertThrows(GraphQLException.class, () -> service.findActivasByTransferencias(ids));
+        verify(repository, never()).findActivasByTransferenciaIdIn(any());
+    }
 }

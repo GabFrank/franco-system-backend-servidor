@@ -81,6 +81,12 @@ public class NotaRemisionGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         return notas.isEmpty() ? null : notas.get(0);
     }
 
+    /** Las notas activas de las transferencias de una página de la lista, en una sola consulta. */
+    public List<NotaRemision> notasRemisionPorTransferencias(List<Long> transferenciaIds) {
+        seg.requireVer();
+        return service.findActivasByTransferencias(transferenciaIds);
+    }
+
     public DocumentoElectronico documentoElectronicoDeNotaRemision(Long notaRemisionId, Long sucursalId) {
         seg.requireVer();
         return documentoElectronicoService.findByNotaRemisionId(notaRemisionId, sucursalId).orElse(null);

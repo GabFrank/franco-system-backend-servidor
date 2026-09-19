@@ -51,6 +51,10 @@ public interface NotaRemisionRepository extends HelperRepository<NotaRemision, E
     List<NotaRemision> findActivasByFacturaLegalId(@Param("facturaLegalId") Long facturaLegalId,
                                                    @Param("sucursalId") Long sucursalId);
 
+    /** Las activas de varias transferencias de una vez: la lista de transferencias pagina de a 25. */
+    @Query("SELECT n FROM NotaRemision n WHERE n.transferenciaId IN :transferenciaIds AND n.activo = true")
+    List<NotaRemision> findActivasByTransferenciaIdIn(@Param("transferenciaIds") List<Long> transferenciaIds);
+
     @Query("SELECT n FROM NotaRemision n WHERE n.transferenciaId = :transferenciaId "
             + "AND n.sucursalId = :sucursalId AND n.activo = true")
     List<NotaRemision> findActivasByTransferenciaIdAndSucursalId(

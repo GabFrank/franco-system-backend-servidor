@@ -68,9 +68,11 @@ listan. `NULLS LAST` lo soporta el HQL de Hibernate 5.6.15 (el del `pom`).
 
 - `JornadaRepository.findByFechaRange` y `findByUsuarioIdAndFechaRange`: `LEFT JOIN
   j.marcacionEntrada me` + el `ORDER BY` de arriba.
-- `JornadaGraphQL.jornadas`, rama sin fechas (`findAll(pageable)`): `PageRequest.of(page, size,
-  Sort.by(DESC, "fecha").and(Sort.by(DESC, "id")))`. El desktop no la usa, se alinea para que las
-  dos ramas de la misma query no ordenen distinto.
+- ~~`JornadaGraphQL.jornadas`, rama sin fechas (`findAll(pageable)`): `Sort` por `fecha`/`id`.~~
+  **Descartado al implementar**: `CrudService.findAll(Pageable)` llama a
+  `findAllByOrderByIdAsc(pageable)`, con el orden fijo en el nombre del método; un `Sort` en el
+  `Pageable` no lo reemplaza de forma confiable. Esa rama no la usa ningún cliente (el desktop
+  siempre manda fechas), así que queda como está en vez de tocar `CrudService`, que es de todos.
 - Sin cambios de esquema, `.graphqls` ni desktop.
 
 Commit: `fix(rrhh): ordenar la lista de marcaciones por hora de llegada`.

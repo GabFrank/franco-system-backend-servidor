@@ -522,6 +522,12 @@ Contenido común de los 7 recibos (2026-09-19), en los tres formatos:
   envuelve a las columnas del papel; ninguna línea supera 32/48 columnas.
 - **PDF A4 genérico**: concepto y monto del detalle con `isStretchWithOverflow`. Antes
   un concepto largo (préstamo o bono con descripción larga) se cortaba en silencio.
+- **Pendiente (seguridad, deuda previa)**: los 7 `imprimirRecibo*`
+  (`ReporteRrhhGraphQL`, `LiquidacionSueldoGraphQL.imprimirReciboLiquidacion`) no llaman
+  a `seg.*` ni validan que el recibo sea del usuario: cualquier usuario autenticado que
+  recorra ids baja el recibo de otro, y la PWA pide el de sueldo por id. Solo el acta de
+  amonestación gatea (`requireVer`). Sin verificar además: `SecurityConfig` usa
+  `antMatchers("**/graphql/**")` sin `/` inicial. Va en un fix aparte.
 
 Los **reportes agregados** (nómina del mes, resumen IPS, vales pendientes,
 préstamos activos, aguinaldo anual) quedan **solo PDF** (no tiene sentido un

@@ -31,12 +31,13 @@ public final class ReciboTicketEscPos {
     }
 
     /**
+     * @param observacion texto libre del registro; null o en blanco no imprime la linea.
      * @param anchoMm 58 o 80. Define las columnas (32 / 48).
      * @return base64 de los bytes ESC/POS.
      */
     public static String build(String empresa, String titulo, String funcionario, String documento,
                                String fecha, List<Row> filas, String totalGs, String totalEnLetras,
-                               String clausula, Integer anchoMm) {
+                               String clausula, String observacion, Integer anchoMm) {
         int cols = (anchoMm != null && anchoMm >= 80) ? 48 : 32;
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -46,12 +47,15 @@ public final class ReciboTicketEscPos {
             Style bold = new Style().setBold(true);
 
             esc.writeLF(centerBold, na(empresa));
-            esc.writeLF(centerBold, na(titulo));
+            // El titulo lleva el numero del recibo: se envuelve para que la impresora no
+            // lo corte a mitad del numero en 58mm.
+            for (String l : wrap(na(titulo), cols)) esc.writeLF(centerBold, l);
             esc.writeLF(linea(cols));
             esc.writeLF(na("Funcionario: " + nz(funcionario)));
             esc.writeLF(na("C.I.: " + nz(documento)));
             esc.writeLF(na("Fecha: " + nz(fecha)));
             esc.writeLF(linea(cols));
+            esc.writeLF(bold, dosColumnas("Concepto", "Monto", cols));
             if (filas != null) {
                 for (Row r : filas) {
                     for (String l : filaConcepto(r.concepto, r.monto, cols)) esc.writeLF(na(l));
@@ -59,6 +63,10 @@ public final class ReciboTicketEscPos {
             }
             esc.writeLF(linea(cols));
             esc.writeLF(bold, dosColumnas("TOTAL", "Gs " + nz(totalGs), cols));
+            String obs = textoEnUnaLinea(observacion);
+            if (obs != null) {
+                for (String l : wrapAncho(na("Obs.: " + obs), cols, cols)) esc.writeLF(l);
+            }
             esc.feed(1);
             for (String l : wrap(na(nz(clausula) + " " + nz(totalEnLetras) + "."), cols)) {
                 esc.writeLF(l);
@@ -78,13 +86,26 @@ public final class ReciboTicketEscPos {
     // ===== helpers de formato =====
 
     /**
+     * Texto libre (observacion) en una sola linea: saltos, tabs y espacios repetidos pasan a
+     * un espacio. Un salto de linea crudo lo ejecuta la impresora y descuadra las columnas.
+     *
+     * @return null si no queda nada que imprimir.
+     */
+    public static String textoEnUnaLinea(String s) {
+        if (s == null) return null;
+        String t = s.replaceAll("\\s+", " ").trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    /**
      * Fila concepto/monto SIN truncar: el concepto se envuelve a varias lineas.
      * El monto va alineado a la derecha en la primera linea; las lineas de
      * continuacion muestran el resto del concepto (izquierda).
      */
     private static List<String> filaConcepto(String concepto, String monto, int cols) {
         List<String> out = new ArrayList<>();
-        concepto = nz(concepto).trim();
+        // El concepto puede traer texto libre (descripcion de prestamo o penalizacion).
+        concepto = nz(textoEnUnaLinea(concepto));
         monto = nz(monto).trim();
         int anchoMonto = monto.length() + 1;            // + separacion minima
         int maxPrimera = cols - anchoMonto;             // ancho concepto en la 1ra linea
@@ -107,10 +128,15 @@ public final class ReciboTicketEscPos {
         if (texto == null || texto.isEmpty()) { out.add(""); return out; }
         StringBuilder linea = new StringBuilder();
         for (String palabra : texto.split(" ")) {
-            // Palabra sola mas larga que el ancho disponible: cortarla en pedazos.
-            while (palabra.length() > cols) {
+            // Palabra que no entra sola en el ancho de su linea: primero se cierra la linea en
+            // curso, y si todavia no entra, se corta en pedazos. En la 1ra linea el ancho es
+            // `maxPrimera` (el monto ocupa el resto), no `cols`.
+            if (linea.length() > 0 && palabra.length() > (out.isEmpty() ? maxPrimera : cols)) {
+                out.add(linea.toString());
+                linea = new StringBuilder();
+            }
+            while (linea.length() == 0 && palabra.length() > (out.isEmpty() ? maxPrimera : cols)) {
                 int limite = out.isEmpty() ? maxPrimera : cols;
-                if (linea.length() > 0) { out.add(linea.toString()); linea = new StringBuilder(); }
                 out.add(palabra.substring(0, limite));
                 palabra = palabra.substring(limite);
             }

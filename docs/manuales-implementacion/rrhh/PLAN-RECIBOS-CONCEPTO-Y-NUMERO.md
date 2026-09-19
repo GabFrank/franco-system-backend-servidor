@@ -105,15 +105,36 @@ Implementación final (reemplaza los puntos 2 a 4 de abajo donde contradicen):
 
 ## Tabla de datos nuevos
 
-No nace ningún dato nuevo. `vale.observacion` y `vale.id` ya existen; se agregan como lectores
-el recibo del vale en PDF y en ESC/POS. Sin migración, sin GraphQL, sin enum. Único cambio de
-plantilla: stretch del detail de `recibo-rrhh.jrxml`.
+No nace ninguna columna, campo GraphQL ni enum; sin migración. Nacen **parámetros de plantilla**
+y un argumento de `ReciboTicketEscPos.build`, cada uno con escritor y lector:
+
+| Dato | Escritor | Lector |
+|---|---|---|
+| título con `Nro. <id>` (7 recibos) | `ReporteRrhhService.reciboRrhh` / `tituloConNumero`; `ReciboLiquidacionService.tituloTicket` | `recibo-rrhh`, `recibo-ticket-58/80` (`titulo`), ESC/POS |
+| `numero` | `ReporteRrhhService.finiquitoBase64` (A4), `ReciboLiquidacionService.generarBase64` (A4) | `recibo-finiquito.jrxml`, `recibo-liquidacion.jrxml` |
+| `observacion` (vale, préstamo, finiquito, sueldo) | `reciboRrhh`, `finiquitoBase64`, `ReciboLiquidacionService` (A4 recortada a `MAX_OBSERVACION_A4`=300, ticket y ESC/POS enteras) | las 5 plantillas y `ReciboTicketEscPos.build` |
+
+Plantillas tocadas: las 5 (`recibo-rrhh`, `recibo-ticket-58`, `recibo-ticket-80`,
+`recibo-finiquito`, `recibo-liquidacion`).
 
 ## Fuera de alcance / decisiones para el usuario
 
 - Número en los demás recibos (penalización, aguinaldo, préstamo, bono, finiquito): no se pidió.
   Se agrega igual que el del vale si el usuario lo aprueba.
 - Encabezado de 80 mm en producción: sale con el próximo release de `develop` → `master`.
+
+## Auditoría del diff (paso 8)
+
+| Eje | Hallazgo | Sev. | Acción |
+|---|---|---|---|
+| Fijo 1 | Los 7 `imprimirRecibo*` no llaman a `seg.*` ni validan dueño: cualquier usuario autenticado que recorra ids baja el recibo de otro (verificado: `ReporteRrhhGraphQL` solo gatea el acta; `LiquidacionSueldoGraphQL.imprimirReciboLiquidacion` sin control). **Preexistente**; este diff suma la observación al contenido | alta (previa) | fuera de esta fase: fix aparte propuesto al usuario (tocar el autoservicio de la PWA) |
+| Fijo 1 | `SecurityConfig` `antMatchers("**/graphql/**")` sin `/` inicial podría no cubrir `/graphql` | sin verificar | anotado para el mismo fix aparte |
+| Fijo 2 | Los 28 caminos (7 recibos × formatos) tienen escritor y lector; layout sin superposición | — | verificado |
+| Fijo 2 | A4 de sueldo con `ScaleFont`: observación muy larga baja de 6 pt sin error | baja-media | verificado (700 caracteres → 4 pt); aplicado: tope 300 con `...` solo en A4 + tests |
+| Fijo 2 | Tabla de datos nuevos del plan desactualizada | baja | aplicado |
+| Fijo 3 | Contrato GraphQL idéntico; desktop pasa el payload sin leerlo; filial y móviles no usan esto | — | verificado |
+| Fijo 3 | Concepto con texto libre (`\n`, dobles espacios) en ESC/POS | baja | aplicado: `filaConcepto` normaliza con `textoEnUnaLinea` + test |
+| Fijo 3 | Caracteres fuera de cp437 (emoji) en observación | baja | no aplicado: la librería codifica cp437 y reemplaza por `?` sin error |
 
 ## Qué queda sin verificar
 

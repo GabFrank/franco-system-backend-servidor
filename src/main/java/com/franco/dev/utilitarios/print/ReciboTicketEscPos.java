@@ -51,8 +51,10 @@ public final class ReciboTicketEscPos {
             // lo corte a mitad del numero en 58mm.
             for (String l : wrap(na(titulo), cols)) esc.writeLF(centerBold, l);
             esc.writeLF(linea(cols));
-            esc.writeLF(na("Funcionario: " + nz(funcionario)));
-            esc.writeLF(na("C.I.: " + nz(documento)));
+            // Un nombre completo supera facil las 32 columnas de 58mm: se envuelve por
+            // palabras en vez de dejar que la impresora lo corte donde caiga.
+            for (String l : wrapAncho(na("Funcionario: " + nz(textoEnUnaLinea(funcionario))), cols, cols)) esc.writeLF(l);
+            for (String l : wrapAncho(na("C.I.: " + nz(documento)), cols, cols)) esc.writeLF(l);
             esc.writeLF(na("Fecha: " + nz(fecha)));
             esc.writeLF(linea(cols));
             esc.writeLF(bold, dosColumnas("Concepto", "Monto", cols));

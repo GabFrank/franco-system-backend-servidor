@@ -79,6 +79,19 @@ public class ReciboTicketEscPosTest {
         }
     }
 
+    /** Visto en la prueba en runtime: "Funcionario: " + nombre completo daba 42 columnas en 58mm. */
+    @Test
+    void nombreLargoDelFuncionarioSeEnvuelvePorPalabras() {
+        String b64 = ReciboTicketEscPos.build("FRANCO SA", "RECIBO DE VALE Nro. 2", "MAURO ROLANDO RIVAS FERNANDEZ DE LA SANTISIMA TRINIDAD",
+                "5466642", "2026-09-19", new ArrayList<>(), "150.000", "CIENTO CINCUENTA MIL",
+                "Recibi conforme,", null, 58);
+        List<String> lineas = lineas(b64);
+        for (String l : lineas) assertTrue(l.length() <= 32, "linea de " + l.length() + ": [" + l + "]");
+        String todo = String.join(" ", lineas);
+        assertTrue(todo.contains("Funcionario: MAURO ROLANDO RIVAS") && todo.contains("TRINIDAD"),
+                "el nombre tiene que salir completo y cortado por palabras: " + lineas);
+    }
+
     // ===== helpers =====
 
     private static String ticket(String titulo, String observacion, int ancho, ReciboTicketEscPos.Row... filas) {

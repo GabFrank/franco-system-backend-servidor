@@ -506,6 +506,29 @@ Backend — cada recibo expone **una** query con `anchoMm: Int` y `escpos: Boole
   `ReciboLiquidacionService`. Resolvers `ReporteRrhhGraphQL`/
   `LiquidacionSueldoGraphQL` reciben `Boolean` y hacen `Boolean.TRUE.equals(escpos)`.
 
+Contenido común de los 7 recibos (2026-09-19), en los tres formatos:
+- **Número**: el id del registro que origina el recibo va en el título
+  (`RECIBO DE VALE Nro. 12`, `RECIBO DE SUELDO 2026-09 Nro. 486`). En las plantillas
+  genéricas y en ESC/POS lo arma `ReporteRrhhService.tituloConNumero`; los A4 de
+  finiquito y de sueldo tienen el título fijo y lo reciben en el parámetro `numero`.
+- **Observación**: línea propia `Obs.: …` debajo del total (parámetro `observacion`),
+  solo en los recibos cuya entidad la tiene: vale, préstamo, finiquito y sueldo.
+  Penalización y bono ya imprimen su texto libre (descripción / motivo) en el concepto;
+  aguinaldo no tiene. Se normaliza a una línea (`ReciboTicketEscPos.textoEnUnaLinea`)
+  y, vacía, no se imprime. En el A4 de sueldo va en el hueco a la izquierda de los
+  totales, en las dos vías, con `textAdjust="ScaleFont"`: ese layout tiene alto fijo
+  para que las dos vías entren en una hoja.
+- **Ticket ESC/POS**: encabezado `Concepto … Monto` antes de las filas; el título se
+  envuelve a las columnas del papel; ninguna línea supera 32/48 columnas.
+- **PDF A4 genérico**: concepto y monto del detalle con `isStretchWithOverflow`. Antes
+  un concepto largo (préstamo o bono con descripción larga) se cortaba en silencio.
+- **Pendiente (seguridad, deuda previa)**: los 7 `imprimirRecibo*`
+  (`ReporteRrhhGraphQL`, `LiquidacionSueldoGraphQL.imprimirReciboLiquidacion`) no llaman
+  a `seg.*` ni validan que el recibo sea del usuario: cualquier usuario autenticado que
+  recorra ids baja el recibo de otro, y la PWA pide el de sueldo por id. Solo el acta de
+  amonestación gatea (`requireVer`). Sin verificar además: `SecurityConfig` usa
+  `antMatchers("**/graphql/**")` sin `/` inicial. Va en un fix aparte.
+
 Los **reportes agregados** (nómina del mes, resumen IPS, vales pendientes,
 préstamos activos, aguinaldo anual) quedan **solo PDF** (no tiene sentido un
 listado tabular en ticket). Estado: Compila + **verificado runtime** (PDF y

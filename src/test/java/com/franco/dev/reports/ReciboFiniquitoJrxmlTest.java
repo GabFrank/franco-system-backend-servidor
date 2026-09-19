@@ -48,4 +48,33 @@ public class ReciboFiniquitoJrxmlTest {
         byte[] pdf = JasperExportManager.exportReportToPdf(print);
         org.junit.jupiter.api.Assertions.assertTrue(pdf != null && pdf.length > 0);
     }
+
+    /** El numero de la liquidacion final va en el titulo, y la observacion en su propia linea. */
+    @Test
+    void imprimeNumeroYObservacion() throws Exception {
+        String conObs = ReciboRrhhJrxmlTest.textosDelPrint(llenar("7", "RENUNCIA PRESENTADA EL 01/09, SE PAGA EN DOS CUOTAS"));
+        for (String esperado : new String[]{"LIQUIDACION FINAL DE HABERES Nro. 7",
+                "Obs.: RENUNCIA PRESENTADA EL 01/09, SE PAGA EN DOS CUOTAS"}) {
+            org.junit.jupiter.api.Assertions.assertTrue(conObs.contains(esperado),
+                    "falta [" + esperado + "]. Textos: " + conObs);
+        }
+        String sinObs = ReciboRrhhJrxmlTest.textosDelPrint(llenar(null, null));
+        org.junit.jupiter.api.Assertions.assertTrue(sinObs.contains("LIQUIDACION FINAL DE HABERES"), sinObs);
+        org.junit.jupiter.api.Assertions.assertFalse(sinObs.contains("Nro.") || sinObs.contains("Obs."),
+                "sin numero ni observacion no tienen que aparecer: " + sinObs);
+    }
+
+    private JasperPrint llenar(String numero, String observacion) throws Exception {
+        JasperReport jr = JasperCompileManager.compileReport(
+                ResourceUtils.getFile("classpath:reports/recibo-finiquito.jrxml").getAbsolutePath());
+        Map<String, Object> p = new HashMap<>();
+        for (String k : new String[]{"empresa", "trabajador", "documento", "motivo", "entrada",
+                "salida", "antiguedad", "salario", "jornalDiario", "fecha", "total", "totalEnLetras"}) {
+            p.put(k, "DATO DUMMY");
+        }
+        p.put("numero", numero);
+        p.put("observacion", observacion);
+        return JasperFillManager.fillReport(jr, p, new JRBeanCollectionDataSource(
+                Arrays.asList(new Row("SALARIO DEL MES (22 DIAS TRABAJADOS)", "2.566.667"))));
+    }
 }

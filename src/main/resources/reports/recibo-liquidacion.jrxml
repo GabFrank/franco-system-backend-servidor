@@ -16,6 +16,8 @@
 	<parameter name="totalDescontado" class="java.lang.String"/>
 	<parameter name="totalNeto" class="java.lang.String"/>
 	<parameter name="montoEnLetras" class="java.lang.String"/>
+	<parameter name="numero" class="java.lang.String"/>
+	<parameter name="observacion" class="java.lang.String"/>
 	<field name="operacion" class="java.lang.String"/>
 	<field name="tipoMovimiento" class="java.lang.String"/>
 	<field name="observacion" class="java.lang.String"/>
@@ -76,11 +78,11 @@
 				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
 				<textFieldExpression><![CDATA["Sueldo Base: " + ($P{sueldoBase} != null ? $P{sueldoBase} : "") + " Gs."]]></textFieldExpression>
 			</textField>
-			<staticText>
+			<textField>
 				<reportElement x="0" y="94" width="555" height="14" uuid="a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c09"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="10" isBold="true"/></textElement>
-				<text><![CDATA[RECIBO DE SUELDO]]></text>
-			</staticText>
+				<textFieldExpression><![CDATA["RECIBO DE SUELDO" + ($P{numero} != null && $P{numero}.length() > 0 ? " Nro. " + $P{numero} : "")]]></textFieldExpression>
+			</textField>
 		</band>
 	</title>
 	<columnHeader>
@@ -272,6 +274,20 @@
 				<reportElement x="150" y="276" width="255" height="12" uuid="63fd66f5-5fc9-4fb2-8200-cb7cddb1f169"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
 				<textFieldExpression><![CDATA[($P{funcionario} != null ? $P{funcionario} : "") + "  -  Doc: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="ScaleFont">
+				<reportElement x="0" y="16" width="290" height="40">
+					<printWhenExpression><![CDATA[$P{observacion} != null && $P{observacion}.trim().length() > 0]]></printWhenExpression>
+				</reportElement>
+				<textElement verticalAlignment="Top"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA["Obs.: " + $P{observacion}]]></textFieldExpression>
+			</textField>
+			<textField textAdjust="ScaleFont">
+				<reportElement x="0" y="174" width="290" height="40">
+					<printWhenExpression><![CDATA[$P{observacion} != null && $P{observacion}.trim().length() > 0]]></printWhenExpression>
+				</reportElement>
+				<textElement verticalAlignment="Top"><font fontName="SansSerif" size="8"/></textElement>
+				<textFieldExpression><![CDATA["Obs.: " + $P{observacion}]]></textFieldExpression>
 			</textField>
 		</band>
 	</summary>

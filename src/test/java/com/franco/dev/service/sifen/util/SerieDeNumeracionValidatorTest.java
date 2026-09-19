@@ -57,11 +57,26 @@ class SerieDeNumeracionValidatorTest {
 
     @Test
     void elMismoIdEnDosSucursalesNoEsColision() {
-        // Comparten contador a proposito: es el diseño que hace que el depósito siga la serie de
-        // la central en vez de arrancar de cero.
+        // Mismo id = mismo contador: para la numeracion no hay duplicado. Esto NO lo vuelve una
+        // forma valida de compartir serie: en las filiales la PK es solo (id) y repetir un id traba
+        // la replicacion (incidente 2026-09-19). El test solo fija que el validador no lo confunde
+        // con una colision.
         filas(fila(105, 1, "001", true), fila(105, 13, "001", true));
 
         assertDoesNotThrow(() -> validator.exigirSerieSinColision(detalle(105L, "001", true), 13L));
+    }
+
+    @Test
+    void conLaFilaDelDepositoEnSuPropioIdTambienSeFrenaLaCentral() {
+        // El estado de produccion despues del incidente: el depósito en la 118 con el mismo punto
+        // que la 105 de la central. Las dos filas numeran por separado sobre 001-001, así que se
+        // frenan las DOS sucursales, no solo el depósito.
+        filas(fila(105, 1, "001", true), fila(118, 13, "001", true));
+
+        assertThrows(GraphQLException.class,
+                () -> validator.exigirSerieSinColision(detalle(118L, "001", true), 13L));
+        assertThrows(GraphQLException.class,
+                () -> validator.exigirSerieSinColision(detalle(105L, "001", true), 1L));
     }
 
     @Test

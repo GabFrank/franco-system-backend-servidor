@@ -58,7 +58,10 @@ public class SerieDeNumeracionValidator {
         String serie = serieDe(sucursalEmisora, timbrado.getPuntoExpedicion(), establecimientos);
         for (Object[] fila : filas) {
             Long id = aLong(fila[0]);
-            if (id == null || id.equals(timbrado.getId())) continue;   // mismo id: mismo contador
+            // Mismo id: mismo contador, no hay duplicado de numeracion. Pero NO es una forma valida de
+            // compartir serie entre sucursales: en las filiales la PK de timbrado_detalle es solo
+            // (id), y repetir un id traba la replicacion central→filial entera (incidente 2026-09-19).
+            if (id == null || id.equals(timbrado.getId())) continue;
             if (!Boolean.TRUE.equals(fila[3])) continue;
             String suSerie = serieDe(aLong(fila[1]), (String) fila[2], establecimientos);
             if (suSerie.equals(serie)) {

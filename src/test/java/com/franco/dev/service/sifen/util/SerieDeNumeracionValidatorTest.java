@@ -9,11 +9,12 @@ import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -40,57 +41,98 @@ class SerieDeNumeracionValidatorTest {
         repository = mock(TimbradoDetalleRepository.class);
         sucursalService = mock(SucursalService.class);
         validator = new SerieDeNumeracionValidator(repository, sucursalService);
-        // Ninguna sucursal tiene codigo propio: todas declaran el establecimiento 001, que es
-        // justamente la situacion del depósito.
+        // Por defecto ninguna sucursal tiene codigo propio: todas declaran el establecimiento 001,
+        // que es justamente la situacion del depósito.
         when(sucursalService.findById(anyLong())).thenReturn(Optional.of(new Sucursal()));
     }
 
     @Test
     void dosFilasActivasConElMismoPuntoSonColision() {
-        TimbradoDetalle central = detalle(105L, 1L, "001", true);
-        TimbradoDetalle deposito = detalle(117L, 13L, "001", true);
-        when(repository.findByTimbradoId(TIMBRADO)).thenReturn(Arrays.asList(central, deposito));
+        filas(fila(105, 1, "001", true), fila(117, 13, "001", true));
 
         GraphQLException e = assertThrows(GraphQLException.class,
-                () -> validator.exigirSerieSinColision(deposito));
-        org.junit.jupiter.api.Assertions.assertTrue(e.getMessage().contains("001-001"), e.getMessage());
+                () -> validator.exigirSerieSinColision(detalle(117L, "001", true), 13L));
+        assertTrue(e.getMessage().contains("001-001"), e.getMessage());
     }
 
     @Test
     void elMismoIdEnDosSucursalesNoEsColision() {
         // Comparten contador a proposito: es el diseño que hace que el depósito siga la serie de
         // la central en vez de arrancar de cero.
-        TimbradoDetalle central = detalle(105L, 1L, "001", true);
-        TimbradoDetalle deposito = detalle(105L, 13L, "001", true);
-        when(repository.findByTimbradoId(TIMBRADO)).thenReturn(Arrays.asList(central, deposito));
+        filas(fila(105, 1, "001", true), fila(105, 13, "001", true));
 
-        assertDoesNotThrow(() -> validator.exigirSerieSinColision(deposito));
+        assertDoesNotThrow(() -> validator.exigirSerieSinColision(detalle(105L, "001", true), 13L));
     }
 
     @Test
     void puntosDeExpedicionDistintosNoSonColision() {
-        TimbradoDetalle central = detalle(105L, 1L, "001", true);
-        TimbradoDetalle deposito = detalle(117L, 13L, "002", true);
-        when(repository.findByTimbradoId(TIMBRADO)).thenReturn(Arrays.asList(central, deposito));
+        filas(fila(105, 1, "001", true), fila(117, 13, "002", true));
 
-        assertDoesNotThrow(() -> validator.exigirSerieSinColision(deposito));
+        assertDoesNotThrow(() -> validator.exigirSerieSinColision(detalle(117L, "002", true), 13L));
     }
 
     @Test
     void unaFilaInactivaNoCuenta() {
-        TimbradoDetalle central = detalle(105L, 1L, "001", false);
-        TimbradoDetalle deposito = detalle(117L, 13L, "001", true);
-        when(repository.findByTimbradoId(TIMBRADO)).thenReturn(Arrays.asList(central, deposito));
+        filas(fila(105, 1, "001", false), fila(117, 13, "001", true));
 
-        assertDoesNotThrow(() -> validator.exigirSerieSinColision(deposito));
+        assertDoesNotThrow(() -> validator.exigirSerieSinColision(detalle(117L, "001", true), 13L));
     }
 
-    private static TimbradoDetalle detalle(Long id, Long sucursalId, String punto, boolean activo) {
+    @Test
+    void elTimbradoConElQueSeEmiteCuentaAunqueEsteInactivo() {
+        // La nota de credito emite con el timbrado de la factura, que puede estar inactivo o con
+        // activo en NULL. Si otra fila activa tiene su serie, los dos contadores se pisan igual.
+        filas(fila(105, 1, "001", true), fila(117, 13, "001", null));
+
+        assertThrows(GraphQLException.class,
+                () -> validator.exigirSerieSinColision(detalle(117L, "001", null), 13L));
+    }
+
+    @Test
+    void elPuntoSeComparaComoEnElXml() {
+        // El builder emite String.format("%03d", parseInt(punto)): "2" y "002" son la misma serie.
+        filas(fila(105, 1, "002", true), fila(117, 13, "2", true));
+
+        assertThrows(GraphQLException.class,
+                () -> validator.exigirSerieSinColision(detalle(117L, "2", true), 13L));
+    }
+
+    @Test
+    void elEstablecimientoSaleDeLaSucursalQueEmite() {
+        // La sucursal 20 tiene establecimiento propio (005): su fila no choca con la 001 de la
+        // central aunque compartan punto. Lo que cuenta es la sucursal de la nota, no la de la fila.
+        Sucursal conCodigo = new Sucursal();
+        conCodigo.setCodigoEstablecimientoFactura("005");
+        when(sucursalService.findById(20L)).thenReturn(Optional.of(conCodigo));
+        filas(fila(105, 1, "001", true), fila(130, 20, "001", true));
+
+        assertDoesNotThrow(() -> validator.exigirSerieSinColision(detalle(130L, "001", true), 20L));
+        assertThrows(GraphQLException.class,
+                () -> validator.exigirSerieSinColision(detalle(130L, "001", true), 13L));
+    }
+
+    @Test
+    void normalizaElPuntoComoLosBuilders() {
+        assertEquals("002", SerieDeNumeracionValidator.normalizarPunto(" 2 "));
+        assertEquals("002", SerieDeNumeracionValidator.normalizarPunto("002"));
+        assertEquals("", SerieDeNumeracionValidator.normalizarPunto(null));
+    }
+
+    private void filas(Object[]... filas) {
+        List<Object[]> lista = Arrays.asList(filas);
+        when(repository.findFilasDeSerieByTimbradoId(TIMBRADO)).thenReturn(lista);
+    }
+
+    /** Como las devuelve la consulta nativa: los bigint llegan como BigInteger. */
+    private static Object[] fila(long id, long sucursalId, String punto, Boolean activo) {
+        return new Object[]{BigInteger.valueOf(id), BigInteger.valueOf(sucursalId), punto, activo};
+    }
+
+    private static TimbradoDetalle detalle(Long id, String punto, Boolean activo) {
         Timbrado timbrado = new Timbrado();
         timbrado.setId(TIMBRADO);
         TimbradoDetalle detalle = new TimbradoDetalle();
         detalle.setId(id);
-        detalle.setSucursalId(sucursalId);
         detalle.setPuntoExpedicion(punto);
         detalle.setActivo(activo);
         detalle.setTimbrado(timbrado);

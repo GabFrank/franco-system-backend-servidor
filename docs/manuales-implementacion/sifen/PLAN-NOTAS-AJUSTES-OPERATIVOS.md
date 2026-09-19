@@ -30,6 +30,9 @@ Ramas: `feature/sifen-notas-ajustes-operativos` en **central** y **desktop**.
 
 ### Fase 1 · central — el timbrado de la sucursal 13 es un dato, no código
 
+> **Actualizado:** la fila se cargó a mano en producción y la migración se sacó de la rama. Lo que
+> sigue vale como razonamiento; cómo quedó está en §5.
+
 **Por qué la idea original no sirve.** `timbrado_detalle` tiene PK **compuesta `(id, sucursal_id)`**
 y `nota_remision` tiene FK a **`(timbrado_detalle_id, sucursal_id)`**. Una nota con
 `sucursal_id = 13` **no puede** referenciar el timbrado de la sucursal 1: lo rechaza la base al
@@ -132,3 +135,75 @@ solo lectura.
 - **Riesgo propio de la Fase 1**: `enviarLote` reenvía el XML guardado sin reconstruirlo, así que si
   una nota de la sucursal 13 saliera con el timbrado mal armado, «Reenviar» **no** tomaría el
   arreglo: habría que emitir una nota nueva y quedaría otro hueco.
+
+---
+
+## 5 · Cómo terminó (actualizado 2026-09-19)
+
+Las cinco fases están implementadas, probadas en el navegador con datos reales y pusheadas.
+Lo que cambió respecto del plan, y lo que se sumó al probar:
+
+### Fase 1: dato cargado a mano, no migración
+
+La migración `V230.1` (fila `timbrado_detalle (105, 13)`) **se borró de la rama**: la fila se cargó
+directamente en la base de producción. En el camino quedó una fila equivocada (`id 117`, con id
+propio y `punto_de_venta_id = 12`), que se reemplazó por la `(105, 13)` con un script transaccional
+fuera del repo. Estado verificado en producción el 2026-09-19:
+
+- `(105, 1)` y `(105, 13)`, las dos serie `001-001`, timbrado 18270044; la del depósito sin PDV,
+  código de ciudad 4738 y dirección «RESIDENCIAL ACUARIO»;
+- ninguna colisión de serie entre timbrados activos;
+- la CAJA 1 del depósito (PDV 12) queda solo con la fila 54 (timbrado inactivo, no electrónico),
+  como antes.
+
+El commit `ccd46d98` agregó la migración y `ecf0dd19` la quitó: el neto de la rama **no tiene
+migraciones**. Lo que queda de `ccd46d98` es el guard de duplicados del origen FACTURA (Fase 2).
+
+### Agregado al probar
+
+| Qué | Pieza | Por qué |
+|---|---|---|
+| `SerieDeNumeracionValidator` | central | La fila 117 mostró que dos filas activas con distinto id y la misma serie (establecimiento + punto) numeran con contadores separados: números duplicados ante la SET. La nota de remisión y la de crédito se niegan a emitir en ese caso. El mismo id en dos sucursales sigue permitido. |
+| Entrega desde el timbrado del destino | central | El prellenado leía el código de entrega de `general.ciudad.codigo` (`SDG`), que no parsea: la entrega salía siempre sin código. Ahora sale del `timbrado_detalle` de la sucursal destino, igual que la salida. |
+| Lupa de entrega | desktop | Misma lupa y misma query que la de salida. |
+| Paginador de ítems | desktop | De a 10 (25/50). Quitar por referencia, agregar salta a la última página, la validación lleva el paginador al ítem incompleto. |
+| Cabecera «Mercadería» en el KuDE | central | Los ítems salían sin título ni nombres de columna. Va en el `columnHeader` (se repite por página); entran ~13 ítems por página en vez de ~15. |
+| `notasRemisionPorTransferencias` | central + desktop | El menú de la transferencia decía «Nota de remisión» aunque ya existiera; se enteraba al hacer clic. Ahora la lista consulta las notas de la página al cargar. Tope de 200 ids. |
+| Buscador de facturas por número exacto | central + desktop | Era `LIKE %n%`: «1000» traía 10000, 10008… Además se quitó el `fallbackToLocal` de las queries que solo existen en el central. |
+
+### Auditoría del diff (paso 8)
+
+Tres ejes (autorización, esquema, contrato con clientes). Ningún condicional aplicaba: sin
+migraciones, workflows ni replicación en el diff. Sin cambios breaking ni fugas nuevas explotables.
+Lo que se corrigió a partir de ella:
+
+| Hallazgo | Corrección |
+|---|---|
+| `notasRemisionPorTransferencias` no filtraba por sucursal, contra la regla que el repo documenta | Solo devuelve notas de la sucursal de **origen** de cada transferencia (join a `Transferencia`), igual que la consulta individual. El javadoc despegado volvió a su query. |
+| `SerieDeNumeracionValidator` ignoraba el timbrado con el que se emite si estaba inactivo o con `activo` NULL (la NC emite con el de la factura) | El timbrado de la emisión cuenta siempre; se comparan contra él las otras filas activas. |
+| El validador calculaba la serie distinto que el XML | Punto normalizado con `%03d` como los builders; establecimiento de la sucursal que **emite**, no de la fila. Lee las filas con una query nativa: con ids compartidos Hibernate devolvía una sola instancia para las dos filas. |
+| El buscador vacío manda `'%'` y `localesDeSalida` / `facturasParaNotaCredito` lo tomaban como texto: 0 resultados | `'%'` es «sin filtro». |
+| La lupa devolvía la dirección del timbrado y el prellenado la de la sucursal | Las dos usan la de la sucursal si está cargada, si no la del timbrado. |
+
+Quedaron anotados sin cambio: `facturasParaNotaCredito` pagina en SQL y filtra en memoria (hoy no
+pega: el desktop busca por número exacto y no pagina), y el desktop muestra un toast de error si
+llega antes que su central (se evita con el orden de deploy).
+
+Los tests de la Fase 1 que menciona §2 terminaron en `NotaRemisionPrellenadoServiceTest` y
+`SerieDeNumeracionValidatorTest`; `NotaRemisionPrellenadoTimbradoTest` no existe.
+
+### Pendiente para el deploy
+
+1. **Orden: central antes que desktop.** El desktop nuevo usa `localesDeSalida`,
+   `facturasParaNotaCredito` y `notasRemisionPorTransferencias`.
+2. **Numeración desde 10 en el timbrado 105.** La nota `001-001-0000009` quedó **aprobada en la
+   SET** durante las pruebas. En producción las tablas de notas nacen vacías con el deploy: antes
+   de la primera emisión hay que dejar la numeración arrancando en 10, o SIFEN rechaza el 9 por
+   duplicado.
+3. **Series sin colisión.** Correr en la base de cada red la consulta de solo lectura que busca
+   timbrados electrónicos activos con dos ids en la misma serie; tiene que salir vacía, o el
+   validador frena las notas de esas sucursales. En la copia local sale vacía. Los únicos choques
+   que aparecen sin el filtro de electrónicos son de los timbrados 16644115 y 16707780, inactivos y
+   no electrónicos: no emiten notas.
+4. **Dirección del depósito**: se cargó «RESIDENCIAL ACUARIO». Si la dirección fiscal declarada
+   ante la DNIT es otra, corregir `timbrado_detalle (105, 13)` y `empresarial.sucursal (13)`.

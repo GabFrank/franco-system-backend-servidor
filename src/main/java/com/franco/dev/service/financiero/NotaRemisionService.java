@@ -111,7 +111,7 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
 
         // El número sale del id de la fila, pero la serie ante la SET es establecimiento+punto:
         // si otra fila activa declara la misma, los dos contadores emiten el mismo número.
-        serieValidator.exigirSerieSinColision(timbrado);
+        serieValidator.exigirSerieSinColision(timbrado, nota.getSucursalId());
         nota.setNumeroNotaRemision(repository.findMaxNumeroByTimbradoDetalleId(timbrado.getId()) + 1);
         if (nota.getFecha() == null) {
             nota.setFecha(LocalDateTime.now());

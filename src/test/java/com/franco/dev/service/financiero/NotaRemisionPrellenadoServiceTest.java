@@ -103,6 +103,29 @@ class NotaRemisionPrellenadoServiceTest {
         assertEquals("CANINDEYU", nota.getEntregaDepartamento());
     }
 
+    @Test
+    void laLupaConElBuscadorVacioTraeTodasYUsaLaDireccionDeLaSucursal() {
+        Sucursal origen = new Sucursal();
+        origen.setId(ORIGEN);
+        origen.setNombre("SUC. CENTRAL");
+        destino.setNombre("SUC. KATUETE 1");
+        destino.setDireccion("AV. PRINCIPAL");
+        when(sucursalService.findAll(null)).thenReturn(java.util.Arrays.asList(origen, destino));
+        when(timbradoDetalleService.findBySucursalId(DESTINO)).thenReturn(Collections.singletonList(
+                detalle(DESTINO, "RUTA 10 KM 60", "KATUETE", "4599", "CANINDEYU")));
+
+        // El buscador del desktop manda '%' con el campo vacío.
+        java.util.List<NotaRemisionPrellenadoService.LocalDeSalida> locales = service.localesDeSalida("%");
+
+        assertEquals(2, locales.size(), "'%' es «todas», no un texto a buscar");
+        NotaRemisionPrellenadoService.LocalDeSalida katuete = locales.stream()
+                .filter(l -> DESTINO.equals(l.getSucursalId())).findFirst().orElseThrow(AssertionError::new);
+        assertEquals("AV. PRINCIPAL", katuete.getDireccion(), "misma regla que el prellenado");
+        assertEquals(4599, katuete.getCodigoCiudad());
+        assertEquals("30 DE JULIO", locales.stream().filter(l -> ORIGEN.equals(l.getSucursalId()))
+                .findFirst().orElseThrow(AssertionError::new).getDireccion(), "sin dirección en la sucursal, la del timbrado");
+    }
+
     private NotaRemision prellenar() {
         return service.prellenar(OrigenNotaRemision.TRANSFERENCIA, TRANSFERENCIA, ORIGEN).getNotaRemision();
     }

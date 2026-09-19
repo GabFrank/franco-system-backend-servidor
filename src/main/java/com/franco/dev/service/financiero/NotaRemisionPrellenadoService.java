@@ -307,7 +307,9 @@ public class NotaRemisionPrellenadoService {
      */
     public List<LocalDeSalida> localesDeSalida(String texto) {
         seg.requireEmitir();
+        // El buscador del desktop manda '%' con el campo vacío: es «todas», no un texto a buscar.
         String filtro = texto != null ? texto.trim().toUpperCase() : "";
+        if ("%".equals(filtro)) filtro = "";
         List<LocalDeSalida> locales = new ArrayList<>();
         for (Sucursal sucursal : sucursalService.findAll(null)) {
             if (Boolean.FALSE.equals(sucursal.getActivo())) continue;
@@ -317,8 +319,12 @@ public class NotaRemisionPrellenadoService {
             }
             TimbradoDetalle timbrado = timbradoElectronicoDeONulo(sucursal.getId());
             if (timbrado == null) continue;   // sin timbrado no puede ser local de salida
+            // Misma regla que el prellenado: la dirección cargada en la sucursal manda sobre la del
+            // timbrado. Si no, elegir en la lupa la misma sucursal que propuso el prellenado daba
+            // otra dirección.
+            String direccion = sucursal.getDireccion() != null ? sucursal.getDireccion() : timbrado.getDireccion();
             locales.add(new LocalDeSalida(sucursal.getId(), sucursal.getNombre(),
-                    timbrado.getDireccion(), timbrado.getCiudad(),
+                    direccion, timbrado.getCiudad(),
                     codigoCiudad(timbrado.getCodigoCiudad()), timbrado.getDepartamento()));
         }
         return locales;

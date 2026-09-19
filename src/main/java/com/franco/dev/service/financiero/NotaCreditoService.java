@@ -146,7 +146,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         nota.setSucursalId(sucursalId);
         nota.setTimbradoDetalleId(timbrado.getId());
         // Ver el comentario gemelo en NotaRemisionService: misma serie, contadores separados.
-        serieValidator.exigirSerieSinColision(timbrado);
+        serieValidator.exigirSerieSinColision(timbrado, sucursalId);
         nota.setNumeroNotaCredito(repository.findMaxNumeroByTimbradoDetalleId(timbrado.getId()) + 1);
         nota.setFecha(LocalDateTime.now());
         nota.setFacturaLegalId(facturaLegalId);

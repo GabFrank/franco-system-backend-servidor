@@ -596,7 +596,8 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
     public List<FacturaLegal> buscarCandidatasANotaCredito(Long sucursalId, String numero,
                                                            int page, int size) {
         Integer filtro = null;
-        if (numero != null && !numero.trim().isEmpty()) {
+        // El buscador del desktop manda '%' con el campo vacío: es «las más recientes», sin filtro.
+        if (numero != null && !numero.trim().isEmpty() && !"%".equals(numero.trim())) {
             try {
                 filtro = Integer.valueOf(numero.trim());
             } catch (NumberFormatException e) {

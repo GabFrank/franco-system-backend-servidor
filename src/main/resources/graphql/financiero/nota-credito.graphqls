@@ -79,6 +79,8 @@ type FacturaParaNotaCredito {
     ruc: String
     total: Float
     moneda: String
+    """Nombre de la sucursal que emitio la factura (la que emite la nota)."""
+    sucursal: String
 }
 
 extend type Query {
@@ -92,8 +94,9 @@ extend type Query {
     """
     Facturas que hoy admiten nota de credito. Filtra los CINCO requisitos que exige
     crearNotaCreditoDesdeFactura, para que el buscador no ofrezca una que va a fallar al emitir.
+    Sin sucursalId busca en todas: el central (SERVIDOR) no tiene facturas propias.
     """
-    facturasParaNotaCredito(sucursalId: ID!, numero: String, page: Int!, size: Int!): [FacturaParaNotaCredito!]!
+    facturasParaNotaCredito(sucursalId: ID, numero: String, page: Int!, size: Int!): [FacturaParaNotaCredito!]!
 }
 
 extend type Mutation {

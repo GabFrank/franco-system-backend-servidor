@@ -81,6 +81,11 @@ class NotaCreditoKudeJrxmlTest {
         assertTrue(texto.contains("PRODUCTO DE PRUEBA"), "falta el ítem");
         assertTrue(texto.contains(CDC_NOTA), "falta el CDC de la nota");
         assertTrue(texto.contains(CDC_FACTURA), "falta el CDC de la factura acreditada");
+        // Bloque de consulta igual al de la nota de remisión.
+        assertTrue(texto.contains("Consulte esta Nota de Crédito"), "falta el título del bloque de consulta");
+        assertTrue(texto.contains("https://ekuatia.set.gov.py/consultas/"), "falta la URL de consulta");
+        assertTrue(texto.contains("CDC (Código de Control):"), "falta el rótulo del CDC");
+        assertTrue(texto.contains("solicitar la cancelación dentro de las 48 horas"), "falta la leyenda completa");
     }
 
     @Test

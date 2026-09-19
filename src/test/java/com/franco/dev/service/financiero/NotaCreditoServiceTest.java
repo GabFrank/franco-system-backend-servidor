@@ -39,6 +39,7 @@ class NotaCreditoServiceTest {
     private DocumentoElectronicoService documentoElectronicoService;
     private FacturacionSecurityService seg;
     private SerieDeNumeracionValidator serieValidator;
+    private com.franco.dev.service.empresarial.SucursalService sucursalService;
     private NotaCreditoService service;
 
     @BeforeEach
@@ -51,9 +52,10 @@ class NotaCreditoServiceTest {
         documentoElectronicoService = mock(DocumentoElectronicoService.class);
         seg = mock(FacturacionSecurityService.class);
         serieValidator = mock(SerieDeNumeracionValidator.class);
+        sucursalService = mock(com.franco.dev.service.empresarial.SucursalService.class);
         service = new NotaCreditoService(repository, itemRepository, timbradoDetalleRepository,
                 facturaLegalService, facturaLegalItemService, documentoElectronicoService, seg,
-                serieValidator);
+                serieValidator, sucursalService);
 
         TimbradoDetalle timbrado = new TimbradoDetalle();
         timbrado.setId(TIMBRADO);
@@ -227,5 +229,33 @@ class NotaCreditoServiceTest {
         de.setEstado(EstadoDE.APROBADO);
         de.setCdc("01800123456001001000000122026091712345678901");
         return de;
+    }
+
+    @Test
+    void sinSucursalElBuscadorTraeFacturasDeTodasYCadaUnaConSuSucursal() {
+        // El central corre como SERVIDOR (sucursal 0): no tiene facturas propias, busca en todas.
+        FacturaLegal deOtra = factura(null, null);
+        deOtra.setId(301L);
+        deOtra.setSucursalId(7L);
+        FacturaLegal propia = factura(null, null);
+        propia.setSucursalId(SUCURSAL);
+        when(facturaLegalService.buscarCandidatasANotaCredito(null, null, 0, 15))
+                .thenReturn(Arrays.asList(propia, deOtra));
+        when(documentoElectronicoService.findByFacturaLegalId(301L, 7L)).thenReturn(Optional.of(deAprobado()));
+        when(repository.findActivasByFactura(301L, 7L)).thenReturn(Collections.emptyList());
+        when(facturaLegalItemService.findByFacturaLegalId(301L, 7L)).thenReturn(items());
+        com.franco.dev.domain.empresarial.Sucursal katuete = new com.franco.dev.domain.empresarial.Sucursal();
+        katuete.setNombre("SUC. KATUETE 1");
+        when(sucursalService.findById(7L)).thenReturn(Optional.of(katuete));
+        when(sucursalService.findById(SUCURSAL)).thenReturn(Optional.empty());
+
+        List<NotaCreditoService.FacturaParaNotaCredito> candidatas =
+                service.facturasParaNotaCredito(null, null, 0, 15);
+
+        assertEquals(2, candidatas.size());
+        NotaCreditoService.FacturaParaNotaCredito otra = candidatas.get(1);
+        assertEquals(7L, otra.getSucursalId(), "la nota la emite la sucursal de la factura");
+        assertEquals("SUC. KATUETE 1", otra.getSucursal());
+        verify(documentoElectronicoService).findByFacturaLegalId(301L, 7L);
     }
 }

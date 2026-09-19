@@ -30,8 +30,11 @@ Ramas: `feature/sifen-notas-ajustes-operativos` en **central** y **desktop**.
 
 ### Fase 1 · central — el timbrado de la sucursal 13 es un dato, no código
 
-> **Actualizado:** la fila se cargó a mano en producción y la migración se sacó de la rama. Lo que
-> sigue vale como razonamiento; cómo quedó está en §5.
+> ⛔ **Esta fase está equivocada y no se debe repetir.** Compartir el id 105 entre sucursales es
+> válido en el central, pero en las **filiales la PK de `timbrado_detalle` es solo `(id)`**: la fila
+> `(105, 13)` trabó la replicación `central_pub` de las 18 filiales el 2026-09-19. Los ids «ya
+> compartidos» (89, 93) que se citan abajo no se verificaron contra las filiales. Qué pasó y cómo
+> quedó, en §5.
 
 **Por qué la idea original no sirve.** `timbrado_detalle` tiene PK **compuesta `(id, sucursal_id)`**
 y `nota_remision` tiene FK a **`(timbrado_detalle_id, sucursal_id)`**. Una nota con
@@ -143,18 +146,30 @@ solo lectura.
 Las cinco fases están implementadas, probadas en el navegador con datos reales y pusheadas.
 Lo que cambió respecto del plan, y lo que se sumó al probar:
 
-### Fase 1: dato cargado a mano, no migración
+### Fase 1: incidente de replicación y estado abierto
 
-La migración `V230.1` (fila `timbrado_detalle (105, 13)`) **se borró de la rama**: la fila se cargó
-directamente en la base de producción. En el camino quedó una fila equivocada (`id 117`, con id
-propio y `punto_de_venta_id = 12`), que se reemplazó por la `(105, 13)` con un script transaccional
-fuera del repo. Estado verificado en producción el 2026-09-19:
+La migración `V230.1` (fila `timbrado_detalle (105, 13)`) **se borró de la rama** y la fila se
+cargó a mano en producción: primero como `id 117` (id propio y `punto_de_venta_id = 12`) y después,
+con un script que reemplazó la 117 por la `(105, 13)`.
 
-- `(105, 1)` y `(105, 13)`, las dos serie `001-001`, timbrado 18270044; la del depósito sin PDV,
-  código de ciudad 4738 y dirección «RESIDENCIAL ACUARIO»;
-- ninguna colisión de serie entre timbrados activos;
-- la CAJA 1 del depósito (PDV 12) queda solo con la fila 54 (timbrado inactivo, no electrónico),
-  como antes.
+**Ese script cortó la replicación.** En el central la PK es `(id, sucursal_id)` y el INSERT es
+válido; en las 18 filiales la PK es `(id)` y el INSERT falla por clave duplicada. Desde las 08:42
+del 2026-09-19 ninguna filial recibió nada de las 60 tablas de `central_pub`. Se resolvió así:
+
+1. En el central, la fila de la sucursal 13 pasó al **id 118**, sin replicar ese cambio.
+2. En las 18 filiales, `ALTER SUBSCRIPTION … SKIP` de la transacción trabada, y se reaplicó a mano
+   el resto: DELETE 117, dirección de la sucursal 13, INSERT 118.
+3. La `(105, 1)` de la central no se tocó en ningún lado.
+
+**Estado hoy: la 118 choca con la 105.** Mismo timbrado 18270044, sucursal 13 sin
+`codigo_establecimiento_factura` (cae al `001`) y mismo punto `001`: las dos filas declaran la serie
+`001-001` con contadores separados. `SerieDeNumeracionValidator` **frena las dos sucursales**, la
+central incluida (test `conLaFilaDelDepositoEnSuPropioIdTambienSeFrenaLaCentral`). Sin el
+validador, emitirían números duplicados. **Hay que resolverlo antes de desplegar**; ver
+«Pendiente para el deploy».
+
+La CAJA 1 del depósito (PDV 12) queda solo con la fila 54 (timbrado inactivo, no electrónico),
+como antes.
 
 El commit `ccd46d98` agregó la migración y `ecf0dd19` la quitó: el neto de la rama **no tiene
 migraciones**. Lo que queda de `ccd46d98` es el guard de duplicados del origen FACTURA (Fase 2).
@@ -163,7 +178,7 @@ migraciones**. Lo que queda de `ccd46d98` es el guard de duplicados del origen F
 
 | Qué | Pieza | Por qué |
 |---|---|---|
-| `SerieDeNumeracionValidator` | central | La fila 117 mostró que dos filas activas con distinto id y la misma serie (establecimiento + punto) numeran con contadores separados: números duplicados ante la SET. La nota de remisión y la de crédito se niegan a emitir en ese caso. El mismo id en dos sucursales sigue permitido. |
+| `SerieDeNumeracionValidator` | central | La fila 117 mostró que dos filas activas con distinto id y la misma serie (establecimiento + punto) numeran con contadores separados: números duplicados ante la SET. La nota de remisión y la de crédito se niegan a emitir en ese caso. El mismo id en dos sucursales no es colisión de numeración, pero **no se debe usar**: traba la réplica de las filiales. |
 | Entrega desde el timbrado del destino | central | El prellenado leía el código de entrega de `general.ciudad.codigo` (`SDG`), que no parsea: la entrega salía siempre sin código. Ahora sale del `timbrado_detalle` de la sucursal destino, igual que la salida. |
 | Lupa de entrega | desktop | Misma lupa y misma query que la de salida. |
 | Paginador de ítems | desktop | De a 10 (25/50). Quitar por referencia, agregar salta a la última página, la validación lleva el paginador al ítem incompleto. |
@@ -194,16 +209,34 @@ Los tests de la Fase 1 que menciona §2 terminaron en `NotaRemisionPrellenadoSer
 
 ### Pendiente para el deploy
 
+0. **✅ Resuelto el 2026-09-19: choque 105 / 118.** Script aplicado en producción: la 118 quedó
+   en `001-002`, la 105 en `001-001`, y la consulta de colisiones sale vacía en producción. El
+   contador de Franco confirmó el punto 002; si SIFEN lo rechazara, se corrige el punto de la 118.
+   Lo que sigue queda como registro. Mientras las dos filas estuvieron activas con la
+   serie `001-001`, desplegar esta versión deja a la central sin poder emitir notas de remisión ni
+   de crédito. La consulta del punto 3 lo muestra (`timbrado 18270044 · 001-001 · {105,118}`).
+
+   **Salida elegida: punto de expedición propio.** El depósito **no vende**: solo emite notas de
+   remisión para trasladar mercadería entre sucursales. Lo único que se buscaba era que tenga un
+   timbrado electrónico activo, no compartir la numeración de la central. La 118 pasa al punto
+   **002** del establecimiento 001 → serie propia **001-002**, con su contador. El 002 de la central
+   existe en la fila 106 (inactiva, nunca numeró). Es un UPDATE sobre una fila de id único: replica
+   sin problema. La 118 no tiene punto de venta, así que ninguna caja factura con ella.
+   Script transaccional fuera del repo (`sucursal-13-punto-propio.sql`), probado en la copia
+   local: después la consulta de colisiones sale vacía. **Antes de correrlo en producción,
+   confirmar en Marangatu que el punto 002 del establecimiento 001 está habilitado.**
 1. **Orden: central antes que desktop.** El desktop nuevo usa `localesDeSalida`,
    `facturasParaNotaCredito` y `notasRemisionPorTransferencias`.
 2. **Numeración desde 10 en el timbrado 105.** La nota `001-001-0000009` quedó **aprobada en la
    SET** durante las pruebas. En producción las tablas de notas nacen vacías con el deploy: antes
-   de la primera emisión hay que dejar la numeración arrancando en 10, o SIFEN rechaza el 9 por
-   duplicado.
+   de la primera emisión hay que dejar la numeración de la central (fila 105) arrancando en 10, o
+   SIFEN rechaza el 9 por duplicado. La serie del depósito (001-002) arranca en 1.
 3. **Series sin colisión.** Correr en la base de cada red la consulta de solo lectura que busca
    timbrados electrónicos activos con dos ids en la misma serie; tiene que salir vacía, o el
-   validador frena las notas de esas sucursales. En la copia local sale vacía. Los únicos choques
-   que aparecen sin el filtro de electrónicos son de los timbrados 16644115 y 16707780, inactivos y
-   no electrónicos: no emiten notas.
+   validador frena las notas de esas sucursales. Hoy devuelve el choque 105 / 118 del punto 0. Los
+   otros choques que aparecen sin el filtro de electrónicos son de los timbrados 16644115 y
+   16707780, inactivos y no electrónicos: no emiten notas.
 4. **Dirección del depósito**: se cargó «RESIDENCIAL ACUARIO». Si la dirección fiscal declarada
-   ante la DNIT es otra, corregir `timbrado_detalle (105, 13)` y `empresarial.sucursal (13)`.
+   ante la DNIT es otra, corregir `timbrado_detalle (118, 13)` y `empresarial.sucursal (13)`.
+5. **Nunca repetir un id de `timbrado_detalle` entre sucursales** mientras la PK de las filiales
+   sea `(id)`. La solución de fondo es una migración en filial que la alinee a `(id, sucursal_id)`.

@@ -124,6 +124,9 @@ public class KudeNotaCreditoService {
         p.put("totalEnGuarani", numero(totalEnGuaranies(nota)));
 
         p.put("cdc", de != null ? texto(de.getCdc()) : "");
+        // Mismo bloque de consulta que el KuDE de la nota de remisión: la plantilla declaraba el
+        // parámetro pero nadie lo llenaba.
+        p.put("urlValidacion", "https://ekuatia.set.gov.py/consultas/");
         // El CDC de la factura es lo que ata la nota a su documento: en el KuDE también.
         p.put("cdcFacturaRelacionada", texto(cdcFactura));
         return p;

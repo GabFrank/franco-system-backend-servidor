@@ -165,7 +165,7 @@
     </detail>
 
     <summary>
-        <band height="150">
+        <band height="190">
             <rectangle><reportElement x="0" y="0" width="555" height="70" backcolor="#F2F2F2" uuid="79eef4cd-086c-4f51-a53a-f05eb1f2627d"/></rectangle>
             <textField><reportElement x="6" y="8" width="240" height="10" uuid="dd6cf4d0-c56d-40db-81d1-2676e8a5c8d0"/><textElement><font fontName="SansSerif" size="7" isBold="true"/></textElement><textFieldExpression><![CDATA["Subtotal Exentas"]]></textFieldExpression></textField>
             <textField><reportElement x="420" y="8" width="130" height="10" uuid="fbd66ef2-18b9-4ca4-a7d9-790ac3a9ca60"/><textElement textAlignment="Right"><font fontName="SansSerif" size="7"/></textElement><textFieldExpression><![CDATA[($P{tieneMonedaExtranjera} != null && $P{tieneMonedaExtranjera}) ? new java.text.DecimalFormat("#,##0.00").format($P{subtotalExentas}) : new java.text.DecimalFormat("#,##0").format($P{subtotalExentas})]]></textFieldExpression></textField>
@@ -178,22 +178,42 @@
             <textField><reportElement x="6" y="56" width="240" height="10" uuid="876f507f-43a1-4594-b6f5-5a25007a0b53"/><textElement><font fontName="SansSerif" size="7" isBold="true"/></textElement><textFieldExpression><![CDATA["Total IVA"]]></textFieldExpression></textField>
             <textField><reportElement x="420" y="56" width="130" height="10" uuid="ca30a95a-c128-4509-b1c2-c9874814756d"/><textElement textAlignment="Right"><font fontName="SansSerif" size="7" isBold="true"/></textElement><textFieldExpression><![CDATA[($P{tieneMonedaExtranjera} != null && $P{tieneMonedaExtranjera}) ? new java.text.DecimalFormat("#,##0.00").format($P{totalIva}) : new java.text.DecimalFormat("#,##0").format($P{totalIva})]]></textFieldExpression></textField>
 
+            <!-- Consulta del documento: mismo bloque que el KuDE de la nota de remisión. -->
+            <rectangle>
+                <reportElement mode="Transparent" x="0" y="75" width="555" height="110" uuid="a2ed1075-a81d-4a9d-b9c6-78c673ae2f53"/>
+            </rectangle>
             <image onErrorType="Blank">
-                <reportElement x="8" y="78" width="80" height="68" uuid="c6f66d43-8398-453b-8ebf-e4735f98f31e">
+                <reportElement x="10" y="80" width="90" height="90" uuid="c6f66d43-8398-453b-8ebf-e4735f98f31e">
                     <printWhenExpression><![CDATA[$P{qrImagePath} != null && !$P{qrImagePath}.isEmpty()]]></printWhenExpression>
                 </reportElement>
                 <imageExpression><![CDATA[$P{qrImagePath}]]></imageExpression>
             </image>
-            <textField>
-                <reportElement x="95" y="84" width="455" height="12" uuid="37685a59-5742-4c42-8725-66efd7a1a651"/>
+            <staticText>
+                <reportElement x="110" y="80" width="435" height="12" uuid="8dc70ed7-2d6c-47bb-b0e0-f2d72b86aa3c"/>
+                <textElement><font fontName="SansSerif" size="8" isBold="true"/></textElement>
+                <text><![CDATA[Consulte esta Nota de Crédito con el número impreso abajo o QR:]]></text>
+            </staticText>
+            <textField isBlankWhenNull="true">
+                <reportElement x="110" y="92" width="435" height="10" uuid="ad00018f-7b92-4711-8bbe-fc68c86b2b3a"/>
                 <textElement><font fontName="SansSerif" size="7"/></textElement>
-                <textFieldExpression><![CDATA["CDC: " + ($P{cdc} == null ? "" : $P{cdc})]]></textFieldExpression>
+                <textFieldExpression><![CDATA[$P{urlValidacion}]]></textFieldExpression>
             </textField>
-            <textField textAdjust="StretchHeight">
-                <reportElement x="95" y="98" width="455" height="28" uuid="91198f4a-7728-4f7f-9dc7-cb89e8960ad8"/>
+            <staticText>
+                <reportElement x="110" y="105" width="435" height="10" uuid="de28ba39-89d3-4437-8554-5009ddb8479c"/>
+                <textElement><font fontName="SansSerif" size="7" isBold="true"/></textElement>
+                <text><![CDATA[CDC (Código de Control):]]></text>
+            </staticText>
+            <textField textAdjust="StretchHeight" isBlankWhenNull="true">
+                <reportElement x="110" y="115" width="435" height="15" uuid="37685a59-5742-4c42-8725-66efd7a1a651"/>
+                <textElement><font fontName="SansSerif" size="8" isBold="true"/></textElement>
+                <textFieldExpression><![CDATA[$P{cdc}]]></textFieldExpression>
+            </textField>
+            <staticText>
+                <reportElement x="110" y="135" width="435" height="40" uuid="91198f4a-7728-4f7f-9dc7-cb89e8960ad8"/>
                 <textElement><font fontName="SansSerif" size="6"/></textElement>
-                <textFieldExpression><![CDATA["ESTE DOCUMENTO ES UNA REPRESENTACION GRAFICA DE UN DOCUMENTO ELECTRONICO (XML)."]]></textFieldExpression>
-            </textField>
+                <text><![CDATA[ESTE DOCUMENTO ES UNA REPRESENTACIÓN GRÁFICA DE UN DOCUMENTO ELECTRÓNICO (XML).
+Si su documento electrónico presenta algun error solicitar la cancelación dentro de las 48 horas siguientes de la emisión de este comprobante.]]></text>
+            </staticText>
         </band>
     </summary>
 </jasperReport>

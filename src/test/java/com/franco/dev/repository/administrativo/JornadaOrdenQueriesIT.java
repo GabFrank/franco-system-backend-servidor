@@ -24,7 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * Antes ordenaba por {@code j.id DESC}, pero el id de la jornada es por sucursal: dos llegadas del
  * mismo dia en sucursales distintas quedaban ordenadas por el contador de cada una, no por la hora.
- * Cada caso siembra los ids en contra del orden esperado, asi que con {@code id DESC} falla.
+ * Cada caso siembra los ids en contra del orden esperado, asi que falla tanto con {@code id DESC}
+ * como con {@code id ASC}.
  *
  * Corre contra una base real con el esquema aplicado, y se pide a mano:
  *
@@ -67,6 +68,11 @@ class JornadaOrdenQueriesIT {
                 .setParameter("ini", DIA_VIEJO).setParameter("fin", DIA_NUEVO)
                 .getSingleResult();
         assertEquals(0, enRango.intValue(), "el rango de prueba tiene que estar vacio en la base");
+        Number idsOcupados = (Number) em.createNativeQuery("select " +
+                        "(select count(*) from administrativo.jornada where id >= 900000000) + " +
+                        "(select count(*) from administrativo.marcacion where id >= 900000000)")
+                .getSingleResult();
+        assertEquals(0, idsOcupados.intValue(), "los ids de prueba tienen que estar libres en la base");
 
         List<?> usuarios = em.createNativeQuery("select id from personas.usuario order by id limit 2")
                 .getResultList();
@@ -83,6 +89,8 @@ class JornadaOrdenQueriesIT {
         jornada(1, s2, usuarioId, DIA_NUEVO, entrada(s2, usuarioId, DIA_NUEVO + " 10:00", null));
         // Entrada sin fecha_entrada: cuenta la fecha_salida, como en el reporte impreso. Id mas bajo.
         jornada(0, s1, usuarioId, DIA_NUEVO, entrada(s1, usuarioId, null, DIA_NUEVO + " 11:00"));
+        // La llegada mas tardia con un id del medio: con id DESC o id ASC no sale primera.
+        jornada(5, s2, usuarioId, DIA_NUEVO, entrada(s2, usuarioId, DIA_NUEVO + " 12:00", null));
         // Sin marcacion de entrada, con el id mas alto del dia: va ultima de su dia.
         jornada(9, s0, usuarioId, DIA_NUEVO, null);
 
@@ -134,13 +142,13 @@ class JornadaOrdenQueriesIT {
     void porRangoSaleDeLaLlegadaMasRecienteALaMasVieja() {
         List<Jornada> jornadas = repository.findByFechaRange(DIA_VIEJO, DIA_NUEVO);
 
-        assertEquals(Arrays.asList(0L, 1L, 2L, 3L, 9L, 10L, 11L), idsRelativos(jornadas));
+        assertEquals(Arrays.asList(5L, 0L, 1L, 2L, 3L, 9L, 10L, 11L), idsRelativos(jornadas));
     }
 
     @Test
     void porUsuarioOrdenaIgualYNoTraeAOtros() {
         List<Jornada> jornadas = repository.findByUsuarioIdAndFechaRange(usuarioId, DIA_VIEJO, DIA_NUEVO);
 
-        assertEquals(Arrays.asList(0L, 1L, 2L, 3L, 9L, 10L), idsRelativos(jornadas));
+        assertEquals(Arrays.asList(5L, 0L, 1L, 2L, 3L, 9L, 10L), idsRelativos(jornadas));
     }
 }

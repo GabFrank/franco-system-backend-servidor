@@ -209,7 +209,10 @@ Los tests de la Fase 1 que menciona §2 terminaron en `NotaRemisionPrellenadoSer
 
 ### Pendiente para el deploy
 
-0. **⛔ Bloqueante: resolver el choque 105 / 118.** Mientras las dos filas estén activas con la
+0. **✅ Resuelto el 2026-09-19: choque 105 / 118.** Script aplicado en producción: la 118 quedó
+   en `001-002`, la 105 en `001-001`, y la consulta de colisiones sale vacía en producción. El
+   contador de Franco confirmó el punto 002; si SIFEN lo rechazara, se corrige el punto de la 118.
+   Lo que sigue queda como registro. Mientras las dos filas estuvieron activas con la
    serie `001-001`, desplegar esta versión deja a la central sin poder emitir notas de remisión ni
    de crédito. La consulta del punto 3 lo muestra (`timbrado 18270044 · 001-001 · {105,118}`).
 

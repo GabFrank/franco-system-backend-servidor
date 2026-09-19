@@ -8,6 +8,8 @@ import com.franco.dev.repository.financiero.NotaCreditoItemRepository;
 import com.franco.dev.repository.financiero.NotaCreditoRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
 import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
+import com.franco.dev.service.empresarial.SucursalService;
+import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.extern.slf4j.Slf4j;
@@ -49,6 +51,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     private final DocumentoElectronicoService documentoElectronicoService;
     private final FacturacionSecurityService seg;
     private final SerieDeNumeracionValidator serieValidator;
+    private final SucursalService sucursalService;
 
     public NotaCreditoService(NotaCreditoRepository repository,
                               NotaCreditoItemRepository itemRepository,
@@ -57,7 +60,8 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
                               FacturaLegalItemService facturaLegalItemService,
                               DocumentoElectronicoService documentoElectronicoService,
                               FacturacionSecurityService seg,
-                              SerieDeNumeracionValidator serieValidator) {
+                              SerieDeNumeracionValidator serieValidator,
+                              SucursalService sucursalService) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.timbradoDetalleRepository = timbradoDetalleRepository;
@@ -66,6 +70,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         this.documentoElectronicoService = documentoElectronicoService;
         this.seg = seg;
         this.serieValidator = serieValidator;
+        this.sucursalService = sucursalService;
     }
 
     @Override
@@ -233,32 +238,35 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     public List<FacturaParaNotaCredito> facturasParaNotaCredito(Long sucursalId, String numero,
                                                                 int page, int size) {
         seg.requireEmitir();
-        if (sucursalId == null) {
-            throw new GraphQLException("Falta la sucursal");
-        }
+        // Sucursal en null = todas: el central corre como SERVIDOR (sucursal 0), que no tiene
+        // facturas propias. Cada candidata se valida con SU sucursal, que es la que emite la nota.
         List<FacturaParaNotaCredito> candidatas = new ArrayList<>();
+        java.util.Map<Long, String> nombres = new java.util.HashMap<>();
         for (FacturaLegal factura : facturaLegalService.buscarCandidatasANotaCredito(
                 sucursalId, numero, page, size)) {
             if (Boolean.FALSE.equals(factura.getActivo())) continue;
+            Long sucursalFactura = factura.getSucursalId();
 
             DocumentoElectronico de = documentoElectronicoService
-                    .findByFacturaLegalId(factura.getId(), sucursalId).orElse(null);
+                    .findByFacturaLegalId(factura.getId(), sucursalFactura).orElse(null);
             if (de == null || de.getEstado() != EstadoDE.APROBADO) continue;
             if (de.getCdc() == null || de.getCdc().trim().isEmpty()) continue;
 
-            if (!repository.findActivasByFactura(factura.getId(), sucursalId).isEmpty()) continue;
+            if (!repository.findActivasByFactura(factura.getId(), sucursalFactura).isEmpty()) continue;
 
             List<FacturaLegalItem> items = facturaLegalItemService
-                    .findByFacturaLegalId(factura.getId(), sucursalId);
+                    .findByFacturaLegalId(factura.getId(), sucursalFactura);
             if (items == null || items.isEmpty()) continue;
 
             candidatas.add(new FacturaParaNotaCredito(
-                    factura.getId(), sucursalId,
+                    factura.getId(), sucursalFactura,
                     factura.getNumeroFactura() != null ? factura.getNumeroFactura().intValue() : null,
                     factura.getFecha() != null ? factura.getFecha().format(FECHA_BUSCADOR) : null,
                     factura.getNombre(), factura.getRuc(),
                     factura.getTotalFinal() != null ? factura.getTotalFinal().doubleValue() : null,
-                    factura.getMonedaExtranjera() != null ? factura.getMonedaExtranjera() : "GS"));
+                    factura.getMonedaExtranjera() != null ? factura.getMonedaExtranjera() : "GS",
+                    nombres.computeIfAbsent(sucursalFactura == null ? -1L : sucursalFactura,
+                            id -> id < 0 ? null : sucursalService.findById(id).map(Sucursal::getNombre).orElse(null))));
         }
         return candidatas;
     }
@@ -273,10 +281,12 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         private final String ruc;
         private final Double total;
         private final String moneda;
+        /** Nombre de la sucursal que emitió la factura: la búsqueda desde el central abarca todas. */
+        private final String sucursal;
 
         public FacturaParaNotaCredito(Long facturaLegalId, Long sucursalId, Integer numeroFactura,
                                       String fecha, String cliente, String ruc, Double total,
-                                      String moneda) {
+                                      String moneda, String sucursal) {
             this.facturaLegalId = facturaLegalId;
             this.sucursalId = sucursalId;
             this.numeroFactura = numeroFactura;
@@ -285,6 +295,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
             this.ruc = ruc;
             this.total = total;
             this.moneda = moneda;
+            this.sucursal = sucursal;
         }
 
         public Long getFacturaLegalId() { return facturaLegalId; }
@@ -295,6 +306,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         public String getRuc() { return ruc; }
         public Double getTotal() { return total; }
         public String getMoneda() { return moneda; }
+        public String getSucursal() { return sucursal; }
     }
 
 }

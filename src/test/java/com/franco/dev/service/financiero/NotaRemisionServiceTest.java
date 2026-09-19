@@ -22,6 +22,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
+
 import static org.mockito.Mockito.*;
 
 class NotaRemisionServiceTest {
@@ -33,6 +35,7 @@ class NotaRemisionServiceTest {
     private NotaRemisionItemRepository itemRepository;
     private TimbradoDetalleRepository timbradoDetalleRepository;
     private FacturacionSecurityService seg;
+    private SerieDeNumeracionValidator serieValidator;
     private NotaRemisionService service;
 
     @BeforeEach
@@ -41,7 +44,9 @@ class NotaRemisionServiceTest {
         itemRepository = mock(NotaRemisionItemRepository.class);
         timbradoDetalleRepository = mock(TimbradoDetalleRepository.class);
         seg = mock(FacturacionSecurityService.class);
-        service = new NotaRemisionService(repository, itemRepository, timbradoDetalleRepository, seg);
+        serieValidator = mock(SerieDeNumeracionValidator.class);
+        service = new NotaRemisionService(repository, itemRepository, timbradoDetalleRepository,
+                seg, serieValidator);
 
         TimbradoDetalle timbrado = new TimbradoDetalle();
         timbrado.setId(TIMBRADO);

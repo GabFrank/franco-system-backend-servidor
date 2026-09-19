@@ -10,6 +10,7 @@ import com.franco.dev.domain.financiero.enums.ResponsableEmisionNr;
 import com.franco.dev.repository.financiero.NotaRemisionItemRepository;
 import com.franco.dev.repository.financiero.NotaRemisionRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
+import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.extern.slf4j.Slf4j;
@@ -38,15 +39,18 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
     private final NotaRemisionItemRepository itemRepository;
     private final TimbradoDetalleRepository timbradoDetalleRepository;
     private final FacturacionSecurityService seg;
+    private final SerieDeNumeracionValidator serieValidator;
 
     public NotaRemisionService(NotaRemisionRepository repository,
                                NotaRemisionItemRepository itemRepository,
                                TimbradoDetalleRepository timbradoDetalleRepository,
-                               FacturacionSecurityService seg) {
+                               FacturacionSecurityService seg,
+                               SerieDeNumeracionValidator serieValidator) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.timbradoDetalleRepository = timbradoDetalleRepository;
         this.seg = seg;
+        this.serieValidator = serieValidator;
     }
 
     @Override
@@ -88,6 +92,9 @@ public class NotaRemisionService extends CrudService<NotaRemision, NotaRemisionR
             throw new GraphQLException("El timbrado no está activo");
         }
 
+        // El número sale del id de la fila, pero la serie ante la SET es establecimiento+punto:
+        // si otra fila activa declara la misma, los dos contadores emiten el mismo número.
+        serieValidator.exigirSerieSinColision(timbrado);
         nota.setNumeroNotaRemision(repository.findMaxNumeroByTimbradoDetalleId(timbrado.getId()) + 1);
         if (nota.getFecha() == null) {
             nota.setFecha(LocalDateTime.now());

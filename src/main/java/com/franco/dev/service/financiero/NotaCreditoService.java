@@ -7,6 +7,7 @@ import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaCredito;
 import com.franco.dev.repository.financiero.NotaCreditoItemRepository;
 import com.franco.dev.repository.financiero.NotaCreditoRepository;
 import com.franco.dev.repository.financiero.TimbradoDetalleRepository;
+import com.franco.dev.service.sifen.util.SerieDeNumeracionValidator;
 import com.franco.dev.service.CrudService;
 import graphql.GraphQLException;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +48,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
     private final FacturaLegalItemService facturaLegalItemService;
     private final DocumentoElectronicoService documentoElectronicoService;
     private final FacturacionSecurityService seg;
+    private final SerieDeNumeracionValidator serieValidator;
 
     public NotaCreditoService(NotaCreditoRepository repository,
                               NotaCreditoItemRepository itemRepository,
@@ -54,7 +56,8 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
                               FacturaLegalService facturaLegalService,
                               FacturaLegalItemService facturaLegalItemService,
                               DocumentoElectronicoService documentoElectronicoService,
-                              FacturacionSecurityService seg) {
+                              FacturacionSecurityService seg,
+                              SerieDeNumeracionValidator serieValidator) {
         this.repository = repository;
         this.itemRepository = itemRepository;
         this.timbradoDetalleRepository = timbradoDetalleRepository;
@@ -62,6 +65,7 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         this.facturaLegalItemService = facturaLegalItemService;
         this.documentoElectronicoService = documentoElectronicoService;
         this.seg = seg;
+        this.serieValidator = serieValidator;
     }
 
     @Override
@@ -141,6 +145,8 @@ public class NotaCreditoService extends CrudService<NotaCredito, NotaCreditoRepo
         nota.setId(repository.siguienteId());
         nota.setSucursalId(sucursalId);
         nota.setTimbradoDetalleId(timbrado.getId());
+        // Ver el comentario gemelo en NotaRemisionService: misma serie, contadores separados.
+        serieValidator.exigirSerieSinColision(timbrado);
         nota.setNumeroNotaCredito(repository.findMaxNumeroByTimbradoDetalleId(timbrado.getId()) + 1);
         nota.setFecha(LocalDateTime.now());
         nota.setFacturaLegalId(facturaLegalId);

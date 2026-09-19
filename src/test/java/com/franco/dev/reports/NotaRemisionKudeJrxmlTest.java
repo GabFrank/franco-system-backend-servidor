@@ -96,6 +96,10 @@ class NotaRemisionKudeJrxmlTest {
         assertTrue(texto.contains("JUAN PEREZ"), "falta el chofer");
         assertTrue(texto.contains("CAJA DE GASEOSAS 2L"), "falta el primer ítem");
         assertTrue(texto.contains("BOLSA DE AZUCAR 1KG"), "falta el segundo ítem");
+        assertTrue(texto.contains("Mercadería"), "falta el título de la sección de ítems");
+        for (String columna : Arrays.asList("Código", "Unidad", "Cantidad", "Descripción")) {
+            assertTrue(texto.contains(columna), "falta la cabecera de columna " + columna);
+        }
         assertTrue(texto.contains("01800123456001001000004212026091712345678901"), "falta el CDC");
     }
 

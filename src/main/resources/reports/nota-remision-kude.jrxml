@@ -135,7 +135,7 @@
 		</band>
 	</title>
 	<columnHeader>
-		<band height="300" splitType="Stretch">
+		<band height="330" splitType="Stretch">
 			<rectangle>
 				<reportElement x="0" y="0" width="555" height="15" backcolor="#E0E0E0" uuid="4dcfafe6-9e75-4a1b-af57-b8d36c290032"/>
 			</rectangle>
@@ -423,6 +423,58 @@
 				<textElement><font size="6"/></textElement>
 				<textFieldExpression><![CDATA[$P{conductorNombre} + " (Doc: " + $P{conductorDoc} + ")"]]></textFieldExpression>
 			</textField>
+			<!-- Mercadería: título de sección como el resto, y los nombres de las columnas del detalle.
+			     Está en el columnHeader, así que se repite en cada página de una nota larga. -->
+			<rectangle>
+				<reportElement x="0" y="300" width="555" height="15" backcolor="#E0E0E0" uuid="e340b313-4d38-4212-ac89-c599962b1c4a"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="0" y="300" width="555" height="15" uuid="d79f6afa-7365-4d87-b9ee-af9c6765dfde"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="8" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Mercadería]]></text>
+			</staticText>
+			<rectangle>
+				<reportElement mode="Transparent" x="0" y="315" width="555" height="15" uuid="4a6acc98-fe86-42df-a6be-abac3553dd3b"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="2" y="315" width="60" height="15" uuid="080af467-0408-4d0d-8c9e-a33034a028eb"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Código]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="65" y="315" width="40" height="15" uuid="033cd643-e113-4b19-b012-aec92424d06f"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Unidad]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="110" y="315" width="60" height="15" uuid="505596ad-b3d4-4648-a1fe-4b0efa60e56d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Cantidad]]></text>
+			</staticText>
+			<staticText>
+				<reportElement x="175" y="315" width="375" height="15" uuid="3cff45ca-4bdb-43ed-85ae-409dbba1394e"/>
+				<textElement verticalAlignment="Middle">
+					<font fontName="SansSerif" size="7" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Descripción]]></text>
+			</staticText>
+			<line>
+				<reportElement x="62" y="315" width="1" height="15" uuid="e7f52c57-0932-47f8-b617-c9f75cf0aa8b"/>
+			</line>
+			<line>
+				<reportElement x="107" y="315" width="1" height="15" uuid="0df68eaa-29d1-4066-81ed-2f75f5b55ea0"/>
+			</line>
+			<line>
+				<reportElement x="172" y="315" width="1" height="15" uuid="5fa2e3ea-d271-4639-a0e5-625c6737ee1d"/>
+			</line>
 		</band>
 	</columnHeader>
 	<detail>

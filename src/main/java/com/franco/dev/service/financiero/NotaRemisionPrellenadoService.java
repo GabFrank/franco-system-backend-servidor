@@ -117,18 +117,27 @@ public class NotaRemisionPrellenadoService {
         nota.setReceptorCiudad(timbrado.getCiudad());
         nota.setReceptorCodigoCiudad(codigoCiudad(timbrado.getCodigoCiudad()));
 
+        // La entrega sale del timbrado de la sucursal destino, igual que la salida del de origen:
+        // es el unico lugar con el codigo de ciudad de SIFEN y el departamento. `general.ciudad`
+        // no sirve para esto: su `codigo` es una abreviatura interna (SDG, KTT) y no parsea.
         Sucursal destino = transferencia.getSucursalDestino();
         if (destino != null) {
-            nota.setEntregaDireccion(destino.getDireccion());
-            if (destino.getCiudad() != null) {
+            TimbradoDetalle timbradoDestino = timbradoElectronicoDeONulo(destino.getId());
+            if (timbradoDestino != null) {
+                nota.setEntregaDireccion(timbradoDestino.getDireccion());
+                nota.setEntregaCiudad(timbradoDestino.getCiudad());
+                nota.setEntregaCodigoCiudad(codigoCiudad(timbradoDestino.getCodigoCiudad()));
+                nota.setEntregaDepartamento(timbradoDestino.getDepartamento());
+            } else if (destino.getCiudad() != null) {
                 nota.setEntregaCiudad(destino.getCiudad().getDescripcion());
-                nota.setEntregaCodigoCiudad(codigoCiudad(destino.getCiudad().getCodigo()));
+            }
+            if (destino.getDireccion() != null) {
+                nota.setEntregaDireccion(destino.getDireccion());
             }
         }
-        // `general.ciudad` no guarda el departamento, asi que no hay de donde sacar el de la
-        // sucursal destino: se propone el mismo de la salida, que es lo correcto en la enorme
-        // mayoria de los traslados entre locales de la empresa. El usuario puede cambiarlo, y
-        // SIFEN rechaza el lote entero si no coincide con la ciudad (2203).
+        // Destino sin timbrado (o sin departamento cargado): se propone el de la salida, que es
+        // lo correcto en la enorme mayoria de los traslados entre locales de la empresa. El
+        // usuario puede cambiarlo, y SIFEN rechaza el lote entero si no coincide con la ciudad (2203).
         if (nota.getEntregaDepartamento() == null) {
             nota.setEntregaDepartamento(nota.getSalidaDepartamento());
         }

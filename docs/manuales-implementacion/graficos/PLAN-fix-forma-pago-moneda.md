@@ -95,6 +95,18 @@ Ninguno.
   clientes): total 15 s → 39 s, desglose 9 s → 40 s. Agregar primero por venta lo baja a 27 s
   con el mismo resultado; no se adopta porque solo mejora endpoints sin uso y complica las 8.
 
+## Auditoría del diff (paso 8)
+
+Fijos 1, 2 y 3; ningún condicional (sin globs de release; solo lectura de `cobro_detalle`).
+
+| Eje | Hallazgo | Qué se hizo |
+|---|---|---|
+| 1 | Filtro por sucursal equivalente (`v2.sucursal_id = cd2.sucursal_id` por el JOIN); el `NOT EXISTS` no cruza sucursales. `…PorSucursal` acepta cualquier `sucursalId` con solo sesión | Preexistente, fuera de alcance |
+| 2 | Las 8 ejecutan; columnas, tipos y orden de parámetros coinciden con `CobroDetalleService`; filial sin estas consultas | Confirmado |
+| 2 | Un cobro atípico excluye la venta entera | Es el mismo criterio de `ventasPorMes`, a propósito |
+| 3 | Contrato GraphQL igual, `fix:` sin breaking; Excel y torta filtran por cantidad, no por monto | Confirmado |
+| 3 | El desktop oculta buckets de moneda con `totalMonto <= 0` (hay uno de −22 R$) | **Preexistente, no lo agrava**: 2 de 3.579 buckets forma×moneda×sucursal×mes quedan ≤ 0, los mismos 2 con la fórmula vieja; ninguno nuevo. Sin cambio en el cliente |
+
 ## Sin verificar
 
 - Cifras de producción.

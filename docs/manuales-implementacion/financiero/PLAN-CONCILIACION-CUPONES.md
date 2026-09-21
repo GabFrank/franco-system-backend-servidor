@@ -543,8 +543,13 @@ pantalla quedaba muda.
 regla nueva; es la que ya existía —pedir una captura frena el countdown, porque 120 s no alcanzan
 para desbloquear un teléfono, escanear, encuadrar y esperar el OCR— aplicada desde que el diálogo
 abre. Incluye el que salta en el PDV después de cobrar: el cajero tiene que tocar «Registrar más
-tarde» para sacarlo. **Queda pendiente de decisión** si se prefiere que el countdown siga corriendo
-hasta que llegue una foto de verdad.
+tarde» para sacarlo.
+
+✅ **Decidido el 2026-09-21 (Gabriel): queda así.** La alternativa era que el reloj siguiera
+corriendo y se frenara recién con la foto, pero eso reintroduce exactamente el riesgo que el
+comentario original describe: la pantalla se cierra con la foto en camino y el cajero cree que se
+perdió. En una maquinita la foto es el único camino, así que cerrar solo casi siempre iba a
+interrumpir algo.
 
 #### 10.5.2 · «Detectó el código y de ahí no pasó»
 
@@ -626,3 +631,17 @@ anterior dejaba `campos` vacío.
 ⚠️ **Además quedó comprobado que un token se consume con la subida**: reusar la URL contesta
 «Este código ya no sirve — pedí uno nuevo desde la caja y volvé a escanear», que es el
 comportamiento correcto.
+
+
+### 10.7 · Se borró `venta-tarjeta-qr-payload.ts` (2026-09-21)
+
+`construirQrPayloadVentaTarjeta()` existía para alimentar el QR de la app móvil que §10.4 sacó del
+diálogo. Sin ese QR no lo consumía nadie en producción: sólo su propio `.spec.ts`. Se borran los
+dos.
+
+⚠️ **Lo que ese helper enseñaba no se pierde**, porque el motivo por el que NO servía para la seña
+es una trampa real y sigue valiendo: leía `item.venta?.id` e `item.caja?.id` —objetos— y en ese
+flujo el filial devuelve **escalares**, así que producía un QR con `idOrigen: undefined` **sin
+lanzar ningún error**. La advertencia quedó en el javadoc de
+`VentaTarjetaService.onImprimirSena()`, que es donde alguien la va a necesitar: si algún día se
+escribe un armador compartido, tiene que partir de escalares.

@@ -209,7 +209,8 @@ public class ReporteRrhhService {
         // Formato ticket: plantilla genérica angosta.
         if (anchoMm != null) {
             String clausula = "Recibí conforme, en concepto de liquidación final de haberes,";
-            return reciboRrhh("LIQUIDACION FINAL", f, filas, totalLiq, clausula, anchoMm, escpos);
+            return reciboRrhh("LIQUIDACION FINAL", lf.getId(), f, filas, totalLiq, clausula,
+                    lf.getObservacion(), anchoMm, escpos);
         }
 
         java.time.LocalDate ingreso = f != null && f.getFechaIngreso() != null ? f.getFechaIngreso().toLocalDate() : null;
@@ -232,6 +233,8 @@ public class ReporteRrhhService {
         params.put("fecha", LocalDate.now().toString());
         params.put("total", formatoGs.format(totalLiq));
         params.put("totalEnLetras", enLetrasGs(totalLiq));
+        params.put("numero", lf.getId() != null ? lf.getId().toString() : null);
+        params.put("observacion", com.franco.dev.utilitarios.print.ReciboTicketEscPos.textoEnUnaLinea(lf.getObservacion()));
 
         return generar("reports/recibo-finiquito.jrxml", params, filas);
     }
@@ -347,7 +350,8 @@ public class ReporteRrhhService {
         List<FiniquitoRow> filas = new ArrayList<>();
         filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(v.getMonto()))));
         String clausula = "Recibí conforme, en concepto de " + (adelanto ? "adelanto de salario" : "vale") + ",";
-        return reciboRrhh("RECIBO DE " + (adelanto ? "ADELANTO" : "VALE"), v.getFuncionario(), filas, nz(v.getMonto()), clausula, anchoMm, escpos);
+        return reciboRrhh("RECIBO DE " + (adelanto ? "ADELANTO" : "VALE"), v.getId(), v.getFuncionario(), filas,
+                nz(v.getMonto()), clausula, v.getObservacion(), anchoMm, escpos);
     }
 
     /** Recibo / notificación de penalización. */
@@ -361,7 +365,8 @@ public class ReporteRrhhService {
         List<FiniquitoRow> filas = new ArrayList<>();
         filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(p.getMonto()))));
         String clausula = "Tomo conocimiento de la penalización aplicada y su descuento correspondiente,";
-        return reciboRrhh("RECIBO DE PENALIZACION", p.getFuncionario(), filas, nz(p.getMonto()), clausula, anchoMm, escpos);
+        return reciboRrhh("RECIBO DE PENALIZACION", p.getId(), p.getFuncionario(), filas, nz(p.getMonto()), clausula,
+                null, anchoMm, escpos);
     }
 
     /**
@@ -432,7 +437,8 @@ public class ReporteRrhhService {
         List<FiniquitoRow> filas = new ArrayList<>();
         filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(a.getMontoCalculado()))));
         String clausula = "Recibí conforme, en concepto de aguinaldo,";
-        return reciboRrhh("RECIBO DE AGUINALDO", a.getFuncionario(), filas, nz(a.getMontoCalculado()), clausula, anchoMm, escpos);
+        return reciboRrhh("RECIBO DE AGUINALDO", a.getId(), a.getFuncionario(), filas, nz(a.getMontoCalculado()), clausula,
+                null, anchoMm, escpos);
     }
 
     /** Recibo de entrega de préstamo (desembolso al funcionario). */
@@ -446,7 +452,8 @@ public class ReporteRrhhService {
         List<FiniquitoRow> filas = new ArrayList<>();
         filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(p.getMontoTotal()))));
         String clausula = "Recibí conforme el importe entregado en concepto de préstamo, a descontar en las cuotas pactadas,";
-        return reciboRrhh("RECIBO DE PRESTAMO", p.getFuncionario(), filas, nz(p.getMontoTotal()), clausula, anchoMm, escpos);
+        return reciboRrhh("RECIBO DE PRESTAMO", p.getId(), p.getFuncionario(), filas, nz(p.getMontoTotal()), clausula,
+                p.getObservacion(), anchoMm, escpos);
     }
 
     /** Recibo de bono. */
@@ -460,29 +467,44 @@ public class ReporteRrhhService {
         List<FiniquitoRow> filas = new ArrayList<>();
         filas.add(new FiniquitoRow(concepto, formatoGs.format(nz(b.getMonto()))));
         String clausula = "Recibí conforme, en concepto de bono,";
-        return reciboRrhh("RECIBO DE BONO", b.getFuncionario(), filas, nz(b.getMonto()), clausula, anchoMm, escpos);
+        return reciboRrhh("RECIBO DE BONO", b.getId(), b.getFuncionario(), filas, nz(b.getMonto()), clausula,
+                null, anchoMm, escpos);
+    }
+
+    /**
+     * Titulo del recibo con el numero del registro que lo origina (id del vale, del bono...),
+     * para poder ubicar el registro a partir del papel firmado.
+     */
+    static String tituloConNumero(String titulo, Long id) {
+        return id != null ? titulo + " Nro. " + id : titulo;
     }
 
     /**
      * Builder común de los recibos firmables.
      * - escpos=true → payload ESC/POS base64 (ticket térmico, para print-local del cliente).
      * - escpos=false: anchoMm null → PDF A4; 58/80 → PDF ticket angosto (preview en visor).
+     *
+     * @param numero      id del registro; va en el titulo
+     * @param observacion texto libre del registro, o null si la entidad no tiene
      */
-    private String reciboRrhh(String titulo, Funcionario f, List<FiniquitoRow> filas, BigDecimal total,
-                              String clausula, Integer anchoMm, boolean escpos) {
+    private String reciboRrhh(String titulo, Long numero, Funcionario f, List<FiniquitoRow> filas, BigDecimal total,
+                              String clausula, String observacion, Integer anchoMm, boolean escpos) {
         if (filas.isEmpty()) filas.add(new FiniquitoRow("-", "0"));
+        String tituloNumerado = tituloConNumero(titulo, numero);
+        String obs = com.franco.dev.utilitarios.print.ReciboTicketEscPos.textoEnUnaLinea(observacion);
         if (escpos) {
             List<com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row> rows = new ArrayList<>();
             for (FiniquitoRow r : filas) {
                 rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(r.getConcepto(), r.getMonto()));
             }
             return com.franco.dev.utilitarios.print.ReciboTicketEscPos.build(
-                    razonSocialEmpresa(), titulo, nombreFuncionario(f), documentoOf(f), LocalDate.now().toString(),
-                    rows, formatoGs.format(nz(total)), enLetrasGs(total), clausula, anchoMm);
+                    razonSocialEmpresa(), tituloNumerado, nombreFuncionario(f), documentoOf(f), LocalDate.now().toString(),
+                    rows, formatoGs.format(nz(total)), enLetrasGs(total), clausula, obs, anchoMm);
         }
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
-        params.put("titulo", titulo);
+        params.put("titulo", tituloNumerado);
+        params.put("observacion", obs);
         params.put("funcionario", nombreFuncionario(f));
         params.put("documento", documentoOf(f));
         params.put("fecha", LocalDate.now().toString());

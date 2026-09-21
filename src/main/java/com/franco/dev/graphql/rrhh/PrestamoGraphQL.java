@@ -83,8 +83,10 @@ public class PrestamoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         return service.crearConDesembolso(p, cajaVirtualId);
     }
 
-    public PrestamoCuota cobrarCuota(Long cuotaId, Long cajaVirtualId, BigDecimal montoPago) {
+    /** {@code montoPagadoEsperado} es opcional: los desktops sin el fix de #299 no lo mandan. */
+    public PrestamoCuota cobrarCuota(Long cuotaId, Long cajaVirtualId, BigDecimal montoPago,
+                                     BigDecimal montoPagadoEsperado) {
         seg.requireAnyRole(seg.GESTIONAR, seg.PAGAR);
-        return service.cobrarCuota(cuotaId, cajaVirtualId, montoPago);
+        return service.cobrarCuota(cuotaId, cajaVirtualId, montoPago, montoPagadoEsperado);
     }
 }

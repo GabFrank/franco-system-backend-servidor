@@ -1,6 +1,7 @@
 type CajaFilialOperacionResult {
     exito: Boolean
     cajaId: ID
+    conteoId: ID
 }
 
 type PdvCaja {

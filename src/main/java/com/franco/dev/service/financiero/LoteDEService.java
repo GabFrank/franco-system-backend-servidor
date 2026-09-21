@@ -54,12 +54,24 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Embebed
         return repository.findByEstado(estado);
     }
 
+    public List<LoteDE> findByEstados(List<EstadoLoteDE> estados) {
+        return repository.findByEstadoInOrderByCreadoEnAsc(estados);
+    }
+
     public Optional<LoteDE> findByProtocolo(String protocolo) {
         return repository.findByProtocolo(protocolo);
     }
 
     public Optional<LoteDE> findByIdAndSucursalId(Long id, Long sucursalId) {
         return repository.findByIdAndSucursalId(id, sucursalId);
+    }
+
+    @Override
+    public LoteDE save(LoteDE entity) {
+        if (entity.getId() == null) {
+            entity.setId(repository.siguienteId());
+        }
+        return super.save(entity);
     }
     
 }

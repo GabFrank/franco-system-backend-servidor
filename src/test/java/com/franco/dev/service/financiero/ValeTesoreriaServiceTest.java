@@ -148,7 +148,7 @@ class ValeTesoreriaServiceTest {
         service.pagarValesMixto(List.of(pago(1L, 1_000_000)), new Usuario());
 
         assertEquals(88L, v.getSolicitudPagoId());
-        verify(pagoProveedorService).pagarLoteMixto(argThat(lote ->
+        verify(pagoProveedorService).pagarLoteMixtoObligacionesRrhh(argThat(lote ->
                 lote.size() == 1 && lote.get(0).getSolicitudId().equals(88L)), any());
     }
 
@@ -162,7 +162,7 @@ class ValeTesoreriaServiceTest {
         service.pagarValesMixto(List.of(pago(1L, 1_000_000)), new Usuario());
 
         verify(solicitudPagoService, never()).crearSolicitudVale(any(), anyDouble(), anyString(), any());
-        verify(pagoProveedorService).pagarLoteMixto(argThat(lote ->
+        verify(pagoProveedorService).pagarLoteMixtoObligacionesRrhh(argThat(lote ->
                 lote.get(0).getSolicitudId().equals(88L)), any());
     }
 }

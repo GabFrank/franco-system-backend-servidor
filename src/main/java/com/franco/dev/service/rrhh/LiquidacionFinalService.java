@@ -81,6 +81,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final CreditoConvenioService creditoConvenioService;
     private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
     private final BaseRemunerativaService baseRemunerativaService;
+    private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -598,6 +599,10 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                     + " Corrija los items o cobre la diferencia por separado.");
         }
 
+        // Antes de mover plata: una cuota descontada que se cobro por caja despues de generar el borrador
+        // se cobraria dos veces (issue #300). Toma las cuotas con lock antes que el saldo de caja.
+        prestamoCuotaDescuentoService.validarFiniquito(lf.getId());
+
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
         MovimientoCajaVirtual mov = new MovimientoCajaVirtual();
@@ -652,16 +657,10 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                         valeRepository.save(v);
                     });
                     break;
-                case "CPP_CUOTA":
-                    prestamoCuotaRepository.findById(refId).ifPresent(c -> {
-                        BigDecimal monto = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
-                        BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
-                        c.setMontoPagado(pagar ? pagado.add(monto) : pagado.subtract(monto).max(BigDecimal.ZERO));
-                        BigDecimal totalCuota = c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO;
-                        c.setEstado(c.getMontoPagado().compareTo(totalCuota) >= 0
-                                ? PrestamoCuotaEstado.PAGADA : PrestamoCuotaEstado.PENDIENTE);
-                        prestamoCuotaRepository.save(c);
-                    });
+                case PrestamoCuotaDescuentoService.REFERENCIA_CUOTA:
+                    // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
+                    if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
+                    else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
                     break;
                 case "CREDITO_CONVENIO_CUOTA":
                     // El cobro ya quedo registrado por el item. Reconciliamos el estado del

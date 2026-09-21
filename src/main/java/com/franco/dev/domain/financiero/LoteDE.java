@@ -47,8 +47,12 @@ public class LoteDE implements Serializable {
 
   private static final long serialVersionUID = 1L;
 
+  /**
+   * Id asignado por LoteDEService desde la secuencia: con @IdClass, @GeneratedValue falla al
+   * insertar ("Could not set field value [POST_INSERT_INDICATOR]"). Misma razon que en
+   * DocumentoElectronico; por eso central nunca pudo crear un lote propio.
+   */
   @Id
-  @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "id")
   private Long id;
 

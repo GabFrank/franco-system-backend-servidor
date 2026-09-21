@@ -173,5 +173,6 @@ extend type Mutation {
     anularVale(id: ID!): Vale
 
     crearPrestamo(prestamo: PrestamoInput!, cajaVirtualId: ID!): Prestamo
-    cobrarCuota(cuotaId: ID!, cajaVirtualId: ID!, montoPago: Float): PrestamoCuota
+    # montoPagadoEsperado: el monto pagado que mostraba la pantalla. Si la cuota cambio, se rechaza (#299).
+    cobrarCuota(cuotaId: ID!, cajaVirtualId: ID!, montoPago: Float, montoPagadoEsperado: Float): PrestamoCuota
 }

@@ -645,3 +645,41 @@ flujo el filial devuelve **escalares**, así que producía un QR con `idOrigen: 
 lanzar ningún error**. La advertencia quedó en el javadoc de
 `VentaTarjetaService.onImprimirSena()`, que es donde alguien la va a necesitar: si algún día se
 escribe un armador compartido, tiene que partir de escalares.
+
+### 10.8 · El semáforo por campo está siempre en verde (2026-09-21)
+
+Salió preparando el paso **E6** de la guía, que pide «al menos un campo en ámbar pidiendo revisión».
+No se pudo producir uno, y averiguar por qué dio algo más grande que el paso.
+
+**Lo que se probó.** Se degradó una foto que leía los cinco campos, de tres maneras, subiéndola por
+el botón nuevo del desktop y leyendo `confianzas` de `captura_cupon`:
+
+| degradado | resultado | confianza más baja |
+|---|---|---|
+| resolución al 30% | lee los 5 campos | `lote` **0,9049** |
+| resolución al 22% | **deja de leer** 4 campos | 0,976 en los que lee |
+| calidad JPEG mínima | deja de leer 2 campos | `lote` **0,9292** |
+
+**El OCR no duda: o lee bien, o no lee.** Degradar la imagen mata caracteres en vez de volverlos
+ambiguos, así que el camino «leído pero incierto» casi no existe.
+
+**Y el historial lo confirma:**
+
+> **83 mediciones de confianza en toda la base. CERO por debajo de 0,9.**
+
+Con `CONFIANZA_MINIMA = 0.9` en `carga-manual-cupon-dialog`, el ámbar **nunca se disparó**. El
+mínimo histórico es 0,9049, producido a propósito para esta prueba.
+
+⚠️ **Se cruza con algo que el código ya sabía.** El javadoc de esa misma clase anota que el
+2026-09-14 se midió *«confianza 0,9657 sobre un valor equivocado»*. Juntando las dos cosas: el
+semáforo **no avisa cuando debería** (nada baja del umbral) y **no distingue cuando acierta** (el
+verde no garantiza el dato). Hoy es decoración, y el texto que le pide al cajero «revisá los campos
+en ámbar» le habla de algo que no va a ver nunca.
+
+**Decidido el 2026-09-21 (Gabriel): medir antes de decidir.** No se toca el umbral en este PR. Un
+número calibrado sobre 83 mediciones de **una sola terminal y un solo formato** puede llenar de
+ámbar lo que está bien. Queda como tarea aparte: juntar la distribución de confianzas por campo y
+por formato con lo que haya en farmacia y bodega, y recién con eso elegir el valor.
+
+**E6 queda como NO REPRODUCIBLE**, con esta evidencia como motivo. No es una falla del cambio de
+esta entrega: el semáforo se comporta igual que antes.

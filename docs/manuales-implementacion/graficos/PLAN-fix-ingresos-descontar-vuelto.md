@@ -88,6 +88,16 @@ líneas 26-110) sí incluye el vuelto, pero suma `cd.valor` **sin `* cambio`** y
 extranjera figuran como 285.943 en vez de 346.359.902 Gs. Es otra consulta y otro gráfico: va en
 un fix aparte, no en este PR.
 
+## Verificación (paso 9)
+
+- Test: rojo 8/8 con el SQL viejo, verde con el nuevo. `clean verify`: 842 tests, 0 fallos.
+- SQL exacto de las dos anotaciones contra `bodega` local, 2026 todas las sucursales:
+  marzo 6.821.880.066 → **6.189.583.812**; `cantidad` 205.549 de 205.553 ventas.
+- Venta por venta (marzo), el ingreso nuevo es lo cobrado:
+  sin delivery, `ingreso = total_gs − descuento + aumento` exacto en 194.858 de 194.862;
+  con delivery, suma además el costo del delivery (+55 M, no está en `total_gs`).
+  Por eso queda ~0,5 % sobre `total_gs` y no debajo.
+
 ## Sin verificar
 
 - Cifras de producción: el mecanismo es el mismo, pero no se consultó la base de producción.

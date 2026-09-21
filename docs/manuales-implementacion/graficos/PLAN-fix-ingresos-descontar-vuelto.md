@@ -98,6 +98,18 @@ un fix aparte, no en este PR.
   con delivery, suma además el costo del delivery (+55 M, no está en `total_gs`).
   Por eso queda ~0,5 % sobre `total_gs` y no debajo.
 
+## Auditoría del diff (paso 8)
+
+Fijos 1, 2 y 3; ningún condicional (sin globs de release, y el diff solo lee `cobro_detalle`).
+
+| Eje | Hallazgo | Qué se hizo |
+|---|---|---|
+| 1 | Sin resolver ni aislamiento nuevo; el JOIN sigue atado a `sucursal_id`. Los gráficos solo piden sesión, sin rol | Preexistente, fuera de alcance |
+| 2 | «El `OR` fuerza seq scan de `cobro_detalle`» | **Descartado**: el seq scan es el de `cd_bad` (outliers), igual que antes; `cd` sigue por `idx_cobro_detalle_cobro_sucursal`. Costo medido: año completo, todas las sucursales 3,2 s → 4,4 s (el segundo extra es el `COUNT(DISTINCT (id, sucursal_id))`); por sucursal ~1,0 s → ~1,2 s. Agregar primero por venta da el mismo resultado en 3,9 s, pero complica el SQL y no compensa. Aceptado |
+| 2 | Sin migración ni `.graphqls`; el filial no tiene la consulta; `COUNT` castea bien | Confirmado |
+| 3 | Contrato GraphQL igual, `fix:` sin breaking | Confirmado |
+| 3 | `efvo` negativo rompería el apilado del desktop | Verificado sobre todo el historial: 0 de 690 meses-sucursal dan negativo en efvo, tarjeta u otros. No se recorta a 0 en el front: escondería un dato real |
+
 ## Sin verificar
 
 - Cifras de producción: el mecanismo es el mismo, pero no se consultó la base de producción.

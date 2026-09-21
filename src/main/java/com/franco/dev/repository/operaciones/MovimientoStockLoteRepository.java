@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface MovimientoStockLoteRepository
@@ -56,6 +57,29 @@ public interface MovimientoStockLoteRepository
             "  COALESCE(l.fechaRetiro, l.fechaVencimiento) ASC, l.id ASC")
     List<StockLoteDto> stockPorLote(@Param("productoId") Long productoId,
                                     @Param("sucursalId") Long sucursalId);
+
+    /**
+     * {@link #stockPorLote} tal como estaba justo antes de {@code corte}.
+     *
+     * Corta por la fecha del MOVIMIENTO PADRE y no por el {@code creado_en} de la fila de lote: el
+     * desglose de un movimiento se puede borrar y regenerar, y la fecha que manda es la del
+     * movimiento. El corte es estricto, así que un movimiento creado en {@code corte} mismo —el
+     * ajuste de una toma, al re-finalizarla— queda afuera.
+     */
+    @Query("SELECT new com.franco.dev.domain.operaciones.dto.StockLoteDto(" +
+            "  l.id, e.producto.id, e.sucursalId, e.numeroLote, " +
+            "  l.fechaVencimiento, l.fechaRetiro, l.estado, SUM(e.cantidad)) " +
+            "FROM MovimientoStockLote e LEFT JOIN e.lote l, MovimientoStock m " +
+            "WHERE e.estado = true AND e.producto.id = :productoId AND e.sucursalId = :sucursalId " +
+            "  AND m.id = e.movimientoStockId AND m.sucursalId = e.sucursalId AND m.creadoEn < :corte " +
+            "GROUP BY l.id, e.producto.id, e.sucursalId, e.numeroLote, " +
+            "  l.fechaVencimiento, l.fechaRetiro, l.estado " +
+            "HAVING SUM(e.cantidad) <> 0 " +
+            "ORDER BY CASE WHEN COALESCE(l.fechaRetiro, l.fechaVencimiento) IS NULL THEN 1 ELSE 0 END, " +
+            "  COALESCE(l.fechaRetiro, l.fechaVencimiento) ASC, l.id ASC")
+    List<StockLoteDto> stockPorLoteAntesDe(@Param("productoId") Long productoId,
+                                           @Param("sucursalId") Long sucursalId,
+                                           @Param("corte") LocalDateTime corte);
 
     /**
      * Consulta general de stock por lote con filtros opcionales, para la pantalla

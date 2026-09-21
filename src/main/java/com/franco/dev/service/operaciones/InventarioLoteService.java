@@ -144,15 +144,21 @@ public class InventarioLoteService {
      * mismo cuidado que documenta {@code MovimientoStockLoteService.limpiarDesglose()}, pero acá no
      * alcanza con borrar primero: si el plan termina omitiendo el producto, no hay que haber
      * tocado nada.
+     *
+     * ⚠️ **Y al re-finalizar, el saldo es el del PRIMER cierre, no el de ahora.** El ajuste se
+     * creó en ese instante, así que su {@code creadoEn} es el corte: lo que entró o salió después
+     * (transferencias, ventas) no es algo que el conteo haya visto. Tomar el saldo de ahora lo
+     * absorbía en el ajuste —toma 7638 de bodega, Calle 10: +1095 transferidos y un ajuste de
+     * −1040 donde correspondía +7—. El corte es estricto, así que el propio ajuste queda afuera
+     * sin restarlo. Un ajuste viejo sin {@code creadoEn} sigue por el camino de antes.
      */
     public Map<Long, Double> saldosPorLote(Long productoId, Long sucursalId, MovimientoStock excluir) {
-        Map<Long, Double> saldos = new HashMap<>();
-        for (StockLoteDto fila : movimientoStockLoteService.stockPorLote(productoId, sucursalId)) {
-            if (fila.getLoteId() != null) {
-                saldos.put(fila.getLoteId(),
-                        fila.getCantidadDisponible() != null ? fila.getCantidadDisponible() : 0.0);
-            }
+        if (excluir != null && excluir.getCreadoEn() != null) {
+            return saldosDeLotes(movimientoStockLoteService
+                    .stockPorLoteAntesDe(productoId, sucursalId, excluir.getCreadoEn()));
         }
+
+        Map<Long, Double> saldos = saldosDeLotes(movimientoStockLoteService.stockPorLote(productoId, sucursalId));
 
         if (excluir != null && excluir.getId() != null) {
             for (MovimientoStockLote fila : movimientoStockLoteService
@@ -162,6 +168,17 @@ public class InventarioLoteService {
                     continue;
                 }
                 saldos.merge(fila.getLote().getId(), -fila.getCantidad(), Double::sum);
+            }
+        }
+        return saldos;
+    }
+
+    private static Map<Long, Double> saldosDeLotes(List<StockLoteDto> filas) {
+        Map<Long, Double> saldos = new HashMap<>();
+        for (StockLoteDto fila : filas) {
+            if (fila.getLoteId() != null) {
+                saldos.put(fila.getLoteId(),
+                        fila.getCantidadDisponible() != null ? fila.getCantidadDisponible() : 0.0);
             }
         }
         return saldos;

@@ -84,6 +84,17 @@ Ninguno.
 | B | 27 % de los cobros con vuelto lo dan en otra moneda (paga en Gs, vuelto en R$) | Es negocio real. En el desglose por moneda el bucket R$ refleja el neto de reales que entraron y salieron, que es lo correcto para esa moneda. Nota en el PR |
 | B | 1 fila sin moneda y 1 con forma de pago inactiva | Insignificante; el total las incluye y el desglose no, como hoy |
 
+## Verificación (paso 9)
+
+- Test: rojo 24/24 con el SQL viejo, verde con el nuevo. `clean verify`: 858 tests, 0 fallos.
+- SQL exacto de las 8 anotaciones contra `bodega` local: los totales 2026 dan la tabla de arriba;
+  TRANSFERENCIA y CHEQUE, sin cobros, dan cantidad 0. Sucursal 1, 2026: 2.949 M, igual a la suma
+  de sus meses en Ingresos vs Gastos con #315.
+- Tiempos: con fecha (lo que usa el desktop), año 2,5 s → 4,3 s y mes 1,1 s → 2,0 s. **Sin fecha,
+  todas las sucursales** (solo por `formaPagoEstadisticas` / `…ConFiltros` sin fechas, sin
+  clientes): total 15 s → 39 s, desglose 9 s → 40 s. Agregar primero por venta lo baja a 27 s
+  con el mismo resultado; no se adopta porque solo mejora endpoints sin uso y complica las 8.
+
 ## Sin verificar
 
 - Cifras de producción.

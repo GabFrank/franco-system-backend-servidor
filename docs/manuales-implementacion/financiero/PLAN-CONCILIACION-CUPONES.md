@@ -371,6 +371,41 @@ Alcance acordado:
 | `filial` | `reabrir(id, sucursalId, usuario)`: sólo `NO_COMPLETADO` → `PENDIENTE`; conserva `no_completado_*` y sella quién reabrió y cuándo |
 | `desktop` | acción en `ListVentaTarjetaComponent` (la lista general, no el diálogo de una caja: el caso real ocurre con la caja ya cerrada), con gate de rol |
 
+#### Alcance corregido el 2026-09-17 — dónde vive la acción
+
+⚠️ **La fila de `desktop` de arriba estaba mal, y la corrige lo que sigue.** Salió al mirar §10.4:
+`ListVentaTarjetaComponent` **lee del central** (`onFiltrar` → `servidor = true`) pero todas las
+acciones de este módulo escriben en el **filial**. Poner ahí `reabrir` repetía esa costura en la
+pantalla donde más duele, porque el supervisor es justamente quien más probablemente entre por la
+web contra central, donde **no existe link al filial**: con `isLocal: false`,
+`graphql-connection.service.ts:280` no crea el link local y todo va al central, que no tiene
+`completarVentaTarjeta`, ni `marcarVentaTarjetaNoCompletada`, ni `crearCapturaCupon`.
+
+**Lo acordado (Gabriel, 2026-09-17): la acción vive en el diálogo del filial, y la lista es sólo la
+puerta.**
+
+| dónde | qué |
+|---|---|
+| `ventas-tarjeta-caja-dialog` | Acá va **«Reabrir»**, al lado de completar y de dejar sin conciliar: las tres contra el filial, con los mismos gates por fila. Con gate de rol |
+| `ListVentaTarjetaComponent` | Gana una acción que **abre ese mismo diálogo** para la caja de la fila. La lista sigue siendo el índice; el diálogo es el taller |
+| los dos | Cuando `isLocal` es `false` (cliente contra central), el diálogo abre en **modo lectura**: se ven las filas y, de los `NO_COMPLETADO`, el motivo, la observación, quién y cuándo. Las acciones no aparecen y una línea dice que necesitan el servidor de la sucursal |
+
+✅ **El diálogo ya sirve para una caja cerrada, verificado:** recibe `cajaId` como dato, filtra por
+él y **no chequea el estado de la caja en ningún lado**. Su comentario de la línea 56 ya dice que
+«una caja puede quedar abierta varios días». Dice «de la caja abierta» por dónde se abre hoy (PDV →
+Utilitarios), no por una restricción. No hay que adaptarlo.
+
+⚠️ **Y esto arregla un defecto que ya está vivo.** `puedeCompletarDesdeAqui` acota por sucursal
+—su javadoc ya razona que «el filial local no la va a tener»— pero **no mira `isLocal`**. Desde la
+web contra central, `sucursalActual` existe igual y coincide, así que el botón de completar **se
+muestra y después falla** con un error de GraphQL que no menciona la configuración. Se le agrega la
+condición en este PR: es una línea, y el hallazgo salió de esta misma discusión.
+
+**Lo que esto NO hace:** no resuelve la conciliación desde central. La hace **explícita y acotada**,
+que es lo decidido — el diseño de ese flujo se discute después de este PR. Tampoco cubre el
+pendiente de §8 («no hay pantalla que junte los `NO_COMPLETADO` de todas las cajas»): el diálogo es
+de una caja por vez.
+
 ### 10.3 · «Escanear otro» deja el código de la terminal en el campo del próximo escaneo
 
 Encontrado por Gabriel el 2026-09-17 y reproducido con un grabador de DOM en la app en vivo.
@@ -431,3 +466,163 @@ estaba atado a `codigoControl.invalid`, así que con el campo vacío queda desha
 correcto, porque sin escanear nada no hay nada que confirmar.
 
 Va en este PR: está en el camino principal del cajero, no en un borde.
+
+### 10.4 · El QR de la app móvil sale del diálogo de completar (2026-09-17)
+
+Encontrado por Gabriel corriendo la venta 3 de INFONET del bloque E: escaneó el QR que ofrecía el
+diálogo y no lo llevó a la página de carga. Su pregunta fue la correcta —*¿en qué momento metimos a
+la app en esta ecuación?*— y la respuesta es que no la metimos nosotros, pero tampoco la sacamos.
+
+**Lo que había.** El diálogo mostraba **dos QR que se alternaban en el mismo lugar**, y de los dos,
+el que salía primero era el de la app:
+
+| QR | valor | cuándo |
+|---|---|---|
+| app móvil | payload `frc-…` que abre `RegistroVentaTarjetaComponent` de `frc-mobile` | **por defecto** |
+| página de captura | la URL que sirve el filial por HTTP en la LAN | sólo tras tocar «Sacar foto sin la app» |
+
+**Por qué importaba.** Ese payload lleva a la pantalla de `frc-mobile`, que escribe con
+`updateVentaTarjeta` del **central** (`VentaTarjetaGraphQL.java:121`), un setter pelado:
+
+```java
+if (input.getEstado() != null) entity.setEstado(input.getEstado());
+```
+
+Sin `completar()` del filial, o sea: sin el chequeo de cupón repetido (`motivoCuponNoUsable`), sin
+control de monto, y sin mirar si el cobro ya estaba conciliado. Y en una terminal `tipo = MAQUINA`
+—las que **no** imprimen QR en el ticket, cuyo único camino real es la foto— ese era justamente el
+QR que se mostraba primero. El camino por defecto era el único que esquivaba todas las guardas que
+esta entrega construyó.
+
+**Ya estaba anotado, y subestimado.** `PLAN-IMPLEMENTACION-FASE-2.md:1545` dice que la pantalla de
+`mobile` es un camino heredado y **no** el de la fase 2. El hallazgo **B1** de la auditoría se bajó
+de alto a bajo con el argumento de que «los dos caminos vivos —lector del PDV y foto— sí pasan por
+`completar()`». Ese argumento no se sostenía mientras esta pantalla ofreciera el tercero, y de
+primera.
+
+**Lo implementado** (decidido por Gabriel el 2026-09-17: sacarlo del diálogo):
+
+| archivo | cambio |
+|---|---|
+| `registrar-venta-tarjeta-dialog.component.html` | Se va el `<ngx-qrcode [value]="valorQr">`. Queda el botón, ahora **«Sacar foto con el celular»**, y una línea que dice qué hace: abre un código para cualquier teléfono, servido por este servidor en la red del local |
+| `registrar-venta-tarjeta-dialog.component.ts` | Se van `valorQr` y `qrPayload` de `RegistrarVentaTarjetaData`. `onVolverAlQrApp()` pasa a `onCancelarFoto()` |
+| `list-venta-tarjeta` / `ventas-tarjeta-caja-dialog` | Dejan de armar el `qrPayload` que ya nadie consume |
+
+⚠️ **El QR aparece recién al pedir la captura, y es a propósito.** Antes de eso no hay URL que
+mostrar: un código permanente en pantalla que no lleva a ninguna parte es peor que ninguno — es
+exactamente lo que produjo este hallazgo.
+
+⚠️ **Esto cierra la puerta, no el agujero.** `updateVentaTarjeta` del central **sigue aceptando**
+que le pongan `COMPLETADO` sin validar nada, y `frc-mobile` sigue instalada y con su botón de
+escaneo en el home. Lo que se quitó es que el desktop lo ofreciera. Tocar ese resolver rompería una
+app que sólo se actualiza por release de Play Store, así que **no entra en este PR**: queda como
+issue aparte, y **B1 vuelve a su severidad real**.
+
+**Probado en el navegador el 2026-09-17**, sobre el cobro 50 (venta 35525, BANCARD - POS-001,
+3.500 Gs.): el diálogo abre con **cero** QR; al tocar el botón aparece **uno solo**, con
+`http://192.168.0.106:8082/public/captura/<token>` —verificado con `curl`: HTTP 200, `<title>Foto
+del cupón</title>`—; y «Cancelar la foto» vuelve al estado inicial.
+
+### 10.5 · El QR de la foto se pide al abrir, y un campo ilegible ya no tira la lectura entera (2026-09-17)
+
+Dos hallazgos de la misma prueba, encadenados: el primero tapaba al segundo.
+
+#### 10.5.1 · El QR detrás de un botón
+
+En una terminal `tipo = MAQUINA` la foto **no es la alternativa: es el único camino**, porque su
+ticket no trae QR y no hay nada que pasar por el lector. Tenerla detrás de «Sacar foto» obligaba a
+pedir a mano lo que siempre se iba a pedir, y la pantalla abría sin nada que escanear justo cuando
+el teléfono ya estaba en la mano.
+
+Ahora `ngOnInit` pide la captura solo, **y sólo cuando `ofreceCamara`**: en `tipo = WEB` el camino
+es el lector, y abrir una captura de prepo quemaría un token por cada pendiente que alguien mire.
+Si el filial no puede abrirla, en lugar del QR sale el error con **«Sacar otra foto»** — sin eso la
+pantalla quedaba muda.
+
+⚠️ **Consecuencia deliberada: en `tipo = MAQUINA` el diálogo dejó de cerrarse solo.** No es una
+regla nueva; es la que ya existía —pedir una captura frena el countdown, porque 120 s no alcanzan
+para desbloquear un teléfono, escanear, encuadrar y esperar el OCR— aplicada desde que el diálogo
+abre. Incluye el que salta en el PDV después de cobrar: el cajero tiene que tocar «Registrar más
+tarde» para sacarlo. **Queda pendiente de decisión** si se prefiere que el countdown siga corriendo
+hasta que llegue una foto de verdad.
+
+#### 10.5.2 · «Detectó el código y de ahí no pasó»
+
+Lo reportó Gabriel sacando la foto del cupón de 3.500 de INFONET. El OCR corrió, el texto llegó a
+la pantalla, y no pasó nada más.
+
+**La causa, medida.** El patrón de INFONET falla **sólo en el tramo del monto**
+(`[\s\S]*G\.\s*(?<monto>[0-9][0-9.]*)`): sacándolo, matchean `cn`, `fecha`, `hora`, `boleta` y
+`auth`. Al OCR se le escapó ese renglón. Y como el patrón es **una sola expresión todo-o-nada**,
+`campos` quedó vacío y se perdieron los cuatro campos que sí se habían leído bien.
+
+No es un borde. De las seis capturas con texto de esa jornada, **tres terminaron así** — y la 23 es
+la misma boleta que la 29, o sea que ese cupón ya había fallado igual antes:
+
+| captura | ¿el OCR leyó el monto? | ¿produjo campos? |
+|---|---|---|
+| 29, 23, 22 | no | **no** |
+| 24, 21, 20 | sí | sí |
+
+**Y encima, mudo.** `confirmarLectura` tenía dos `return` silenciosos. El filial devolvía `LISTO`
+con `campos` vacío, el método salía sin abrir nada y sin decir nada. Peor: `onEsperar` termina con
+`takeWhile(c => c.estado !== 'LISTO', true)`, así que **el desktop ya no escuchaba** — sacar otra
+foto desde el teléfono no hacía nada, mientras el QR seguía en pantalla invitando a hacer
+exactamente eso.
+
+**Lo implementado:**
+
+| dónde | qué |
+|---|---|
+| `filial` `ExtractorCupon` | Si el patrón entero falla, rescata **tramo por tramo**. Corta por cada `[\s\S]*` que esté **fuera de paréntesis**, compila cada tramo y lo corre solo. El resultado viaja marcado `parcial` |
+| `filial` `CapturaCuponService` | `parcial: true` viaja dentro de `campos` |
+| `desktop` | Sin ningún campo: saca el QR muerto, lo dice, y ofrece **«Sacar otra foto»** (captura nueva) |
+| `desktop` | El texto del OCR sale **fuera** del bloque del QR: se necesita justo cuando ese bloque ya no está |
+| `desktop` | Con lectura parcial, la carga a mano se titula **«Completá los datos del cupón»** y dice que lo cargado sí se leyó |
+
+⚠️ **Por qué el corte respeta paréntesis.** El tramo del monto arrastra
+`(?:[\s\S]*Lote:\s*(?<lote>[0-9]+))?`. Cortando por cada `[\s\S]*` sin mirar profundidad, ese grupo
+quedaba partido al medio, los dos pedazos eran expresiones inválidas y se perdía **justo** el campo
+que motivó todo. Hay un test dedicado a eso.
+
+⚠️ **Los offsets siguen siendo absolutos**: cada tramo corre sobre el texto completo, no sobre un
+pedazo, así que el semáforo por campo sigue valiendo.
+
+⚠️ **El rescate no convierte un fallo legítimo en un éxito a medias:** si no se reconoce **ningún**
+tramo, la respuesta sigue siendo que el formato no reconoció el cupón.
+
+**Tests: 30/30 en `ExtractorCuponTest`**, con 5 casos nuevos. Uno usa el texto OCR de la captura 29
+copiado de la base y fija que ahora salgan `numeroBoleta`, `codigoAutorizacion` y `terminal` con
+`monto` vacío.
+
+### 10.6 · La página de captura sólo dejaba sacar la foto, nunca elegirla (2026-09-17)
+
+Encontrado por Gabriel al intentar reusar la foto que había fallado, para probar el rescate parcial
+de §10.5.2: **no había opción de cargar una imagen**.
+
+**La causa, en una línea del HTML** (`filial/src/main/resources/captura/captura.html`):
+
+```html
+<input id="f" type="file" accept="image/*" capture="environment">
+```
+
+`capture="environment"` no es una sugerencia: le dice al navegador del teléfono **«abrí la cámara»**,
+y al hacerlo **le saca la opción de la galería**. Con un solo input así, un cupón ya fotografiado
+—o una imagen que está en la PC— no había forma de mandarlo: había que volver a sacarle la foto al
+papel, con el papel delante.
+
+**El arreglo: dos inputs, no un toggle.** El atributo lo lee el navegador del input al que apunta el
+`<label>`, así que no se puede prender y apagar por botón. Quedó **📷 Sacar foto** (con `capture`,
+el camino de siempre, en color de acento) y **🖼️ Elegir una imagen** (sin `capture`: galería en el
+teléfono, explorador en la PC, como acción secundaria). Los dos escriben en el **mismo handler** —
+lo único que cambia entre ellos es qué pantalla abre el navegador; lo que llega después es un `File`
+igual en los dos casos. Los dos se deshabilitan durante la subida: tocar el otro mientras sube
+arrancaría una segunda subida sobre el mismo token.
+
+**Probado el 2026-09-17** subiendo `cupones/2026/09/29.jpg` —la foto que había fallado— por el botón
+nuevo: captura 33, `LISTO`, `parcial: true`, cuatro campos rescatados. La misma foto que el día
+anterior dejaba `campos` vacío.
+
+⚠️ **Además quedó comprobado que un token se consume con la subida**: reusar la URL contesta
+«Este código ya no sirve — pedí uno nuevo desde la caja y volvé a escanear», que es el
+comportamiento correcto.

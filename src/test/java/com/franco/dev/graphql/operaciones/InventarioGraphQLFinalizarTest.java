@@ -318,6 +318,31 @@ class InventarioGraphQLFinalizarTest {
     }
 
     @Test
+    @DisplayName("con lote, re-finalizar pide los saldos por lote al corte del mismo ajuste")
+    void reFinalizarConLoteUsaElMismoCorte() {
+        // El agregado y el desglose tienen que cortar en el mismo instante: si uno usara el stock
+        // de ahora y el otro el del primer cierre, la diferencia caeria entera en SIN LOTE.
+        LocalDateTime primerCierre = LocalDateTime.of(2026, 9, 3, 10, 25, 23);
+        MovimientoStock ajuste = ajusteDelPrimerCierre(CONTADO, primerCierre);
+        conProductoConLote(CONTADO);
+        conContadoPorLote(CONTADO, 41L, 362.0);
+        when(movimientoStockService.stockByProductoIdAndSucursalIdAntesDeFecha(CONTADO, SUCURSAL, primerCierre))
+                .thenReturn(355.0);
+        ArgumentCaptor<MovimientoStock> excluido = ArgumentCaptor.forClass(MovimientoStock.class);
+        when(inventarioLoteService.saldosPorLote(eq(CONTADO), eq(SUCURSAL), excluido.capture()))
+                .thenReturn(saldos(41L, 355.0));
+        conItems(Collections.singletonList(itemConLote(CONTADO, 362.0, 1.0, 41L)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        assertEquals(ajuste, excluido.getValue());
+        assertEquals(primerCierre, excluido.getValue().getCreadoEn());
+        ArgumentCaptor<MovimientoStock> guardados = ArgumentCaptor.forClass(MovimientoStock.class);
+        verify(movimientoStockService).save(guardados.capture());
+        assertEquals(7.0, guardados.getValue().getCantidad());
+    }
+
+    @Test
     @DisplayName("un ajuste viejo sin creadoEn se recalcula como antes, contra el stock sin el ajuste")
     void ajusteSinFechaSeRecalculaComoAntes() {
         ajusteDelPrimerCierre(CONTADO, null);

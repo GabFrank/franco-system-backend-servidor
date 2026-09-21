@@ -55,7 +55,7 @@ Lo que se configura acá, y lo que significa cada cosa:
 | `minutosValidezCaptura` | Vida del token del QR de captura |
 | `segundosDialogoRegistro` | Countdown del diálogo de registro |
 | `horasVentanaDuplicado` | Cuánto atrás mira el chequeo de cupón duplicado por código de autorización |
-| `diasRetencionImagenes` | Retención de las fotos. **Sin lector todavía** — ver §9 |
+| `diasRetencionImagenes` | Retención de las fotos. La lee `PurgaImagenesCuponService` (filial), que entra apagada y en simulación — ver §9 |
 | `mbLibresMinimos` | Alerta de espacio. **Sin lector todavía** — ver §9 |
 
 ---
@@ -288,7 +288,7 @@ no requiere reiniciar nada.
 |---|---|
 | **Venta completa en el PDV con productos** | **Sin ejercitar.** Se probó la captura y la extracción, no el carrito hasta el cobro. Son las pruebas 5 a 8 del guion manual |
 | **Colisión de datos en los índices únicos de `terminal_pos`** | **Sin probar.** La base del dry-run tenía cero terminales. Si en bodega o farmacia hay dos con el mismo `codigo` o la misma `serie`, **la migración falla allá y no acá** |
-| `diasRetencionImagenes` y `mbLibresMinimos` | **Configuración sin lector.** Se guardan y nadie los lee: la purga llega en la etapa 6 |
+| `diasRetencionImagenes` y `mbLibresMinimos` | **Ya tienen lector** desde `feature/ocr-cupon-fase2`: `PurgaImagenesCuponScheduler` + `PurgaImagenesCuponService` (filial). Apagada por default (`frc.purga-imagenes.enabled`) y arranca en simulación; nunca borra una imagen referenciada por una `venta_tarjeta` |
 | **POS con recargo** | Fuera de alcance. Los cupones con recargo siguen pidiendo confirmación de monto |
 | `capturaCupon(token)` en el filial | No verifica que el token sea del cajero que pregunta. Riesgo **bajo**: `SecureRandom`, y ya no se difunde |
 | **Promoción a farmacia o bodega** | Fuera de esta entrega. Esto llega hasta `develop` / alpha |

@@ -324,7 +324,7 @@ código y propone el celular, que es la salida correcta para un cupón ilegible 
 una seña pegada en el campo de al lado. Pasó en la prueba del 2026-09-17: la cadena era correcta y
 el campo era el otro.
 
-**Arreglo propuesto** en `qr-pos-parser.ts`: antes de devolver el error genérico, mirar si la cadena
+**Implementado el 2026-09-21** (desktop `47a7b13d`, `qr-pos-parser.ts:84`): antes de devolver el error genérico se mira si la cadena empieza con `frc-`, y en ese caso el rechazo dice *«Eso es la seña del cobro, no el cupón de la terminal. La seña va en el campo de arriba de la lista.»* Dos specs lo cubren (`qr-pos-parser.spec.ts`), **escritos y no ejecutados**: Karma está roto en todo el repo (`require.context`) y el CI del desktop no corre specs. El arreglo, tal como se había propuesto: antes de devolver el error genérico, mirar si la cadena
 empieza con `frc-`; si empieza, decir «Eso es la seña del cobro, no el cupón de la terminal. La seña
 va en el campo de arriba de la lista». Es una rama de tres líneas y no toca el contrato de parseo.
 
@@ -738,3 +738,94 @@ por formato con lo que haya en farmacia y bodega, y recién con eso elegir el va
 
 **E6 queda como NO REPRODUCIBLE**, con esta evidencia como motivo. No es una falla del cambio de
 esta entrega: el semáforo se comporta igual que antes.
+
+### 10.9 · Auditoría previa al PR — 2026-09-21
+
+Cinco auditores en paralelo sobre la rama entera (tres repos, 27 + 39 + 68 commits, 20 migraciones),
+cada uno con un criterio: **regresión frontend**, **regresión backend**, **migraciones y
+replicación**, **seguridad**, **consistencia y brechas de documentación**. Pregunta principal, pedida
+explícitamente: *¿esto rompe algo que hoy funciona, en este módulo o en otro?*
+
+**Resultado en una línea: nada rompe lo existente.** Todos los cambios de schema GraphQL son
+aditivos, ninguna entidad agrega `NOT NULL` sin default, los archivos borrados no tienen referencias
+vivas, y los callers con firma cambiada viven todos dentro del diff. Lo que sí apareció, y se
+arregló antes del PR:
+
+| sev. | dónde | qué | cómo se cerró |
+|---|---|---|---|
+| **ALTA** | central `CapturaMuestraImagenController` | `GET /api/captura-muestra/imagen/{id}` sin rol. Nació junto con el fix del filtro JWT que hizo que `/api/**` recién autentique: pasó de inalcanzable a alcanzable por cualquier usuario logueado, enumerando ids | `seg.requireVer()`, igual que el resto del ABM de muestras |
+| MEDIA | filial `VentaTarjetaGraphQL` | `marcar*NoCompletada(s)` y `reabrir` tomaban `usuarioId` del argumento: cualquier cliente podía marcar o reabrir **a nombre de otro**. Regresión propia de la rama —las columnas de rastro son nuevas— | manda el nickname del JWT (`JwtUserDetails` en el contexto); el argumento queda como respaldo y se loguea si no coincide |
+| MEDIA | `ocr/Imagen.java` (ambos) | `ImageIO.read` reservaba el buffer con las dimensiones que declara el archivo: bomba de descompresión con pocos KB. El tope de 8 MB del cuerpo limita bytes, no píxeles | se lee ancho y alto del encabezado y se rechaza > 6000 de lado antes de decodificar |
+| MEDIA | `ocr/ExtractorCupon.java` (ambos) | el patrón del formato corría sin plazo sobre hasta 4.000 caracteres, bajo lock de `captura_cupon`. Un patrón con backtracking catastrófico pasa el guardado (matchea su ejemplo corto) y cuelga una captura real | `CharSequence` con plazo de 500 ms en `charAt` —no un `Future`: `java.util.regex` no mira la interrupción—. Mismo plazo en `validar()` del formato. Test con `(a+)+b` sobre 4.000 `a` |
+| BAJA | páginas de captura (ambos) | el token va en el path y la página quedaba en caché e historial del teléfono | `Cache-Control: no-store` |
+| consist. | `ocr/ExtractorCupon.java` | **había divergido**: el rescate parcial de §10.5 estaba sólo en filial. El botón «Probar» de central decía NO PASA sobre cupones que el PDV sacaba con 4 de 5 campos | mismo archivo en los dos repos, con los mismos 32 tests |
+| consist. | `FormatoTerminalPos.esMaquina()` | central estricto, filial `null = MAQUINA` (el lado seguro). El mismo formato tenía caminos distintos según el repo | central alineado al filial |
+| doc | §10.1 | el plan decía «propuesto» y estaba implementado desde `47a7b13d` | corregido arriba |
+| doc | `VENTA-TARJETA-CIRCUITO-COMPLETO.md` §9 | `diasRetencionImagenes` figuraba «sin lector»; la purga ya existe | corregido |
+
+Verificación: 71/71 tests OCR verdes en los dos repos, los tres repos compilan, y **se mergeó
+`origin/develop` en las tres ramas sin conflictos** (central estaba 103 commits atrás; filial 9;
+desktop 128).
+
+#### El orden de despliegue, tabla completa — reemplaza a «central primero»
+
+⚠️ **La instrucción única «central primero, filial después» sólo cubre 3 de los 9 pares con
+replicación.** Vale para `venta_tarjeta` (BRANCH_TO_MAIN: el filial publica). Para `terminal_pos` y
+`configuracion_venta_tarjeta`, que son **MAIN_TO_ALL y ya replican fila completa**, es exactamente
+al revés: el subscriber (filial) tiene que tener la columna **antes** de que central la escriba. Cada
+migración lo dice en su encabezado (`V221.5:15`, `V222.5:31`, `V224.5:34`, `V226.5:34`); nadie que
+siga el runbook genérico lo lee. Verificado contra `pg_publication_tables` y `pg_publication_rel`
+(`prattrs` NULL = sin lista de columnas) en las dos bases locales.
+
+| columna(s) | tabla | dirección | quién primero | si se invierte |
+|---|---|---|---|---|
+| `datos_extra` | `venta_tarjeta` | BRANCH_TO_MAIN | **central** (V220.5) → filial (V93.5) | el filial publica una columna que central no tiene → apply worker de central en crash-loop, WAL retenido |
+| tabla `formato_terminal_pos` | — | MAIN_TO_ALL | **filial** (V95.5) → central (V221.5) | tabla nueva: sólo falla el `REFRESH PUBLICATION`, no corta la suscripción (medido) |
+| `formato_terminal_pos_id` | `terminal_pos` (**ya viva**) | MAIN_TO_ALL | **filial** (V95.5) → central (V221.5) | la próxima escritura de central sobre `terminal_pos` manda una columna que la filial no tiene → **esa filial** en crash-loop |
+| `registro_obligatorio`, `tolerancia_diferencia_monto_pct`, `minutos_validez_captura`, `segundos_dialogo_registro`, `horas_ventana_duplicado`, `dias_retencion_imagenes`, `mb_libres_minimos` | `configuracion_venta_tarjeta` (**ya viva**) | MAIN_TO_ALL | **filial** (V96.5) → central (V222.5) | corte apenas central haga el próximo `UPDATE` de la configuración desde el ABM |
+| `origen` | `venta_tarjeta` | BRANCH_TO_MAIN | **central** (V223.5) desplegado y confirmado → recién ahí filial (V97.5) | una venta con tarjeta → el stream lleva `origen` → central en crash-loop (es el 2026-08-20) |
+| `sucursal_id`, `serie` | `terminal_pos` (**ya viva**) | MAIN_TO_ALL | **filial** (V98.5) → central (V224.5) | igual que `formato_terminal_pos_id` |
+| tabla `formato_terminal_pos_region` | — | MAIN_TO_ALL | **filial** (V99.5) → central (V225.5) | sólo `REFRESH PUBLICATION` falla |
+| `carga_manual_permitida`, `campos_obligatorios` | `terminal_pos` (**ya viva**) | MAIN_TO_ALL | **filial** (V100.5) → central (V226.5) | igual que `formato_terminal_pos_id` |
+| tabla `captura_muestra` | — | no replica (central) | sin orden | — |
+| `no_completado_motivo`, `no_completado_observacion`, `no_completado_por_id`, `no_completado_en`, `reabierto_por_id`, `reabierto_en` | `venta_tarjeta` | BRANCH_TO_MAIN | **central** (V228.5) desplegado y confirmado → recién ahí filial (V102.5) | igual que `origen` |
+| tabla `captura_cupon` | — | no replica (filial) | sin orden | — |
+| índice `idx_venta_tarjeta_codigo_autorizacion` (V96.7) | — | local | sin orden | — |
+
+**Cómo se cumplen las dos direcciones a la vez sin desplegar dos veces:** central se despliega
+primero (sus migraciones son idempotentes y aditivas, y crear la columna en el publisher no rompe
+nada mientras **no se escriba**), y **no se toca `terminal_pos` ni `configuracion_venta_tarjeta`
+—ni por ABM ni por SQL— hasta confirmar que las filiales del canal ya corren la versión con
+V95.5–V100.5**. Es lo que ya decía el PR de central; esta tabla dice *por qué* y *cuáles* columnas.
+Después, filial. Y el desktop al final, porque sus queries piden campos que sólo el backend nuevo
+declara y GraphQL valida el documento entero.
+
+#### Para quien apruebe el release — cambios de comportamiento deliberados, confirmarlos
+
+- **El cajero puede cerrar la caja con cobros sin conciliar**, con motivo (§8). Antes sólo un ADMIN
+  forzaba. Es la decisión central de esta tanda y afloja un control que existía.
+- **El diálogo de conteo de billetes sólo se abre para EFECTIVO** (`pago-touch.setMoneda`). Antes se
+  abría para cualquier forma de pago al elegir moneda.
+- **Cuatro mutations que ya existían ahora exigen rol de tesorería** (`saveTerminalPos`,
+  `deleteTerminalPos`, `configuracionVentaTarjeta`, `saveConfiguracionVentaTarjeta`). ADMIN pasa
+  siempre. Antes de desplegar: `select u.nickname from personas.usuario u where ... ` —confirmar que
+  ningún no-admin que hoy edite terminales o la configuración quede afuera.
+- **Índices únicos sobre `terminal_pos.codigo` y `serie`** (V224.5). El dry-run corrió sobre una base
+  con cero terminales. Inmediatamente antes de desplegar central en cada instancia:
+  `select codigo, count(*) from financiero.terminal_pos group by codigo having count(*) > 1` y lo
+  mismo con `serie`. Un duplicado hace fallar la migración ahí, no acá.
+
+#### Lo que la auditoría dejó documentado y fuera de alcance
+
+- **`updateVentaTarjeta` en central sigue siendo un setter sin validaciones** (B1). Esta rama no lo
+  toca ni lo agrava, pero amplía la brecha relativa: ahora hay un camino con guardas (filial) y uno sin
+  ninguna (el que usa la app móvil), que además puede poner `NO_COMPLETADO` sin las columnas de
+  quién/cuándo/por qué. Acotarlo a lo que la app móvil realmente necesita es un cambio aparte.
+- La FK de `no_completado_por_id`/`reabierto_por_id` a `personas.usuario` vive en el filial. Hoy es
+  inofensiva (sólo marca quien está logueado ahí, y el login exige la fila). Si alguna vez se marca
+  desde un flujo sin sesión local, revisarla.
+- Los specs del desktop **no corren en CI** (`ci.yml` sólo hace `build:prod` + `electron:serve-tsc`)
+  y Karma está roto en todo el repo. Los de esta rama están escritos y no ejecutados.
+- Constantes cerradas copiadas a mano en tres lugares sin test de sincronía: tipos `MAQUINA|WEB|API`
+  (`FormatoTerminalPos` en los dos repos + `formato-terminal-pos.model.ts`), orígenes y motivos
+  (`VentaTarjeta` del filial + `venta-tarjeta.model.ts`; central sólo tiene las columnas).

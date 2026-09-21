@@ -406,6 +406,61 @@ que es lo decidido — el diseño de ese flujo se discute después de este PR. T
 pendiente de §8 («no hay pantalla que junte los `NO_COMPLETADO` de todas las cajas»): el diálogo es
 de una caja por vez.
 
+#### Implementado el 2026-09-21 — qué quedó dónde
+
+| repo | archivo | qué |
+|---|---|---|
+| `filial` | `V102.5__venta_tarjeta_no_completado.sql` | `reabierto_por_id` + `reabierto_en` en el **mismo** `ALTER TABLE` que las cuatro de §8, con FK `fk_vt_reabierto_por` en dos pasos (`NOT VALID` → `VALIDATE`) |
+| `central` | `V228.5__venta_tarjeta_no_completado.sql` | las mismas dos columnas, **sin FK** — es el subscriber |
+| `filial` | `VentaTarjeta.java`, `VentaTarjetaService.reabrir()`, `VentaTarjetaGraphQL`, `venta-tarjeta.graphqls` | `reabrirVentaTarjeta(id, sucId, usuarioId)`: sólo `NO_COMPLETADO` → `PENDIENTE`, sella quién y cuándo, **conserva las `no_completado_*`** |
+| `central` | `VentaTarjeta.java`, `venta-tarjeta.graphqls` | las dos columnas con `insertable=false, updatable=false` y `ConstraintMode.NO_CONSTRAINT`, igual que `noCompletadoPor`, y expuestas en el schema |
+| `desktop` | `ventas-tarjeta-caja-dialog` | acción «Reabrir», modo lectura, y el rastro de reabierto bajo el chip de estado |
+| `desktop` | `list-venta-tarjeta` | la puerta al diálogo, el guard de `isLocal` que le faltaba a completar, y el rastro de §8 y de reabrir en la columna de estado |
+
+**El gate de «Reabrir» son DOS, no uno.** El punto 3 de arriba distingue dos actos que no son el
+mismo —el cajero que se corrige dentro de su turno, y quien toca un turno que alguien dio por
+cerrado— y darles un solo permiso obligaba a elegir entre dejar al cajero llamando a un supervisor
+para deshacer su propio error, o dejar que cualquier cajero con el rol tocara el turno cerrado de
+otro. El diálogo **nunca miraba el estado de la caja** (recibe `cajaId` y filtra), así que la
+distinción no existía; ahora la consulta con `CajaService.onGetByIdSimp` contra el filial:
+
+| caja | rol | por qué ése |
+|---|---|---|
+| abierta (`EN_PROCESO`) | `VENTA TARJETA COMPLETAR` o `ADMIN` | el mismo con el que completa: es su propio error, dentro de su turno |
+| cerrada, o estado desconocido | `ANALISIS DE CAJA` o `ADMIN` | es el rol que **ya** gobierna las cajas cerradas en esta app —lista de cajas, retiros, gastos, observaciones de caja cuelgan todas de él—, así que el permiso no se inventó para esto |
+
+`cajaAbierta` arranca en `false`, así que mientras la consulta no volvió —o si falló— rige el gate
+estricto. Fallar hacia el lado que pide más permiso es lo único honesto: la alternativa es abrir la
+acción por no haber podido averiguar si correspondía. Y la consulta **no bloquea la carga**: la
+tabla ya se ve, lo único que espera es una acción.
+
+⚠️ **Corrección medida el 2026-09-21: en modo lectura la pantalla que sirve es la LISTA, no el
+diálogo.** El alcance de arriba decía que con `isLocal: false` el diálogo abriría «en modo lectura».
+No puede: `filtrarVentasTarjetaPorCaja` —la query con la que el diálogo carga— **existe sólo en el
+filial**; central no la tiene (verificado contra su `venta-tarjeta.graphqls` y sus resolvers). Contra
+central el diálogo abriría con la tabla vacía, que es peor que no ofrecerlo.
+
+Lo que se hizo en su lugar, que da lo mismo que se quería sin superficie nueva en central:
+
+- la **puerta** al diálogo sólo aparece con `isLocal` (y en filas de la sucursal actual);
+- el **rastro** —motivo, observación en el tooltip, quién, cuándo, y si fue reabierto y por quién—
+  se muestra en la **lista**, que lee de central y donde esos campos ya estaban replicados y
+  expuestos: sólo faltaba pedirlos. Antes la lista mostraba `NO_COMPLETADO` a secas, sin decir por
+  qué ni a quién preguntarle, en la única pantalla que ve los cobros sin conciliar de **todas** las
+  sucursales;
+- el diálogo conserva igual sus guardas de modo lectura, como defensa en profundidad: oculta las
+  cuatro acciones, apaga el lector de QR (que termina en `onCompletar` sin pasar por ningún `*ngIf`)
+  y dice con el motivo concreto que hace falta el servidor de la sucursal.
+
+Si alguna vez se quiere el diálogo contra central, lo que falta es exactamente una query de lectura
+—`filtrarVentasTarjetaPorCaja`— en central. Es la misma discusión del flujo de conciliación en el
+servidor central, que queda para después de este PR.
+
+**Y se arregló el defecto que ya estaba vivo:** `puedeCompletarDesdeAqui` ahora exige `isLocal`. Su
+javadoc razonaba sobre «el filial local» dando por sentado que existe; desde la web contra central
+no existe, `sucursalActual` coincidía igual, y el botón se mostraba para fallar al apretarlo con un
+error de GraphQL que no mencionaba la configuración.
+
 ### 10.3 · «Escanear otro» deja el código de la terminal en el campo del próximo escaneo
 
 Encontrado por Gabriel el 2026-09-17 y reproducido con un grabador de DOM en la app en vivo.

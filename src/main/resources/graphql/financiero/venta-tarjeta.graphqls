@@ -37,6 +37,15 @@ type VentaTarjeta {
     """Quien decidio cerrar sin conciliar. Es a quien preguntarle al revisar."""
     noCompletadoPor: Usuario
     noCompletadoEn: Date
+    """
+    Quien devolvio este cobro de NO_COMPLETADO a PENDIENTE. Null = nunca se reabrio.
+
+    Lo escribe el FILIAL y llega a central por replicacion. Se expone aca porque la lista general
+    de ventas con tarjeta lee de central.
+    """
+    reabiertoPor: Usuario
+    "Cuando se reabrio. Las no_completado_* se conservan: se sabe por que se habia marcado."
+    reabiertoEn: Date
     creadoEn: Date
 }
 

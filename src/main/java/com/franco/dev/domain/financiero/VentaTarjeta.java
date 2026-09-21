@@ -175,6 +175,27 @@ public class VentaTarjeta implements Serializable {
     @Column(name = "no_completado_en")
     private LocalDateTime noCompletadoEn;
 
+    /**
+     * Quien devolvio este cobro de {@code NO_COMPLETADO} a {@code PENDIENTE}.
+     * <p>
+     * <b>Central NO escribe esto</b>: lo escribe el filial --que es el publisher de esta tabla-- y
+     * aca llega por replicacion. Por eso va con {@code insertable=false, updatable=false} y sin
+     * constraint, igual que {@link #noCompletadoPor}: un guardado desde central que traiga la
+     * entidad a medio cargar pisaria con null quien reabrio el cobro.
+     * <p>
+     * Se expone igual que las {@code noCompletado*} porque la lista general de ventas con tarjeta
+     * lee de CENTRAL, y ahi es donde alguien va a querer ver que un cobro fue reabierto y por
+     * quien.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reabierto_por_id", nullable = true, insertable = false, updatable = false,
+            foreignKey = @javax.persistence.ForeignKey(value = javax.persistence.ConstraintMode.NO_CONSTRAINT))
+    private Usuario reabiertoPor;
+
+    /** Cuando se reabrio. {@code null} = nunca se reabrio. Las no_completado_* se conservan. */
+    @Column(name = "reabierto_en")
+    private LocalDateTime reabiertoEn;
+
     @CreationTimestamp
     @Column(name = "creado_en", nullable = false, updatable = false)
     private LocalDateTime creadoEn;

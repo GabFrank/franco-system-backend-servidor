@@ -42,7 +42,13 @@ ALTER TABLE financiero.venta_tarjeta
     ADD COLUMN IF NOT EXISTS no_completado_motivo VARCHAR(40) NULL,
     ADD COLUMN IF NOT EXISTS no_completado_observacion VARCHAR(255) NULL,
     ADD COLUMN IF NOT EXISTS no_completado_por_id BIGINT NULL,
-    ADD COLUMN IF NOT EXISTS no_completado_en TIMESTAMP NULL;
+    ADD COLUMN IF NOT EXISTS no_completado_en TIMESTAMP NULL,
+    -- Reapertura: quien devolvio un NO_COMPLETADO a PENDIENTE y cuando. Van en ESTA migracion y no
+    -- en una posterior porque el costo no es simetrico en el tiempo: agregarlas ahora, antes de
+    -- que nada este mergeado, es gratis; agregarlas despues es OTRO par de migraciones con la
+    -- misma secuencia obligatoria central-primero-filial-despues sobre una tabla BRANCH_TO_MAIN.
+    ADD COLUMN IF NOT EXISTS reabierto_por_id BIGINT NULL,
+    ADD COLUMN IF NOT EXISTS reabierto_en TIMESTAMP NULL;
 
 COMMENT ON COLUMN financiero.venta_tarjeta.no_completado_motivo IS
     'Por que este cobro quedo sin conciliar: CUPON_NO_IMPRESO | POS_FALLADO | CUPON_PERDIDO | OTRO. NULL = anterior a esta columna, o la fila nunca fue NO_COMPLETADO. Sin CHECK: central es subscriber de esta tabla.';
@@ -52,3 +58,8 @@ COMMENT ON COLUMN financiero.venta_tarjeta.no_completado_por_id IS
     'Usuario que decidio cerrar sin conciliar este cobro. Sin FK: una FK en el subscriber puede abortar el apply.';
 COMMENT ON COLUMN financiero.venta_tarjeta.no_completado_en IS
     'Cuando se marco. Junto con no_completado_por_id es lo que permite revisar despues.';
+
+COMMENT ON COLUMN financiero.venta_tarjeta.reabierto_por_id IS
+    'Usuario que devolvio este cobro de NO_COMPLETADO a PENDIENTE. Sin FK: central es subscriber.';
+COMMENT ON COLUMN financiero.venta_tarjeta.reabierto_en IS
+    'Cuando se reabrio. Las no_completado_* NO se limpian: se conserva por que se habia marcado.';

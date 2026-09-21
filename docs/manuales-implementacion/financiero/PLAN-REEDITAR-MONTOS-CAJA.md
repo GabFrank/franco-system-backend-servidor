@@ -74,6 +74,8 @@ viejo no cambia nada (campo nullable que nadie pide).
   5 min). Por eso el PR del desktop **se mergea recién con el central ya desplegado** en ese canal,
   y lo mismo al promover a `release/beta` / `master` (el central beta/prod requiere reviewer; el
   desktop no).
+- **Web (Cloudflare Pages):** `Deploy Web` es manual y acepta cualquier `ref`/`canal`. No publicar
+  en un canal web un desktop con este fix antes de que el central de ese canal lo tenga.
 - **No revertir el central** mientras el desktop nuevo esté en algún canal: la edición de montos
   quedaría rota por completo (falla segura: la validación GraphQL corta antes de escribir).
 - No hay forma limpia de que el desktop tolere un central viejo: el campo desconocido falla en la
@@ -105,6 +107,26 @@ respuesta; clientes existentes no lo piden y no cambian de comportamiento.
 - Tras la 2.ª edición, `conteo.conteoAnterior` en memoria apunta al conteo en memoria anterior (sin
   `creadoEn` real del backend); «Ver historial» compara contra esa versión. Aceptable: al reabrir
   la caja se ve lo que llegó por replicación.
+- `PdvCajaGraphQL.java:411` toma el usuario ADMIN de `conteoInput.usuarioId` (lo manda el cliente),
+  no de la sesión: cualquier sesión puede pasar el chequeo de rol y figurar como otro autor.
+  Preexistente, no lo agrava este diff; ticket aparte.
+- Doble clic en «Abrir/Cerrar caja» (no en la edición) puede crear un conteo huérfano en la filial
+  (`ConteoGraphQL.saveConteo` no rechaza una caja que ya tiene conteo). Preexistente.
+- El `saveConteo` del central devuelve `null`: abrir/cerrar caja desde el admin (no venta touch)
+  por este diálogo no hace nada. Preexistente, fuera de alcance.
+
+## Auditoría del diff (paso 8)
+
+Condicionales A y B: N/A, ningún archivo del diff matchea sus globs.
+
+| Hallazgo | Eje | Verificado | Qué se hizo |
+|---|---|---|---|
+| ADMIN se valida antes de cualquier efecto; `conteoId` no expone nada | Fijo 1 | sí | sin cambios |
+| usuario ADMIN tomado del input del cliente | Fijo 1 | sí (`PdvCajaGraphQL.java:411`) | preexistente, anotado |
+| `conteoId` con escritor y lector de punta a punta; sin migración | Fijo 2 | sí | sin cambios |
+| `res.id` sin convertir a número en `guardarConteo` | Fijo 2 | sí | `+res.id` |
+| `guardandoEdicion` trabado si se cancela dentro del segundo de espera (y se disparaba `guardarConteo`) | Fijo 3 | sí (`onButtonClick` leía `enEdicion` al vencer el timeout) | modo tomado al clic |
+| Deploy Web a Cloudflare sin mención en el orden de despliegue | Fijo 3 | sí | agregado |
 
 ## Auditoría del plan (paso 5)
 

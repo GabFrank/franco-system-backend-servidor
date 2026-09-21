@@ -157,9 +157,21 @@ public class FormatoTerminalPosService extends CrudService<FormatoTerminalPos, F
             throw new GraphQLException("El patron debe estar anclado: empezar con ^ y terminar con $.");
         }
 
-        // 3) El patron matchea su propio ejemplo.
-        Matcher matcher = pattern.matcher(entity.getEjemplo());
-        if (!matcher.matches()) {
+        // 3) El patron matchea su propio ejemplo, dentro del mismo plazo que rige en el PDV.
+        //    Que un patron cuelgue el guardado es molesto; que pase el guardado y cuelgue una
+        //    captura real bajo lock es grave. Con el mismo plazo aca, el segundo caso se descubre
+        //    en el primero --al menos para los patrones que ya se atragantan con su ejemplo.
+        Matcher matcher = pattern.matcher(
+                com.franco.dev.service.financiero.ocr.ExtractorCupon.conPlazo(entity.getEjemplo()));
+        boolean reconoce;
+        try {
+            reconoce = matcher.matches();
+        } catch (com.franco.dev.service.financiero.ocr.ExtractorCupon.TiempoAgotado e) {
+            throw new GraphQLException("El patron tardo mas de "
+                    + com.franco.dev.service.financiero.ocr.ExtractorCupon.PLAZO_MS
+                    + " ms sobre su propio ejemplo: tiene backtracking catastrofico. Simplificalo antes de guardar.");
+        }
+        if (!reconoce) {
             throw new GraphQLException(
                     "El patron no reconoce la cadena de ejemplo. Corregi uno de los dos antes de guardar.");
         }

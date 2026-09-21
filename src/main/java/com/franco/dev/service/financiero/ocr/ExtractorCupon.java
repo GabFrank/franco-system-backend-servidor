@@ -82,9 +82,18 @@ public class ExtractorCupon {
         public final Map<String, int[]> rangos;
         /** Null si salio bien. */
         public final String error;
+        /**
+         * El patron entero NO matcheo y esto salio tramo por tramo: falta al menos un campo.
+         *
+         * <p>Viaja hasta el cajero porque cambia lo que tiene que hacer: con un resultado completo
+         * revisa, con uno parcial <b>completa</b>. Sin esta marca el formulario se le abre a medio
+         * llenar sin ninguna explicacion.
+         */
+        public final boolean parcial;
 
-        Resultado(Map<String, Object> c, Map<String, Object> e, Map<String, int[]> r, String err) {
-            campos = c; extras = e; rangos = r; error = err;
+        Resultado(Map<String, Object> c, Map<String, Object> e, Map<String, int[]> r, String err,
+                  boolean parcial) {
+            campos = c; extras = e; rangos = r; error = err; this.parcial = parcial;
         }
 
         public boolean ok() { return error == null; }
@@ -92,8 +101,50 @@ public class ExtractorCupon {
         static Resultado fallo(String e) {
             return new Resultado(Collections.<String, Object>emptyMap(),
                                  Collections.<String, Object>emptyMap(),
-                                 Collections.<String, int[]>emptyMap(), e);
+                                 Collections.<String, int[]>emptyMap(), e, false);
         }
+    }
+
+    /**
+     * De donde salen los valores crudos de los grupos.
+     *
+     * <p>Existe porque hay dos procedencias y el resto de la clase no tiene por que distinguirlas:
+     * el match del patron entero, o varios matches de tramos sueltos cuando el entero fallo.
+     */
+    private interface Grupos {
+        /** Null si el grupo no existe o no capturo nada. */
+        String valor(String nombre);
+        /** {@code [inicio, fin)} dentro del TEXTO LEIDO, o null. */
+        int[] rango(String nombre);
+    }
+
+    /** El camino normal: un solo match del patron completo. */
+    private static final class DeMatch implements Grupos {
+        private final Matcher m;
+        DeMatch(Matcher m) { this.m = m; }
+        public String valor(String nombre) {
+            try { return m.group(nombre); } catch (IllegalArgumentException e) { return null; }
+        }
+        public int[] rango(String nombre) {
+            try {
+                int i = m.start(nombre), f = m.end(nombre);
+                return i >= 0 && f > i ? new int[]{i, f} : null;
+            } catch (IllegalArgumentException e) { return null; }
+        }
+    }
+
+    /** El camino de respaldo: lo que se pudo rescatar tramo por tramo. */
+    private static final class DeTramos implements Grupos {
+        private final Map<String, String> valores = new LinkedHashMap<String, String>();
+        private final Map<String, int[]> rangos = new LinkedHashMap<String, int[]>();
+        void poner(String n, String v, int i, int f) {
+            valores.put(n, v);
+            if (i >= 0 && f > i) rangos.put(n, new int[]{i, f});
+        }
+        boolean tiene(String n) { return valores.containsKey(n); }
+        boolean vacio() { return valores.isEmpty(); }
+        public String valor(String nombre) { return valores.get(nombre); }
+        public int[] rango(String nombre) { return rangos.get(nombre); }
     }
 
     /**
@@ -121,12 +172,36 @@ public class ExtractorCupon {
         try {
             // DOTALL para que el patron pueda cruzar renglones con `.`; un ticket es multilinea
             // aunque la cadena de un QR no lo sea.
-            m = Pattern.compile(formato.getPatron(), Pattern.DOTALL).matcher(texto);
+            m = Pattern.compile(formato.getPatron(), Pattern.DOTALL).matcher(conPlazo(texto));
         } catch (PatternSyntaxException e) {
             return Resultado.fallo("el patron del formato \"" + formato.getNombre() + "\" no es valido");
         }
-        if (!m.find()) {
-            return Resultado.fallo("el formato \"" + formato.getNombre() + "\" no reconocio el cupon");
+        // El patron entero, que es el caso normal. Si no matchea NO se abandona: se rescata lo que
+        // se pueda, tramo por tramo.
+        //
+        // ⚠️ Un solo campo ilegible tiraba a la basura todo el resto. Medido el 2026-09-17 con el
+        // cupon de 3.500 de INFONET: el OCR leyo bien C.N., BOLETA y C.AUT y solo se le escapo el
+        // renglon del monto, pero como el patron es una sola expresion todo-o-nada, `campos` quedo
+        // vacio y el cajero tuvo que tipear los cuatro campos a mano --tres de ellos ya leidos--.
+        // De las ultimas seis capturas de esa jornada, TRES terminaron asi.
+        boolean parcial = false;
+        Grupos g;
+        boolean matcheo;
+        try {
+            matcheo = m.find();
+        } catch (TiempoAgotado e) {
+            return Resultado.fallo("el patron del formato \"" + formato.getNombre()
+                    + "\" tardo mas de " + PLAZO_MS + " ms sobre este texto; revisalo, tiene backtracking");
+        }
+        if (matcheo) {
+            g = new DeMatch(m);
+        } else {
+            DeTramos sueltos = porTramos(formato.getPatron(), texto);
+            if (sueltos.vacio()) {
+                return Resultado.fallo("el formato \"" + formato.getNombre() + "\" no reconocio el cupon");
+            }
+            g = sueltos;
+            parcial = true;
         }
 
         JsonNode mapeo;
@@ -158,7 +233,7 @@ public class ExtractorCupon {
                 // datos_extra --el mismo dato dos veces, una adentro de `fecha` y otra suelta--,
                 // que es justo lo que el comentario de `consumidos` advierte.
                 if (regla != null && regla.hasNonNull("deHora")) consumidos.add(regla.get("deHora").asText());
-                Object valor = aplicarRegla(m, regla);
+                Object valor = aplicarRegla(g, regla);
                 if (valor == null) continue;
                 // TODO lo que el mapeo declara entra en `campos`, sea canonico o no. Lo que decide
                 // aca es la DECLARACION del formato, no una lista fija: un campo que el
@@ -171,7 +246,7 @@ public class ExtractorCupon {
                 campos.put(destino, valor);
                 // El rango sale del grupo CRUDO, no del valor ya transformado.
                 if (regla.hasNonNull("de")) {
-                    int[] r = rango(m, regla.get("de").asText());
+                    int[] r = g.rango(regla.get("de").asText());
                     if (r != null) rangos.put(destino, r);
                 }
             }
@@ -183,22 +258,22 @@ public class ExtractorCupon {
         // Se marcan consumidos incluso cuando la regla no produjo valor --un campo opcional que
         // este cupon no trae--: el mapeo ya declaro que ese grupo tiene dueno, y volcarlo a
         // extras seria contradecirlo.
-        for (Map.Entry<String, String> g : gruposNombrados(formato.getPatron(), m).entrySet()) {
-            if (consumidos.contains(g.getKey())) continue;
-            if (campos.containsKey(g.getKey()) || extras.containsKey(g.getKey())) continue;
-            if (esCanonico(g.getKey())) {
-                campos.put(g.getKey(), g.getValue());
-                int[] r = rango(m, g.getKey());
-                if (r != null) rangos.put(g.getKey(), r);
+        for (Map.Entry<String, String> suelto : gruposNombrados(formato.getPatron(), g).entrySet()) {
+            if (consumidos.contains(suelto.getKey())) continue;
+            if (campos.containsKey(suelto.getKey()) || extras.containsKey(suelto.getKey())) continue;
+            if (esCanonico(suelto.getKey())) {
+                campos.put(suelto.getKey(), suelto.getValue());
+                int[] r = g.rango(suelto.getKey());
+                if (r != null) rangos.put(suelto.getKey(), r);
             } else {
-                extras.put(g.getKey(), g.getValue());
+                extras.put(suelto.getKey(), suelto.getValue());
             }
         }
 
         if (campos.isEmpty() && extras.isEmpty()) {
             return Resultado.fallo("el formato reconocio el cupon pero no se extrajo ningun campo");
         }
-        return new Resultado(campos, extras, rangos, null);
+        return new Resultado(campos, extras, rangos, null, parcial);
     }
 
     /**
@@ -207,26 +282,16 @@ public class ExtractorCupon {
      * <p>{@code null} si el grupo no existe en el patron o no participo del match — el mismo caso
      * que un campo opcional que este cupon no trae.
      */
-    private static int[] rango(Matcher m, String grupo) {
-        try {
-            int inicio = m.start(grupo);
-            int fin = m.end(grupo);
-            return inicio >= 0 && fin > inicio ? new int[]{inicio, fin} : null;
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
     /**
      * Una regla del mapeo: de que grupo sale el valor y que transformacion se le aplica.
      *
      * <p>Devuelve {@code null} si el grupo no existe o vino vacio — es el caso de un campo
      * opcional que ese cupon no trae, no un error.
      */
-    private Object aplicarRegla(Matcher m, JsonNode regla) {
+    private Object aplicarRegla(Grupos g, JsonNode regla) {
         if (regla == null || !regla.hasNonNull("de")) return null;
 
-        String crudo = grupo(m, regla.get("de").asText());
+        String crudo = g.valor(regla.get("de").asText());
         if (crudo == null) return null;
         crudo = crudo.trim();
         if (crudo.isEmpty()) return null;
@@ -244,7 +309,7 @@ public class ExtractorCupon {
         // para que el desktop no tenga que saber como la imprime cada proveedor.
         if (regla.hasNonNull("formato")) {
             String iso = fechaIso(crudo, regla.get("formato").asText(),
-                    regla.hasNonNull("deHora") ? grupo(m, regla.get("deHora").asText()) : null);
+                    regla.hasNonNull("deHora") ? g.valor(regla.get("deHora").asText()) : null);
             // Si no parsea se devuelve crudo, igual que con `escala`: perder el dato seria peor
             // que mostrarlo sin normalizar, y el control de antiguedad simplemente no corre.
             return iso != null ? iso : crudo;
@@ -269,24 +334,139 @@ public class ExtractorCupon {
     }
 
     /** Todos los grupos nombrados del patron que hayan capturado algo. */
-    private Map<String, String> gruposNombrados(String patron, Matcher m) {
+    private Map<String, String> gruposNombrados(String patron, Grupos g) {
         Map<String, String> out = new LinkedHashMap<String, String>();
-        Matcher nombres = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(patron);
-        while (nombres.find()) {
-            String n = nombres.group(1);
-            String v = grupo(m, n);
+        for (String n : nombresDe(patron)) {
+            String v = g.valor(n);
             if (v != null && !v.trim().isEmpty()) out.put(n, v.trim());
         }
         return out;
     }
 
-    /** {@code group(nombre)} tira si el grupo no existe en el patron; aca eso es null. */
-    private String grupo(Matcher m, String nombre) {
-        try {
-            return m.group(nombre);
-        } catch (IllegalArgumentException e) {
-            return null;
+    /**
+     * Lo que se puede rescatar cuando el patron entero no matcheo: cada tramo por su cuenta.
+     *
+     * <p><b>La idea.</b> Estos patrones se escriben como una cadena de anclas literales separadas
+     * por {@code [\s\S]*} — {@code C\.N\.:\s*(?<cn>…)}, {@code BOLETA:\s*(?<boleta>…)}, y asi. Cada
+     * tramo se ancla solo. Que uno falle --porque el OCR se comio ese renglon-- no dice nada sobre
+     * los demas, pero una sola expresion los hunde a todos juntos.
+     *
+     * <p><b>Por que corta solo a profundidad 0.</b> Un {@code [\s\S]*} dentro de un grupo opcional
+     * pertenece a ese grupo: en INFONET, {@code (?:[\s\S]*Lote:\s*(?<lote>[0-9]+))?} quedaria
+     * partido al medio y los dos pedazos serian expresiones invalidas — justo la del monto. Cortar
+     * respetando parentesis deja ese tramo entero y funcionando.
+     *
+     * <p>Un tramo que no compile se saltea en silencio: es respaldo, no puede tirar. Y el primer
+     * valor gana, para que el orden del patron siga mandando.
+     *
+     * <p>⚠️ <b>Los offsets siguen siendo absolutos</b> porque cada tramo corre sobre el texto
+     * completo, no sobre un pedazo. El semaforo por campo sigue valiendo.
+     */
+    private static DeTramos porTramos(String patron, String texto) {
+        DeTramos out = new DeTramos();
+        for (String tramo : tramos(patron)) {
+            if (!tramo.contains("(?<")) continue;
+            try {
+                Matcher mt = Pattern.compile(tramo, Pattern.DOTALL).matcher(conPlazo(texto));
+                if (!mt.find()) continue;
+                for (String n : nombresDe(tramo)) {
+                    if (out.tiene(n)) continue;
+                    String v;
+                    try { v = mt.group(n); } catch (IllegalArgumentException e) { continue; }
+                    if (v == null || v.trim().isEmpty()) continue;
+                    out.poner(n, v, mt.start(n), mt.end(n));
+                }
+            } catch (RuntimeException e) {
+                // Tramo que solo no es una expresion valida, o que se paso del plazo. Se
+                // descarta: rescatar de menos es aceptable, tirar una excepcion desde el
+                // respaldo no.
+                log.debug("tramo descartado: {}", tramo);
+            }
         }
+        return out;
+    }
+
+    /**
+     * Tope de tiempo para que un patron corra sobre un texto. Los patrones reales matchean en
+     * microsegundos; esto solo tiene que parar al patologico.
+     */
+    public static final long PLAZO_MS = 500;
+
+    /** Se lanza desde {@code charAt} cuando el matcher ya lleva mas de {@link #PLAZO_MS}. */
+    public static final class TiempoAgotado extends RuntimeException {
+        TiempoAgotado() { super("el patron supero los " + PLAZO_MS + " ms"); }
+    }
+
+    /**
+     * El texto envuelto en un plazo.
+     *
+     * <p><b>Por que asi y no un Future con timeout.</b> {@code java.util.regex} no mira la
+     * interrupcion del hilo: un {@code Future.cancel(true)} deja el matcher corriendo igual, en
+     * un hilo huerfano, con la transaccion de la captura abierta. Lo unico que el motor consulta
+     * en cada paso del backtracking es {@code charAt}, asi que el plazo se controla ahi.
+     *
+     * <p>El patron lo escribe un administrador y corre sobre texto OCR de hasta
+     * {@link #MAX_LONGITUD_TEXTO} caracteres. Que matchee su propio ejemplo (corto) en el guardado
+     * no dice nada de como se porta sobre un texto largo que NO matchea: ahi es donde el
+     * backtracking catastrofico aparece, y corria dentro de {@code procesar()} con la fila de
+     * {@code captura_cupon} bajo lock. Hallazgo de la auditoria de seguridad del 2026-09-21.
+     */
+    public static CharSequence conPlazo(final String texto) {
+        final long limite = System.nanoTime() + PLAZO_MS * 1_000_000L;
+        return new CharSequence() {
+            public int length() { return texto.length(); }
+            public char charAt(int i) {
+                if (System.nanoTime() > limite) throw new TiempoAgotado();
+                return texto.charAt(i);
+            }
+            public CharSequence subSequence(int a, int b) { return texto.subSequence(a, b); }
+            @Override public String toString() { return texto; }
+        };
+    }
+
+    /** El separador con el que se escriben estos patrones, tal cual aparece en el texto. */
+    private static final String SEPARADOR = "[\\s\\S]*";
+
+    /**
+     * Parte el patron por cada {@code [\s\S]*} que este fuera de parentesis y fuera de una clase
+     * de caracteres.
+     */
+    static java.util.List<String> tramos(String patron) {
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        StringBuilder actual = new StringBuilder();
+        int profundidad = 0;
+        boolean enClase = false;
+        int i = 0;
+        while (i < patron.length()) {
+            char ch = patron.charAt(i);
+            if (ch == '\\' && i + 1 < patron.length()) {
+                actual.append(ch).append(patron.charAt(i + 1));
+                i += 2;
+                continue;
+            }
+            if (!enClase && profundidad == 0 && patron.startsWith(SEPARADOR, i)) {
+                out.add(actual.toString());
+                actual.setLength(0);
+                i += SEPARADOR.length();
+                continue;
+            }
+            if (!enClase && ch == '[') enClase = true;
+            else if (enClase && ch == ']') enClase = false;
+            else if (!enClase && ch == '(') profundidad++;
+            else if (!enClase && ch == ')') profundidad--;
+            actual.append(ch);
+            i++;
+        }
+        out.add(actual.toString());
+        return out;
+    }
+
+    /** Los nombres de grupo que declara un patron, en orden. */
+    private static java.util.List<String> nombresDe(String patron) {
+        java.util.List<String> out = new java.util.ArrayList<String>();
+        Matcher nombres = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>").matcher(patron);
+        while (nombres.find()) out.add(nombres.group(1));
+        return out;
     }
 
     /**

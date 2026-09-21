@@ -112,9 +112,20 @@ public class FormatoTerminalPos implements Serializable {
     @Column(name = "creado_en")
     private LocalDateTime creadoEn;
 
-    /** Un formato de maquinita: el cupon se fotografia y lo lee el OCR. */
+    /**
+     * Un formato de maquinita: el cupon se fotografia y lo lee el OCR.
+     * <p>
+     * MAQUINA es el default del dominio, asi que un {@code tipo} nulo --fila replicada a medias--
+     * cuenta como maquinita. Es el lado seguro: ofrece la camara, que sirve para cualquier cupon
+     * de papel, en vez de cerrar los dos caminos por un dato faltante.
+     * <p>
+     * Identico al del filial a proposito: esta clase esta duplicada en los dos repos y la
+     * auditoria del 2026-09-21 encontro que aca era estricto ({@code equals} pelado) mientras
+     * alla ya trataba el nulo como MAQUINA. Con una decision distinta en cada lado, el boton
+     * «Probar» de central y el PDV del filial le daban caminos distintos al mismo formato.
+     */
     public boolean esMaquina() {
-        return TIPO_MAQUINA.equals(tipo);
+        return tipo == null || TIPO_MAQUINA.equals(tipo);
     }
 
     /** Un formato web: el cupon trae QR y lo lee el lector del PDV. */

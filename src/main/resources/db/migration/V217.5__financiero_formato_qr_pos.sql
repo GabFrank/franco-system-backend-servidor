@@ -74,30 +74,13 @@ VALUES
     ('financiero.formato_qr_pos', 'MAIN_TO_ALL', 'Formato QR POS', true, false, NOW())
 ON CONFLICT (table_name) DO NOTHING;
 
--- ── 4) Semilla: ValidaPix / FRCP1 ───────────────────────────────────────────────────────────
+-- ── 4) Sin semilla ──────────────────────────────────────────────────────────────────────────
 --
--- FRCP1*AUTH*BOL*CUR*AMT*REF*TS — 7 campos posicionales separados por '*'.
--- Se carga como comodin (proveedor_servicio_id NULL) porque la persona juridica de ValidaPix
--- todavia no esta dada de alta como proveedor de servicio; al crearla, se le asigna desde el ABM.
+-- Esta migracion sembraba el formato «ValidaPix FRCP1». Se quito el 2026-09-22, antes de
+-- promoverla a produccion: farmacia y bodega son empresas distintas y no comparten configuracion,
+-- y un formato es la configuracion de un proveedor concreto. Sembrarlo en las dos era regalarle
+-- a bodega un proveedor que no usa. Cada empresa crea sus formatos desde el ABM; un INSERT hecho
+-- despues de que la tabla este publicada replica solo a sus filiales.
 --
--- Tres trampas que el parser debe respetar y que este formato ejercita:
---   1. BOL viene VACIO en Pix (hay '**'). El split debe ser pelado: colapsar los vacios corre
---      las posiciones y la moneda se leeria como numero de boleta.
---   2. REF es el EndToEndId del BCB; sus ultimos 11 caracteres son case-sensitive y el proveedor
---      los imprime en mayuscula. Comparar sin distinguir caja.
---   3. TS es hora LOCAL; la fecha embebida en el EndToEndId es UTC (3 h de diferencia siempre).
---
--- monto usa escalaSegunMoneda: AMT viene en la menor unidad y cuanto vale depende de la moneda
--- (financiero.moneda.decimales — GUARANI 0, REAL y DOLAR 2). Una escala fija estaria mal en una
--- de las dos.
-INSERT INTO financiero.formato_qr_pos (nombre, proveedor_servicio_id, patron, mapeo, ejemplo, activo)
-SELECT
-    'ValidaPix FRCP1',
-    NULL,
-    '^FRCP1\*(?<auth>[A-Z0-9]{0,20})\*(?<bol>[A-Z0-9]{0,20})\*(?<cur>PYG|BRL|USD)\*(?<amt>[0-9]{1,15})\*(?<ref>[A-Z0-9]{0,40})\*(?<ts>[0-9]{12})$',
-    '{"codigoAutorizacion":{"de":"auth"},"numeroBoleta":{"de":"bol"},"moneda":{"de":"cur","mapa":{"PYG":1,"BRL":2,"USD":3}},"monto":{"de":"amt","escalaSegunMoneda":true},"identificadorTransaccion":{"de":"ref"},"fecha":{"de":"ts","formato":"yyyyMMddHHmm","zona":"America/Asuncion"}}',
-    'FRCP1*CXF1**BRL*9455*E60701190202608271700DY5BCKNPMBQ*202608271401',
-    true
-WHERE NOT EXISTS (
-    SELECT 1 FROM financiero.formato_qr_pos WHERE nombre = 'ValidaPix FRCP1'
-);
+-- En alpha la semilla ya se habia aplicado: se borro a mano y el checksum se reparo por SQL
+-- (equivalente a `flyway repair`). En produccion esta migracion nunca corrio con la semilla.

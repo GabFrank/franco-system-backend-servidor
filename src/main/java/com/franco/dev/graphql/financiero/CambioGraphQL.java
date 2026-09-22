@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @Component
 public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CambioGraphQL.class);
+
     @Autowired
     private CambioService service;
 
@@ -199,11 +201,15 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
                     service.save(ultimo);
                     count++;
                 } catch (Exception e) {
-                    // Una moneda que falla no arrastra a las demas.
+                    // Una moneda que falla no arrastra a las demas, pero se loguea: sin esto
+                    // una moneda que falla siempre es invisible desde el lado GraphQL.
+                    log.warn("actualizarCotizacionesMercado: error actualizando {}: {}",
+                            entry.getKey(), e.getMessage());
                 }
             }
             return count > 0;
         } catch (Exception e) {
+            log.warn("actualizarCotizacionesMercado: no se pudo actualizar: {}", e.getMessage());
             return false;
         }
     }

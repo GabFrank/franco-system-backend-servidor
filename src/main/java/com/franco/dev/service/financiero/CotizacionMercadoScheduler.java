@@ -82,6 +82,11 @@ public class CotizacionMercadoScheduler {
         } catch (RejectedExecutionException e) {
             actualizando.set(false);
             log.warn("CotizacionMercadoScheduler: no se pudo encolar la actualizacion: {}", e.getMessage());
+        } catch (RuntimeException | Error t) {
+            // La tarea nunca corrio, asi que su finally tampoco. Sin esto el guard quedaria
+            // trabado para siempre y el scheduler dejaria de intentar hasta el proximo restart.
+            actualizando.set(false);
+            throw t;
         }
     }
 

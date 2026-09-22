@@ -73,7 +73,7 @@ public class NorteCambiosScraper {
     private final AtomicBoolean enVuelo = new AtomicBoolean(false);
 
     /** Cuando arranco el scrape en vuelo. Solo para poder decir en el log hace cuanto esta trabado. */
-    private volatile long inicioEnVueloMs = 0L;
+    private volatile long inicioEnVueloMs = System.currentTimeMillis();
 
     @Autowired
     public NorteCambiosScraper(ObjectMapper objectMapper,
@@ -126,11 +126,28 @@ public class NorteCambiosScraper {
         inicioEnVueloMs = System.currentTimeMillis();
         Future<Map<String, double[]>> future;
         try {
-            future = executor.submit(this::doFetchRates);
+            // El guard lo libera ESTE wrapper, no doFetchRates(). Asi cualquier implementacion
+            // de doFetchRates —incluidos los dobles de test que la sobreescriben— participa de
+            // la liberacion sin tener que acordarse, y el contrato deja de depender de un
+            // comentario que nada obliga a cumplir.
+            future = executor.submit(() -> {
+                try {
+                    return doFetchRates();
+                } finally {
+                    enVuelo.set(false);
+                }
+            });
         } catch (RejectedExecutionException e) {
             enVuelo.set(false);
             log.warn("NorteCambiosScraper: no se pudo encolar el scrape: {}", e.getMessage());
             return Collections.emptyMap();
+        } catch (RuntimeException | Error t) {
+            // Tipicamente OutOfMemoryError: unable to create new native thread. El callable
+            // nunca corrio, asi que su finally tampoco: sin esto el guard quedaria trabado
+            // para siempre y la integracion se autodesactivaria en silencio hasta el proximo
+            // restart. Se libera y se deja propagar: tragarse un Error es peor.
+            enVuelo.set(false);
+            throw t;
         }
         try {
             return future.get(timeoutMs, TimeUnit.MILLISECONDS);
@@ -146,10 +163,10 @@ public class NorteCambiosScraper {
             log.warn("NorteCambiosScraper: error al obtener cotizaciones: {}", e.getMessage());
             return Collections.emptyMap();
         }
-        // El flag lo libera siempre el hilo que corre doFetchRates, en su finally. No se
-        // libera aca: tras un timeout, cancel(true) deja isDone()==true pero el hilo puede
-        // seguir clavado (DNS no es interrumpible), y liberar el flag permitiria encolar
-        // otro scrape sobre el mismo problema.
+        // El flag lo libera el finally del callable, no este metodo: tras un timeout,
+        // cancel(true) deja isDone()==true pero el hilo puede seguir clavado (DNS no es
+        // interrumpible), y liberar el flag aca permitiria encolar otro scrape sobre el
+        // mismo problema.
     }
 
     /**
@@ -157,6 +174,7 @@ public class NorteCambiosScraper {
      *
      * <p>Package-private y no privado a proposito: el test del presupuesto de tiempo lo
      * sobreescribe para simular un scrape lento sin depender de la red del runner de CI.
+     * No toca el guard {@code enVuelo}: de eso se encarga el wrapper en {@link #fetchRates()}.
      */
     Map<String, double[]> doFetchRates() {
         HttpsURLConnection getConn = null;
@@ -256,7 +274,6 @@ public class NorteCambiosScraper {
             // sockets colgando en cada fallo de red, cada 10 minutos, indefinidamente.
             disconnectQuietly(getConn);
             disconnectQuietly(postConn);
-            enVuelo.set(false);
         }
     }
 

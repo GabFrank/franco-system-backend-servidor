@@ -2,11 +2,11 @@ package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.ConfiguracionFacturacion;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.financiero.input.ConfiguracionFacturacionInput;
 import com.franco.dev.repository.financiero.ConfiguracionFacturacionRepository;
 import com.franco.dev.service.CrudService;
 import com.franco.dev.service.empresarial.SucursalService;
-import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,6 @@ public class ConfiguracionFacturacionService extends CrudService<ConfiguracionFa
 
     private final ConfiguracionFacturacionRepository repository;
     private final SucursalService sucursalService;
-    private final UsuarioService usuarioService;
 
     @Override
     public ConfiguracionFacturacionRepository getRepository() {
@@ -37,7 +36,8 @@ public class ConfiguracionFacturacionService extends CrudService<ConfiguracionFa
         return repository.findAllByOrderByIdAsc();
     }
 
-    public ConfiguracionFacturacion guardar(ConfiguracionFacturacionInput input) {
+    /** @param autor el usuario de la sesion; nunca el que mande el cliente. */
+    public ConfiguracionFacturacion guardar(ConfiguracionFacturacionInput input, Usuario autor) {
         if (input.getModo() == null) {
             throw new GraphQLException("Elegi el modo de facturacion.");
         }
@@ -78,9 +78,7 @@ public class ConfiguracionFacturacionService extends CrudService<ConfiguracionFa
         config.setModo(input.getModo());
         config.setVentasSinFactura(ventasSinFactura);
         config.setVentaTicketRespetaPolitica(Boolean.TRUE.equals(input.getVentaTicketRespetaPolitica()));
-        if (input.getUsuarioId() != null) {
-            config.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
-        }
+        config.setUsuario(autor);
         config.setModificadoEn(LocalDateTime.now());
         return repository.save(config);
     }

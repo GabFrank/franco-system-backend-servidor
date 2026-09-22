@@ -27,14 +27,18 @@ public class ConfiguracionFacturacionGraphQL implements GraphQLQueryResolver, Gr
         return service.listar();
     }
 
-    /** Decide si se emiten documentos electronicos: exige TESORERIA GESTIONAR. */
+    /**
+     * Decide si se emiten documentos electronicos en toda la flota: solo ADMIN, igual que el boton
+     * del desktop. TESORERIA GESTIONAR mueve cajas; no decide la emision de comprobantes.
+     * El autor queda registrado desde la sesion, no desde el input.
+     */
     public ConfiguracionFacturacion saveConfiguracionFacturacion(ConfiguracionFacturacionInput input) {
-        seg.requireGestionar();
-        return service.guardar(input);
+        seg.requireAnyRole(TesoreriaSecurityService.ADMIN);
+        return service.guardar(input, seg.currentUsuario());
     }
 
     public Boolean deleteConfiguracionFacturacion(Long id) {
-        seg.requireGestionar();
+        seg.requireAnyRole(TesoreriaSecurityService.ADMIN);
         return service.eliminar(id);
     }
 }

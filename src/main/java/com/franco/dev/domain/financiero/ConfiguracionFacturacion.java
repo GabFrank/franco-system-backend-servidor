@@ -56,4 +56,12 @@ public class ConfiguracionFacturacion implements Identifiable<Long> {
 
     @Column(name = "modificado_en")
     private LocalDateTime modificadoEn;
+
+    /**
+     * Lo unico del autor que expone el .graphqls. El tipo Usuario completo trae el campo password
+     * y cualquier rol de tesoreria podria pedirlo a traves de esta configuracion.
+     */
+    public String getUsuarioNickname() {
+        return usuario != null ? usuario.getNickname() : null;
+    }
 }

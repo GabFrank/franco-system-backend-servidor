@@ -17,14 +17,15 @@ type ConfiguracionFacturacion {
     ventasSinFactura: Int!
     "false = Venta + Ticket y delivery facturan siempre; true = decide la politica."
     ventaTicketRespetaPolitica: Boolean!
-    usuario: Usuario
+    "Quien la modifico por ultima vez. Solo el nickname: el tipo Usuario expone password."
+    usuarioNickname: String
     creadoEn: Date
     modificadoEn: Date
 }
 
 """
 Reemplazo completo, no PATCH. La clave es sucursalId (null = global): guardar sobre una clave
-que ya tiene fila la actualiza.
+que ya tiene fila la actualiza. El autor sale de la sesion.
 """
 input ConfiguracionFacturacionInput {
     id: ID
@@ -32,7 +33,6 @@ input ConfiguracionFacturacionInput {
     modo: ModoFacturacion!
     ventasSinFactura: Int
     ventaTicketRespetaPolitica: Boolean
-    usuarioId: ID
 }
 
 extend type Query {

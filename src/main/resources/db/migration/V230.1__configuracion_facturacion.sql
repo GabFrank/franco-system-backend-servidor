@@ -43,9 +43,15 @@ CREATE TABLE IF NOT EXISTS financiero.configuracion_facturacion (
     CONSTRAINT ck_configuracion_facturacion_ventas_sin_factura CHECK (ventas_sin_factura >= 0)
 );
 
--- Una sola global y una sola por sucursal. COALESCE porque un UNIQUE comun deja pasar varios NULL.
+-- Una sola por sucursal y una sola global. Dos indices parciales y no COALESCE(sucursal_id, 0):
+-- la sucursal 0 existe (es la del servidor central) y chocaria con la global.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_configuracion_facturacion_sucursal
-    ON financiero.configuracion_facturacion (COALESCE(sucursal_id, 0));
+    ON financiero.configuracion_facturacion (sucursal_id)
+    WHERE sucursal_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_configuracion_facturacion_global
+    ON financiero.configuracion_facturacion ((sucursal_id IS NULL))
+    WHERE sucursal_id IS NULL;
 
 COMMENT ON TABLE financiero.configuracion_facturacion IS
     'Politica de facturacion automatica del filial. MAIN_TO_ALL. Sin filas = cada filial usa su property facturaCountDown. Kill switch: DELETE de toda la tabla.';

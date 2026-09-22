@@ -135,10 +135,30 @@ separado**, así que el cambio los deja igual o mejor:
 - `desktop:src/app/modules/financiero/cambio/cambio.component.ts:83` — `next: (ok) => ok ? openSucess(...) : openWarn('No se encontraron cambios para actualizar')`, con rama `error` que igual refresca.
 - `desktop:src/app/modules/operaciones/compra/gestion-compras/gestion-compras.component.ts:2213` — rama `error` con `openAlgoSalioMal("No se pudo actualizar la cotización del mercado")`.
 
-Efecto: el caso «nortecambios no responde» deja de caer en la rama `error` y cae en `false`. En
-`cambio.component.ts` el usuario pasa de un snackbar de error a *«No se encontraron cambios para
-actualizar»*. En `gestion-compras` deja de ver «Algo salió mal» y el `cotizacionRefreshing` se
-apaga por la rama `next`. **Nada que actualizar del lado del cliente.**
+Efecto: el caso «nortecambios no responde» deja de caer en la rama `error` y cae en `false`.
+
+> ⚠️ **Esta sección decía «nada que actualizar del lado del cliente». Era falso**, y el error fue
+> de método: se leyó que existía una rama `error` separada, no el **cuerpo** de la rama `next`.
+> La auditoría del diff (Fijo 3) lo encontró. `gestion-compras.component.ts:2215` declara
+> `next: () => {...}` — **sin recibir el booleano** — y siempre muestra
+> `openSucess("Cotización de mercado actualizada")`. Antes del cambio el camino de falla dominante
+> lanzaba y caía en `error` con un mensaje honesto; después devuelve `false` y cae en `next`, que
+> festeja. El usuario puede pricear una compra con una cotización vieja creyendo que la acaba de
+> refrescar. El bug del desktop **preexistía** para el caso angosto «el scrape anduvo pero ninguna
+> moneda matcheó» (`count == 0` ya devolvía `false` sin lanzar); lo que hace este cambio es
+> **volverlo el comportamiento estándar del camino de falla más común**.
+
+**Por eso este trabajo son dos PRs, no uno** (§3.1 del ciclo: un PR por repo):
+
+| Repo | Cambio |
+|---|---|
+| **central** | lo descrito en §3 |
+| **desktop** | `gestion-compras.component.ts`: `next: (ok) => ...` chequea el booleano y avisa con `openWarn` en vez de `openSucess` cuando no se pudo actualizar (se sigue prefilleando con la última cotización conocida, que es legítima). `cambio.component.ts`: el mensaje pasa de «No se encontraron cambios para actualizar» —que sugiere un problema de datos— a «No se pudo actualizar la cotización de mercado», que es cierto tanto si nortecambios no responde como si la integración está apagada |
+
+**Orden de merge** (§3.2 del ciclo: backend primero, clientes después): **central primero**. No hay
+tabla replicada involucrada, así que no aplica la regla de dirección; el desktop viejo contra el
+central nuevo solo muestra el toast optimista hasta que se actualice, que es exactamente el estado
+de hoy ante un `count == 0`.
 
 **mobile y mobile-pwa: 0 usos, verificado sobre los repos clonados** (`frc-mobile` `c5b8f4c`, `frc-mobile-pwa` `caffe35`), no citado. Ninguno de los dos conoce la mutation ni los campos de cotización de mercado, así que el cambio de semántica no los alcanza.
 
@@ -232,6 +252,31 @@ como exige el paso 8.
 | 5 | B | **Test con I/O de red real** contra nortecambios en la suite de CI | ✅ | **Corregido**: `doFetchRates()` pasó a package-private y los tests lo sobreescriben. **Ningún test sale a la red** |
 | 6 | B | El guard `enVuelo` puede quedar en `true` mucho más que el `timeoutMs` si el hilo se traba en DNS (no interrumpible), congelando la cotización sin alerta | ✅ Es el comportamiento que el propio código documenta | **Aceptado como diseño, con observabilidad**: el log del tick salteado ahora dice **hace cuántos ms** está trabado. El health indicator que proponía el auditor es scope creep para un fix; queda anotado |
 | 7 | B | El botón manual sigue llamando `fetchRates()` sincrónicamente desde el hilo HTTP | ✅ | **Sin acción, a propósito**: el peor caso pasó de ilimitado a ~20 s sobre un hilo del pool de Tomcat, que es independiente del pool de `@Scheduled`. No reintroduce el bug. Hacerlo asíncrono cambiaría el contrato de la mutation |
+
+## 13 · Auditoría del diff (paso 8) — hallazgos y qué se hizo
+
+Por sus globs, **ningún condicional dispara**: el diff no toca `.github/workflows/**`,
+`.releaserc.json`, artefactos, `db/migration/**`, `scheduler/**`, ni nada de replicación. Van los
+3 fijos, más un cuarto agente sobre el código reescrito tras la auditoría del plan, que era código
+nuevo sin auditar. Cuatro agentes, bajo el techo de 5.
+
+| Eje | Resultado |
+|---|---|
+| **Fijo 1 — Autorización** | Sin hallazgos de este diff. La mutation ya era accesible a cualquier usuario logueado y lo sigue siendo; el diff no agrega ni quita anotaciones. **Mitiga el abuso**: el guard de un scrape en vuelo + el presupuesto duro acotan el peor caso de un loop concurrente de «indefinido» a «≤20 s, una vez por ventana». Hallazgo preexistente que NO es de este PR, anotado abajo |
+| **Fijo 2 — Esquema y migración** | Sin migración, sin `.graphqls`, sin enum, sin cambio en `Cambio.java` — verificado con comandos, no citado. `fetchRates` se llama desde **exactamente dos puertas** en todo `src/main` y **las dos** consultan el interruptor, las dos fail-closed. El CI no sale a internet: `application-ci.properties` trae `spring.main.lazy-initialization=true` con el comentario `# Disable scheduled tasks`, y ningún IT ejercita la mutation. **INFO aplicado**: el javadoc decía «14 tareas `@Scheduled`» (cifra de `master`); corregido a 19 |
+| **Fijo 3 — Contrato con clientes** | **[ALTO] Falso positivo de éxito en gestión de compras** — ver §5. Corregido con un PR acompañante en el desktop. **[MEDIO]** el mensaje de `cambio.component.ts` era engañoso: corregido en el mismo PR. **[INFO, riesgo descartado]** filial no define esta mutation, pero el desktop enruta el llamado siempre al link `servidor` (central) vía `clientName`, así que nunca se dispara contra el schema de filial |
+
+### Preexistente, NO de este PR, para el registro
+
+**`saveCambio` y `deleteCambio` de `CambioGraphQL` no tienen ningún control de rol.** Cualquier
+usuario logueado puede escribir o borrar una cotización con valor arbitrario — superficie bastante
+más ancha que `actualizarCotizacionesMercado`, que al menos solo escribe lo que devuelve
+nortecambios. `grep -n "Unsecured\|Secured\|seg\."` sobre el archivo completo da cero matches en
+todos los métodos. Está así en `develop` hoy.
+
+**No se toca en este PR**, a propósito: agregarle control de rol solo a
+`actualizarCotizacionesMercado` mientras `saveCambio` queda abierta es teatro, y poner autorización
+real acá cambia quién puede operar hoy. Es una decisión de producto, no un fix. Va como issue.
 
 **Los dos auditores coincidieron** en que no hay migración, no hay cambio de contrato GraphQL, y
 la versión anterior del backend arranca igual contra la property nueva. Eje B además descartó con

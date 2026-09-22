@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * sigue operando con la ultima cotizacion conocida: esta clase no propaga errores y no
  * retiene el hilo del scheduler.
  *
- * <p>Por que el executor propio: las 14 tareas {@code @Scheduled} del central comparten
+ * <p>Por que el executor propio: las 19 tareas {@code @Scheduled} del central comparten
  * un unico hilo (el default de Spring Boot es {@code spring.task.scheduling.pool.size=1}).
  * Esta es la unica que sale a un sitio de terceros en internet, asi que si se cuelga se
  * lleva puestas a todas las demas — entre ellas el poller que sube los retiros de la caja

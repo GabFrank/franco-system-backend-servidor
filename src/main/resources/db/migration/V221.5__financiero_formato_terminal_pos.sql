@@ -96,24 +96,12 @@ COMMENT ON COLUMN financiero.formato_terminal_pos.tipo IS
 COMMENT ON COLUMN financiero.formato_terminal_pos.mapeo IS
     'JSON: campo destino -> {de: grupo, obligatorio: bool, y opcionalmente mapa / escala / escalaSegunMoneda / formato+zona / mayusculas}. Los obligatorios deciden tres cosas: que debe encontrar el OCR, cuando el resultado es utilizable, y que campos pide la carga a mano.';
 
--- ── 2) Copiar lo que ya existe ──────────────────────────────────────────────────────────────
+-- ── 2) No se copia nada de formato_qr_pos ───────────────────────────────────────────────────
 --
--- formato_qr_pos tiene UNA sola fila (ValidaPix FRCP1), asi que la copia es trivial. Se hace por
--- nombre y no por id: la tabla nueva tiene su propia secuencia y no hay ninguna FK apuntando
--- todavia a los ids viejos.
---
--- tipo = 'WEB' porque FRCP1 IMPRIME UN QR y se lee con el lector del PDV. El tipo describe COMO SE
--- LEE el ticket, no si el aparato es fisico: un cupon con QR va por el lector, uno sin QR va por
--- camara + OCR. Si esto resulta estar al reves para ValidaPix, se corrige con un UPDATE de una
--- fila; hoy no cambia nada porque ninguna terminal tiene formato asignado.
-INSERT INTO financiero.formato_terminal_pos
-    (nombre, proveedor_servicio_id, tipo, patron, mapeo, ejemplo, activo, usuario_id, creado_en)
-SELECT f.nombre, f.proveedor_servicio_id, 'WEB', f.patron, f.mapeo, f.ejemplo, f.activo,
-       f.usuario_id, f.creado_en
-FROM financiero.formato_qr_pos f
-WHERE NOT EXISTS (
-    SELECT 1 FROM financiero.formato_terminal_pos n WHERE n.nombre = f.nombre
-);
+-- Esta migracion copiaba a la tabla nueva las filas de formato_qr_pos (la semilla «ValidaPix
+-- FRCP1» que ponia V217.5). Se quito el 2026-09-22 junto con esa semilla: los formatos son
+-- configuracion de cada empresa y se cargan desde el ABM, en farmacia y en bodega por separado.
+-- formato_qr_pos queda viva y vacia hasta su baja.
 
 -- ── 3) financiero.terminal_pos: a que formato apunta ────────────────────────────────────────
 --

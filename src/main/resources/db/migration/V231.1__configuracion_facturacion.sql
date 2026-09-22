@@ -27,6 +27,13 @@
 --   replication_table (mismo camino que V150.1), cuando la flota ya tiene el espejo.
 --
 -- ESTE ES EL LADO PUBLISHER: las restricciones viven aca y no en el filial.
+--
+-- POR QUE V231.1 Y NO V230.1
+--
+-- V230.1 esta quemado: fue V230.1__timbrado_deposito_aquario_sdg, que se borro de su rama (ver
+-- docs/manuales-implementacion/sifen/PLAN-NOTAS-AJUSTES-OPERATIVOS.md, "Fase 1") pero quedo
+-- aplicado en las bases donde esa rama corrio. Reusar el numero haria que Flyway saltee esta
+-- migracion en esas bases.
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS financiero.configuracion_facturacion (
     id                            BIGSERIAL PRIMARY KEY,

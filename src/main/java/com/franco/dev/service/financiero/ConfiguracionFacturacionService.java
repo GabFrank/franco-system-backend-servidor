@@ -17,7 +17,7 @@ import java.util.Optional;
 
 /**
  * Politica de facturacion automatica del filial (issue filial #127). Una fila global
- * ({@code sucursal} NULL) y a lo sumo una por sucursal; el indice unico de V230.1 lo garantiza en
+ * ({@code sucursal} NULL) y a lo sumo una por sucursal; el indice unico de V231.1 lo garantiza en
  * la base, y este servicio lo respeta haciendo upsert por esa clave en vez de dejar que explote.
  */
 @Service

@@ -19,7 +19,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Fija el ABM de la politica de facturacion (issue filial #127): una global y a lo sumo una por
- * sucursal, sin que el indice unico de V230.1 llegue a explotar con un error opaco.
+ * sucursal, sin que el indice unico de V231.1 llegue a explotar con un error opaco.
  */
 class ConfiguracionFacturacionServiceTest {
 

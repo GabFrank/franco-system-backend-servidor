@@ -7,7 +7,7 @@ SIFEN) sin que el cajero la pida, y si «Venta + Ticket» y delivery respetan es
 
 | Pieza | Qué hace |
 |---|---|
-| central `financiero.configuracion_facturacion` (V230.1) | La política. Una fila global (`sucursal_id NULL`) y a lo sumo una por sucursal (dos índices únicos parciales: la sucursal 0 existe y no puede confundirse con la global) |
+| central `financiero.configuracion_facturacion` (V231.1) | La política. Una fila global (`sucursal_id NULL`) y a lo sumo una por sucursal (dos índices únicos parciales: la sucursal 0 existe y no puede confundirse con la global) |
 | central `ConfiguracionFacturacionGraphQL` | `configuracionesFacturacion` (cualquier rol de tesorería), `saveConfiguracionFacturacion` y `deleteConfiguracionFacturacion` (**solo `ADMIN`**: deciden si se emiten comprobantes en toda la flota). El autor sale de la sesión y el tipo expone solo `usuarioNickname` |
 | filial `financiero.configuracion_facturacion` (V103.1) | Espejo replicado `MAIN_TO_ALL`, sin restricciones. El filial nunca lo escribe |
 | filial `ConfiguracionFacturacionLector` / `PoliticaFacturacionService` | Resuelven la política en cada venta y deciden el comprobante (ver `CLAUDE.md` del filial) |

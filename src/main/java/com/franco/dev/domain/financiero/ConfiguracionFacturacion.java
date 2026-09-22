@@ -13,7 +13,7 @@ import javax.persistence.*;
 import java.time.LocalDateTime;
 
 /**
- * Politica de facturacion automatica del filial (issue filial #127), V230.1.
+ * Politica de facturacion automatica del filial (issue filial #127), V231.1.
  * <p>
  * {@code sucursal} NULL es la politica global; con valor, el override de esa sucursal. Se replica
  * MAIN_TO_ALL: el filial la lee en cada venta ({@code ConfiguracionFacturacionLector}) y, si no hay

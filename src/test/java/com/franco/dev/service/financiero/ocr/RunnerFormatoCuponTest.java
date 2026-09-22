@@ -42,7 +42,10 @@ import java.util.regex.Pattern;
  *       -DskipFlyway=true -Dcupon.dir=../cupones-prueba [-Dcupon.formato=infonet.json] [-Dcupon.salida=target/cupones]
  * </pre>
  * <ul>
- *   <li>{@code cupon.dir}: carpeta con las fotos (jpg/jpeg/png). Obligatoria.</li>
+ *   <li>{@code cupon.dir}: carpeta con las fotos (jpg/jpeg/png) y/o archivos {@code .txt} con
+ *       cadenas de QR, una por linea (las vacias y las que empiezan con {@code #} se ignoran).
+ *       Obligatoria. Las cadenas son el caso {@code WEB}: no pasan por OCR, van derechas al
+ *       extractor, igual que en «Probar» del ABM cuando se pega la cadena.</li>
  *   <li>{@code cupon.formato}: JSON con {@code nombre}, {@code tipo}, {@code patron}, {@code mapeo}
  *       (objeto o string) y {@code ejemplo}. Sin el, solo imprime el texto OCR de cada foto: es el
  *       primer paso, antes de escribir el patron.</li>
@@ -70,7 +73,9 @@ class RunnerFormatoCuponTest {
                 "sin -Dcupon.dir no hay nada que leer; este test es una herramienta, no una verificacion");
 
         List<File> fotos = fotos(new File(dir));
-        Assumptions.assumeTrue(!fotos.isEmpty(), "no hay jpg/jpeg/png en " + dir);
+        List<String[]> cadenas = cadenas(new File(dir));
+        Assumptions.assumeTrue(!fotos.isEmpty() || !cadenas.isEmpty(),
+                "no hay jpg/jpeg/png ni .txt con cadenas en " + dir);
 
         Path salida = Paths.get(System.getProperty("cupon.salida", "target/cupones"));
         Files.createDirectories(salida);
@@ -86,15 +91,30 @@ class RunnerFormatoCuponTest {
 
         StringBuilder resumen = new StringBuilder();
         resumen.append("# Runner de formato de cupon\n\n");
-        resumen.append("- carpeta: `").append(dir).append("` (").append(fotos.size()).append(" fotos)\n");
+        resumen.append("- carpeta: `").append(dir).append("` (").append(fotos.size()).append(" fotos, ")
+                .append(cadenas.size()).append(" cadenas)\n");
         resumen.append("- formato: ").append(formato == null ? "ninguno (solo lectura OCR)"
                 : "`" + formato.getNombre() + "` (" + formato.getTipo() + ")").append("\n");
         if (!obligatorios.isEmpty()) resumen.append("- obligatorios: ").append(obligatorios).append("\n");
-        resumen.append("\n| foto | ms | lineas | resultado | faltan obligatorios |\n|---|---|---|---|---|\n");
+        resumen.append("\n| entrada | ms | lineas | resultado | faltan obligatorios |\n|---|---|---|---|---|\n");
 
         int completos = 0;
-        try (MotorOcr motor = motor()) {
-            ExtractorCupon extractor = new ExtractorCupon();
+        ExtractorCupon extractor = new ExtractorCupon();
+
+        // Cadenas primero: no necesitan motor, y si solo hay cadenas no se carga ONNX.
+        for (String[] c : cadenas) {
+            String nombre = c[0], texto = c[1];
+            System.out.println("\n===== " + nombre + " =====\n" + texto);
+            String estado = "solo lectura", faltan = "";
+            if (formato != null) {
+                String[] ef = aplicar(extractor, formato, obligatorios, texto, null, nombre, salida);
+                estado = ef[0]; faltan = ef[1];
+                if (estado.equals("COMPLETO")) completos++;
+            }
+            resumen.append("| ").append(nombre).append(" | - | - | ").append(estado).append(" | ").append(faltan).append(" |\n");
+        }
+
+        try (MotorOcr motor = fotos.isEmpty() ? null : motor()) {
             for (File f : fotos) {
                 Imagen img = Imagen.leer(f);
                 MotorOcr.Resultado ocr = motor.reconocer(img);
@@ -114,44 +134,19 @@ class RunnerFormatoCuponTest {
                 System.out.println("\n===== " + f.getName() + " (" + ocr.msTotal + " ms, "
                         + ocr.lineas.size() + " lineas) =====\n" + texto);
 
-                String estado = "solo lectura";
-                String faltan = "";
+                String estado = "solo lectura", faltan = "";
                 if (formato != null) {
-                    ExtractorCupon.Resultado r = extractor.extraer(texto, formato);
-                    StringBuilder res = new StringBuilder();
-                    res.append("# ").append(f.getName()).append(" contra `").append(formato.getNombre()).append("`\n\n");
-                    if (!r.ok()) {
-                        estado = "FALLO";
-                        res.append("FALLO: ").append(r.error).append("\n");
-                    } else {
-                        List<String> sinValor = new ArrayList<String>();
-                        for (String o : obligatorios) if (!r.campos.containsKey(o)) sinValor.add(o);
-                        estado = r.parcial ? "PARCIAL" : (sinValor.isEmpty() ? "COMPLETO" : "INCOMPLETO");
-                        if (estado.equals("COMPLETO")) completos++;
-                        faltan = String.join(", ", sinValor);
-                        res.append("estado: ").append(estado).append(r.parcial ? " (el patron entero no matcheo; rescate por tramos)" : "").append("\n\n");
-                        res.append("| campo | valor | confianza OCR | tramo |\n|---|---|---|---|\n");
-                        for (Map.Entry<String, Object> e : r.campos.entrySet()) {
-                            int[] rg = r.rangos.get(e.getKey());
-                            Float conf = rg == null ? null : ocr.confianzaEnRango(rg[0], rg[1]);
-                            res.append("| ").append(e.getKey()).append(" | `").append(e.getValue()).append("` | ")
-                                    .append(conf == null ? "-" : String.format(Locale.ROOT, "%.3f", conf))
-                                    .append(" | ").append(rg == null ? "-" : rg[0] + "-" + rg[1]).append(" |\n");
-                        }
-                        if (!r.extras.isEmpty()) res.append("\nextras (datos_extra): ").append(r.extras).append("\n");
-                        if (!sinValor.isEmpty()) res.append("\nobligatorios sin valor: ").append(sinValor).append("\n");
-                    }
-                    escribir(salida.resolve(f.getName() + ".resultado.txt"), res.toString());
-                    System.out.println("-> " + estado + (faltan.isEmpty() ? "" : " (faltan: " + faltan + ")")
-                            + (r.ok() ? " " + r.campos : " " + r.error));
+                    String[] ef = aplicar(extractor, formato, obligatorios, texto, ocr, f.getName(), salida);
+                    estado = ef[0]; faltan = ef[1];
+                    if (estado.equals("COMPLETO")) completos++;
                 }
                 resumen.append("| ").append(f.getName()).append(" | ").append(ocr.msTotal).append(" | ")
                         .append(ocr.lineas.size()).append(" | ").append(estado).append(" | ").append(faltan).append(" |\n");
             }
         }
         if (formato != null) {
-            resumen.append("\n**").append(completos).append(" de ").append(fotos.size())
-                    .append(" fotos completas** (todos los obligatorios, sin rescate por tramos).\n");
+            resumen.append("\n**").append(completos).append(" de ").append(fotos.size() + cadenas.size())
+                    .append(" entradas completas** (todos los obligatorios, sin rescate por tramos).\n");
         }
         escribir(salida.resolve("resumen.md"), resumen.toString());
         System.out.println("\n" + resumen);
@@ -159,6 +154,66 @@ class RunnerFormatoCuponTest {
     }
 
     // ---------------------------------------------------------------------------------------
+
+    /**
+     * Corre el extractor sobre un texto (OCR de una foto, o una cadena de QR) y escribe el
+     * resultado. Devuelve {estado, obligatorios que faltaron}.
+     *
+     * <p>Con {@code ocr == null} no hay confianza por tramo: la cadena de un QR no tiene lectura
+     * que medir, el lector la tipea entera o no la tipea.
+     */
+    private static String[] aplicar(ExtractorCupon extractor, FormatoTerminalPos formato,
+                                    Set<String> obligatorios, String texto, MotorOcr.Resultado ocr,
+                                    String nombre, Path salida) throws IOException {
+        ExtractorCupon.Resultado r = extractor.extraer(texto, formato);
+        StringBuilder res = new StringBuilder();
+        res.append("# ").append(nombre).append(" contra `").append(formato.getNombre()).append("`\n\n");
+        String estado, faltan = "";
+        if (!r.ok()) {
+            estado = "FALLO";
+            res.append("FALLO: ").append(r.error).append("\n");
+        } else {
+            List<String> sinValor = new ArrayList<String>();
+            for (String o : obligatorios) if (!r.campos.containsKey(o)) sinValor.add(o);
+            estado = r.parcial ? "PARCIAL" : (sinValor.isEmpty() ? "COMPLETO" : "INCOMPLETO");
+            faltan = String.join(", ", sinValor);
+            res.append("estado: ").append(estado)
+                    .append(r.parcial ? " (el patron entero no matcheo; rescate por tramos)" : "").append("\n\n");
+            res.append("| campo | valor | confianza OCR | tramo |\n|---|---|---|---|\n");
+            for (Map.Entry<String, Object> e : r.campos.entrySet()) {
+                int[] rg = r.rangos.get(e.getKey());
+                Float conf = (rg == null || ocr == null) ? null : ocr.confianzaEnRango(rg[0], rg[1]);
+                res.append("| ").append(e.getKey()).append(" | `").append(e.getValue()).append("` | ")
+                        .append(conf == null ? "-" : String.format(Locale.ROOT, "%.3f", conf))
+                        .append(" | ").append(rg == null ? "-" : rg[0] + "-" + rg[1]).append(" |\n");
+            }
+            if (!r.extras.isEmpty()) res.append("\nextras (datos_extra): ").append(r.extras).append("\n");
+            if (!sinValor.isEmpty()) res.append("\nobligatorios sin valor: ").append(sinValor).append("\n");
+        }
+        escribir(salida.resolve(nombre.replace(':', '_') + ".resultado.txt"), res.toString());
+        System.out.println("-> " + estado + (faltan.isEmpty() ? "" : " (faltan: " + faltan + ")")
+                + (r.ok() ? " " + r.campos : " " + r.error));
+        return new String[]{estado, faltan};
+    }
+
+    /** {nombre, cadena} por cada linea util de cada .txt de la carpeta. */
+    private static List<String[]> cadenas(File dir) throws IOException {
+        List<String[]> out = new ArrayList<String[]>();
+        File[] todos = dir.listFiles();
+        if (todos == null) return out;
+        Arrays.sort(todos);
+        for (File f : todos) {
+            if (!f.isFile() || !f.getName().toLowerCase(Locale.ROOT).endsWith(".txt")) continue;
+            int n = 0;
+            for (String linea : Files.readAllLines(f.toPath(), StandardCharsets.UTF_8)) {
+                n++;
+                String l = linea.trim();
+                if (l.isEmpty() || l.startsWith("#")) continue;
+                out.add(new String[]{f.getName() + ":" + n, l});
+            }
+        }
+        return out;
+    }
 
     /** Mismos recursos y mismo diccionario que {@code CuponOcrService}; sin Spring. */
     private static MotorOcr motor() throws Exception {

@@ -47,6 +47,15 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private NorteCambiosScraper norteCambiosScraper;
 
+    /**
+     * Mismo interruptor que gobierna {@code CotizacionMercadoScheduler}. Sin esto la perilla
+     * valdria en una puerta y no en la otra: el operador apaga la integracion, ve que el
+     * scheduler se calla, y el boton "Actualizar cotizacion" del desktop sigue saliendo a
+     * internet igual. Una bandera que vale en un camino y no en el otro es peor que no tenerla.
+     */
+    @org.springframework.beans.factory.annotation.Value("${cotizacion.mercado.enabled:false}")
+    private boolean cotizacionMercadoHabilitada;
+
     @Autowired
     private PushNotificationService pushNotificationService;
 
@@ -165,8 +174,14 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
      * sistema, y un error GraphQL aca aborta toda la operacion del cliente que lo pidio.
      * Los dos llamadores del desktop (lista de cambios y gestion de compras) ya tratan
      * el {@code false} como "no se pudo actualizar" y siguen con la ultima cotizacion.
+     *
+     * <p>Devuelve {@code false} sin tocar la red cuando {@code cotizacion.mercado.enabled}
+     * esta apagado.
      */
     public Boolean actualizarCotizacionesMercado() {
+        if (!cotizacionMercadoHabilitada) {
+            return false;
+        }
         try {
             java.util.Map<String, double[]> rates = norteCambiosScraper.fetchRates();
             if (rates.isEmpty()) {

@@ -72,6 +72,9 @@ public class NorteCambiosScraper {
     /** Un solo scrape en vuelo a la vez: evita acumular hilos si el sitio esta caido. */
     private final AtomicBoolean enVuelo = new AtomicBoolean(false);
 
+    /** Cuando arranco el scrape en vuelo. Solo para poder decir en el log hace cuanto esta trabado. */
+    private volatile long inicioEnVueloMs = 0L;
+
     @Autowired
     public NorteCambiosScraper(ObjectMapper objectMapper,
                                @org.springframework.beans.factory.annotation.Value("${cotizacion.mercado.timeout-ms:20000}") long timeoutMs) {
@@ -114,9 +117,13 @@ public class NorteCambiosScraper {
      */
     public Map<String, double[]> fetchRates() {
         if (!enVuelo.compareAndSet(false, true)) {
-            log.warn("NorteCambiosScraper: ya hay un intento en curso (probablemente colgado); se omite este");
+            long trabadoHaceMs = System.currentTimeMillis() - inicioEnVueloMs;
+            log.warn("NorteCambiosScraper: ya hay un intento en curso desde hace {} ms (probablemente clavado en DNS, "
+                    + "que no es interrumpible); se omite este. La cotizacion de mercado queda con el ultimo valor conocido",
+                    trabadoHaceMs);
             return Collections.emptyMap();
         }
+        inicioEnVueloMs = System.currentTimeMillis();
         Future<Map<String, double[]>> future;
         try {
             future = executor.submit(this::doFetchRates);
@@ -145,11 +152,18 @@ public class NorteCambiosScraper {
         // otro scrape sobre el mismo problema.
     }
 
-    /** Cuerpo real del scrape. Corre siempre en el pool propio, nunca en el hilo del llamador. */
-    private Map<String, double[]> doFetchRates() {
+    /**
+     * Cuerpo real del scrape. Corre siempre en el pool propio, nunca en el hilo del llamador.
+     *
+     * <p>Package-private y no privado a proposito: el test del presupuesto de tiempo lo
+     * sobreescribe para simular un scrape lento sin depender de la red del runner de CI.
+     */
+    Map<String, double[]> doFetchRates() {
+        HttpsURLConnection getConn = null;
+        HttpsURLConnection postConn = null;
         try {
             // Paso 1: GET home — extraer CSRF, snapshot, session cookie
-            HttpsURLConnection getConn = openConnection(BASE_URL);
+            getConn = openConnection(BASE_URL);
             getConn.setRequestMethod("GET");
             getConn.setRequestProperty("Accept", "text/html,application/xhtml+xml");
             getConn.setRequestProperty("Accept-Language", "es-PY,es;q=0.9");
@@ -158,13 +172,11 @@ public class NorteCambiosScraper {
             int getStatus = getConn.getResponseCode();
             if (getStatus != 200) {
                 log.warn("NorteCambiosScraper: GET home retorno status {}", getStatus);
-                getConn.disconnect();
                 return Collections.emptyMap();
             }
 
             String html = readResponse(getConn);
             String sessionCookie = extractSessionCookie(getConn);
-            getConn.disconnect();
 
             if (html == null || html.isEmpty()) {
                 log.warn("NorteCambiosScraper: respuesta vacia del home");
@@ -184,7 +196,7 @@ public class NorteCambiosScraper {
                     csrf.substring(0, Math.min(10, csrf.length())), snapshot.length(), sessionCookie != null);
 
             // Paso 2: POST /livewire/update — setActiveBranch(8)
-            HttpsURLConnection postConn = openConnection(LIVEWIRE_URL);
+            postConn = openConnection(LIVEWIRE_URL);
             postConn.setRequestMethod("POST");
             postConn.setDoOutput(true);
             postConn.setRequestProperty("Content-Type", "application/json");
@@ -208,12 +220,10 @@ public class NorteCambiosScraper {
                 log.warn("NorteCambiosScraper: POST livewire/update retorno status {}", postStatus);
                 String errorBody = readErrorResponse(postConn);
                 log.debug("NorteCambiosScraper: error response: {}", errorBody);
-                postConn.disconnect();
                 return Collections.emptyMap();
             }
 
             String responseBody = readResponse(postConn);
-            postConn.disconnect();
 
             if (responseBody == null || responseBody.isEmpty()) {
                 log.warn("NorteCambiosScraper: respuesta vacia del livewire/update");
@@ -240,7 +250,22 @@ public class NorteCambiosScraper {
             log.warn("NorteCambiosScraper: error al obtener cotizaciones: {}", e.getMessage());
             return Collections.emptyMap();
         } finally {
+            // Las dos conexiones se cierran SIEMPRE, tambien cuando getResponseCode(),
+            // readResponse() o getOutputStream() lanzan — que es el camino comun de esta
+            // integracion, no el raro. Cerrarlas solo en las ramas de status != 200 dejaba
+            // sockets colgando en cada fallo de red, cada 10 minutos, indefinidamente.
+            disconnectQuietly(getConn);
+            disconnectQuietly(postConn);
             enVuelo.set(false);
+        }
+    }
+
+    private void disconnectQuietly(HttpsURLConnection conn) {
+        if (conn == null) return;
+        try {
+            conn.disconnect();
+        } catch (Exception e) {
+            log.debug("NorteCambiosScraper: error cerrando conexion: {}", e.getMessage());
         }
     }
 

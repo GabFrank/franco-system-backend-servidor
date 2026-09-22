@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Refresca cada N minutos la cotizacion de mercado del ultimo {@link Cambio} por moneda.
@@ -47,6 +48,14 @@ public class CotizacionMercadoScheduler {
         return t;
     });
 
+    /**
+     * Una actualizacion a la vez. El executor de un solo hilo usa una cola ilimitada, asi que
+     * sin este guard un tick que tarde mas que el fixedDelay (por ejemplo con el lado DB
+     * trabado) encolaria los siguientes indefinidamente en vez de saltearlos. Y por cola
+     * ilimitada el catch de RejectedExecutionException nunca se dispararia.
+     */
+    private final AtomicBoolean actualizando = new AtomicBoolean(false);
+
     public CotizacionMercadoScheduler(NorteCambiosScraper scraper, CambioService cambioService, MonedaService monedaService) {
         this.scraper = scraper;
         this.cambioService = cambioService;
@@ -64,9 +73,14 @@ public class CotizacionMercadoScheduler {
     )
     public void scheduledUpdate() {
         // Fire-and-forget: el hilo del scheduler vuelve de inmediato.
+        if (!actualizando.compareAndSet(false, true)) {
+            log.warn("CotizacionMercadoScheduler: la actualizacion anterior sigue corriendo; se saltea este tick");
+            return;
+        }
         try {
             executor.submit(this::ejecutarActualizacion);
         } catch (RejectedExecutionException e) {
+            actualizando.set(false);
             log.warn("CotizacionMercadoScheduler: no se pudo encolar la actualizacion: {}", e.getMessage());
         }
     }
@@ -78,6 +92,8 @@ public class CotizacionMercadoScheduler {
             log.info("CotizacionMercadoScheduler: {} monedas actualizadas", count);
         } catch (Exception e) {
             log.warn("CotizacionMercadoScheduler: error en actualizacion automatica: {}", e.getMessage());
+        } finally {
+            actualizando.set(false);
         }
     }
 

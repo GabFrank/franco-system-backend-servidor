@@ -64,20 +64,32 @@ entera del cliente que la pidió, no solo el refresco.
      hilos. **El flag lo libera únicamente el `finally` de `doFetchRates`**, nunca `fetchRates`:
      tras un timeout `future.cancel(true)` deja `isDone()==true` con el hilo todavía clavado, y
      liberarlo ahí volvería a abrir la puerta.
-   - Cerrar la conexión del GET también en el camino de error (hoy solo se cierra en el éxito).
+   - **Las dos conexiones se cierran siempre**, en un `finally` con `disconnectQuietly`. No
+     alcanza con cerrarlas en las ramas de `status != 200`: `getResponseCode()`,
+     `readResponse()` y `getOutputStream()` lanzan, y ese es el camino **común** de esta
+     integración, no el raro. (Corregido tras la auditoría del plan — ver §12.)
 2. `CotizacionMercadoScheduler`: el tick delega en **su propio hilo daemon** y vuelve de
    inmediato, así el hilo compartido de `@Scheduled` nunca queda retenido ni siquiera los 20 s
-   del presupuesto. `actualizarCotizaciones()` devuelve `0` en vez de lanzar.
+   del presupuesto. `actualizarCotizaciones()` devuelve `0` en vez de lanzar. **Guard
+   `AtomicBoolean actualizando`**: el executor de un hilo usa cola ilimitada, así que un tick
+   que exceda el `fixedDelay` de 10 min encolaría a los siguientes en vez de saltearlos — y por
+   cola ilimitada el `catch (RejectedExecutionException)` nunca se dispararía.
 3. `CambioGraphQL.actualizarCotizacionesMercado`: devuelve `false` en vez de lanzar.
 4. `application.properties`: `cotizacion.mercado.timeout-ms=20000` + comentario del interruptor
    operativo.
 
-**Tests de la fase** (`CotizacionMercadoNoBloqueaTest`, nuevo):
-- `fetchRatesNoSeCuelga` — presupuesto de 200 ms; `fetchRates` devuelve mapa vacío sin lanzar y
-  sin retener al llamador.
+**Tests de la fase** (`CotizacionMercadoNoBloqueaTest`, nuevo). **Ninguno sale a la red**: el
+presupuesto se ejercita sobreescribiendo `doFetchRates()` (por eso pasó de `private` a
+package-private), no pegándole al sitio real — un test que depende de la conectividad del runner
+de CI no prueba nada y encima es flaky.
+- `fetchRatesCortaPorPresupuesto` — presupuesto 200 ms contra un scrape de 10 s; devuelve vacío,
+  vuelve rápido, y se verifica que el scrape **no había terminado** (el corte fue por presupuesto).
+- `scrapeClavadoNoAcumulaIntentos` — con uno clavado, el segundo sale por el guard en < 100 ms.
 - `sinCotizacionesNoLanza` — scraper mockeado que devuelve vacío; `actualizarCotizaciones()` → `0`.
 - `scheduledUpdateNoRetieneElHilo` — scraper mockeado que tarda 3 s; `scheduledUpdate()` vuelve
   en < 1 s. **Es el test que falla con el código viejo** (ver §7).
+- `tickSolapadoSeSaltea` — tres ticks con el primero todavía corriendo: `fetchRates()` se invoca
+  **una sola vez**.
 
 ### Fase 2 — El interruptor vale en las dos puertas
 
@@ -93,8 +105,11 @@ camino sigue abierto sin que nada avise.
 - `CambioGraphQL` lee `cotizacion.mercado.enabled` con `@Value` y, si está en `false`, devuelve
   `false` sin tocar el scraper.
 
-**Test de la fase:** `mutationRespetaElInterruptor` — con el flag en `false`, la mutation devuelve
-`false` y **el scraper no se invoca** (`verify(scraper, never()).fetchRates()`).
+**Tests de la fase** (`CambioGraphQLCotizacionMercadoTest`, nuevo):
+- `interruptorApagadoNoTocaLaRed` — flag en `false` → devuelve `false` y
+  `verify(scraper, never()).fetchRates()`.
+- `sinCotizacionesDevuelveFalse` y `scraperQueExplotaNoPropaga` — la mutation nunca lanza.
+- `unaMonedaQueFallaNoArrastra` — si `DOLAR` explota, `REAL` igual se actualiza.
 
 > Orden real, anotado como corresponde: la Fase 1 se implementó en una sesión anterior como
 > `hotfix/*` sobre `master` y se rebasó sobre `develop` para este PR (los 4 archivos que toca son
@@ -185,9 +200,9 @@ tiempo en alpha. **Va como issue, no como parche colgado de este diff.**
 | 2 · Skill de dominio | ✅ `frc-cicd` + `frc-central` |
 | 3 · Análisis | ✅ re-verificado sobre `origin/develop` (19 `@Scheduled`, no 14 como en `master`) |
 | 4 · Plan | ✅ este archivo. ⚠️ **posterior a la Fase 1** (§3) |
-| 5 · Auditoría del plan | 2 agentes, ejes A y B |
-| 6 · Presentar y commitear | |
-| 7 · Implementación por fases | Fase 1 hecha (rebasada), Fase 2 pendiente |
+| 5 · Auditoría del plan | ✅ 2 agentes, ejes A y B, ciegos entre sí — **7 hallazgos, ver §12** |
+| 6 · Presentar y commitear | ✅ plan commiteado en la rama |
+| 7 · Implementación por fases | ✅ Fase 1 (rebasada + correcciones de auditoría) y Fase 2 |
 | 8 · Auditoría del diff | 3 fijos + Condicional B (el diff toca un poller que integra datos replicados) |
 | 9 · Batería | ⚠️ **INCUMPLIDO en local** — §8.1. Se delega al CI |
 | 10 · Build de producción | ⚠️ **INCUMPLIDO en local** — §8.2. Dry-run de migración N/A |
@@ -200,3 +215,29 @@ Central: requiere `systemctl restart frc-<instancia>.service`; lo hace el workfl
 Merge a `develop` **no despliega nada solo** — el deploy del central es manual
 (`workflow_dispatch`), y `alpha` es el único target sin revisor. Ninguna filial se entera de este
 cambio: no hay nada que replicar.
+
+
+## 12 · Auditoría del plan (paso 5) — hallazgos y qué se hizo
+
+Dos agentes, ejes A (contrato y propagación) y B (reversibilidad, estado y concurrencia),
+corriendo sin verse. Siete hallazgos. **Todos se verificaron contra el código antes de aplicarlos**,
+como exige el paso 8.
+
+| # | Eje | Hallazgo | Verificado | Qué se hizo |
+|---|---|---|---|---|
+| 1 | B | **Fuga de conexiones HTTP.** El plan decía haber cerrado el camino de error; solo se cerraban las ramas de `status != 200`. Si `getResponseCode()`, `readResponse()` o `getOutputStream()` lanzan —el camino **común** de esta integración— la conexión queda colgando. Cada 10 min, indefinidamente | ✅ **Confirmado leyendo el método**: no había ningún `try/finally` por conexión | **Corregido**: las dos conexiones se cierran en un `finally` con `disconnectQuietly(conn)`. Y se corrigió el texto del plan, que sobredeclaraba |
+| 2 | A | No pudo verificar `mobile` ni `mobile-pwa` — solo citó el plan | ✅ | **Cerrado con evidencia propia**: se clonaron los dos repos y se grepeó. 0 usos en ambos (§2) |
+| 3 | A | El comentario que este diff agrega en `application.properties` promete un corte total que la Fase 1 sola no entrega | ✅ `CambioGraphQL` no leía la property | **La Fase 2 va en este mismo PR**, no después. Sin ella el diff documentaría una perilla que miente |
+| 4 | B | **Cola ilimitada** en el executor del scheduler: un tick que exceda el `fixedDelay` encola a los siguientes, y el `catch (RejectedExecutionException)` nunca se dispara porque una cola ilimitada no rechaza | ✅ `Executors.newSingleThreadExecutor` usa `LinkedBlockingQueue` sin bound | **Corregido**: guard `AtomicBoolean actualizando` + test `tickSolapadoSeSaltea` |
+| 5 | B | **Test con I/O de red real** contra nortecambios en la suite de CI | ✅ | **Corregido**: `doFetchRates()` pasó a package-private y los tests lo sobreescriben. **Ningún test sale a la red** |
+| 6 | B | El guard `enVuelo` puede quedar en `true` mucho más que el `timeoutMs` si el hilo se traba en DNS (no interrumpible), congelando la cotización sin alerta | ✅ Es el comportamiento que el propio código documenta | **Aceptado como diseño, con observabilidad**: el log del tick salteado ahora dice **hace cuántos ms** está trabado. El health indicator que proponía el auditor es scope creep para un fix; queda anotado |
+| 7 | B | El botón manual sigue llamando `fetchRates()` sincrónicamente desde el hilo HTTP | ✅ | **Sin acción, a propósito**: el peor caso pasó de ilimitado a ~20 s sobre un hilo del pool de Tomcat, que es independiente del pool de `@Scheduled`. No reintroduce el bug. Hacerlo asíncrono cambiaría el contrato de la mutation |
+
+**Los dos auditores coincidieron** en que no hay migración, no hay cambio de contrato GraphQL, y
+la versión anterior del backend arranca igual contra la property nueva. Eje B además descartó con
+evidencia el riesgo que más me preocupaba: mover `cambioService.save()` a un hilo propio **no**
+rompe la transacción — `SimpleJpaRepository` está anotada `@Transactional` a nivel de clase y el
+`TransactionInterceptor` es un proxy, no depende de afinidad de hilo; la llamada y la transacción
+ocurren en el mismo hilo dedicado, sin entidades cruzando de un hilo a otro. `open-in-view` no
+está seteado (default `true`) y es irrelevante acá: este código nunca corrió dentro del filtro de
+una request, ni antes ni ahora.

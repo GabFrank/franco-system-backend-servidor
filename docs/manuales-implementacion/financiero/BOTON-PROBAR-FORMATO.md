@@ -80,7 +80,8 @@ seguidos vuelvan a guardar lo mismo.
 6. En un formato de tipo QR/WEB: pegar o escanear la cadena del cupón en el input y probar.
 
 > **Antes de llegar acá, sin la app:** `RunnerFormatoCuponTest` (`src/test/.../ocr/`) corre el mismo
-> motor OCR y el mismo `ExtractorCupon` sobre una carpeta de fotos y un JSON del formato, e imprime
+> motor OCR y el mismo `ExtractorCupon` sobre una carpeta de fotos (o `.txt` con cadenas de QR, una
+> por línea, para un formato `WEB`) y un JSON del formato, e imprime
 > el texto que ve el OCR, campo por campo con su confianza, y «N de M fotos completas». Se saltea
 > sin `-Dcupon.dir`, así que el CI no lo corre. El procedimiento entero (fotos → patrón → mapeo →
 > ABM → Probar) está en la skill `frc-pos-expert`, `formato-desde-fotos.md`.

@@ -161,6 +161,33 @@ desembolso (EGRESO), cobro directo de cuota (INGRESO), plan de cuotas con
 `CuotaCalculator` (la última absorbe el redondeo). Job `PrestamoCuotaScheduler`
 (diario 6:00 AM) marca cuotas vencidas. Migración `V143.0`. Estado: Compila + Tests.
 
+**Cobro de cuota sin duplicados (issue #299, 2026-09-15)** — `cobrarCuota` toma la cuota y el
+préstamo con lock pesimista (`lockById`, siempre en ese orden) y rechaza cuotas `PAGADA` y
+`CANCELADA`. Acepta `montoPagadoEsperado` (opcional): el monto pagado que mostraba la pantalla; si
+no coincide con la base (tolerancia 0.005), rechaza antes de registrar el `INGRESO`. Es lo que
+separa un reintento de un segundo cobro parcial legítimo. El desktop lo manda y deshabilita
+«Cobrar» mientras el cobro está en vuelo. `marcarVencidas` es un `UPDATE` que toca solo el estado:
+cargar y guardar la entidad entera pisaba el `monto_pagado` de un cobro concurrente (sin
+`@DynamicUpdate` ni `@Version`). Verificado con dos cobros simultáneos contra un central local: un
+solo `INGRESO` por cobro aceptado.
+
+**Cuota cobrada por caja y descontada en la liquidación (issue #300, 2026-09-16)** — El borrador
+congela el descuento de cada cuota (`referenciaTipo = CPP_CUOTA`) por lo pendiente al generarlo, y ese
+monto ya está dentro del neto. Antes de mover plata, los tres caminos de pago
+(`LiquidacionSueldoService.pagar`, `LiquidacionFinalService.pagar` y
+`PagoRrhhTesoreriaService.validarYSaldo`) llaman a `PrestamoCuotaDescuentoService`, que toma cada cuota
+con lock (id ascendente, antes que el saldo de caja) y rechaza si ya no coincide con lo pendiente:
+hay que volver a borrador y regenerar. Ese bean es el único que escribe cuota y préstamo desde una
+liquidación (`aplicar` / `revertir`, llamados por `aplicarEfectosCruzados`): al pagar el préstamo
+suma lo descontado y pasa a `PAGADO` solo desde `ACTIVO`; al anular, la cuota recalcula su estado
+(`PAGADA` / `VENCIDA` / `PARCIAL` / `PENDIENTE`) en vez de volver siempre a `PENDIENTE`. El hub además
+procesa el lote en orden y, al reusar una obligación de pago cuyo monto ya no coincide con el
+documento (pago anulado y documento regenerado), ajusta el monto si no tiene pagos (queda en
+`observaciones`) o rechaza si los tiene. Verificado contra un central local: cuota cobrada por caja
+rechaza el pago; regenerado, sale con un solo cobro. **Pendiente**: las obligaciones RRHH también se
+pagan desde el diálogo de compras, sin rol RRHH ni estas validaciones (#302); ahí el pago igual se
+deshace en `aplicar`, con un mensaje genérico.
+
 ---
 
 ## 5. Vacaciones, aguinaldo y bonos (Fase 4)
@@ -479,6 +506,29 @@ Backend — cada recibo expone **una** query con `anchoMm: Int` y `escpos: Boole
   `ReciboLiquidacionService`. Resolvers `ReporteRrhhGraphQL`/
   `LiquidacionSueldoGraphQL` reciben `Boolean` y hacen `Boolean.TRUE.equals(escpos)`.
 
+Contenido común de los 7 recibos (2026-09-19), en los tres formatos:
+- **Número**: el id del registro que origina el recibo va en el título
+  (`RECIBO DE VALE Nro. 12`, `RECIBO DE SUELDO 2026-09 Nro. 486`). En las plantillas
+  genéricas y en ESC/POS lo arma `ReporteRrhhService.tituloConNumero`; los A4 de
+  finiquito y de sueldo tienen el título fijo y lo reciben en el parámetro `numero`.
+- **Observación**: línea propia `Obs.: …` debajo del total (parámetro `observacion`),
+  solo en los recibos cuya entidad la tiene: vale, préstamo, finiquito y sueldo.
+  Penalización y bono ya imprimen su texto libre (descripción / motivo) en el concepto;
+  aguinaldo no tiene. Se normaliza a una línea (`ReciboTicketEscPos.textoEnUnaLinea`)
+  y, vacía, no se imprime. En el A4 de sueldo va en el hueco a la izquierda de los
+  totales, en las dos vías, con `textAdjust="ScaleFont"`: ese layout tiene alto fijo
+  para que las dos vías entren en una hoja.
+- **Ticket ESC/POS**: encabezado `Concepto … Monto` antes de las filas; el título se
+  envuelve a las columnas del papel; ninguna línea supera 32/48 columnas.
+- **PDF A4 genérico**: concepto y monto del detalle con `isStretchWithOverflow`. Antes
+  un concepto largo (préstamo o bono con descripción larga) se cortaba en silencio.
+- **Pendiente (seguridad, deuda previa)**: los 7 `imprimirRecibo*`
+  (`ReporteRrhhGraphQL`, `LiquidacionSueldoGraphQL.imprimirReciboLiquidacion`) no llaman
+  a `seg.*` ni validan que el recibo sea del usuario: cualquier usuario autenticado que
+  recorra ids baja el recibo de otro, y la PWA pide el de sueldo por id. Solo el acta de
+  amonestación gatea (`requireVer`). Sin verificar además: `SecurityConfig` usa
+  `antMatchers("**/graphql/**")` sin `/` inicial. Va en un fix aparte.
+
 Los **reportes agregados** (nómina del mes, resumen IPS, vales pendientes,
 préstamos activos, aguinaldo anual) quedan **solo PDF** (no tiene sentido un
 listado tabular en ticket). Estado: Compila + **verificado runtime** (PDF y
@@ -558,6 +608,18 @@ acceso self-contained que resuelve al usuario autenticado desde el principal del
 > (`RRHH VER/GESTIONAR/LIQUIDAR/APROBAR/PAGAR/CONFIG`), o quedan bloqueados. ADMIN
 > mantiene acceso por el bypass. `COMISION GESTIONAR/APROBAR` siguen sin uso (no hay
 > módulo de comisiones).
+
+**Obligaciones de pago RRHH en tesorería (issue #302).** Vale, liquidación, finiquito y aguinaldo se pagan con el
+motor de CPP a través de una `SolicitudPago` de tipo `RRHH`, pero **solo por su hub**: `pagarValesMixto` (`RRHH
+APROBAR`) y `pagarRrhhMixto` (`RRHH PAGAR`), que llaman a `PagoProveedorService.pagarLoteMixtoObligacionesRrhh`.
+Las entradas genéricas de compras (`pagarSolicitud`, `pagarSolicitudesMixto`, `pagarSolicitudesLoteCajaMayor`,
+que solo exigen rol de tesorería) rechazan cualquier solicitud `RRHH`, y `solicitudesPagoPendientes` no las lista.
+La guarda está en los métodos públicos del motor (seguro por defecto): un llamador nuevo de `pagarLoteMixto` queda
+cerrado sin acordarse. Lee solo el tipo (`SolicitudPagoRepository.findTipoById`), nunca la entidad: una lectura previa
+al `lockById` del motor dejaría un saldo sin refrescar ante pagos concurrentes.
+Decisión consciente: **la anulación (`anularPagoCpp`) sigue con rol de tesorería**, sin exigir rol RRHH (devuelve la
+plata a la caja y reabre el documento; la caja es de tesorería). `detalleDePago` también muestra las líneas RRHH con
+el rol de lectura de tesorería, que ya ve la etiqueta del movimiento de caja.
 
 > **Regla para nuevas implementaciones RRHH:** toda mutation nueva debe llamar
 > `seg.requireAnyRole(...)` con el rol adecuado, y toda query que exponga datos de

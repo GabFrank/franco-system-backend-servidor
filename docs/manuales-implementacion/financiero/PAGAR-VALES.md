@@ -56,6 +56,7 @@ todo origen que no sea `MANUAL`. En la UI es ⋮ → Anular sobre la fila de caj
 | **Un vale se paga entero o no se paga.** El backend rechaza el pago parcial y la columna "Monto a pagar" es de solo lectura. | La liquidación descuenta `vale.monto` **completo**. Entregar 400.000 de un vale de 1.000.000 sacaría plata de la caja que nunca se recupera del sueldo. |
 | **`ValeService.anular` rechaza un vale con `solicitud_pago_id` y estado `CONFIRMADO`.** | `revertirEgresoCaja` hace `return` si no hay `cajaVirtualId`: anularía el vale **sin devolver la plata**, en silencio. La reversión correcta es anular el pago. |
 | **Un vale sin moneda no es pagable.** Fila no seleccionable con chip `sin moneda`, más guard en el backend. | Hay vales viejos con `moneda_id NULL` (verificado en la base de desarrollo). Sin moneda no se puede armar la obligación ni saber en qué moneda sale la plata. |
+| **La obligación del vale (`SolicitudPago` tipo `RRHH`) solo se paga por `pagarValesMixto`.** Las mutations genéricas de compras la rechazan y el modo COMPRAS no la lista (issue #302). | Por el camino genérico no corren ni el rol RRHH ni la regla de pago entero. |
 | Selección multi-vale: solo exige **misma moneda** (el funcionario puede variar). | Mismo criterio que gastos. Con varios vales la etiqueta del movimiento pasa a `Pago de vales (N)`. |
 
 ## Qué se tocó

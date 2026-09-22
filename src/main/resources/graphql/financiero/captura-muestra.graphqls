@@ -1,0 +1,154 @@
+"""
+El cupón de muestra con el que se configura un formato.
+
+Todo el ciclo vive en central: el formato, su patrón, su mapa y las regiones se administran acá y
+bajan a las 24 filiales. Que la foto tuviera que venir del filial era un puente innecesario — y
+además imposible, porque la venta con tarjeta se bloquea cuando la terminal no tiene formato, así
+que antes de configurarlo no hay capturas de ese ticket.
+
+El ciclo vivo es en memoria y un reinicio de central borra las muestras abiertas — aceptable porque
+dura minutos. Pero la foto y lo que el OCR leyó **sí se guardan** (`muestrasDeFormato`): sin eso no
+hay forma de volver a mirar el cupón que produjo un mapa, ni de juntar el corpus que la etapa 6
+necesita para proponer el patrón sola.
+"""
+type CapturaMuestraQr {
+    token: String
+    "La ruta en central. El desktop la compone con el endpoint de central que ya está usando."
+    ruta: String
+    """
+    La URL absoluta, sólo si el servidor tiene configurada su dirección pública. null = componerla
+    con `ruta`, que es el default correcto: el teléfono debería llegar al mismo host.
+    """
+    url: String
+    expiraEn: String
+}
+
+type EstadoMuestra {
+    token: String
+    "ESPERANDO | LISTO | ERROR | VENCIDA"
+    estado: String
+    textoOcr: String
+    error: String
+    msOcr: Int
+}
+
+"""
+Una región propuesta por la derivación, o el motivo por el que ese campo no se pudo derivar.
+
+La geometría va como PISTA para acotar el reconocimiento, no como verdad para asignar: lo que ancla
+es la etiqueta impresa. Un campo con `sinRegion` se resuelve por patrón, sin restricción espacial —
+y eso es preferible a inventar una región, que después haría desaparecer un campo que hoy se lee.
+"""
+type RegionDerivada {
+    campo: String
+    etiqueta: String
+    "DERECHA | ABAJO | DENTRO"
+    posicion: String
+    "Lo que se leyó en el cupón de muestra, para verificar de un vistazo"
+    valorLeido: String
+    x1: Float
+    y1: Float
+    x2: Float
+    y2: Float
+    "null si se derivó bien; si no, por qué no se pudo"
+    sinRegion: String
+    """
+    TEXTO | NUMERO | FECHA, tomado del `mapeo` del formato — NO deducido del valor de la muestra.
+    Deducirlo falla y está medido: el código de autorización de INFONET sale alfanumérico en las
+    ventas con crédito y numérico en las de débito y QR, por la misma terminal el mismo día, así que
+    una muestra numérica marcaría `NUMERO` y después toda venta con crédito iría a revisión. El
+    filial lo usa al leer un cupón para marcar como dudoso un valor que no encaja con su tipo; sin
+    tipo declarado no valida nada, que es el default seguro.
+    """
+    tipo: String
+}
+
+"""
+Un campo tal como la prueba lo encontró — o el motivo por el que no lo encontró.
+
+`valor` es lo que quedó DESPUÉS del mapeo (escala, mapa, mayúsculas): es lo que vería el cajero,
+no el grupo crudo. Mostrar el crudo haría pasar por bueno un mapeo que escala mal.
+"""
+type CampoProbado {
+    campo: String
+    valor: String
+    "El `mapeo` lo declara. false = grupo suelto del patrón, que iría a datos_extra."
+    declarado: Boolean
+    "El `mapeo` lo marca obligatorio. Un obligatorio vacío es lo que hace fallar la prueba."
+    obligatorio: Boolean
+    "null si este campo está bien; si no, qué le pasa."
+    problema: String
+}
+
+"""
+Qué haría este formato con un cupón real, sin que haya una venta de por medio.
+
+Existe porque la única forma de probar un patrón era cobrar de verdad: se editaba el formato, se
+guardaba, y el siguiente cliente que pagaba con tarjeta era el conejillo de indias. Un patrón
+frágil costaba una venta interrumpida.
+
+Corre contra el formato **guardado**, no contra lo que hay en el formulario: es lo que las 24
+filiales van a recibir. La pantalla guarda antes de probar para que las dos cosas coincidan.
+"""
+type ResultadoPruebaFormato {
+    "Pasa si el patrón reconoció el cupón y ningún campo obligatorio quedó vacío."
+    pasa: Boolean
+    "Por qué no pasó, cuando el patrón ni siquiera reconoció el cupón."
+    error: String
+    campos: [CampoProbado]
+    extras: [CampoProbado]
+    "El texto sobre el que corrió el patrón. Es lo primero que hay que mirar cuando no matchea."
+    texto: String
+}
+
+extend type Query {
+    "Si el motor de OCR cargó en este servidor. Sin él no se puede derivar, y la pantalla lo dice."
+    lectorDeCuponesDisponible: Boolean
+    """
+    Pasa un cupón real por el formato guardado y dice si lo lee bien.
+
+    Es una consulta, no una mutation: no escribe nada. El cupón llega por `token` --una captura de
+    muestra ya fotografiada y leída, el camino de los formatos MAQUINA-- o por `texto`, que es la
+    cadena que escupe el lector en los formatos de QR. Uno de los dos, no los dos.
+    """
+    probarFormato(formatoTerminalPosId: ID!, token: String, texto: String): ResultadoPruebaFormato
+    capturaMuestra(token: String!): EstadoMuestra
+    "Las muestras guardadas de un formato, la más nueva primero."
+    muestrasDeFormato(formatoTerminalPosId: ID!): [MuestraGuardada]
+}
+
+extend type Mutation {
+    "Abre una captura de muestra para este formato y devuelve lo necesario para dibujar el QR."
+    crearCapturaMuestra(formatoTerminalPosId: ID!): CapturaMuestraQr!
+    """
+    Borra una muestra guardada, con su foto. Pide rol de gestión: mirar las fotos es una cosa
+    y borrar la evidencia de cómo se configuró un formato es otra.
+    """
+    eliminarMuestra(id: ID!): Boolean
+    """
+    Propone el mapa a partir de la muestra. NO guarda nada: la propuesta la revisa una persona y la
+    persiste guardarRegionesDerivadas, que es quien aplica las reglas de sobrescritura.
+    """
+    derivarMapaDeMuestra(token: String!, formatoTerminalPosId: ID!): [RegionDerivada]!
+    "Libera la muestra antes de que venza sola."
+    cerrarCapturaMuestra(token: String!): Boolean
+}
+
+
+"""
+Una muestra ya guardada: la foto de un cupón real con la que se configuró este formato.
+
+La imagen no viaja por GraphQL — se pide a `GET /api/captura-muestra/imagen/{id}`, que va
+autenticado porque son cupones reales con importe, boleta y serie de terminal.
+
+`ancho` y `alto` no son decoración: las regiones están normalizadas 0..1, así que son lo que
+permite dibujarlas encima de la foto.
+"""
+type MuestraGuardada {
+    id: ID
+    creadoEn: String
+    ancho: Int
+    alto: Int
+    textoOcr: String
+    msOcr: Int
+}

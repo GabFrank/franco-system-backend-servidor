@@ -64,6 +64,7 @@ public class PagoRrhhTesoreriaService {
     private final SolicitudPagoService solicitudPagoService;
     private final PagoProveedorService pagoProveedorService;
     private final MonedaService monedaService;
+    private final com.franco.dev.service.rrhh.PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
 
     /** Un documento de RRHH a pagar con su reparto de formas de pago. */
     @lombok.Data
@@ -124,8 +125,15 @@ public class PagoRrhhTesoreriaService {
     public com.franco.dev.domain.operaciones.Pago pagarRrhhMixto(List<PagoRrhhConLineas> pagos, Usuario usuario) {
         if (pagos == null || pagos.isEmpty()) throw new GraphQLException("Seleccione al menos un documento a pagar");
 
+        // Orden canonico (concepto, id): cada documento toma locks de cuotas y de su propia fila, y dos
+        // pagos concurrentes con los mismos documentos en distinto orden podrian trabarse entre si.
+        List<PagoRrhhConLineas> ordenados = new ArrayList<>(pagos);
+        ordenados.sort(java.util.Comparator
+                .comparing(PagoRrhhConLineas::getConcepto, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder()))
+                .thenComparing(PagoRrhhConLineas::getDocumentoId, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())));
+
         List<PagoProveedorService.SolicitudConLineas> lote = new ArrayList<>();
-        for (PagoRrhhConLineas p : pagos) {
+        for (PagoRrhhConLineas p : ordenados) {
             if (p.getConcepto() == null) throw new GraphQLException("Falta el concepto del documento a pagar");
             if (p.getLineas() == null || p.getLineas().isEmpty()) {
                 throw new GraphQLException("Indique al menos una forma de pago para el documento #" + p.getDocumentoId());
@@ -148,7 +156,7 @@ public class PagoRrhhTesoreriaService {
             s.setLineas(p.getLineas());
             lote.add(s);
         }
-        return pagoProveedorService.pagarLoteMixto(lote, usuario);
+        return pagoProveedorService.pagarLoteMixtoObligacionesRrhh(lote, usuario);
     }
 
     // ───────────────────────────── proyecciones a DTO ─────────────────────────────
@@ -206,6 +214,9 @@ public class PagoRrhhTesoreriaService {
                     throw new GraphQLException("La liquidacion #" + id + " no esta pendiente de pago (esta "
                             + l.getEstado() + ")");
                 }
+                // Antes de crear la obligacion y de que el motor postee: cuotas cobradas por caja despues del
+                // borrador se cobrarian dos veces (issue #300).
+                prestamoCuotaDescuentoService.validarLiquidacion(id);
                 return saldoPendiente(l.getTotalNeto(), l.getSolicitudPagoId());
             }
             case FINIQUITO: {
@@ -215,6 +226,7 @@ public class PagoRrhhTesoreriaService {
                     throw new GraphQLException("El finiquito #" + id + " no esta pendiente de pago (esta "
                             + f.getEstado() + ")");
                 }
+                prestamoCuotaDescuentoService.validarFiniquito(id);
                 return saldoPendiente(f.getTotalLiquidado(), f.getSolicitudPagoId());
             }
             case AGUINALDO: {
@@ -257,7 +269,7 @@ public class PagoRrhhTesoreriaService {
                 // solicitud, crean una cada uno y el sueldo se paga dos veces.
                 LiquidacionSueldo l = liquidacionRepository.lockById(id)
                         .orElseThrow(() -> new GraphQLException("Liquidacion no encontrada: " + id));
-                Long vigente = solicitudVigente(l.getSolicitudPagoId());
+                Long vigente = solicitudVigenteConMonto(l.getSolicitudPagoId(), l.getTotalNeto(), "La liquidacion #" + id);
                 if (vigente != null) return vigente;
                 Long nueva = crearSolicitud(l.getMoneda() != null ? l.getMoneda() : monedaPrincipal(),
                         l.getTotalNeto(), descripcionLiquidacion(l), usuario);
@@ -268,7 +280,7 @@ public class PagoRrhhTesoreriaService {
             case FINIQUITO: {
                 LiquidacionFinal f = finiquitoRepository.lockById(id)
                         .orElseThrow(() -> new GraphQLException("Finiquito no encontrado: " + id));
-                Long vigente = solicitudVigente(f.getSolicitudPagoId());
+                Long vigente = solicitudVigenteConMonto(f.getSolicitudPagoId(), f.getTotalLiquidado(), "El finiquito #" + id);
                 if (vigente != null) return vigente;
                 Long nueva = crearSolicitud(f.getMoneda() != null ? f.getMoneda() : monedaPrincipal(),
                         f.getTotalLiquidado(), descripcionFiniquito(f), usuario);
@@ -298,6 +310,39 @@ public class PagoRrhhTesoreriaService {
         SolicitudPago sp = solicitudPagoService.findById(solicitudPagoId).orElse(null);
         if (sp == null || sp.getEstado() == SolicitudPagoEstado.CANCELADO) return null;
         return sp.getId();
+    }
+
+    /**
+     * La solicitud vigente, con su monto alineado al total actual del documento (issue #300).
+     *
+     * <p>Anular un pago desde la caja reabre la solicitud con el monto de entonces. Si despues el documento
+     * se regenera (vuelve a borrador y cambia el total), reusarla tal cual deja al motor calculando el
+     * restante con el monto viejo: la plata sale, la solicitud queda PARCIAL y el documento sigue APROBADO.
+     * Sin pagos aplicados se actualiza el monto; con pagos, se rechaza.</p>
+     */
+    private Long solicitudVigenteConMonto(Long solicitudPagoId, BigDecimal totalActual, String documento) {
+        Long vigente = solicitudVigente(solicitudPagoId);
+        if (vigente == null) return null;
+        SolicitudPago sp = solicitudPagoService.findById(vigente).orElse(null);
+        if (sp == null) return null;
+        BigDecimal actual = totalActual != null ? totalActual : BigDecimal.ZERO;
+        BigDecimal montoSolicitud = BigDecimal.valueOf(sp.getMontoTotal() != null ? sp.getMontoTotal() : 0.0);
+        if (montoSolicitud.subtract(actual).abs().compareTo(TOLERANCIA) <= 0) return vigente;
+        BigDecimal pagado = sp.getMontoPagado() != null ? sp.getMontoPagado() : BigDecimal.ZERO;
+        if (pagado.signum() > 0) {
+            throw new GraphQLException(documento + " tiene pagos aplicados por " + pagado.toPlainString()
+                    + " sobre un total de " + montoSolicitud.toPlainString() + ", distinto del total actual ("
+                    + actual.toPlainString() + "). Anule el pago desde la caja antes de volver a pagar.");
+        }
+        // Queda asentado en la obligacion: el monto se ajusta fuera de actualizarSolicitudPago (que solo
+        // edita borradores de compras), y una auditoria contable tiene que poder ver por que cambio.
+        String nota = "MONTO AJUSTADO AL TOTAL ACTUAL DEL DOCUMENTO: " + montoSolicitud.toPlainString()
+                + " -> " + actual.toPlainString() + " (" + java.time.LocalDateTime.now().withNano(0) + ")";
+        sp.setObservaciones(sp.getObservaciones() != null && !sp.getObservaciones().isEmpty()
+                ? sp.getObservaciones() + "\n" + nota : nota);
+        sp.setMontoTotal(actual.doubleValue());
+        solicitudPagoService.save(sp);
+        return vigente;
     }
 
     private Long crearSolicitud(Moneda moneda, BigDecimal monto, String descripcion, Usuario usuario) {

@@ -19,7 +19,33 @@ type VentaTarjeta {
     imagenUrl: String
     qrCrudo: String
     estado: String
+    """
+    QR | OCR | MANUAL | API. Origen dominante de los datos; null = anterior a la columna.
+    Lo escribe el filial al completar; central lo recibe por replicacion.
+    """
+    origen: String
     usuario: Usuario
+    """
+    Por que el cobro quedo sin conciliar: CUPON_NO_IMPRESO | POS_FALLADO | CUPON_PERDIDO | OTRO.
+    Lo escribe el filial cuando el cajero cierra su caja sin registrar el cupon; central lo recibe
+    por replicacion. null en todo lo que no sea NO_COMPLETADO, y en los NO_COMPLETADO anteriores a
+    esta columna.
+    """
+    noCompletadoMotivo: String
+    """Lo que el cajero escribio. Obligatorio cuando el motivo es OTRO."""
+    noCompletadoObservacion: String
+    """Quien decidio cerrar sin conciliar. Es a quien preguntarle al revisar."""
+    noCompletadoPor: Usuario
+    noCompletadoEn: Date
+    """
+    Quien devolvio este cobro de NO_COMPLETADO a PENDIENTE. Null = nunca se reabrio.
+
+    Lo escribe el FILIAL y llega a central por replicacion. Se expone aca porque la lista general
+    de ventas con tarjeta lee de central.
+    """
+    reabiertoPor: Usuario
+    "Cuando se reabrio. Las no_completado_* se conservan: se sabe por que se habia marcado."
+    reabiertoEn: Date
     creadoEn: Date
 }
 

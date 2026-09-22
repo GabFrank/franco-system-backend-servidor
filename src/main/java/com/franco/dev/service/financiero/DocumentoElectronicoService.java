@@ -78,8 +78,50 @@ public class DocumentoElectronicoService extends CrudService<DocumentoElectronic
         return documentoElectronico;
     }
 
+    /**
+     * DE de una nota de remision: sin factura, con la FK a la nota y tipo NOTA_REMISION. El estado
+     * y el resto de los campos los completa SifenService (CDC, XML, QR).
+     */
+    public DocumentoElectronico createFromNotaRemision(com.franco.dev.domain.financiero.NotaRemision nota) {
+        DocumentoElectronico documentoElectronico = new DocumentoElectronico();
+        documentoElectronico.setSucursalId(nota.getSucursalId());
+        documentoElectronico.setNotaRemisionId(nota.getId());
+        documentoElectronico.setNumeroDocumento(String.valueOf(nota.getNumeroNotaRemision()));
+        documentoElectronico.setTipoDocumento(
+                com.franco.dev.service.sifen.util.TipoDocumentoElectronico.NOTA_REMISION);
+        documentoElectronico.setFechaEmision(nota.getFecha());
+        documentoElectronico.setActivo(true);
+        documentoElectronico.setEstado(EstadoDE.PENDIENTE);
+        return documentoElectronico;
+    }
+
+    /** DE de una nota de credito: sin factura, con la FK a la nota y tipo NOTA_CREDITO. */
+    public DocumentoElectronico createFromNotaCredito(com.franco.dev.domain.financiero.NotaCredito nota) {
+        DocumentoElectronico documentoElectronico = new DocumentoElectronico();
+        documentoElectronico.setSucursalId(nota.getSucursalId());
+        documentoElectronico.setNotaCreditoId(nota.getId());
+        documentoElectronico.setNumeroDocumento(String.valueOf(nota.getNumeroNotaCredito()));
+        documentoElectronico.setTipoDocumento(
+                com.franco.dev.service.sifen.util.TipoDocumentoElectronico.NOTA_CREDITO);
+        documentoElectronico.setFechaEmision(nota.getFecha());
+        documentoElectronico.setActivo(true);
+        documentoElectronico.setEstado(EstadoDE.PENDIENTE);
+        return documentoElectronico;
+    }
+
+    public Optional<DocumentoElectronico> findByNotaCreditoId(Long notaCreditoId, Long sucursalId) {
+        return repository.findByNotaCreditoId(notaCreditoId, sucursalId);
+    }
+
+    public Optional<DocumentoElectronico> findByNotaRemisionId(Long notaRemisionId, Long sucursalId) {
+        return repository.findByNotaRemisionId(notaRemisionId, sucursalId);
+    }
+
     @Override
     public DocumentoElectronico save(DocumentoElectronico entity) {
+        if (entity.getId() == null) {
+            entity.setId(repository.siguienteId());
+        }
         return super.save(entity);
     }
 }

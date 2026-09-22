@@ -28,4 +28,8 @@ public interface SolicitudPagoDetalleRepository extends HelperRepository<Solicit
     List<SolicitudPagoDetalle> findBySolicitudPagoIdOrderByOrdenAscIdAscWithMonedaAndFormaPago(@Param("solicitudPagoId") Long solicitudPagoId);
 
     void deleteBySolicitudPagoId(Long solicitudPagoId);
+
+    /** Id de la solicitud duena del detalle, sin cargar entidades (guardas de SolicitudPagoGraphQL). */
+    @Query("select d.solicitudPago.id from SolicitudPagoDetalle d where d.id = :id")
+    java.util.Optional<Long> findSolicitudIdById(@Param("id") Long id);
 }

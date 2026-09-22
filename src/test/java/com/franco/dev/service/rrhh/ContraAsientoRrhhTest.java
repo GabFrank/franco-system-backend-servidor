@@ -59,6 +59,7 @@ class ContraAsientoRrhhTest {
 
     private LiquidacionFinalRepository finiquitoRepository;
     private LiquidacionFinalService finiquitoService;
+    private PrestamoCuotaDescuentoService descuento;
     private ValeRepository valeRepository;
     private ValeService valeService;
 
@@ -105,6 +106,7 @@ class ContraAsientoRrhhTest {
 
         finiquitoRepository = mock(LiquidacionFinalRepository.class);
         when(finiquitoRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        descuento = mock(PrestamoCuotaDescuentoService.class);
         finiquitoService = new LiquidacionFinalService(
                 finiquitoRepository,
                 mock(PagoSolicitudDetalleRepository.class),
@@ -125,7 +127,8 @@ class ContraAsientoRrhhTest {
                 mock(PenalizacionRepository.class),
                 mock(CreditoConvenioService.class),
                 mock(AguinaldoRepository.class),
-                mock(BaseRemunerativaService.class));
+                mock(BaseRemunerativaService.class),
+                descuento);
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -147,6 +150,19 @@ class ContraAsientoRrhhTest {
         GraphQLException e = assertThrows(GraphQLException.class, () -> finiquitoService.pagar(77L, CAJA_ID));
         assertTrue(e.getMessage().toLowerCase().contains("negativo"),
                 "el mensaje tiene que explicar por que no se paga, dijo: " + e.getMessage());
+        assertEquals(0, SALDO_INICIAL.compareTo(saldo.getSaldo()),
+                "no tenia que moverse plata, la caja quedo en " + saldo.getSaldo());
+        assertEquals(LiquidacionFinalEstado.APROBADA, lf.getEstado());
+    }
+
+    /** Issue #300: una cuota del finiquito cobrada por caja despues del borrador frena el pago sin mover la caja. */
+    @Test
+    void unFiniquitoConCuotaCambiadaNoMueveLaCaja() {
+        LiquidacionFinal lf = finiquito(new BigDecimal("2000000"), LiquidacionFinalEstado.APROBADA);
+        org.mockito.Mockito.doThrow(new GraphQLException("cambiaron cuotas de prestamo. Vuelva a borrador y regenere."))
+                .when(descuento).validarFiniquito(77L);
+
+        assertThrows(GraphQLException.class, () -> finiquitoService.pagar(77L, CAJA_ID));
         assertEquals(0, SALDO_INICIAL.compareTo(saldo.getSaldo()),
                 "no tenia que moverse plata, la caja quedo en " + saldo.getSaldo());
         assertEquals(LiquidacionFinalEstado.APROBADA, lf.getEstado());

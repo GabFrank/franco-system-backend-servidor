@@ -34,3 +34,12 @@ src/main/resources/bodega-franco-frc-firebase-admin.json
 # Índices de búsqueda (Lucene/Hibernate Search) generados en runtime
 data/lucene/
 *.log
+
+# Fotos de los cupones de muestra con los que se configura un formato de terminal POS.
+#
+# En produccion `frc.captura.ruta-imagenes` es relativa al directorio del servicio, pero en
+# desarrollo el directorio de trabajo es la raiz del repo, asi que las fotos caen aca. Son
+# cupones de tarjeta REALES --numero de boleta, codigo de autorizacion, monto, serie de la
+# maquina--. El filial ya ignoraba su carpeta equivalente (`cupones/`) por el mismo motivo;
+# aca faltaba, y un `git add -A` distraido las commiteaba.
+muestras/

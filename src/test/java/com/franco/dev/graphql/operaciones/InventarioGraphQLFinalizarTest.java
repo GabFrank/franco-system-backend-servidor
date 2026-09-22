@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -277,6 +278,84 @@ class InventarioGraphQLFinalizarTest {
             mapa.put(((Number) pares[i]).longValue(), ((Number) pares[i + 1]).doubleValue());
         }
         return mapa;
+    }
+
+    /** El AJUSTE que dejo el primer cierre de la toma, antes de reabrirla. */
+    private MovimientoStock ajusteDelPrimerCierre(Long productoId, LocalDateTime creadoEn) {
+        Producto producto = new Producto();
+        producto.setId(productoId);
+        MovimientoStock ajuste = new MovimientoStock();
+        ajuste.setId(23871559L);
+        ajuste.setSucursalId(SUCURSAL);
+        ajuste.setProducto(producto);
+        ajuste.setCantidad(7.0);
+        ajuste.setCreadoEn(creadoEn);
+        when(movimientoStockService.findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(
+                any(), eq(INVENTARIO), eq(SUCURSAL), eq(productoId))).thenReturn(ajuste);
+        return ajuste;
+    }
+
+    @Test
+    @DisplayName("re-finalizar una toma reabierta compara contra el stock del primer cierre, no el de ahora")
+    void reFinalizarUsaElStockDelPrimerCierre() {
+        // Munich 269 en Calle 10, toma 7638: 362 contados contra 355 al primer cierre (+7). Despues
+        // entraron 1095 por transferencia y se vendieron 48; re-finalizada, el stock sin el ajuste
+        // era 1402 y el ajuste quedo en -1040.
+        LocalDateTime primerCierre = LocalDateTime.of(2026, 9, 3, 10, 25, 23);
+        ajusteDelPrimerCierre(CONTADO, primerCierre);
+        when(movimientoStockService.stockByProductoIdExecptMovStockId(eq(CONTADO), anyLong(), eq(SUCURSAL)))
+                .thenReturn(1402.0);
+        when(movimientoStockService.stockByProductoIdAndSucursalIdAntesDeFecha(CONTADO, SUCURSAL, primerCierre))
+                .thenReturn(355.0);
+        conItems(Collections.singletonList(item(CONTADO, 362.0, 1.0)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        ArgumentCaptor<MovimientoStock> guardados = ArgumentCaptor.forClass(MovimientoStock.class);
+        verify(movimientoStockService).save(guardados.capture());
+        assertEquals(7.0, guardados.getValue().getCantidad());
+        assertEquals(primerCierre, guardados.getValue().getCreadoEn());
+    }
+
+    @Test
+    @DisplayName("con lote, re-finalizar pide los saldos por lote al corte del mismo ajuste")
+    void reFinalizarConLoteUsaElMismoCorte() {
+        // El agregado y el desglose tienen que cortar en el mismo instante: si uno usara el stock
+        // de ahora y el otro el del primer cierre, la diferencia caeria entera en SIN LOTE.
+        LocalDateTime primerCierre = LocalDateTime.of(2026, 9, 3, 10, 25, 23);
+        MovimientoStock ajuste = ajusteDelPrimerCierre(CONTADO, primerCierre);
+        conProductoConLote(CONTADO);
+        conContadoPorLote(CONTADO, 41L, 362.0);
+        when(movimientoStockService.stockByProductoIdAndSucursalIdAntesDeFecha(CONTADO, SUCURSAL, primerCierre))
+                .thenReturn(355.0);
+        ArgumentCaptor<MovimientoStock> excluido = ArgumentCaptor.forClass(MovimientoStock.class);
+        when(inventarioLoteService.saldosPorLote(eq(CONTADO), eq(SUCURSAL), excluido.capture()))
+                .thenReturn(saldos(41L, 355.0));
+        conItems(Collections.singletonList(itemConLote(CONTADO, 362.0, 1.0, 41L)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        assertEquals(ajuste, excluido.getValue());
+        assertEquals(primerCierre, excluido.getValue().getCreadoEn());
+        ArgumentCaptor<MovimientoStock> guardados = ArgumentCaptor.forClass(MovimientoStock.class);
+        verify(movimientoStockService).save(guardados.capture());
+        assertEquals(7.0, guardados.getValue().getCantidad());
+    }
+
+    @Test
+    @DisplayName("un ajuste viejo sin creadoEn se recalcula como antes, contra el stock sin el ajuste")
+    void ajusteSinFechaSeRecalculaComoAntes() {
+        ajusteDelPrimerCierre(CONTADO, null);
+        when(movimientoStockService.stockByProductoIdExecptMovStockId(eq(CONTADO), anyLong(), eq(SUCURSAL)))
+                .thenReturn(10.0);
+        conItems(Collections.singletonList(item(CONTADO, 7.0, 1.0)));
+
+        resolver.finalizarInventarioEnSucursal(INVENTARIO);
+
+        ArgumentCaptor<MovimientoStock> guardados = ArgumentCaptor.forClass(MovimientoStock.class);
+        verify(movimientoStockService).save(guardados.capture());
+        assertEquals(-3.0, guardados.getValue().getCantidad());
+        verify(movimientoStockService, never()).stockByProductoIdAndSucursalIdAntesDeFecha(any(), any(), any());
     }
 
     @Test

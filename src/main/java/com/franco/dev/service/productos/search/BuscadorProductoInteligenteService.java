@@ -130,15 +130,16 @@ public class BuscadorProductoInteligenteService {
         }
     }
 
+    /**
+     * Corre también para términos que parecen código de barras: un número puede estar en la
+     * descripción ("... 50 GR 1014218"). Las coincidencias por código ya entraron antes, así que
+     * quedan primero, y el mapa descarta el producto que se repite.
+     */
     private void agregarCoincidenciasTexto(
             String texto,
             int fetchLimit,
             Boolean activo,
             Map<Long, BuscadorProductoResultado> destino) {
-        if (!pareceTextoDescriptivo(texto) && pareceCodigoBarras(texto)) {
-            return;
-        }
-
         List<Long> ids;
         if (productoSearchEnabled && productoSearchService.textoBusquedaValido(texto)) {
             ids = productoSearchService.buscarIdsPorTexto(texto, fetchLimit, activo, false, null, null);
@@ -185,9 +186,5 @@ public class BuscadorProductoInteligenteService {
             return false;
         }
         return texto.matches("\\d{3,}") || texto.matches("^[A-Za-z0-9\\-._]{4,32}$");
-    }
-
-    private boolean pareceTextoDescriptivo(String texto) {
-        return texto != null && texto.matches(".*[a-zA-ZáéíóúÁÉÍÓÚñÑ].*");
     }
 }

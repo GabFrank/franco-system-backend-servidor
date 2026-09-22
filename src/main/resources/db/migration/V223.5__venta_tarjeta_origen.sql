@@ -1,0 +1,55 @@
+-- =====================================================================
+-- venta_tarjeta.origen: de donde salieron los datos (lado SUBSCRIBER)
+-- =====================================================================
+-- QUE PROBLEMA RESUELVE
+--
+-- La tabla tiene los campos del cupon y ninguna columna que diga COMO se obtuvieron. No todos los
+-- origenes merecen la misma confianza: un codigo leido por OCR puede tener un caracter mal --el
+-- `Cargo: 002511` leido `802511` lo fallan los dos motores--, uno tipeado por un cajero puede
+-- tener cualquier cosa, y uno que viene de la API del proveedor no puede estar mal.
+--
+-- Sin esto, la conciliacion no puede responder la unica pregunta que importa: cuales de estas
+-- filas necesitan que las mire una persona.
+--
+-- ⚠️ ESTA MIGRACION HABILITA LA OTRA MITAD. LEER ANTES DE MERGEAR.
+--
+-- financiero.venta_tarjeta es BRANCH_TO_MAIN: la filial PUBLICA y central se SUSCRIBE. La fila de
+-- esa tabla en pg_publication_rel del filial no tiene column list (prattrs IS NULL, verificado),
+-- asi que PostgreSQL publica cualquier columna nueva automaticamente, sin ningun ALTER PUBLICATION
+-- de por medio.
+--
+-- Consecuencia: apenas una filial aplique SU migracion de `origen` y procese UNA SOLA venta con
+-- tarjeta, el stream hacia central incluye la columna. Si central no la tiene, su apply worker se
+-- detiene con "missing replicated column" y entra en crash-loop cada 5 s con el slot reteniendo
+-- WAL. Es el corte del 2026-08-20, y como develop→alpha del filial es automatico cada 15 minutos y
+-- sin aprobacion, llega solo.
+--
+-- POR ESO EL ORDEN ES: esta migracion primero, central DESPLEGADO, y recien despues se mergea la
+-- rama `feature/venta-tarjeta-origen` del filial. Es la direccion CONTRARIA a V221.5/V222.5, que
+-- exigen que el filial vaya primero.
+--
+-- Que central tenga una columna que el publisher todavia no manda es inocuo: un subscriber con
+-- columnas de mas no rompe nada. Por eso esta puede correr cuando sea; la que no puede adelantarse
+-- es la del filial.
+--
+-- SIN CHECK, Y ES A PROPOSITO
+--
+-- Central es el SUBSCRIBER de esta tabla. Un CHECK aca abortaria el apply si alguna filial llegara
+-- a escribir un valor que este lado no conoce --por ejemplo tras agregar un origen nuevo, en la
+-- ventana en que las filiales ya lo escriben y central todavia no actualizo. La validacion vive
+-- donde se escribe: VentaTarjetaService.completar() del filial, que si valida contra el whitelist
+-- antes de guardar, y el CHECK de la migracion V97.5 de ese repo.
+--
+-- Es la regla general de esta entrega, y se invierte tabla por tabla: CHECK solo donde el repo es
+-- el que escribe.
+--
+-- SIN BACKFILL
+--
+-- Nace nullable y las filas viejas quedan en NULL = historico desconocido. Convertir una suposicion
+-- en dato es peor que dejar el hueco visible: NULL dice "no se sabe" y un 'QR' inventado mentiria.
+-- =====================================================================
+ALTER TABLE financiero.venta_tarjeta
+    ADD COLUMN IF NOT EXISTS origen VARCHAR(20) NULL;
+
+COMMENT ON COLUMN financiero.venta_tarjeta.origen IS
+    'QR | OCR | MANUAL | API. Origen dominante de los datos del cupon; NULL = anterior a esta columna. Responde si la fila necesita revision humana. Sin CHECK: central es subscriber de esta tabla.';

@@ -26,6 +26,13 @@ public interface SolicitudPagoRepository extends HelperRepository<SolicitudPago,
     @Query("select s from SolicitudPago s where s.id = :id")
     Optional<SolicitudPago> lockById(@Param("id") Long id);
 
+    /**
+     * Solo el tipo, sin cargar la entidad: una lectura previa dejaria la solicitud en el contexto de persistencia y
+     * {@link #lockById} devolveria esa instancia sin refrescar (saldo viejo ante pagos concurrentes).
+     */
+    @Query("select s.tipo from SolicitudPago s where s.id = :id")
+    Optional<TipoSolicitudPago> findTipoById(@Param("id") Long id);
+
     java.util.List<SolicitudPago> findByEstadoIn(java.util.List<com.franco.dev.domain.operaciones.enums.SolicitudPagoEstado> estados);
 
     public List<SolicitudPago> findByUsuarioId(Long id);

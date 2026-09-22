@@ -13,6 +13,7 @@ import com.franco.dev.repository.rrhh.ValeRepository;
 import com.franco.dev.service.empresarial.ConfiguracionGeneralService;
 import com.franco.dev.service.rrhh.dto.ReciboLiquidacionItemDto;
 import com.franco.dev.utilitarios.NumeroALetrasService;
+import com.franco.dev.utilitarios.print.ReciboTicketEscPos;
 import graphql.GraphQLException;
 import net.sf.jasperreports.engine.JasperCompileManager;
 import net.sf.jasperreports.engine.JasperExportManager;
@@ -130,6 +131,8 @@ public class ReciboLiquidacionService {
         // El monto en letras acompania la frase de recepcion, que declara el BRUTO
         // ("recibi la suma de..."). El neto sigue mostrandose aparte, en "Total a cobrar".
         params.put("montoEnLetras", enLetras(montoDeclarado(liq)));
+        params.put("numero", liq.getId() != null ? liq.getId().toString() : null);
+        params.put("observacion", recortar(ReciboTicketEscPos.textoEnUnaLinea(liq.getObservacion()), MAX_OBSERVACION_A4));
 
         try (InputStream jrxmlStream = new ClassPathResource("reports/recibo-liquidacion.jrxml").getInputStream()) {
             JasperReport jasperReport = JasperCompileManager.compileReport(jrxmlStream);
@@ -153,11 +156,18 @@ public class ReciboLiquidacionService {
         BigDecimal bruto = montoDeclarado(liq);
         rows.add(new com.franco.dev.utilitarios.print.ReciboTicketEscPos.Row(
                 "NETO A COBRAR", formatoGs.format(netoACobrar(liq))));
-        return com.franco.dev.utilitarios.print.ReciboTicketEscPos.build(
-                razonSocial(), "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""),
+        return ReciboTicketEscPos.build(
+                razonSocial(), tituloTicket(liq),
                 nombreFuncionario(liq), documentoFuncionario(liq), LocalDate.now().toString(),
                 rows, formatoGs.format(bruto), enLetras(bruto),
-                "Recibi conforme, en concepto de haberes del periodo,", anchoMm);
+                "Recibi conforme, en concepto de haberes del periodo,",
+                ReciboTicketEscPos.textoEnUnaLinea(liq.getObservacion()), anchoMm);
+    }
+
+    /** Titulo de los tickets (PDF y ESC/POS): periodo y numero de la liquidacion. */
+    private String tituloTicket(LiquidacionSueldo liq) {
+        return ReporteRrhhService.tituloConNumero(
+                "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""), liq.getId());
     }
 
     /** Recibo de sueldo en formato ticket (58/80mm), plantilla genérica concepto/monto. */
@@ -173,7 +183,8 @@ public class ReciboLiquidacionService {
         BigDecimal bruto = montoDeclarado(liq);
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocial());
-        params.put("titulo", "RECIBO DE SUELDO " + (liq.getPeriodo() != null ? liq.getPeriodo() : ""));
+        params.put("titulo", tituloTicket(liq));
+        params.put("observacion", ReciboTicketEscPos.textoEnUnaLinea(liq.getObservacion()));
         params.put("funcionario", nombreFuncionario(liq));
         params.put("documento", documentoFuncionario(liq));
         params.put("fecha", LocalDate.now().toString());
@@ -215,6 +226,18 @@ public class ReciboLiquidacionService {
 
     /** Clave de configuracion que activa la consolidacion de cuotas de venta a credito. */
     private static final String CLAVE_CONSOLIDAR_CREDITO = "LIQUIDACION_CONSOLIDAR_CUOTAS_CREDITO";
+
+    /**
+     * Largo maximo de la observacion en el recibo A4. Ahi va en un recuadro de alto fijo
+     * (las dos vias tienen que entrar en una hoja) que achica la letra para que entre; mas
+     * largo que esto baja de 6 pt. Los tickets estiran y la imprimen entera.
+     */
+    public static final int MAX_OBSERVACION_A4 = 300;
+
+    private static String recortar(String s, int max) {
+        if (s == null || s.length() <= max) return s;
+        return s.substring(0, max - 3).trim() + "...";
+    }
 
     /** Concepto de una fila de ticket: la descripcion del item, o su categoria si no tiene. */
     private String conceptoTicket(LiquidacionItem it, Map<String, String> cacheCatalogo) {

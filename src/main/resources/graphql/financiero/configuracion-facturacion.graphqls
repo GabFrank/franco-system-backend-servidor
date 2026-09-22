@@ -1,0 +1,46 @@
+# Como factura automaticamente el filial (issue filial #127).
+# TODAS: toda venta con punto de venta.
+# INTERVALO: una de cada ventasSinFactura + 1 (el facturaCountDown de siempre).
+# A_PEDIDO: nunca automatica, solo cuando el cliente la pide.
+enum ModoFacturacion {
+    TODAS
+    INTERVALO
+    A_PEDIDO
+}
+
+type ConfiguracionFacturacion {
+    id: ID!
+    "null = politica global; con valor, el override de esa sucursal."
+    sucursal: Sucursal
+    modo: ModoFacturacion!
+    "Solo INTERVALO: ventas sin factura entre dos facturadas."
+    ventasSinFactura: Int!
+    "false = Venta + Ticket y delivery facturan siempre; true = decide la politica."
+    ventaTicketRespetaPolitica: Boolean!
+    usuario: Usuario
+    creadoEn: Date
+    modificadoEn: Date
+}
+
+"""
+Reemplazo completo, no PATCH. La clave es sucursalId (null = global): guardar sobre una clave
+que ya tiene fila la actualiza.
+"""
+input ConfiguracionFacturacionInput {
+    id: ID
+    sucursalId: ID
+    modo: ModoFacturacion!
+    ventasSinFactura: Int
+    ventaTicketRespetaPolitica: Boolean
+    usuarioId: ID
+}
+
+extend type Query {
+    configuracionesFacturacion: [ConfiguracionFacturacion]!
+}
+
+extend type Mutation {
+    saveConfiguracionFacturacion(input: ConfiguracionFacturacionInput!): ConfiguracionFacturacion!
+    "Borrar un override devuelve la sucursal a la global; borrar la global, a la property del filial."
+    deleteConfiguracionFacturacion(id: ID!): Boolean!
+}

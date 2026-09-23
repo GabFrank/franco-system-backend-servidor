@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.financiero;
 
 import com.franco.dev.domain.financiero.ConfiguracionFacturacion;
+import com.franco.dev.domain.financiero.ConfiguracionFacturacionHistorial;
 import com.franco.dev.graphql.financiero.input.ConfiguracionFacturacionInput;
 import com.franco.dev.service.financiero.ConfiguracionFacturacionService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
@@ -39,6 +40,18 @@ public class ConfiguracionFacturacionGraphQL implements GraphQLQueryResolver, Gr
 
     public Boolean deleteConfiguracionFacturacion(Long id) {
         seg.requireAnyRole(TesoreriaSecurityService.ADMIN);
-        return service.eliminar(id);
+        return service.eliminar(id, seg.currentUsuario());
+    }
+
+    /** Activa o desactiva todas las configuraciones de sucursal (nunca la global). Devuelve cuantas cambio. */
+    public Integer setActivoConfiguracionesFacturacion(Boolean activo) {
+        seg.requireAnyRole(TesoreriaSecurityService.ADMIN);
+        return service.setActivoSucursales(activo, seg.currentUsuario());
+    }
+
+    /** sucursalId null = todo; -1 = solo la global. Mas reciente primero. */
+    public List<ConfiguracionFacturacionHistorial> historialConfiguracionFacturacion(Long sucursalId, Integer limite) {
+        seg.requireVer();
+        return service.historial(sucursalId, limite);
     }
 }

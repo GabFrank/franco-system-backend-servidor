@@ -25,6 +25,18 @@ SIFEN) sin que el cajero la pida, y si «Venta + Ticket» y delivery respetan es
 - El guardado es **reemplazo completo** con upsert por sucursal: guardar sobre una sucursal que ya
   tiene fila la actualiza.
 
+## Activo e historial
+
+- **`activo`** por fila: una fila inactiva se ignora (la sucursal sigue a la global, o a su
+  property) pero conserva sus valores. «Desactivar sucursales» / «Activar sucursales»
+  (`setActivoConfiguracionesFacturacion`) cambia todas las de sucursal, nunca la global. En una
+  edición, `activo` nulo conserva el valor. **Desactivar no es kill switch:** un rollback del
+  filial vuelve a aplicar las inactivas; el kill switch es el `DELETE`.
+- **`configuracion_facturacion_historial`**: solo central, **no se replica** (no está en
+  `replication_table`). Una fila por `CREAR`, `MODIFICAR`, `ACTIVAR`, `DESACTIVAR`, `ELIMINAR`,
+  escrita en la misma transacción que el cambio. Se consulta con
+  `historialConfiguracionFacturacion(sucursalId, limite)` (`-1` = solo la global).
+
 ## Despliegue (tabla `MAIN_TO_ALL` nueva)
 
 1. **Filial primero.** Antes de desplegar el central del canal, cada filial tiene que mostrar

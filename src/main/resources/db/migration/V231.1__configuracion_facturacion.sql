@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS financiero.configuracion_facturacion (
     modo                          VARCHAR(20) NOT NULL DEFAULT 'INTERVALO',
     ventas_sin_factura            INTEGER     NOT NULL DEFAULT 0,
     venta_ticket_respeta_politica BOOLEAN     NOT NULL DEFAULT FALSE,
+    activo                        BOOLEAN     NOT NULL DEFAULT TRUE,
     usuario_id                    BIGINT,
     creado_en                     TIMESTAMP   DEFAULT NOW(),
     modificado_en                 TIMESTAMP   DEFAULT NOW(),
@@ -69,8 +70,37 @@ COMMENT ON COLUMN financiero.configuracion_facturacion.sucursal_id IS
 COMMENT ON COLUMN financiero.configuracion_facturacion.ventas_sin_factura IS
     'Solo INTERVALO: ventas sin factura entre dos facturadas (misma semantica que facturaCountDown).';
 
+COMMENT ON COLUMN financiero.configuracion_facturacion.activo IS
+    'false = el filial ignora la fila (la sucursal sigue a la global, o a su property) pero conserva sus valores. Desactivar NO es kill switch: el kill switch es el DELETE.';
+
 COMMENT ON COLUMN financiero.configuracion_facturacion.venta_ticket_respeta_politica IS
     'false = Venta + Ticket y delivery facturan siempre (comportamiento historico); true = decide la politica.';
+
+-- ---------------------------------------------------------------------
+-- Historial de cambios: SOLO CENTRAL. No se registra en replication_table ni entra a central_pub:
+-- el filial no la lee. configuracion_id sin FK para que la fila sobreviva al borrado.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS financiero.configuracion_facturacion_historial (
+    id                            BIGSERIAL PRIMARY KEY,
+    configuracion_id              BIGINT      NOT NULL,
+    sucursal_id                   BIGINT,
+    accion                        VARCHAR(20) NOT NULL,
+    modo                          VARCHAR(20) NOT NULL,
+    ventas_sin_factura            INTEGER     NOT NULL,
+    venta_ticket_respeta_politica BOOLEAN     NOT NULL,
+    activo                        BOOLEAN     NOT NULL,
+    usuario_id                    BIGINT,
+    creado_en                     TIMESTAMP   NOT NULL DEFAULT NOW(),
+    CONSTRAINT fk_configuracion_facturacion_historial_sucursal FOREIGN KEY (sucursal_id) REFERENCES empresarial.sucursal (id),
+    CONSTRAINT fk_configuracion_facturacion_historial_usuario FOREIGN KEY (usuario_id) REFERENCES personas.usuario (id),
+    CONSTRAINT ck_configuracion_facturacion_historial_accion CHECK (accion IN ('CREAR', 'MODIFICAR', 'ACTIVAR', 'DESACTIVAR', 'ELIMINAR'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_configuracion_facturacion_historial_sucursal
+    ON financiero.configuracion_facturacion_historial (sucursal_id, id DESC);
+
+COMMENT ON TABLE financiero.configuracion_facturacion_historial IS
+    'Historial de la politica de facturacion. SOLO CENTRAL, NO REPLICAR. Guarda los valores despues de cada cambio; en ELIMINAR, los que tenia la fila al borrarse.';
 
 INSERT INTO configuraciones.replication_table
     (table_name, direction, description, enabled, replicate_central_to_branch_with_filter, creado_en)

@@ -21,4 +21,7 @@ public interface ConfiguracionFacturacionRepository extends HelperRepository<Con
 
     /** El override de una sucursal. */
     Optional<ConfiguracionFacturacion> findFirstBySucursalId(Long sucursalId);
+
+    /** Las filas de sucursal (nunca la global) que no estan ya en ese estado: el masivo. */
+    List<ConfiguracionFacturacion> findBySucursalIsNotNullAndActivoNotOrderByIdAsc(Boolean activo);
 }

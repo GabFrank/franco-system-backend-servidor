@@ -15,4 +15,6 @@ public class ConfiguracionFacturacionInput {
     private ModoFacturacion modo;
     private Integer ventasSinFactura;
     private Boolean ventaTicketRespetaPolitica;
+    /** true por defecto al crear; en una edicion, null conserva el valor (un cliente viejo no lo manda). */
+    private Boolean activo;
 }

@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -93,6 +94,10 @@ public class SifenSchedulerService {
             log.info("   Fecha/Hora: {}", LocalDateTime.now());
             log.info("=================================================================");
             
+            // PASO 0: Recuperar lotes que quedaron sin enviarse (huerfanos)
+            log.info("\n♻️  PASO 0: Recuperar lotes atrasados");
+            procesarLotesAtrasados();
+
             // PASO 1: Crear y enviar lotes con DEs pendientes
             log.info("\n📦 PASO 1: Crear y enviar lotes con DEs pendientes");
             crearYEnviarLotes();
@@ -116,6 +121,88 @@ public class SifenSchedulerService {
             log.error("❌ Error en procesamiento automático de lotes", e);
         } finally {
             procesandoLotes = false;
+        }
+    }
+
+    /**
+     * Reenvía los lotes que quedaron atrasados: creados pero nunca enviados con éxito
+     * (PENDIENTE_ENVIO, ERROR_ENVIO, ERROR_RED). Portado del filial, que ya lo tenía.
+     *
+     * Sin esto un lote que falla al enviarse queda huérfano para siempre: sus DE quedan en EN_LOTE,
+     * que no es lo que busca {@link #crearYEnviarLotes} (PENDIENTE) ni
+     * {@link #consultarLotesPendientes} (lotes EN_PROCESO). Con las notas electrónicas, que se
+     * envían en el momento y no por el scheduler, ese hueco es el modo de falla normal.
+     *
+     * Sin límite de reintentos, y saltea los lotes de menos de un minuto: pueden estar enviándose.
+     */
+    @Transactional
+    public void procesarLotesAtrasados() {
+        try {
+            List<EstadoLoteDE> estadosParaProcesar = Arrays.asList(
+                EstadoLoteDE.PENDIENTE_ENVIO,
+                EstadoLoteDE.ERROR_ENVIO,
+                EstadoLoteDE.ERROR_RED
+            );
+            List<LoteDE> lotesAtrasados = loteDEService.findByEstados(estadosParaProcesar);
+
+            if (lotesAtrasados.isEmpty()) {
+                return;
+            }
+
+            int lotesReenviados = 0;
+            int lotesConError = 0;
+            int lotesSinDocumentos = 0;
+
+            for (LoteDE lote : lotesAtrasados) {
+                try {
+                    List<com.franco.dev.domain.financiero.DocumentoElectronico> documentos =
+                        documentoElectronicoService.findByLoteDe(lote);
+
+                    if (documentos.isEmpty()) {
+                        log.warn("⚠️  Lote {} no tiene documentos asociados - marcando como ERROR_PERMANENTE",
+                            lote.getId());
+                        lote.setEstado(EstadoLoteDE.ERROR_PERMANENTE);
+                        loteDEService.save(lote);
+                        lotesSinDocumentos++;
+                        continue;
+                    }
+
+                    // Un lote recién creado puede estar enviándose en este mismo momento
+                    if (lote.getCreadoEn() != null &&
+                        lote.getCreadoEn().isAfter(LocalDateTime.now().minusMinutes(1))) {
+                        log.debug("   ⏳ Lote {} es muy reciente - se reintenta en la próxima vuelta",
+                            lote.getId());
+                        continue;
+                    }
+
+                    log.info("   🔄 Reintentando envío del lote {} (estado {}, intentos {})",
+                        lote.getId(), lote.getEstado(), lote.getIntentos());
+                    sifenService.enviarLote(lote);
+
+                    LoteDE loteActualizado = loteDEService
+                        .findByIdAndSucursalId(lote.getId(), lote.getSucursalId()).orElse(null);
+                    if (loteActualizado != null
+                            && loteActualizado.getEstado() == EstadoLoteDE.EN_PROCESO) {
+                        lotesReenviados++;
+                    } else {
+                        lotesConError++;
+                    }
+
+                } catch (Exception e) {
+                    log.error("❌ Error al reenviar lote {}: {}", lote.getId(), e.getMessage());
+                    lote.setIntentos(lote.getIntentos() == null ? 1 : lote.getIntentos() + 1);
+                    lote.setFechaUltimoIntento(LocalDateTime.now());
+                    // Se mantiene el estado recuperable: la próxima vuelta lo vuelve a tomar
+                    loteDEService.save(lote);
+                    lotesConError++;
+                }
+            }
+
+            log.info("📊 Lotes atrasados: {} reenviados, {} con error, {} sin documentos (de {})",
+                lotesReenviados, lotesConError, lotesSinDocumentos, lotesAtrasados.size());
+
+        } catch (Exception e) {
+            log.error("❌ Error al procesar lotes atrasados", e);
         }
     }
 
@@ -160,7 +247,7 @@ public class SifenSchedulerService {
                 
                 try {
                     // 3.1. Crear lote en BD
-                    LoteDE lote = sifenService.crearLote();
+                    LoteDE lote = sifenService.crearLote(loteDEs.get(0).getSucursalId());
                     log.info("✅ Lote creado con ID: {}", lote.getId());
                     
                     // 3.2. Vincular DEs al lote

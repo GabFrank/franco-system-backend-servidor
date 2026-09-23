@@ -199,6 +199,17 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return service.findActiveBySucursalId(sucursalId);
     }
 
+    /**
+     * Los cajeros que hoy estan en caja en la sucursal.
+     *
+     * Existe aparte de cajaAbiertoPorSucursal porque ese devuelve todo lo que tiene activo = true,
+     * que incluye cajas abandonadas de anios anteriores. Ese comportamiento se deja intacto porque
+     * la grilla de cajas y los balances dependen de el; aca hace falta el criterio estricto.
+     */
+    public List<Usuario> cajerosConCajaAbiertaPorSucursal(Long sucursalId) {
+        return service.findCajerosConCajaAbiertaBySucursalId(sucursalId);
+    }
+
     public PdvCaja imprimirBalance(Long id, String printerName, String local, Long sucId) {
         // Ruteo a la filial SOLO cuando el caller no especifica impresora (frc-mobile envia
         // printerName=null y la filial resuelve su propia config). El desktop siempre envia
@@ -413,13 +424,14 @@ public class PdvCajaGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
                     apertura, conteoInput, conteoMonedaInputList, usuarioId);
             log.info("[{}] ====== EXITO. cajaId={}, nuevoConteoId={}, tiempo={}ms ======",
                     logPrefix, cajaId, nuevoConteoId, (System.currentTimeMillis() - inicioMs));
-            return CajaFilialOperacionResult.ok(cajaId);
+            return CajaFilialOperacionResult.ok(cajaId, nuevoConteoId);
         } catch (org.springframework.web.client.ResourceAccessException e) {
             log.error("[{}] FALLO DE CONEXION con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
-            throw new GraphQLException("No se pudo conectar con la sucursal. No se modifico ningun monto.");
+            // Un timeout de lectura puede llegar con la edicion ya confirmada en la filial: no afirmar que no se guardo.
+            throw new GraphQLException("No se pudo confirmar la edicion con la sucursal. Vuelva a abrir la caja para ver los montos vigentes.");
         } catch (org.springframework.web.client.RestClientException e) {
             log.error("[{}] Error de cliente REST con la filial (sucursalId={}). Detalle: {}", logPrefix, sucursalId, e.getMessage(), e);
-            throw new GraphQLException("Error de comunicacion con la sucursal. No se modifico ningun monto.");
+            throw new GraphQLException("Error de comunicacion con la sucursal. Vuelva a abrir la caja para ver los montos vigentes.");
         } catch (Exception e) {
             log.error("[{}] No se pudo editar el conteo (cajaId={}, sucursalId={}). Detalle: {}",
                     logPrefix, cajaId, sucursalId, e.getMessage(), e);

@@ -1345,6 +1345,28 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
         }
     }
 
+    /** Horas que SIFEN da para cancelar una FACTURA electronica desde que la aprueba. */
+    public static final int HORAS_PARA_CANCELAR_FACTURA = 48;
+
+    /**
+     * Devuelve el mensaje de error si ya vencio el plazo de cancelacion, o null si todavia se puede.
+     * Sin fecha de aprobacion no se bloquea nada: se deja que SIFEN decida, como hasta ahora.
+     */
+    String validarPlazoDeCancelacion(Long facturaLegalId, Long sucursalId) {   // visible para el test
+        java.util.Optional<DocumentoElectronico> de =
+                documentoElectronicoService.findByFacturaLegalId(facturaLegalId, sucursalId);
+        if (!de.isPresent() || de.get().getFechaRecepcionSifen() == null) {
+            return null;
+        }
+        java.time.LocalDateTime vence = de.get().getFechaRecepcionSifen().plusHours(HORAS_PARA_CANCELAR_FACTURA);
+        if (java.time.LocalDateTime.now().isAfter(vence)) {
+            return "ERROR_PLAZO_NC: pasaron más de " + HORAS_PARA_CANCELAR_FACTURA
+                    + " h desde la aprobación de SIFEN. La cancelación ya no se acepta: "
+                    + "hay que emitir una nota de crédito.";
+        }
+        return null;
+    }
+
     public String cancelarFacturaLegal(Long facturaLegalId, Long sucursalId, Boolean cancelarVenta) {
         try {
             // Buscar la factura
@@ -1362,6 +1384,14 @@ public class FacturaLegalGraphQL implements GraphQLQueryResolver, GraphQLMutatio
             boolean esElectronica = factura.getCdc() != null && !factura.getCdc().isEmpty();
 
             if (esElectronica) {
+                // SIFEN solo acepta el evento de cancelacion dentro de las 48 h de la aprobacion.
+                // Pasado ese plazo la unica via es una nota de credito, y conviene decirlo aca en
+                // vez de esperar el rechazo: el cliente ofrece emitirla al ver ERROR_PLAZO_NC.
+                String plazo = validarPlazoDeCancelacion(facturaLegalId, sucursalId);
+                if (plazo != null) {
+                    return plazo;
+                }
+
                 // Factura electrónica - usar SIFEN
                 // El método cancelarDE ya maneja su propia transacción y guarda el evento
                 try {

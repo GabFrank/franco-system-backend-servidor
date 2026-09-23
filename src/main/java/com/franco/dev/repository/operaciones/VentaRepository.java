@@ -208,18 +208,20 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         @Param("fin") LocalDateTime fin);
 
         @Query(value = "SELECT CAST(extract(month from v.creado_en) as integer) as mes, " +
-                        "SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) as total, " +
-                        "COUNT(DISTINCT v.id) as cantidad, " +
-                        "SUM(CASE WHEN fp.descripcion = 'EFECTIVO' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as efvo, " +
-                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as tarjeta, " +
-                        "SUM(CASE WHEN fp.descripcion NOT IN ('EFECTIVO', 'TARJETA') THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as otros " +
+                        "SUM(CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) as total, " +
+                        "COUNT(DISTINCT (v.id, v.sucursal_id)) as cantidad, " +
+                        "SUM(CASE WHEN fp.descripcion = 'EFECTIVO' THEN (CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) ELSE 0 END) as efvo, " +
+                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN (CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) ELSE 0 END) as tarjeta, " +
+                        "SUM(CASE WHEN fp.descripcion NOT IN ('EFECTIVO', 'TARJETA') THEN (CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) ELSE 0 END) as otros " +
                         "FROM operaciones.venta v " +
                         "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
                         "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
                         "AND v.sucursal_id = :sucId " +
                         "AND v.estado = 'CONCLUIDA' " +
-                        "AND cd.pago = true " +
+                        // El vuelto (pago=false, vuelto=true) se guarda negativo: tiene que
+                        // entrar para restarse, y se resta con ABS por las filas viejas en positivo.
+                        "AND (cd.pago = true OR cd.vuelto = true) " +
                         "AND NOT EXISTS ( " +
                         "  SELECT 1 FROM operaciones.cobro_detalle cd_bad " +
                         "  WHERE cd_bad.cobro_id = v.cobro_id AND cd_bad.sucursal_id = v.sucursal_id " +
@@ -231,17 +233,19 @@ public interface VentaRepository extends HelperRepository<Venta, EmbebedPrimaryK
                         @Param("fin") LocalDateTime fin, @Param("sucId") Long sucId);
 
         @Query(value = "SELECT CAST(extract(month from v.creado_en) as integer) as mes, " +
-                        "SUM((CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END)) as total, " +
-                        "COUNT(DISTINCT v.id) as cantidad, " +
-                        "SUM(CASE WHEN fp.descripcion = 'EFECTIVO' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as efvo, " +
-                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as tarjeta, " +
-                        "SUM(CASE WHEN fp.descripcion NOT IN ('EFECTIVO', 'TARJETA') THEN (CASE WHEN cd.pago = true THEN cd.valor * cd.cambio ELSE 0 END) - (CASE WHEN cd.vuelto = true THEN cd.valor * cd.cambio ELSE 0 END) ELSE 0 END) as otros " +
+                        "SUM(CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) as total, " +
+                        "COUNT(DISTINCT (v.id, v.sucursal_id)) as cantidad, " +
+                        "SUM(CASE WHEN fp.descripcion = 'EFECTIVO' THEN (CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) ELSE 0 END) as efvo, " +
+                        "SUM(CASE WHEN fp.descripcion = 'TARJETA' THEN (CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) ELSE 0 END) as tarjeta, " +
+                        "SUM(CASE WHEN fp.descripcion NOT IN ('EFECTIVO', 'TARJETA') THEN (CASE WHEN cd.pago = true THEN cd.valor * COALESCE(cd.cambio, 1) WHEN cd.vuelto = true THEN -ABS(cd.valor * COALESCE(cd.cambio, 1)) ELSE 0 END) ELSE 0 END) as otros " +
                         "FROM operaciones.venta v " +
                         "JOIN operaciones.cobro_detalle cd ON cd.cobro_id = v.cobro_id AND cd.sucursal_id = v.sucursal_id " +
                         "JOIN financiero.forma_pago fp ON cd.forma_pago_id = fp.id " +
                         "WHERE v.creado_en BETWEEN :inicio AND :fin " +
                         "AND v.estado = 'CONCLUIDA' " +
-                        "AND cd.pago = true " +
+                        // El vuelto (pago=false, vuelto=true) se guarda negativo: tiene que
+                        // entrar para restarse, y se resta con ABS por las filas viejas en positivo.
+                        "AND (cd.pago = true OR cd.vuelto = true) " +
                         "AND NOT EXISTS ( " +
                         "  SELECT 1 FROM operaciones.cobro_detalle cd_bad " +
                         "  WHERE cd_bad.cobro_id = v.cobro_id AND cd_bad.sucursal_id = v.sucursal_id " +

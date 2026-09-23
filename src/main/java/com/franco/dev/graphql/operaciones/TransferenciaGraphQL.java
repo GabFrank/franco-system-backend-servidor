@@ -11,6 +11,9 @@ import com.franco.dev.domain.operaciones.enums.TipoTransferencia;
 import com.franco.dev.domain.operaciones.enums.TransferenciaEstado;
 import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.graphql.operaciones.input.TransferenciaInput;
+import com.franco.dev.graphql.operaciones.publisher.TransferenciaQrEscaneadoPublisher;
+import com.franco.dev.graphql.operaciones.publisher.TransferenciaQrEscaneadoUpdate;
+import com.franco.dev.security.Unsecured;
 import com.franco.dev.service.empresarial.SucursalService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
@@ -20,6 +23,8 @@ import com.franco.dev.service.personas.UsuarioService;
 import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
+import graphql.kickstart.tools.GraphQLSubscriptionResolver;
+import org.reactivestreams.Publisher;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,7 +39,7 @@ import java.util.Optional;
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
 
 @Component
-public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
+public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver, GraphQLSubscriptionResolver {
 
     @Autowired
     private TransferenciaService service;
@@ -63,6 +68,35 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private TransferenciaQrEscaneadoPublisher qrEscaneadoPublisher;
+
+    /**
+     * Avisa que se escaneó el QR de una transferencia.
+     *
+     * Va sin seguridad igual que {@code ventaCreditoQrAuth}: lo único que
+     * viaja son dos ids que el que escanea ya tenía delante en el QR, y lo
+     * único que provoca es que se cierre un diálogo. No lee ni modifica
+     * nada de la transferencia.
+     */
+    @Unsecured
+    public Boolean transferenciaQrEscaneado(Long id, Long sucursalId) {
+        try {
+            TransferenciaQrEscaneadoUpdate entity = new TransferenciaQrEscaneadoUpdate();
+            entity.setTransferenciaId(id);
+            entity.setSucursalId(sucursalId);
+            qrEscaneadoPublisher.publish(entity);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Unsecured
+    public Publisher<TransferenciaQrEscaneadoUpdate> transferenciaQrEscaneadoSub() {
+        return qrEscaneadoPublisher.getPublisher();
+    }
 
     public Optional<Transferencia> transferencia(Long id) {
         return service.findById(id);
@@ -106,6 +140,31 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         }
     }
 
+    /**
+     * El solicitante se carga a mano en la etapa de creacion y es obligatorio para salir de ella.
+     *
+     * Se valida al salir de PRE_TRANSFERENCIA_CREACION y no en cada avance, por dos razones: las
+     * transferencias anteriores a esta columna estan todas mas adelante en el flujo y seguirian
+     * avanzando sin quedar trabadas, y una transferencia nueva no tiene forma de esquivar el
+     * control porque siempre nace en esa etapa. El chequeo no vive dentro del {@code case} de
+     * PRE_TRANSFERENCIA_ORIGEN porque {@link EtapaTransferencia#puedeAvanzarA} permite saltear
+     * etapas hacia adelante, y ese salto lo saltearia tambien.
+     *
+     * Se llama desde {@code avanzarEtapaTransferencia} y tambien desde {@code saveTransferencia},
+     * porque el cliente reenvia la etapa en cada save y por ahi tambien se puede avanzar. Lo que
+     * nunca se exige es tener solicitante para crear: la transferencia nace al confirmar origen y
+     * destino, y recien despues se elige quien pidio los productos.
+     */
+    private void validarSolicitanteCargado(Long id, EtapaTransferencia actual, EtapaTransferencia destino,
+            Usuario solicitante) {
+        if (actual != EtapaTransferencia.PRE_TRANSFERENCIA_CREACION) return;
+        if (destino == null || destino == EtapaTransferencia.PRE_TRANSFERENCIA_CREACION) return;
+        if (solicitante == null) {
+            throw new GraphQLException("La transferencia " + id
+                    + " no puede avanzar sin solicitante: hay que indicar que funcionario pidio los productos.");
+        }
+    }
+
     public Transferencia saveTransferencia(TransferenciaInput input) {
         ModelMapper m = new ModelMapper();
         Transferencia e = m.map(input, Transferencia.class);
@@ -121,6 +180,18 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         // El cliente reenvia la etapa en cada save (ver Transferencia.toInput en el desktop), asi
         // que un input viejo alcanza para retroceder el header si no se valida aca.
         validarAvanceDeEtapa(transferencia, input.getEtapa());
+
+        if (input.getSolicitanteId() != null)
+            e.setSolicitante(usuarioService.findById(input.getSolicitanteId()).orElse(null));
+        else if (transferencia != null)
+            e.setSolicitante(transferencia.getSolicitante());
+
+        // El save tambien puede mover la etapa (el cliente la reenvia), asi que la obligatoriedad
+        // del solicitante se controla por los dos caminos y no solo por avanzarEtapaTransferencia.
+        if (transferencia != null) {
+            validarSolicitanteCargado(transferencia.getId(), transferencia.getEtapa(), input.getEtapa(),
+                    e.getSolicitante());
+        }
 
         if (input.getUsuarioPreTransferenciaId() != null)
             e.setUsuarioPreTransferencia(usuarioService.findById(input.getUsuarioPreTransferenciaId()).orElse(null));
@@ -256,10 +327,24 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         return service.count();
     }
 
+    /**
+     * Cierra la creacion y manda la transferencia a origen.
+     *
+     * Usado en:
+     * - Desktop: No (inyecta el GQL pero la unica llamada esta comentada; su boton "Finalizar"
+     *   usa avanzarEtapaTransferencia)
+     * - Mobile: Si (la PWA cierra el borrador por aca)
+     *
+     * ⚠️ **Mueve la etapa sin pasar por avanzarEtapaTransferencia**, asi que las validaciones de
+     * ese camino hay que repetirlas aca o no se aplican a nadie que entre por este. El solicitante
+     * se colaba justamente por este agujero.
+     */
     public Boolean finalizarTransferencia(Long id, Long usuarioId) {
         Transferencia transferencia = service.findById(id).orElse(null);
         Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
         if (transferencia.getEstado() == TransferenciaEstado.ABIERTA) {
+            validarSolicitanteCargado(transferencia.getId(), transferencia.getEtapa(),
+                    EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN, transferencia.getSolicitante());
             transferencia.setEstado(TransferenciaEstado.EN_ORIGEN);
             transferencia.setEtapa(EtapaTransferencia.PRE_TRANSFERENCIA_ORIGEN);
             transferencia.setUsuarioPreTransferencia(usuario);
@@ -277,6 +362,8 @@ public class TransferenciaGraphQL implements GraphQLQueryResolver, GraphQLMutati
         Transferencia transferencia = transferencia(id).orElse(null);
         if (transferencia != null) {
             validarAvanceDeEtapa(transferencia, etapa);
+            validarSolicitanteCargado(transferencia.getId(), transferencia.getEtapa(), etapa,
+                    transferencia.getSolicitante());
             Usuario usuario = usuarioService.findById(usuarioId).orElse(null);
             List<TransferenciaItem> transferenciaItemList = transferenciaItemService
                     .findByTransferenciaId(transferencia.getId());

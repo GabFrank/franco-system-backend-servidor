@@ -8,10 +8,11 @@
 	<parameter name="clausula" class="java.lang.String"/>
 	<parameter name="total" class="java.lang.String"/>
 	<parameter name="totalEnLetras" class="java.lang.String"/>
+	<parameter name="observacion" class="java.lang.String"/>
 	<field name="concepto" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
 	<title>
-		<band height="120" splitType="Stretch">
+		<band height="88" splitType="Stretch">
 			<textField isStretchWithOverflow="true">
 				<reportElement x="0" y="0" width="152" height="12"/>
 				<textElement textAlignment="Center"><font fontName="SansSerif" size="8" isBold="true"/></textElement>
@@ -76,7 +77,7 @@
 		</band>
 	</detail>
 	<summary>
-		<band height="150" splitType="Stretch">
+		<band height="162" splitType="Stretch">
 			<line>
 				<reportElement x="0" y="2" width="152" height="1"/>
 				<graphicElement><pen lineWidth="0.75"/></graphicElement>
@@ -92,19 +93,26 @@
 				<textFieldExpression><![CDATA["Gs. " + ($P{total} != null ? $P{total} : "")]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true">
-				<reportElement x="0" y="24" width="152" height="30" positionType="Float"/>
+				<reportElement x="0" y="36" width="152" height="30" positionType="Float"/>
 				<textElement textAlignment="Justified"><font fontName="SansSerif" size="7"/></textElement>
 				<textFieldExpression><![CDATA[($P{clausula} != null ? $P{clausula} : "") + " la suma de " + ($P{totalEnLetras} != null ? $P{totalEnLetras} : "") + " (Gs. " + ($P{total} != null ? $P{total} : "") + ")."]]></textFieldExpression>
 			</textField>
 			<line>
-				<reportElement x="26" y="96" width="100" height="1" positionType="Float"/>
+				<reportElement x="26" y="108" width="100" height="1" positionType="Float"/>
 				<graphicElement><pen lineWidth="0.5"/></graphicElement>
 			</line>
 			<staticText>
-				<reportElement x="0" y="99" width="152" height="11" positionType="Float"/>
+				<reportElement x="0" y="111" width="152" height="11" positionType="Float"/>
 				<textElement textAlignment="Center"><font fontName="SansSerif" size="7"/></textElement>
 				<text><![CDATA[Firma / C.I.]]></text>
 			</staticText>
+			<textField isStretchWithOverflow="true">
+				<reportElement x="0" y="21" width="152" height="10" positionType="Float" isRemoveLineWhenBlank="true">
+					<printWhenExpression><![CDATA[$P{observacion} != null && $P{observacion}.trim().length() > 0]]></printWhenExpression>
+				</reportElement>
+				<textElement><font fontName="SansSerif" size="7"/></textElement>
+				<textFieldExpression><![CDATA["Obs.: " + $P{observacion}]]></textFieldExpression>
+			</textField>
 		</band>
 	</summary>
 </jasperReport>

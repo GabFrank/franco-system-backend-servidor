@@ -89,6 +89,10 @@ public class UsuarioEmbeddingCacheService {
 
         CachedEntry best = null;
         double maxSimilarity = -1.0;
+        // El segundo mejor no es un extra: es lo unico que dice si el primero gano por
+        // mucho o por nada. Sin esto, 0,71 contra 0,45 y 0,71 contra 0,69 son la misma
+        // respuesta, y la segunda es una moneda al aire.
+        Double segundaSimilarity = null;
 
         for (CachedEntry entry : entries) {
             if (excluded.contains(entry.usuarioId.intValue())) {
@@ -96,13 +100,23 @@ public class UsuarioEmbeddingCacheService {
             }
             double similarity = embeddingGaleriaService.calcularMaximaSimilitud(queryEmbedding, entry.vectores);
             if (similarity > maxSimilarity) {
+                // El que venia primero pasa a segundo. Sin el `best != null` esto
+                // registraria como segundo el -1 del arranque, que no es nadie.
+                if (best != null) {
+                    segundaSimilarity = maxSimilarity;
+                }
                 maxSimilarity = similarity;
                 best = entry;
+            } else if (segundaSimilarity == null || similarity > segundaSimilarity) {
+                segundaSimilarity = similarity;
             }
         }
 
         if (best != null) {
-            return new UsuarioSimilitudResult(best.usuario, maxSimilarity);
+            // Con un solo candidato no hay margen. Devolver 0 o 1 seria inventar una
+            // medicion: null dice "no habia contra quien comparar", que es distinto.
+            Double margen = segundaSimilarity != null ? maxSimilarity - segundaSimilarity : null;
+            return new UsuarioSimilitudResult(best.usuario, maxSimilarity, segundaSimilarity, margen);
         }
         return null;
     }

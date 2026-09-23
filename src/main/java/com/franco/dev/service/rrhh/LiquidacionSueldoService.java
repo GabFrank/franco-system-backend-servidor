@@ -79,6 +79,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final CreditoConvenioService creditoConvenioService;
     private final LiquidacionConceptoService liquidacionConceptoService;
     private final PlatformTransactionManager transactionManager;
+    private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
 
     /**
      * Inyectado por campo a proposito: @AllArgsConstructor solo toma los final, y este no
@@ -519,6 +520,21 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     public LiquidacionSueldo pagar(Long id, Long cajaVirtualId) {
         LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() != LiquidacionSueldoEstado.APROBADA) throw new GraphQLException("Solo se paga una liquidacion APROBADA");
+        // Neto negativo = los descuentos superan a los haberes, o sea que el funcionario le debe
+        // a la empresa: no hay nada que pagarle. Sin este corte el egreso se postea con la
+        // cantidad negada (EGRESO entra por abs().negate()) y termina sacando de la caja
+        // justamente la plata que habria que cobrar.
+        BigDecimal neto = liq.getTotalNeto() != null ? liq.getTotalNeto() : BigDecimal.ZERO;
+        if (neto.signum() < 0) {
+            throw new GraphQLException("La liquidacion #" + liq.getId() + " tiene neto negativo ("
+                    + neto.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
+                    + " Corrija los items o cobre la diferencia por separado.");
+        }
+
+        // Antes de mover plata: si una cuota descontada se cobro por caja despues de generar el borrador,
+        // el neto ya la trae descontada y pagar la cobraria dos veces (issue #300). Toma las cuotas con
+        // lock antes que el saldo de caja.
+        prestamoCuotaDescuentoService.validarLiquidacion(liq.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -555,19 +571,15 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() == LiquidacionSueldoEstado.ANULADA) return liq;
         if (liq.getEstado() == LiquidacionSueldoEstado.PAGADA && liq.getCajaVirtualId() != null) {
-            CajaVirtual caja = cajaVirtualService.findById(liq.getCajaVirtualId())
-                    .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
-            MovimientoCajaVirtual rev = new MovimientoCajaVirtual();
-            rev.setCajaVirtual(caja);
-            rev.setTipoMovimiento(CajaVirtualTipoMovimiento.AJUSTE);
-            rev.setCantidad(liq.getTotalNeto() != null ? liq.getTotalNeto().doubleValue() : 0.0);
-            rev.setMoneda(liq.getMoneda());
-            rev.setReferenciaId(liq.getId());
-            rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_SUELDO);
-            rev.setOrigenId(liq.getId());
-            rev.setDescripcion("ANULACION LIQUIDACION #" + liq.getId());
-            rev.setActivo(true);
-            movimientoCajaVirtualService.registrarMovimiento(rev);
+            if (liq.getMovimientoCajaVirtualId() == null) {
+                throw new GraphQLException("La liquidacion #" + liq.getId() + " esta pagada contra una caja"
+                        + " pero no tiene movimiento asociado: no se puede revertir sin dejar la caja descuadrada.");
+            }
+            // La reversa la arma tesoreria, que recalcula el efecto del movimiento original y lo
+            // niega. Armar el AJUSTE a mano copiando el neto solo revierte cuando el neto es
+            // positivo: con neto negativo vuelve a descontar en vez de devolver.
+            movimientoCajaVirtualService.revertirMovimiento(liq.getMovimientoCajaVirtualId(),
+                    "ANULACION LIQUIDACION #" + liq.getId(), liq.getUsuario());
             aplicarEfectosCruzados(liq, false);
         }
         liq.setEstado(LiquidacionSueldoEstado.ANULADA);
@@ -645,15 +657,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                         valeRepository.save(v);
                     });
                     break;
-                case "CPP_CUOTA":
-                    prestamoCuotaRepository.findById(refId).ifPresent(c -> {
-                        BigDecimal monto = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
-                        BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
-                        c.setMontoPagado(pagar ? pagado.add(monto) : pagado.subtract(monto).max(BigDecimal.ZERO));
-                        c.setEstado(c.getMontoPagado().compareTo(c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO) >= 0
-                                ? PrestamoCuotaEstado.PAGADA : PrestamoCuotaEstado.PENDIENTE);
-                        prestamoCuotaRepository.save(c);
-                    });
+                case PrestamoCuotaDescuentoService.REFERENCIA_CUOTA:
+                    // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
+                    if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
+                    else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
                     break;
                 case "AGUINALDO":
                     aguinaldoRepository.findById(refId).ifPresent(a -> {

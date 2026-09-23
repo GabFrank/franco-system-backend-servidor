@@ -123,6 +123,7 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Boolean deleteGasto(Long id, Long sucId) {
         Gasto gasto = service.findByIdAndSucursalId(id, sucId);
         if (gasto != null) {
+            validarNoEsDeCajaMayor(gasto, "eliminar");
             return service.delete(gasto);
         } else {
             throw new GraphQLException("No se pudo eliminar el gasto");
@@ -132,9 +133,24 @@ public class GastoGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
     public Boolean cancelarGasto(Long id, Long sucId) {
         Gasto gasto = service.findByIdAndSucursalId(id, sucId);
         if (gasto != null) {
+            validarNoEsDeCajaMayor(gasto, "cancelar");
             return service.cancelarGasto(gasto);
         } else {
             throw new GraphQLException("No se pudo cancelar el gasto");
+        }
+    }
+
+    /**
+     * Un gasto pagado desde la caja mayor es el espejo de su solicitud de pago: la fuente de
+     * verdad es la solicitud, y GastoTesoreriaService lo mantiene sincronizado. Tocarlo por
+     * separado dejaria el gasto cancelado con el pago intacto (y la proxima sincronizacion lo
+     * revertiria), asi que se corta aca con un mensaje que dice donde se hace de verdad.
+     */
+    private void validarNoEsDeCajaMayor(Gasto gasto, String accion) {
+        if (gasto.getSolicitudPagoId() != null) {
+            throw new GraphQLException("Este gasto se pagó desde la caja mayor: para " + accion
+                    + "lo hay que anular el pago del gasto #" + gasto.getSolicitudPagoId()
+                    + " en la caja mayor.");
         }
     }
 

@@ -1,6 +1,7 @@
 type CajaFilialOperacionResult {
     exito: Boolean
     cajaId: ID
+    conteoId: ID
 }
 
 type PdvCaja {
@@ -68,6 +69,7 @@ extend type Query {
     cajaAbiertoPorUsuarioIdPorSucursal(id:ID!, sucId: ID):PdvCaja
     pdvCajaDesdeFilial(id:ID!, sucursalId: ID!):PdvCaja
     cajaAbiertoPorSucursal(sucursalId: ID!):[PdvCaja]
+    cajerosConCajaAbiertaPorSucursal(sucursalId: ID!):[Usuario]
     imprimirBalance(id:ID!, printerName: String, local: String, sucId: ID):PdvCaja
     balancePorFecha(inicio: String, fin: String, sucId: ID): CajaBalance
     balancePorCajaIdAndSucursalId(id: ID!, sucId: ID): CajaBalance

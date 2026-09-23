@@ -31,11 +31,21 @@ public interface JornadaRepository extends HelperRepository<Jornada, EmbebedPrim
      */
     List<Jornada> findByUsuarioIdOrderByFechaDescIdDesc(Long usuarioId, Pageable pageable);
 
-    @Query("SELECT j FROM Jornada j WHERE j.usuario.id = ?1 " +
-            "AND cast(j.fecha as date) >= cast(?2 as date) AND cast(j.fecha as date) <= cast(?3 as date) ORDER BY j.id DESC")
+    /**
+     * De la llegada mas reciente a la mas vieja: por dia y, dentro del dia, por la hora de entrada
+     * (la de salida si la entrada no la tiene, igual que el reporte impreso). No por id: el id es
+     * por sucursal y no sigue la hora. El LEFT JOIN mantiene las jornadas sin entrada, al final de
+     * su dia.
+     */
+    @Query("SELECT j FROM Jornada j LEFT JOIN j.marcacionEntrada me WHERE j.usuario.id = ?1 " +
+            "AND cast(j.fecha as date) >= cast(?2 as date) AND cast(j.fecha as date) <= cast(?3 as date) " +
+            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC")
     List<Jornada> findByUsuarioIdAndFechaRange(Long usuarioId, String fechaInicio, String fechaFin);
 
-    @Query("SELECT j FROM Jornada j WHERE cast(j.fecha as date) >= cast(?1 as date) AND cast(j.fecha as date) <= cast(?2 as date) ORDER BY j.id DESC")
+    /** Mismo orden que {@link #findByUsuarioIdAndFechaRange}. */
+    @Query("SELECT j FROM Jornada j LEFT JOIN j.marcacionEntrada me " +
+            "WHERE cast(j.fecha as date) >= cast(?1 as date) AND cast(j.fecha as date) <= cast(?2 as date) " +
+            "ORDER BY j.fecha DESC, COALESCE(me.fechaEntrada, me.fechaSalida) DESC NULLS LAST, j.id DESC")
     List<Jornada> findByFechaRange(String fechaInicio, String fechaFin);
 
     @Query("SELECT j FROM Jornada j WHERE j.usuario.id = ?1 AND cast(j.fecha as date) = cast(?2 as date) ORDER BY j.id ASC")

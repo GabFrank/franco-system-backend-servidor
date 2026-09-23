@@ -86,6 +86,14 @@ Una migracion mal hecha puede dejar el sistema inoperativo. **El rollback automa
 
 **Naming:** `V{numero}.5__{descripcion_con_underscores}.sql`. **Usar sufijo `.5` en migraciones nuevas** (ej. `V176.5__...`), **nunca `.0` ni entero pelado**: Flyway normaliza el `.0` (`V176` == `V176.0`), asi que un `V176.0` de una rama colisiona con un `V176` de otra al mergear (paso al integrar develop: `V151` vs `V151.0`). El `.5` no se normaliza y slotea entre los enteros de develop (out-of-order lo soporta). Numeracion unica. **Nunca modificar una migracion ya aplicada** (Flyway compara checksums). Si falla una migracion, corregirla directamente en el mismo archivo (no crear una nueva para arreglar la anterior). Detalle: [../../frc-cicd/guia-desarrollo-cicd.md](../../frc-cicd/guia-desarrollo-cicd.md) §5.
 
+> ⚠️ **El CI NO valida las migraciones.** `ci.yml` corre `./mvnw clean verify -B -DskipFlyway=true`
+> (salta el plugin Maven) y los dos unicos tests que levantan contexto Spring
+> (`FinancieroFixesIT`, `DevolucionFlujoIT`) estan apagados por `@EnabledIfSystemProperty`
+> (`it.financiero` / `it.devolucion`), que el workflow no setea; ademas el POM no tiene
+> `maven-failsafe-plugin`, asi que surefire ni los recoge. El servicio `postgres:16` del workflow
+> queda sin usar. **Una migracion rota se descubre recien cuando el JAR arranca en un host.**
+> Para probarla de verdad, en local: `./mvnw clean verify -Dit.devolucion=true` contra una DB real.
+
 ## Overrides locales: NO tocar `application-dev.properties`
 
 La clase `com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor` (registrada en `META-INF/spring.factories`) carga `application-user-dev.properties` con prioridad maxima cuando el profile `dev` esta activo. Este archivo esta ignorado por git.
@@ -150,9 +158,18 @@ Un `.jrxml` que referencia una fuente **no instalada en el servidor** falla (o c
 ### Deploys
 
 - Deploys son **manuales** via GitHub Actions `workflow_dispatch` (`Deploy` workflow), parametrizados por `version` e `instance`.
-- Tres targets: `alpha` (172.25.1.200:8083), `farmacia` (beta, :8082), `bodega` (production, :8081)
-- Production (`bodega`) requiere aprobacion en GitHub Environments.
-- Health check post-deploy: `GET /actuator/health` (timeout 120s, interval 5s). Si falla: **rollback automatico** a version anterior.
+- Cuatro targets en el input `instance`: `alpha`, `beta`, `farmacia` (:8082) y `bodega` (:8081).
+  **`alpha` NO corre en el servidor central**: vive en `mauro` (`:8083`); la instancia que habia
+  en 172.25.1.200:8083 se elimino el 2026-08-14. El workflow llega ahi uniendose a la red
+  headscale (paso `Connect to headscale (alpha only)`).
+- **Aprobacion: la piden `bodega` (environment `production`) Y `farmacia`/`beta` (environment
+  `beta`)**, los dos con 1 revisor obligatorio. Solo `alpha` deploya sin revisor. Farmacia es la
+  red que factura: no es un canal de prueba.
+- Health check post-deploy: `GET /actuator/health` (timeout **500s**, interval 5s, ver
+  `.github/scripts/deploy.sh`). Si falla: **rollback automatico** a version anterior.
+- `deploy-auto.yml` (`on: release: published`) existe en las 3 ramas pero **nunca corrio**
+  (0 ejecuciones historicas): los releases los crea semantic-release con el `GITHUB_TOKEN`, y
+  los eventos generados con ese token no disparan workflows. **El deploy real es 100% manual.**
 - SSH key: `~/.ssh/frc-deploy`, user: `deploy`
 
 ### Hotfix flow (urgencia en produccion)
@@ -235,7 +252,7 @@ Al agregar un valor: **enum Java + `.graphqls` + migracion (si hay CHECK constra
 - [../../REPORTE_VULNERABILIDADES.md](../../REPORTE_VULNERABILIDADES.md) -- Auditoria de seguridad
 - [../../CLAUDE.md](../../CLAUDE.md) -- Mapa cross-project del workspace
 - [../filial/CLAUDE.md](../filial/CLAUDE.md) -- Server filial, mismo mecanismo de overrides, replica desde este central
-- [../../cicd-implementation/guia-desarrollo-cicd.md](../../cicd-implementation/guia-desarrollo-cicd.md) -- Guia consolidada de CI/CD
+- [../../frc-cicd/guia-desarrollo-cicd.md](../../frc-cicd/guia-desarrollo-cicd.md) -- Guia consolidada de CI/CD
 
 ## Automated Issue Resolution (Claude Code Action)
 

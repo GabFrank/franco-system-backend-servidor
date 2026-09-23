@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.Cheque;
 import com.franco.dev.graphql.financiero.input.ChequeInput;
 import com.franco.dev.service.financiero.ChequeService;
 import com.franco.dev.service.financiero.ChequeraService;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.PagoDetalleCuotaService;
 import com.franco.dev.service.personas.PersonaService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -36,24 +37,33 @@ public class ChequeGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     @Autowired
     private PersonaService personaService;
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
     public Optional<Cheque> cheque(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<Cheque> cheques(int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
     
     public List<Cheque> chequesPorChequeraId(Long chequeraId) {
+        seg.requireVer();
         return service.findByChequeraId(chequeraId);
     }
     
     public Cheque chequePorPagoDetalleCuotaId(Long pagoDetalleCuotaId) {
+        seg.requireVer();
         return service.findByPagoDetalleCuotaId(pagoDetalleCuotaId);
     }
 
+    /** CRUD plano (no mueve saldo ni reservas): emitir, cobrar y anular van por ChequePosGraphQL. */
     public Cheque saveCheque(ChequeInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         Cheque e = m.map(input, Cheque.class);
         if (input.getUsuarioId() != null) {
@@ -73,15 +83,18 @@ public class ChequeGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
     }
 
     public List<Cheque> chequesSearch(String texto) {
+        seg.requireVer();
         return service.findByAll(texto);
     }
 
     public Boolean deleteCheque(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
     public Long countCheque() {
+        seg.requireVer();
         return service.count();
     }
 } 

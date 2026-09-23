@@ -7,6 +7,7 @@ import com.franco.dev.graphql.replication.types.ReplicationSetupState;
 import com.franco.dev.graphql.replication.types.ReplicationStatus;
 import com.franco.dev.graphql.replication.RemoveScope;
 import com.franco.dev.graphql.replication.RemoveTarget;
+import com.franco.dev.service.empresarial.AlineacionIdsFilialService;
 import com.franco.dev.service.empresarial.LogicalReplicationService;
 import com.franco.dev.service.empresarial.SucursalService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -30,9 +31,12 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
 
     @Autowired
     private LogicalReplicationService replicationService;
-    
+
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private AlineacionIdsFilialService alineacionIdsFilialService;
     
     // Paginated Query resolvers
     
@@ -661,6 +665,14 @@ public class LogicalReplicationGraphQL implements GraphQLQueryResolver, GraphQLM
         ReplicationStatus status = new ReplicationStatus();
         status.setSuccess(result.isSuccess());
         status.setMessage(result.getMessage());
+        return status;
+    }
+
+    public ReplicationStatus alinearSecuenciasFiliales() {
+        AlineacionIdsFilialService.Resultado result = alineacionIdsFilialService.alinearTodas();
+        ReplicationStatus status = new ReplicationStatus();
+        status.setSuccess(result.isSuccess());
+        status.setMessage(result.getMensaje());
         return status;
     }
 } 

@@ -4,6 +4,9 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.dto.StockPorTipoMovimientoDto;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.operaciones.MovimientoStock;
+import com.franco.dev.domain.operaciones.dto.CantidadSugeridaPorSucursalDto;
+import com.franco.dev.domain.operaciones.dto.ComprasPorSucursalDto;
+import com.franco.dev.domain.operaciones.dto.VentasPorSucursalDto;
 import com.franco.dev.domain.operaciones.dto.StockPorSucursalDto;
 import com.franco.dev.domain.operaciones.TransferenciaItem;
 import com.franco.dev.domain.operaciones.TransferenciaItemLote;
@@ -26,6 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -70,24 +76,98 @@ public class MovimientoStockService extends CrudService<MovimientoStock, Movimie
         return repository.stockPorSucursales(proId);
     }
 
-    public Double stockByProductoId(Long proId) {
-        Double finalStock = 0.0;
-        List<Sucursal> sucursalList = sucursalService.findAll2();
-        for (Sucursal s : sucursalList) {
-            finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
+    /**
+     * Los insumos de la cantidad sugerida del producto en cada sucursal, en DOS consultas.
+     *
+     * El diálogo de ítem de compra necesita, por sucursal, cuanto se vendio y cuantas compras hubo
+     * entre que fechas. Hasta ahora los sacaba bajandose los movimientos: dos requests encadenados
+     * por sucursal —el de ventas recien salia cuando volvia el de compras—, cada uno con
+     * {@code size: 1000}. Con 10 distribuciones eran 20 idas y vueltas y decenas de miles de filas
+     * al navegador para terminar en cuatro numeros por fila.
+     *
+     * Son dos consultas y no una con {@code CASE} adentro de los agregados a proposito:
+     * {@code tipo_movimiento} es un enum de Postgres, y un {@code SUM(case ...)} proyectado a un
+     * DTO deja el tipo de retorno —{@code Double} o {@code BigDecimal}— a merced de como lo infiera
+     * Hibernate. Lo que habia que bajar son los requests HTTP, no las consultas: las dos salen en
+     * el mismo request y usan el mismo indice.
+     *
+     * A diferencia de {@code findByFilters}, que es lo que usaba el cliente, acá se filtra
+     * {@code estado = true}: una venta cancelada o una transferencia rechazada no son consumo.
+     *
+     * Una sucursal sin movimientos en el rango no vuelve en la lista —no hay filas que agrupar—;
+     * el llamador la muestra en cero.
+     */
+    public List<CantidadSugeridaPorSucursalDto> cantidadSugeridaPorSucursales(Long productoId,
+            LocalDateTime inicio, LocalDateTime fin, List<Long> sucursalList) {
+        Map<Long, CantidadSugeridaPorSucursalDto> porSucursal = new TreeMap<>();
+
+        for (VentasPorSucursalDto fila : repository.ventasPorSucursal(productoId, inicio, fin, sucursalList)) {
+            filaDe(porSucursal, fila.getSucursalId())
+                    .setTotalVentas(fila.getTotalVentas() != null ? fila.getTotalVentas() : 0.0);
         }
-        return finalStock;
+
+        for (ComprasPorSucursalDto fila : repository.comprasPorSucursal(productoId, inicio, fin, sucursalList)) {
+            CantidadSugeridaPorSucursalDto destino = filaDe(porSucursal, fila.getSucursalId());
+            destino.setCantidadCompras(fila.getCantidadCompras() != null ? fila.getCantidadCompras() : 0L);
+            destino.setPrimeraCompra(fila.getPrimeraCompra());
+            destino.setUltimaCompra(fila.getUltimaCompra());
+        }
+
+        return new ArrayList<>(porSucursal.values());
+    }
+
+    /**
+     * La fila de esa sucursal, creandola en cero si todavia no esta. Una sucursal puede venir en
+     * una sola de las dos consultas —vendio pero no compro, o al reves— y en ese caso el otro lado
+     * vale cero, no null: es lo que el cliente espera para hacer la cuenta.
+     */
+    private CantidadSugeridaPorSucursalDto filaDe(Map<Long, CantidadSugeridaPorSucursalDto> acc, Long sucursalId) {
+        return acc.computeIfAbsent(sucursalId,
+                id -> new CantidadSugeridaPorSucursalDto(id, 0.0, 0L, null, null));
+    }
+
+    public Double stockByProductoId(Long proId) {
+        return sumarStockDeSucursales(proId, null);
     }
 
     public Double stockByProductoIdExcluyendoNombresSucursal(Long proId, List<String> nombresExcluidos) {
-        Double finalStock = 0.0;
-        List<Sucursal> sucursalList = sucursalService.findAll2();
-        for (Sucursal s : sucursalList) {
-            if (nombresExcluidos != null && nombresExcluidos.stream()
-                    .anyMatch(nombre -> nombre.equalsIgnoreCase(s.getNombre()))) {
+        return sumarStockDeSucursales(proId, nombresExcluidos);
+    }
+
+    /**
+     * Existencia total del producto, sumando el desglose por sucursal de UNA consulta agrupada.
+     *
+     * Antes esto era un bucle que preguntaba {@code stockByProductoIdAndSucursalId} una vez por
+     * sucursal: con 31 sucursales en la tabla eran 31 consultas por producto, y {@code findAll2()}
+     * se repetía en cada vuelta del caller. Donde más pesaba era al finalizar una recepción física
+     * ({@code CostosPorProductoService.aplicarCostoCompra} llama acá una vez por ítem recibido):
+     * una recepción de 101 ítems disparaba 3.131 consultas dentro de la transacción de cierre.
+     *
+     * El total no cambia. Se conservan a propósito las dos rarezas del bucle viejo:
+     *
+     * - Una sucursal sin movimientos vale cero. No vuelve en el GROUP BY —no hay filas que sumar—
+     *   y sumar cero es lo mismo que no sumarla.
+     * - Los movimientos de una sucursal que no está en la tabla no cuentan. El bucle nunca los
+     *   preguntaba porque iteraba sobre {@code findAll2()}; la consulta agrupada sí los trae, así
+     *   que hay que filtrarlos o el total sube.
+     *
+     * También se conserva el redondeo: cada subtotal pasaba por {@code Float} (la firma del
+     * repositorio devuelve {@code Float}) antes de ensancharse a {@code double}. Ese redondeo entra
+     * en el denominador del costo medio, y acá el objetivo era sacar consultas, no mover números.
+     */
+    private Double sumarStockDeSucursales(Long proId, List<String> nombresExcluidos) {
+        Set<Long> sucursalesQueCuentan = sucursalService.findAll2().stream()
+                .filter(s -> nombresExcluidos == null || nombresExcluidos.stream()
+                        .noneMatch(nombre -> nombre.equalsIgnoreCase(s.getNombre())))
+                .map(Sucursal::getId)
+                .collect(Collectors.toSet());
+
+        double finalStock = 0.0;
+        for (StockPorSucursalDto fila : repository.stockPorSucursales(proId)) {
+            if (fila.getCantidad() == null || !sucursalesQueCuentan.contains(fila.getSucursalId())) {
                 continue;
             }
-            finalStock += stockByProductoIdAndSucursalId(proId, s.getId());
+            finalStock += fila.getCantidad().floatValue();
         }
         return finalStock;
     }

@@ -122,18 +122,37 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
         // resulto write-only (nadie la lee) y mezclaba criterios de signo. Ver issue #159.
     }
 
+    /** Diferencia tolerada entre el monto pagado que vio el cliente y el de la base (la de tesoreria). */
+    private static final BigDecimal TOLERANCIA_MONTO = new BigDecimal("0.005");
+
     /**
      * Cobra (total o parcialmente) una cuota directamente por caja:
      * INGRESO en la Caja Mayor. Actualiza estado de cuota y prestamo.
+     *
+     * <p>Toma la cuota y el prestamo con lock pesimista (en ese orden): dos cobros de la misma cuota ya no
+     * registran dos INGRESO, el segundo lee lo que dejo el primero. {@code montoPagadoEsperado} es el monto
+     * pagado que mostraba la pantalla: si no coincide, la cuota cambio desde entonces (un reintento, otro
+     * cobro) y se rechaza antes de tocar la caja. Null = sin control, como los clientes viejos (issue #299).</p>
      */
     @Transactional
-    public PrestamoCuota cobrarCuota(Long cuotaId, Long cajaVirtualId, BigDecimal montoPago) {
-        PrestamoCuota cuota = cuotaRepository.findById(cuotaId)
+    public PrestamoCuota cobrarCuota(Long cuotaId, Long cajaVirtualId, BigDecimal montoPago,
+                                     BigDecimal montoPagadoEsperado) {
+        PrestamoCuota cuota = cuotaRepository.lockById(cuotaId)
                 .orElseThrow(() -> new GraphQLException("Cuota no encontrada"));
         if (cuota.getEstado() == PrestamoCuotaEstado.PAGADA) {
             throw new GraphQLException("La cuota ya esta pagada");
         }
-        Prestamo prestamo = cuota.getPrestamo();
+        if (cuota.getEstado() == PrestamoCuotaEstado.CANCELADA) {
+            throw new GraphQLException("La cuota esta cancelada");
+        }
+        BigDecimal pagadoActual = cuota.getMontoPagado() != null ? cuota.getMontoPagado() : BigDecimal.ZERO;
+        if (montoPagadoEsperado != null
+                && montoPagadoEsperado.subtract(pagadoActual).abs().compareTo(TOLERANCIA_MONTO) > 0) {
+            throw new GraphQLException("La cuota #" + cuota.getNumero() + " cambio desde que se cargo la pantalla: ya tiene pagado "
+                    + pagadoActual.toPlainString() + ". Recargue antes de cobrar.");
+        }
+        Prestamo prestamo = repository.lockById(cuota.getPrestamo().getId())
+                .orElseThrow(() -> new GraphQLException("Prestamo no encontrado"));
         BigDecimal pendienteCuota = cuota.getMonto().subtract(
                 cuota.getMontoPagado() != null ? cuota.getMontoPagado() : BigDecimal.ZERO);
         BigDecimal pago = (montoPago != null && montoPago.signum() > 0 && montoPago.compareTo(pendienteCuota) < 0)
@@ -168,15 +187,15 @@ public class PrestamoService extends CrudService<Prestamo, PrestamoRepository, L
         return cuota;
     }
 
-    /** Marca como VENCIDA las cuotas PENDIENTE/PARCIAL cuya fecha de vencimiento ya paso. */
+    /**
+     * Marca como VENCIDA las cuotas PENDIENTE/PARCIAL cuya fecha de vencimiento ya paso.
+     * Un UPDATE que toca solo el estado: guardar las entidades cargadas pisaba el monto pagado de un
+     * cobro que commiteaba entre la lectura y el save (issue #299).
+     */
     @Transactional
     public int marcarVencidas(LocalDate fecha) {
-        int n = 0;
-        List<PrestamoCuota> pend = cuotaRepository.findByEstadoAndFechaVencimientoBefore(PrestamoCuotaEstado.PENDIENTE, fecha);
-        List<PrestamoCuota> parc = cuotaRepository.findByEstadoAndFechaVencimientoBefore(PrestamoCuotaEstado.PARCIAL, fecha);
-        for (PrestamoCuota c : pend) { c.setEstado(PrestamoCuotaEstado.VENCIDA); cuotaRepository.save(c); n++; }
-        for (PrestamoCuota c : parc) { c.setEstado(PrestamoCuotaEstado.VENCIDA); cuotaRepository.save(c); n++; }
-        return n;
+        return cuotaRepository.marcarVencidas(PrestamoCuotaEstado.VENCIDA,
+                java.util.EnumSet.of(PrestamoCuotaEstado.PENDIENTE, PrestamoCuotaEstado.PARCIAL), fecha);
     }
 
     @Override

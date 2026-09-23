@@ -4,6 +4,8 @@ public class CajaFilialOperacionResult {
 
     private Boolean exito;
     private Long cajaId;
+    /** Id del conteo creado en la filial; lo usa el cliente como conteoAnteriorId de la proxima edicion. */
+    private Long conteoId;
 
     public CajaFilialOperacionResult() {
     }
@@ -15,6 +17,12 @@ public class CajaFilialOperacionResult {
 
     public static CajaFilialOperacionResult ok(Long cajaId) {
         return new CajaFilialOperacionResult(true, cajaId);
+    }
+
+    public static CajaFilialOperacionResult ok(Long cajaId, Long conteoId) {
+        CajaFilialOperacionResult result = new CajaFilialOperacionResult(true, cajaId);
+        result.setConteoId(conteoId);
+        return result;
     }
 
     public static CajaFilialOperacionResult fail() {
@@ -35,5 +43,13 @@ public class CajaFilialOperacionResult {
 
     public void setCajaId(Long cajaId) {
         this.cajaId = cajaId;
+    }
+
+    public Long getConteoId() {
+        return conteoId;
+    }
+
+    public void setConteoId(Long conteoId) {
+        this.conteoId = conteoId;
     }
 }

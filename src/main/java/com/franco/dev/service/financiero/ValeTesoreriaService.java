@@ -174,7 +174,7 @@ public class ValeTesoreriaService {
             s.setLineas(p.getLineas());
             lote.add(s);
         }
-        return pagoProveedorService.pagarLoteMixto(lote, usuario);
+        return pagoProveedorService.pagarLoteMixtoObligacionesRrhh(lote, usuario);
     }
 
     /**

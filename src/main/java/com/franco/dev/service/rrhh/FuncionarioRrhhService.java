@@ -131,6 +131,8 @@ public class FuncionarioRrhhService {
         snap.setMotivoEgreso(guardado.getMotivoEgreso());
         snap.setEgresadoPor(usuarioAutenticado());
         egresoHistoricoRepository.save(snap);
+        // Los bonos pendientes los cancela BonosAlInactivarFuncionarioListener, colgado de la
+        // transicion activo -> inactivo: este boton no es el unico camino de baja (issue #295).
         return guardado;
     }
 
@@ -174,6 +176,11 @@ public class FuncionarioRrhhService {
     /**
      * Revierte un egreso: deshace lo que {@link #egresar} dejo, incluido el dano
      * colateral que egresar provoca y que no se ve en la pantalla de egreso.
+     *
+     * <p><b>Excepcion declarada:</b> los bonos que el egreso anulo y las plantillas recurrentes
+     * que apago NO se restauran -- hay que recargarlos a mano desde la pantalla de Bonos.
+     * Guardar que anulo cada egreso exigiria columnas nuevas en el snapshot; se decidio no
+     * pagar esa migracion por un caso que se da muy de vez en cuando (issue #276).</p>
      *
      * <p>Existe porque no habia ninguna forma de revertir un egreso desde la aplicacion.
      * El 2026-08-21 se egreso por error a una funcionaria en farmacia y hubo que resolverlo

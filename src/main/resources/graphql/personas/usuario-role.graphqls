@@ -19,6 +19,7 @@ extend type Query {
 
 extend type Mutation {
     saveUsuarioRole(usuarioRole:UsuarioRoleInput!):UsuarioRole!
+    saveUsuarioRoleList(usuarioRoleList:[UsuarioRoleInput!]!):[UsuarioRole!]!
     deleteUsuarioRole(id:ID!):Boolean!
 }
 

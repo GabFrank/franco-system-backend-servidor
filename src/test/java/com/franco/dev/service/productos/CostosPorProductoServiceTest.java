@@ -177,6 +177,85 @@ class CostosPorProductoServiceTest {
                 sucursal(2L), null, LocalDateTime.now()));
     }
 
+    // --- aplicarCostoCompra: guard anti-inflación por cotización aplicada de más ---
+
+    /**
+     * Caso real del producto 6993: una compra de 0,57 US$ a 5980 quedó registrada como 3.408,6 Gs,
+     * el diálogo de pedido volvió a multiplicar por la cotización y la compra siguiente entró a
+     * 3.408,6 "US$" = 20.383.428 Gs. Ese salto se descarta y el costo anterior se conserva.
+     */
+    @Test
+    void aplicarCostoCompra_saltoPorCotizacionAplicadaDeMas_descartaYConservaElAnterior() {
+        Moneda usd = moneda(3L);
+        CostoPorProducto anterior = costoAnterior(3393.63, 3408.6, usd);
+        stubUltimoCosto(anterior);
+        stubStockReal(100.0);
+
+        // 3408,6 "US$" x 5980 = 20.383.428 Gs
+        CostoPorProducto r = service.aplicarCostoCompra(producto(6993L), 10.0, 3408.6, usd, 5980.0,
+                sucursal(2L), null, LocalDateTime.now());
+
+        assertSame(anterior, r);
+        verify(repository, never()).save(any(CostoPorProducto.class));
+    }
+
+    @Test
+    void aplicarCostoCompra_aumentoFuertePeroPlausible_seGuarda() {
+        Moneda gs = moneda(1L);
+        stubUltimoCosto(costoAnterior(10000.0, 10000.0, gs));
+        stubStockReal(5.0); // no pondera
+
+        // x50: brutal para un precio, pero por debajo del umbral. Tiene que pasar.
+        CostoPorProducto r = service.aplicarCostoCompra(producto(10L), 10.0, 500000.0, gs, 1.0,
+                sucursal(2L), null, LocalDateTime.now());
+
+        assertEquals(500000.0, r.getUltimoPrecioCompra(), DELTA);
+        verify(repository, times(1)).save(any(CostoPorProducto.class));
+    }
+
+    @Test
+    void aplicarCostoCompra_bajaFuerte_seGuarda() {
+        Moneda gs = moneda(1L);
+        stubUltimoCosto(costoAnterior(500000.0, 500000.0, gs));
+        stubStockReal(5.0);
+
+        CostoPorProducto r = service.aplicarCostoCompra(producto(10L), 10.0, 100.0, gs, 1.0,
+                sucursal(2L), null, LocalDateTime.now());
+
+        assertEquals(100.0, r.getUltimoPrecioCompra(), DELTA);
+        verify(repository, times(1)).save(any(CostoPorProducto.class));
+    }
+
+    /**
+     * Un costo anterior por debajo del mínimo creíble en Gs (p.ej. 7,99, que es un precio en R$
+     * guardado sin cotización) no puede servir de ancla: si lo fuera, la primera compra correcta
+     * en guaraníes parecería un salto de ~1.000x y quedaría descartada para siempre.
+     */
+    @Test
+    void aplicarCostoCompra_costoAnteriorNoCreiblePorBajo_noActivaElGuard() {
+        Moneda gs = moneda(1L);
+        stubUltimoCosto(costoAnterior(7.99, 7.99, moneda(2L)));
+        stubStockReal(5.0);
+
+        CostoPorProducto r = service.aplicarCostoCompra(producto(8761L), 10.0, 8800.0, gs, 1.0,
+                sucursal(2L), null, LocalDateTime.now());
+
+        assertEquals(8800.0, r.getUltimoPrecioCompra(), DELTA);
+        verify(repository, times(1)).save(any(CostoPorProducto.class));
+    }
+
+    @Test
+    void aplicarCostoCompra_sinCostoPrevio_noActivaElGuard() {
+        stubUltimoCosto(null);
+        stubStockReal(10.0);
+
+        CostoPorProducto r = service.aplicarCostoCompra(producto(10L), 10.0, 5000000.0, moneda(1L), 1.0,
+                sucursal(2L), null, LocalDateTime.now());
+
+        assertEquals(5000000.0, r.getUltimoPrecioCompra(), DELTA);
+        verify(repository, times(1)).save(any(CostoPorProducto.class));
+    }
+
     // --- registrarCostoCompraManual (transferencia desde COMPRAS) ---
 
     @Test

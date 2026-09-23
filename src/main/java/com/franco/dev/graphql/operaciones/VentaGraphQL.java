@@ -55,6 +55,7 @@ import com.franco.dev.service.productos.SubFamiliaService;
 import com.franco.dev.service.reports.TicketReportService;
 import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.service.utils.PrintingService;
+import com.franco.dev.utilitarios.print.TicketFormato;
 import com.franco.dev.utilitarios.print.escpos.EscPos;
 import com.franco.dev.utilitarios.print.escpos.EscPosConst;
 import com.franco.dev.utilitarios.print.escpos.Style;
@@ -198,6 +199,11 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
                 if (ticket)
                     printTicket58mm(venta, cobro, ventaItemList1, cobroDetalleList, false, printerName, local);
             } catch (Exception e) {
+                // La venta ya quedo guardada: un fallo de impresion no la deshace, y por eso no se
+                // relanza. Pero tiene que quedar rastro, o el unico aviso es el reclamo del cliente
+                // por un ticket que no salio.
+                log.warn("saveVenta: la venta {}/{} se guardo pero el ticket no se imprimio",
+                        venta.getId(), venta.getSucursalId(), e);
                 return venta;
             }
         }
@@ -331,7 +337,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             escpos.writeLF(valorGs);
             log.info(valorGs);
             escpos.write("Total Rs: ");
-            String valorRs = String.format("%.2f", venta.getTotalRs());
+            String valorRs = TicketFormato.formatearTotalMoneda(venta.getTotalRs(), null);
             for (int i = 22; i > valorGs.length(); i--) {
                 escpos.write(" ");
             }
@@ -339,7 +345,7 @@ public class VentaGraphQL implements GraphQLQueryResolver, GraphQLMutationResolv
             escpos.write("Total Ds: ");
             // String valorDs = NumberFormat.getNumberInstance(new Locale("sk",
             // "SK")).format(venta.getTotalDs());
-            String valorDs = String.format("%.2f", venta.getTotalDs());
+            String valorDs = TicketFormato.formatearTotalMoneda(venta.getTotalDs(), null);
             for (int i = 22; i > valorGs.length(); i--) {
                 escpos.write(" ");
             }

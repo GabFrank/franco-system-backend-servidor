@@ -296,6 +296,15 @@ convertir.
 porque el template no puede llamar funciones ni getters, y sobre una copia de la fila porque los
 resultados de Apollo vienen congelados.
 
+**El reporte impreso quedó atrás hasta el 2026-09-24.** `ImpresionService.imprimirReporteVentaTarjeta`
+seguía tomando la moneda de la terminal y formateaba el monto escaneado con `#,##0` fijo: el
+cupón de PLUG PAY (`USD 146.50`) salía `146`, al lado de un monto cobrado que sí tenía decimales.
+Ahora `simboloDeMoneda(vt)` (registro → terminal → `Gs.`) y `formatMontoEscaneado` pasan por el
+mismo `formatMontoPorMoneda` que el monto cobrado; test `ImpresionServiceVentaTarjetaTest`. Efecto
+visible: los totales por moneda del PDF se reagrupan por la moneda del registro. Y
+`formatMontoPorMoneda` decide los decimales comparando el símbolo con `"Gs"`/`"Gs."`: una moneda
+guaraní cargada con otra grafía saldría con 2 decimales.
+
 ### Otros
 
 

@@ -8,6 +8,7 @@ import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaCredito;
 import com.roshka.sifen.core.beans.DocumentoElectronico;
 import com.roshka.sifen.core.types.*;
+import graphql.GraphQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -100,6 +101,28 @@ class SifenNotaCreditoBuilderTest {
         BigDecimal precio = de.getgDtipDE().getgCamItemList().get(0).getgValorItem().getdPUniProSer();
         assertEquals(0, new BigDecimal("15.0685").compareTo(precio),
                 "110.000 Gs / 7.300 = 15,0685 USD");
+    }
+
+    @Test
+    void sinTelefonoEnElDetalleUsaElDeLaCabecera() {
+        TimbradoDetalle detalle = timbrado();
+        detalle.setTelefono(null);
+        detalle.getTimbrado().setTelefono("0982700027");
+
+        DocumentoElectronico de = builder.construir(nota("PYG", null), items(), detalle, sucursal(), CDC_FACTURA);
+
+        assertEquals("0982700027", de.getgDatGralOpe().getgEmis().getdTelEmi());
+    }
+
+    @Test
+    void sinTelefonoEnNingunLadoElValidadorCortaAntesDeEnviar() {
+        TimbradoDetalle detalle = timbrado();
+        detalle.setTelefono("");
+
+        DocumentoElectronico de = builder.construir(nota("PYG", null), items(), detalle, sucursal(), CDC_FACTURA);
+
+        GraphQLException e = assertThrows(GraphQLException.class, () -> SifenNotasValidator.validarNCE(de));
+        assertTrue(e.getMessage().contains("teléfono"), "mensaje inesperado: " + e.getMessage());
     }
 
     private DocumentoElectronico construir(NotaCredito nota) {

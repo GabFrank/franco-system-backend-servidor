@@ -5,6 +5,7 @@ import com.franco.dev.domain.financiero.NotaRemision;
 import com.franco.dev.domain.financiero.NotaRemisionItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.TipoTransporteNr;
+import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
 import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import lombok.extern.slf4j.Slf4j;
@@ -94,7 +95,7 @@ public class KudeNotaRemisionService {
             p.put("fechaInicioVigencia", timbradoDetalle.getTimbrado().getFechaInicio() != null
                     ? DateUtils.toString(timbradoDetalle.getTimbrado().getFechaInicio()) : "");
             p.put("direccionEmisor", direccionEmisor(timbradoDetalle));
-            p.put("telefonoEmisor", texto(timbradoDetalle.getTelefono()));
+            p.put("telefonoEmisor", texto(SifenTimbradoHelper.telefonoEmisor(timbradoDetalle)));
         }
 
         p.put("numeroNotaRemision", numeroFormateado(nota, timbradoDetalle));

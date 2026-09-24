@@ -101,6 +101,18 @@ class NotaCreditoKudeJrxmlTest {
     }
 
     @Test
+    void elTelefonoImpresoEsElMismoQueViajaEnElXml() {
+        KudeNotaCreditoService service = new KudeNotaCreditoService();
+        TimbradoDetalle detalle = timbrado();
+        detalle.setTelefono("  ");
+        detalle.getTimbrado().setTelefono("0982700027");
+
+        var p = service.parametros(nota(null, null), detalle, documentoElectronico(), CDC_FACTURA);
+
+        assertEquals("0982700027", p.get("telefonoEmisor"));
+    }
+
+    @Test
     void enGuaraniesNoSeInformaTipoDeCambio() {
         KudeNotaCreditoService service = new KudeNotaCreditoService();
 

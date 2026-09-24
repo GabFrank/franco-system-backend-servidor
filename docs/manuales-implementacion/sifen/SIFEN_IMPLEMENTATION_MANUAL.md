@@ -833,6 +833,27 @@ public class CodigosGeograficos {
 }
 ```
 
+### 5.5. Teléfono del emisor (`SifenTimbradoHelper.telefonoEmisor`)
+`dTelEmi` es el teléfono del emisor en el grupo `gEmis`. SIFEN rechaza el lote entero si viaja vacío:
+**«0160 XML malformado: [El valor del elemento: dTelEmi es invalido]»**. Pasó el 2026-09-23 con
+una nota de remisión del depósito 13, cuyo `timbrado_detalle` no tenía teléfono.
+
+**Regla:**
+-   El teléfono sale del `timbrado_detalle`; si está vacío o en blanco, de la cabecera `timbrado`.
+    El helper nunca devuelve cadena vacía: si faltan los dos, devuelve `null`.
+-   Lo usan los tres armadores de DE del central (nota de remisión, nota de crédito y factura) **y**
+    los KuDE de las notas (`KudeNotaRemisionService`, `KudeNotaCreditoService`), para que el PDF
+    impreso muestre el mismo teléfono que viaja en el XML. El KuDE de factura tiene su propio
+    respaldo equivalente en `FacturaLegalGraphQL`.
+-   En las notas, `SifenNotasValidator` corta con «El emisor no tiene teléfono: cargalo en el
+    timbrado de la sucursal» si faltan los dos. Corta **antes** de guardar el `DocumentoElectronico`:
+    no se gasta lote ni CDC, y al reintentar (después de cargar el teléfono) la nota reusa su número.
+    La factura no tiene ese corte: solo el respaldo.
+-   Al regenerar un DE ya aprobado sin `xmlOriginal`, el teléfono sale del timbrado **vigente**, no
+    del que viajó. No afecta al CDC, que no incluye el teléfono.
+
+El filial arma sus facturas con su propio `SifenService` y no tiene este respaldo: [filial #139](https://github.com/GabFrank/franco-system-backend-filial/issues/139).
+
 ## 6. Servicios Principales de SIFEN
 
 La lógica de negocio para interactuar con SIFEN se concentra en dos servicios principales: `SifenService` para la gestión de documentos y lotes, y `SifenEventoService` para la gestión de eventos.

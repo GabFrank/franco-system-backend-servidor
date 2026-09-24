@@ -39,6 +39,7 @@ import com.franco.dev.service.financiero.LoteDEService;
 import com.franco.dev.service.personas.ClienteService;
 import com.franco.dev.service.sifen.util.GCamIvaMapper;
 import com.franco.dev.service.sifen.util.SifenEventoParser;
+import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
 import com.franco.dev.service.sifen.util.SifenXmlParser;
 import com.franco.dev.service.sifen.util.SifenReceptorHelper;
 import com.roshka.sifen.Sifen;
@@ -1583,7 +1584,7 @@ public class SifenService {
         gEmis.setdNomEmi(factura.getTimbradoDetalle().getTimbrado().getRazonSocial());
         gEmis.setdDirEmi(factura.getTimbradoDetalle().getDireccion());
         gEmis.setdNumCas("0");
-        gEmis.setdTelEmi(factura.getTimbradoDetalle().getTelefono());
+        gEmis.setdTelEmi(SifenTimbradoHelper.telefonoEmisor(factura.getTimbradoDetalle()));
         gEmis.setdEmailE(factura.getTimbradoDetalle().getTimbrado().getEmail());
         
         // Datos geográficos

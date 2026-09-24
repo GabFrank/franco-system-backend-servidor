@@ -115,6 +115,7 @@ La clase `com.franco.dev.config.UserDevPropertiesEnvironmentPostProcessor` (regi
 
 - **Multi-tenancy:** Schema-based via Hibernate (`config/multitenant/`)
 - **SIFEN:** Factura electronica (jsifenlib 0.2.4-frc.13, fork custom en GitHub Packages)
+- **`factura_legal` llega del filial con parciales y `total_final` NETOS del descuento** (el filial los calcula con `ParcialesCalculator`). Un reporte no les vuelve a restar `descuento`: el Excel de facturas (`FacturaLegalService.convertToDto`) escala cada parcial por `totalFinal / (p0+p5+p10)`, que da 1 si ya son netos y lleva al neto alguna factura vieja que quedo con parciales brutos.
 - **Firebase:** Push notifications (Firebase Admin SDK 9.1.1)
 - **Google Drive:** Upload/storage de imagenes
 - **Reportes:** JasperReports 6.20.0, iTextPDF, Apache POI, ZXing (QR/barcode)

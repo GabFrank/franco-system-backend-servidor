@@ -172,6 +172,19 @@ class SifenNotasValidatorTest {
         assertMensaje(de, "tipo de transporte");
     }
 
+    @Test
+    void sinTelefonoDelEmisorFalla() {
+        // SIFEN rechazo el lote el 2026-09-23 con «0160 XML malformado: [El valor del elemento:
+        // dTelEmi es invalido]».
+        DocumentoElectronico sinTelefono = deValido();
+        sinTelefono.getgDatGralOpe().getgEmis().setdTelEmi(null);
+        assertMensaje(sinTelefono, "teléfono");
+
+        DocumentoElectronico enBlanco = deValido();
+        enBlanco.getgDatGralOpe().getgEmis().setdTelEmi("   ");
+        assertMensaje(enBlanco, "teléfono");
+    }
+
     private static void assertMensaje(DocumentoElectronico de, String fragmento) {
         GraphQLException e = assertThrows(GraphQLException.class, () -> SifenNotasValidator.validarNRE(de));
         assertTrue(e.getMessage().toLowerCase().contains(fragmento.toLowerCase()),
@@ -192,6 +205,7 @@ class SifenNotasValidatorTest {
 
         TgEmis gEmis = new TgEmis();
         gEmis.setdRucEm("80012345");
+        gEmis.setdTelEmi("021123456");
         TgDatRec gDatRec = new TgDatRec();
         gDatRec.setiNatRec(TiNatRec.CONTRIBUYENTE);
         gDatRec.setdRucRec("80012345");

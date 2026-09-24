@@ -4,6 +4,7 @@ import com.franco.dev.domain.financiero.DocumentoElectronico;
 import com.franco.dev.domain.financiero.NotaCredito;
 import com.franco.dev.domain.financiero.NotaCreditoItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
+import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
 import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import lombok.extern.slf4j.Slf4j;
@@ -91,7 +92,7 @@ public class KudeNotaCreditoService {
             p.put("fechaInicioVigencia", timbradoDetalle.getTimbrado().getFechaInicio() != null
                     ? DateUtils.toString(timbradoDetalle.getTimbrado().getFechaInicio()) : "");
             p.put("direccionEmisor", direccionEmisor(timbradoDetalle));
-            p.put("telefonoEmisor", texto(timbradoDetalle.getTelefono()));
+            p.put("telefonoEmisor", texto(SifenTimbradoHelper.telefonoEmisor(timbradoDetalle)));
         }
 
         p.put("numeroNotaCredito", numeroFormateado(nota, timbradoDetalle));

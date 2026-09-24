@@ -486,27 +486,42 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Factor que lleva la suma de los parciales al total de la factura. El filial graba los parciales
+     * ya netos del descuento (ParcialesCalculator), asi que casi siempre es 1. Restarles otra vez
+     * descuento / totalFinal los dejaba descontados dos veces. Si una factura vieja quedo con los
+     * parciales brutos y el total neto, el factor los lleva al neto.
+     */
+    static double factorAlTotal(FacturaLegal f) {
+        double suma = valor(f.getTotalParcial0()) + valor(f.getTotalParcial5()) + valor(f.getTotalParcial10());
+        if (f.getTotalFinal() == null || suma == 0.0) {
+            return 1.0;
+        }
+        return f.getTotalFinal() / suma;
+    }
+
+    static double parcialAlTotal(FacturaLegal f, Double parcial) {
+        return valor(parcial) * factorAlTotal(f);
+    }
+
+    private static double valor(Double d) {
+        return d != null ? d : 0.0;
+    }
+
     private ExcelFacturasDto convertToDto(FacturaLegal f) {
         ExcelFacturasDto dto = new ExcelFacturasDto();
         Sucursal sucursal = sucursalService.findById(f.getSucursalId()).orElse(null);
         TimbradoDetalle timbradoDetalle = f.getTimbradoDetalle();
         Timbrado timbrado = timbradoDetalle.getTimbrado();
-        Double porcentrajeDesc = f.getDescuento() != null ? f.getDescuento() / f.getTotalFinal() : null;
         dto.setVenTipimp("I");
         if (f.getTotalParcial5() != null) {
-            Double totalParcial5 = f.getTotalParcial5();
-            if (porcentrajeDesc != null) {
-                totalParcial5 = totalParcial5 - (totalParcial5 * porcentrajeDesc);
-            }
+            Double totalParcial5 = parcialAlTotal(f, f.getTotalParcial5());
             dto.setVenGra05(totalParcial5 - totalParcial5 / 21);
         } else {
             dto.setVenGra05(0.0);
         }
         if (f.getTotalParcial5() != null) {
-            Double totalParcial5 = f.getTotalParcial5();
-            if (porcentrajeDesc != null) {
-                totalParcial5 = totalParcial5 - (totalParcial5 * porcentrajeDesc);
-            }
+            Double totalParcial5 = parcialAlTotal(f, f.getTotalParcial5());
             dto.setVenIva05(totalParcial5 / 21);
         } else {
             dto.setVenIva05(0.0);
@@ -549,19 +564,13 @@ public class FacturaLegalService extends CrudService<FacturaLegal, FacturaLegalR
         dto.setVenTotfac(f.getTotalFinal());
         dto.setVenExenta(0.0);
         if (f.getTotalParcial10() != null) {
-            Double totalParcial10 = f.getTotalParcial10();
-            if (porcentrajeDesc != null) {
-                totalParcial10 = totalParcial10 - (totalParcial10 * porcentrajeDesc);
-            }
+            Double totalParcial10 = parcialAlTotal(f, f.getTotalParcial10());
             dto.setVenGravad(totalParcial10 - totalParcial10 / 11);
         } else {
             dto.setVenGravad(0.0);
         }
         if (f.getTotalParcial10() != null) {
-            Double totalParcial10 = f.getTotalParcial10();
-            if (porcentrajeDesc != null) {
-                totalParcial10 = totalParcial10 - (totalParcial10 * porcentrajeDesc);
-            }
+            Double totalParcial10 = parcialAlTotal(f, f.getTotalParcial10());
             dto.setVenIva(totalParcial10 / 11);
         } else {
             dto.setVenIva(0.0);

@@ -55,6 +55,18 @@ Ninguno: sin columnas, sin migración, sin `.graphqls`, sin enums. N/A la tabla 
 - Validar formato/longitud del teléfono: el manual técnico de SIFEN no se consultó en esta sesión,
   así que no se agrega una regla que no está verificada.
 
+## Prueba de runtime (paso 9)
+
+2026-09-24, contra la copia local de `bodega`, con el jar de esta rama en `:8084` y **SIFEN,
+replicación, Flyway y cotización apagados**. Se vació el teléfono del `timbrado_detalle` 118
+(depósito 13; la cabecera 18270044 tiene `0982700027`) y se pidió `imprimirNotaRemision` de la
+nota 001-002-0000001: el KuDE salió con «Teléfono: 0982700027». Después se restauró el `0986128000`
+del detalle, que es el que viajó en el XML de esas notas.
+
+No se probó en runtime el XML con respaldo ni el corte del validador: los dos pasan por SIFEN de
+producción (el central local emite ahí) o consumen un número de la serie. Los cubren los tests
+unitarios, que fallan con el código viejo.
+
 ## Qué queda sin verificar
 
 - Que SIFEN acepte el teléfono de la cabecera: el formato es el mismo que el `0986128000` que

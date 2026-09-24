@@ -1507,13 +1507,10 @@ public class ImpresionService {
                 dto.setCodigo(vt.getTerminalPos() != null ? vt.getTerminalPos().getCodigo() : "");
                 dto.setSucursal(vt.getSucursal() != null ? vt.getSucursal().getNombre() : "");
                 dto.setMonto(vt.getMonto());
-                dto.setMontoEscaneado(vt.getMontoEscaneado() != null
-                        ? new java.text.DecimalFormat("#,##0").format(vt.getMontoEscaneado())
-                        : "-");
+                String simbolo = simboloDeMoneda(vt);
+                dto.setMontoEscaneado(formatMontoEscaneado(vt.getMontoEscaneado(), simbolo));
                 dto.setEstado(vt.getEstado());
                 dto.setCreadoEn(vt.getCreadoEn() != null ? DateUtils.toString(vt.getCreadoEn()) : "");
-                String simbolo = (vt.getTerminalPos() != null && vt.getTerminalPos().getMoneda() != null)
-                        ? vt.getTerminalPos().getMoneda().getSimbolo() : "Gs.";
                 dto.setSimboloMoneda(simbolo);
                 dto.setMontoFormateado(formatMontoPorMoneda(vt.getMonto(), simbolo));
                 itemList.add(dto);
@@ -2053,7 +2050,37 @@ public class ImpresionService {
      * Formatea un monto segun su moneda: guaranies sin decimales (10.000),
      * el resto (reales, dolares, etc.) con dos decimales y coma decimal (10,00).
      */
-    private String formatMontoPorMoneda(java.math.BigDecimal monto, String simbolo) {
+    /**
+     * Moneda de un registro del reporte de ventas con tarjeta: la del REGISTRO, que es la del cobro
+     * que respalda; la de la terminal solo para filas anteriores a esa columna (V219.5).
+     *
+     * Antes tomaba siempre la de la terminal, que es configuracion mutable: la entidad lo explica
+     * y la lista del desktop ya se habia corregido, pero el reporte impreso quedo atras.
+     */
+    static String simboloDeMoneda(com.franco.dev.domain.financiero.VentaTarjeta vt) {
+        if (vt.getMoneda() != null && vt.getMoneda().getSimbolo() != null) {
+            return vt.getMoneda().getSimbolo();
+        }
+        if (vt.getTerminalPos() != null && vt.getTerminalPos().getMoneda() != null) {
+            return vt.getTerminalPos().getMoneda().getSimbolo();
+        }
+        return "Gs.";
+    }
+
+    /**
+     * El monto que se leyo del cupon, en su moneda: el campo con el que se coteja el cupon contra lo
+     * cobrado.
+     *
+     * Antes era {@code DecimalFormat("#,##0")} fijo: el cupon de PlugPay ({@code USD 146.50}) salia
+     * 146 y el de 156.83 salia 157, justo al lado del monto cobrado, que si pasaba por
+     * formatMontoPorMoneda. Encontrado por la
+     * auditoria del 2026-09-24, cuando el desktop empezo a guardar los centavos.
+     */
+    static String formatMontoEscaneado(java.math.BigDecimal montoEscaneado, String simbolo) {
+        return montoEscaneado != null ? formatMontoPorMoneda(montoEscaneado, simbolo) : "-";
+    }
+
+    static String formatMontoPorMoneda(java.math.BigDecimal monto, String simbolo) {
         java.math.BigDecimal valor = monto != null ? monto : java.math.BigDecimal.ZERO;
         boolean esGuarani = simbolo != null
                 && (simbolo.trim().equalsIgnoreCase("Gs") || simbolo.trim().equalsIgnoreCase("Gs."));

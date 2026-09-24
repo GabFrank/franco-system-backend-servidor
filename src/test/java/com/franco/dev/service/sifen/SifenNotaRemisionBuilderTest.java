@@ -212,6 +212,24 @@ class SifenNotaRemisionBuilderTest {
         assertNull(transporte.getcCondNeg(), "cCondNeg se omite a propósito");
     }
 
+    @Test
+    void elTelefonoDelEmisorSaleDelDetalle() {
+        assertEquals("021123456", construir(notaManual(), items()).getgDatGralOpe().getgEmis().getdTelEmi());
+    }
+
+    @Test
+    void sinTelefonoEnElDetalleUsaElDeLaCabecera() {
+        // SIFEN rechazo el 2026-09-23 con «0160 XML malformado: [El valor del elemento: dTelEmi es
+        // invalido]»: el detalle del deposito no tenia telefono y la cabecera del timbrado si.
+        TimbradoDetalle detalle = timbrado();
+        detalle.setTelefono("  ");
+        detalle.getTimbrado().setTelefono("0982700027");
+
+        DocumentoElectronico de = builder.construir(notaManual(), items(), detalle, sucursal(), null);
+
+        assertEquals("0982700027", de.getgDatGralOpe().getgEmis().getdTelEmi());
+    }
+
     private DocumentoElectronico construir(NotaRemision nota, List<NotaRemisionItem> items) {
         return builder.construir(nota, items, timbrado(), sucursal(), null);
     }

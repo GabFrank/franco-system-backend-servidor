@@ -116,7 +116,7 @@ public class SifenNotaCreditoBuilder {
         gEmis.setdNomEmi(timbradoDetalle.getTimbrado().getRazonSocial());
         gEmis.setdDirEmi(timbradoDetalle.getDireccion());
         gEmis.setdNumCas("0");
-        gEmis.setdTelEmi(timbradoDetalle.getTelefono());
+        gEmis.setdTelEmi(SifenTimbradoHelper.telefonoEmisor(timbradoDetalle));
         gEmis.setdEmailE(timbradoDetalle.getTimbrado().getEmail());
         gEmis.setcDepEmi(SifenGeografiaHelper.departamento(timbradoDetalle.getDepartamento()));
         if (timbradoDetalle.getCodigoCiudad() != null) {

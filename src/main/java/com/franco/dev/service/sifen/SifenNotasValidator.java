@@ -3,6 +3,7 @@ package com.franco.dev.service.sifen;
 import com.roshka.sifen.core.beans.DocumentoElectronico;
 import com.roshka.sifen.core.fields.request.de.TgCamItem;
 import com.roshka.sifen.core.fields.request.de.TgCamNRE;
+import com.roshka.sifen.core.fields.request.de.TgEmis;
 import com.roshka.sifen.core.fields.request.de.TgTransp;
 import com.roshka.sifen.core.types.CMondT;
 import com.roshka.sifen.core.types.TTiDE;
@@ -38,6 +39,7 @@ public final class SifenNotasValidator {
                 || de.getgDatGralOpe().getgDatRec() == null) {
             throw new GraphQLException("Faltan los datos del emisor o del receptor");
         }
+        exigirTelefonoEmisor(de.getgDatGralOpe().getgEmis());
         if (de.getgDtipDE() == null || de.getgDtipDE().getgCamNCDE() == null
                 || de.getgDtipDE().getgCamNCDE().getiMotEmi() == null) {
             throw new GraphQLException("Falta el motivo de la nota de crédito");
@@ -74,6 +76,18 @@ public final class SifenNotasValidator {
         }
     }
 
+    /**
+     * SIFEN rechaza el lote con «0160 XML malformado: [El valor del elemento: dTelEmi es invalido]»
+     * si el telefono del emisor va vacio (2026-09-23). Cortar aca evita gastar el lote y dice que
+     * hacer; el numero de la nota ya esta asignado y se reusa al reintentar.
+     */
+    private static void exigirTelefonoEmisor(TgEmis gEmis) {
+        if (vacio(gEmis.getdTelEmi())) {
+            throw new GraphQLException("El emisor no tiene teléfono: cargalo en el timbrado de la sucursal "
+                    + "(Financiero → Maestros → Timbrados)");
+        }
+    }
+
     private static boolean vacio(String valor) {
         return valor == null || valor.trim().isEmpty();
     }
@@ -92,6 +106,7 @@ public final class SifenNotasValidator {
         if (de.getgDatGralOpe() == null || de.getgDatGralOpe().getgEmis() == null) {
             throw new GraphQLException("Faltan los datos del emisor");
         }
+        exigirTelefonoEmisor(de.getgDatGralOpe().getgEmis());
         if (de.getgDatGralOpe().getgDatRec() == null) {
             throw new GraphQLException("Faltan los datos del receptor");
         }

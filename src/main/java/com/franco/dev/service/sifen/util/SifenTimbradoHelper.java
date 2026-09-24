@@ -1,6 +1,7 @@
 package com.franco.dev.service.sifen.util;
 
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.TimbradoDetalle;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -8,7 +9,7 @@ import java.time.ZoneId;
 /**
  * Helpers de timbrado y fecha para la construccion de un DE.
  *
- * Los usan las notas (remision y credito). La ruta de la factura NO se toca en este trabajo:
+ * Los usan las notas (remision y credito). La factura solo usa {@link #telefonoEmisor}:
  * {@code SifenService} sigue con {@code gTimb.setdEst("001")} hardcodeado, que es deuda anotada
  * aparte.
  */
@@ -42,6 +43,31 @@ public final class SifenTimbradoHelper {
         } catch (NumberFormatException e) {
             return ESTABLECIMIENTO_POR_DEFECTO;
         }
+    }
+
+    /**
+     * Telefono del emisor (dTelEmi): el del detalle del timbrado y, si esta vacio, el de la cabecera.
+     * Nunca devuelve cadena vacia: SIFEN rechaza el lote con «0160 XML malformado: [El valor del
+     * elemento: dTelEmi es invalido]» (paso el 2026-09-23 con el deposito 13, cuyo detalle no tenia
+     * telefono y la cabecera si). Si faltan los dos devuelve null y el validador de notas lo corta.
+     */
+    public static String telefonoEmisor(TimbradoDetalle detalle) {
+        if (detalle == null) {
+            return null;
+        }
+        String telefono = recortado(detalle.getTelefono());
+        if (telefono == null && detalle.getTimbrado() != null) {
+            telefono = recortado(detalle.getTimbrado().getTelefono());
+        }
+        return telefono;
+    }
+
+    private static String recortado(String valor) {
+        if (valor == null) {
+            return null;
+        }
+        String recortado = valor.trim();
+        return recortado.isEmpty() ? null : recortado;
     }
 
     /**

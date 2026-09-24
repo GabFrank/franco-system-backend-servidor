@@ -116,6 +116,20 @@ class NotaRemisionKudeJrxmlTest {
     }
 
     @Test
+    void elTelefonoImpresoEsElMismoQueViajaEnElXml() {
+        // Sin telefono en el detalle, el XML lleva el de la cabecera (SifenTimbradoHelper): el KuDE
+        // tiene que mostrar ese mismo, no quedar vacio.
+        KudeNotaRemisionService service = new KudeNotaRemisionService();
+        TimbradoDetalle detalle = timbrado();
+        detalle.setTelefono(null);
+        detalle.getTimbrado().setTelefono("0982700027");
+
+        var p = service.parametros(nota(), detalle, documentoElectronico());
+
+        assertEquals("0982700027", p.get("telefonoEmisor"));
+    }
+
+    @Test
     void enTransportePropioElTransportistaEsElEmisor() {
         // Salia "Transportista: (RUC: )" vacio: en transporte propio la nota no guarda
         // transportista porque es la propia empresa, igual que en el XML que se firma.

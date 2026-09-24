@@ -79,6 +79,17 @@ encontró riesgo alto. Todo lo citado se verificó contra el código.
 | — | A | — | Sin cambio de GraphQL, enums, variables de entorno ni tablas: `timbrado` y `timbrado_detalle` ya se replican (`V0:14739,14746`, `V112:18-19`) y solo se leen. Ningún cliente parsea el texto del error. | — |
 | — | B | — | `TimbradoDetalle.timbrado` es `FetchType.EAGER` (`TimbradoDetalle.java:40`): leer la cabecera desde el builder no arriesga `LazyInitializationException`. | — |
 
+## Auditoría del diff (paso 8)
+
+Tres ejes fijos sobre `origin/develop...HEAD`. Los condicionales no se disparan: el diff no toca la
+maquinaria de release ni nada que viaje entre nodos.
+
+| Eje | Resultado |
+|---|---|
+| Fijo 1 — autorización | Sin hallazgos: ningún resolver nuevo ni modificado, ningún control de rol ni filtro por sucursal tocado. El respaldo lee `detalle.getTimbrado()`, la cabecera de esa misma fila: no puede traer el teléfono de otro timbrado. El mensaje es texto fijo. |
+| Fijo 2 — esquema | Sin hallazgos: sin migración. `financiero.timbrado.telefono` existe desde `V0:3283`, está mapeado 1:1 (`Timbrado.java:77`) y se publica sin filtro de columnas. |
+| Fijo 3 — contrato | **Hallazgo (media), aplicado.** Los KuDE de nota de remisión y de crédito leían `timbradoDetalle.getTelefono()` crudo (`KudeNotaRemisionService:97`, `KudeNotaCreditoService:94`): con el respaldo, el XML aprobado habría llevado el teléfono de la cabecera y el PDF impreso, vacío. Ahora los dos usan `SifenTimbradoHelper.telefonoEmisor`, con un test cada uno que falla con el código viejo. El KuDE de factura ya tenía su propio respaldo (`FacturaLegalGraphQL.java:1702-1708`). El desktop muestra el mensaje del backend completo (`generic-crud.service.ts:227-239`) y deja reintentar desde la lista sin duplicar la nota. |
+
 ## Despliegue
 
 Solo código del central: reinicio del servicio por el workflow Deploy. Sin impacto en DB ni en

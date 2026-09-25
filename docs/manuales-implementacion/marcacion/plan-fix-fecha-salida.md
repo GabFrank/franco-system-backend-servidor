@@ -48,7 +48,9 @@ La hora sigue siendo la del **servidor**; el cliente no manda nada nuevo.
    - ENTRADA sin fechas → `fechaEntrada`, `fechaSalida` nula;
    - tipo nulo sin fechas → `fechaEntrada` y tipo `ENTRADA` (comportamiento de hoy);
    - SALIDA **con** `fechaSalida` del cliente → no se pisa; ENTRADA con `fechaEntrada` → idem.
-   - **Revertir el fix y comprobar que falla el caso SALIDA.**
+   - **Revertir el fix y comprobar que falla el caso SALIDA.** Hecho: con el código viejo falla
+     solo `salidaSinFecha_guardaLaHoraEnFechaSalida`; los otros cuatro son de regresión (fijan el
+     comportamiento de hoy) y pasan antes y después.
 3. Docs: nota en este directorio (se borra al cierre) y gotcha en el `CLAUDE.md` si corresponde.
 
 Batería: `./mvnw clean verify -B -DskipFlyway=true`. Veredicto: `gh pr checks`.

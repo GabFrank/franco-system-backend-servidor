@@ -175,17 +175,30 @@ class CostosPorProductoServiceTest {
     void aplicarCostoCompra_costoCero_avisaEnElLogQueNoSeActualizaElCosto() {
         // Un ítem no bonificación con precio 0 deja al producto sin costo: tiene que quedar a la vista
         // en el log, no saltearse en silencio (productos nuevos quedaban sin costo para siempre).
+        assertAvisaSinPrecio(0.0);
+    }
+
+    @Test
+    void aplicarCostoCompra_costoNull_avisaEnElLogYDevuelveNull() {
+        // Sin precio (null) es el mismo caso que precio 0: no se toca el costo, pero se avisa.
+        assertAvisaSinPrecio(null);
+    }
+
+    private void assertAvisaSinPrecio(Double costoUnitario) {
         Logger logger = (Logger) LoggerFactory.getLogger(CostosPorProductoService.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         logger.addAppender(appender);
+        CostoPorProducto r;
         try {
-            service.aplicarCostoCompra(producto(9203L), 10.0, 0.0, moneda(1L), 1.0,
+            r = service.aplicarCostoCompra(producto(9203L), 10.0, costoUnitario, moneda(1L), 1.0,
                     sucursal(2L), null, LocalDateTime.now());
         } finally {
             logger.detachAppender(appender);
         }
 
+        assertNull(r);
+        verify(repository, never()).save(any(CostoPorProducto.class));
         assertTrue(appender.list.stream().anyMatch(e -> e.getLevel() == Level.WARN
                         && e.getFormattedMessage().contains("9203")),
                 "se esperaba un WARN con el id del producto");

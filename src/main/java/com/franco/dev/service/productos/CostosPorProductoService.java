@@ -165,12 +165,20 @@ public class CostosPorProductoService extends CrudService<CostoPorProducto, Cost
                                                Moneda moneda, Double cotizacion, Sucursal sucursal,
                                                Usuario usuario, LocalDateTime fecha) {
         if (producto == null || producto.getId() == null) return null;
-        if (costoUnitario == null || cantidadEntrada == null || cantidadEntrada <= 0) return null;
+        if (cantidadEntrada == null || cantidadEntrada <= 0) return null;
 
         double cotiz = (cotizacion != null) ? cotizacion : 1.0;
         // Costo de la compra normalizado a Gs para que el promedio ponderado sea correcto al mezclar monedas.
-        double costoEnGs = CostoMedioCalculator.aGuaranies(costoUnitario, cotiz);
-        if (costoEnGs <= 0) return null; // compra sin costo válido (data inválida): no se toca el costo
+        double costoEnGs = (costoUnitario != null) ? CostoMedioCalculator.aGuaranies(costoUnitario, cotiz) : 0.0;
+        if (costoEnGs <= 0) {
+            // Compra sin costo válido: no se toca el costo. Las bonificaciones no llegan acá, así que es
+            // un ítem cargado con precio 0; un producto nuevo queda sin costo, por eso se deja a la vista.
+            log.warn("Compra sin precio: no se actualiza el costo del producto={} ({}), cantidad={}, " +
+                            "costo unitario={}, moneda={}, cotizacion={}.",
+                    producto.getId(), producto.getDescripcion(), cantidadEntrada, costoUnitario,
+                    (moneda != null ? moneda.getDenominacion() : null), cotiz);
+            return null;
+        }
 
         CostoPorProducto costoAnterior = findLastByProductoId(producto.getId());
 

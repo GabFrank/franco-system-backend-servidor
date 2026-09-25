@@ -1,5 +1,9 @@
 package com.franco.dev.service.productos;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.Moneda;
 import com.franco.dev.domain.productos.CostoPorProducto;
@@ -9,6 +13,7 @@ import com.franco.dev.service.configuraciones.ModificacionService;
 import com.franco.dev.service.operaciones.MovimientoStockService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -17,6 +22,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -163,6 +169,26 @@ class CostosPorProductoServiceTest {
         assertNull(r);
         verify(repository, never()).findLastByProductoId(anyLong(), any());
         verify(repository, never()).save(any(CostoPorProducto.class));
+    }
+
+    @Test
+    void aplicarCostoCompra_costoCero_avisaEnElLogQueNoSeActualizaElCosto() {
+        // Un ítem no bonificación con precio 0 deja al producto sin costo: tiene que quedar a la vista
+        // en el log, no saltearse en silencio (productos nuevos quedaban sin costo para siempre).
+        Logger logger = (Logger) LoggerFactory.getLogger(CostosPorProductoService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        try {
+            service.aplicarCostoCompra(producto(9203L), 10.0, 0.0, moneda(1L), 1.0,
+                    sucursal(2L), null, LocalDateTime.now());
+        } finally {
+            logger.detachAppender(appender);
+        }
+
+        assertTrue(appender.list.stream().anyMatch(e -> e.getLevel() == Level.WARN
+                        && e.getFormattedMessage().contains("9203")),
+                "se esperaba un WARN con el id del producto");
     }
 
     @Test

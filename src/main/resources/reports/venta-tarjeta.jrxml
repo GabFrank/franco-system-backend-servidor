@@ -33,7 +33,7 @@
 				<textElement textAlignment="Center" verticalAlignment="Top">
 					<font fontName="Verdana" size="14" isBold="true"/>
 				</textElement>
-				<text><![CDATA[Reporte de Ventas con Tarjeta]]></text>
+				<text><![CDATA[Reporte de conciliación de cupones]]></text>
 			</staticText>
 			<rectangle>
 				<reportElement x="100" y="33" width="225" height="100" uuid="e703c566-7819-4778-bdfd-f96af1fc6e09"/>

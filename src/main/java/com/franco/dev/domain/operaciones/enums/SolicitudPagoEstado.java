@@ -6,6 +6,7 @@ import java.util.List;
 public enum SolicitudPagoEstado {
     PENDIENTE,  // Borrador: creada pero aún no finalizada/validada. NO pagable.
     SOLICITADO, // Validada y lista para pagar. Es lo que ven los diálogos de pago.
+    DEVUELTO,   // Tesorería la devolvió a compras con un motivo. NO pagable: compras la corrige y la reenvía, o la cancela.
     PARCIAL,    // When a partial payment has been made
     CONCLUIDO,  // When the payment has been completed (pagada)
     CANCELADO;  // When the payment has been cancelled

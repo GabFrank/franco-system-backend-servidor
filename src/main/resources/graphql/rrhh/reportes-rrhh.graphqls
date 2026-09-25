@@ -1,5 +1,8 @@
 extend type Query {
-    reporteNominaMes(periodo: String!): String
+    # ciudadId: filtra por la ciudad de la sucursal del funcionario. sinCiudad=true trae
+    # solo a los que no tienen sucursal asignada (y por lo tanto no caen en ninguna ciudad).
+    # Ambos en null/false = nomina general, como estaba.
+    reporteNominaMes(periodo: String!, ciudadId: ID, sinCiudad: Boolean): String
     reporteResumenIps(periodo: String!): String
     imprimirReciboFinal(id: ID!, anchoMm: Int, escpos: Boolean): String
     reporteValesPendientes: String

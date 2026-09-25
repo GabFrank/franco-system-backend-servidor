@@ -4,6 +4,7 @@ import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.domain.financiero.enums.PdvCajaEstado;
 import com.franco.dev.domain.operaciones.Venta;
+import com.franco.dev.domain.personas.Usuario;
 import com.franco.dev.domain.operaciones.enums.VentaEstado;
 import com.franco.dev.repository.HelperRepository;
 import com.franco.dev.repository.HelperRepositoryEmbeddedId;
@@ -60,6 +61,27 @@ public interface PdvCajaRepository extends HelperRepository<PdvCaja, Long>, JpaS
     public Page<PdvCaja> findAllWithFilters(Long cajaId, PdvCajaEstado estado, Long maletinId, Long cajeroId, LocalDateTime fechaInicio, LocalDateTime fechaFin, Long sucId, Boolean verificado, Pageable pageable);
 
     List<PdvCaja> findBySucursalIdAndActivo(Long sucursalId, Boolean activo);
+
+    /**
+     * Los cajeros que hoy estan en caja en una sucursal.
+     *
+     * No alcanza con activo = true: esa bandera solo dice que la caja nunca se cerro, y en la base
+     * hay cajas de 2022-2024 que quedaron asi. Una caja realmente abierta es la ultima de su
+     * maletin -- si aparecio otra caja despues en el mismo maletin, la anterior se abandono.
+     * Tampoco sirve el campo estado, que esta nulo en toda la tabla.
+     *
+     * Se excluyen las cajas sin fecha de apertura, que son filas que nunca llegaron a abrirse.
+     */
+    @Query("select distinct c.usuario from PdvCaja c " +
+            "where c.sucursalId = ?1 " +
+            "and c.activo = true " +
+            "and c.fechaApertura is not null " +
+            "and c.usuario is not null " +
+            "and not exists (select 1 from PdvCaja c2 " +
+            "                where c2.sucursalId = c.sucursalId " +
+            "                and c2.maletin = c.maletin " +
+            "                and c2.fechaApertura > c.fechaApertura)")
+    List<Usuario> findCajerosConCajaAbiertaBySucursalId(Long sucursalId);
 
     @Query("SELECT DISTINCT v.caja FROM VentaObservacion vo JOIN vo.venta v WHERE v.caja IS NOT NULL")
     List<PdvCaja> findCajasWithVentaObservaciones();

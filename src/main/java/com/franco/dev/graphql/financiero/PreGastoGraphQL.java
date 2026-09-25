@@ -173,14 +173,18 @@ public class PreGastoGraphQL implements GraphQLQueryResolver, GraphQLMutationRes
         if (input.getSucursalCajaId() != null) {
             e.setSucursalCaja(sucursalService.findById(input.getSucursalCajaId()).orElse(null));
         }
-        if (input.getSucursalId() != null && input.getSucursalId() > 0) {
+        // La sucursal vale si EXISTE, no si es > 0: la sucursal 0 (SERVIDOR) es un destino
+        // legitimo para una solicitud que se va a cobrar desde la caja mayor y no de una caja
+        // fisica. Antes se rechazaba por el signo y no habia forma de dirigir un gasto al
+        // central desde ningun cliente.
+        if (input.getSucursalId() != null && sucursalService.findById(input.getSucursalId()).isPresent()) {
             e.setSucursalId(input.getSucursalId());
-        } else if (e.getSucursalCaja() != null && e.getSucursalCaja().getId() != null
-                && e.getSucursalCaja().getId() > 0) {
-            // Fallback: usar sucursal de caja cuando el frontend no envía sucursalId.
+        } else if (e.getSucursalCaja() != null && e.getSucursalCaja().getId() != null) {
+            // Fallback: usar sucursal de caja cuando el frontend no envía sucursalId (el
+            // escritorio manda solo esa).
             e.setSucursalId(e.getSucursalCaja().getId());
         }
-        if (e.getSucursalId() == null || e.getSucursalId() <= 0) {
+        if (e.getSucursalId() == null) {
             throw new GraphQLException("Debe indicar una sucursal válida para registrar la solicitud.");
         }
         e.setCajaId(input.getCajaId());

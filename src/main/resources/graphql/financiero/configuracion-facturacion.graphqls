@@ -1,0 +1,78 @@
+# Como factura automaticamente el filial (issue filial #127).
+# TODAS: toda venta con punto de venta.
+# INTERVALO: una de cada ventasSinFactura + 1 (el facturaCountDown de siempre).
+# A_PEDIDO: nunca automatica, solo cuando el cliente la pide.
+enum ModoFacturacion {
+    TODAS
+    INTERVALO
+    A_PEDIDO
+}
+
+# Que cambio registra una fila del historial de la politica de facturacion.
+enum AccionConfiguracionFacturacion {
+    CREAR
+    MODIFICAR
+    ACTIVAR
+    DESACTIVAR
+    ELIMINAR
+}
+
+type ConfiguracionFacturacion {
+    id: ID!
+    "null = politica global; con valor, el override de esa sucursal."
+    sucursal: Sucursal
+    modo: ModoFacturacion!
+    "Solo INTERVALO: ventas sin factura entre dos facturadas."
+    ventasSinFactura: Int!
+    "false = Venta + Ticket y delivery facturan siempre; true = decide la politica."
+    ventaTicketRespetaPolitica: Boolean!
+    "false = el filial la ignora (la sucursal sigue a la global) pero conserva sus valores."
+    activo: Boolean!
+    "Quien la modifico por ultima vez. Solo el nickname: el tipo Usuario expone password."
+    usuarioNickname: String
+    creadoEn: Date
+    modificadoEn: Date
+}
+
+"Un cambio de la politica. Valores despues del cambio; en ELIMINAR, los que tenia al borrarse."
+type ConfiguracionFacturacionHistorial {
+    id: ID!
+    configuracionId: ID!
+    "null = la politica global."
+    sucursal: Sucursal
+    accion: AccionConfiguracionFacturacion!
+    modo: ModoFacturacion!
+    ventasSinFactura: Int!
+    ventaTicketRespetaPolitica: Boolean!
+    activo: Boolean!
+    usuarioNickname: String
+    creadoEn: Date
+}
+
+"""
+Reemplazo completo, no PATCH. La clave es sucursalId (null = global): guardar sobre una clave
+que ya tiene fila la actualiza. El autor sale de la sesion.
+"""
+input ConfiguracionFacturacionInput {
+    id: ID
+    sucursalId: ID
+    modo: ModoFacturacion!
+    ventasSinFactura: Int
+    ventaTicketRespetaPolitica: Boolean
+    "true por defecto al crear; en una edicion, null conserva el valor."
+    activo: Boolean
+}
+
+extend type Query {
+    configuracionesFacturacion: [ConfiguracionFacturacion]!
+    "sucursalId null = todo; -1 = solo la global. Mas reciente primero; limite 200 por defecto."
+    historialConfiguracionFacturacion(sucursalId: ID, limite: Int): [ConfiguracionFacturacionHistorial]!
+}
+
+extend type Mutation {
+    saveConfiguracionFacturacion(input: ConfiguracionFacturacionInput!): ConfiguracionFacturacion!
+    "Borrar un override devuelve la sucursal a la global; borrar la global, a la property del filial."
+    deleteConfiguracionFacturacion(id: ID!): Boolean!
+    "Activa o desactiva todas las configuraciones de sucursal (nunca la global). Devuelve cuantas cambio."
+    setActivoConfiguracionesFacturacion(activo: Boolean!): Int!
+}

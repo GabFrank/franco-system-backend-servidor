@@ -81,6 +81,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final CreditoConvenioService creditoConvenioService;
     private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
     private final BaseRemunerativaService baseRemunerativaService;
+    private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -588,6 +589,19 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     public LiquidacionFinal pagar(Long id, Long cajaVirtualId) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() != LiquidacionFinalEstado.APROBADA) throw new GraphQLException("Solo se paga una APROBADA");
+        // Total negativo = los descuentos superan a los haberes: el funcionario le debe a la
+        // empresa y no hay finiquito que pagarle. Sin este corte el EGRESO se postea con la
+        // cantidad negada y saca de la caja justamente lo que habria que cobrar.
+        BigDecimal total = lf.getTotalLiquidado() != null ? lf.getTotalLiquidado() : BigDecimal.ZERO;
+        if (total.signum() < 0) {
+            throw new GraphQLException("El finiquito #" + lf.getId() + " tiene total negativo ("
+                    + total.toPlainString() + "): los descuentos superan a los haberes, no hay nada que pagar."
+                    + " Corrija los items o cobre la diferencia por separado.");
+        }
+
+        // Antes de mover plata: una cuota descontada que se cobro por caja despues de generar el borrador
+        // se cobraria dos veces (issue #300). Toma las cuotas con lock antes que el saldo de caja.
+        prestamoCuotaDescuentoService.validarFiniquito(lf.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -643,16 +657,10 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                         valeRepository.save(v);
                     });
                     break;
-                case "CPP_CUOTA":
-                    prestamoCuotaRepository.findById(refId).ifPresent(c -> {
-                        BigDecimal monto = it.getMonto() != null ? it.getMonto() : BigDecimal.ZERO;
-                        BigDecimal pagado = c.getMontoPagado() != null ? c.getMontoPagado() : BigDecimal.ZERO;
-                        c.setMontoPagado(pagar ? pagado.add(monto) : pagado.subtract(monto).max(BigDecimal.ZERO));
-                        BigDecimal totalCuota = c.getMonto() != null ? c.getMonto() : BigDecimal.ZERO;
-                        c.setEstado(c.getMontoPagado().compareTo(totalCuota) >= 0
-                                ? PrestamoCuotaEstado.PAGADA : PrestamoCuotaEstado.PENDIENTE);
-                        prestamoCuotaRepository.save(c);
-                    });
+                case PrestamoCuotaDescuentoService.REFERENCIA_CUOTA:
+                    // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
+                    if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
+                    else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
                     break;
                 case "CREDITO_CONVENIO_CUOTA":
                     // El cobro ya quedo registrado por el item. Reconciliamos el estado del
@@ -737,19 +745,15 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() == LiquidacionFinalEstado.ANULADA) return lf;
         if (lf.getEstado() == LiquidacionFinalEstado.PAGADA && lf.getCajaVirtualId() != null) {
-            CajaVirtual caja = cajaVirtualService.findById(lf.getCajaVirtualId())
-                    .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
-            MovimientoCajaVirtual rev = new MovimientoCajaVirtual();
-            rev.setCajaVirtual(caja);
-            rev.setTipoMovimiento(CajaVirtualTipoMovimiento.AJUSTE);
-            rev.setCantidad(lf.getTotalLiquidado() != null ? lf.getTotalLiquidado().doubleValue() : 0.0);
-            rev.setMoneda(lf.getMoneda());
-            rev.setReferenciaId(lf.getId());
-            rev.setOrigenTipo(OrigenMovimientoTipo.RRHH_LIQUIDACION_FINAL);
-            rev.setOrigenId(lf.getId());
-            rev.setDescripcion("ANULACION LIQUIDACION FINAL #" + lf.getId());
-            rev.setActivo(true);
-            movimientoCajaVirtualService.registrarMovimiento(rev);
+            if (lf.getMovimientoCajaVirtualId() == null) {
+                throw new GraphQLException("El finiquito #" + lf.getId() + " esta pagado contra una caja"
+                        + " pero no tiene movimiento asociado: no se puede revertir sin dejar la caja descuadrada.");
+            }
+            // La reversa la arma tesoreria, que recalcula el efecto del movimiento original y lo
+            // niega. Copiar el total a mano en un AJUSTE solo revierte cuando el total es
+            // positivo: con total negativo vuelve a descontar en vez de devolver.
+            movimientoCajaVirtualService.revertirMovimiento(lf.getMovimientoCajaVirtualId(),
+                    "ANULACION LIQUIDACION FINAL #" + lf.getId(), lf.getUsuario());
             // Revertir el saldado de vales/cuotas.
             aplicarEfectosCruzados(lf, false);
         }

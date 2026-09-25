@@ -6,6 +6,7 @@ import com.franco.dev.repository.financiero.CuentaBancariaRepository;
 import com.franco.dev.repository.financiero.MovimientoBancarioRepository;
 import com.franco.dev.service.financiero.CajaVirtualService;
 import com.franco.dev.service.financiero.MonedaService;
+import com.franco.dev.service.financiero.MovimientoBancarioService;
 import com.franco.dev.service.financiero.OperacionFinancieraService;
 import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import graphql.kickstart.tools.GraphQLMutationResolver;
@@ -27,6 +28,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
     private final MonedaService monedaService;
     private final com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository categoriaRepository;
     private final TesoreriaSecurityService seg;
+    private final MovimientoBancarioService movimientoBancarioService;
 
     public OperacionFinancieraGraphQL(OperacionFinancieraService service,
                                       MovimientoBancarioRepository movimientoBancarioRepository,
@@ -34,7 +36,8 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
                                       CuentaBancariaRepository cuentaBancariaRepository,
                                       MonedaService monedaService,
                                       com.franco.dev.repository.financiero.OperacionFinancieraCategoriaRepository categoriaRepository,
-                                      TesoreriaSecurityService seg) {
+                                      TesoreriaSecurityService seg,
+                                      MovimientoBancarioService movimientoBancarioService) {
         this.service = service;
         this.movimientoBancarioRepository = movimientoBancarioRepository;
         this.cajaVirtualService = cajaVirtualService;
@@ -42,6 +45,7 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         this.monedaService = monedaService;
         this.categoriaRepository = categoriaRepository;
         this.seg = seg;
+        this.movimientoBancarioService = movimientoBancarioService;
     }
 
     public java.util.List<com.franco.dev.domain.financiero.OperacionFinancieraCategoria> operacionFinancieraCategorias() {
@@ -59,9 +63,12 @@ public class OperacionFinancieraGraphQL implements GraphQLQueryResolver, GraphQL
         return service.porId(id);
     }
 
-    public Page<MovimientoBancario> movimientosBancarios(Long cuentaBancariaId, int page, int size) {
+    /** Movimientos de una cuenta, con los mismos filtros opcionales que la caja mayor (sin moneda: la cuenta tiene una). */
+    public Page<MovimientoBancario> movimientosBancarios(Long cuentaBancariaId, String desde, String fin, String tipo,
+                                                         Boolean soloActivos, int page, int size) {
         seg.requireVer();
-        return movimientoBancarioRepository.findByCuentaBancariaIdOrderByCreadoEnDesc(cuentaBancariaId, PageRequest.of(page, size));
+        return movimientoBancarioService.filter(cuentaBancariaId, desde, fin, tipo,
+                soloActivos != null && soloActivos, PageRequest.of(page, size));
     }
 
     public OperacionFinanciera registrarOperacionFinanciera(OperacionFinancieraInputWrapper in) {

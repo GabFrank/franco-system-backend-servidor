@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @Component
 public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResolver {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CambioGraphQL.class);
+
     @Autowired
     private CambioService service;
 
@@ -46,6 +48,15 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
 
     @Autowired
     private NorteCambiosScraper norteCambiosScraper;
+
+    /**
+     * Mismo interruptor que gobierna {@code CotizacionMercadoScheduler}. Sin esto la perilla
+     * valdria en una puerta y no en la otra: el operador apaga la integracion, ve que el
+     * scheduler se calla, y el boton "Actualizar cotizacion" del desktop sigue saliendo a
+     * internet igual. Una bandera que vale en un camino y no en el otro es peor que no tenerla.
+     */
+    @org.springframework.beans.factory.annotation.Value("${cotizacion.mercado.enabled:false}")
+    private boolean cotizacionMercadoHabilitada;
 
     @Autowired
     private PushNotificationService pushNotificationService;
@@ -157,23 +168,50 @@ public class CambioGraphQL implements GraphQLQueryResolver, GraphQLMutationResol
         return service.count();
     }
 
+    /**
+     * Refresca la cotizacion de mercado desde nortecambios.com.py.
+     *
+     * <p>Devuelve {@code false} cuando no se pudo actualizar nada — no lanza. Es una
+     * lectura best-effort de un sitio de terceros: que no responda no es un error del
+     * sistema, y un error GraphQL aca aborta toda la operacion del cliente que lo pidio.
+     * Los dos llamadores del desktop (lista de cambios y gestion de compras) ya tratan
+     * el {@code false} como "no se pudo actualizar" y siguen con la ultima cotizacion.
+     *
+     * <p>Devuelve {@code false} sin tocar la red cuando {@code cotizacion.mercado.enabled}
+     * esta apagado.
+     */
     public Boolean actualizarCotizacionesMercado() {
-        java.util.Map<String, double[]> rates = norteCambiosScraper.fetchRates();
-        if (rates.isEmpty()) {
-            throw new RuntimeException("No se pudieron obtener cotizaciones de nortecambios.com.py. Verifique la conexion a internet.");
+        if (!cotizacionMercadoHabilitada) {
+            return false;
         }
-        int count = 0;
-        for (java.util.Map.Entry<String, double[]> entry : rates.entrySet()) {
-            Moneda moneda = monedaService.findByDescripcion(entry.getKey());
-            if (moneda == null) continue;
-            Cambio ultimo = service.findLastByMonedaId(moneda.getId());
-            if (ultimo == null) continue;
-            ultimo.setValorEnGsVentaMercado(entry.getValue()[0]);
-            ultimo.setValorEnGsCompraMercado(entry.getValue()[1]);
-            service.save(ultimo);
-            count++;
+        try {
+            java.util.Map<String, double[]> rates = norteCambiosScraper.fetchRates();
+            if (rates.isEmpty()) {
+                return false;
+            }
+            int count = 0;
+            for (java.util.Map.Entry<String, double[]> entry : rates.entrySet()) {
+                try {
+                    Moneda moneda = monedaService.findByDescripcion(entry.getKey());
+                    if (moneda == null) continue;
+                    Cambio ultimo = service.findLastByMonedaId(moneda.getId());
+                    if (ultimo == null) continue;
+                    ultimo.setValorEnGsVentaMercado(entry.getValue()[0]);
+                    ultimo.setValorEnGsCompraMercado(entry.getValue()[1]);
+                    service.save(ultimo);
+                    count++;
+                } catch (Exception e) {
+                    // Una moneda que falla no arrastra a las demas, pero se loguea: sin esto
+                    // una moneda que falla siempre es invisible desde el lado GraphQL.
+                    log.warn("actualizarCotizacionesMercado: error actualizando {}: {}",
+                            entry.getKey(), e.getMessage());
+                }
+            }
+            return count > 0;
+        } catch (Exception e) {
+            log.warn("actualizarCotizacionesMercado: no se pudo actualizar: {}", e.getMessage());
+            return false;
         }
-        return count > 0;
     }
 
 }

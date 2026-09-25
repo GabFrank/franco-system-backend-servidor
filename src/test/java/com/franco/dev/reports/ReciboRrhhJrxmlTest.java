@@ -48,6 +48,73 @@ public class ReciboRrhhJrxmlTest {
             JasperPrint print = JasperFillManager.fillReport(jr, p, new JRBeanCollectionDataSource(rows));
             byte[] pdf = JasperExportManager.exportReportToPdf(print);
             org.junit.jupiter.api.Assertions.assertTrue(pdf != null && pdf.length > 0, "Fallo plantilla " + tpl);
+
+            // Un staticText cuyo alto no alcanza para su fuente se rellena VACIO, sin error:
+            // el recibo sale sin encabezado de columnas y solo se nota mirando el PDF.
+            // Ver que el texto sobrevivio al fill, no solo que el PDF pesa algo.
+            String textos = textosDelPrint(print);
+            for (String esperado : new String[]{"Concepto", "Monto"}) {
+                org.junit.jupiter.api.Assertions.assertTrue(textos.contains(esperado),
+                        "La plantilla " + tpl + " no imprime el encabezado '" + esperado
+                                + "'. Suele ser el alto del staticText, que no entra para su fuente"
+                                + " y Jasper lo recorta a vacio. Textos: " + textos);
+            }
         }
+    }
+
+    /**
+     * El valor de la fila y la observacion tienen que llegar enteros al fill. Un concepto
+     * largo cortado no da error ni deja el campo vacio: getFullText() devuelve el texto ya
+     * recortado. Por eso el concepto termina en la fecha y se busca la fecha.
+     */
+    @Test
+    void conceptoLargoYObservacionSalenCompletos() throws Exception {
+        String concepto = "ANTICIPO SUELDO - pago de la cuota del colegio de los chicos y remedios de la abuela,"
+                + " mas el pasaje del mes que viene (2026-09-19)";
+        for (String tpl : new String[]{"reports/recibo-rrhh.jrxml",
+                "reports/recibo-ticket-58.jrxml", "reports/recibo-ticket-80.jrxml"}) {
+            String conObs = textosDelPrint(llenar(tpl, concepto, "ENTREGADO EN MANO AL ENCARGADO"));
+            assertContiene(conObs, concepto, tpl);
+            assertContiene(conObs, "1.234.567", tpl);
+            assertContiene(conObs, "Obs.: ENTREGADO EN MANO AL ENCARGADO", tpl);
+
+            String sinObs = textosDelPrint(llenar(tpl, concepto, null));
+            org.junit.jupiter.api.Assertions.assertFalse(sinObs.contains("Obs."),
+                    tpl + " imprime la linea de observacion vacia: " + sinObs);
+        }
+    }
+
+    private JasperPrint llenar(String tpl, String concepto, String observacion) throws Exception {
+        JasperReport jr = JasperCompileManager.compileReport(ResourceUtils.getFile("classpath:" + tpl).getAbsolutePath());
+        Map<String, Object> p = new HashMap<>();
+        p.put("empresa", "FRANCO SA");
+        p.put("titulo", "RECIBO DE VALE Nro. 12");
+        p.put("funcionario", "JUAN PEREZ");
+        p.put("documento", "1234567");
+        p.put("fecha", "2026-09-19");
+        p.put("clausula", "Recibi conforme, en concepto de vale,");
+        p.put("total", "1.234.567");
+        p.put("totalEnLetras", "UN MILLON");
+        p.put("observacion", observacion);
+        return JasperFillManager.fillReport(jr, p,
+                new JRBeanCollectionDataSource(Arrays.asList(new Row(concepto, "1.234.567"))));
+    }
+
+    private void assertContiene(String textos, String esperado, String tpl) {
+        org.junit.jupiter.api.Assertions.assertTrue(textos.contains(esperado),
+                tpl + " no imprime completo [" + esperado + "]. Textos: " + textos);
+    }
+
+    /** Concatena el texto de todos los elementos del print, para aseverar sobre el resultado del fill. */
+    static String textosDelPrint(JasperPrint print) {
+        StringBuilder sb = new StringBuilder();
+        for (net.sf.jasperreports.engine.JRPrintPage page : print.getPages()) {
+            for (Object o : page.getElements()) {
+                if (o instanceof net.sf.jasperreports.engine.JRPrintText) {
+                    sb.append(((net.sf.jasperreports.engine.JRPrintText) o).getFullText()).append(" | ");
+                }
+            }
+        }
+        return sb.toString();
     }
 }

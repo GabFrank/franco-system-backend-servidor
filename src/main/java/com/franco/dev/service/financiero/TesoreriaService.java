@@ -45,14 +45,17 @@ public class TesoreriaService {
     private final com.franco.dev.repository.empresarial.ConfiguracionGeneralRepository configRepository;
 
     /** Los tipos que restan del saldo (además de AJUSTE, que ya llega firmado). */
-    private static boolean esEgreso(CajaVirtualTipoMovimiento tipo) {
+    static boolean esEgreso(CajaVirtualTipoMovimiento tipo) {
         return tipo == CajaVirtualTipoMovimiento.EGRESO
                 || tipo == CajaVirtualTipoMovimiento.TRANSFERENCIA_SALIDA
                 || tipo == CajaVirtualTipoMovimiento.PAGO_PROVEEDOR;
     }
 
-    /** Delta firmado a aplicar al saldo según el tipo. AJUSTE conserva el signo de la cantidad. */
-    private static BigDecimal signedDelta(CajaVirtualTipoMovimiento tipo, BigDecimal cantidad) {
+    /**
+     * Delta firmado a aplicar al saldo según el tipo. AJUSTE conserva el signo de la cantidad.
+     * Package-private: el reporte de movimientos totaliza con la misma regla.
+     */
+    static BigDecimal signedDelta(CajaVirtualTipoMovimiento tipo, BigDecimal cantidad) {
         if (tipo == CajaVirtualTipoMovimiento.AJUSTE) return cantidad;
         return esEgreso(tipo) ? cantidad.abs().negate() : cantidad.abs();
     }

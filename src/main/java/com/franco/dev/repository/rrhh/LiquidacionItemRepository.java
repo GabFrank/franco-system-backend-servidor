@@ -19,6 +19,14 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
     List<LiquidacionItem> findByLiquidacionIdAndManualFalse(Long liquidacionId);
 
     /**
+     * Items ya emitidos que usan un codigo del catalogo. {@code liquidacion_item.codigo}
+     * es un String, no una FK, asi que la base no impide borrar un concepto en uso: los
+     * recibos historicos se quedarian sin etiqueta y el codigo dejaria de resolver a
+     * remunerativo/no remunerativo. Lo chequea LiquidacionConceptoGraphQL antes de borrar.
+     */
+    Long countByCodigo(String codigo);
+
+    /**
      * Suma ya cobrada de una cuota de venta a credito (CREDITO_CONVENIO_CUOTA) por las
      * liquidaciones mensuales no ANULADAS, excluyendo la liquidacion en curso.
      */
@@ -74,4 +82,17 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "and (c.id is null or c.esRemunerativo is null or c.esRemunerativo = true) " +
             "group by l.periodo order by l.periodo desc")
     List<Object[]> percibidoPorPeriodoDesc(@Param("funcionarioId") Long funcionarioId);
+
+    /**
+     * Indica si un bono ya esta referenciado por un item de una liquidacion APROBADA o
+     * PAGADA. A diferencia de {@code bono.liquidacionId} (que solo se estampa al pagar,
+     * en {@code aplicarEfectosCruzados}), esto cubre tambien la ventana entre aprobar y
+     * pagar, donde el snapshot de la liquidacion ya esta congelado pero el bono todavia
+     * no tiene liquidacionId.
+     */
+    @Query("select case when count(i) > 0 then true else false end from LiquidacionItem i " +
+            "where i.referenciaTipo = 'BONO' and i.referenciaId = :bonoId " +
+            "and i.liquidacion.estado in (com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.APROBADA, " +
+            "com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.PAGADA)")
+    boolean existeEnLiquidacionCerrada(@Param("bonoId") Long bonoId);
 }

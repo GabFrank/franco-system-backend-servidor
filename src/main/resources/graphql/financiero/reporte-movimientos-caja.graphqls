@@ -1,0 +1,6 @@
+# Reportes PDF (base64) de los movimientos del dashboard de caja mayor, con los mismos filtros que la tabla.
+# fin es inclusivo (fin del día). tipo bancario: name de MovimientoBancarioTipo.
+extend type Query {
+    imprimirReporteMovimientosCajaVirtual(cajaVirtualId: ID!, desde: String, fin: String, tipo: CajaVirtualTipoMovimiento, monedaId: ID, soloActivos: Boolean): String
+    imprimirReporteMovimientosBancarios(cajaVirtualId: ID!, cuentaBancariaId: ID!, desde: String, fin: String, tipo: String, soloActivos: Boolean): String
+}

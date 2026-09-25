@@ -220,6 +220,14 @@ public class MovimientoStockLoteService
     }
 
     /**
+     * Saldo por lote tal como estaba justo antes de {@code corte} (estricto: lo creado en
+     * {@code corte} mismo queda afuera).
+     */
+    public List<StockLoteDto> stockPorLoteAntesDe(Long productoId, Long sucursalId, LocalDateTime corte) {
+        return repository.stockPorLoteAntesDe(productoId, sucursalId, corte);
+    }
+
+    /**
      * Saldo por lote expresado en una presentacion concreta, ordenado por FEFO.
      *
      * Es lo que consume la eleccion manual de lotes en transferencias: el operador carga en

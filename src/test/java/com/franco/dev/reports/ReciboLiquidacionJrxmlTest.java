@@ -37,7 +37,69 @@ public class ReciboLiquidacionJrxmlTest {
     private static Map<String, Object> paramsDummy() {
         Map<String, Object> p = new HashMap<>();
         for (String k : PARAMS) p.put(k, "DATO DUMMY");
+        // Numero y observacion siempre cargados: asi el techo de una hoja se mide con ellos.
+        p.put("numero", "486");
+        p.put("observacion", OBSERVACION_LARGA);
         return p;
+    }
+
+    private static final String OBSERVACION_LARGA = "SE LE ADELANTO PARTE DEL SUELDO POR TRANSFERENCIA EL 15/11"
+            + " Y EL RESTO SE ENTREGA EN EFECTIVO; LA CUOTA DEL CREDITO SE DIFIERE AL MES SIGUIENTE POR PEDIDO DEL"
+            + " ENCARGADO DE SUCURSAL";
+
+    /** Tope de la observacion en el A4 (lo aplica ReciboLiquidacionService): con ese largo sigue legible. */
+    @Test
+    void observacionEnElTopeSigueLegible() throws Exception {
+        StringBuilder obs = new StringBuilder();
+        while (obs.length() < com.franco.dev.service.rrhh.ReciboLiquidacionService.MAX_OBSERVACION_A4) {
+            obs.append("PALABRA ");
+        }
+        Map<String, Object> p = paramsDummy();
+        p.put("observacion", obs.substring(0, com.franco.dev.service.rrhh.ReciboLiquidacionService.MAX_OBSERVACION_A4));
+        File f = ResourceUtils.getFile("classpath:reports/recibo-liquidacion.jrxml");
+        JasperPrint print = JasperFillManager.fillReport(JasperCompileManager.compileReport(f.getAbsolutePath()), p,
+                new JRBeanCollectionDataSource(new ArrayList<>(Arrays.asList(
+                        new ReciboLiquidacionItemDto("SUELDO", "ENTRADA", "SALARIO BASE", "30/11/2026", "3.100.000")))));
+        int vistos = 0;
+        for (net.sf.jasperreports.engine.JRPrintPage pg : print.getPages()) {
+            for (Object o : pg.getElements()) {
+                if (o instanceof net.sf.jasperreports.engine.JRPrintText
+                        && ((net.sf.jasperreports.engine.JRPrintText) o).getFullText().startsWith("Obs.:")) {
+                    vistos++;
+                    float size = ((net.sf.jasperreports.engine.JRPrintText) o).getFontsize();
+                    org.junit.jupiter.api.Assertions.assertTrue(size >= 6f,
+                            "con " + p.get("observacion").toString().length() + " caracteres la observacion baja a " + size + " pt");
+                }
+            }
+        }
+        org.junit.jupiter.api.Assertions.assertEquals(2, vistos, "la observacion tiene que salir en las dos vias");
+    }
+
+    /** Numero en el titulo; observacion completa en las dos vias (funcionario y empresa). */
+    @Test
+    void imprimeNumeroYObservacionEnLasDosVias() throws Exception {
+        List<ReciboLiquidacionItemDto> filas = Arrays.asList(
+                new ReciboLiquidacionItemDto("SUELDO", "ENTRADA", "SALARIO BASE", "30/11/2026", "3.100.000"));
+        String textos = ReciboRrhhJrxmlTest.textosDelPrint(llenar(filas));
+        org.junit.jupiter.api.Assertions.assertTrue(textos.contains("RECIBO DE SUELDO Nro. 486"),
+                "sin numero en el titulo: " + textos);
+        String obs = "Obs.: " + OBSERVACION_LARGA;
+        int veces = textos.split(java.util.regex.Pattern.quote(obs), -1).length - 1;
+        org.junit.jupiter.api.Assertions.assertEquals(2, veces,
+                "la observacion tiene que salir completa en las dos vias. Textos: " + textos);
+
+        // El recuadro de la observacion tiene alto fijo (las dos vias van en una hoja) y
+        // achica la letra para que entre: que no quede ilegible.
+        for (net.sf.jasperreports.engine.JRPrintPage pg : llenar(filas).getPages()) {
+            for (Object o : pg.getElements()) {
+                if (o instanceof net.sf.jasperreports.engine.JRPrintText
+                        && ((net.sf.jasperreports.engine.JRPrintText) o).getFullText().startsWith("Obs.:")) {
+                    float size = ((net.sf.jasperreports.engine.JRPrintText) o).getFontsize();
+                    org.junit.jupiter.api.Assertions.assertTrue(size >= 6f,
+                            "la observacion se achico a " + size + " pt: ilegible");
+                }
+            }
+        }
     }
 
     @Test

@@ -65,7 +65,8 @@ class RevertirEgresoFuncionarioTest {
         liquidacionFinalRepository = mock(LiquidacionFinalRepository.class);
         egresoHistoricoRepository = mock(FuncionarioEgresoHistoricoRepository.class);
 
-        funcionarioService = new FuncionarioService(funcionarioRepository, usuarioService, clienteService);
+        funcionarioService = new FuncionarioService(funcionarioRepository, usuarioService, clienteService,
+                mock(org.springframework.context.ApplicationEventPublisher.class));
 
         service = new FuncionarioRrhhService(
                 funcionarioService,

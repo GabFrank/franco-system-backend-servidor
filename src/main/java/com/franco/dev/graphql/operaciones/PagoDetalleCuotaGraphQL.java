@@ -2,6 +2,7 @@ package com.franco.dev.graphql.operaciones;
 
 import com.franco.dev.domain.operaciones.PagoDetalleCuota;
 import com.franco.dev.graphql.operaciones.input.PagoDetalleCuotaInput;
+import com.franco.dev.service.financiero.TesoreriaSecurityService;
 import com.franco.dev.service.operaciones.PagoDetalleCuotaService;
 import com.franco.dev.service.operaciones.PagoDetalleService;
 import com.franco.dev.service.personas.UsuarioService;
@@ -32,20 +33,27 @@ public class PagoDetalleCuotaGraphQL implements GraphQLQueryResolver, GraphQLMut
     @Autowired
     private UsuarioService usuarioService;
 
+    @Autowired
+    private TesoreriaSecurityService seg;
+
     public Optional<PagoDetalleCuota> pagoDetalleCuota(Long id) {
+        seg.requireVer();
         return service.findById(id);
     }
 
     public List<PagoDetalleCuota> pagoDetalleCuotas(int page, int size) {
+        seg.requireVer();
         Pageable pageable = PageRequest.of(page, size);
         return service.findAll(pageable);
     }
     
     public List<PagoDetalleCuota> pagoDetalleCuotasPorPagoDetalleId(Long pagoDetalleId) {
+        seg.requireVer();
         return service.findByPagoDetalleId(pagoDetalleId);
     }
 
     public PagoDetalleCuota savePagoDetalleCuota(PagoDetalleCuotaInput input) {
+        seg.requireGestionar();
         ModelMapper m = new ModelMapper();
         
         // Fix ambiguity by adding a PropertyMap to skip the PagoDetalle total mapping
@@ -74,15 +82,18 @@ public class PagoDetalleCuotaGraphQL implements GraphQLQueryResolver, GraphQLMut
     }
 
     public List<PagoDetalleCuota> pagoDetalleCuotasSearch(String texto) {
+        seg.requireVer();
         return service.findByAll(texto);
     }
 
     public Boolean deletePagoDetalleCuota(Long id) {
+        seg.requireGestionar();
         Boolean ok = service.deleteById(id);
         return ok;
     }
 
     public Long countPagoDetalleCuota() {
+        seg.requireVer();
         return service.count();
     }
 
@@ -105,7 +116,7 @@ public class PagoDetalleCuotaGraphQL implements GraphQLQueryResolver, GraphQLMut
             Boolean filtrarPorCreacion,
             Integer page,
             Integer size) {
-        
+        seg.requireVer();
         return service.findByFiltro(
                 estado,
                 sucursalId,

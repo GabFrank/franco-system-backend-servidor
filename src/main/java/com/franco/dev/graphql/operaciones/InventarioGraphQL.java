@@ -285,7 +285,18 @@ public class InventarioGraphQL implements GraphQLQueryResolver, GraphQLMutationR
                     MovimientoStock movimientoStockEncontrado = movimientoStockService
                             .findByTipoMovimientoAndReferenciaAndSucursalIdAndProductoId(TipoMovimiento.AJUSTE,
                                     inventario.getId(), inventario.getSucursal().getId(), productoId);
-                    if (movimientoStockEncontrado != null) {
+                    if (movimientoStockEncontrado != null && movimientoStockEncontrado.getCreadoEn() != null) {
+                        /*
+                         * Re-finalizar una toma reabierta: el stock es el del PRIMER cierre, el
+                         * instante en que se creo el ajuste. Contra el stock de ahora, el ajuste
+                         * se comia todo lo movido entre los dos cierres: toma 7638 de bodega,
+                         * Calle 10, +1095 transferidos y un ajuste de -1040 donde iba +7. El corte
+                         * es estricto, asi que el propio ajuste queda afuera.
+                         */
+                        stockSistema = movimientoStockService.stockByProductoIdAndSucursalIdAntesDeFecha(
+                                productoId, inventario.getSucursal().getId(),
+                                movimientoStockEncontrado.getCreadoEn());
+                    } else if (movimientoStockEncontrado != null) {
                         stockSistema = movimientoStockService.stockByProductoIdExecptMovStockId(
                                 movimientoStockEncontrado.getProducto().getId(), movimientoStockEncontrado.getId(),
                                 inventario.getSucursal().getId());

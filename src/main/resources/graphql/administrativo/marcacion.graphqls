@@ -13,7 +13,11 @@ type Marcacion {
     
     deviceId: String
     deviceInfo: String
-    
+
+    metodoRegistro: MetodoMarcacion
+    similitudFacial: Float
+    margenSegundoCandidato: Float
+
     sucursalEntrada: Sucursal
     fechaEntrada: String
     
@@ -48,7 +52,11 @@ input MarcacionInput {
     
     deviceId: String
     deviceInfo: String
-    
+
+    metodoRegistro: MetodoMarcacion
+    similitudFacial: Float
+    margenSegundoCandidato: Float
+
     sucursalEntradaId: ID
     fechaEntrada: String
     
@@ -63,6 +71,13 @@ input MarcacionInput {
 enum TipoMarcacion {
     ENTRADA
     SALIDA
+}
+
+"""Como se identifico a la persona al registrar la marcacion."""
+enum MetodoMarcacion {
+    MANUAL
+    FACIAL_1A1
+    FACIAL_1AN_KIOSCO
 }
 
 extend type Query {

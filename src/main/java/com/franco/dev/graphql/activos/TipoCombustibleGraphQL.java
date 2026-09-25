@@ -8,6 +8,7 @@ import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,8 +26,26 @@ public class TipoCombustibleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     @Autowired
     private UsuarioService usuarioService;
 
-    @Autowired
-    private ModelMapper modelMapper;
+    /**
+     * ModelMapper propio, con matching STRICT y SIN field matching.
+     *
+     * Mismo motivo que en {@link EnteGraphQL}: el bean {@code modelMapper()} de la aplicacion
+     * tiene {@code setFieldMatchingEnabled(true)} con acceso a campos privados, y para llenar
+     * {@code TipoCombustible.creadoEn} entra por reflexion a los campos internos de
+     * {@code java.time.LocalDateTime}. En JDK 17 eso lanza
+     * {@code InaccessibleObjectException: module java.base does not "opens java.time"}, asi
+     * que guardar fallaba con cualquier input.
+     *
+     * {@code usuarioId} se resuelve a mano contra el service, asi que exigir nombres exactos
+     * no pierde nada.
+     */
+    private static final ModelMapper MAPPER = strictMapper();
+
+    static ModelMapper strictMapper() {
+        ModelMapper m = new ModelMapper();
+        m.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        return m;
+    }
 
     public Optional<TipoCombustible> tipoCombustible(Long id) {
         return service.findById(id);
@@ -46,7 +65,7 @@ public class TipoCombustibleGraphQL implements GraphQLQueryResolver, GraphQLMuta
     }
 
     public TipoCombustible saveTipoCombustible(TipoCombustibleInput input) {
-        TipoCombustible e = modelMapper.map(input, TipoCombustible.class);
+        TipoCombustible e = MAPPER.map(input, TipoCombustible.class);
         if (input.getUsuarioId() != null) {
             e.setUsuario(usuarioService.findById(input.getUsuarioId()).orElse(null));
         }

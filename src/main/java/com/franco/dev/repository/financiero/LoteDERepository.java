@@ -45,6 +45,13 @@ public interface LoteDERepository extends HelperRepository<LoteDE, EmbebedPrimar
 
     List<LoteDE> findByEstado(EstadoLoteDE estado);
 
+    /** Siguiente id de la secuencia (impares en central desde V226.1). */
+    @Query(value = "SELECT nextval('financiero.lote_de_id_seq')", nativeQuery = true)
+    Long siguienteId();
+
+    /** Lotes atrasados: los que quedaron sin enviarse (PENDIENTE_ENVIO, ERROR_ENVIO, ERROR_RED). */
+    List<LoteDE> findByEstadoInOrderByCreadoEnAsc(List<EstadoLoteDE> estados);
+
     Optional<LoteDE> findByProtocolo(String protocolo);
 
     @Query("SELECT l FROM LoteDE l WHERE l.id = :id AND l.sucursalId = :sucursalId")

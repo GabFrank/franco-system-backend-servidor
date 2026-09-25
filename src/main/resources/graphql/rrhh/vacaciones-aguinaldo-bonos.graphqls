@@ -103,8 +103,11 @@ type Bono {
     frecuencia: BonoFrecuencia
     anulado: Boolean
     liquidacionId: Int
+    bonoRecurrenteId: Int
     autorizadoPor: Usuario
     creadoEn: Date
+    editable: Boolean
+    motivoNoEditable: String
 }
 
 input BonoInput {
@@ -114,10 +117,10 @@ input BonoInput {
     monto: Float
     fecha: String
     motivo: String
-    esRecurrente: Boolean
-    frecuencia: BonoFrecuencia
     autorizadoPorId: Int
     usuarioId: Int
+    esRecurrente: Boolean
+    frecuencia: BonoFrecuencia
 }
 
 type VacacionPage {

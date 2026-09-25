@@ -69,6 +69,15 @@ public class Transferencia implements Identifiable<Long> {
         @Column(name = "creado_en")
         private LocalDateTime creadoEn;
 
+        /**
+         * Funcionario de la sucursal destino que pidio los productos. No participa del flujo:
+         * no crea, no prepara, no transporta y no necesariamente recibe. Es el dato de a quien
+         * le responde la transferencia.
+         */
+        @ManyToOne(fetch = FetchType.LAZY)
+        @JoinColumn(name = "solicitante_id", nullable = true)
+        private Usuario solicitante;
+
         @ManyToOne(fetch = FetchType.LAZY)
         @JoinColumn(name = "usuario_pre_transferencia_id", nullable = true)
         private Usuario usuarioPreTransferencia;

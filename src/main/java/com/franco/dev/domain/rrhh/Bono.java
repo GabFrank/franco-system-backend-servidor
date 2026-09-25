@@ -60,6 +60,15 @@ public class Bono implements Identifiable<Long> {
     @Column(name = "liquidacion_id")
     private Long liquidacionId;
 
+    /** Plantilla que genero este bono. NULL en los bonos cargados a mano. */
+    @Column(name = "bono_recurrente_id")
+    private Long bonoRecurrenteId;
+
+    /** "YYYY-MM". Clave de idempotencia del generador: no se mueve aunque
+     *  despues alguien edite la fecha del bono. NULL en los bonos manuales. */
+    @Column(name = "periodo")
+    private String periodo;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "autorizado_por_id", nullable = true)
     private Usuario autorizadoPor;

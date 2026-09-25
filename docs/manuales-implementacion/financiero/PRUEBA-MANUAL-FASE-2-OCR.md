@@ -1,0 +1,1325 @@
+# Prueba manual — fase 2: el cupón se lee solo
+
+**Para hacer juntos, lunes a la mañana.** Una prueba por vez: Gabriel ejecuta, yo confirmo contra
+la base antes de pasar a la siguiente. Si algo falla, se anota y se sigue — no se corrige en el
+momento, salvo que bloquee lo que viene después.
+
+**Duración estimada:** 50-70 minutos las 14 pruebas. Los bloques A y B son los imprescindibles;
+del C en adelante se puede cortar si no da el tiempo.
+
+---
+
+## Antes de empezar
+
+| Qué | Cómo |
+|---|---|
+| Central corriendo | `cd frc-comercial/central && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev` → puerto **8081**, base `bodega_fact_test_2` (5551) |
+| Filial corriendo | `cd frc-comercial/filial && ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev,user-dev -Dspring-boot.run.arguments=--sifen.scheduler.enabled=false` → puerto **8082**, base `general_fact_test_2` (5552) |
+| Desktop | `cd frc-comercial/desktop && npx ng serve -c web --port 4201` |
+| Un teléfono | En la misma wifi que la máquina. Para las pruebas 4 y 12 |
+| Un cupón de papel | De cualquier POS. Si no hay, sirve el sintético: `java CuponDemo.java cupon.jpg` |
+
+> ⚠️ **Los dos perfiles del filial, y por qué.** Con `dev` solo, el filial apunta a
+> `localhost:5551/general`, **una base que no existe en este equipo**: no arranca. `user-dev` es el
+> archivo personal, fuera de git, y es el que lo manda a `5552/general_fact_test_2`. Van los dos.
+>
+> ⚠️ **Y el scheduler de SIFEN se apaga a mano.** El perfil `dev` lo enciende con
+> `sifen.ambiente=PROD` y `user-dev` le da un certificado que sí existe. Hoy la base de prueba no
+> tiene nada pendiente de enviar —0 DEs en PENDIENTE, 0 lotes en PENDIENTE_ENVIO, verificado el
+> 2026-09-14— pero **en esta prueba vamos a registrar ventas**, y una venta genera un documento que
+> ese scheduler mandaría a la SIFEN **de producción** a los 30 segundos.
+
+> ⚠️ **El módulo arranca apagado.** `financiero.configuracion_venta_tarjeta.habilitado` viene en
+> `false`, y eso es a propósito. La prueba 0 lo enciende.
+
+---
+
+## ⚠️ Qué hay que repetir de la corrida del 2026-09-14
+
+La corrida anterior llegó hasta la prueba 5. Los cambios del **2026-09-15** —el tipo declarado por el
+formato, la unión acumulativa del mapa y las correcciones de la auditoría— **invalidan tres de esas
+pruebas**. No alcanza con seguir en la 6:
+
+| Prueba | ¿Se repite? | Qué cambió |
+|---|---|---|
+| **0** — módulo apagado | no | Sin cambios |
+| **1** — registrar el formato | **sí, entera** | El mapeo ahora declara `tipo` por campo, y el alta **rechaza** un tipo mal escrito o escondido en un objeto anidado. Cuatro casos de rechazo nuevos |
+| **2** — la terminal | no | Sin cambios. Rehacerla sólo si se borró el formato |
+| **3** — filtro por sucursal | no | Sin cambios |
+| **4** — el mapa que se deriva solo | **sí, y es más larga** | Es la que más cambió: columna de tipo, dos botones en vez de uno, y **cuatro corridas** —misma foto, foto distinta, y desde cero— porque el mapa ahora acumula |
+| **5** — el OCR deja de ser una lupa | **sí** | Depende del mapa que deja la prueba 4. Si la zona quedó acumulada de dos fotos, los milisegundos cambian y hay que volver a medirlos |
+| **6** — el semáforo por campo | **sí** | El chequeo de tipo antes no corría (ningún formato declaraba tipo). Ahora sí, y hay un caso nuevo: sin tipo declarado, el campo no se valida |
+
+Las pruebas **7 a 14 nunca se corrieron**.
+
+> **Antes de empezar, reiniciar los dos backends.** Los que quedaron levantados de la corrida
+> anterior tienen el código viejo: el mapa reemplaza en vez de acumular y el mapeo no valida el tipo.
+
+---
+
+## Bloque A · Que el sistema sepa qué aparato tiene enfrente
+
+### Prueba 0 — el módulo apagado no carga el motor
+
+**Por qué importa:** son 24 filiales cargando ~2,5 s y memoria por una función que nadie usa hasta
+que la empresa termine de configurar.
+
+1. Con `habilitado = false`, arrancar el filial.
+2. Mirar el log.
+
+**Esperado:** `OCR de cupon: el modulo de venta con tarjeta esta deshabilitado, el motor se va a
+cargar la primera vez que haga falta`. **No** debe aparecer "OCR de cupon listo en N ms".
+
+Después: `update financiero.configuracion_venta_tarjeta set habilitado = true;` y **no reiniciar**.
+El motor se carga solo en la primera foto (prueba 4).
+
+---
+
+### Prueba 1 — registrar el formato de un modelo de aparato
+
+Financiero → Venta con tarjeta → **Formatos de terminal POS** → Nuevo.
+
+| Campo | Valor |
+|---|---|
+| Nombre del modelo | `BANCARD FIRMWARE V5.5` |
+| Cómo se lee el ticket | **Maquinita (ticket sin QR)** |
+| Patrón | `^[\s\S]*TERMINAL:\s*(?<terminal>[A-Z0-9]+)[\s\S]*AUT:\s*(?<auth>[0-9]+)[\s\S]*BOLETA:\s*(?<boleta>[0-9]+)[\s\S]*MONTO:\s*(?<monto>[0-9.]+)[\s\S]*$` |
+| Mapeo | `{"terminal":{"de":"terminal","tipo":"TEXTO"},"codigoAutorizacion":{"de":"auth","obligatorio":true,"tipo":"NUMERO"},"numeroBoleta":{"de":"boleta","tipo":"NUMERO"},"monto":{"de":"monto","obligatorio":true,"tipo":"NUMERO"}}` |
+| Cadena de ejemplo | `TERMINAL: JF798SJJ AUT: 883921 BOLETA: 00045 MONTO: 150.000` |
+
+> **El mapeo cambió respecto de la corrida del 2026-09-14**: ahora declara `tipo` por campo. El tipo
+> dejó de deducirse del valor de la muestra —una sola foto no alcanza para afirmarlo— y lo declara el
+> formato. Sin `tipo` declarado el chequeo no corre y la **prueba 6 no prueba nada**.
+
+**Esperado:** la **vista previa** de abajo se llena sola mientras tipeás, y guarda.
+
+**Probá también que RECHACE**, una por una:
+- Un patrón sin `^` al principio → *"El patrón debe estar anclado"*.
+- Un patrón que no matchee el ejemplo → *"El patrón no reconoce la cadena de ejemplo"*.
+- Un mapeo que use un grupo que el patrón no declara → dice **cuál** grupo.
+- **`"tipo":"ALFANUMERICO"`** → nombra el valor que escribiste y dice cuáles valen.
+- **`"tipo":"NUMER0"`** (con cero en vez de O) → **tiene que fallar**. Es el caso que antes se
+  degradaba a silencio: el campo quedaba sin tipo y nadie se enteraba. Si esto guarda, es una
+  regresión del 2026-09-15.
+- **`{"monto":{"de":"monto","mapa":{"A":"B"},"tipo":"NUMERO"}}`** → falla diciendo que la derivación
+  no lo va a leer. Es válido como JSON pero el objeto anidado lo esconde del parseo.
+- **`"tipo":"numero"`** en minúscula → **tiene que guardar** (se normaliza).
+
+> **Hallazgo conocido, no es un bug de esta prueba:** en la vista previa el monto `150.000` se
+> muestra como `150`. Esa vista usa el parser de QR, donde los importes vienen sin separador de
+> miles. La extracción real del cupón corre en el filial y **no** pasa por ahí — se verifica en la
+> prueba 5.
+
+---
+
+### Prueba 2 — la terminal: dónde está y cuál es
+
+Financiero → Venta con tarjeta → **Terminales POS** → Nueva terminal.
+
+| Campo | Valor |
+|---|---|
+| Descripción | `CAJA 1 PRUEBA` |
+| Código | `PRUEBA-01` |
+| **Serie del aparato** | `jf798sjj` ← **en minúsculas a propósito** |
+| **Sucursal** | la que corresponda |
+| Formato del aparato | `BANCARD FIRMWARE V5.5` |
+
+**Esperado:**
+- La serie se guarda **en mayúsculas**: `JF798SJJ`.
+- El hint de la serie —*"La que viene de fábrica y el cupón imprime. No es el código."*— **no se
+  superpone** con el campo de abajo.
+- En la lista aparecen las columnas **Serie**, **Sucursal** y **Formato**.
+- Las terminales viejas dicen **"Sin asignar"** en ámbar y **"No vende"** en rojo.
+
+**Probá que rechace:** crear otra terminal con la misma serie → mensaje que nombra **cuál** terminal
+ya la tiene. Lo mismo con el código repetido.
+
+---
+
+### Prueba 3 — el filtro por sucursal
+
+En la lista, elegir una sucursal en el filtro.
+
+**Esperado:** quedan sólo las de esa sucursal, y **el total del paginador también baja**. Si el
+total no cambia, el filtro está corriendo en memoria y es un bug.
+
+---
+
+## Bloque B · Que el cupón se lea solo
+
+### Prueba 4 — la foto, y el mapa que se deriva solo
+
+Volver a **Formatos** → en `BANCARD FIRMWARE V5.5`, el ícono de **grilla** → *Mapa del cupón*.
+
+1. **Subir una foto** del cupón (o sacarla con el teléfono escaneando el QR).
+2. Esperar a que aparezca *"Lo que se leyó"* con el texto y los milisegundos.
+3. **Proponer el mapa**.
+
+**Esperado:** una fila por campo, con la etiqueta que lo ancla y **el tipo que declaró el mapeo**:
+
+| Campo | Etiqueta | Posición | Tipo |
+|---|---|---|---|
+| terminal | `TERMINAL:` | dentro | texto |
+| codigoAutorizacion | `AUT:` | dentro | numero |
+| numeroBoleta | `BOLETA:` | dentro | numero |
+| monto | `MONTO:` | dentro | numero |
+
+⚠️ **Los campos tienen que ser los canónicos** (`codigoAutorizacion`), **no** los nombres de los
+grupos del patrón (`auth`). Si aparece `auth`, es la regresión que se corrigió el 2026-09-12.
+
+⚠️ **La columna Tipo tiene que coincidir con lo que declaró el mapeo.** Un campo que diga *«sin
+tipo»* teniendo `tipo` en el mapeo es la falla silenciosa del 2026-09-15: el alta del formato ahora
+la rechaza, así que si llegaste hasta acá con un tipo que no aparece, hay una regresión.
+
+4. **Guardar el mapa** — el botón dice **«Sumar esta foto al mapa»**.
+
+**Segunda corrida, la misma foto.** Volver a entrar y proponer de nuevo con **el mismo cupón**.
+
+**Esperado:** guarda **sin pedir confirmación**. Nada cambia —la unión de una zona consigo misma es
+esa misma zona— y no hay sobrescritura que confirmar. Si aparece *«Esto es lo que cambiaría»*
+seguido de una lista vacía, es el defecto corregido el 2026-09-15.
+
+**Tercera corrida, una foto distinta.** Sacar otra foto del **mismo modelo de aparato** pero con el
+cupón corrido: más arriba, más abajo, o un ticket de otra operación que tenga un renglón de
+diferencia.
+
+**Esperado:** ahora **sí** pide confirmación, y el diff dice para cada campo que se mueve:
+
+> `monto: la zona se ensancha, de 3,2% a 5,1% del cupón`
+
+**Lo que tiene que decir y lo que no:**
+
+- Un campo que **esta foto no trae** dice *«no aparece en esta foto, se conserva lo que ya estaba
+  mapeado»*. **No** puede decir *«se elimina»* — al acumular no se elimina nada, y ese texto era la
+  mentira que se corrigió el 2026-09-15.
+- Si la zona resultante pasa del **25% del cupón**, el diff agrega que ya casi no acota el
+  reconocimiento y sugiere empezar de cero. Para verlo, derivar a propósito con una foto **de otro
+  modelo de aparato**.
+
+Confirmar, y verificar en la DB que la caja creció en vez de moverse:
+
+```sql
+select campo, x1, y1, x2, y2, tipo, origen
+from financiero.formato_terminal_pos_region
+where formato_terminal_pos_id = (select id from financiero.formato_terminal_pos
+                                 where nombre = 'BANCARD FIRMWARE V5.5')
+order by campo;
+```
+
+**Cuarta corrida, «Empezar de cero».** Con el botón **«Empezar de cero»**.
+
+**Esperado:** el diff habla de **reemplazo** (*«se reemplaza, … → …»*) y, para un campo que esta foto
+no produce, **sí** dice *«se elimina, esta foto no lo produce»*. Confirmar y verificar que la caja
+volvió al tamaño de una sola foto.
+
+---
+
+### Prueba 5 — el OCR deja de ser una lupa
+
+Esta es **la prueba que justifica toda la entrega**.
+
+Desde una caja abierta, en el cobro con tarjeta, elegir la terminal `CAJA 1 PRUEBA` y sacar la foto
+del cupón con el teléfono.
+
+**Esperado:** ya **no** aparece sólo el texto crudo para transcribir. Se abre
+**"Confirmá los datos del cupón"** con los campos ya cargados.
+
+Confirmar en la base:
+
+```sql
+select campos from financiero.captura_cupon order by id desc limit 1;
+```
+
+Tiene que traer `codigoAutorizacion`, `numeroBoleta`, `monto`, `terminal` **y** un objeto
+`confianzas` con un número por campo.
+
+---
+
+### Prueba 6 — el semáforo por campo
+
+En esa misma pantalla de confirmación:
+
+**Esperado:**
+- Los campos leídos con claridad: borde **verde** y *"Leído con claridad"*.
+- Los dudosos: borde **ámbar**, el motivo, y un tilde **"Coincide con el ticket"**.
+- **El botón Confirmar está deshabilitado** mientras quede un dudoso sin resolver, y abajo dice
+  cuántos faltan.
+- **Corregir un campo cuenta como confirmarlo** — no hace falta además tildarlo.
+
+> Si el cupón sale muy limpio y no hay ningún dudoso, forzarlo: sacar la foto movida o con poca luz.
+> Un cupón térmico gastado sirve mejor que uno nuevo.
+
+**El chequeo de tipo, que ahora sale del mapeo.** `codigoAutorizacion` está declarado `NUMERO` en la
+prueba 1. Si el OCR devuelve algo con letras para ese campo, tiene que salir **ámbar** con el motivo
+del tipo, no verde.
+
+⚠️ **Recordá H13:** el OCR normaliza la letra `O` en cero **antes** de que el patrón vea el texto, así
+que esa clase de error el chequeo de tipo no la puede atrapar —no es una falla del chequeo—. Para
+ejercitarlo hace falta un valor que llegue con una letra que el OCR **no** normalice.
+
+**Y el contrario, que importa igual:** con `tipo` **sin declarar** en el mapeo, el campo **no se
+valida** y sale verde aunque el valor no tenga la forma esperada. Es el default a propósito —declarar
+de más manda a revisión lecturas correctas— pero conviene verlo una vez para saber qué se pierde.
+
+---
+
+### Prueba 7 — la foto queda atada a la venta
+
+Después de confirmar:
+
+```sql
+select id, origen, imagen_url from financiero.venta_tarjeta order by id desc limit 1;
+```
+
+**Esperado:** `origen = 'OCR'` y `imagen_url` **no nulo**. Esa columna es lo que impide que la purga
+borre la evidencia de un cobro.
+
+---
+
+### Prueba 8 — cargar a mano después de una foto fallida
+
+Sacar una foto **deliberadamente mala** (tapada, movida). Cuando falle, usar **"Cargar el cupón a
+mano"** y completar.
+
+**Esperado:** `origen = 'MANUAL'` **y `imagen_url` igual no nulo** — la foto se conserva aunque el
+motor no la haya podido leer. El cupón sigue siendo la evidencia.
+
+---
+
+## Bloque C · Los caminos que se cierran
+
+### Prueba 9 — el tipo del formato cierra el camino que no corresponde
+
+Con una terminal de formato **MAQUINA**: en el cobro, **no** se ofrece el lector, sí la cámara.
+Con una **WEB**: al revés.
+
+**En los dos casos tiene que estar disponible "Cargar el cupón a mano".**
+
+---
+
+### Prueba 10 — el interruptor no puede apagar el último camino
+
+En la lista de terminales, menú **⋮ → Configurar** sobre una terminal **sin formato**.
+
+**Esperado:** la opción *"No permitida en esta terminal"* aparece **deshabilitada**, con el motivo
+al lado: sin formato la venta con tarjeta ya está bloqueada y la carga a mano es lo único que queda.
+
+**Y la otra dirección** — la que se escapó en la primera versión:
+
+1. En una terminal **con** formato, apagar la carga a mano. Deja.
+2. Sobre esa misma, **⋮ → Quitar formato**.
+
+**Esperado:** lo **rechaza**, diciendo que esa caja se quedaría sin ninguna forma de cobrar, y que
+hay que volver a permitir la carga a mano primero. Verificar en la base que el formato **sigue
+asignado**.
+
+---
+
+### Prueba 11 — los campos obligatorios sólo pueden apretar
+
+⋮ → Configurar → **Campos obligatorios**.
+
+**Esperado:** los que el formato ya declara obligatorios aparecen **tildados y bloqueados**, con la
+leyenda *"lo exige el formato"*. Se pueden agregar otros; no se pueden sacar ésos.
+
+---
+
+## Bloque D · El camino rápido
+
+### Prueba 12 — un solo input: código o cupón
+
+En el cobro con tarjeta, en el primer diálogo —el que pide la terminal— **escanear directamente el
+QR del cupón** en vez del código del aparato.
+
+**Esperado:** lo reconoce como cupón. Si el cupón trae el identificador del aparato y coincide con
+una `serie` cargada, **resuelve la terminal solo** y saltea el paso.
+
+Si no la puede resolver, avisa en ámbar que **el cupón ya se leyó** y pide el código del aparato —
+para que no lo vuelvas a escanear creyendo que no entró.
+
+---
+
+### Prueba 13 — la diferencia de monto se confirma, no se avisa
+
+Escanear un cupón cuyo monto **no coincida** con lo cobrado.
+
+**Esperado:** un **diálogo** que dice los dos importes y pregunta si es el cupón correcto, con
+"Escanear otro" como alternativa. No un snackbar que se va solo.
+
+---
+
+### Prueba 14 — el duplicado
+
+Intentar registrar **dos veces el mismo cupón** en la misma caja, dentro de la ventana de horas
+configurada.
+
+**Esperado:** lo rechaza nombrando la venta que ya lo usó.
+
+---
+
+## Lo que NO entra en esta prueba
+
+| Qué | Por qué |
+|---|---|
+| La purga de imágenes | El scheduler viene **apagado** y arranca en simulación. Se prueba cuando se prenda, mirando el log de lo que borraría |
+| Replicación real a 24 filiales | Local sólo hay dos clusters. El dry-run contra copia de alpha es aparte (§5.8) |
+| El asistente de IA | Etapa 6, no entra en esta entrega |
+| Terminales tipo `API` | El driver no existe todavía |
+
+---
+
+## Nota de despliegue que salió de la prueba automatizada
+
+Las tablas **nuevas** (`formato_terminal_pos`, `formato_terminal_pos_region`) no bajan solas a un
+filial que ya estaba corriendo: hay que agregarlas a la publicación y refrescar la suscripción. El
+scheduler de replicación lo hace, pero **por hora**. Si al probar en un filial el formato no
+aparece, es eso y no un bug — verificar con:
+
+```sql
+select * from pg_publication_tables where tablename like 'formato_terminal_pos%';
+```
+
+---
+
+## Hallazgos de la corrida del 2026-09-14
+
+Se anotan y se sigue, como dice el encabezado. Ninguno bloquea las pruebas siguientes.
+
+### H1 · El prefijo crudo de GraphQL llega al usuario — **sistémico, no de esta pantalla**
+
+**Qué se vio.** Al guardar un formato con el patrón sin anclar, el snackbar mostró:
+
+```
+Exception while fetching data (/data) : El patron debe estar anclado: empezar con ^ y terminar con $.
+```
+
+**Por qué.** No es que falte manejo de errores: `mensaje-error.ts` extrae bien `e.message`, y el
+backend manda el motivo exacto. El prefijo **ya viene dentro del mensaje**.
+
+`GraphqlExceptionHandler.getNested()` existe justamente para desenvolver esto, pero solo actúa
+cuando la excepción anidada **implementa `GraphQLError`**:
+
+```java
+if (exceptionError.getException() instanceof GraphQLError) {
+    return (GraphQLError) exceptionError.getException();
+}
+```
+
+`graphql.GraphQLException` extiende `RuntimeException`, **no** `GraphQLError`. El `instanceof` da
+false, no desenvuelve nada, y pasa el `ExceptionWhileDataFetching` entero — cuyo `getMessage()` es
+`"Exception while fetching data (/ruta) : " + mensaje`.
+
+**Alcance.** No es de venta con tarjeta: **todo `throw new GraphQLException(...)` del sistema**
+llega así. Son cientos de mensajes de negocio —"ese cupón ya fue registrado", "no hay saldo
+suficiente"— con basura técnica adelante.
+
+**Fix propuesto:** en `getNested`, contemplar también el caso `GraphQLException` y devolver un
+error con el mensaje pelado. Una línea en un solo archivo, y mejora todos los módulos a la vez.
+`[central:src/main/java/com/franco/dev/graphql/exceptions/GraphqlExceptionHandler.java:34]`
+
+> ✅ **La parte del menú se cerró el 2026-09-15**: las acciones de la fila pasaron a un `mat-menu`
+> (⋮), como `list-caja-virtual`. Queda pendiente lo otro que dice este hallazgo: el listado sigue
+> sin filtro ni paginación.
+
+### H2 · El listado de formatos no sigue el patrón de listados del repo
+
+**Qué se vio.** Sin filtros, sin paginación, y las acciones como **iconos sueltos** en vez de un
+`mat-menu`.
+
+**No es que falte el patrón: existe y se ignoró.** `.cursor/rules/create-edit-list-entity.md` manda
+`MatPaginator`, controles de filtro y columna `acciones`; y `shared/components/generic-list` es el
+componente que ya lo resuelve —lo usa, por ejemplo, `list-caja-virtual`.
+
+Medido sobre `formato-terminal-pos.component.html`: **0** `app-generic-list`, **0** `mat-paginator`,
+**0** `mat-menu`, **3** `matTooltip` (los iconos sueltos).
+
+**Por eso no se abre issue pidiendo un documento de patrones de diseño**: el patrón está escrito y
+tiene componente. Lo que hace falta es que esta pantalla lo use.
+
+**Alcance:** revisar también `formato-qr-pos`, que se construyó con el mismo molde.
+
+### H3 · El monto en la vista previa
+
+Ya estaba documentado arriba, en la prueba 1: `150.000` se muestra como `150` porque la vista previa
+usa el parser de QR. **Confirmado en esta corrida.** No afecta la extracción real, que corre en el
+filial y se verifica en la prueba 5.
+
+### H4 · El error de negocio llega con DOS prefijos, los dos sistémicos
+
+**Qué se vio**, al intentar una serie repetida:
+
+```
+Ups! Algo salió mal en operacion: Exception while fetching data (/data) : La serie "JF798SJJ" ya
+esta registrada en la terminal "DEMO CAJA PRUEBA". Dos aparatos no pueden compartir identificador:
+el cupon no diria de cual salio.
+```
+
+El mensaje **de la derecha es bueno**: dice qué pasó, con qué terminal chocó y por qué importa. Lo
+que sobra es todo lo de adelante, y viene de dos lugares distintos, **ninguno de este módulo**:
+
+| Capa | Origen | Alcance |
+|---|---|---|
+| `"Ups! Algo salió mal: "` | `desktop:src/app/generics/generic-crud.service.ts:103, 159, 228` | **Todos** los módulos: es el CRUD base |
+| `"Exception while fetching data (/data) : "` | kickstart, no desenvuelto — ver **H1** | **Todo** `throw new GraphQLException` del backend |
+
+Son dos correcciones de una línea cada una, en dos archivos, y arreglan todos los módulos a la vez.
+
+### H5 · Diálogo de alta de terminal — ancho y disposición
+
+Pedido en la corrida: llevarlo a **45vw** y poner dos campos por línea, que hoy van de a uno:
+
+| Línea | Campos |
+|---|---|
+| 1 | descripción |
+| 2 | código · serie |
+| 3 | sucursal · moneda |
+| 4 | proveedor · formato |
+
+Hoy el diálogo tiene `max-width: 500px`
+`[desktop:.../add-terminal-pos-dialog/add-terminal-pos-dialog.component.scss:3]`, más angosto que
+la convención de diálogos del repo (65vw × 70vh). **45vw es una excepción deliberada**, no el
+default: este formulario tiene ocho campos cortos y a 65vw quedaría vacío a los costados.
+
+### H6 · El selector de proveedor puede ser un `mat-select`
+
+La lista de proveedores de servicio **nunca va a ser larga** —son las procesadoras de la plaza— así
+que no necesita buscador ni diálogo: entra en un select simple.
+
+### H7 · Dos terminales pueden compartir serie, y el sistema lo tolera a propósito
+
+**Lo que pasó.** Quedaron cargadas dos terminales con serie `JF798SJJ`: una **sin** proveedor y otra
+**con** proveedor. Ni los índices ni `validarSerieUnica` lo impiden, porque los dos trabajan **por
+ámbito**: con proveedor se compara contra las de ese proveedor, sin proveedor contra las que no
+tienen ninguno.
+
+**No es un bug, y el desktop lo maneja bien.** `resolverTerminalDelCupon` pide la serie exacta y, si
+vuelve más de una, **no elige**: le dice al cajero que escanee el código de la terminal. Adivinar
+sería cobrar contra la máquina equivocada y romper la conciliación sin que nadie lo note.
+
+**Pero tiene una consecuencia práctica para esta prueba**: mientras dos terminales compartan la
+serie del cupón de ejemplo, la resolución automática de la prueba 5 **no se puede ejercitar** — se
+va a ver siempre el pedido de escanear el código, que es el camino degradado.
+
+**Resuelto en la corrida**: la terminal vieja (`DEMO CAJA PRUEBA`, id 4) pasó a serie
+`DEMO-VIEJA-1`, y `JF798SJJ` ahora resuelve a una sola. Verificado que replicó al filial.
+
+### H8 · «Quitar formato» está en el menú de la fila, no en Configurar
+
+**Qué pasó.** Durante la corrida se indicó buscar la opción en el diálogo *Configurar*, y ahí no
+está. No es que falte: **está en el `mat-menu` de la fila del listado**, como *Quitar formato*, y se
+deshabilita sola cuando la terminal no tiene formato asignado
+`[desktop:.../list-terminal-pos/list-terminal-pos.component.html:197]`.
+
+Y está bien que esté ahí y no en un select con opción vacía: **quitar el formato le bloquea la venta
+con tarjeta a esa caja**, así que tiene que ser una acción deliberada y con confirmación, no el
+efecto lateral de dejar un campo vacío.
+
+**Para probar el candado:** en la terminal, apagar primero la carga a mano desde *Configurar*, y
+recién entonces intentar *Quitar formato* desde el menú de la fila. Se tiene que rechazar.
+
+### H2 bis · El contraste está dentro del mismo módulo
+
+Medido sobre los dos listados vecinos:
+
+| Listado | `mat-paginator` | `mat-menu` | filtros (`matInput`) | iconos sueltos |
+|---|---|---|---|---|
+| **Terminales POS** | 1 | 7 | 3 | 0 |
+| **Formatos de terminal POS** | **0** | **0** | **0** | **3** |
+
+La lista de terminales, que está al lado y es del mismo módulo, **ya implementa el patrón completo**.
+No hay que inventar nada: sirve de referencia directa para arreglar la de formatos.
+
+### H9 · El diálogo de imprimir código deja al usuario encerrado — y la causa es sistémica
+
+**Qué pasó.** Abriendo *Imprimir código* sobre una terminal, el diálogo quedó con el spinner
+girando para siempre, **«Cancelar» deshabilitado**, y la única salida fue la tecla `ESC`.
+
+**La cadena completa, de afuera hacia adentro:**
+
+1. `print-terminal-pos-dialog.component.html:53` —
+   `<button mat-button (click)="onCancel()" [disabled]="loading">Cancelar</button>`.
+   **Cancelar se apaga mientras `loading` sea true.** Cancelar un diálogo siempre es seguro:
+   deshabilitar la única salida visible es lo que convierte un cuelgue en una trampa.
+2. `loading` solo vuelve a `false` en los caminos previstos de `loadPrinters()` (`next` y `error`).
+3. `ElectronService.getPrinters()` hace `from(ipcRenderer.invoke('get-system-printers'))`
+   **sin chequear que haya Electron**. En el navegador `ipcRenderer` es `null`, así que eso lanza un
+   `TypeError` **sincrónico, antes de que exista el observable**: no lo ve el `catchError` del
+   `ThermalPrinterService`, no lo ve el handler `error` del `subscribe`, y `loading` se queda en
+   `true` para siempre.
+
+**Y el archivo declara la invariante que él mismo rompe**
+`[desktop:src/app/commons/core/electron/electron.service.ts:14]`:
+
+> *«Todo consumidor de `electron`/`ipcRenderer` está detrás del getter `isElectron` (false en web),
+> así que en browser quedan null sin romper.»*
+
+Medido sobre ese archivo: **de 12 métodos que tocan `ipcRenderer`, 11 no tienen guarda.** El único
+que chequea es `getAppVersion`. Sin guarda: `relaunch`, `print`, `getPrinters`, `detectLocalDevices`,
+`detectNetworkPrinters`, `getLocalIp`, `shareLocalPrinter`, `installLocalPrinter`, `printLocal`,
+`printTestLocal`, `printWithPosPrinter`.
+
+**Por qué importa más que antes.** El desktop **ya no es solo Electron**: la misma app se publica
+como web en Cloudflare Pages (`alpha.desk`, `beta.desk`, `farmacia.desk`, `bodega.desk`). Cada uno de
+esos 11 métodos revienta ahí.
+
+**Hay un segundo camino a la misma trampa**, todavía sin disparar: el `subscribe` de la impresión
+tiene solo handler `next`, sin `error`
+`[print-terminal-pos-dialog.component.ts:~134]`. Si la impresión falla, `loading` tampoco se
+restablece.
+
+**Tres arreglos, de más barato a más profundo:**
+
+| | Qué | Alcance |
+|---|---|---|
+| 1 | Sacar `[disabled]="loading"` de Cancelar | Este diálogo. Convierte una trampa en una molestia |
+| 2 | Agregar handler `error` al `subscribe` de impresión | Este diálogo |
+| 3 | Poner la guarda `isElectron` en los 11 métodos | **Todo el desktop web** |
+
+**Detalle visual del mismo diálogo:** el texto de error del select de impresora
+(*«Seleccione una impresora»*) **se superpone con la etiqueta «Cantidad\*»** del campo de abajo. Es
+el mismo problema de espaciado que el alta de terminal ya tuvo que resolver con márgenes explícitos.
+
+> **Nota de entorno:** la impresión térmica es Electron-only y el ciclo de implementación ya lo dice
+> —servir el desktop en el navegador no la cubre—. Pero eso explica *por qué no imprime*, no por qué
+> **encierra al usuario**. Lo segundo es un defecto real, y visible también en el desktop web.
+
+### H10 · El diálogo del mapa crece entre pasos, y el texto leído no tiene contraste
+
+**Contraste — es un bug, no una preferencia.** `.texto-ocr` pone
+`background: rgba(0, 0, 0, 0.25)` sobre una superficie que **ya es oscura**, y **nunca define
+`color`** `[desktop:.../derivar-mapa-dialog/derivar-mapa-dialog.component.scss:46]`. El `<pre>`
+hereda el gris atenuado del tema y queda gris oscuro sobre gris oscuro. Es el bloque **que hay que
+leer** para decidir si el OCR entendió el cupón.
+
+Toda superficie que oscurece su fondo tiene que declarar su color de texto: heredarlo es apostar a
+que el tema no cambie.
+
+**Tamaño.** El diálogo es `max-width: 620px` **sin alto definido**, así que arranca chico en el paso
+1 (dos botones) y da un salto en el paso 2 (texto leído + tabla). Pedido en la corrida: **tamaño
+estable desde el inicio**, y la disposición en dos columnas —
+
+| Izquierda | Derecha |
+|---|---|
+| la foto subida | lo que se leyó, y después la propuesta |
+
+Eso además aprovecha el ancho: hoy la foto **ni se muestra**, y es justamente contra lo que uno
+querría comparar el texto.
+
+> Nota: la convención de diálogos del repo es 65vw × 70vh. Este usa 620px fijos. Con la disposición
+> en dos cards, ir a la convención tiene sentido — al revés que el alta de terminal (H5), donde 45vw
+> es una excepción deliberada porque son ocho campos cortos.
+
+### H11 · El OCR volvió a leer `COMERCIO` como `COMERCI0` — y eso es una buena noticia
+
+En la corrida, sobre el cupón sintético **limpio**, la lectura devolvió:
+
+```
+COMERCI0:00451233
+```
+
+Con **cero** en lugar de la O. No es un defecto nuevo: es el mismo caso que motivó el semáforo de
+confianza, reproducido en vivo. Vale anotarlo porque es la evidencia de por qué el umbral existe:
+un campo puede salir **plausible y estar mal**, y sin el semáforo el cajero no tendría cómo notarlo.
+
+`COMERCIO` no es de los campos que el mapeo captura, así que no afecta esta prueba. Si algún formato
+futuro lo necesitara, es candidato a `tipo: NUMERO`, que rechaza la confusión gratis.
+
+**Tiempo medido:** 1505 ms para el cupón entero, **sin mapa**. Consistente con los 1552 ms de la
+prueba automatizada. Es exactamente el número que el mapa viene a bajar.
+
+### H12 · Dos columnas de la región no tienen lector — y una está documentada haciendo algo que no hace
+
+La derivación guardó las cuatro regiones bien: nombres canónicos, etiquetas ancla, `origen` y las
+cuatro coordenadas. **Pero `tipo` y `obligatorio` quedaron vacíos, y al buscar quién los lee,
+resultó que nadie.**
+
+**Cómo consume el filial el mapa.** `CapturaCuponService.zonasDe()` recorre las regiones y arma las
+zonas **leyendo solo `x1, y1, x2, y2`**
+`[filial:.../CapturaCuponService.java:278-286]`. La geometría es todo lo que llega al motor.
+
+| Columna | Quién la usa | Veredicto |
+|---|---|---|
+| `x1 y1 x2 y2` | `zonasDe()` → acota el reconocimiento | ✅ es el punto de todo esto |
+| `etiqueta`, `posicion` | la derivación para calcular las coordenadas, y la UI para que un humano revise y corrija | ✅ procedencia legítima |
+| `origen` | protege lo `MANUAL` de la siguiente derivación | ✅ |
+| **`tipo`** | `diff()`, `copiarEn()`, `validar()` — **nadie lo consume** | ❌ **sin lector** |
+| **`obligatorio`** | idem — y la obligatoriedad real sale del **mapeo** | ❌ **sin lector, y duplica** |
+
+**`tipo` es el caso serio, porque el schema afirma un comportamiento que no existe.**
+`formato-terminal-pos-region.graphqls` dice:
+
+> *«TEXTO | NUMERO | FECHA. Un campo declarado NUMERO rechaza un `"0i64"` del OCR gratis.»*
+
+**No lo rechaza.** Nada valida el valor extraído contra el `tipo` de la región. Y el ejemplo que la
+propia documentación elige —confundir `0` con `O`— es **justo el que apareció en esta corrida**
+(`COMERCI0`, H11). O sea: la defensa está documentada, tiene columna, se replica a las 24
+sucursales… y no está conectada.
+
+**`obligatorio` es más leve pero peor diseñado**: la obligatoriedad efectiva sale del mapeo del
+formato y de `camposObligatorios` de la terminal (`camposObligatoriosEfectivos`). Tener un tercer
+lugar donde declarar lo mismo, que nadie lee, es una fuente de verdad de más esperando divergir.
+
+**Es la misma clase que `datos_extra`**, el defecto que esta entrega vino a cerrar: columna,
+migración, espejo en filial, replicación — y ningún consumidor. Reproducido dos veces dentro de la
+propia corrección. Es exactamente lo que la **tabla de datos nuevos** del paso 4 del ciclo existe
+para atrapar, y esta entrega es anterior a esa regla.
+
+**Opciones, y no son equivalentes:**
+
+1. **Conectar `tipo`** en la extracción: validar/coercionar el valor según `TEXTO | NUMERO | FECHA`.
+   Es lo que el schema promete y lo que habría cazado `COMERCI0`.
+2. **Borrar los dos** y sacar la promesa del schema.
+
+Lo que **no** se puede dejar es el estado actual: documentación que afirma una defensa inexistente.
+
+### Prueba 4 — resultado
+
+✅ **Pasa.** Cuatro regiones derivadas con los nombres **canónicos** (`terminal`,
+`codigoAutorizacion`, `numeroBoleta`, `monto`) — no los grupos del patrón, así que la regresión del
+2026-09-12 no volvió. Etiquetas ancla correctas, `posicion = DENTRO`, `origen = DERIVADA`, las
+cuatro coordenadas presentes en todas.
+
+**Replicaron al filial idénticas**: md5 de campo+etiqueta+posición+coordenadas coincide en los dos
+nodos (`c4874e6f…`).
+
+**Y el motor de central cargó recién al usarlo**, no al arrancar: `OCR listo en 2287 ms` a las 15:16,
+con el servidor levantado desde las 13:58, en un hilo `http-nio-8081-exec`. Es la carga perezosa de
+central funcionando, y la contracara del filial, que carga al arrancar cuando el módulo está
+encendido.
+
+### H13 · ⚠️ El OCR convierte la letra O en cero, y el chequeo de tipo no llega a enterarse
+
+> **Corrección.** La primera redacción de este hallazgo decía que el OCR había leído mal un `1` en
+> un cupón limpio. **Era incorrecto**: la imagen que se subió fue `cupon-adulterado.jpg`, hecha a
+> propósito con la letra `O`. Se verificó abriendo el archivo que el filial guardó
+> (`cupones/2026/09/8.jpg`). El hallazgo real es distinto y más importante.
+
+**Lo medido, primera corrida de punta a punta:**
+
+| | |
+|---|---|
+| Lo que dice el cupón | `AUT: 88392O` ← **letra O**, puesta a propósito |
+| Lo que devolvió el OCR | `AUT:883920` ← **dígito cero** |
+| Confianza del campo | **0.9657** |
+| Umbral del semáforo | 0.9 |
+| Lo que vio el cajero | 🟢 **«Leído con claridad»** |
+
+**El OCR normalizó la letra en un dígito, en silencio y con confianza alta.**
+
+**Y esto invalida buena parte de la defensa que se conectó hoy.** El chequeo de tipo compara el
+valor extraído contra `TEXTO | NUMERO | FECHA`, pero **cuando lo recibe ya es `883920`: dígitos
+puros**. No hay nada que detectar. El caracter ofensor no sobrevive al OCR.
+
+Lo mismo vale para la idea de «capturar laxo y validar por tipo» que se probó antes de esta corrida:
+con `(?<auth>\S+)` el grupo habría capturado `883920` igual, porque el texto que le llega al regex
+**ya venía corregido**. La prueba de escritorio con `88392O` daba bien porque ahí el texto era
+sintético; con el OCR en el medio, no.
+
+**Qué queda en pie del chequeo de tipo.** Sigue sirviendo para el caso en que el OCR **conserva** lo
+que no encaja —una letra en medio de un monto, una `/` de una fecha en un campo numérico— y esos
+casos existen. Pero **no cubre el modo de falla de este hallazgo**, y el plan no debería decir que
+sí.
+
+**Lo que este hallazgo dice del semáforo.** El valor que el cajero vio en verde **no coincidía con
+el papel**. Esa parte se sostiene y es el problema de producto: hoy el verde se lee como «no hace
+falta que mires». Para los campos que deciden plata —código de autorización y monto— el verde
+debería significar «el lector está seguro», y la instrucción seguir siendo *confirmá contra el
+ticket*. En esta corrida el operador lo corrigió a mano; un cajero apurado, con el campo en verde,
+no lo haría.
+
+**Subir el umbral tampoco sirve.** Los cuatro campos puntuaron casi igual:
+
+```
+monto 0.9724 · numeroBoleta 0.9725 · terminal 0.9707 · codigoAutorizacion 0.9657
+```
+
+Para marcar el equivocado habría que marcar los cuatro, y un semáforo que pinta todo en ámbar no lo
+mira nadie.
+
+**Un detalle más de la misma lectura:** el cupón dice `MONTO: 150.000` y el OCR devolvió `150000`,
+**sin el separador de miles**. Acá es inofensivo porque el guaraní no tiene decimales. En una moneda
+que los tenga, perder ese punto multiplica por mil.
+
+### H14 · El mapa sí acelera, pero ~35%, no 4×
+
+**Medido en la misma base, mismas imágenes, mismo motor:**
+
+| Captura | Zonas del mapa | ms | caracteres leídos |
+|---|---|---|---|
+| id 8 | **4** | **1599** | 171 |
+| id 7 | **4** | **1588** | 111 |
+| id 6 | 0 | 2278 | 292 |
+| id 5 | 0 | 2356 | 292 |
+| id 4 | 0 | 2683 | 287 |
+| id 3 | 0 | 2502 | 289 |
+
+**Con mapa ~1590 ms, sin mapa ~2450 ms: 35% menos.** El mecanismo se ve en la última columna: con
+mapa se reconocen ~140 caracteres en vez de ~290.
+
+**La cifra de «3.841 → 900 ms» del plan es de la etapa `rec` aislada**, medida en el spike. De punta
+a punta el total incluye la **detección**, que sigue corriendo sobre la imagen entera. La mejora es
+real y consistente, pero conviene citarla como **35% end-to-end** y no como 4×, que es lo que hoy
+sugiere el plan.
+
+### TODO · Medir `nitidez` contra tickets reales antes de darle un uso
+
+**Estado:** el filial calcula la nitidez de cada foto, la recibe por el header `X-Nitidez`, la
+guarda en `captura_cupon.nitidez` — y **nadie la lee**. Es deliberado, no un olvido: hoy no hay
+evidencia que justifique un umbral.
+
+**Lo que se midió el 2026-09-15**, sobre cupones sintéticos fotografiados de una pantalla:
+
+| Captura | nitidez | ¿extrajo los campos? |
+|---|---|---|
+| 13 (desenfoque 5×5) | **173.9** | **sí**, los cuatro |
+| 14 (desenfoque 15×15) | 150.2 | no |
+| 6 | 359.1 | **no** |
+| 11 | 362.4 | sí |
+| 8 | 651.1 | sí |
+| 10 | 928.6 | sí |
+
+**No discrimina.** Una captura con 173 extrajo todo y otra con 359 no extrajo nada. Con estos datos,
+cualquier umbral sería un número inventado, y el costo de equivocarse no es simétrico: avisar «la
+foto salió borrosa» cuando el problema era el **formato mal asignado** manda al cajero a repetir
+fotos que nunca van a funcionar.
+
+**Por qué la muestra no alcanza, y no es solo que sea chica.** Las seis capturas son **fotos de una
+pantalla mostrando un JPEG**: iluminación pareja, sin curvatura, sin papel. Un ticket térmico real
+fotografiado con un teléfono trae reflejos, sombra de la mano, papel arqueado y tinta despareja. La
+distribución de nitidez ahí puede ser completamente distinta —y separar bien, o no separar nada—.
+**No se puede saber desde acá.**
+
+**Qué hay que juntar**, y es barato porque ya se guarda solo:
+
+- **20–30 capturas de tickets de papel reales**, de varios modelos de POS, sacadas por cajeros con
+  sus propios teléfonos y no en condiciones de laboratorio.
+- Por cada una: `nitidez`, si `campos` salió o no, y **si los valores eran correctos** —que no es lo
+  mismo que si extrajo: el 2026-09-14 una lectura extrajo los cuatro campos con uno equivocado—.
+- La foto queda en `imagen_url`, así que se puede revisar después.
+
+**Qué decidiría ese dato:**
+
+1. **Si separa bien** → avisar en el teléfono *antes de subir*: «esta foto salió borrosa, sacá otra».
+   Ahorra el viaje de ida y vuelta y el tiempo de OCR.
+2. **Si separa a medias** → usarla solo para redactar el aviso de H15 con más precisión, en vez de
+   nombrar las dos causas posibles.
+3. **Si no separa** → dejarla registrada como telemetría y **decirlo en el schema**, para que nadie
+   vuelva a intentar esto sin datos. Hoy el módulo ya arrastra tres campos guardados sin lector; el
+   valor de cerrar este es documentar por qué no se usa.
+
+### H16 · Dos proveedores reales, y lo que rompen de nuestros supuestos
+
+Material del 2026-09-15: **13 transacciones INFONET** y **6 PYXPAY**, tickets de papel reales
+fotografiados con teléfono.
+
+#### INFONET — dos variantes estructurales
+
+| | C.N. | Renglones entre BOLETA y MONTO | Marcas propias |
+|---|---|---|---|
+| **Tarjeta** | 5098108 | 5 | `A0000…`, marca, `NO REQUIERE PIN NI FIRMA` |
+| **QR** | 82829 | 3 | `Con QR (B)`, tarjeta enmascarada `*XXX0` |
+
+**El monto cambia de altura según el tipo de operación.** No es un artefacto de la foto: un solo
+mapa geométrico no cubre los dos caminos. Es la evidencia que faltaba para decidir lo de acumular
+variantes.
+
+**El código de autorización es ALFANUMÉRICO**: `D380AD`, `0HNDMK` junto a `467769`, `038116`.
+⚠️ **Esto rompe la deducción de tipo que se conectó el 2026-09-14**: derivando desde un ticket con
+código numérico, `tipoDe` deduce `NUMERO`, y después **toda venta con VISA crédito iría a revisión**
+porque `D380AD` no encaja. Es el falso positivo contra el que el propio código advierte, producido
+por mirar **una sola muestra**.
+
+**Verificación gratis, propia del camino QR:** `C.AUT` es igual a los últimos 6 dígitos de `BOLETA`
+en los 8 tickets QR, y no se cumple en ninguno de tarjeta. Es objetiva, como el cruce del monto, y
+mucho más confiable que la confianza del OCR.
+
+#### PYXPAY — la mitad de los campos, y la moneda peligrosa
+
+```
+VIA EMPRESA / BODEGA FRANCO
+COD TRANS.:      3775906
+DATA:      02/09/2026 23:36:40
+TOTAL:           R$50,48
+```
+
+| Supuesto nuestro | PYXPAY |
+|---|---|
+| hay código de autorización | **no existe**; el único id es `COD TRANS.` |
+| hay número de boleta | **no existe** |
+| el cupón identifica la terminal | **no trae ninguno** — el cajero siempre va a tener que escanear el código |
+| la etiqueta del importe es `MONTO:` | es **`TOTAL:`** |
+| el importe es entero | **`R$50,48`: reales, con coma decimal** |
+
+**De los cuatro campos canónicos, PYXPAY llena dos.** Confirma que la elección de campos por formato
+no es una comodidad sino un requisito estructural.
+
+**Y la moneda con decimales es el caso peligroso que estaba anotado sin ejemplo.** Si el OCR se come
+la coma, `50,48` se vuelve `5048`: **cien veces más**. Ya está medido que el motor pierde
+separadores (el 2026-09-14 devolvió `150000` por `150.000`). El parser del diálogo maneja bien la
+coma; el riesgo es lo que llega desde el OCR, y ahí **el cruce contra lo cobrado es la única
+defensa**.
+
+#### Un defecto que sólo aparece con un segundo proveedor
+
+`camposSegunFormato()` recorre **los cuatro campos siempre** y usa el mapeo sólo para decidir cuál
+es obligatorio — **no filtra los que el formato no declara**
+`[desktop:.../carga-manual-cupon-dialog.component.ts:307-321]`.
+
+Con PYXPAY el cajero vería un campo **«Número de boleta» vacío en cada venta**, para un dato que ese
+proveedor no imprime. No rompe, pero es ruido permanente y una invitación a escribir cualquier cosa.
+El fix es filtrar por el mapeo, conservando el fallback de mostrar los cuatro cuando no hay mapeo
+—que es la salida de emergencia y no puede depender de que la configuración esté impecable—.
+
+---
+
+## Hallazgos de la corrida del 2026-09-15
+
+### H17 · El diálogo del formato repartía el ancho al revés, y dos campos se dibujaban fuera de su recuadro
+
+Lo levantó Gabriel apenas abrió la prueba 1: *«hay inputs demasiado grandes para datos chicos y
+justamente el que debería de ser un campo de descripción queda chico»*. En una sola columna, un
+nombre de modelo de 20 caracteres recibía el mismo ancho que un regex de 120 y que un JSON de varias
+líneas —los dos campos donde de verdad se trabaja—.
+
+**Terminó en tres tabs, no en dos columnas.** Las columnas fueron el primer intento y mejoraban el
+reparto, pero el regex y el JSON seguían compartiendo el ancho con campos que no lo necesitan — lo
+levantó Gabriel: *«qué opinás si abrimos un solo diálogo con tabs»*. Con tabs cada uno se queda con
+el diálogo entero: el patrón de 120 caracteres entra en un renglón y el mapeo tiene 300px de alto.
+
+Los tres tabs son las tres preguntas que un formato responde:
+
+| Tab | Qué tiene |
+|---|---|
+| **Qué aparato es** | nombre, cómo se lee el ticket, proveedor, elegible |
+| **Cómo se lee el cupón** | patrón y cadena de ejemplo — se corrigen mirándose |
+| **Qué campos produce** | el mapeo |
+| **El mapa del cupón** | la derivación desde una foto — **antes era otro diálogo** |
+| **Vista previa** | el cupón real y el ticket sintético, lado a lado |
+
+**El mapa se mudó acá adentro.** Era un diálogo aparte, abierto desde el ícono de grilla de la fila,
+y es una propiedad del formato como el patrón o el mapeo: tenerlo en otra ventana obligaba a cerrar
+una para abrir la otra cuando se está haciendo lo mismo. El diálogo suelto **ya no existe** —no
+quedan dos lugares donde hacer lo mismo— y el ícono de grilla abre el ABM directo en esa solapa.
+
+Tres reglas de esa solapa:
+
+- **Solo aparece para formatos MAQUINA.** Un WEB es patrón puro y no hay imagen donde ubicar
+  regiones.
+- **En un formato nuevo explica en vez de funcionar**: las regiones cuelgan del id del formato, que
+  todavía no existe. Dice qué hacer en vez de mostrar un panel que no podría guardar.
+- **La vista previa se oculta ahí**: habla del patrón y del mapeo, y en esa solapa no se toca
+  ninguno.
+
+**La vista previa queda fuera de los tabs**, abajo y siempre visible: es el resultado de combinar el
+patrón, el ejemplo y el mapeo, que viven en dos tabs distintos. Escondida detrás de uno, se editaría
+el mapeo sin ver el efecto — justo lo que esa vista existe para evitar.
+
+**El precio de los tabs** es que un requerido vacío puede quedar escondido detrás de otra solapa. Por
+eso cada tab muestra un punto ámbar cuando le falta algo, y **Guardar dejó de estar deshabilitado**:
+un botón muerto cuya causa está en otra solapa no se puede diagnosticar. Ahora avisa qué falta y
+lleva al tab donde está el hueco.
+
+El regex y el JSON van en monoespaciada —un `0` tiene que distinguirse de una `O`— y el mapeo se
+indenta al abrir, con un botón **Indentar** para el JSON que se pega en una sola línea.
+
+**Y al dividirlo salieron dos defectos de alto que ya estaban:**
+
+1. **El textarea no respetaba su alto.** Medido: con `rows="8"` puesto, el textarea del mapeo medía
+   190px dentro de un `.mat-mdc-form-field-flex` de **48px** — el JSON se dibujaba fuera del
+   recuadro, encima del hint. Es lo que se ve en la captura que disparó el cambio. Hay que soltar
+   **tres** contenedores, no uno, y el atributo `rows` no gobierna nada en MDC.
+
+2. **El hint se comía el campo de abajo.** El repo fija global
+   `.mat-mdc-form-field-subscript-wrapper { height: 0 !important }` y acá había un `margin-bottom`
+   fijo de 34px para compensarlo. Andaba mientras cada hint entrara en un renglón; en columnas
+   angostas pasan a dos y se volvían a pisar. **Un número fijo no puede seguir al contenido.** Ahora
+   el wrapper recupera su alto y el hint vuelve al flujo.
+
+> ⚠️ **La trampa, documentada en el SCSS porque ya me comí una vez:** al wrapper **no** se le toca el
+> `position: relative`. El hint cuelga de él en `absolute`; si se lo sacás, todos los hints se van al
+> primer ancestro posicionado y aparecen **apilados arriba del diálogo, encima de los labels**. Lo
+> probé y pasa. Lo que hay que hacer estático es el hint, no el wrapper.
+
+**Y dos más que salieron al pasar a tabs**, las dos medidas en pantalla:
+
+3. **El tab group cedía altura.** El diálogo es flex column con `max-height`, así que el grupo se
+   encogía —419px con 486px de contenido adentro— y el contenido se dibujaba **encima de la vista
+   previa**. El que tiene que scrollear es el diálogo, no el tab.
+4. **MDC recorta en tres capas** (wrapper, body y content). Sin las tres, el hint del mapeo y los
+   botones de abajo quedaban cortados y no se veían.
+
+**Verificado en pantalla, no deducido:** cero superposiciones, en los tres tabs.
+
+### La vista previa dejó de ser una lista y pasó a ser la última solapa
+
+Antes colgaba abajo del diálogo y decía **qué** se extrae, no **dónde** — que es justamente lo que
+un mapa necesita para poder evaluarse: una lista de coordenadas no dice si la región quedó sobre el
+importe o sobre el renglón de al lado.
+
+Ahora tiene las dos cosas lado a lado: a la izquierda **el cupón real** (las fotos de muestra
+guardadas, la más nueva elegida sola) **con las regiones dibujadas encima**, y a la derecha **el
+ticket sintético**, con cada campo en su región mapeada. Abajo, el detalle campo / ancla / tipo /
+valor.
+
+**Esto necesitó que las fotos se guarden**, que antes no pasaba: la muestra era efímera y el JPEG se
+descartaba apenas corría el OCR. Ahora va a disco y a `financiero.captura_muestra`, central-only
+(no se replica) y con purga a los 180 días. Es además el corpus que la etapa 6 necesita.
+
+> ⚠️ **Las fotos empiezan a juntarse desde ahora.** Un formato configurado antes de este cambio no
+> tiene ninguna, y la solapa lo dice en vez de mostrar un hueco. Aparecen a partir de la primera
+> derivación que se haga de acá en más.
+
+**Hallazgo grande que salió de esto:** `/api/**` estaba declarado `.authenticated()` en
+`SecurityConfig` pero **ningún filtro lo procesaba** — `JwtAuthenticationTokenFilter` se construye
+con `super("/graphql/**")`. O sea que devolvía **401 siempre, también con un token válido**, y los
+seis controllers que cuelgan de `/api` eran inalcanzables desde la app. Medido: el mismo token, 200
+en `/graphql` y 401 en `/api`. Corregido.
+
+**El ancho del diálogo bajó a 50vw**: con el contenido repartido en solapas ya no necesita 65.
+
+**Cambia el recorrido de la prueba 4.** El mapa ya no se abre como diálogo aparte: se entra al
+formato —**⋮ → Editar**— y se va a la solapa **«El mapa del cupón»**. El flujo de adentro (QR, subir
+foto, proponer, el diff, sumar o empezar de cero) es exactamente el mismo.
+
+**Y el listado usa ⋮ en vez de íconos sueltos** (cierra H2). El ícono de grilla ya no está: la
+acción del mapa desapareció de la fila porque se llega editando. Las opciones del menú son
+**Editar** y **Dejar de ofrecerlo**.
+
+**No bloquea la prueba 1** — son los mismos campos. Pero hay que rehacerla sobre el diálogo nuevo:
+el mapeo con los tipos se pega en el tab **«Qué campos produce»**, y los cuatro casos de rechazo del
+tipo se prueban ahí mismo.
+
+---
+
+## El ABM de formatos, después de la jornada del 2026-09-15
+
+Lo que empezó como *«el diálogo tiene inputs grandes para datos chicos»* terminó reescribiendo la
+pantalla entera. Queda acá lo que hay que saber para probarla, y lo que se decidió y por qué.
+
+### Cinco solapas
+
+| Solapa | Qué tiene |
+|---|---|
+| **Qué aparato es** | nombre, cómo se lee el ticket, proveedor, elegible |
+| **Cómo se lee el cupón** | patrón, cadena de ejemplo, y **el resultado de cruzarlos** |
+| **Qué campos produce** | el mapeo, indentado, con botón para indentar el que se pega en una línea |
+| **El mapa del cupón** | la derivación desde una foto — antes era otro diálogo |
+| **Vista previa** | el cupón real con las regiones encima, el ticket sintético, y **el editor** |
+
+El diálogo mide **50vw**, los botones están **fijos abajo** y no scrollea en ninguna solapa. Eso no
+era estético: los cinco cuerpos de solapa viven en el DOM a la vez y el más alto arrastraba a los
+demás, así que **en la vista previa los botones quedaban 357px por debajo del borde** — para guardar
+había que scrollear a ciegas.
+
+### El orden importa, y no es el que parece
+
+Subir la foto **no** es derivar. Son dos acciones distintas:
+
+| Acción | ¿Necesita el patrón guardado? |
+|---|---|
+| Subir la foto / sacarla con el teléfono | **No** — corre el OCR y muestra el texto |
+| **Proponer el mapa** | **Sí** — usa el patrón **guardado**, no el que está en pantalla |
+
+El recorrido que funciona: **foto → «Usar como cadena de ejemplo» → patrón → Guardar → derivar**.
+
+> ⚠️ **La cadena de ejemplo no se escribe a mano.** El patrón se aplica sobre el texto que devuelve
+> el OCR, con sus rarezas: en el ticket INFONET real leyó `JULI0` con cero, `（B)` con paréntesis de
+> ancho completo y `C008` donde el papel dice `0008`. Y el espaciado **cambia entre lecturas del
+> mismo ticket** (`Lote:1199 Carg0:` una vez, `Lote:1199Cargo:` la otra) — por eso los patrones usan
+> `\s*` y por eso existe el botón.
+
+### Las fotos de muestra se guardan
+
+Antes eran efímeras: el JPEG se descartaba apenas corría el OCR. Ahora van a disco y a
+`financiero.captura_muestra` (V227.5), central-only, con purga a los 180 días. Es además el corpus
+que la etapa 6 necesita para el asistente.
+
+**Las fotos empiezan a juntarse desde este cambio.** Un formato configurado antes no tiene ninguna.
+
+Se pueden borrar una por una (✕ en la miniatura), con confirmación.
+
+### El editor del mapa
+
+**«Editar el mapa»** en la vista previa: el cupón se agranda, las regiones se arrastran y tienen
+tirador para el tamaño, con **zoom de 1× a 4×**. Cada campo tiene su **ancla** editable, Guardar y
+Borrar; los campos del mapeo sin región se agregan con un clic.
+
+No hubo que tocar backend: `saveRegionTerminalPos` ya forzaba `origen = MANUAL` y **la derivación no
+pisa una MANUAL nunca**. Lo que faltaba era la foto.
+
+> **Verde = a mano, ámbar = derivada.** De un vistazo se ve cuál sobrevive a la próxima derivación.
+
+⚠️ **El ancla no es opcional en la práctica.** Una región sólo por coordenadas se rompe entera el día
+que el proveedor agrega un renglón, y sin aviso. El campo de ancla se marca en ámbar mientras esté
+vacío.
+
+### Qué probar de esto
+
+1. Que las cinco solapas **no scrolleen** y los botones se vean siempre, también en modo edición.
+2. Que **«Usar como cadena de ejemplo»** traiga el texto exacto y el patrón lo reconozca.
+3. Que **«Empezar de cero»** borre las anclas del formato anterior, y **«Sumar esta foto»** las
+   conserve y ensanche las cajas.
+4. Que una región **arrastrada y guardada** quede `MANUAL` y que una derivación posterior **no la
+   mueva**.
+5. Que borrar una muestra borre la foto del disco, no sólo la fila.
+6. Que un cupón de **otro formato** dispare el aviso en vez de dibujar regiones que no corresponden.
+
+### El formato INFONET real, como quedó
+
+Primer formato configurado con tickets de verdad. Sirve de referencia:
+
+> ⚠️ **Este bloque se corrigió TRES veces el 2026-09-16, siempre por lo mismo.** Ver
+> «Los tres patrones que se rompieron» más abajo antes de copiarlo como plantilla.
+
+```
+Patrón:  ^[\s\S]*C\.N\.:\s*(?<cn>[A-Z0-9]+)\s*(?:F:\s*(?<fecha>\d{2}/\d{2}/\d{4})\s*H:\s*(?<hora>\d{2}:\d{2}:\d{2}))?[\s\S]*BOLETA:\s*(?<boleta>[0-9]+)[\s\S]*C\.AUT:\s*(?<auth>[A-Z0-9]+)[\s\S]*G\.\s*(?<monto>[0-9][0-9.]*)(?:[\s\S]*Lote:\s*(?<lote>[0-9]+))?[\s\S]*$
+
+Mapeo:   {"terminal":{"de":"cn","tipo":"TEXTO"},
+          "numeroBoleta":{"de":"boleta","obligatorio":true,"tipo":"NUMERO"},
+          "codigoAutorizacion":{"de":"auth","obligatorio":true,"tipo":"TEXTO"},
+          "monto":{"de":"monto","obligatorio":true,"tipo":"NUMERO"},
+          "lote":{"de":"lote","obligatorio":true,"tipo":"NUMERO"},
+          "fecha":{"de":"fecha","deHora":"hora","formato":"dd/MM/yyyy","tipo":"FECHA"}}
+```
+
+| campo | ancla | tipo | origen | en el patrón |
+|---|---|---|---|---|
+| terminal | `C.N.:` | TEXTO | DERIVADA | obligatorio |
+| numeroBoleta | `BOLETA:` | NUMERO | DERIVADA | obligatorio |
+| codigoAutorizacion | `C.AUT:` | TEXTO | **MANUAL** | obligatorio |
+| monto | `G.` | NUMERO | DERIVADA | obligatorio |
+| lote | `lote:` | NUMERO | **MANUAL** | **opcional** |
+| fecha | `F:` | FECHA | — | **opcional** |
+
+> **`lote` obligatorio fue una palanca de prueba, no un requisito.** Se declaró así a propósito para
+> endurecer el testeo; en producción probablemente no lo sea. Lo que destapó vale igual (ver abajo).
+
+⚠️ **`codigoAutorizacion` va `TEXTO`, no `NUMERO`.** Acá salió numérico (`436954`) porque es débito
+con QR; en crédito la misma terminal imprime `D380AD`. Declararlo `NUMERO` mandaría **a revisión cada
+venta con crédito**.
+
+> **Por qué quedó MANUAL:** el código de autorización de INFONET es **la cola del número de boleta**
+> (`BOLETA:5671436954` / `C.AUT:436954`), así que la derivación encontraba el valor en dos cajas y se
+> declaraba ambigua. Se corrigió —ahora la caja que lo tiene entero le gana a la que lo tiene como
+> pedazo— pero la región ya estaba dibujada a mano, y una MANUAL no se pisa.
+
+**Pendiente de confirmar con más tickets:** si `C.N.:82829` cambia entre cajas es la terminal; si es
+el mismo para toda la sucursal es el comercio, y ahí conviene sacarlo del mapeo. Y el ticket de
+**crédito** tiene dos renglones menos que el de QR: hay que probar el patrón contra uno antes de dar
+el formato por cerrado.
+
+### Agregar un campo que no es canónico (ej. `lote`)
+
+**Resuelto el 2026-09-16.** Ya no hace falta código para que un campo no canónico sea un campo de
+verdad: basta declararlo en el mapeo. Lo que decide qué se muestra, qué se valida y qué se exige es
+**la declaración del formato**, no una lista fija.
+
+Lo que había antes, y por qué era un problema medible:
+
+| Lista fija | Dónde | Qué rompía |
+|---|---|---|
+| `CANONICOS` (6) | `ExtractorCupon`, los dos backends | El valor caía en `datos_extra`, **sin confianza**, así que el chequeo de tipo lo salteaba (`if (!confianzas.containsKey(campo)) continue`) |
+| `CAMPOS` (4) | `carga-manual-cupon-dialog` | El cajero **no podía tipearlo**, y el `"obligatorio": true` **se ignoraba en silencio** |
+
+Medido con `lote` de INFONET: se leía con confianza 0,94 y no se dibujaba en ninguna parte.
+
+**Cómo quedó.** `CANONICOS` sigue existiendo pero cambió de rol: ahora sólo dice **qué campo tiene
+columna propia en `venta_tarjeta`** — un hecho de almacenamiento. Lo que el mapeo declara entra en
+`campos` con su rango, y el rango es lo que le da confianza y semáforo. En el desktop, `CAMPOS` pasó
+a ser un **diccionario de nombres conocidos**, no la lista de lo que se dibuja: los campos salen del
+mapeo, los conocidos primero en orden de lectura y los propios del proveedor después, con etiqueta
+derivada del nombre y teclado numérico según el `tipo` **declarado**. Al guardar, lo que no tiene
+lugar propio en `CompletarVentaTarjetaInput` va a `datos_extra` **con las correcciones del cajero**
+—reenviar el `datosExtra` original habría descartado una corrección en silencio—.
+
+**Queda pendiente** `ETIQUETAS` (6) en `configurar-terminal-pos-dialog`: sigue impidiendo exigir un
+campo no canónico **por terminal**. Por formato ya se puede.
+
+### Lo que encontraron los tres auditores (2026-09-15, cierre de jornada)
+
+Tres agentes, uno por superficie: persistencia+seguridad, derivador+tipos, editor del desktop.
+
+**Derivador y validación de tipos: limpio.** Ningún hallazgo que rompa. Se verificó que el desempate
+por token entero no puede empeorar un caso que antes funcionaba —el filtro sólo corre cuando hay más
+de una caja, y si no desempata deja todo como estaba— y que las dos copias de `DerivadorMapa` son
+idénticas byte a byte. Queda anotado que `validarTipos` **no corre para formatos tipo API**, que hoy
+no tienen consumidor: el día que se implemente lectura por API, un tipo mal declarado ahí se va a
+degradar en silencio igual que el bug que este cambio vino a cerrar.
+
+**Persistencia: dos huecos reales, corregidos.**
+
+- `usuario_id` prometía trazabilidad y **ninguna línea la escribía**. El problema es de dónde
+  sacarlo: la foto entra por `/public`, sin sesión, porque del otro lado hay un teléfono. Se captura
+  en `crearCapturaMuestra`, que es el único punto del ciclo con un usuario autenticado.
+- Un fallo a mitad de `persistir` dejaba **una fila sin imagen** —visible en la galería, 404 al
+  abrirla, viva hasta la purga— y a veces un archivo huérfano. Ahora se deshace lo que se alcance.
+
+Verificado y correcto: el cambio del filtro a `/api/**` es aditivo, no hay path traversal, la
+migración es aditiva y `V227.5` es única.
+
+**Editor del desktop: uno que rompía y tres de convención.**
+
+- **Fuga de object URLs.** Sólo se revocaban al destruir el componente, y cada vuelta a la solapa
+  recarga la foto: el flujo normal —derivar, mirar, volver, derivar— acumulaba blobs de ~200 KB
+  mientras el diálogo estuviera abierto.
+- **`posicion` se inventaba.** El editor mandaba `DENTRO` siempre que hubiera ancla, pero `DENTRO`
+  significa *«la etiqueta salió en la MISMA caja que el valor»* y dibujando a mano no hay forma de
+  saberlo. Peor: el dato queda permanente, porque una región MANUAL no se vuelve a derivar nunca.
+- **Una llamada a función en un binding** (`formGroup.get('patron').value`), que la regla #1 del repo
+  prohíbe: se re-evalúa en cada ciclo de change detection.
+- **El índice de la solapa de vista previa estaba mal para formatos WEB**: se comparaba contra 4,
+  pero la solapa del mapa sólo existe para MAQUINA.
+
+La matemática del arrastre —con zoom, con scroll del visor, y los límites que impiden una caja
+inválida— se verificó correcta. El sondeo del QR se corta siempre.
+
+> **Nota de método.** Los tres auditores corrieron sobre código que ya estaba commiteado y probado a
+> mano en pantalla, y aun así encontraron una fuga de memoria y un dato que se guardaba mal para
+> siempre. Ninguno de los dos se ve mirando la pantalla.
+
+---
+
+## La jornada del 2026-09-16 — el cupón se leyó en una venta real
+
+Primera vez que el circuito completo corre con un ticket de papel, en una venta, de punta a punta.
+
+### Lo que quedó probado
+
+| Prueba | Estado | Evidencia |
+|---|---|---|
+| **5** — el OCR deja de ser una lupa | ✅ | 5 campos, confianzas 0,94–0,99, 1923 ms |
+| **7** — la foto queda atada a la venta | ✅ **primera corrida** | `origen=OCR`, `imagen_url=cupones/2026/09/18.jpg` (85.749 bytes en disco) |
+| **6** — el semáforo por campo | ⚠️ **parcial** | ver abajo |
+
+⚠️ **La 6 NO está pasada.** Se vieron el verde y el bloqueo del botón, pero **ningún campo salió en
+ámbar**: las confianzas dieron todas por encima de 0,94 y el semáforo nunca tuvo que decidir. Y el
+`Confirmar` bloqueado que se observó vino de `Validators.required` sobre un campo vacío, **no** del
+contador de dudosos: son dos caminos distintos del código y sólo se ejercitó uno. Faltan el ámbar,
+el tilde «Coincide con el ticket», el contador, «corregir cuenta como confirmar» y el chequeo de
+tipo.
+
+**Camino nuevo, que la prueba 6 no contempla:** *campo no leído*. Un tercer estado —ni verde ni
+ámbar— para el campo que el lector no encontró. Hay que agregarlo a la prueba.
+
+### Los tres patrones que se rompieron, y por qué es el mismo error
+
+En una mañana hubo que corregir el patrón de INFONET **tres veces**, siempre con un cupón nuevo en
+la mano y siempre interrumpiendo una venta:
+
+| Se rompió en | El patrón exigía | Lo que pasó |
+|---|---|---|
+| Lectura 5 del mismo ticket | `MONTO:\s*G\.` | El OCR perdió la palabra `MONTO:` entera |
+| Un ticket VISA DÉBITO CTLS | `Lote:` al final | El OCR leyó `Lpte:` (papel dañado + la letra más chica) |
+| — | — | Y con él se perdían monto, boleta y autorización, que se habían leído perfecto |
+
+**Medición que lo resume.** Cinco lecturas OCR del **mismo papel**, línea del lote:
+
+```
+Caja Nro:C008 Lote:1199 Carg0:017748
+Caja Nro:C008 Lote:1199Cargo:017748
+CajaNro:C008Lote:1199 Cargo:017748
+Caja Nro:0008 Lote:1199 Cargo:017748
+Caja Nro:0008 Lpte:1199 Cergo:017734
+```
+
+Las cinco tienen al menos un error en ese renglón, **aun con el papel sano**. El OCR no devuelve el
+mismo texto dos veces.
+
+**Las dos reglas que salen de esto:**
+
+1. **Anclas cortas.** `G.` sobrevivió las cinco lecturas; `MONTO:` no llegó a las dos. Cuanto más
+   larga la etiqueta, más superficie para que el OCR falle.
+2. **Opcional en el patrón, obligatorio en el mapeo.** Salvo lo que identifica al cupón, todo grupo
+   va opcional. Un campo que el lector no encuentra tiene que dejar **el campo vacío**, no tirar el
+   ticket entero. Sigue siendo exigible: lo tipea el cajero.
+
+⚠️ **La tentación a evitar:** aflojar el ancla a `L[o0p]te:` para atrapar el `Lpte`. Eso es
+sobreajustar a un error ya visto; la próxima lectura inventa otro. El renglón es poco confiable **en
+general**, no de una manera específica.
+
+### El control de antigüedad estaba muerto
+
+`cuponVencido` corta a las 24 horas y existía desde el principio. Por el camino del **OCR** nunca
+pudo dispararse: el payload que devolvía el diálogo **no llevaba `fecha`**, así que comparaba contra
+`undefined` y devolvía `false` siempre. Funcionaba sólo para cupones con QR, donde
+`qr-pos-parser.ts` sí arma la fecha — justo al revés de donde hace falta, porque el papel
+traspapelado es el caso de la maquinita.
+
+**Cómo se revivió.** El vocabulario cerrado del mapeo suma dos claves: `formato` y **`deHora`**. La
+hora va aparte porque los proveedores meten texto entre fecha y hora —INFONET imprime
+`F:02/09/2026H:19:53:30`— y un solo grupo obligaría a capturar esa basura adentro del valor. El
+extractor devuelve la fecha normalizada a **ISO local** (`2026-09-02T19:53:30`); si no puede
+normalizarla devuelve el valor crudo, igual que con `escala`. Sin hora asume medianoche: adelanta el
+vencimiento hasta un día, o sea **avisa de más, nunca de menos**.
+
+Tres cosas que habrían fallado en silencio y se atajaron:
+
+- `encaja` con tipo `FECHA` no reconocía la forma ISO → **todo cupón con la fecha bien leída se
+  habría marcado dudoso**.
+- `validarMapeo` valida los grupos de `"de"`; el regex se extendió a `deHora`, si no un typo ahí
+  dejaba la fecha en medianoche sin avisar.
+- El grupo de la hora se guardaba **además** en `datos_extra` —el mismo dato dos veces— porque
+  `deHora` no se marcaba como grupo consumido. Es exactamente lo que el comentario de `consumidos`
+  advierte, cometido en la línea de al lado.
+
+En el desktop, `aFecha` construye la fecha componente a componente y **no** con `new Date(string)`:
+una fecha sin zona puede interpretarse como UTC y llegar corrida tres horas. Mismo criterio que ya
+usaba el parser de QR.
+
+### INFONET: lo que confirmaron tres tickets distintos
+
+**El código de autorización es la cola del número de boleta.** Tres tickets, tres veces:
+
+| boleta | C.AUT |
+|---|---|
+| `5671436954` | `436954` |
+| `005671038116` | `038116` |
+| `5671077557` | `77557` |
+| Ya no es casualidad: es cómo INFONET numera. |
+
+**Una terminal apunta a UN formato.** Así que el patrón tiene que absorber **todo** lo que esa
+máquina imprima: QR, débito CTLS, crédito, anulación. No se crea un formato por tipo de operación.
+El ticket de débito CTLS trae un bloque entero que el de QR no tiene (`VENTA(CTLS)`, `VISA DEBITO`,
+el AID `A0000000031010`, el criptograma) y el patrón lo absorbe con `[\s\S]*`.
+
+**Sigue pendiente el ticket de CRÉDITO**, que es el que puede romper `G.` como ancla del monto: si
+imprime un segundo importe (cuotas), el `[\s\S]*` codicioso se queda con el último.
+
+### Otros arreglos de la jornada
+
+- **El selector de Terminal quedaba vacío** en «Ventas con tarjeta» de la caja, con
+  `Field 'sucursal' in type 'TerminalPos' is undefined`. La consulta iba al **filial** con el set de
+  campos de **central** (`sucursal` como objeto vs `sucursalId` pelado), y GraphQL valida el
+  documento **entero**: pedir un campo que el backend no declara rechaza la consulta completa, no
+  ese campo. El repo ya tenía el patrón resuelto para `filterTerminalPos`; faltaba aplicarlo a
+  `terminalesPos`.
+- **Columna de fecha y hora** en esa misma lista, segunda y no al final: una caja puede quedar
+  abierta varios días.
+- **«Referencia del proveedor» ya no aparece siempre.** Es el EndToEndId de Pix; Infonet, Dinelco,
+  Stone, BXX y PlugPay no lo imprimen. Ahora sale sólo si el mapeo lo declara.
+- **La página del celular** lleva la marca FRC en los dos modos —claro y oscuro siguen al teléfono,
+  la identidad no— y un botón **«Cerrar esta pestaña»** al terminar. ⚠️ `window.close()` sólo cierra
+  ventanas que abrió un script, y esta la abrió el lector de QR del sistema: el botón **intenta** y,
+  si el navegador no deja, se convierte en la instrucción. Motivo: 30 cupones al día son 30 pestañas.
+- **`central/muestras/` no estaba en `.gitignore`** y contenía una foto de un cupón real con boleta,
+  monto y serie de terminal. El filial ya ignoraba su carpeta equivalente. Corregido.
+
+### Lo que esta jornada deja como prioridad
+
+> ✅ **Hecho el 2026-09-17.** Ver [BOTON-PROBAR-FORMATO.md](BOTON-PROBAR-FORMATO.md). Lo que sigue
+> es el planteo original, que se cumplió tal cual salvo un detalle: la prueba corre contra el
+> formato **guardado**, y el botón guarda solo si hay cambios, en vez de probar el borrador.
+
+**El botón «Probar» del ABM de formatos.** Hoy cada patrón frágil costó una venta interrumpida. El
+diseño lo definió Gabriel: **exactamente como el PDV** — abre un QR, se escanea un ticket de papel,
+**pasa o no pasa**. No un banco de textos guardados: probar contra texto guardado es probar contra el
+pasado, y está medido que el OCR devuelve un texto distinto en cada lectura del mismo papel.
+
+Se reusa `crearCapturaMuestra` (QR, subida, OCR y persistencia ya existen en central); falta un
+segundo consumidor de esa captura que corra `ExtractorCupon` con el patrón y el mapeo del formato y
+devuelva pasa/no pasa. Cada prueba deja una muestra, así que el corpus se arma solo.
+
+**Hueco relacionado, abierto.** La señal de formato roto nace en el **filial** —`captura_cupon` con
+`estado='LISTO'` y `campos IS NULL` significa «el OCR leyó el papel y el patrón no lo reconoció»— y
+**nunca llega a central**, que es donde se administra el formato. En producción son 24 filiales
+fallando en silencio mientras el ABM muestra un formato sano.

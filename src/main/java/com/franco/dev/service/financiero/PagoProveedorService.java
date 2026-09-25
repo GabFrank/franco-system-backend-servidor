@@ -63,6 +63,7 @@ public class PagoProveedorService {
     private final TesoreriaSecurityService seguridad;
     private final com.franco.dev.repository.financiero.MovimientoBancarioRepository movimientoBancarioRepository;
     private final PreGastoService preGastoService;
+    private final GastoTesoreriaService gastoTesoreriaService;
     // Sin ciclo: ValeService no conoce el motor de pago (el que sí lo usa es ValeTesoreriaService).
     private final com.franco.dev.service.rrhh.ValeService valeService;
     private final com.franco.dev.service.rrhh.LiquidacionSueldoService liquidacionSueldoService;
@@ -273,15 +274,35 @@ public class PagoProveedorService {
 
     // ── Entradas públicas ──
 
-    /** Pago mixto de varias solicitudes, todo como un único evento consolidado. Atómico. */
+    /**
+     * Pago mixto de varias solicitudes, todo como un único evento consolidado. Atómico.
+     *
+     * <p>Es la entrada genérica (compras, gastos): rechaza obligaciones de RRHH, que tienen sus propias reglas y
+     * su rol (issue #302). Los hubs de RRHH y de vales usan {@link #pagarLoteMixtoObligacionesRrhh}.</p>
+     */
     @Transactional
     public Pago pagarLoteMixto(List<SolicitudConLineas> pagos, Usuario usuario) {
+        exigirSinObligacionesRrhh(pagos == null ? null
+                : pagos.stream().map(SolicitudConLineas::getSolicitudId).collect(Collectors.toList()));
         return procesarEvento(pagos, usuario);
     }
 
-    /** Pago de una sola solicitud (un evento con una nota). */
+    /**
+     * Pago de obligaciones de RRHH (liquidación, finiquito, aguinaldo, vale) con el mismo motor.
+     *
+     * <p><b>Solo para {@code PagoRrhhTesoreriaService} y {@code ValeTesoreriaService}</b>, que ya exigieron su rol
+     * de RRHH y validaron el documento (pago entero, cuotas vigentes, obligación alineada). No lo llames desde un
+     * resolver genérico: para eso está {@link #pagarLoteMixto}.</p>
+     */
+    @Transactional
+    public Pago pagarLoteMixtoObligacionesRrhh(List<SolicitudConLineas> pagos, Usuario usuario) {
+        return procesarEvento(pagos, usuario);
+    }
+
+    /** Pago de una sola solicitud (un evento con una nota). Rechaza obligaciones de RRHH (issue #302). */
     @Transactional
     public SolicitudPago pagar(Long solicitudId, List<LineaPago> lineas, Usuario usuario) {
+        exigirSinObligacionesRrhh(java.util.Collections.singletonList(solicitudId));
         SolicitudConLineas s = new SolicitudConLineas();
         s.setSolicitudId(solicitudId);
         s.setLineas(lineas);
@@ -294,6 +315,7 @@ public class PagoProveedorService {
     public Pago pagarLoteCajaMayor(Long cajaVirtualId, List<PagoLote> pagos, Usuario usuario) {
         if (cajaVirtualId == null) throw new GraphQLException("Caja mayor requerida");
         if (pagos == null || pagos.isEmpty()) throw new GraphQLException("Seleccione al menos una solicitud a pagar");
+        exigirSinObligacionesRrhh(pagos.stream().map(PagoLote::getSolicitudId).collect(Collectors.toList()));
         List<SolicitudConLineas> ls = new ArrayList<>();
         for (PagoLote p : pagos) {
             if (p.getMonto() == null || p.getMonto().signum() <= 0) throw new GraphQLException("Monto a pagar inválido");
@@ -311,14 +333,33 @@ public class PagoProveedorService {
         return procesarEvento(ls, usuario);
     }
 
+    /**
+     * Rechaza el pago genérico de obligaciones de RRHH (issue #302): por acá no corren las reglas de RRHH (pago
+     * entero, cuotas vigentes, obligación alineada) ni se exige su rol. El mensaje no lleva montos ni datos del
+     * funcionario. Los ids que no existen se dejan pasar: {@code procesarEvento} ya da su error.
+     */
+    private void exigirSinObligacionesRrhh(java.util.Collection<Long> solicitudIds) {
+        if (solicitudIds == null) return;
+        for (Long id : solicitudIds) {
+            if (id == null) continue;
+            // Proyeccion del tipo, no findById: la entidad no debe entrar al contexto antes del lockById del motor.
+            if (solicitudPagoService.getRepository().findTipoById(id).orElse(null)
+                    == com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH) {
+                throw new GraphQLException("La solicitud #" + id + " es una obligación de pago de RRHH: se paga desde"
+                        + " su modo (vale, liquidación, finiquito o aguinaldo) en el diálogo de pagos.");
+            }
+        }
+    }
+
     /** Solicitudes de pago de COMPRA pagables (SOLICITADO o PARCIAL) para el diálogo de compras.
-     *  PENDIENTE es borrador y NO es pagable. Excluye GASTO (tienen su propio diálogo). Filtra por
-     *  proveedor si se indica. */
+     *  PENDIENTE es borrador y NO es pagable. Excluye GASTO y RRHH (cada uno tiene su modo, y RRHH sus reglas y su
+     *  rol: issue #302). Filtra por proveedor si se indica. */
     public List<SolicitudPago> listarPendientes(Long proveedorId) {
         List<SolicitudPago> list = solicitudPagoService.getRepository()
                 .findByEstadoIn(List.of(SolicitudPagoEstado.SOLICITADO, SolicitudPagoEstado.PARCIAL))
                 .stream()
-                .filter(s -> s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO)
+                .filter(s -> s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.GASTO
+                        && s.getTipo() != com.franco.dev.domain.operaciones.enums.TipoSolicitudPago.RRHH)
                 .collect(Collectors.toList());
         if (proveedorId != null) {
             list = list.stream()
@@ -534,6 +575,9 @@ public class PagoProveedorService {
             }
             // Si el gasto vino de un PreGasto (workflow de aprobación), sincronizar su estado.
             preGastoService.sincronizarDesdeSolicitudPago(sp);
+            // Un gasto pagado desde la caja mayor se materializa en financiero.gasto (sucursal 0),
+            // que es lo que leen el gráfico por categoría y la lista de gastos.
+            gastoTesoreriaService.sincronizarDesdeSolicitudPago(sp);
             // Si la obligación era de un vale de RRHH, dejarlo CONFIRMADO (es lo que mira la
             // liquidación para descontarlo del sueldo).
             valeService.sincronizarDesdeSolicitudPago(sp);
@@ -620,6 +664,8 @@ public class PagoProveedorService {
             solicitudPagoService.desmarcarNotasComoPagadas(sp.getId());
             // Si es un gasto con PreGasto, revertir su estado (PAGADO → ENVIADO_A_TESORERIA).
             preGastoService.sincronizarDesdeSolicitudPago(sp);
+            // El gasto materializado queda cancelado: deja de sumar en el gráfico y en la lista.
+            gastoTesoreriaService.sincronizarDesdeSolicitudPago(sp);
             // Si era el pago de un vale, vuelve a quedar pendiente de entrega (CONFIRMADO → SOLICITADO).
             valeService.sincronizarDesdeSolicitudPago(sp);
             // Idem para los demas conceptos de RRHH pagables desde el hub de la caja

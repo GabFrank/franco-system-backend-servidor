@@ -2876,22 +2876,51 @@ select to_regclass('productos.precio_especial_sucursal') as tabla,
 - Si hubo rollback, la tabla existe pero corre el JAR viejo: esa sucursal cobra el global. Retirar
   el release o fijar su `.channel` para cortar el loop de reintentos (240 s sin venta cada 15 min).
 - **Filiales inalcanzables:** Farmacia 5 (apagada), Farmacia 6, Suc. Fiesta 25 (nómade), Bodega 4
-  (Windows). A cada una se le corre a mano el DDL de V104.1, que es idempotente, o se anota
-  explícitamente que queda afuera y por qué.
-- Agregar la tabla al checklist de `runbooks/filial-nomade.md`.
+  (Windows). Para cada una, apenas aparezca (antes de que le llegue el JAR nuevo):
+  1. Correr a mano el DDL de V104.1, que es idempotente.
+  2. `REFRESH` de su suscripción de `central_pub` con `copy_data = true`, con el chequeo previo de
+     "Central, PR 2" (farmacia y bodega, alta manual): identificar la suscripción por su
+     publicación, y comparar contra `pg_publication_tables` que solo falte
+     `productos.precio_especial_sucursal`.
+  3. Verificar `srsubstate = 'r'`.
+  - Motivo: `central_pub` es compartida, y una filial que reconecta sin la tabla frena toda su
+    bajada al primer especial.
+- Agregar la tabla al checklist de `runbooks/filial-nomade.md`. **Pendiente para Franco:** este
+  procedimiento (los tres pasos de arriba) se agrega como procedimiento a
+  `runbooks/filial-nomade.md` de `frc-cicd`; no se edita desde acá porque ese clon es de solo
+  lectura.
 
 **2. Central, PR 2.**
 - **Alpha:** el alta a la publicación es **automática**, ~2 min después del arranque
   (`REPLICATION_SYNC_ENABLED=true` en mauro). Por eso el checklist del paso 1 tiene que estar
   completo **antes** de `gh workflow run Deploy` para alpha.
+  - Después del deploy, buscar en el log del central la línea `central_pub: agregada tabla
+    productos.precio_especial_sucursal`.
+  - Verificar `srsubstate = 'r'` en cada filial alpha **antes** de mergear el desktop a `develop`:
+    el sync solo refresca las sucursales activas con IP y puerto cargados, y da por buenas las
+    fallas.
 - **Farmacia y bodega:** **no usar el botón "Sincronizar publicaciones"**: publica todas las
   tablas pendientes de `replication_table` y solo refresca las filiales con IP cargada. El alta es
   manual, con una sentencia por `-c` (gotcha de `psql -c`):
   1. En el central:
      - `ALTER TABLE productos.precio_especial_sucursal REPLICA IDENTITY FULL;`
      - `ALTER PUBLICATION central_pub ADD TABLE productos.precio_especial_sucursal;`
-  2. En **cada** filial: `ALTER SUBSCRIPTION <sub central→filial> REFRESH PUBLICATION WITH (copy_data = false);`
-  3. Verificar `srsubstate = 'r'` para la tabla en `pg_subscription_rel` de cada filial.
+  2. **Identificar la suscripción por su publicación, no por el nombre.** En cada filial:
+     `select subname from pg_subscription where 'central_pub' = any(subpublications);`.
+     - En bodega, la de `central_pub` es `<db>_filialN_central_sub`.
+     - `central_<db>_filialN_sub` es la de la publicación filtrada.
+     - En farmacia los nombres están invertidos (gotchas «farmacia»).
+  3. **Antes del `REFRESH` de cada filial**, comparar `select schemaname||'.'||tablename from
+     pg_publication_tables where pubname='central_pub'`, corrida en el central, contra las tablas
+     de `pg_subscription_rel` de esa suscripción, corrida en la filial. Tiene que faltar **solo**
+     `productos.precio_especial_sucursal`. Si falta otra, frenar y avisar a Franco.
+  4. `ALTER SUBSCRIPTION <sub central→filial> REFRESH PUBLICATION WITH (copy_data = true);`. Es
+     seguro porque el espejo está vacío, y así un especial cargado antes del REFRESH no se pierde
+     (lo recomienda el gotcha «El seed de una tabla MAIN_TO_ALL nueva…»).
+  5. Verificar `srsubstate = 'r'` para la tabla en `pg_subscription_rel` de cada filial.
+  - **Antes de `gh workflow run Deploy`**, confirmar `grep REPLICATION_SYNC_ENABLED
+    /opt/frc-backend-central/<pool>/.env` = `false`. Si da `true`, seguir el mismo orden que
+    alpha: checklist completo antes del deploy.
 - El deploy del central es manual (`gh workflow run Deploy`), porque `deploy-auto.yml` no se
   dispara nunca.
 
@@ -2906,20 +2935,28 @@ select to_regclass('productos.precio_especial_sucursal') as tabla,
 
 **4. Primer especial.**
 - Recién después del paso 3 y del inventario del paso 0.
+- **Antes de cargar el primer especial**, anotar la línea base de `select subname,
+  apply_error_count from pg_stat_subscription_stats` en cada filial.
 - Al día siguiente, revisar `pg_stat_subscription_stats.apply_error_count` en cada filial. Tiene
   que seguir igual.
-- **Cajas con desktop viejo:** después de cargar o cortar un especial, reiniciar el POS en las que
-  venden por favoritos.
+- **Cajas con desktop viejo:** no usar el botón "Actualizar" de favoritos, porque pide al central y
+  vuelve al precio global. Reiniciar el POS en su lugar. Priorizar la actualización del desktop en
+  las sucursales que vayan a usar especiales.
 
 **5. Promoción a beta/stable:** mismo orden (filial → central → desktop), con merge commit y nunca
 squash. No se hace un viernes.
 
 **Recuperación.** Si una filial cortó su réplica por no tener la tabla:
 1. Correr el DDL de V104.1 en esa filial.
-2. `ALTER SUBSCRIPTION ... REFRESH PUBLICATION WITH (copy_data = false)`.
-3. Backfill de las filas de su sucursal con el patrón `pg_dump --data-only` del gotcha «El seed de
-   una tabla MAIN_TO_ALL nueva…».
-4. Verificar `apply_error_count`.
+2. Hacer el chequeo previo de "Central, PR 2" (farmacia y bodega, alta manual): identificar la
+   suscripción por su publicación y comparar contra `pg_publication_tables` que solo falte
+   `productos.precio_especial_sucursal`.
+3. `ALTER SUBSCRIPTION ... REFRESH PUBLICATION WITH (copy_data = true)`.
+4. Verificar `srsubstate = 'r'` y `apply_error_count`.
+
+Solo si la suscripción ya tenía la tabla y le faltan filas, backfill de la **tabla entera** con
+`pg_dump --data-only --column-inserts --on-conflict-do-nothing -t
+productos.precio_especial_sucursal`.
 
 Lo mismo aplica si una suscripción se recrea: los especiales anteriores no le llegan
 (`copy_data=false`), así que se vuelven a tocar o se hace backfill.
@@ -2928,9 +2965,14 @@ Lo mismo aplica si una suscripción se recrea: los especiales anteriores no le l
 1. Cortar desde la pantalla.
 2. En el central: `UPDATE productos.precio_especial_sucursal SET activo = false WHERE activo;`.
 3. En una filial con la réplica rota: `precio.especial.habilitado=false` y reiniciar.
-4. Para retirar la tabla de la publicación:
+4. Para retirar la tabla de la publicación (**siempre después** del paso 2: sacarla de la
+   publicación congela en las filiales los especiales que quedaron activos):
+   - Antes del `DROP`, verificar en cada filial que `select count(*) from
+     productos.precio_especial_sucursal where activo` = 0. Una filial que no recibió el corte se
+     apaga con el paso 3 (`precio.especial.habilitado=false`).
    - `replication_table.enabled=false`;
-   - `ALTER PUBLICATION central_pub DROP TABLE productos.precio_especial_sucursal;`.
+   - Recién después, `ALTER PUBLICATION central_pub DROP TABLE
+     productos.precio_especial_sucursal;`.
 
    **Nunca** dropearla en una filial mientras esté publicada.
 
@@ -2976,3 +3018,30 @@ Fuera de alcance, anotado:
 - `itemsFacturaSilenciosa` (#144) trata `vi.precio` como neto, pero el cliente lo manda bruto. Hoy
   es inocuo, porque el descuento por ítem está bloqueado;
 - `savePrecioPorSucursal` del central llama dos veces a `service.save(e)`.
+
+## Auditoría del diff (paso 8), 2026-09-27
+
+| Eje | Resultado |
+|---|---|
+| Fijo 1 | OK |
+| Fijo 2 | OK |
+| Fijo 3 | Con arreglos menores |
+| Condicional B | 4 Important en el plan de despliegue |
+
+Se arregló en esta ronda:
+- Tope de página (`page`/`size`) en `filterPreciosEspeciales`, con test.
+- `creadoEn` en `-03` (`PrecioEspecialSucursalService.crear`), coherente con `ZONA`.
+- El plan de despliegue: identificación de la suscripción por publicación, chequeo previo al
+  `REFRESH`, `copy_data=true`, filiales inalcanzables sin la opción de "quedar afuera", línea base
+  de `apply_error_count`, límite del botón "Actualizar" de favoritos, y el orden del apagado de
+  emergencia.
+- La spec: filas nuevas en la tabla de datos (`precio`, `usuario_id`, `creado_en`) y el límite de
+  favoritos con desktop viejo.
+
+Quedó parqueado (no se toca en esta ronda):
+- La contraseña de `Usuario` accesible por queries anidadas (preexistente al feature).
+- ADMIN por nickname tratado de forma inconsistente en los helpers heredados del desktop.
+- CREAR y EDITAR PRECIOS sin distinguir, aunque la spec los separe.
+- El error crudo de un desktop nuevo contra un central viejo: lo cubre el gate de merge, no un
+  cambio de código.
+- Las reimpresiones de ventas viejas ahora muestran lo cobrado: hay que declararlo en el PR.

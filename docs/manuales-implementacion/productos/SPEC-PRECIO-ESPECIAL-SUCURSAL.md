@@ -66,8 +66,8 @@ auditoría del plan:
 - **Grilla de favoritos (venta táctil por categorías).** Carga los precios una sola vez, al abrir
   el POS (`pdv-categoria.service.ts:32-57`), y su botón "Actualizar" consulta al **central**. Se
   corrige en el desktop (plan, Tarea D5). Un desktop viejo sigue cobrando por favoritos lo que
-  cargó al abrir, así que después de cargar o cortar un especial hay que reiniciar el POS en esas
-  cajas.
+  cargó al abrir: **no usar el botón "Actualizar"** (pide al central y vuelve al precio global);
+  reiniciar el POS en esas cajas, en su lugar, después de cargar o cortar un especial.
 - **Desktop web, o Electron con `serverIp` apuntando al central.** Consulta al central
   (`aplicarOverrideWeb`, `configuracion.service.ts:729-741`) y cobra el precio global. El precio
   especial aplica solo en cajas conectadas al servidor de su sucursal.
@@ -190,6 +190,9 @@ Beneficio adicional: arregla las reimpresiones de ventas viejas cuyo precio camb
 | fila replicada (filial) | apply worker de la replicación (`MAIN_TO_ALL`) | `PrecioEspecialFuente` (JDBC) → `PrecioEspecialLector` → `PresentacionResolver`, `ProductoResolver` → POS |
 | `activo` | desktop (acción cortar) → central | filial (filtro vigente); desktop (estado) |
 | `fecha_desde` / `fecha_hasta` | desktop → central | filial (filtro vigente); central (superposición); desktop (estado) |
+| `precio` | `crear` y `editar` | `PrecioEspecialFuente`, `PrecioEspecialLector`; desktop |
+| `usuario_id` | `crear`, `editar` y `cortar` (quién lo cargó o lo modificó por última vez) | `getUsuarioNickname`, en la columna Usuario de la pantalla general |
+| `creado_en` | `crear` (hora -03) | metadata de auditoría que expone GraphQL; el desktop hoy no la muestra |
 | `venta_item.precio` con el valor especial (dato existente, valor nuevo) | POS (`item.precio = precioVenta.precio`) | total de la venta, factura SIFEN, tickets (§4.4) |
 
 ## 5. Despliegue (§3.2 del ciclo: tabla `MAIN_TO_ALL` nueva)

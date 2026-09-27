@@ -98,8 +98,15 @@ public class MarcacionService extends CrudService<Marcacion, MarcacionRepository
     private void prepararMarcacion(Marcacion marcacion) {
         if (marcacion.getId() == null) {
             asignarNuevoId(marcacion);
+            // Sin fecha del cliente (la PWA no la manda: la pone el servidor), la hora va al campo
+            // de su tipo. Antes iba siempre a fechaEntrada, y una SALIDA quedaba con fechaSalida
+            // nula: el desktop y frc-mobile, que la leen de ahi, la mostraban vacia o "En Curso".
             if (marcacion.getFechaEntrada() == null && marcacion.getFechaSalida() == null) {
-                marcacion.setFechaEntrada(LocalDateTime.now());
+                if (marcacion.getTipo() == TipoMarcacion.SALIDA) {
+                    marcacion.setFechaSalida(LocalDateTime.now());
+                } else {
+                    marcacion.setFechaEntrada(LocalDateTime.now());
+                }
             }
         }
 

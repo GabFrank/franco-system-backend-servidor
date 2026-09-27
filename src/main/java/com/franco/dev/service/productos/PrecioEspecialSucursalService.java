@@ -79,7 +79,7 @@ public class PrecioEspecialSucursalService {
             e.setFechaHasta(hasta);
             e.setActivo(true);
             e.setUsuario(autor);
-            e.setCreadoEn(LocalDateTime.now());
+            e.setCreadoEn(LocalDateTime.now(ZONA));
             creados.add(repository.save(e));
         }
         return creados;

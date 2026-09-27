@@ -29,7 +29,11 @@ public class PrecioEspecialSucursalGraphQL implements GraphQLQueryResolver, Grap
 
     public Page<PrecioEspecialSucursal> filterPreciosEspeciales(Long sucursalId, String texto, Boolean soloVigentes,
                                                                Integer page, Integer size) {
-        return service.filtrar(sucursalId, texto, soloVigentes, page != null ? page : 0, size != null ? size : 15);
+        // Query abierta a cualquier sesion: se acota page/size antes de llegar al service para que
+        // no se pueda bajar toda la tabla de una vez ni romper PageRequest.of con size<=0.
+        int p = page != null && page >= 0 ? page : 0;
+        int s = size != null ? Math.min(Math.max(size, 1), 100) : 15;
+        return service.filtrar(sucursalId, texto, soloVigentes, p, s);
     }
 
     public List<PrecioEspecialSucursal> savePreciosEspeciales(PrecioEspecialSucursalInput input) {

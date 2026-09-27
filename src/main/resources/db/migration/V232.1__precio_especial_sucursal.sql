@@ -30,7 +30,7 @@
 -- ON DELETE CASCADE desde precio_por_sucursal: borrar un precio borra sus especiales (y su
 -- historial) y replica el DELETE. Aceptado: el precio mismo deja de existir.
 -- =====================================================================
-SET lock_timeout = '5s';
+SET LOCAL lock_timeout = '5s';
 
 CREATE TABLE IF NOT EXISTS productos.precio_especial_sucursal (
     id           BIGSERIAL PRIMARY KEY,

@@ -47,7 +47,7 @@ public class PrecioEspecialSucursalService {
 
     @Transactional
     public List<PrecioEspecialSucursal> crear(PrecioEspecialSucursalInput input, Usuario autor) {
-        if (input == null) throw new GraphQLException("Faltan los datos del precio especial.");
+        if (input == null) throw new GraphQLException("Faltan los datos de la promoción.");
         validarPrecio(input.getPrecio());
         LocalDate desde = DateUtils.stringToLocalDate(input.getFechaDesde());
         LocalDate hasta = DateUtils.stringToLocalDate(input.getFechaHasta());
@@ -62,7 +62,7 @@ public class PrecioEspecialSucursalService {
 
         List<Sucursal> sucursales = new ArrayList<>();
         for (Long sucursalId : ids) {
-            if (sucursalId == 0L) throw new GraphQLException("El central (sucursal 0) no vende: no lleva precio especial.");
+            if (sucursalId == 0L) throw new GraphQLException("El central (sucursal 0) no vende: no lleva promociones.");
             Sucursal s = sucursalService.findById(sucursalId).orElse(null);
             if (s == null) throw new GraphQLException("La sucursal " + sucursalId + " no existe.");
             validarSinSuperposicion(precio.getId(), s, desde, hasta, null);
@@ -89,7 +89,7 @@ public class PrecioEspecialSucursalService {
     public PrecioEspecialSucursal editar(Long id, Double precio, String fechaDesde, String fechaHasta, Usuario autor) {
         PrecioEspecialSucursal e = buscar(id);
         if (!Boolean.TRUE.equals(e.getActivo())) {
-            throw new GraphQLException("El precio especial " + id + " está cortado: cargá uno nuevo.");
+            throw new GraphQLException("La promoción " + id + " está cortada: cargá una nueva.");
         }
         validarPrecio(precio);
         LocalDate desde = DateUtils.stringToLocalDate(fechaDesde);
@@ -132,11 +132,17 @@ public class PrecioEspecialSucursalService {
         for (PrecioEspecialSucursal otro : repository.findByPrecioPorSucursalIdAndSucursalIdAndActivoTrue(precioId, sucursal.getId())) {
             if (excluirId != null && excluirId.equals(otro.getId())) continue;
             if (seSuperponen(desde, hasta, otro.getFechaDesde(), otro.getFechaHasta())) {
-                throw new GraphQLException("La sucursal " + sucursal.getNombre() + " ya tiene un precio especial ("
-                        + otro.getPrecio() + ") " + rango(otro.getFechaDesde(), otro.getFechaHasta())
+                throw new GraphQLException("La sucursal " + sucursal.getNombre() + " ya tiene una promoción de "
+                        + gs(otro.getPrecio()) + " " + rango(otro.getFechaDesde(), otro.getFechaHasta())
                         + ". Cortalo o elegí otras fechas.");
             }
         }
+    }
+
+    /** 5000.0 -> "5.000 Gs.", como se ve en el desktop. */
+    private static String gs(Double valor) {
+        if (valor == null) return "-";
+        return java.text.NumberFormat.getIntegerInstance(new java.util.Locale("es", "PY")).format(Math.round(valor)) + " Gs.";
     }
 
     private static String rango(LocalDate desde, LocalDate hasta) {
@@ -145,7 +151,7 @@ public class PrecioEspecialSucursalService {
     }
 
     private static void validarPrecio(Double precio) {
-        if (precio == null || precio <= 0) throw new GraphQLException("El precio especial tiene que ser mayor a cero.");
+        if (precio == null || precio <= 0) throw new GraphQLException("El precio de la promoción tiene que ser mayor a cero.");
     }
 
     private static void validarRango(LocalDate desde, LocalDate hasta) {
@@ -155,6 +161,6 @@ public class PrecioEspecialSucursalService {
     }
 
     private PrecioEspecialSucursal buscar(Long id) {
-        return repository.findById(id).orElseThrow(() -> new GraphQLException("El precio especial " + id + " no existe."));
+        return repository.findById(id).orElseThrow(() -> new GraphQLException("La promoción " + id + " no existe."));
     }
 }

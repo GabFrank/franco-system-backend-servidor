@@ -104,6 +104,7 @@ class PrecioEspecialSucursalServiceTest {
         GraphQLException e = assertThrows(GraphQLException.class,
                 () -> service.crear(input(5000.0, "2026-10-01", "2026-10-31", 1L, 3L), autor));
         assertTrue(e.getMessage().contains("SUC 3"));
+        assertTrue(e.getMessage().contains("5.500 Gs."), e.getMessage());
         verify(repository, never()).save(any());
     }
 

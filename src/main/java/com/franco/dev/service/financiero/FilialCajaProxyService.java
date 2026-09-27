@@ -2,6 +2,7 @@ package com.franco.dev.service.financiero;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.franco.dev.domain.empresarial.Sucursal;
+import com.franco.dev.domain.financiero.Conteo;
 import com.franco.dev.domain.financiero.PdvCaja;
 import com.franco.dev.service.empresarial.SucursalService;
 import org.slf4j.Logger;
@@ -183,6 +184,56 @@ public class FilialCajaProxyService {
         log.info("[EDITAR CONTEO FILIAL] <<< Conteo editado en filial -> nuevoConteoId={}, reemplaza a {}",
                 nuevoConteoId, conteoAnteriorId);
         return nuevoConteoId;
+    }
+
+    /**
+     * Reenvia a la filial la carga del conteo de apertura o cierre de una caja. La filial es la
+     * duena de la caja: ahi se guarda el conteo, se enlaza a la caja y se crean los movimientos,
+     * y el central lo recibe por replicacion.
+     *
+     * @return el conteo que creo la filial (o el que ya tenia la caja), con id, sucursal y
+     * observacion. El detalle de billetes llega despues, por replicacion.
+     */
+    public Conteo guardarConteoEnFilial(Long cajaId, Long sucursalId, Boolean apertura,
+                                        Object conteoInput, List<?> conteoMonedaInputList) throws Exception {
+        Sucursal sucursal = sucursalService.findById(sucursalId).orElse(null);
+        if (sucursal == null || sucursal.getIp() == null || sucursal.getIp().isBlank()) {
+            log.error("[GUARDAR CONTEO FILIAL] Sucursal id={} inexistente o sin IP configurada", sucursalId);
+            throw new Exception("La sucursal no tiene IP configurada, no se puede guardar el conteo");
+        }
+        String url = buildFilialUrl(sucursal);
+        String query = "mutation($conteo: ConteoInput!, $conteoMonedaInputList: [ConteoMonedaInput], "
+                + "$cajaId: Int, $apertura: Boolean, $imprimirBalance: Boolean) { "
+                + "saveConteo(conteo: $conteo, conteoMonedaInputList: $conteoMonedaInputList, "
+                + "cajaId: $cajaId, apertura: $apertura, imprimirBalance: $imprimirBalance) "
+                + "{ id sucursalId observacion } }";
+        Map<String, Object> conteo = objectMapper.convertValue(conteoInput, Map.class);
+        // Es un conteo nuevo: el id y la fecha los pone la filial.
+        conteo.remove("id");
+        conteo.remove("creadoEn");
+        Map<String, Object> variables = new HashMap<>();
+        variables.put("conteo", conteo);
+        variables.put("conteoMonedaInputList", conteoMonedaInputList);
+        variables.put("cajaId", cajaId);
+        variables.put("apertura", apertura);
+        // La impresion del balance es del PDV de la sucursal, no de quien mira la caja desde el admin.
+        variables.put("imprimirBalance", false);
+
+        log.info("[GUARDAR CONTEO FILIAL] >>> Enviando saveConteo a {} -> cajaId={}, apertura={}, usuarioId={}",
+                url, cajaId, apertura, conteo.get("usuarioId"));
+        Map<String, Object> data = executeGraphQLOrThrow(url, buildAuthHeaders(), query, variables);
+        Map<String, Object> guardado = data != null ? (Map<String, Object>) data.get("saveConteo") : null;
+        if (guardado == null || guardado.get("id") == null) {
+            throw new Exception("La filial no devolvio el conteo guardado");
+        }
+        Conteo resultado = new Conteo();
+        resultado.setId(Long.valueOf(guardado.get("id").toString()));
+        resultado.setSucursalId(guardado.get("sucursalId") != null
+                ? Long.valueOf(guardado.get("sucursalId").toString()) : sucursalId);
+        resultado.setObservacion(guardado.get("observacion") != null ? guardado.get("observacion").toString() : null);
+        log.info("[GUARDAR CONTEO FILIAL] <<< Conteo guardado en filial -> conteoId={}, cajaId={}",
+                resultado.getId(), cajaId);
+        return resultado;
     }
 
     public String buildFilialUrl(Sucursal sucursal) {

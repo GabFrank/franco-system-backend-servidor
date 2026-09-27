@@ -247,3 +247,42 @@ Confirmados sin cambios: no hay DDL. El contrato GraphQL queda intacto y el desk
 contra el backend nuevo. Los tests propuestos fallan con el código viejo. El `RestTemplate` del
 central tiene connect 10 s / read 30 s (`FrancoSystemsApplication.java:65-67`), y el mensaje de
 timeout es correcto porque la fase 1 fuerza `imprimirBalance:false`.
+
+## 10. Auditoría del diff (paso 8)
+
+Tres ejes fijos. Ningún condicional aplica: no hay migraciones, schedulers ni archivos de
+replicación en el diff.
+
+| Eje | Hallazgo | Sev. | Qué se hizo |
+|---|---|---|---|
+| Fijo 2 | `FOR UPDATE` sobre `PdvCaja` (4 relaciones EAGER nullable): si Hibernate las trajera con `LEFT JOIN`, PostgreSQL rechazaría la consulta y ninguna filial podría abrir ni cerrar cajas | alta | **Descartado en runtime** (§11): la consulta corre y el lock serializa |
+| Fijo 1 | El reenvío central → filial no controla la sucursal (solo el rol), y respeta el `usuarioId` del cliente si viene cargado | baja | Preexistente e igual en `abrirCajaDesdeServidor` y `editarConteoCajaDesdeServidor`. Deuda para los tres juntos |
+| Fijo 1 | `saveConteo` de la filial es `@Unsecured` | media | Preexistente (el HTTP igual exige JWT). Fuera de alcance |
+| Fijo 3 | El mobile viejo manda `sucId` a `saveConteo`, que no existe en ningún backend | media | Preexistente. Fuera de alcance |
+| Fijo 3 | `adicionar-conteo-dialog` no maneja el `error` del subscribe | baja | Preexistente: el snackbar sale igual (`GenericCrudService`). Fuera de alcance |
+
+Confirmados sin cambios: el schema `saveConteo` / `ConteoInput` / `ConteoMonedaInput` de la filial es
+idéntico en `develop`, `release/beta` y `master`, y coincide campo por campo con lo que arma el
+central. `pdv_caja.id` es PK simple en la filial.
+
+## 11. Prueba de runtime (paso 9), 2026-09-27
+
+Local: central 8081 y filial 8082 desde los worktrees con perfil `dev`, desktop con
+`npm run ng:serve`. La sucursal 24 apunta a `localhost` en la base del central, y la réplica local
+`general` → `bodega` funciona.
+
+- **Caso reportado, desde la UI del admin** (Lista de cajas → SUC. KM2 → caja 1187 → Conteo
+  Inicial → Abrir Caja): se guardó sin el error de `Conteo`. En la filial y en el central: caja
+  enlazada al conteo 2582 (usuario de la sesión), 1 línea de billetes y 3 movimientos
+  `CAJA_INICIAL` por G$ 150.000.
+- **Rechazo de la filial**: con datos de prueba mal armados (el mismo usuario con otra caja
+  activa), la pantalla mostró «Ya existe una caja abierta», el mensaje de la filial tal cual. La
+  transacción se revirtió entera: no quedó conteo.
+- **Concurrencia**: dos `saveConteo` de apertura al **central** en paralelo sobre la caja 1186.
+  Llegaron a la filial en el mismo milisegundo, el segundo esperó el lock y cayó en la rama
+  idempotente, y los dos devolvieron el conteo 2583. Quedó **un** conteo y **un** juego de
+  movimientos. Esto también descarta el riesgo del `FOR UPDATE` del paso 8.
+
+Sin probar en UI: el rechazo por falta del rol `ANALISIS DE CAJA` (cubierto por
+`ConteoGraphQLSaveConteoTest`) y el aviso de Análisis de diferencia (fase 3: su build de producción
+pasó, pero el camino exige una caja fuera de las filas cargadas).

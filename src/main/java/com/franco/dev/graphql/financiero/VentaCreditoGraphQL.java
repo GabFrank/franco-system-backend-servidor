@@ -30,6 +30,7 @@ import com.franco.dev.service.financiero.VentaCreditoService;
 import com.franco.dev.service.general.PaisService;
 import com.franco.dev.service.impresion.ImpresionService;
 import com.franco.dev.service.operaciones.DeliveryService;
+import com.franco.dev.service.operaciones.PrecioCobrado;
 import com.franco.dev.service.operaciones.VentaItemService;
 import com.franco.dev.service.operaciones.VentaService;
 import com.franco.dev.service.personas.ClienteService;
@@ -373,9 +374,9 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                 escpos.writeLF(vi.getProducto().getDescripcion());
                 escpos.write(new Style().setBold(true), cantidad);
                 String valorUnitario = NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(vi.getPrecioVenta().getPrecio().intValue() - vi.getValorDescuento().intValue());
+                        .format(PrecioCobrado.de(vi).intValue() - vi.getValorDescuento().intValue());
                 String valorTotal = String
-                        .valueOf((vi.getPrecioVenta().getPrecio().intValue() - vi.getValorDescuento().intValue())
+                        .valueOf((PrecioCobrado.de(vi).intValue() - vi.getValorDescuento().intValue())
                                 * vi.getCantidad().intValue());
                 for (int i = 14; i > cantidad.length(); i--) {
                     escpos.write(" ");
@@ -385,7 +386,7 @@ public class VentaCreditoGraphQL implements GraphQLQueryResolver, GraphQLMutatio
                     escpos.write(" ");
                 }
                 escpos.writeLF(NumberFormat.getNumberInstance(Locale.GERMAN)
-                        .format(vi.getPrecioVenta().getPrecio().intValue() * vi.getCantidad().intValue()));
+                        .format(PrecioCobrado.de(vi).intValue() * vi.getCantidad().intValue()));
             }
             if (delivery != null) {
                 escpos.writeLF("--------------------------------");

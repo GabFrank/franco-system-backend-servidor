@@ -1,0 +1,41 @@
+type PrecioEspecialSucursal {
+    id: ID!
+    precioPorSucursal: PrecioPorSucursal
+    sucursal: Sucursal
+    precio: Float
+    fechaDesde: Date
+    fechaHasta: Date
+    activo: Boolean
+    creadoEn: Date
+    usuarioNickname: String
+}
+
+type PrecioEspecialSucursalPage {
+    getTotalPages: Int
+    getTotalElements: Int
+    getNumberOfElements: Int
+    isFirst: Boolean
+    isLast: Boolean
+    hasNext: Boolean
+    hasPrevious: Boolean
+    getContent: [PrecioEspecialSucursal]
+}
+
+input PrecioEspecialSucursalInput {
+    precioId: Int!
+    sucursalIds: [Int]!
+    precio: Float!
+    fechaDesde: String
+    fechaHasta: String
+}
+
+extend type Query {
+    preciosEspecialesPorPrecio(precioId: Int!): [PrecioEspecialSucursal]
+    filterPreciosEspeciales(sucursalId: Int, texto: String, soloVigentes: Boolean, page: Int = 0, size: Int = 15): PrecioEspecialSucursalPage
+}
+
+extend type Mutation {
+    savePreciosEspeciales(input: PrecioEspecialSucursalInput!): [PrecioEspecialSucursal]!
+    editarPrecioEspecial(id: Int!, precio: Float!, fechaDesde: String, fechaHasta: String): PrecioEspecialSucursal!
+    cortarPrecioEspecial(id: Int!): PrecioEspecialSucursal!
+}

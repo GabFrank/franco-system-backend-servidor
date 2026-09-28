@@ -201,6 +201,28 @@ un descuadre real. Se chequea por `qr_crudo` (otro `venta_tarjeta` con la misma 
 Los cobros de la misma venta no cuentan: el PDV escribe el identificador junto con el `saveVenta`
 (§7.1), así que al completar ya está puesto. Sin esa excepción el camino normal quedaría roto.
 
+**Un cupón de una venta cancelada queda libre** (decidido con Gabriel el 2026-09-28): los dos
+chequeos ignoran las `venta_tarjeta` en `CANCELADO` y los cobros de ventas `CANCELADA`
+(`findByQrCrudoEnVentasVigentes`, `findByIdentificadorTransaccionEnVentasVigentes` en el filial). El
+de código de autorización ya miraba solo `COMPLETADO`.
+
+### 8.2.1 · Cancelar una venta cancela su venta con tarjeta
+
+La cancelación se hace **en el central** (`VentaService.cancelarVenta`), que recorre caja, stock,
+delivery, crédito, factura y, desde el 2026-09-28, `venta_tarjeta`: al cancelar → `CANCELADO`; al
+reactivar (el método alterna) → `COMPLETADO` si conserva datos del cupón, `NO_COMPLETADO` si estaba
+sin conciliar, si no `PENDIENTE` (`estadoTarjetaParaVenta`). Lo hereda `cancelarFacturaLegal` con
+`cancelarVenta=true`. El filial ya no cancela: su `cancelarVenta` era un stub que devolvía `true` y
+ahora rechaza.
+
+**Para que el CANCELADO llegue a la filial**, `venta_tarjeta` tiene que estar en
+`central_filialN_pub` (el registro ya la marca `replicate_central_to_branch_with_filter`). En
+farmacia se agregó a mano (sync de publicaciones apagado): `ALTER PUBLICATION ... ADD TABLE ...
+WHERE (sucursal_id = N)` + `REFRESH PUBLICATION WITH (copy_data = false)` en cada filial —
+**`false`**: con `true` bajarían las filas viejas del central (id ≥ 100000). En bodega, verificar la
+publicación antes de promover a `master`. Pendiente conocido: `cancelarVentaCredito(id, sucId, null)`
+se saltea toda esta cadena (central #339).
+
 ### 8.3 · Monto distinto o cupón viejo → CONFIRMA
 
 Acá sí hay una decisión real: el cliente ya pagó y el cupón ya está impreso. Se muestra el cobro

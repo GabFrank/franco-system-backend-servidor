@@ -37,6 +37,8 @@ public interface UsuarioRepository extends HelperRepository<Usuario, Long> {
      * Igual que {@link #findbyIdOrPersonaPaginated}, pero solo usuarios con al menos uno de los roles.
      * El bloque de OR va entre parentesis: sin ellos el AND solo aplicaria a la ultima condicion y el
      * filtro por rol dejaria pasar casi todo (UsuarioServiceFiltroRolTest lo verifica).
+     * El dueno del rol es ur.user (user_id, el mismo que usa UsuarioRoleRepository.findByUserId),
+     * no ur.usuario (usuario_id).
      */
     @Query(
             value = "select u from Usuario u " +

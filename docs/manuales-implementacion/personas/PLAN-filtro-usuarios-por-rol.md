@@ -18,8 +18,9 @@ hoy.
 - Central: `UsuarioGraphQL.usuarioSearchPaginated` → `UsuarioService.findbyIdOrPersonaPaginated` →
   JPQL `UsuarioRepository.findbyIdOrPersonaPaginated`. Si el texto es numérico y hay usuario con ese
   `persona_id`, devuelve solo ese (atajo).
-- Roles del usuario: `personas.usuario_role` (`user_id` = dueño del rol, `role_id`; `usuario_id` es
-  quien lo creó). Entidad `UsuarioRole` (`user`, `role`, `usuario`).
+- Roles del usuario: `personas.usuario_role` (`user_id` = dueño del rol, el que usa `findByUserId`;
+  `role_id`). `usuario_id` es otra columna: hoy `UsuarioRoleGraphQL:77-78` le pone el mismo usuario.
+  Entidad `UsuarioRole` (`user`, `role`, `usuario`).
 - Opciones del filtro: `RoleService.onGetRoles()` del desktop (`configuracion/roles`) sin argumentos
   → `roles(page: null)` → `CrudService.findAll(null)` = todos los roles ordenados por id. Ya lo usa
   `adicionar-usuario-dialog`. No hace falta nada nuevo en el central para las opciones.
@@ -135,3 +136,16 @@ un error GraphQL visible (snackbar), no un dato mal filtrado.
 | B | `roleIds` como 4.º parámetro pisaba `servidor` en `onSearchConFiltros` | media | Va después de `servidor` |
 | B | `onGetAll` no emite si hay error GraphQL (preexistente) | baja | Selector deshabilitado sin roles; se prueba a mano |
 | B | Binding `[ID]` → `List<Long>`, `role` nulo, `ORDER BY` duplicado | sin riesgo | Verificado con precedentes (`FacturaLegalGraphQL:258`) |
+
+## Auditoría del diff (paso 8, 2026-09-28)
+
+Tres fijos; ningún condicional disparado (el diff no toca release ni replicación).
+
+| Eje | Hallazgo | Severidad | Qué se hizo |
+|---|---|---|---|
+| Fijo 1 | Sin riesgo nuevo: la query nueva expone los mismos campos que `usuarioSearchPaginated` | — | — |
+| Fijo 1 | Preexistente: `Usuario.password` pedible por GraphQL y búsqueda de usuarios sin control por rol (#177) | fuera de alcance | Avisado a Franco |
+| Fijo 1 | Invertir la búsqueda («usuarios con rol ADMIN») es más cómodo, pero el dato ya era obtenible (`Usuario.roles`, `usuarioRolePorUsuarioId`) | baja | Aceptado |
+| Fijo 2 | Sin riesgo nuevo; JPQL ↔ entidades verificado | — | — |
+| Fijo 3 | `ur.user` vs `ur.usuario`, nombres gemelos | baja | Comentario en la `@Query` |
+| Fijo 3 | `resetFiltro` depende del `valueChanges` de `buscarControl` | baja | Rechazada la llamada explícita (duplicaría la búsqueda); comentario |

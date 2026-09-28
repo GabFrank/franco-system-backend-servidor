@@ -51,6 +51,9 @@ public class ConfiguracionVentaTarjetaGraphQL implements GraphQLQueryResolver, G
         if (input.getHabilitado() != null) {
             config.setHabilitado(input.getHabilitado());
         }
+        if (input.getTerminalObligatoria() != null) {
+            config.setTerminalObligatoria(input.getTerminalObligatoria());
+        }
         if (input.getRegistroObligatorio() != null) {
             String v = input.getRegistroObligatorio().trim().toUpperCase();
             // Se valida aca y no se deja llegar a la base: la columna tiene CHECK, pero una

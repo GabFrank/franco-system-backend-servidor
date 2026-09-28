@@ -14,5 +14,6 @@ public class ConfiguracionVentaTarjetaInput {
     private Integer horasVentanaDuplicado;
     private Integer diasRetencionImagenes;
     private Integer mbLibresMinimos;
+    private Boolean terminalObligatoria;
     private Long usuarioId;
 }

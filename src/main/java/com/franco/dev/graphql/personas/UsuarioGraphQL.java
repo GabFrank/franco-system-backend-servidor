@@ -63,6 +63,11 @@ public class UsuarioGraphQL implements GraphQLQueryResolver, GraphQLMutationReso
         return new com.franco.dev.config.multitenant.CustomPageImpl<>(pageResult.getContent(), pageResult.getPageable(), pageResult.getTotalElements(), null);
     }
 
+    public com.franco.dev.config.multitenant.CustomPage<Usuario> usuarioSearchPaginatedPorRoles(String texto, Integer page, Integer size, List<Long> roleIds) {
+        org.springframework.data.domain.Page<Usuario> pageResult = service.findbyIdOrPersonaPaginated(texto, page, size, roleIds);
+        return new com.franco.dev.config.multitenant.CustomPageImpl<>(pageResult.getContent(), pageResult.getPageable(), pageResult.getTotalElements(), null);
+    }
+
     public Usuario saveUsuario(UsuarioInput input) {
         ModelMapper m = new ModelMapper();
         Usuario e = m.map(input, Usuario.class);

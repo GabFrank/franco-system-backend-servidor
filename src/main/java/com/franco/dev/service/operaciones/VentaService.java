@@ -1,5 +1,7 @@
 package com.franco.dev.service.operaciones;
 
+import com.franco.dev.service.financiero.VentaTarjetaService;
+import com.franco.dev.domain.financiero.VentaTarjeta;
 import com.franco.dev.config.multitenant.MultiTenantService;
 import com.franco.dev.domain.EmbebedPrimaryKey;
 import com.franco.dev.domain.financiero.FacturaLegal;
@@ -84,6 +86,9 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
 
     @Autowired
     private SucursalService sucursalService;
+
+    @Autowired
+    private VentaTarjetaService ventaTarjetaService;
 
     @Autowired
     private ProductoRepository productoRepository;
@@ -293,6 +298,16 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
                     movStock = movimientoStockService.save(movStock);
                 }
             }
+            // La venta con tarjeta sigue a la venta: cancelada, su cupon queda libre para otra; reactivada,
+            // vuelve al estado que le corresponde por sus datos. Baja a la filial por central_filialN_pub.
+            for (VentaTarjeta vt : ventaTarjetaService.findAllByVentaIdAndSucursalId(venta.getId(),
+                    venta.getSucursalId())) {
+                String nuevo = estadoTarjetaParaVenta(vt, venta.getEstado());
+                if (!nuevo.equals(vt.getEstado())) {
+                    vt.setEstado(nuevo);
+                    ventaTarjetaService.save(vt);
+                }
+            }
             Delivery delivery = venta.getDelivery();
             if (delivery != null) {
                 if (venta.getEstado() == VentaEstado.CANCELADA) {
@@ -349,6 +364,30 @@ public class VentaService extends CrudService<Venta, VentaRepository, EmbebedPri
             e.printStackTrace();
             throw new GraphQLException("No se pudo cancelar la venta");
         }
+    }
+
+    /**
+     * El estado de una venta con tarjeta cuando su venta se cancela o se reactiva.
+     * <p>
+     * Cancelada -> CANCELADO, sea cual sea el estado anterior: un COMPLETADO tambien, porque el cupon
+     * de una venta cancelada tiene que quedar libre para cobrar otra (decidido 2026-09-28).
+     * <p>
+     * Reactivada -> lo que corresponde por los datos que la fila conserva, porque el estado anterior
+     * no se guarda: con datos del cupon, COMPLETADO; sin cupon pero marcada sin conciliar,
+     * NO_COMPLETADO; si no, PENDIENTE. Una fila que no estaba CANCELADO no se toca al reactivar.
+     */
+    static String estadoTarjetaParaVenta(VentaTarjeta vt, VentaEstado estadoVenta) {
+        if (estadoVenta == VentaEstado.CANCELADA) return "CANCELADO";
+        if (!"CANCELADO".equals(vt.getEstado())) return vt.getEstado();
+        boolean tieneCupon = noVacio(vt.getCodigoAutorizacion()) || noVacio(vt.getNumeroBoleta())
+                || noVacio(vt.getQrCrudo()) || vt.getMontoEscaneado() != null;
+        if (tieneCupon) return "COMPLETADO";
+        if (vt.getNoCompletadoEn() != null) return "NO_COMPLETADO";
+        return "PENDIENTE";
+    }
+
+    private static boolean noVacio(String s) {
+        return s != null && !s.trim().isEmpty();
     }
 
     public List<VentaPorSucursal> ventaPorSucursal(String fechaInicio, String fechaFin) {

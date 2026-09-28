@@ -11,7 +11,7 @@ del ítem.
 | Alcance | Liquidación de sueldo **y** liquidación final (finiquito) |
 | Contenido | Recibo **genérico del ítem** (funcionario, concepto, monto en números y letras), igual para cualquier ítem. No reimprime el recibo de origen (vale, bono…) |
 | Ítem DESCUENTO | **Constancia de descuento**: otra cláusula («Tomo conocimiento y acepto el descuento…»). HABER: «Recibí conforme…» |
-| Estado | Solo **APROBADA** o **PAGADA**. En BORRADOR el monto todavía se puede editar; ANULADA no tiene nada que firmar |
+| Estado | **BORRADOR, APROBADA o PAGADA**; no ANULADA. Decisión original: solo APROBADA/PAGADA; **cambiada por el usuario en la prueba de runtime (2026-09-28)**: «En el borrador debe aparecer también» |
 
 ## Diseño
 
@@ -35,7 +35,7 @@ imprimirReciboItemLiquidacionFinal(itemId: ID!, anchoMm: Int, escpos: Boolean): 
   actualiza en el mismo commit.
 - Reglas, en el servicio (el frontend solo esconde el botón):
   - ítem inexistente, o sin liquidación (`liquidacion_id` es nullable) → `GraphQLException`;
-  - liquidación que no está en APROBADA o PAGADA → `GraphQLException` con el estado;
+  - liquidación ANULADA (o sin estado) → `GraphQLException` con el estado;
   - monto null o ≤ 0 → `GraphQLException` (no hay nada que firmar).
   - Todo se lee dentro del método `@Transactional(readOnly = true)` del servicio: ítem →
     liquidación → funcionario son `LAZY`, y el resolver no es transaccional.
@@ -46,7 +46,7 @@ imprimirReciboItemLiquidacionFinal(itemId: ID!, anchoMm: Int, escpos: Boolean): 
 | Título | `RECIBO DE LIQUIDACION Nro. <liqId>` | `CONSTANCIA DE DESCUENTO Nro. <liqId>` |
 | Fila | descripción del ítem + monto, sin paréntesis. Sin descripción: el `codigo` (sueldo) o el `concepto` (finiquito) con `_` → espacio | ídem |
 | Cláusula | `Recibí conforme, en concepto de <concepto>,` | `Tomo conocimiento y acepto el descuento en concepto de <concepto>,` |
-| Observación | `Liquidación de sueldo <periodo> (<ESTADO>)` / `Liquidación final (<ESTADO>)` | ídem |
+| Observación | `Liquidacion de sueldo <periodo>` / `Liquidacion final`. El estado **no** va: lo pidió el usuario en la prueba (2026-09-28) | ídem |
 | Total / en letras | monto del ítem | monto del ítem |
 
   El número del título es el de la **liquidación**, no el del ítem: es el que se busca en la
@@ -73,8 +73,10 @@ imprimirReciboItemLiquidacionFinal(itemId: ID!, anchoMm: Int, escpos: Boolean): 
   `LiquidacionFinalService.onImprimirReciboItem(...)`.
 - En `liquidacion-detalle-dialog` y `liquidacion-final-dialog`, columna `acciones`: botón
   `mat-icon-button` con ícono `receipt` y tooltip «Generar recibo», visible con un flag
-  `permiteReciboItem` que se calcula cada vez que se carga la liquidación (APROBADA o PAGADA),
-  no en el HTML.
+  **Implementado distinto**: condición `liq.estado !== 'ANULADA' && row.monto > 0` en el
+  `*ngIf`, igual que los botones Editar/Eliminar vecinos (comparación, no llamada a función).
+  Un flag aparte habría que recalcularlo en cada una de las 3-4 asignaciones de `liq` del
+  diálogo. `row.monto > 0` oculta el ícono donde el backend lo rechazaría (SALARIO BASE en 0).
 - Clic → `ImpresionService.imprimir(nombre, (anchoMm, escpos) => …)`: el diálogo oficial PDF /
   Ticket 58 / Ticket 80, igual que los otros recibos firmables. El detalle mensual hoy usa
   `ReporteService` directo para «Ver Recibo»; eso no se toca.
@@ -98,11 +100,11 @@ se mira el texto del ticket ESC/POS decodificado y el del PDF):
 1. HABER de sueldo APROBADA: el ticket 80 trae título con periodo y Nro. de la liquidación,
    la descripción, el monto y «Recibi conforme»; PDF A4 / 58 / 80 generan y traen el título.
 2. DESCUENTO de sueldo PAGADA: «CONSTANCIA DE DESCUENTO» y «Tomo conocimiento».
-3. Sueldo en BORRADOR y en ANULADA → `GraphQLException`.
+3. Sueldo en ANULADA → `GraphQLException`; en BORRADOR genera, y la observación no lleva el estado.
 4. Ítem inexistente → `GraphQLException`.
 5. Finiquito APROBADA: título `RECIBO DE LIQUIDACION Nro.`, observación `LIQUIDACION FINAL`;
    ítem sin descripción cae al `concepto`.
-6. Finiquito en BORRADOR → `GraphQLException`.
+6. Finiquito ANULADO → `GraphQLException`; en BORRADOR genera.
 7. Monto 0 / null e ítem sin liquidación → `GraphQLException`.
 8. A4 de la constancia: el fill del `.jrxml` (patrón `ReciboRrhhJrxmlTest`, `getFullText()`)
    trae el título **completo**, no recortado.
@@ -124,11 +126,14 @@ replicación en juego.
 
 ## Riesgos aceptados
 
+- **Recibo emitido en BORRADOR** (decisión del usuario): el monto todavía se puede editar
+  después de firmar, y el papel no dice en qué estado estaba la liquidación (también decisión
+  del usuario). La fecha de emisión es la única referencia.
 - **Papel firmado que queda desactualizado.** `volverBorrador`
   (`LiquidacionSueldoService.java:505`, `LiquidacionFinalService.java:575`) y `anular` siguen
   disponibles después de imprimir. Un recibo o una constancia ya firmada no se invalida si
   después se edita el monto o se anula. Lo mismo pasa hoy con el recibo de la liquidación
-  completa. La mitigación es la fecha y el estado que se imprimen en el papel. Bloquear el
+  completa. La única referencia es la fecha de emisión que se imprime en el papel. Bloquear el
   volver a borrador cuando ya hay recibos impresos es otra feature (habría que registrar cada
   impresión).
 - **El recibo por ítem y el total pueden mostrarse distinto.** Con
@@ -153,8 +158,16 @@ replicación en juego.
   - **B: frase distinta en ESC/POS.** Confirmado, pero es de los 7 recibos existentes.
     **Documentado**, sin cambios.
   - **B: papel firmado que sobrevive a volver a borrador o anular.** **Riesgo aceptado**
-    (arriba), con el estado impreso como mitigación.
+    (arriba). La mitigación del estado impreso se sacó después, a pedido del usuario.
   - **B: monto null o 0.** **Se adoptó** el guard y el test 7.
   - **B: consolidación de cuotas.** **Documentado.**
   - **A: tilde en «Recibí» del ticket.** `ReciboTicketEscPos.na()` le saca los acentos al
     payload, así que el test busca «Recibi».
+- Paso 8 (auditoría del diff, 2026-09-28): 3 fijos (autorización, esquema, contrato); los
+  condicionales A y B no aplican (sin maquinaria de release ni datos replicados). Sin
+  bloqueantes. Adoptado: `LiquidacionFinalItem` en vez de `any`. Documentado: los recibos por
+  id previos (vale, bono, finiquito…) no gatean por rol en el backend — deuda anterior, ticket
+  aparte. Aceptado: cualquier rol RRHH puede pedir el recibo de un item por id, igual que ya
+  puede ver la liquidación completa.
+- Paso 9 (prueba de runtime): el usuario pidió habilitar BORRADOR y sacar el estado de la
+  observación (ver Decisiones).

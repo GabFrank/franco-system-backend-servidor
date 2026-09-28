@@ -479,8 +479,7 @@ public class ReporteRrhhService {
 
     /**
      * Recibo de un solo item de una liquidacion de sueldo: HABER → recibo, DESCUENTO →
-     * constancia de descuento. Solo con la liquidacion APROBADA o PAGADA: en BORRADOR el
-     * monto todavia se edita y alguien firmaria un numero que despues cambia.
+     * constancia de descuento. Vale en BORRADOR, APROBADA o PAGADA; no en ANULADA.
      */
     @Transactional(readOnly = true)
     public String reciboItemLiquidacionBase64(Long itemId, Integer anchoMm, boolean escpos) {
@@ -490,8 +489,7 @@ public class ReporteRrhhService {
         if (liq == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion");
         validarEstadoParaReciboItem(liq.getEstado() != null ? liq.getEstado().name() : null);
         String concepto = conceptoItem(it.getDescripcion(), it.getCodigo());
-        String origen = "Liquidacion de sueldo " + (liq.getPeriodo() != null ? liq.getPeriodo() + " " : "")
-                + "(" + liq.getEstado().name() + ")";
+        String origen = "Liquidacion de sueldo" + (liq.getPeriodo() != null ? " " + liq.getPeriodo() : "");
         return reciboItem(it.getTipo(), concepto, it.getMonto(), liq.getId(), liq.getFuncionario(), origen,
                 anchoMm, escpos);
     }
@@ -505,16 +503,15 @@ public class ReporteRrhhService {
         if (lf == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion final");
         validarEstadoParaReciboItem(lf.getEstado() != null ? lf.getEstado().name() : null);
         String concepto = conceptoItem(it.getDescripcion(), it.getConcepto() != null ? it.getConcepto().name() : null);
-        String origen = "Liquidacion final (" + lf.getEstado().name() + ")";
+        String origen = "Liquidacion final";
         return reciboItem(it.getTipo(), concepto, it.getMonto(), lf.getId(), lf.getFuncionario(), origen,
                 anchoMm, escpos);
     }
 
-    /** Los dos enums de estado (sueldo y final) comparten los nombres APROBADA y PAGADA. */
+    /** Los dos enums de estado (sueldo y final) comparten los nombres BORRADOR, APROBADA y PAGADA. */
     private void validarEstadoParaReciboItem(String estado) {
-        if (!"APROBADA".equals(estado) && !"PAGADA".equals(estado)) {
-            throw new GraphQLException("Solo se puede generar el recibo de un item con la liquidacion APROBADA o PAGADA"
-                    + " (esta en " + estado + ")");
+        if (!"BORRADOR".equals(estado) && !"APROBADA".equals(estado) && !"PAGADA".equals(estado)) {
+            throw new GraphQLException("No se puede generar el recibo de un item con la liquidacion " + estado);
         }
     }
 
@@ -526,7 +523,7 @@ public class ReporteRrhhService {
 
     /**
      * Arma el recibo de un item. El numero del titulo es el de la liquidacion (el que se busca
-     * en la lista a partir del papel); periodo y estado van en la observacion y no en el
+     * en la lista a partir del papel); el periodo va en la observacion y no en el
      * titulo, porque el titulo del A4 tiene ancho fijo y Jasper lo recorta sin avisar.
      */
     private String reciboItem(com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo tipo, String concepto,

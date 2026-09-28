@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Recibo de un solo item de liquidacion (sueldo y finiquito): HABER da recibo, DESCUENTO da
- * constancia, y solo con la liquidacion APROBADA o PAGADA. Se mira el texto de lo que sale.
+ * constancia, con la liquidacion en BORRADOR, APROBADA o PAGADA (no ANULADA). Se mira el texto de lo que sale.
  */
 class ReciboItemLiquidacionTest {
 
@@ -66,7 +66,7 @@ class ReciboItemLiquidacionTest {
         assertTrue(ticket.contains("BONO POR VENTAS"), ticket);
         assertTrue(ticket.contains("100.000") || ticket.contains("100,000"), ticket);
         assertTrue(ticket.contains("Recibi conforme, en concepto de BONO POR VENTAS"), ticket);
-        assertTrue(ticket.contains("Liquidacion de sueldo 2026-09 (APROBADA)"), ticket);
+        assertTrue(ticket.contains("Liquidacion de sueldo 2026-09"), ticket);
 
         for (Integer ancho : new Integer[]{null, 58, 80}) {
             String pdf = textoPdf(reportes.reciboItemLiquidacionBase64(21L, ancho, false));
@@ -92,14 +92,21 @@ class ReciboItemLiquidacionTest {
     }
 
     @Test
-    void sueldoEnBorradorOAnuladaNoGeneraRecibo() {
-        for (LiquidacionSueldoEstado estado : new LiquidacionSueldoEstado[]{
-                LiquidacionSueldoEstado.BORRADOR, LiquidacionSueldoEstado.ANULADA}) {
-            itemSueldo(23L, estado, LiquidacionItemTipo.HABER, "SALARIO BASE", "3100000");
-            GraphQLException e = assertThrows(GraphQLException.class,
-                    () -> reportes.reciboItemLiquidacionBase64(23L, null, false));
-            assertTrue(e.getMessage().contains(estado.name()), e.getMessage());
-        }
+    void sueldoAnuladaNoGeneraRecibo() {
+        itemSueldo(23L, LiquidacionSueldoEstado.ANULADA, LiquidacionItemTipo.HABER, "SALARIO BASE", "3100000");
+        GraphQLException e = assertThrows(GraphQLException.class,
+                () -> reportes.reciboItemLiquidacionBase64(23L, null, false));
+        assertTrue(e.getMessage().contains("ANULADA"), e.getMessage());
+    }
+
+    /** En BORRADOR tambien se emite. La observacion no lleva el estado. */
+    @Test
+    void sueldoEnBorradorGeneraRecibo() {
+        itemSueldo(27L, LiquidacionSueldoEstado.BORRADOR, LiquidacionItemTipo.HABER, "SALARIO BASE", "3100000");
+        String ticket = ticket(reportes.reciboItemLiquidacionBase64(27L, 80, true));
+        assertTrue(ticket.contains("RECIBO DE LIQUIDACION Nro. 486"), ticket);
+        assertTrue(ticket.contains("Obs.: Liquidacion de sueldo 2026-09"), ticket);
+        assertFalse(ticket.contains("BORRADOR"), ticket);
     }
 
     @Test
@@ -138,7 +145,7 @@ class ReciboItemLiquidacionTest {
 
         String ticket = ticket(reportes.reciboItemLiquidacionFinalBase64(31L, 80, true));
         assertTrue(ticket.contains("RECIBO DE LIQUIDACION Nro. 7"), ticket);
-        assertTrue(ticket.contains("Liquidacion final (APROBADA)"), ticket);
+        assertTrue(ticket.contains("Obs.: Liquidacion final"), ticket);
         assertTrue(ticket.contains("VACACIONES NO GOZADAS"), ticket);
 
         String a4 = textoPdf(reportes.reciboItemLiquidacionFinalBase64(31L, null, false));
@@ -146,9 +153,17 @@ class ReciboItemLiquidacionTest {
     }
 
     @Test
-    void finiquitoEnBorradorNoGeneraRecibo() {
-        itemFinal(32L, LiquidacionFinalEstado.BORRADOR, "SALARIO DEL MES");
+    void finiquitoAnuladoNoGeneraRecibo() {
+        itemFinal(32L, LiquidacionFinalEstado.ANULADA, "SALARIO DEL MES");
         assertThrows(GraphQLException.class, () -> reportes.reciboItemLiquidacionFinalBase64(32L, null, false));
+    }
+
+    @Test
+    void finiquitoEnBorradorGeneraRecibo() {
+        itemFinal(33L, LiquidacionFinalEstado.BORRADOR, "SALARIO DEL MES");
+        String ticket = ticket(reportes.reciboItemLiquidacionFinalBase64(33L, 80, true));
+        assertTrue(ticket.contains("Obs.: Liquidacion final"), ticket);
+        assertFalse(ticket.contains("BORRADOR"), ticket);
     }
 
     // ===== helpers =====

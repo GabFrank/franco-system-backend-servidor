@@ -122,3 +122,21 @@ Ninguno: sin columnas, sin migraciones, sin cambios de GraphQL. El único dato e
 - El logo del KuDE de factura en moneda extranjera (regla existente, no se toca).
 - La rama Windows de `getImagePath()`: no se prueba en esta máquina.
 - Cómo se ve en papel: se verifica generando los PDF en local y mirándolos (paso 9).
+
+## Implementación — lo que cambió respecto del diseño (2026-09-29)
+
+- **Línea RUC/dirección/teléfono** (liquidación y acta): con `w=395` y una dirección de 60
+  caracteres el teléfono salía cortado. Pasó a alto 24 (dos renglones). Entra antes del recuadro
+  (`y=46`) sin tocar la banda.
+- **Dirección del emisor en la NC**: concatena dirección + ciudad + departamento (con datos reales
+  ~80 caracteres). Con `w=252` en un renglón se cortaba: pasó a alto 22. Entra en el recuadro de 90.
+- **Recorte en Jasper**: `getFullText()` devuelve el texto **ya recortado** y `getTextTruncateIndex()`
+  vino `null`. El hallazgo B3 del auditor decía lo contrario y no se sostiene. Los tests buscan el
+  texto entero esperado. Se verificó por mutación (angostar el campo → el test falla).
+- **Techos de una hoja medidos**: liquidación 24 ítems (era 25); finiquito 19 conceptos con
+  observación larga / 20 con corta (era 21); recibo-rrhh 26. Los fijan
+  `LogoRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja` y `finiquitoTechoDeUnaHoja`.
+- **Peso**: con el `logo.png` real de esta máquina escalado a 400×242, cada PDF pesa ~17–19 KB
+  (sin logo, 2–3 KB). Pasando la ruta como transferencia serían ~860 KB.
+- **Verificación con mutación** de los tests por service: sin el `put("logo")` del finiquito, el
+  test falla.

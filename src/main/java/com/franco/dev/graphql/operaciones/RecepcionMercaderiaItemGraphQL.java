@@ -871,7 +871,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                         rechazo.getSucursalId(),
                         notaItem.getNotaRecepcion().getPedido().getMoneda().getId(),
                         1.0, // cotización por defecto
-                        usuarioId);
+                        usuarioId,
+                        notaItem.getNotaRecepcion().getPedido().getId());
 
                 // Vincular NotaRecepcionItemDistribucion si se proporciona
                 NotaRecepcionItemDistribucion distribucion = null;
@@ -951,7 +952,8 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 sucursalRecepcionId,
                 pedido.getMoneda().getId(),
                 1.0, // cotizacion por defecto
-                input.getUsuarioId());
+                input.getUsuarioId(),
+                pedido.getId());
 
         // Asociar la nota a la recepción si no está ya asociada
         if (!recepcionMercaderiaNotaService.existeAsociacion(recepcion.getId(), nota.getId())) {
@@ -1435,7 +1437,12 @@ public class RecepcionMercaderiaItemGraphQL implements GraphQLQueryResolver, Gra
                 }
             }
 
-            if (recepcionesAProcesar.isEmpty()) {
+            // Una recepción compartida con otro pedido (datos anteriores a que la reutilización
+            // exigiera el mismo pedido) puede haberse cerrado al finalizar ese otro pedido: si ya
+            // están todas FINALIZADAS, solo falta completar la etapa de este.
+            boolean yaEstabanTodasFinalizadas = recepciones.stream()
+                    .allMatch(rm -> rm.getEstado() == RecepcionMercaderiaEstado.FINALIZADA);
+            if (recepcionesAProcesar.isEmpty() && !yaEstabanTodasFinalizadas) {
                 throw new GraphQLException("No se encontraron recepciones con items en las sucursales seleccionadas");
             }
 

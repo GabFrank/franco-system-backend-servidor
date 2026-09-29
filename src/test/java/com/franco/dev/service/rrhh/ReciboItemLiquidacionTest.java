@@ -56,7 +56,7 @@ class ReciboItemLiquidacionTest {
                 mock(LiquidacionFinalService.class), mock(ValeRepository.class), mock(PrestamoRepository.class),
                 mock(AguinaldoRepository.class), mock(PenalizacionRepository.class), mock(BonoRepository.class),
                 letras, configGeneral, mock(CiudadService.class), itemRepository, finalItemRepository,
-                mock(ImageService.class));
+                mock(ImageService.class), mock(ValeService.class));
     }
 
     @Test

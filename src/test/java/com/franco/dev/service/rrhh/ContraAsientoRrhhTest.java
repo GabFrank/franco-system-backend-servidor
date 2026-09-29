@@ -128,7 +128,8 @@ class ContraAsientoRrhhTest {
                 mock(CreditoConvenioService.class),
                 mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class),
-                descuento);
+                descuento,
+                mock(ValeCuotaDescuentoService.class));
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));

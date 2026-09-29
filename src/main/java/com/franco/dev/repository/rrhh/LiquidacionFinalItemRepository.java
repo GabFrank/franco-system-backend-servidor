@@ -35,4 +35,12 @@ public interface LiquidacionFinalItemRepository extends HelperRepository<Liquida
             "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
             "and i.liquidacionFinal.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado.ANULADA")
     List<Long> findFiniquitosVivosConCuotasDeVale(@Param("cuotaIds") Collection<Long> cuotaIds);
+
+    /** De estas cuotas de vale, las que ya estan en un finiquito no ANULADO distinto del indicado. */
+    @Query("select distinct i.referenciaId from LiquidacionFinalItem i " +
+            "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
+            "and i.liquidacionFinal.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionFinalEstado.ANULADA " +
+            "and (:excludeLiqId is null or i.liquidacionFinal.id <> :excludeLiqId)")
+    List<Long> findCuotasDeValeEnOtrosFiniquitos(@Param("cuotaIds") Collection<Long> cuotaIds,
+                                                 @Param("excludeLiqId") Long excludeLiqId);
 }

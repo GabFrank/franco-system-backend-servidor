@@ -55,6 +55,7 @@ public class ReciboLiquidacionService {
     private final BonoRepository bonoRepository;
     private final VacacionVentaRepository vacacionVentaRepository;
     private final PrestamoCuotaRepository prestamoCuotaRepository;
+    private final com.franco.dev.repository.rrhh.ValeCuotaRepository valeCuotaRepository;
     private final PenalizacionRepository penalizacionRepository;
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final LiquidacionConceptoService liquidacionConceptoService;
@@ -72,7 +73,8 @@ public class ReciboLiquidacionService {
                                     PenalizacionRepository penalizacionRepository,
                                     ConfiguracionRrhhService configuracionRrhhService,
                                     LiquidacionConceptoService liquidacionConceptoService,
-                                    ImageService imageService) {
+                                    ImageService imageService,
+                                    com.franco.dev.repository.rrhh.ValeCuotaRepository valeCuotaRepository) {
         this.liquidacionSueldoService = liquidacionSueldoService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.numeroALetrasService = numeroALetrasService;
@@ -84,6 +86,7 @@ public class ReciboLiquidacionService {
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionConceptoService = liquidacionConceptoService;
         this.imageService = imageService;
+        this.valeCuotaRepository = valeCuotaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -314,6 +317,9 @@ public class ReciboLiquidacionService {
                     break;
                 case "VACACION_VENTA":
                     f = vacacionVentaRepository.findById(ref).map(v -> v.getFecha()).orElse(null);
+                    break;
+                case ValeService.REFERENCIA_CUOTA:
+                    f = valeCuotaRepository.findById(ref).map(c -> c.getFechaDescuento()).orElse(null);
                     break;
                 case "CPP_CUOTA":
                     f = prestamoCuotaRepository.findById(ref).map(c -> c.getFechaVencimiento()).orElse(null);

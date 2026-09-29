@@ -105,4 +105,12 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
             "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA")
     List<Long> findLiquidacionesVivasConCuotasDeVale(@Param("cuotaIds") Collection<Long> cuotaIds);
+
+    /** De estas cuotas de vale, las que ya estan en una liquidacion no ANULADA distinta de la indicada. */
+    @Query("select distinct i.referenciaId from LiquidacionItem i " +
+            "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA " +
+            "and (:excludeLiqId is null or i.liquidacion.id <> :excludeLiqId)")
+    List<Long> findCuotasDeValeEnOtrasLiquidaciones(@Param("cuotaIds") Collection<Long> cuotaIds,
+                                                    @Param("excludeLiqId") Long excludeLiqId);
 }

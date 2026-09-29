@@ -75,4 +75,16 @@ public class ReporteRrhhGraphQL implements GraphQLQueryResolver {
     public String imprimirReciboBono(Long id, Integer anchoMm, Boolean escpos) {
         return service.reciboBonoBase64(id, anchoMm, Boolean.TRUE.equals(escpos));
     }
+
+    /** Recibo de un item de liquidacion de sueldo (HABER: recibo; DESCUENTO: constancia). */
+    public String imprimirReciboItemLiquidacion(Long itemId, Integer anchoMm, Boolean escpos) {
+        seg.requireVer();
+        return service.reciboItemLiquidacionBase64(itemId, anchoMm, Boolean.TRUE.equals(escpos));
+    }
+
+    /** Recibo de un item de liquidacion final (finiquito). */
+    public String imprimirReciboItemLiquidacionFinal(Long itemId, Integer anchoMm, Boolean escpos) {
+        seg.requireVer();
+        return service.reciboItemLiquidacionFinalBase64(itemId, anchoMm, Boolean.TRUE.equals(escpos));
+    }
 }

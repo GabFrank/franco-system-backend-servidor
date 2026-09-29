@@ -66,6 +66,7 @@ class RecibosRrhhNumeroObservacionTest {
         reportes = new ReporteRrhhService(mock(LiquidacionSueldoRepository.class), configRrhh,
                 liquidacionFinalService, valeRepository, prestamoRepository, aguinaldoRepository,
                 penalizacionRepository, bonoRepository, letras, configGeneral, mock(CiudadService.class),
+                mock(LiquidacionItemRepository.class), mock(LiquidacionFinalItemRepository.class),
                 imageService);
         reciboLiquidacion = new ReciboLiquidacionService(liquidacionSueldoService, configGeneral, letras,
                 valeRepository, bonoRepository, mock(VacacionVentaRepository.class),

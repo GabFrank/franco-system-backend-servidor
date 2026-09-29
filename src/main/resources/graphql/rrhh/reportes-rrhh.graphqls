@@ -15,4 +15,7 @@ extend type Query {
     imprimirReciboAguinaldo(id: ID!, anchoMm: Int, escpos: Boolean): String
     imprimirReciboPrestamo(id: ID!, anchoMm: Int, escpos: Boolean): String
     imprimirReciboBono(id: ID!, anchoMm: Int, escpos: Boolean): String
+    # Recibo de un item de liquidacion (HABER: recibo; DESCUENTO: constancia). BORRADOR, APROBADA o PAGADA (no ANULADA).
+    imprimirReciboItemLiquidacion(itemId: ID!, anchoMm: Int, escpos: Boolean): String
+    imprimirReciboItemLiquidacionFinal(itemId: ID!, anchoMm: Int, escpos: Boolean): String
 }

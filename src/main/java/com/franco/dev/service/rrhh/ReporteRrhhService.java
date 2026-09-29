@@ -46,6 +46,8 @@ public class ReporteRrhhService {
     private final com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService;
     private final com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService;
     private final com.franco.dev.service.general.CiudadService ciudadService;
+    private final com.franco.dev.repository.rrhh.LiquidacionItemRepository liquidacionItemRepository;
+    private final com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository liquidacionFinalItemRepository;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales
 
@@ -59,7 +61,9 @@ public class ReporteRrhhService {
                               com.franco.dev.repository.rrhh.BonoRepository bonoRepository,
                               com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService,
                               com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService,
-                              com.franco.dev.service.general.CiudadService ciudadService) {
+                              com.franco.dev.service.general.CiudadService ciudadService,
+                              com.franco.dev.repository.rrhh.LiquidacionItemRepository liquidacionItemRepository,
+                              com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository liquidacionFinalItemRepository) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
@@ -71,6 +75,8 @@ public class ReporteRrhhService {
         this.numeroALetrasService = numeroALetrasService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.ciudadService = ciudadService;
+        this.liquidacionItemRepository = liquidacionItemRepository;
+        this.liquidacionFinalItemRepository = liquidacionFinalItemRepository;
     }
 
     /**
@@ -469,6 +475,71 @@ public class ReporteRrhhService {
         String clausula = "Recibí conforme, en concepto de bono,";
         return reciboRrhh("RECIBO DE BONO", b.getId(), b.getFuncionario(), filas, nz(b.getMonto()), clausula,
                 null, anchoMm, escpos);
+    }
+
+    /**
+     * Recibo de un solo item de una liquidacion de sueldo: HABER → recibo, DESCUENTO →
+     * constancia de descuento. Vale en BORRADOR, APROBADA o PAGADA; no en ANULADA.
+     */
+    @Transactional(readOnly = true)
+    public String reciboItemLiquidacionBase64(Long itemId, Integer anchoMm, boolean escpos) {
+        com.franco.dev.domain.rrhh.LiquidacionItem it = liquidacionItemRepository.findById(itemId)
+                .orElseThrow(() -> new GraphQLException("Item no encontrado"));
+        LiquidacionSueldo liq = it.getLiquidacion();
+        if (liq == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion");
+        validarEstadoParaReciboItem(liq.getEstado() != null ? liq.getEstado().name() : null);
+        String concepto = conceptoItem(it.getDescripcion(), it.getCodigo());
+        String origen = "Liquidacion de sueldo" + (liq.getPeriodo() != null ? " " + liq.getPeriodo() : "");
+        return reciboItem(it.getTipo(), concepto, it.getMonto(), liq.getId(), liq.getFuncionario(), origen,
+                anchoMm, escpos);
+    }
+
+    /** Recibo de un solo item de una liquidacion final (finiquito). Mismas reglas que el de sueldo. */
+    @Transactional(readOnly = true)
+    public String reciboItemLiquidacionFinalBase64(Long itemId, Integer anchoMm, boolean escpos) {
+        com.franco.dev.domain.rrhh.LiquidacionFinalItem it = liquidacionFinalItemRepository.findById(itemId)
+                .orElseThrow(() -> new GraphQLException("Item no encontrado"));
+        com.franco.dev.domain.rrhh.LiquidacionFinal lf = it.getLiquidacionFinal();
+        if (lf == null) throw new GraphQLException("El item no pertenece a ninguna liquidacion final");
+        validarEstadoParaReciboItem(lf.getEstado() != null ? lf.getEstado().name() : null);
+        String concepto = conceptoItem(it.getDescripcion(), it.getConcepto() != null ? it.getConcepto().name() : null);
+        String origen = "Liquidacion final";
+        return reciboItem(it.getTipo(), concepto, it.getMonto(), lf.getId(), lf.getFuncionario(), origen,
+                anchoMm, escpos);
+    }
+
+    /** Los dos enums de estado (sueldo y final) comparten los nombres BORRADOR, APROBADA y PAGADA. */
+    private void validarEstadoParaReciboItem(String estado) {
+        if (!"BORRADOR".equals(estado) && !"APROBADA".equals(estado) && !"PAGADA".equals(estado)) {
+            throw new GraphQLException("No se puede generar el recibo de un item con la liquidacion " + estado);
+        }
+    }
+
+    /** Descripcion del item; si no tiene, el codigo o concepto legible (BONO_MANUAL → BONO MANUAL). */
+    private String conceptoItem(String descripcion, String codigo) {
+        if (descripcion != null && !descripcion.trim().isEmpty()) return descripcion.trim();
+        return codigo != null ? codigo.replace('_', ' ') : "ITEM";
+    }
+
+    /**
+     * Arma el recibo de un item. El numero del titulo es el de la liquidacion (el que se busca
+     * en la lista a partir del papel); el periodo va en la observacion y no en el
+     * titulo, porque el titulo del A4 tiene ancho fijo y Jasper lo recorta sin avisar.
+     */
+    private String reciboItem(com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo tipo, String concepto,
+                              BigDecimal monto, Long liquidacionId, Funcionario f, String origen,
+                              Integer anchoMm, boolean escpos) {
+        if (monto == null || monto.signum() <= 0) {
+            throw new GraphQLException("El item no tiene monto: no hay nada que firmar");
+        }
+        boolean descuento = tipo == com.franco.dev.domain.rrhh.enums.LiquidacionItemTipo.DESCUENTO;
+        String titulo = descuento ? "CONSTANCIA DE DESCUENTO" : "RECIBO DE LIQUIDACION";
+        String clausula = descuento
+                ? "Tomo conocimiento y acepto el descuento en concepto de " + concepto + ","
+                : "Recibí conforme, en concepto de " + concepto + ",";
+        List<FiniquitoRow> filas = new ArrayList<>();
+        filas.add(new FiniquitoRow(concepto, formatoGs.format(monto)));
+        return reciboRrhh(titulo, liquidacionId, f, filas, monto, clausula, origen, anchoMm, escpos);
     }
 
     /**

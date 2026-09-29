@@ -1,0 +1,11 @@
+# Impresion desde el cliente ("Imprimir desde esta PC"): el central genera el comprobante en
+# ESC/POS (base64) y el desktop lo imprime en su impresora local. Ver docs/impresion-desde-cliente.md.
+enum TicketEscposTipo {
+    FACTURA
+    BALANCE
+}
+
+extend type Query {
+    # FACTURA: id de la factura legal. BALANCE: id de la caja. sucId: sucursal del registro.
+    ticketEscpos(tipo: TicketEscposTipo!, id: ID!, sucId: ID!, local: String): String
+}

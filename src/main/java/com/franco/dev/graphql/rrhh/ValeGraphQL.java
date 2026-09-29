@@ -1,6 +1,7 @@
 package com.franco.dev.graphql.rrhh;
 
 import com.franco.dev.domain.rrhh.Vale;
+import com.franco.dev.domain.rrhh.ValeCuota;
 import com.franco.dev.domain.rrhh.enums.ValeEstado;
 import com.franco.dev.graphql.rrhh.input.ValeInput;
 import com.franco.dev.service.financiero.MonedaService;
@@ -8,6 +9,7 @@ import com.franco.dev.service.personas.FuncionarioService;
 import com.franco.dev.service.personas.UsuarioService;
 import com.franco.dev.service.rrhh.MotivoValeService;
 import com.franco.dev.service.rrhh.ValeService;
+import graphql.GraphQLException;
 import graphql.kickstart.tools.GraphQLMutationResolver;
 import graphql.kickstart.tools.GraphQLQueryResolver;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +17,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import static com.franco.dev.utilitarios.DateUtils.stringToDate;
@@ -65,12 +69,29 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
                 PageRequest.of(page, size));
     }
 
+    public List<ValeCuota> valeCuotas(Long valeId) {
+        seg.requireVer();
+        return service.findCuotas(valeId);
+    }
+
     public Vale saveVale(ValeInput input) {
         seg.requireAnyRole(seg.GESTIONAR);
-        Vale e = mapInput(input, input.getId() != null
-                ? service.findById(input.getId()).orElse(new Vale())
-                : new Vale());
+        Vale actual = input.getId() != null ? service.findById(input.getId()).orElse(null) : null;
+        if (actual != null) validarEdicion(actual, input);
+        boolean protegido = actual != null && esProtegido(actual);
+        ValeEstado estadoPrevio = actual != null ? actual.getEstado() : null;
+        Vale e = mapInput(input, actual != null ? actual : new Vale());
+        // En un vale en cuotas o en especie el estado solo lo cambian confirmar, anular, el pago de
+        // tesoreria y la liquidacion: por saveVale (rol GESTIONAR) se podria confirmar sin caja o
+        // devolver a SOLICITADO un vale en especie, que apareceria como pagable en tesoreria.
+        if (protegido || esProtegido(e)) e.setEstado(actual != null ? estadoPrevio : null);
         return service.save(e);
+    }
+
+    public Vale crearValeEnEspecie(ValeInput input, Long autorizadoPorId) {
+        seg.requireAnyRole(seg.APROBAR);
+        Vale e = mapInput(input, new Vale());
+        return service.crearEnEspecie(e, autorizadoPorId);
     }
 
     public Vale confirmarVale(Long id, Long cajaVirtualId, Long autorizadoPorId) {
@@ -89,6 +110,33 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
         return service.anular(id);
     }
 
+    private static boolean esProtegido(Vale v) {
+        return ValeService.tieneCuotas(v) || Boolean.TRUE.equals(v.getEnEspecie());
+    }
+
+    /**
+     * Fuera de SOLICITADO, las cuotas ya pueden estar en una liquidacion: no se cambia la cantidad de
+     * cuotas de ningun vale, ni el monto o la fecha de uno en cuotas o en especie.
+     */
+    private void validarEdicion(Vale actual, ValeInput input) {
+        if (actual.getEstado() == ValeEstado.SOLICITADO) return;
+        boolean cambiaCuotas = input.getCantidadCuotas() != null
+                && !input.getCantidadCuotas().equals(actual.getCantidadCuotas());
+        if (cambiaCuotas) {
+            throw new GraphQLException("La cantidad de cuotas solo se puede cambiar mientras el vale esta SOLICITADO");
+        }
+        if (!esProtegido(actual)) return;
+        boolean cambiaMonto = input.getMonto() != null && (actual.getMonto() == null
+                || input.getMonto().compareTo(actual.getMonto()) != 0);
+        LocalDate fecha = input.getFecha() != null && stringToDate(input.getFecha()) != null
+                ? stringToDate(input.getFecha()).toLocalDate() : null;
+        boolean cambiaFecha = fecha != null && !Objects.equals(fecha, actual.getFecha());
+        if (cambiaMonto || cambiaFecha) {
+            throw new GraphQLException("El monto y la fecha de un vale en cuotas o en especie solo se pueden"
+                    + " cambiar mientras esta SOLICITADO");
+        }
+    }
+
     private Vale mapInput(ValeInput input, Vale e) {
         if (input.getFuncionarioId() != null)
             e.setFuncionario(funcionarioService.findById(input.getFuncionarioId()).orElse(null));
@@ -101,6 +149,7 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
             e.setFecha(stringToDate(input.getFecha()).toLocalDate());
         if (input.getEstado() != null) e.setEstado(input.getEstado());
         if (input.getEsAdelanto() != null) e.setEsAdelanto(input.getEsAdelanto());
+        if (input.getCantidadCuotas() != null) e.setCantidadCuotas(input.getCantidadCuotas());
         e.setObservacion(input.getObservacion());
         e.setComprobanteUrl(input.getComprobanteUrl());
         if (input.getAutorizadoPorId() != null)

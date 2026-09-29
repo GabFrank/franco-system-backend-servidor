@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
 public interface LiquidacionItemRepository extends HelperRepository<LiquidacionItem, Long> {
@@ -95,4 +96,13 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "and i.liquidacion.estado in (com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.APROBADA, " +
             "com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.PAGADA)")
     boolean existeEnLiquidacionCerrada(@Param("bonoId") Long bonoId);
+
+    /**
+     * Liquidaciones no ANULADAS con un item de alguna de estas cuotas de vale (VALE_CUOTA). Una cuota que
+     * esta en un documento vivo no se puede regenerar ni anular, y no se vuelve a meter en otro borrador.
+     */
+    @Query("select distinct i.liquidacion.id from LiquidacionItem i " +
+            "where i.referenciaTipo = 'VALE_CUOTA' and i.referenciaId in :cuotaIds " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA")
+    List<Long> findLiquidacionesVivasConCuotasDeVale(@Param("cuotaIds") Collection<Long> cuotaIds);
 }

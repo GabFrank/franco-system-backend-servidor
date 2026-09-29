@@ -750,6 +750,9 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             throw new GraphQLException("El finiquito #" + id + " no esta pagado desde tesoreria");
         }
         aplicarEfectosCruzados(lf, false);
+        lf.setCajaVirtualId(null);
+        lf.setMovimientoCajaVirtualId(null);
+        lf.setFechaPago(null);
         lf.setEstado(LiquidacionFinalEstado.ANULADA);
         return repository.save(lf);
     }

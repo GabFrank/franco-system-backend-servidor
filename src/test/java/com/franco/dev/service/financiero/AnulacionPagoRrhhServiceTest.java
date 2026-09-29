@@ -76,6 +76,7 @@ class AnulacionPagoRrhhServiceTest {
         pagoService = mock(PagoService.class);
         detalleRepository = mock(PagoSolicitudDetalleRepository.class);
         tesoreriaSecurity = mock(TesoreriaSecurityService.class);
+        when(tesoreriaSecurity.currentUsuario()).thenReturn(new com.franco.dev.domain.personas.Usuario());
         service = new AnulacionPagoRrhhService(motor, pagoService, detalleRepository, liquidacionService,
                 finiquitoService, liquidacionRepository, finiquitoRepository, mock(ValeRepository.class),
                 mock(AguinaldoRepository.class), tesoreriaSecurity);
@@ -223,6 +224,27 @@ class AnulacionPagoRrhhServiceTest {
         assertThrows(GraphQLException.class, () -> service.anularLiquidacion(LIQ_ID));
         verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
         assertEquals(LiquidacionSueldoEstado.PAGADA, liq.getEstado());
+    }
+
+    @Test
+    void sinUsuarioIdentificadoNoSeAnulaElPago() {
+        detalle(700L, SOLICITUD, false);
+        when(tesoreriaSecurity.currentUsuario()).thenReturn(null);
+
+        assertThrows(GraphQLException.class, () -> service.anularLiquidacion(LIQ_ID));
+        verify(motor, never()).anularPagoCpp(anyLong(), anyString(), any());
+    }
+
+    @Test
+    void laAnuladaNoQuedaApuntandoAlMovimientoRevertido() {
+        detalle(700L, SOLICITUD, false);
+        liq.setCajaVirtualId(3L);
+        liq.setMovimientoCajaVirtualId(555L);
+
+        service.anularLiquidacion(LIQ_ID);
+
+        assertNull(liq.getCajaVirtualId());
+        assertNull(liq.getMovimientoCajaVirtualId());
     }
 
     @Test

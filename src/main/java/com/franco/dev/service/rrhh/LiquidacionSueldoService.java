@@ -662,6 +662,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             throw new GraphQLException("La liquidacion #" + id + " no esta pagada desde tesoreria");
         }
         aplicarEfectosCruzados(liq, false);
+        liq.setCajaVirtualId(null);
+        liq.setMovimientoCajaVirtualId(null);
+        liq.setFechaPago(null);
         liq.setEstado(LiquidacionSueldoEstado.ANULADA);
         return repository.save(liq);
     }

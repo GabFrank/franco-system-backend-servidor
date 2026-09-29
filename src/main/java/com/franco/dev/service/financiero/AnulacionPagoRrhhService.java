@@ -71,6 +71,11 @@ public class AnulacionPagoRrhhService {
         List<Long> pagos = pagosVivos(liq.getSolicitudPagoId(), documento);
         if (pagos.isEmpty()) return liquidacionSueldoService.anularSinPagoVivo(id);
         anularPagos(pagos, "ANULACION LIQUIDACION #" + id);
+        // Con dos pagos, el segundo sincroniza por idempotencia y no suelta los links: que la ANULADA no
+        // quede apuntando a un movimiento ya revertido.
+        liq.setCajaVirtualId(null);
+        liq.setMovimientoCajaVirtualId(null);
+        liq.setFechaPago(null);
         return liquidacionSueldoService.anular(id);
     }
 
@@ -85,6 +90,9 @@ public class AnulacionPagoRrhhService {
         List<Long> pagos = pagosVivos(lf.getSolicitudPagoId(), documento);
         if (pagos.isEmpty()) return liquidacionFinalService.anularSinPagoVivo(id);
         anularPagos(pagos, "ANULACION LIQUIDACION FINAL #" + id);
+        lf.setCajaVirtualId(null);
+        lf.setMovimientoCajaVirtualId(null);
+        lf.setFechaPago(null);
         return liquidacionFinalService.anular(id);
     }
 
@@ -128,6 +136,8 @@ public class AnulacionPagoRrhhService {
 
     private void anularPagos(List<Long> pagoIds, String motivo) {
         Usuario usuario = tesoreriaSecurity.currentUsuario();
+        // La reversa queda firmada: sin usuario resuelto (ej. el nickname ADMIN sin fila) no se anula.
+        if (usuario == null) throw new GraphQLException("No se pudo identificar al usuario que anula el pago");
         for (Long pagoId : pagoIds) {
             pagoProveedorService.anularPagoCpp(pagoId, motivo, usuario);
         }

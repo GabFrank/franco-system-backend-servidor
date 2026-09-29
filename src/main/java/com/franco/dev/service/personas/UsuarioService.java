@@ -81,6 +81,15 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
     }
 
     public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size) {
+        return findbyIdOrPersonaPaginated(texto, page, size, null);
+    }
+
+    /**
+     * Con roleIds no vacio devuelve solo los usuarios que tienen al menos uno de esos roles.
+     * En ese caso no se toma el atajo por persona_id: devolveria al usuario sin mirar su rol.
+     */
+    public org.springframework.data.domain.Page<Usuario> findbyIdOrPersonaPaginated(String texto, Integer page, Integer size, List<Long> roleIds) {
+        boolean filtrarPorRol = roleIds != null && !roleIds.isEmpty();
         if (texto == null) texto = "";
         texto = texto.trim();
         if (page == null) page = 0;
@@ -91,7 +100,7 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
                 org.springframework.data.domain.Sort.by("id").ascending()
         );
 
-        if (!texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
+        if (!filtrarPorRol && !texto.isEmpty() && texto.chars().allMatch(Character::isDigit)) {
             try {
                 Long personaId = Long.valueOf(texto);
                 Usuario usuario = repository.findByPersonaId(personaId);
@@ -105,6 +114,9 @@ public class UsuarioService extends CrudService<Usuario, UsuarioRepository, Long
         }
 
         texto = texto.replace(' ', '%');
+        if (filtrarPorRol) {
+            return repository.findbyIdOrPersonaAndRolesPaginated(texto.toUpperCase(), roleIds, pageable);
+        }
         return repository.findbyIdOrPersonaPaginated(texto.toUpperCase(), pageable);
     }
 

@@ -140,3 +140,26 @@ Ninguno: sin columnas, sin migraciones, sin cambios de GraphQL. El único dato e
   (sin logo, 2–3 KB). Pasando la ruta como transferencia serían ~860 KB.
 - **Verificación con mutación** de los tests por service: sin el `put("logo")` del finiquito, el
   test falla.
+
+## Revisión con Franco (2026-09-29) — diseño final
+
+Probado en local, Franco pidió cambiar el diseño de los recibos:
+
+- **Notas (NR y NC):** logo arriba, más grande (~58–60 pt de alto) y centrado en su columna, no pegado
+  al borde. En la NC el bloque razón social / RUC / timbrado / dirección pasa a `x=126 w=209`.
+- **Recibos de RRHH y acta: marca de agua, no logo en el encabezado.** Con el logo arriba el recibo
+  crecía (bandas +8/+14/+20) y a Franco le parecía grande incluso cortado. Las cuatro plantillas
+  vuelven al layout de `develop` (tamaño de producción: sueldo 25 ítems, finiquito 21) y llevan de
+  fondo `ImageService.getMarcaAguaReporte()`: el logo escalado y aclarado al 12 % mezclándolo con
+  blanco (opaco, no depende de que la impresora maneje alfa). Parámetro `marcaAgua`.
+  - La marca va **dentro de cada vía**, no centrada en la hoja, para que quede entera al cortar: el
+    sueldo lleva dos (background para la vía del funcionario + primer elemento del summary para la
+    vía ORIGINAL). El acta, que no se corta, la lleva centrada detrás del texto.
+  - Los `<rectangle>` del sueldo y del acta pasaron a `mode="Transparent"`: por defecto Jasper los
+    pinta con fondo blanco y tapaban la marca («cortada por la cabecera»). Lo cubre
+    `MarcaAguaRecibosRrhhJrxmlTest.ningunElementoOpacoTapaLaMarca`.
+  - Tinta: a 12 % gasta del orden del logo chico a todo color. Los PDF pesan 5–15 KB.
+- Los techos de una hoja vuelven a los de producción y los fijan
+  `MarcaAguaRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja` (25/26) y `finiquitoTechoDeUnaHoja` (21/22).
+  Las notas de la sección anterior sobre techos 24 y 19–20 y la línea RUC de dos renglones quedan
+  **reemplazadas** por esto.

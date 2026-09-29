@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="recibo-rrhh" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c2d3e4f5-a6b7-4c8d-9e01-2b3c4d5e6f02">
 	<parameter name="empresa" class="java.lang.String"/>
-	<parameter name="logo" class="java.awt.Image"/>
 	<parameter name="titulo" class="java.lang.String"/>
 	<parameter name="funcionario" class="java.lang.String"/>
 	<parameter name="documento" class="java.lang.String"/>
@@ -14,19 +13,13 @@
 	<field name="monto" class="java.lang.String"/>
 	<title>
 		<band height="108" splitType="Stretch">
-			<image hAlign="Center" onErrorType="Blank">
-				<reportElement x="0" y="0" width="70" height="42">
-					<printWhenExpression><![CDATA[$P{logo} != null]]></printWhenExpression>
-				</reportElement>
-				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
-			</image>
 			<textField>
-				<reportElement x="80" y="0" width="475" height="18"/>
+				<reportElement x="0" y="0" width="555" height="18"/>
 				<textElement><font fontName="SansSerif" size="10" isBold="true"/></textElement>
 				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="80" y="22" width="320" height="22"/>
+				<reportElement x="0" y="22" width="400" height="22"/>
 				<textElement><font fontName="SansSerif" size="13" isBold="true"/></textElement>
 				<textFieldExpression><![CDATA[$P{titulo} != null ? $P{titulo} : "RECIBO"]]></textFieldExpression>
 			</textField>

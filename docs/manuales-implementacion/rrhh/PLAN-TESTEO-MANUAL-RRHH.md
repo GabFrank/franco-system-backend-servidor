@@ -389,6 +389,18 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
   6. Un vale de 1 cuota contra caja → igual que antes (egreso + ítem `VALE`).
   7. Finiquito con un vale de 3 cuotas y 1 descontada → ítems 2/3 y 3/3, nunca el vale entero.
 - **Sin verificar:** el caso 7 (finiquito) no tiene test automático.
+### ✅ T21 — Anular una liquidación pagada desde tesorería *(probado en UI local, 2026-09-29)*
+- **Objetivo:** que anular devuelva la plata por el medio usado y revierta vales/cuotas/convenio.
+- **Pasos:** liquidación APROBADA con un vale → pagarla sola desde el hub de RRHH (Caja Mayor → pagos RRHH) →
+  Anular desde la liquidación (requiere RRHH PAGAR y TESORERIA CPP PAGAR/GESTIONAR).
+- **Esperado:**
+  1. Por **banco**: la cuenta bancaria vuelve al saldo previo, el vale a CONFIRMADO, el pago CANCELADO, la liquidación
+     ANULADA. *(local: #489, banco 1.040.025 → 3.300.000)*
+  2. En **efectivo**: un solo contra-asiento en la Caja Mayor; anular después el pago desde la caja → "El pago ya está
+     anulado". *(local: #490, caja 5.800.000 → 8.300.000)*
+  3. Dos liquidaciones pagadas en el **mismo lote** → anular una → rechazo que nombra a la otra; nada cambia.
+     *(local: #492 con #491)*
+  4. Sin rol de tesorería → "No autorizado" *(cubierto por test automático, no probado en UI)*.
 
 ---
 

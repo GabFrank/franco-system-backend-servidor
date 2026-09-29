@@ -26,6 +26,9 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
     private LiquidacionFinalService service;
 
     @Autowired
+    private com.franco.dev.service.financiero.AnulacionPagoRrhhService anulacionPagoRrhhService;
+
+    @Autowired
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
     // ----- Queries -----
@@ -74,7 +77,8 @@ public class LiquidacionFinalGraphQL implements GraphQLQueryResolver, GraphQLMut
 
     public LiquidacionFinal anularLiquidacionFinal(Long id) {
         seg.requireAnyRole(seg.PAGAR);
-        return service.anular(id);
+        // Pagado desde tesoreria: se anula junto con su pago (pide ademas el rol de tesoreria).
+        return anulacionPagoRrhhService.anularFiniquito(id);
     }
 
     public LiquidacionFinalItem agregarItemLiquidacionFinal(Long liquidacionFinalId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo) {

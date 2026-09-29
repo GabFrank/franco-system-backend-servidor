@@ -649,6 +649,24 @@ Decisión consciente: **la anulación (`anularPagoCpp`) sigue con rol de tesorer
 plata a la caja y reabre el documento; la caja es de tesorería). `detalleDePago` también muestra las líneas RRHH con
 el rol de lectura de tesorería, que ya ve la etiqueta del movimiento de caja.
 
+**Anular una liquidación o finiquito pagado desde el hub (fix 2026-09-29).** Antes, `anular` solo revertía si había
+`cajaVirtualId`: pagado por banco o cheque quedaba ANULADO sin devolver la plata ni revertir vales, cuotas, aguinaldo
+ni convenio; pagado en efectivo revertía el movimiento consolidado del evento dejando el `Pago` vivo, y anularlo
+después desde la caja revertía **dos veces**. Además, un pago 100% bancario no se podía anular desde ninguna pantalla
+(el botón vive en la fila del movimiento de caja). Ahora `anularLiquidacion` / `anularLiquidacionFinal` pasan por
+`AnulacionPagoRrhhService`:
+- documento pagado desde el hub con pagos **exclusivos** → `anularPagoCpp` de cada uno (exige además
+  `TESORERIA CPP PAGAR` o `GESTIONAR`), que devuelve la plata por el medio usado y, vía `sincronizarDesdeSolicitudPago`,
+  deja el documento APROBADO con los efectos revertidos; después `anular` lo pasa a ANULADO. Una transacción, con
+  `lockById` del documento al inicio;
+- un pago que también pagó **otra** obligación (lote) → rechazo que la nombra; se anula el pago completo desde tesorería;
+- PAGADO con solicitud pero sin pagos vivos (datos inconsistentes) → `anularSinPagoVivo` revierte los efectos;
+- `LiquidacionSueldoService.anular` / `LiquidacionFinalService.anular` rechazan un documento PAGADO con
+  `solicitudPagoId`: cierra la doble reversa para cualquier otro llamador.
+En producción (bodega) 142 de 144 liquidaciones pagadas pasaron por el hub; al 2026-09-29 no había ninguna ANULADA
+con pago de hub (verificado solo lectura en bodega y farmacia). Pendiente: anular una sola liquidación de un lote
+(anulación parcial en el motor de tesorería).
+
 > **Regla para nuevas implementaciones RRHH:** toda mutation nueva debe llamar
 > `seg.requireAnyRole(...)` con el rol adecuado, y toda query que exponga datos de
 > nómina/personales `seg.requireVer()`; en el frontend, gatear el botón con un flag

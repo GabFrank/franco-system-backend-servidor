@@ -156,6 +156,34 @@ CONFIRMADO sin `liquidacionId`). **Tipo GraphQL renombrado a `ValeRrhhInput`**
 de `print/print-data.graphqls` (usado por `printVale`, producción). Pantallas de
 lista/crear/confirmar/anular. Estado: Compila.
 
+**Vale en cuotas y vale en especie (2026-09-29, `V233.1`)** — `vale.cantidad_cuotas` (1 a 12) y
+`vale.en_especie`. Un vale de 1 cuota sigue el camino de siempre (se descuenta entero, sin filas en
+`vale_cuota`). Con más de 1, `ValeService.save` genera `rrhh.vale_cuota` con `CuotaCalculator` (montos
+enteros si el monto lo es; la última absorbe el redondeo) y `fecha_descuento = fecha del vale + (k-1)
+meses`: la cuota k se descuenta en la liquidación cuyo periodo (según `DIA_CIERRE_MES`) contiene esa
+fecha. Reglas que sostienen que una cuota se descuente una sola vez:
+- Las cuotas se regeneran **solo en `SOLICITADO`**; desde `CONFIRMADO` quedan congeladas y `saveVale`
+  rechaza cambiar monto, fecha o cuotas. En un vale en cuotas o en especie, `saveVale` **nunca** cambia
+  el estado (rol GESTIONAR no puede confirmar sin caja ni devolver un vale en especie a `SOLICITADO`).
+- `construirItemsAutomaticos` emite un ítem por cuota `PENDIENTE` con fecha ≤ fin del periodo
+  (`VALE_DESCUENTO`/`ADELANTO_DESCUENTO`, descripción `VALE <MOTIVO> k/n`, `referenciaTipo = VALE_CUOTA`),
+  salvo que la cuota ya esté en otra liquidación o finiquito no anulado. El finiquito toma todas las
+  pendientes. El camino viejo (vale entero) salta los vales en cuotas.
+- `ValeCuotaDescuentoService` (espejo de `PrestamoCuotaDescuentoService`) valida antes de mover plata en
+  los mismos 4 lugares (pagar mensual, pagar finiquito, hub de tesorería ×2) y aplica/revierte en
+  `aplicarEfectosCruzados`. Una cuota descontada por otro documento hace fallar el pago; por el mismo,
+  es no-op. El vale pasa a `DESCONTADO` con la última cuota.
+- `anular` el vale, o anular su pago desde tesorería, se rechaza si una cuota ya se descontó o está en
+  un documento vivo (si no, el vale volvería a ser pagable por el total).
+- **Editar el monto** de un ítem `VALE_CUOTA` hace fallar el pago ("regenere"): para postergar una cuota
+  se elimina el ítem del borrador y queda pendiente para el mes siguiente.
+
+El vale **en especie** (`crearValeEnEspecie`, rol APROBAR) nace `CONFIRMADO` sin egreso de caja;
+`confirmar` lo rechaza. Dashboard, top exposición, resumen mobile, reporte de vales pendientes y el
+legajo del desktop suman `saldoPendiente` (cuotas pendientes), no el monto. **Rollback**: el JAR
+anterior descontaría entero un vale en cuotas ya descontado en parte; después del primer vale en
+cuotas, se arregla hacia adelante. Estado: Compila + Tests + probado en UI por Franco.
+
 **Préstamos + cuotas** — `prestamo` + `prestamo_cuota`: creación con N cuotas y
 desembolso (EGRESO), cobro directo de cuota (INGRESO), plan de cuotas con
 `CuotaCalculator` (la última absorbe el redondeo). Job `PrestamoCuotaScheduler`

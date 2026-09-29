@@ -139,7 +139,8 @@ public class ValeCuotaDescuentoService {
         c.setLiquidacionFinalId(liquidacionFinalId);
         cuotaRepository.save(c);
 
-        Vale v = c.getVale();
+        // Orden de locks: cuota -> vale, igual que cuota -> prestamo en PrestamoCuotaDescuentoService.
+        Vale v = lockVale(c);
         boolean todas = cuotaRepository.findByValeIdOrderByNumeroAsc(v.getId()).stream()
                 .allMatch(x -> x.getEstado() == ValeCuotaEstado.DESCONTADA);
         if (todas) {
@@ -161,7 +162,7 @@ public class ValeCuotaDescuentoService {
         c.setLiquidacionFinalId(null);
         cuotaRepository.save(c);
 
-        Vale v = c.getVale();
+        Vale v = lockVale(c);
         if (v.getEstado() == ValeEstado.DESCONTADO) {
             v.setEstado(ValeEstado.CONFIRMADO);
             v.setLiquidacionId(null);
@@ -170,6 +171,11 @@ public class ValeCuotaDescuentoService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
+
+    /** El vale de la cuota con lock pesimista (cae a la instancia cargada si no esta en la base). */
+    private Vale lockVale(ValeCuota c) {
+        return valeRepository.lockById(c.getVale().getId()).orElse(c.getVale());
+    }
 
     private List<ValeCuota> pendientes(Vale vale) {
         return cuotaRepository.findByValeIdOrderByNumeroAsc(vale.getId()).stream()

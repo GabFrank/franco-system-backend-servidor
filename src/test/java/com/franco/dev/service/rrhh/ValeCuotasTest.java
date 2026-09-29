@@ -326,6 +326,17 @@ class ValeCuotasTest {
     }
 
     @Test
+    void saveValeNoCambiaElFuncionarioDeUnValeEnEspecieConfirmado() {
+        Vale v = confirmadoEnEspecieConCuotas();
+        v.getFuncionario().setId(7L);
+        ValeInput in = input(v.getId());
+        in.setFuncionarioId(8L);
+
+        assertThrows(GraphQLException.class, () -> resolver().saveVale(in));
+        assertEquals(7L, v.getFuncionario().getId());
+    }
+
+    @Test
     void saveValeNoCambiaLasCuotasFueraDeSolicitado() {
         Vale v = confirmadoEnEspecieConCuotas();
         ValeInput in = input(v.getId());

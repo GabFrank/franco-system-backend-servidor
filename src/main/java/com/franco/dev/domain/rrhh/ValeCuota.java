@@ -49,7 +49,7 @@ public class ValeCuota implements Identifiable<Long> {
     private LocalDate fechaDescuento;
 
     @Enumerated(EnumType.STRING)
-    private ValeCuotaEstado estado;
+    private ValeCuotaEstado estado = ValeCuotaEstado.PENDIENTE;
 
     // FKs planas: la liquidacion mensual o el finiquito que la desconto.
     @Column(name = "liquidacion_id")

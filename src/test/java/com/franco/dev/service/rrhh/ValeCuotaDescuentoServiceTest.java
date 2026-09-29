@@ -150,6 +150,18 @@ class ValeCuotaDescuentoServiceTest {
     }
 
     @Test
+    void aplicarYRevertirTomanElValeConLock() {
+        // Dos liquidaciones que pagan a la vez cuotas distintas del mismo vale tienen que serializarse:
+        // si no, ninguna ve a la otra y el vale queda CONFIRMADO con todas sus cuotas descontadas.
+        when(valeRepository.lockById(1L)).thenReturn(Optional.of(vale));
+
+        service.aplicarLiquidacion(10L, BigDecimal.valueOf(150_000), 500L);
+        service.revertirLiquidacion(10L, 500L);
+
+        verify(valeRepository, times(2)).lockById(1L);
+    }
+
+    @Test
     void unaCuotaDescontadaPorOtraLiquidacionNoSeDescuentaDosVeces() {
         service.aplicarLiquidacion(10L, BigDecimal.valueOf(150_000), 500L);
 

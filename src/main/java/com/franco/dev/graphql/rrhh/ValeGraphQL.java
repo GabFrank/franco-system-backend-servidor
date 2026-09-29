@@ -126,6 +126,12 @@ public class ValeGraphQL implements GraphQLQueryResolver, GraphQLMutationResolve
             throw new GraphQLException("La cantidad de cuotas solo se puede cambiar mientras el vale esta SOLICITADO");
         }
         if (!esProtegido(actual)) return;
+        boolean cambiaFuncionario = input.getFuncionarioId() != null && actual.getFuncionario() != null
+                && !input.getFuncionarioId().equals(actual.getFuncionario().getId());
+        if (cambiaFuncionario) {
+            throw new GraphQLException("El funcionario de un vale en cuotas o en especie solo se puede cambiar"
+                    + " mientras esta SOLICITADO");
+        }
         boolean cambiaMonto = input.getMonto() != null && (actual.getMonto() == null
                 || input.getMonto().compareTo(actual.getMonto()) != 0);
         LocalDate fecha = input.getFecha() != null && stringToDate(input.getFecha()) != null

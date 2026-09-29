@@ -65,7 +65,13 @@ public interface FuncionarioRepository extends HelperRepository<Funcionario, Lon
                         "left join u.sucursal s " +
                         "left join u.cargo c where " +
                         "(cast(:id as long) is null or u.id = :id) and " +
-                        "(cast(:nombre as string) is null or upper(p.nombre) like concat('%', upper(cast(:nombre as string)), '%')) and " +
+                        // El input "Nombre o nickname" llega en :nombre. El nickname no es del
+                        // funcionario sino del usuario de la misma persona: exists y no join,
+                        // para no tocar el select ni el count derivado de la pagina. Todo el
+                        // bloque va entre parentesis o el OR se come los filtros que siguen.
+                        "(cast(:nombre as string) is null or upper(p.nombre) like concat('%', upper(cast(:nombre as string)), '%') or " +
+                        "exists (select usr.id from Usuario usr where usr.persona = p and " +
+                        "upper(usr.nickname) like concat('%', upper(cast(:nombre as string)), '%'))) and " +
                         "(:sucursalList is null or s.id in :sucursalList) and " +
                         "(cast(:activo as boolean) is null or u.activo = :activo) and " +
                         "(cast(:cargoId as long) is null or c.id = :cargoId) and " +

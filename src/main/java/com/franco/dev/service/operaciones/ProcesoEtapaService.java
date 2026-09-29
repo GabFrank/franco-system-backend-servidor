@@ -125,12 +125,29 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
     }
 
     /**
+     * Vuelve una etapa EN_PROCESO a PENDIENTE (p. ej. RECEPCION_NOTA cuando se borró la última nota).
+     * Si la etapa está en otro estado no hace nada.
+     */
+    @Transactional
+    public void volverEtapaAPendiente(Long pedidoId, ProcesoEtapaTipo tipo) {
+        getEtapaByPedidoAndTipo(pedidoId, tipo)
+                .filter(etapa -> etapa.getEstadoEtapa() == ProcesoEtapaEstado.EN_PROCESO)
+                .ifPresent(etapa -> {
+                    etapa.setEstadoEtapa(ProcesoEtapaEstado.PENDIENTE);
+                    etapa.setFechaInicio(null);
+                    save(etapa);
+                });
+    }
+
+    /**
      * Revierte la etapa CREACION de COMPLETADA a EN_PROCESO
-     * Solo se permite si RECEPCION_NOTA está en estado PENDIENTE (no ha empezado)
-     * 
+     * Se permite mientras RECEPCION_NOTA esté PENDIENTE o EN_PROCESO (las notas cargadas se conservan)
+     * y RECEPCION_MERCADERIA no haya empezado. RECEPCION_NOTA vuelve a PENDIENTE.
+     *
      * @param pedidoId ID del pedido
      * @return La etapa CREACION revertida
-     * @throws IllegalStateException Si CREACION no está COMPLETADA o RECEPCION_NOTA ya empezó
+     * @throws IllegalStateException Si CREACION no está COMPLETADA, RECEPCION_NOTA ya se finalizó
+     *                               o la recepción de mercadería ya empezó
      */
     @Transactional
     public ProcesoEtapa revertirEtapaCreacion(Long pedidoId) {
@@ -145,21 +162,31 @@ public class ProcesoEtapaService extends CrudService<ProcesoEtapa, ProcesoEtapaR
             throw new IllegalStateException("Solo se puede revertir la etapa CREACION si está COMPLETADA. Estado actual: " + etapaCreacion.getEstadoEtapa());
         }
         
-        // Verificar que RECEPCION_NOTA está en estado PENDIENTE (no ha empezado)
+        // Verificar que RECEPCION_NOTA no se haya finalizado (PENDIENTE o EN_PROCESO)
         Optional<ProcesoEtapa> etapaRecepcionNotaOpt = getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
         if (!etapaRecepcionNotaOpt.isPresent()) {
             throw new IllegalStateException("No se encontró la etapa RECEPCION_NOTA para el pedido: " + pedidoId);
         }
-        
+
         ProcesoEtapa etapaRecepcionNota = etapaRecepcionNotaOpt.get();
-        if (etapaRecepcionNota.getEstadoEtapa() != ProcesoEtapaEstado.PENDIENTE) {
-            throw new IllegalStateException("Solo se puede revertir la planificación si RECEPCION_NOTA está PENDIENTE. Estado actual: " + etapaRecepcionNota.getEstadoEtapa());
+        if (etapaRecepcionNota.getEstadoEtapa() != ProcesoEtapaEstado.PENDIENTE
+                && etapaRecepcionNota.getEstadoEtapa() != ProcesoEtapaEstado.EN_PROCESO) {
+            throw new IllegalStateException("Solo se puede revertir la planificación si RECEPCION_NOTA está PENDIENTE o EN_PROCESO. Estado actual: " + etapaRecepcionNota.getEstadoEtapa());
         }
-        
+
+        // La recepción física no debe haber empezado
+        Optional<ProcesoEtapa> etapaRecepcionMercaderia = getEtapaByPedidoAndTipo(pedidoId, ProcesoEtapaTipo.RECEPCION_MERCADERIA);
+        if (etapaRecepcionMercaderia.isPresent() && etapaRecepcionMercaderia.get().getEstadoEtapa() != ProcesoEtapaEstado.PENDIENTE) {
+            throw new IllegalStateException("No se puede revertir la planificación: la recepción de mercadería ya empezó. Estado actual: " + etapaRecepcionMercaderia.get().getEstadoEtapa());
+        }
+
         // Revertir CREACION: cambiar de COMPLETADA a EN_PROCESO
         etapaCreacion.setEstadoEtapa(ProcesoEtapaEstado.EN_PROCESO);
         etapaCreacion.setFechaFin(null); // Eliminar fechaFin
-        
+
+        // RECEPCION_NOTA vuelve a PENDIENTE; al finalizar de nuevo retoma EN_PROCESO si ya hay notas
+        volverEtapaAPendiente(pedidoId, ProcesoEtapaTipo.RECEPCION_NOTA);
+
         return save(etapaCreacion);
     }
 

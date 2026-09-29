@@ -555,11 +555,11 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
 
     /**
      * Busca recepciones existentes por criterios de reutilización
-     * Regla: Mismo proveedor, misma sucursal, misma fecha, estado EN_PROCESO/PENDIENTE
+     * Regla: Mismo proveedor, misma sucursal, misma fecha, estado EN_PROCESO/PENDIENTE y mismo pedido
      */
     public List<RecepcionMercaderia> findRecepcionesReutilizables(
-            Long proveedorId, Long sucursalRecepcionId, LocalDateTime fecha, Long usuarioId) {
-        return repository.findRecepcionesReutilizables(proveedorId, sucursalRecepcionId, fecha, usuarioId);
+            Long proveedorId, Long sucursalRecepcionId, LocalDateTime fecha, Long usuarioId, Long pedidoId) {
+        return repository.findRecepcionesReutilizables(proveedorId, sucursalRecepcionId, fecha, usuarioId, pedidoId);
     }
 
     /**
@@ -570,7 +570,7 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
     @Transactional
     public RecepcionMercaderia obtenerOcrearRecepcion(
             Long proveedorId, Long sucursalRecepcionId, Long monedaId, 
-            Double cotizacion, Long usuarioId) {
+            Double cotizacion, Long usuarioId, Long pedidoId) {
         
         // Normalizar fecha a día completo (00:00:00)
         LocalDateTime fechaNormalizada = LocalDateTime.now()
@@ -578,7 +578,7 @@ public class RecepcionMercaderiaService extends CrudService<RecepcionMercaderia,
         
         // Buscar recepciones reutilizables
         List<RecepcionMercaderia> recepcionesExistentes = findRecepcionesReutilizables(
-            proveedorId, sucursalRecepcionId, fechaNormalizada, usuarioId);
+            proveedorId, sucursalRecepcionId, fechaNormalizada, usuarioId, pedidoId);
         
         if (!recepcionesExistentes.isEmpty()) {
             // Reutilizar la primera recepción encontrada

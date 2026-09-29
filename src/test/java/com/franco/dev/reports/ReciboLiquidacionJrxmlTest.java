@@ -159,10 +159,10 @@ public class ReciboLiquidacionJrxmlTest {
      * summary: si no entra, la manda entera a una pagina nueva y el recibo sale en dos
      * hojas. Esta es la unica forma de que ese limite no se descubra recien imprimiendo.
      *
-     * <p><b>Techo medido: 24 items</b> (era 25 antes del logo). A4 deja 802pt utiles; title
-     * (124, con el logo) + columnHeader (18) + summary con las dos vias, ambas con firma
-     * (292) = 434 fijos, y quedan 368 para el detalle a 15pt por fila. El borde exacto lo
-     * fija LogoRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja. Este corre hasta 20 para
+     * <p><b>Techo medido: 25 items.</b> A4 deja 802pt utiles; title (110) + columnHeader
+     * (18) + summary con las dos vias, ambas con firma (292) = 420 fijos, y quedan 382
+     * para el detalle a 15pt por fila. El borde exacto (25 entra, 26 no) lo fija
+     * MarcaAguaRecibosRrhhJrxmlTest.liquidacionTechoDeUnaHoja. Este corre hasta 20 para
      * dejar margen: si alguien agranda una banda, salta aca y no en la impresora.</p>
      */
     @Test

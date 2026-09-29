@@ -73,6 +73,48 @@ class ImageServiceLogoReporteTest {
         assertEquals(ImageService.ANCHO_LOGO_REPORTE, nueva.getWidth());
     }
 
+    @Test
+    void laMarcaDeAguaDejaSoloLaTintaIndicadaSobreBlanco() {
+        BufferedImage src = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+        src.setRGB(0, 0, 0xFF000000);   // negro opaco
+        src.setRGB(1, 0, 0x00000000);   // transparente
+
+        BufferedImage marca = ImageService.aclarar(src, 0.12);
+
+        int negro = marca.getRGB(0, 0) & 0xFFFFFF;
+        int esperado = 255 - (int) Math.round(255 * 0.12);   // 224
+        assertEquals((esperado << 16) | (esperado << 8) | esperado, negro, "el negro queda gris claro");
+        assertEquals(0xFFFFFF, marca.getRGB(1, 0) & 0xFFFFFF, "lo transparente queda blanco, no negro");
+        assertFalse(marca.getColorModel().hasAlpha(), "opaca: no depende de que la impresora maneje alfa");
+    }
+
+    @Test
+    void laMarcaDeAguaSeCacheaConElLogo() throws Exception {
+        File logo = png(800, 400);
+        ImageService conArchivo = new ImageService() {
+            @Override
+            public BufferedImage getLogoReporte() {
+                return cargarLogoReporte(logo);
+            }
+        };
+
+        BufferedImage primera = conArchivo.getMarcaAguaReporte();
+        assertNotNull(primera);
+        assertEquals(ImageService.ANCHO_LOGO_REPORTE, primera.getWidth());
+        assertSame(primera, conArchivo.getMarcaAguaReporte(), "sin cambios en disco no se vuelve a aclarar");
+    }
+
+    @Test
+    void sinLogoNoHayMarcaDeAgua() {
+        ImageService sinArchivo = new ImageService() {
+            @Override
+            public BufferedImage getLogoReporte() {
+                return null;
+            }
+        };
+        assertNull(sinArchivo.getMarcaAguaReporte());
+    }
+
     private File png(int ancho, int alto) throws Exception {
         File f = dir.resolve("logo.png").toFile();
         ImageIO.write(new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_RGB), "png", f);

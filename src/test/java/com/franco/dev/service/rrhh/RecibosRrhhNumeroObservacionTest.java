@@ -49,7 +49,7 @@ class RecibosRrhhNumeroObservacionTest {
     @BeforeEach
     void setUp() {
         valeRepository = mock(ValeRepository.class);
-        imageService = mock(ImageService.class);   // getLogoReporte() -> null: sin logo, como un host sin logo.png
+        imageService = mock(ImageService.class);   // getMarcaAguaReporte() -> null: como un host sin logo.png
         penalizacionRepository = mock(PenalizacionRepository.class);
         aguinaldoRepository = mock(AguinaldoRepository.class);
         prestamoRepository = mock(PrestamoRepository.class);
@@ -208,12 +208,13 @@ class RecibosRrhhNumeroObservacionTest {
     }
 
     /**
-     * Los cuatro documentos A4 llevan el logo que da ImageService; los tickets no. Los tests de plantilla
+     * Los cuatro documentos A4 llevan la marca de agua que da ImageService (el sueldo, una por via);
+     * los tickets no. Los tests de plantilla
      * no ven un service que se olvida el put: esto se mira en el PDF que devuelve cada camino.
      */
     @Test
-    void losA4LlevanElLogoYLosTicketsNo() throws Exception {
-        when(imageService.getLogoReporte()).thenReturn(new BufferedImage(400, 242, BufferedImage.TYPE_INT_RGB));
+    void losA4LlevanMarcaDeAguaYLosTicketsNo() throws Exception {
+        when(imageService.getMarcaAguaReporte()).thenReturn(new BufferedImage(400, 242, BufferedImage.TYPE_INT_RGB));
 
         Vale v = new Vale();
         v.setId(12L);
@@ -240,13 +241,14 @@ class RecibosRrhhNumeroObservacionTest {
         liq.setPeriodo("2026-09");
         when(liquidacionSueldoService.findById(486L)).thenReturn(Optional.of(liq));
         when(liquidacionSueldoService.findItems(486L)).thenReturn(Collections.emptyList());
-        assertEquals(1, imagenesPdf(reciboLiquidacion.generarBase64(486L, null, false)), "sueldo A4");
+        assertEquals(2, imagenesPdf(reciboLiquidacion.generarBase64(486L, null, false)),
+                "sueldo A4: una marca por via");
         assertEquals(0, imagenesPdf(reciboLiquidacion.generarBase64(486L, 80, false)), "sueldo ticket 80");
     }
 
     @Test
     void sinLogoEnElHostLosA4SalenIgual() throws Exception {
-        // setUp deja getLogoReporte() en null: un host sin logo.png.
+        // setUp deja getMarcaAguaReporte() en null: un host sin logo.png.
         Vale v = new Vale();
         v.setId(12L);
         v.setMonto(new BigDecimal("100000"));

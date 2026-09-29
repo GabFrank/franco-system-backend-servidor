@@ -225,7 +225,7 @@ public class ReporteRrhhService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
-        params.put("logo", imageService.getLogoReporte());
+        params.put("marcaAgua", imageService.getMarcaAguaReporte());
         params.put("trabajador", nombreFuncionario(f));
         params.put("documento", documento);
         params.put("motivo", lf.getMotivoEgreso() != null ? lf.getMotivoEgreso().name() : "");
@@ -391,7 +391,7 @@ public class ReporteRrhhService {
 
         java.util.Map<String, Object> params = new java.util.HashMap<>();
         params.put("empresa", razonSocialEmpresa());
-        params.put("logo", imageService.getLogoReporte());
+        params.put("marcaAgua", imageService.getMarcaAguaReporte());
         params.put("ruc", rucEmpresa());
         params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
         params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
@@ -508,7 +508,7 @@ public class ReporteRrhhService {
         }
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
-        if (anchoMm == null) params.put("logo", imageService.getLogoReporte());   // solo el A4 lleva logo
+        if (anchoMm == null) params.put("marcaAgua", imageService.getMarcaAguaReporte());   // solo el A4 lleva marca de agua
         params.put("titulo", tituloNumerado);
         params.put("observacion", obs);
         params.put("funcionario", nombreFuncionario(f));

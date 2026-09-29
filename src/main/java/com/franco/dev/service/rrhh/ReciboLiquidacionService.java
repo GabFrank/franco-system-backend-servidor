@@ -117,7 +117,7 @@ public class ReciboLiquidacionService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocial());
-        params.put("logo", imageService.getLogoReporte());
+        params.put("marcaAgua", imageService.getMarcaAguaReporte());
         params.put("ruc", ruc());
         params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
         params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));

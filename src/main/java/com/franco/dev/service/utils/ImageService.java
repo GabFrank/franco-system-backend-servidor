@@ -331,6 +331,54 @@ public class ImageService {
         return logoReporte;
     }
 
+    /**
+     * Intensidad de la marca de agua: cuanto del color del logo queda sobre el blanco. Al 12 % se ve
+     * como un gris/rosado tenue que no tapa montos ni firmas y casi no gasta tinta.
+     */
+    static final double TINTA_MARCA_AGUA = 0.12;
+
+    private BufferedImage marcaAguaDe;
+    private BufferedImage marcaAgua;
+
+    /**
+     * El logo de {@link #getLogoReporte()} aclarado para imprimirlo de fondo en los recibos. Se aclara
+     * acá, mezclado con blanco, y no con transparencia en la plantilla: así no depende de que la
+     * impresora o el visor manejen el canal alfa.
+     *
+     * @return la imagen, o {@code null} si no hay logo usable
+     */
+    public synchronized BufferedImage getMarcaAguaReporte() {
+        BufferedImage logo = getLogoReporte();
+        if (logo == null) {
+            return null;
+        }
+        if (logo != marcaAguaDe) {
+            marcaAgua = aclarar(logo, TINTA_MARCA_AGUA);
+            marcaAguaDe = logo;
+        }
+        return marcaAgua;
+    }
+
+    /** Copia opaca de la imagen con cada canal llevado hacia el blanco: queda {@code tinta} del color. */
+    static BufferedImage aclarar(BufferedImage src, double tinta) {
+        BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = out.createGraphics();
+        g.setColor(java.awt.Color.WHITE);
+        g.fillRect(0, 0, src.getWidth(), src.getHeight());   // lo transparente del logo queda blanco
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        for (int y = 0; y < out.getHeight(); y++) {
+            for (int x = 0; x < out.getWidth(); x++) {
+                int rgb = out.getRGB(x, y);
+                int r = 255 - (int) Math.round((255 - ((rgb >> 16) & 0xff)) * tinta);
+                int gr = 255 - (int) Math.round((255 - ((rgb >> 8) & 0xff)) * tinta);
+                int b = 255 - (int) Math.round((255 - (rgb & 0xff)) * tinta);
+                out.setRGB(x, y, (r << 16) | (gr << 8) | b);
+            }
+        }
+        return out;
+    }
+
     public BufferedImage dropAlphaChannel(BufferedImage src) {
         BufferedImage convertedImg = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
         convertedImg.getGraphics().drawImage(src, 0, 0, null);

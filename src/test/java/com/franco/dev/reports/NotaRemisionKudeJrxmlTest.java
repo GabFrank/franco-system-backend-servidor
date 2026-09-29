@@ -110,7 +110,7 @@ class NotaRemisionKudeJrxmlTest {
     @Test
     void conImageServiceImprimeElLogo() throws Exception {
         // Antes el service mandaba logo = "" fijo: la plantilla tenia el lugar y nunca salia.
-        int base = LogoRecibosRrhhJrxmlTest.imagenes(
+        int base = MarcaAguaRecibosRrhhJrxmlTest.imagenes(
                 new KudeNotaRemisionService().llenar(nota(), items(), timbrado(), documentoElectronico()));
         KudeNotaRemisionService service = new KudeNotaRemisionService();
         ImageService images = mock(ImageService.class);
@@ -119,7 +119,7 @@ class NotaRemisionKudeJrxmlTest {
 
         JasperPrint print = service.llenar(nota(), items(), timbrado(), documentoElectronico());
 
-        assertEquals(base + 1, LogoRecibosRrhhJrxmlTest.imagenes(print), "falta el logo");
+        assertEquals(base + 1, MarcaAguaRecibosRrhhJrxmlTest.imagenes(print), "falta el logo");
         assertTrue(net.sf.jasperreports.engine.JasperExportManager.exportReportToPdf(print).length > 0);
     }
 

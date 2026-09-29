@@ -103,10 +103,10 @@ class NotaCreditoKudeJrxmlTest {
         conLogo.setImageService(images);
 
         for (NotaCredito nota : Arrays.asList(nota(null, null), nota("USD", new BigDecimal("7300")))) {
-            int base = LogoRecibosRrhhJrxmlTest.imagenes(sinLogo.llenar(nota, items(), timbrado(),
+            int base = MarcaAguaRecibosRrhhJrxmlTest.imagenes(sinLogo.llenar(nota, items(), timbrado(),
                     documentoElectronico(), CDC_FACTURA));
             JasperPrint print = conLogo.llenar(nota, items(), timbrado(), documentoElectronico(), CDC_FACTURA);
-            assertEquals(base + 1, LogoRecibosRrhhJrxmlTest.imagenes(print), "falta el logo");
+            assertEquals(base + 1, MarcaAguaRecibosRrhhJrxmlTest.imagenes(print), "falta el logo");
             assertTrue(JasperExportManager.exportReportToPdf(print).length > 0);
         }
     }

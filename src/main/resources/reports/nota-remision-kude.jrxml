@@ -49,8 +49,8 @@
 			<rectangle>
 				<reportElement x="0" y="0" width="555" height="105" forecolor="#000000" uuid="cb4a485f-9439-4e06-9352-8f1bfe4b76ce"/>
 			</rectangle>
-			<image onErrorType="Blank">
-				<reportElement isPrintRepeatedValues="false" x="10" y="5" width="130" height="40" uuid="b2c3d4e5-f6a7-8901-2345-678901bcdef0">
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement isPrintRepeatedValues="false" x="10" y="5" width="130" height="60" uuid="b2c3d4e5-f6a7-8901-2345-678901bcdef0">
 					<printWhenExpression><![CDATA[$P{logo} != null]]></printWhenExpression>
 				</reportElement>
 				<imageExpression><![CDATA[$P{logo}]]></imageExpression>

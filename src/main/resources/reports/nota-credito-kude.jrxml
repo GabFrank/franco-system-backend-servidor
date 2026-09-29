@@ -56,34 +56,34 @@
             <rectangle>
                 <reportElement x="0" y="0" width="555" height="90" uuid="be350035-9873-4f2a-b815-d5e9c9a5b8dd"/>
             </rectangle>
-            <image hAlign="Center" onErrorType="Blank">
-                <reportElement x="10" y="8" width="60" height="36" uuid="f414fd31-9fcb-4a5f-9934-f5f9e5ce5ee3">
+            <image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+                <reportElement x="10" y="8" width="110" height="58" uuid="f414fd31-9fcb-4a5f-9934-f5f9e5ce5ee3">
                     <printWhenExpression><![CDATA[$P{logo} != null]]></printWhenExpression>
                 </reportElement>
                 <imageExpression><![CDATA[$P{logo}]]></imageExpression>
             </image>
             <textField>
-                <reportElement x="78" y="8" width="252" height="14" uuid="0676d918-7853-4f23-bcc1-d9e38c132305"/>
+                <reportElement x="126" y="8" width="209" height="14" uuid="0676d918-7853-4f23-bcc1-d9e38c132305"/>
                 <textElement><font fontName="SansSerif" size="10" isBold="true"/></textElement>
                 <textFieldExpression><![CDATA[$P{razonSocial}]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="78" y="24" width="252" height="11" uuid="ef8a53d7-8dc0-4379-8e5f-3415ab252ad2"/>
+                <reportElement x="126" y="24" width="209" height="11" uuid="ef8a53d7-8dc0-4379-8e5f-3415ab252ad2"/>
                 <textElement><font fontName="SansSerif" size="8"/></textElement>
                 <textFieldExpression><![CDATA["RUC: " + ($P{rucEmisor} == null ? "" : $P{rucEmisor})]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="78" y="36" width="252" height="11" uuid="39cedd88-aa3c-45b2-9ac7-689b8f7937d5"/>
+                <reportElement x="126" y="36" width="209" height="11" uuid="39cedd88-aa3c-45b2-9ac7-689b8f7937d5"/>
                 <textElement><font fontName="SansSerif" size="8"/></textElement>
                 <textFieldExpression><![CDATA["Timbrado: " + ($P{numeroTimbrado} == null ? "" : $P{numeroTimbrado})]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="78" y="48" width="252" height="11" uuid="bf0294fd-0f67-4bd1-b6ff-8f9979c11e29"/>
+                <reportElement x="126" y="48" width="209" height="11" uuid="bf0294fd-0f67-4bd1-b6ff-8f9979c11e29"/>
                 <textElement><font fontName="SansSerif" size="8"/></textElement>
                 <textFieldExpression><![CDATA["Inicio vigencia: " + ($P{fechaInicioVigencia} == null ? "" : $P{fechaInicioVigencia})]]></textFieldExpression>
             </textField>
             <textField>
-                <reportElement x="78" y="60" width="252" height="22" uuid="4df4f46f-d6c0-4432-b8f6-0a5860074f7a"/>
+                <reportElement x="126" y="60" width="209" height="22" uuid="4df4f46f-d6c0-4432-b8f6-0a5860074f7a"/>
                 <textElement><font fontName="SansSerif" size="8"/></textElement>
                 <textFieldExpression><![CDATA[$P{direccionEmisor} == null ? "" : $P{direccionEmisor}]]></textFieldExpression>
             </textField>

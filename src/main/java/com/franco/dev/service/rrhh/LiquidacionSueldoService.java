@@ -570,6 +570,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     public LiquidacionSueldo anular(Long id) {
         LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() == LiquidacionSueldoEstado.ANULADA) return liq;
+        // Pagada desde el hub de tesoreria: la plata salio por un evento de pago (caja, banco o cheque)
+        // y la caja que tiene linkeada es la del movimiento consolidado de ese evento. Revertirla aca
+        // dejaba el pago vivo (y anularlo despues revertia dos veces), y sin caja (banco/cheque) no
+        // revertia nada. Se anula junto con su pago, en AnulacionPagoRrhhService.
+        if (liq.getEstado() == LiquidacionSueldoEstado.PAGADA && liq.getSolicitudPagoId() != null) {
+            throw new GraphQLException("La liquidacion #" + liq.getId() + " se pago desde tesoreria:"
+                    + " hay que anularla junto con su pago");
+        }
         if (liq.getEstado() == LiquidacionSueldoEstado.PAGADA && liq.getCajaVirtualId() != null) {
             if (liq.getMovimientoCajaVirtualId() == null) {
                 throw new GraphQLException("La liquidacion #" + liq.getId() + " esta pagada contra una caja"
@@ -640,6 +648,25 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         aplicarEfectosCruzados(liq, pagado);
         liq.setEstado(destino);
         repository.save(liq);
+    }
+
+    /**
+     * Anula una liquidacion PAGADA desde tesoreria cuyo pago ya no esta vivo (todos sus detalles
+     * anulados sin que la liquidacion se sincronizara). No hay plata que devolver: solo se revierten
+     * los efectos cruzados. Sin esto quedaria trabada: {@link #anular} la rechaza y no hay pago que anular.
+     */
+    @Transactional
+    public LiquidacionSueldo anularSinPagoVivo(Long id) {
+        LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
+        if (liq.getEstado() != LiquidacionSueldoEstado.PAGADA || liq.getSolicitudPagoId() == null) {
+            throw new GraphQLException("La liquidacion #" + id + " no esta pagada desde tesoreria");
+        }
+        aplicarEfectosCruzados(liq, false);
+        liq.setCajaVirtualId(null);
+        liq.setMovimientoCajaVirtualId(null);
+        liq.setFechaPago(null);
+        liq.setEstado(LiquidacionSueldoEstado.ANULADA);
+        return repository.save(liq);
     }
 
     /** Aplica (pagar=true) o revierte (pagar=false) los efectos cruzados de los items. */

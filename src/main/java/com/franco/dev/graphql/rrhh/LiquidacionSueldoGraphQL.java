@@ -28,6 +28,9 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
     @Autowired
     private com.franco.dev.service.rrhh.RrhhSecurityService seg;
 
+    @Autowired
+    private com.franco.dev.service.financiero.AnulacionPagoRrhhService anulacionPagoRrhhService;
+
     public Optional<LiquidacionSueldo> liquidacionSueldo(Long id) {
         seg.requireVer();
         return service.findById(id);
@@ -98,7 +101,8 @@ public class LiquidacionSueldoGraphQL implements GraphQLQueryResolver, GraphQLMu
 
     public LiquidacionSueldo anularLiquidacion(Long id) {
         seg.requireAnyRole(seg.PAGAR);
-        return service.anular(id);
+        // Pagada desde tesoreria: se anula junto con su pago (pide ademas el rol de tesoreria).
+        return anulacionPagoRrhhService.anularLiquidacion(id);
     }
 
     public Integer generarLiquidacionesMes(String periodo, Long monedaId) {

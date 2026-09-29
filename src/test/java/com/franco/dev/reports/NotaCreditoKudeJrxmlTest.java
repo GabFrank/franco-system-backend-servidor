@@ -7,12 +7,15 @@ import com.franco.dev.domain.financiero.Timbrado;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.domain.financiero.enums.MotivoEmisionNotaCredito;
 import com.franco.dev.service.financiero.KudeNotaCreditoService;
+import com.franco.dev.service.utils.ImageService;
+import net.sf.jasperreports.engine.JasperExportManager;
 import net.sf.jasperreports.engine.JRPrintElement;
 import net.sf.jasperreports.engine.JRPrintPage;
 import net.sf.jasperreports.engine.JRPrintText;
 import net.sf.jasperreports.engine.JasperPrint;
 import org.junit.jupiter.api.Test;
 
+import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,6 +28,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * El .jrxml se compila en runtime: este test es el único gate. Se verifica el TEXTO renderizado, no
@@ -86,6 +91,49 @@ class NotaCreditoKudeJrxmlTest {
         assertTrue(texto.contains("https://ekuatia.set.gov.py/consultas/"), "falta la URL de consulta");
         assertTrue(texto.contains("CDC (Código de Control):"), "falta el rótulo del CDC");
         assertTrue(texto.contains("solicitar la cancelación dentro de las 48 horas"), "falta la leyenda completa");
+    }
+
+    @Test
+    void conImageServiceImprimeElLogoInclusoEnMonedaExtranjera() throws Exception {
+        // A diferencia del KuDE de factura, la NC lleva el logo siempre (decision 2026-09-29).
+        KudeNotaCreditoService sinLogo = new KudeNotaCreditoService();
+        KudeNotaCreditoService conLogo = new KudeNotaCreditoService();
+        ImageService images = mock(ImageService.class);
+        when(images.getLogoReporte()).thenReturn(new BufferedImage(400, 242, BufferedImage.TYPE_INT_RGB));
+        conLogo.setImageService(images);
+
+        for (NotaCredito nota : Arrays.asList(nota(null, null), nota("USD", new BigDecimal("7300")))) {
+            int base = MarcaAguaRecibosRrhhJrxmlTest.imagenes(sinLogo.llenar(nota, items(), timbrado(),
+                    documentoElectronico(), CDC_FACTURA));
+            JasperPrint print = conLogo.llenar(nota, items(), timbrado(), documentoElectronico(), CDC_FACTURA);
+            assertEquals(base + 1, MarcaAguaRecibosRrhhJrxmlTest.imagenes(print), "falta el logo");
+            assertTrue(JasperExportManager.exportReportToPdf(print).length > 0);
+        }
+    }
+
+    @Test
+    void sinImageServiceElLogoVaNullYNoRompe() {
+        var p = new KudeNotaCreditoService().parametros(nota(null, null), timbrado(), documentoElectronico(), CDC_FACTURA);
+
+        assertTrue(p.containsKey("logo"));
+        assertNull(p.get("logo"));
+    }
+
+    @Test
+    void elBloqueDelEmisorCorridoPorElLogoNoSeRecorta() throws Exception {
+        // Largos reales con margen: razon social mas larga 20, direccion 52, mas ciudad y departamento.
+        TimbradoDetalle detalle = timbrado();
+        detalle.getTimbrado().setRazonSocial("COMERCIAL FRANCO AREVALOS S.A.");
+        detalle.setDireccion("AVENIDA, GRAL BERNARDINO CABALLERO COLONIA CANINDEYU");
+        detalle.setCiudad("SALTO DEL GUAIRA");
+        detalle.setDepartamento("CANINDEYU");
+
+        String texto = textoDe(new KudeNotaCreditoService().llenar(nota(null, null), items(), detalle,
+                documentoElectronico(), CDC_FACTURA));
+
+        assertTrue(texto.contains("COMERCIAL FRANCO AREVALOS S.A."), "recorta la razon social: " + texto);
+        assertTrue(texto.contains("AVENIDA, GRAL BERNARDINO CABALLERO COLONIA CANINDEYU, SALTO DEL GUAIRA, CANINDEYU"),
+                "recorta la direccion del emisor: " + texto);
     }
 
     @Test

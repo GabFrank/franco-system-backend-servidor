@@ -282,6 +282,103 @@ public class ImageService {
         return false;
     }
 
+    /** Ancho del logo que se embebe en los PDF: a 70 pt de ancho impreso da unos 290 dpi. */
+    static final int ANCHO_LOGO_REPORTE = 400;
+
+    private File logoReporteArchivo;
+    private long logoReporteModificado;
+    private BufferedImage logoReporte;
+
+    /**
+     * Logo de la empresa para los reportes Jasper, escalado a {@link #ANCHO_LOGO_REPORTE} px.
+     *
+     * <p>El {@code logo.png} original pesa cientos de KB: pasado como ruta, Jasper lo embebe entero en
+     * cada PDF. Escalado, el recibo lleva decenas de KB y en papel se ve igual. Se cachea por
+     * {@code lastModified}: no se decodifica el original en cada recibo y un logo nuevo en el disco se
+     * toma sin reiniciar.</p>
+     *
+     * @return la imagen, o {@code null} si no hay logo usable (el reporte sale sin logo, no falla)
+     */
+    public BufferedImage getLogoReporte() {
+        return cargarLogoReporte(new File(getImagePath() + "logo.png"));
+    }
+
+    synchronized BufferedImage cargarLogoReporte(File archivo) {
+        if (!archivo.isFile() || archivo.length() == 0) {
+            log.warn("No hay logo para los reportes en {}: salen sin logo", archivo.getAbsolutePath());
+            return null;
+        }
+        long modificado = archivo.lastModified();
+        if (logoReporte != null && archivo.equals(logoReporteArchivo) && modificado == logoReporteModificado) {
+            return logoReporte;
+        }
+        BufferedImage original;
+        try {
+            original = ImageIO.read(archivo);
+        } catch (IOException | RuntimeException e) {
+            original = null;
+        }
+        if (original == null) {
+            log.warn("El logo de los reportes en {} no se puede leer como imagen: salen sin logo",
+                    archivo.getAbsolutePath());
+            return null;
+        }
+        logoReporte = original.getWidth() > ANCHO_LOGO_REPORTE
+                ? Scalr.resize(original, Scalr.Method.QUALITY, Scalr.Mode.FIT_TO_WIDTH, ANCHO_LOGO_REPORTE)
+                : original;
+        logoReporteArchivo = archivo;
+        logoReporteModificado = modificado;
+        return logoReporte;
+    }
+
+    /**
+     * Intensidad de la marca de agua: cuanto del color del logo queda sobre el blanco. Al 12 % se ve
+     * como un gris/rosado tenue que no tapa montos ni firmas y casi no gasta tinta.
+     */
+    static final double TINTA_MARCA_AGUA = 0.12;
+
+    private BufferedImage marcaAguaDe;
+    private BufferedImage marcaAgua;
+
+    /**
+     * El logo de {@link #getLogoReporte()} aclarado para imprimirlo de fondo en los recibos. Se aclara
+     * acá, mezclado con blanco, y no con transparencia en la plantilla: así no depende de que la
+     * impresora o el visor manejen el canal alfa.
+     *
+     * @return la imagen, o {@code null} si no hay logo usable
+     */
+    public synchronized BufferedImage getMarcaAguaReporte() {
+        BufferedImage logo = getLogoReporte();
+        if (logo == null) {
+            return null;
+        }
+        if (logo != marcaAguaDe) {
+            marcaAgua = aclarar(logo, TINTA_MARCA_AGUA);
+            marcaAguaDe = logo;
+        }
+        return marcaAgua;
+    }
+
+    /** Copia opaca de la imagen con cada canal llevado hacia el blanco: queda {@code tinta} del color. */
+    static BufferedImage aclarar(BufferedImage src, double tinta) {
+        BufferedImage out = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
+        java.awt.Graphics2D g = out.createGraphics();
+        g.setColor(java.awt.Color.WHITE);
+        g.fillRect(0, 0, src.getWidth(), src.getHeight());   // lo transparente del logo queda blanco
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        for (int y = 0; y < out.getHeight(); y++) {
+            for (int x = 0; x < out.getWidth(); x++) {
+                int rgb = out.getRGB(x, y);
+                int r = 255 - (int) Math.round((255 - ((rgb >> 16) & 0xff)) * tinta);
+                int gr = 255 - (int) Math.round((255 - ((rgb >> 8) & 0xff)) * tinta);
+                int b = 255 - (int) Math.round((255 - (rgb & 0xff)) * tinta);
+                out.setRGB(x, y, (r << 16) | (gr << 8) | b);
+            }
+        }
+        return out;
+    }
+
     public BufferedImage dropAlphaChannel(BufferedImage src) {
         BufferedImage convertedImg = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
         convertedImg.getGraphics().drawImage(src, 0, 0, null);

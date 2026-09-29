@@ -48,6 +48,7 @@ public class ReporteRrhhService {
     private final com.franco.dev.service.general.CiudadService ciudadService;
     private final com.franco.dev.repository.rrhh.LiquidacionItemRepository liquidacionItemRepository;
     private final com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository liquidacionFinalItemRepository;
+    private final com.franco.dev.service.utils.ImageService imageService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales
 
@@ -63,7 +64,8 @@ public class ReporteRrhhService {
                               com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService,
                               com.franco.dev.service.general.CiudadService ciudadService,
                               com.franco.dev.repository.rrhh.LiquidacionItemRepository liquidacionItemRepository,
-                              com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository liquidacionFinalItemRepository) {
+                              com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository liquidacionFinalItemRepository,
+                              com.franco.dev.service.utils.ImageService imageService) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
@@ -77,6 +79,7 @@ public class ReporteRrhhService {
         this.ciudadService = ciudadService;
         this.liquidacionItemRepository = liquidacionItemRepository;
         this.liquidacionFinalItemRepository = liquidacionFinalItemRepository;
+        this.imageService = imageService;
     }
 
     /**
@@ -228,6 +231,7 @@ public class ReporteRrhhService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
+        params.put("marcaAgua", imageService.getMarcaAguaReporte());
         params.put("trabajador", nombreFuncionario(f));
         params.put("documento", documento);
         params.put("motivo", lf.getMotivoEgreso() != null ? lf.getMotivoEgreso().name() : "");
@@ -393,6 +397,7 @@ public class ReporteRrhhService {
 
         java.util.Map<String, Object> params = new java.util.HashMap<>();
         params.put("empresa", razonSocialEmpresa());
+        params.put("marcaAgua", imageService.getMarcaAguaReporte());
         params.put("ruc", rucEmpresa());
         params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
         params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
@@ -574,6 +579,7 @@ public class ReporteRrhhService {
         }
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
+        if (anchoMm == null) params.put("marcaAgua", imageService.getMarcaAguaReporte());   // solo el A4 lleva marca de agua
         params.put("titulo", tituloNumerado);
         params.put("observacion", obs);
         params.put("funcionario", nombreFuncionario(f));

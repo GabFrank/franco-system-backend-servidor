@@ -18,6 +18,7 @@ import com.franco.dev.utilitarios.print.ReciboTicketEscPosTest;
 import com.itextpdf.text.pdf.PdfReader;
 import com.itextpdf.text.pdf.parser.PdfTextExtractor;
 import graphql.GraphQLException;
+import com.franco.dev.service.utils.ImageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,7 +55,8 @@ class ReciboItemLiquidacionTest {
         reportes = new ReporteRrhhService(mock(LiquidacionSueldoRepository.class), configRrhh,
                 mock(LiquidacionFinalService.class), mock(ValeRepository.class), mock(PrestamoRepository.class),
                 mock(AguinaldoRepository.class), mock(PenalizacionRepository.class), mock(BonoRepository.class),
-                letras, configGeneral, mock(CiudadService.class), itemRepository, finalItemRepository);
+                letras, configGeneral, mock(CiudadService.class), itemRepository, finalItemRepository,
+                mock(ImageService.class));
     }
 
     @Test

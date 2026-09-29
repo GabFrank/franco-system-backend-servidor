@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="recibo-rrhh" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="c2d3e4f5-a6b7-4c8d-9e01-2b3c4d5e6f02">
 	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="marcaAgua" class="java.awt.Image"/>
 	<parameter name="titulo" class="java.lang.String"/>
 	<parameter name="funcionario" class="java.lang.String"/>
 	<parameter name="documento" class="java.lang.String"/>
@@ -11,6 +12,17 @@
 	<parameter name="observacion" class="java.lang.String"/>
 	<field name="concepto" class="java.lang.String"/>
 	<field name="monto" class="java.lang.String"/>
+	<background>
+		<band height="180" splitType="Stretch">
+			<!-- Marca de agua: va de fondo y dentro de la via (no centrada en la hoja), para que quede entera al cortar. -->
+			<image hAlign="Center" vAlign="Middle" onErrorType="Blank">
+				<reportElement x="177" y="60" width="200" height="120" uuid="d8cfc1f2-faeb-49c3-82f2-61a709bc2578">
+					<printWhenExpression><![CDATA[$P{marcaAgua} != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{marcaAgua}]]></imageExpression>
+			</image>
+		</band>
+	</background>
 	<title>
 		<band height="108" splitType="Stretch">
 			<textField>

@@ -46,6 +46,7 @@ public class ReporteRrhhService {
     private final com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService;
     private final com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService;
     private final com.franco.dev.service.general.CiudadService ciudadService;
+    private final com.franco.dev.service.utils.ImageService imageService;
     private final DecimalFormat formato = new DecimalFormat("#,##0.##");
     private final DecimalFormat formatoGs = new DecimalFormat("#,##0");   // guaraníes sin decimales
 
@@ -59,7 +60,8 @@ public class ReporteRrhhService {
                               com.franco.dev.repository.rrhh.BonoRepository bonoRepository,
                               com.franco.dev.utilitarios.NumeroALetrasService numeroALetrasService,
                               com.franco.dev.service.empresarial.ConfiguracionGeneralService configuracionGeneralService,
-                              com.franco.dev.service.general.CiudadService ciudadService) {
+                              com.franco.dev.service.general.CiudadService ciudadService,
+                              com.franco.dev.service.utils.ImageService imageService) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
@@ -71,6 +73,7 @@ public class ReporteRrhhService {
         this.numeroALetrasService = numeroALetrasService;
         this.configuracionGeneralService = configuracionGeneralService;
         this.ciudadService = ciudadService;
+        this.imageService = imageService;
     }
 
     /**
@@ -222,6 +225,7 @@ public class ReporteRrhhService {
 
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
+        params.put("logo", imageService.getLogoReporte());
         params.put("trabajador", nombreFuncionario(f));
         params.put("documento", documento);
         params.put("motivo", lf.getMotivoEgreso() != null ? lf.getMotivoEgreso().name() : "");
@@ -387,6 +391,7 @@ public class ReporteRrhhService {
 
         java.util.Map<String, Object> params = new java.util.HashMap<>();
         params.put("empresa", razonSocialEmpresa());
+        params.put("logo", imageService.getLogoReporte());
         params.put("ruc", rucEmpresa());
         params.put("direccionEmpresa", configuracionRrhhService.getString("EMPRESA_DIRECCION", ""));
         params.put("telefonoEmpresa", configuracionRrhhService.getString("EMPRESA_TELEFONO", ""));
@@ -503,6 +508,7 @@ public class ReporteRrhhService {
         }
         Map<String, Object> params = new HashMap<>();
         params.put("empresa", razonSocialEmpresa());
+        if (anchoMm == null) params.put("logo", imageService.getLogoReporte());   // solo el A4 lleva logo
         params.put("titulo", tituloNumerado);
         params.put("observacion", obs);
         params.put("funcionario", nombreFuncionario(f));

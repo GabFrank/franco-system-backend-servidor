@@ -11,12 +11,14 @@ import com.franco.dev.domain.financiero.enums.OrigenNotaRemision;
 import com.franco.dev.domain.financiero.enums.ResponsableEmisionNr;
 import com.franco.dev.domain.financiero.enums.TipoTransporteNr;
 import com.franco.dev.service.financiero.KudeNotaRemisionService;
+import com.franco.dev.service.utils.ImageService;
 import net.sf.jasperreports.engine.JasperPrint;
 import net.sf.jasperreports.engine.JRPrintElement;
 import net.sf.jasperreports.engine.JRPrintPage;
 import net.sf.jasperreports.engine.JRPrintText;
 import org.junit.jupiter.api.Test;
 
+import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -30,6 +32,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * El .jrxml se compila en runtime: un error de plantilla no lo ve el build ni el CI, revienta al
@@ -101,6 +105,22 @@ class NotaRemisionKudeJrxmlTest {
             assertTrue(texto.contains(columna), "falta la cabecera de columna " + columna);
         }
         assertTrue(texto.contains("01800123456001001000004212026091712345678901"), "falta el CDC");
+    }
+
+    @Test
+    void conImageServiceImprimeElLogo() throws Exception {
+        // Antes el service mandaba logo = "" fijo: la plantilla tenia el lugar y nunca salia.
+        int base = LogoRecibosRrhhJrxmlTest.imagenes(
+                new KudeNotaRemisionService().llenar(nota(), items(), timbrado(), documentoElectronico()));
+        KudeNotaRemisionService service = new KudeNotaRemisionService();
+        ImageService images = mock(ImageService.class);
+        when(images.getLogoReporte()).thenReturn(new BufferedImage(400, 242, BufferedImage.TYPE_INT_RGB));
+        service.setImageService(images);
+
+        JasperPrint print = service.llenar(nota(), items(), timbrado(), documentoElectronico());
+
+        assertEquals(base + 1, LogoRecibosRrhhJrxmlTest.imagenes(print), "falta el logo");
+        assertTrue(net.sf.jasperreports.engine.JasperExportManager.exportReportToPdf(print).length > 0);
     }
 
     private static String textoDe(JasperPrint impreso) {

@@ -282,6 +282,55 @@ public class ImageService {
         return false;
     }
 
+    /** Ancho del logo que se embebe en los PDF: a 70 pt de ancho impreso da unos 290 dpi. */
+    static final int ANCHO_LOGO_REPORTE = 400;
+
+    private File logoReporteArchivo;
+    private long logoReporteModificado;
+    private BufferedImage logoReporte;
+
+    /**
+     * Logo de la empresa para los reportes Jasper, escalado a {@link #ANCHO_LOGO_REPORTE} px.
+     *
+     * <p>El {@code logo.png} original pesa cientos de KB: pasado como ruta, Jasper lo embebe entero en
+     * cada PDF. Escalado, el recibo lleva decenas de KB y en papel se ve igual. Se cachea por
+     * {@code lastModified}: no se decodifica el original en cada recibo y un logo nuevo en el disco se
+     * toma sin reiniciar.</p>
+     *
+     * @return la imagen, o {@code null} si no hay logo usable (el reporte sale sin logo, no falla)
+     */
+    public BufferedImage getLogoReporte() {
+        return cargarLogoReporte(new File(getImagePath() + "logo.png"));
+    }
+
+    synchronized BufferedImage cargarLogoReporte(File archivo) {
+        if (!archivo.isFile() || archivo.length() == 0) {
+            log.warn("No hay logo para los reportes en {}: salen sin logo", archivo.getAbsolutePath());
+            return null;
+        }
+        long modificado = archivo.lastModified();
+        if (logoReporte != null && archivo.equals(logoReporteArchivo) && modificado == logoReporteModificado) {
+            return logoReporte;
+        }
+        BufferedImage original;
+        try {
+            original = ImageIO.read(archivo);
+        } catch (IOException | RuntimeException e) {
+            original = null;
+        }
+        if (original == null) {
+            log.warn("El logo de los reportes en {} no se puede leer como imagen: salen sin logo",
+                    archivo.getAbsolutePath());
+            return null;
+        }
+        logoReporte = original.getWidth() > ANCHO_LOGO_REPORTE
+                ? Scalr.resize(original, Scalr.Method.QUALITY, Scalr.Mode.FIT_TO_WIDTH, ANCHO_LOGO_REPORTE)
+                : original;
+        logoReporteArchivo = archivo;
+        logoReporteModificado = modificado;
+        return logoReporte;
+    }
+
     public BufferedImage dropAlphaChannel(BufferedImage src) {
         BufferedImage convertedImg = new BufferedImage(src.getWidth(), src.getHeight(), BufferedImage.TYPE_INT_RGB);
         convertedImg.getGraphics().drawImage(src, 0, 0, null);

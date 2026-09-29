@@ -5,11 +5,13 @@ import com.franco.dev.domain.financiero.NotaCredito;
 import com.franco.dev.domain.financiero.NotaCreditoItem;
 import com.franco.dev.domain.financiero.TimbradoDetalle;
 import com.franco.dev.service.sifen.util.SifenTimbradoHelper;
+import com.franco.dev.service.utils.ImageService;
 import com.franco.dev.utilitarios.DateUtils;
 import com.franco.dev.utilitarios.print.QRCodeImageGenerator;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jasperreports.engine.*;
 import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +40,14 @@ public class KudeNotaCreditoService {
 
     public static final String PLANTILLA = "reports/nota-credito-kude.jrxml";
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Por setter y no por constructor: los tests arman el service con {@code new} y sin logo. */
+    private ImageService imageService;
+
+    @Autowired
+    public void setImageService(ImageService imageService) {
+        this.imageService = imageService;
+    }
 
     public String generarPdfBase64(NotaCredito nota, List<NotaCreditoItem> items,
                                    TimbradoDetalle timbradoDetalle, DocumentoElectronico de,
@@ -80,7 +90,7 @@ public class KudeNotaCreditoService {
     public Map<String, Object> parametros(NotaCredito nota, TimbradoDetalle timbradoDetalle,
                                           DocumentoElectronico de, String cdcFactura) {
         Map<String, Object> p = new HashMap<>();
-        p.put("logo", "");
+        p.put("logo", imageService != null ? imageService.getLogoReporte() : null);
         p.put("qrImagePath", "");
 
         if (timbradoDetalle != null && timbradoDetalle.getTimbrado() != null) {

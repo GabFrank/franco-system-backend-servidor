@@ -5,6 +5,7 @@
               name="acta-advertencia" pageWidth="595" pageHeight="842" columnWidth="555"
               leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="77a73d4e-71ec-4c13-8498-0c75089bf316">
 	<parameter name="empresa" class="java.lang.String"/>
+	<parameter name="logo" class="java.awt.Image"/>
 	<parameter name="ruc" class="java.lang.String"/>
 	<parameter name="direccionEmpresa" class="java.lang.String"/>
 	<parameter name="telefonoEmpresa" class="java.lang.String"/>
@@ -20,14 +21,20 @@
 		<band splitType="Stretch"/>
 	</background>
 	<title>
-		<band height="130" splitType="Stretch">
+		<band height="138" splitType="Stretch">
+			<image hAlign="Center" onErrorType="Blank">
+				<reportElement x="0" y="0" width="70" height="42" uuid="6bb5f355-5e57-4e97-8c59-619090b46f11">
+					<printWhenExpression><![CDATA[$P{logo} != null]]></printWhenExpression>
+				</reportElement>
+				<imageExpression><![CDATA[$P{logo}]]></imageExpression>
+			</image>
 			<textField>
-				<reportElement x="0" y="0" width="555" height="16" uuid="389c417d-5cee-4980-8f3b-633bec0cc6d3"/>
+				<reportElement x="80" y="0" width="395" height="16" uuid="389c417d-5cee-4980-8f3b-633bec0cc6d3"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="11" isBold="true"/></textElement>
 				<textFieldExpression><![CDATA[$P{empresa} != null ? $P{empresa} : ""]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="0" y="16" width="555" height="12" uuid="b6046fd7-2a22-4096-87e9-53189d63caa4"/>
+				<reportElement x="80" y="16" width="395" height="24" uuid="b6046fd7-2a22-4096-87e9-53189d63caa4"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="8"/></textElement>
 				<textFieldExpression><![CDATA[
 ($P{ruc} != null && $P{ruc}.length() > 0 ? "RUC: " + $P{ruc} : "")
@@ -36,36 +43,36 @@
 ]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="0" y="38" width="555" height="18" uuid="dd27b779-8c93-42c8-9ee4-faaf0ac585f7"/>
+				<reportElement x="0" y="46" width="555" height="18" uuid="dd27b779-8c93-42c8-9ee4-faaf0ac585f7"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle"><font fontName="SansSerif" size="12" isBold="true"/></textElement>
 				<textFieldExpression><![CDATA["ACTA DE AMONESTACION" + ($P{numeroAdvertencia} != null && $P{numeroAdvertencia}.length() > 0 ? " N " + $P{numeroAdvertencia} : "")]]></textFieldExpression>
 			</textField>
 			<rectangle>
-				<reportElement x="0" y="62" width="555" height="60" uuid="07433670-de97-425b-b4ca-8fd6d092122a"/>
+				<reportElement x="0" y="70" width="555" height="60" uuid="07433670-de97-425b-b4ca-8fd6d092122a"/>
 				<graphicElement><pen lineWidth="0.5"/></graphicElement>
 			</rectangle>
 			<textField>
-				<reportElement x="6" y="66" width="340" height="16" uuid="50c3d6f7-3505-4f2a-9c54-bc0a8f0dd120"/>
+				<reportElement x="6" y="74" width="340" height="16" uuid="50c3d6f7-3505-4f2a-9c54-bc0a8f0dd120"/>
 				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9" isBold="true"/></textElement>
 				<textFieldExpression><![CDATA["Funcionario: " + ($P{funcionario} != null ? $P{funcionario} : "") + ($P{cargo} != null ? "  (" + $P{cargo} + ")" : "")]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="6" y="84" width="340" height="16" uuid="66f89e94-2b4b-4204-b684-ffc4d017a5fc"/>
+				<reportElement x="6" y="92" width="340" height="16" uuid="66f89e94-2b4b-4204-b684-ffc4d017a5fc"/>
 				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
 				<textFieldExpression><![CDATA["Documento: " + ($P{documento} != null ? $P{documento} : "")]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="6" y="102" width="340" height="16" uuid="728060aa-0b4a-45df-b30a-88b4d2d166d9"/>
+				<reportElement x="6" y="110" width="340" height="16" uuid="728060aa-0b4a-45df-b30a-88b4d2d166d9"/>
 				<textElement verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
 				<textFieldExpression><![CDATA["Fecha del hecho: " + ($P{fechaHecho} != null ? $P{fechaHecho} : "")]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="350" y="66" width="199" height="16" uuid="31d1e5bb-2b6c-49c0-a980-c1b2fa753f8e"/>
+				<reportElement x="350" y="74" width="199" height="16" uuid="31d1e5bb-2b6c-49c0-a980-c1b2fa753f8e"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
 				<textFieldExpression><![CDATA["Lugar: " + ($P{ciudad} != null ? $P{ciudad} : "")]]></textFieldExpression>
 			</textField>
 			<textField>
-				<reportElement x="350" y="84" width="199" height="16" uuid="887fa99e-4ece-432a-9e6b-67c86ebaa7c4"/>
+				<reportElement x="350" y="92" width="199" height="16" uuid="887fa99e-4ece-432a-9e6b-67c86ebaa7c4"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"><font fontName="SansSerif" size="9"/></textElement>
 				<textFieldExpression><![CDATA["Fecha: " + ($P{fecha} != null ? $P{fecha} : "")]]></textFieldExpression>
 			</textField>

@@ -739,11 +739,32 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         repository.save(lf);
     }
 
+    /**
+     * Anula un finiquito PAGADO desde tesoreria cuyo pago ya no esta vivo: solo revierte los efectos
+     * cruzados (no hay plata que devolver). El funcionario no se reactiva, igual que en {@link #anular}.
+     */
+    @Transactional
+    public LiquidacionFinal anularSinPagoVivo(Long id) {
+        LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
+        if (lf.getEstado() != LiquidacionFinalEstado.PAGADA || lf.getSolicitudPagoId() == null) {
+            throw new GraphQLException("El finiquito #" + id + " no esta pagado desde tesoreria");
+        }
+        aplicarEfectosCruzados(lf, false);
+        lf.setEstado(LiquidacionFinalEstado.ANULADA);
+        return repository.save(lf);
+    }
+
     /** Anula un finiquito PAGADO: contra-asiento AJUSTE en la caja. */
     @Transactional
     public LiquidacionFinal anular(Long id) {
         LiquidacionFinal lf = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion final no encontrada"));
         if (lf.getEstado() == LiquidacionFinalEstado.ANULADA) return lf;
+        // Pagado desde el hub de tesoreria: se anula junto con su pago (AnulacionPagoRrhhService).
+        // Mismo motivo que en LiquidacionSueldoService.anular.
+        if (lf.getEstado() == LiquidacionFinalEstado.PAGADA && lf.getSolicitudPagoId() != null) {
+            throw new GraphQLException("El finiquito #" + lf.getId() + " se pago desde tesoreria:"
+                    + " hay que anularlo junto con su pago");
+        }
         if (lf.getEstado() == LiquidacionFinalEstado.PAGADA && lf.getCajaVirtualId() != null) {
             if (lf.getMovimientoCajaVirtualId() == null) {
                 throw new GraphQLException("El finiquito #" + lf.getId() + " esta pagado contra una caja"

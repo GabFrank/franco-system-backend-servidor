@@ -10,6 +10,7 @@ import com.franco.dev.domain.personas.Cliente;
 import com.franco.dev.domain.personas.Funcionario;
 import com.franco.dev.domain.rrhh.LiquidacionFinal;
 import com.franco.dev.domain.rrhh.LiquidacionFinalItem;
+import com.franco.dev.domain.rrhh.LiquidacionItemProgramado;
 import com.franco.dev.domain.rrhh.LiquidacionSueldo;
 import com.franco.dev.domain.rrhh.Penalizacion;
 import com.franco.dev.domain.rrhh.Prestamo;
@@ -83,6 +84,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
     private final BaseRemunerativaService baseRemunerativaService;
     private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
     private final ValeCuotaDescuentoService valeCuotaDescuentoService;
+    private final ItemProgramadoAplicacionService itemProgramadoAplicacionService;
 
     @Override
     public LiquidacionFinalRepository getRepository() {
@@ -401,6 +403,22 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
             }
         }
 
+        // Items programados pendientes, de cualquier periodo (se va y no hay liquidaciones futuras), salvo
+        // los que ya estan en una liquidacion mensual viva. Antes del convenio: el tope tiene que verlos.
+        for (LiquidacionItemProgramado p : itemProgramadoAplicacionService.paraFiniquito(fid, lf.getId())) {
+            LiquidacionFinalItem it = new LiquidacionFinalItem();
+            it.setLiquidacionFinal(lf);
+            it.setConcepto(LiquidacionFinalConcepto.MANUAL);
+            it.setDescripcion(p.getDescripcion() + " (PROGRAMADO " + p.getPeriodo() + ")");
+            it.setMonto(p.getMonto());
+            it.setTipo(p.getTipo());
+            it.setManual(false);
+            it.setEditado(false);
+            it.setReferenciaId(p.getId());
+            it.setReferenciaTipo(LiquidacionItemProgramado.REFERENCIA_TIPO);
+            itemRepository.save(it);
+        }
+
         // Crédito por convenio (compras a crédito) — cuotas impagas del funcionario,
         // cobradas por cuota (arregla el sobre-cobro de usar saldoTotal, que nunca baja)
         // AL FINAL y con tope por disponible (no deja el neto en negativo). El empleado
@@ -480,11 +498,19 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         return it;
     }
 
+    /** Igual que en la mensual: el ítem de un programado se anula desde Items programados, no se toca acá. */
+    private static void exigirNoProgramado(LiquidacionFinalItem it) {
+        if (LiquidacionItemProgramado.REFERENCIA_TIPO.equals(it.getReferenciaTipo())) {
+            throw new GraphQLException("Este item viene de un item programado: anulalo desde Items programados");
+        }
+    }
+
     @Transactional
     public LiquidacionFinalItem editarItem(Long itemId, String descripcion, BigDecimal monto, LiquidacionItemTipo tipo, Long usuarioId) {
         LiquidacionFinalItem it = itemRepository.findById(itemId)
                 .orElseThrow(() -> new GraphQLException("Item no encontrado"));
         LiquidacionFinal lf = borradorDelItem(it);
+        exigirNoProgramado(it);
         // Guardar el monto original en la primera edición (delta negociado).
         if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
         if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
@@ -503,6 +529,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         LiquidacionFinalItem it = itemRepository.findById(itemId).orElse(null);
         if (it == null) return false;
         LiquidacionFinal lf = borradorDelItem(it);
+        exigirNoProgramado(it);
         itemRepository.deleteById(itemId);
         recalcularTotal(lf);
         return true;
@@ -612,6 +639,7 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
         // se cobraria dos veces (issue #300). Toma las cuotas con lock antes que el saldo de caja.
         prestamoCuotaDescuentoService.validarFiniquito(lf.getId());
         valeCuotaDescuentoService.validarFiniquito(lf.getId());
+        itemProgramadoAplicacionService.validarFiniquito(lf.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -675,6 +703,10 @@ public class LiquidacionFinalService extends CrudService<LiquidacionFinal, Liqui
                 case ValeService.REFERENCIA_CUOTA:
                     if (pagar) valeCuotaDescuentoService.aplicarFiniquito(refId, it.getMonto(), lf.getId());
                     else valeCuotaDescuentoService.revertirFiniquito(refId, lf.getId());
+                    break;
+                case LiquidacionItemProgramado.REFERENCIA_TIPO:
+                    if (pagar) itemProgramadoAplicacionService.aplicarFiniquito(refId, it.getMonto(), lf.getId());
+                    else itemProgramadoAplicacionService.revertirFiniquito(refId, lf.getId());
                     break;
                 case "CREDITO_CONVENIO_CUOTA":
                     // El cobro ya quedo registrado por el item. Reconciliamos el estado del

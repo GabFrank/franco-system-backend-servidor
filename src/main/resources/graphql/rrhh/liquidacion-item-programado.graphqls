@@ -1,0 +1,39 @@
+enum LiquidacionItemProgramadoEstado {
+    PENDIENTE
+    APLICADO
+    ANULADO
+}
+
+# Ítem cargado desde una liquidación para que se aplique en la de un periodo posterior.
+type LiquidacionItemProgramado {
+    id: ID!
+    funcionario: Funcionario
+    # YYYY-MM en que se aplica
+    periodo: String
+    liquidacionConceptoId: Int
+    codigo: String
+    descripcion: String
+    monto: Float
+    tipo: LiquidacionItemTipo
+    estado: LiquidacionItemProgramadoEstado
+    # la liquidación o el finiquito que lo aplicó
+    liquidacionId: Int
+    liquidacionFinalId: Int
+    # desde qué liquidación se cargó
+    origenLiquidacionId: Int
+    # PENDIENTE con un periodo que ya pasó (nadie liquidó ese mes)
+    vencido: Boolean
+    usuario: Usuario
+    creadoEn: Date
+}
+
+extend type Query {
+    itemsProgramadosPorFuncionario(funcionarioId: ID!, estado: LiquidacionItemProgramadoEstado): [LiquidacionItemProgramado]
+}
+
+extend type Mutation {
+    # periodo: YYYY-MM, posterior al de la liquidación y a lo sumo 12 meses después.
+    programarItemLiquidacion(liquidacionId: ID!, periodo: String!, descripcion: String, monto: Float!,
+                             tipo: LiquidacionItemTipo, liquidacionConceptoId: ID): LiquidacionItemProgramado
+    anularItemProgramado(id: ID!): LiquidacionItemProgramado
+}

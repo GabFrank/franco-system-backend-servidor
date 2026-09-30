@@ -109,6 +109,7 @@ class LiquidacionValeCuotasTest {
                 mock(PlatformTransactionManager.class),
                 mock(PrestamoCuotaDescuentoService.class),
                 valeCuotas,
+                mock(ItemProgramadoAplicacionService.class),
                 mock(javax.persistence.EntityManager.class));
     }
 

@@ -129,7 +129,7 @@ class ContraAsientoRrhhTest {
                 mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class),
                 descuento,
-                mock(ValeCuotaDescuentoService.class));
+                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class));
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));

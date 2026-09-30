@@ -269,6 +269,30 @@ sin ledger `MovimientoPersonas`, ver nota arriba); `anular` (contra-asiento
 AJUSTE + reversión). Generación masiva mensual. Migración `V145.0`. Estado:
 Compila.
 
+**Ítem programado para otro periodo (2026-09-30, `V234.1`)** — Desde una liquidación se carga un ítem para que
+se aplique en la de un periodo **posterior** (hasta 12 meses), aunque todavía no exista: `rrhh.liquidacion_item_programado`
+(`programarItemLiquidacion`, `anularItemProgramado`, `itemsProgramadosPorFuncionario`; rol `RRHH LIQUIDAR`, lectura
+`requireVer`). Mismas reglas que el ítem manual: el signo sale del catálogo (`resolverItemManual`, compartido con
+`agregarItemManual`). Un solo periodo por programado; para varios pagos con `k/n` automático se usa el **vale en cuotas**.
+- Al generar la liquidación del periodo, cada programado `PENDIENTE` entra como ítem automático (`manual=false`,
+  `referenciaTipo = ITEM_PROGRAMADO`), **antes** del tope del crédito por convenio. Si la liquidación ya estaba en
+  BORRADOR cuando se programó, entra en el acto con el mismo constructor; APROBADA/PAGADA → rechazo; ANULADA cuenta
+  como inexistente.
+- El ítem de un programado **no se edita ni se elimina** (mensual y finiquito): se anula desde "Ítems programados"
+  (lo saca del borrador y recalcula) y se vuelve a programar.
+- `ItemProgramadoAplicacionService` (solo repositorios, espejo de `ValeCuotaDescuentoService`): un programado no entra
+  en un documento si ya está en otro vivo; se valida antes de mover plata en los 4 caminos de pago; pagar → `APLICADO`,
+  anular → `PENDIENTE` (con lock; mismo documento = no-op).
+- Finiquito: toma todos los `PENDIENTE` de cualquier periodo, salvo los que están en una mensual viva, con el tipo del
+  programado (HABER o DESCUENTO). El ítem del finiquito expone `referenciaTipo`.
+- Un HABER programado cuenta como remunerativo (aguinaldo, promedio del finiquito) como un HABER manual.
+- Desktop: en "Agregar ítem" el **periodo se tipea** (acepta `2026-11`, `11/2026`, `11-2026`; vacío = el de la
+  liquidación); sección "Ítems programados" con los pendientes del funcionario, marca de vencidos y Anular; origen
+  PROGRAMADO en la liquidación y el finiquito.
+- **Rollback**: el JAR anterior borra el ítem al regenerar y no marca el programado al pagar (el finiquito lo cobraría de
+  nuevo al volver). Después del primer programado, se arregla hacia adelante.
+Estado: Compila + Tests + probado en UI (local).
+
 **Recibo de sueldo (PDF)** — Plantilla Jasper `recibo-liquidacion.jrxml`
 (cabecera + tabla de items + totales), `ReciboLiquidacionService.generarBase64`
 y query `imprimirReciboLiquidacion(id)`. Fuentes fijadas a `SansSerif` (fuente

@@ -113,4 +113,20 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "and (:excludeLiqId is null or i.liquidacion.id <> :excludeLiqId)")
     List<Long> findCuotasDeValeEnOtrasLiquidaciones(@Param("cuotaIds") Collection<Long> cuotaIds,
                                                     @Param("excludeLiqId") Long excludeLiqId);
+
+    /** Las liquidaciones no ANULADAS que tienen el ítem de un programado (ITEM_PROGRAMADO). */
+    @Query("select distinct i.liquidacion from LiquidacionItem i " +
+            "where i.referenciaTipo = 'ITEM_PROGRAMADO' and i.referenciaId = :programadoId " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA")
+    List<com.franco.dev.domain.rrhh.LiquidacionSueldo> findLiquidacionesVivasConProgramado(
+            @Param("programadoId") Long programadoId);
+
+    /** De estas referencias de un tipo, las que ya estan en una liquidacion no ANULADA distinta de la indicada. */
+    @Query("select distinct i.referenciaId from LiquidacionItem i " +
+            "where i.referenciaTipo = :tipo and i.referenciaId in :ids " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA " +
+            "and (:excludeLiqId is null or i.liquidacion.id <> :excludeLiqId)")
+    List<Long> findReferenciasEnOtrasLiquidaciones(@Param("tipo") String tipo,
+                                                   @Param("ids") Collection<Long> ids,
+                                                   @Param("excludeLiqId") Long excludeLiqId);
 }

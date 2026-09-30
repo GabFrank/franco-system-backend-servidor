@@ -73,6 +73,7 @@ public class ReporteResumenFiscalVentasService {
         private String rango;
         private String emitidas;
         private String anuladas;
+        private String rechazadas;
         private String gravada10;
         private String iva10;
         private String gravada5;
@@ -122,6 +123,8 @@ public class ReporteResumenFiscalVentasService {
         p.put("totalFacturado", gs(c.getTotalFacturado()));
         p.put("emitidas", entero(c.getEmitidas()));
         p.put("anuladas", entero(c.getAnuladas()));
+        p.put("rechazadas", entero(c.getRechazadas()) + (c.getRechazadas() != null && c.getRechazadas() > 0
+                ? "  (" + gs(c.getMontoRechazadas()) + ")" : ""));
 
         List<FilaResumen> filasResumen = new ArrayList<>();
         filasResumen.add(new FilaResumen("Gravadas 10%", gs(c.getGravada10()), gs(c.getIva10()), false));
@@ -137,10 +140,12 @@ public class ReporteResumenFiscalVentasService {
                     d.getNumeroDesde() + " al " + d.getNumeroHasta(),
                     entero(d.getEmitidas()),
                     entero(d.getAnuladas()),
+                    entero(d.getRechazadas()),
                     gs(d.getGravada10()), gs(d.getIva10()), gs(d.getGravada5()), gs(d.getIva5()),
                     gs(d.getExentas()), gs(d.getTotalFacturado()), false));
         }
         filasDetalle.add(new FilaDetalle("Total", "", "", entero(c.getEmitidas()), entero(c.getAnuladas()),
+                entero(c.getRechazadas()),
                 gs(c.getGravada10()), gs(c.getIva10()), gs(c.getGravada5()), gs(c.getIva5()),
                 gs(c.getExentas()), gs(c.getTotalFacturado()), true));
 

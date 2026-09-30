@@ -37,12 +37,14 @@
 	<parameter name="totalFacturado" class="java.lang.String"/>
 	<parameter name="emitidas" class="java.lang.String"/>
 	<parameter name="anuladas" class="java.lang.String"/>
+	<parameter name="rechazadas" class="java.lang.String"/>
 	<parameter name="resumenDS" class="net.sf.jasperreports.engine.JRDataSource"/>
 	<field name="sucursal" class="java.lang.String"/>
 	<field name="tipo" class="java.lang.String"/>
 	<field name="rango" class="java.lang.String"/>
 	<field name="emitidas" class="java.lang.String"/>
 	<field name="anuladas" class="java.lang.String"/>
+	<field name="rechazadas" class="java.lang.String"/>
 	<field name="gravada10" class="java.lang.String"/>
 	<field name="iva10" class="java.lang.String"/>
 	<field name="gravada5" class="java.lang.String"/>
@@ -51,7 +53,7 @@
 	<field name="totalFacturado" class="java.lang.String"/>
 	<field name="total" class="java.lang.Boolean"/>
 	<title>
-		<band height="136" splitType="Stretch">
+		<band height="148" splitType="Stretch">
 			<staticText>
 				<reportElement x="0" y="0" width="802" height="20"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
@@ -134,7 +136,7 @@
 				</jr:list>
 			</componentElement>
 			<frame>
-				<reportElement x="470" y="78" width="332" height="56"/>
+				<reportElement x="470" y="78" width="332" height="68"/>
 				<box>
 					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
 				</box>
@@ -180,6 +182,20 @@
 					</textElement>
 					<textFieldExpression><![CDATA[$P{anuladas}]]></textFieldExpression>
 				</textField>
+				<staticText>
+					<reportElement x="6" y="50" width="180" height="14"/>
+					<textElement verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<text><![CDATA[Rechazadas por SIFEN (no suman):]]></text>
+				</staticText>
+				<textField isBlankWhenNull="true">
+					<reportElement x="186" y="50" width="140" height="14"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font fontName="SansSerif" size="8"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$P{rechazadas}]]></textFieldExpression>
+				</textField>
 			</frame>
 			<staticText>
 				<reportElement positionType="Float" x="0" y="120" width="802" height="14"/>
@@ -193,29 +209,34 @@
 	<columnHeader>
 		<band height="14" splitType="Stretch">
 			<staticText>
-				<reportElement style="encabezado" x="0" y="0" width="178" height="14"/>
+				<reportElement style="encabezado" x="0" y="0" width="138" height="14"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[Sucursal / Timbrado]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="178" y="0" width="48" height="14"/>
+				<reportElement style="encabezado" x="138" y="0" width="48" height="14"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[Tipo]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="226" y="0" width="130" height="14"/>
+				<reportElement style="encabezado" x="186" y="0" width="130" height="14"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[Numeración usada]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="356" y="0" width="40" height="14"/>
+				<reportElement style="encabezado" x="316" y="0" width="40" height="14"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<text><![CDATA[Vigentes]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="396" y="0" width="40" height="14"/>
+				<reportElement style="encabezado" x="356" y="0" width="40" height="14"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<text><![CDATA[Anuladas]]></text>
+			</staticText>
+			<staticText>
+				<reportElement style="encabezado" x="396" y="0" width="40" height="14"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<text><![CDATA[Rechaz.]]></text>
 			</staticText>
 			<staticText>
 				<reportElement style="encabezado" x="436" y="0" width="61" height="14"/>
@@ -252,29 +273,34 @@
 	<detail>
 		<band height="13" splitType="Stretch">
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="0" y="0" width="178" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="0" y="0" width="138" height="13"/>
 				<textElement verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{sucursal}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="178" y="0" width="48" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="138" y="0" width="48" height="13"/>
 				<textElement verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{tipo}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="226" y="0" width="130" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="186" y="0" width="130" height="13"/>
 				<textElement verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{rango}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="356" y="0" width="40" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="316" y="0" width="40" height="13"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{emitidas}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="396" y="0" width="40" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="356" y="0" width="40" height="13"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{anuladas}]]></textFieldExpression>
+			</textField>
+			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="396" y="0" width="40" height="13"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{rechazadas}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
 				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="436" y="0" width="61" height="13"/>

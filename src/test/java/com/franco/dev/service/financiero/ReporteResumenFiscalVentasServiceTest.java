@@ -27,8 +27,8 @@ class ReporteResumenFiscalVentasServiceTest {
         ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 7, "Todas", Arrays.asList(
                 fila(1L, "SUC. CENTRAL", "001", "001", true, 16545, 99, 156442, 173081,
                         "628184870", "57107715", "52246581", "2487932", "0"),
-                fila(3L, "SUC. ROTONDA", "002", "001", false, 10, 0, 1, 10,
-                        "1100", "100", null, null, "500")));
+                fila(3L, "SUC. ROTONDA", "002", "001", true, 10, 0, 1, 12,
+                        "1100", "100", null, null, "500", 2, "65000")));
 
         ReporteResumenFiscalVentasService.Contenido c =
                 ReporteResumenFiscalVentasService.armar(r, r.getContribuyentes().get(0), "ADMIN", "30/09/2026 10:00");
@@ -44,6 +44,10 @@ class ReporteResumenFiscalVentasServiceTest {
         assertEquals("001-001-0156442 al 001-001-0173081", c.detalle.get(0).getRango());
         assertEquals("16.545", c.detalle.get(0).getEmitidas());
         assertTrue(c.detalle.get(2).getTotal());
+        assertEquals("0", c.detalle.get(0).getRechazadas());
+        assertEquals("2", c.detalle.get(1).getRechazadas());
+        assertEquals("2", c.detalle.get(2).getRechazadas());
+        assertEquals("2  (65.000)", c.parametros.get("rechazadas"));
         assertEquals("16.555", c.detalle.get(2).getEmitidas());
 
         assertEquals("80099482-5", c.parametros.get("ruc"));
@@ -56,7 +60,7 @@ class ReporteResumenFiscalVentasServiceTest {
         for (int i = 1; i <= 40; i++) {
             filas.add(fila((long) i, "SUC. NUEVA ESPERANZA SAN ANTONIO " + i, String.format("%03d", i), "001",
                     i % 2 == 0, 2000 + i, i % 5, 1000L * i, 1000L * i + 2000, "123456789", "11223344",
-                    "4200000", "200000", "0"));
+                    "4200000", "200000", "0", i % 7 == 0 ? 3 : 0, i % 7 == 0 ? "36000" : null));
         }
         ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 7, "Todas", filas);
         ReporteResumenFiscalVentasService.Contenido c =
@@ -74,10 +78,19 @@ class ReporteResumenFiscalVentasServiceTest {
     private static Object[] fila(Long sucId, String sucursal, String establecimiento, String punto,
                                  boolean electronico, long emitidas, long anuladas, long desde, long hasta,
                                  String t10, String i10, String t5, String i5, String t0) {
+        return fila(sucId, sucursal, establecimiento, punto, electronico, emitidas, anuladas, desde, hasta,
+                t10, i10, t5, i5, t0, 0, null);
+    }
+
+    private static Object[] fila(Long sucId, String sucursal, String establecimiento, String punto,
+                                 boolean electronico, long emitidas, long anuladas, long desde, long hasta,
+                                 String t10, String i10, String t5, String i5, String t0,
+                                 long rechazadas, String montoRechazadas) {
         return new Object[]{"80099482-5", "FRANCO AREVALOS S.A.", BigDecimal.valueOf(sucId), sucursal,
                 establecimiento, punto, electronico ? "18270044" : "17599896", electronico,
                 BigDecimal.valueOf(emitidas), BigDecimal.valueOf(anuladas), new BigDecimal(desde),
-                new BigDecimal(hasta), dec(t10), dec(i10), dec(t5), dec(i5), dec(t0)};
+                new BigDecimal(hasta), dec(t10), dec(i10), dec(t5), dec(i5), dec(t0),
+                BigDecimal.valueOf(rechazadas), dec(montoRechazadas)};
     }
 
     private static BigDecimal dec(String v) {

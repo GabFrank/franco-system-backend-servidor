@@ -91,6 +91,23 @@ class ResumenFiscalVentasServiceTest {
     }
 
     @Test
+    void lasRechazadasPorSifenNoSumanPeroSeInformanConSuMonto() {
+        ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 8, "Todas", Arrays.asList(
+                fila(RUC, RAZON, 1L, "SUC. CENTRAL", "001", "001", "18270044", true, 10, 1, 1, 13,
+                        "110000", "10000", null, null, null, 2, "77000.40"),
+                fila(RUC, RAZON, 3L, "SUC. ROTONDA", "002", "001", "18270044", true, 5, 0, 1, 6,
+                        "22000", "2000", null, null, null, 1, "12000")));
+
+        ResumenFiscalContribuyente c = r.getContribuyentes().get(0);
+        assertEquals(15L, c.getEmitidas(), "vigentes = solo las validas (la consulta ya excluye rechazadas)");
+        assertEquals(3L, c.getRechazadas());
+        assertEquals(89000d, c.getMontoRechazadas());
+        assertEquals(120000d, c.getTotalBase() + 0d);
+        assertEquals(2L, c.getDetalle().get(0).getRechazadas());
+        assertEquals(77000d, c.getDetalle().get(0).getMontoRechazadas());
+    }
+
+    @Test
     void sinFacturasNoHayContribuyentes() {
         ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 12, "Todas", Collections.emptyList());
         assertEquals("Diciembre 2026", r.getPeriodo());
@@ -108,10 +125,18 @@ class ResumenFiscalVentasServiceTest {
     private static Object[] fila(String ruc, String razon, Long sucId, String sucursal, String establecimiento,
                                  String punto, String timbrado, boolean electronico, long emitidas, long anuladas,
                                  long desde, long hasta, String t10, String i10, String t5, String i5, String t0) {
+        return fila(ruc, razon, sucId, sucursal, establecimiento, punto, timbrado, electronico, emitidas, anuladas,
+                desde, hasta, t10, i10, t5, i5, t0, 0, null);
+    }
+
+    private static Object[] fila(String ruc, String razon, Long sucId, String sucursal, String establecimiento,
+                                 String punto, String timbrado, boolean electronico, long emitidas, long anuladas,
+                                 long desde, long hasta, String t10, String i10, String t5, String i5, String t0,
+                                 long rechazadas, String montoRechazadas) {
         return new Object[]{ruc, razon, BigDecimal.valueOf(sucId), sucursal, establecimiento, punto, timbrado,
                 electronico, BigDecimal.valueOf(emitidas), BigDecimal.valueOf(anuladas),
                 new BigDecimal(desde), new BigDecimal(hasta),
-                dec(t10), dec(i10), dec(t5), dec(i5), dec(t0)};
+                dec(t10), dec(i10), dec(t5), dec(i5), dec(t0), BigDecimal.valueOf(rechazadas), dec(montoRechazadas)};
     }
 
     private static BigDecimal dec(String v) {

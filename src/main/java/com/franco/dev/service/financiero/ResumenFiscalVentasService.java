@@ -29,8 +29,8 @@ import java.util.stream.Collectors;
  *
  * <p>Sale de {@code factura_legal}, donde caen igual las facturas en papel (autoimpresor) y las
  * electronicas. Quedan afuera las anuladas: {@code activo = false} en papel, y en electronicas
- * ademas las que SIFEN dejo CANCELADAS (ahi {@code activo} suele quedar en NULL). El estado de
- * aprobacion en SIFEN (aprobada, rechazada, pendiente) no filtra: es otro tema.</p>
+ * ademas las que SIFEN dejo CANCELADAS (ahi {@code activo} suele quedar en NULL). Las RECHAZADAS
+ * por SIFEN tampoco suman (no tienen validez fiscal) pero se informan aparte con su monto.</p>
  *
  * <p>En {@code factura_legal} el total por tasa incluye el IVA; el reporte muestra la base sin
  * IVA, como el formulario 120. Se redondea a guaranies por fila de detalle y los totales suman
@@ -74,7 +74,7 @@ public class ResumenFiscalVentasService {
      * [0] ruc, [1] razon social, [2] sucursal id, [3] sucursal, [4] establecimiento,
      * [5] punto de expedicion, [6] timbrado, [7] electronico, [8] emitidas, [9] anuladas,
      * [10] numero desde, [11] numero hasta, [12] total 10 %, [13] IVA 10 %, [14] total 5 %,
-     * [15] IVA 5 %, [16] exentas.
+     * [15] IVA 5 %, [16] exentas, [17] rechazadas, [18] monto rechazadas.
      */
     static ResumenFiscalVentas armar(int anio, int mes, String sucursalesFiltro, List<Object[]> filas) {
         ResumenFiscalVentas resumen = new ResumenFiscalVentas();
@@ -119,6 +119,8 @@ public class ResumenFiscalVentasService {
         d.setIva5((double) iva5);
         d.setExentas((double) exentas);
         d.setTotalFacturado((double) (total10 + total5 + exentas));
+        d.setRechazadas(entero(f[17]));
+        d.setMontoRechazadas((double) guaranies(f[18]));
         return d;
     }
 
@@ -138,6 +140,8 @@ public class ResumenFiscalVentasService {
         c.setTotalFacturado(c.getTotalBase() + c.getTotalIva());
         c.setEmitidas(detalle.stream().mapToLong(ResumenFiscalTimbrado::getEmitidas).sum());
         c.setAnuladas(detalle.stream().mapToLong(ResumenFiscalTimbrado::getAnuladas).sum());
+        c.setRechazadas(detalle.stream().mapToLong(ResumenFiscalTimbrado::getRechazadas).sum());
+        c.setMontoRechazadas(sumar(detalle, ResumenFiscalTimbrado::getMontoRechazadas));
         return c;
     }
 

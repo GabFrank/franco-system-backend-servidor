@@ -21,6 +21,8 @@ type ResumenFiscalContribuyente {
     totalFacturado: Float
     emitidas: Int
     anuladas: Int
+    rechazadas: Int
+    montoRechazadas: Float
     detalle: [ResumenFiscalTimbrado]
 }
 
@@ -36,6 +38,8 @@ type ResumenFiscalTimbrado {
     numeroHasta: String
     emitidas: Int
     anuladas: Int
+    rechazadas: Int
+    montoRechazadas: Float
     gravada10: Float
     iva10: Float
     gravada5: Float

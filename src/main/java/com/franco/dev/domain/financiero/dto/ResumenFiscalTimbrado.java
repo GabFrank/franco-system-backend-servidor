@@ -18,6 +18,8 @@ public class ResumenFiscalTimbrado {
     private String numeroHasta;
     private Long emitidas;
     private Long anuladas;
+    private Long rechazadas;
+    private Double montoRechazadas;
     private Double gravada10;
     private Double iva10;
     private Double gravada5;

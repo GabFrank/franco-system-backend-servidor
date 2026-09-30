@@ -293,6 +293,17 @@ se aplique en la de un periodo **posterior** (hasta 12 meses), aunque todavía n
   nuevo al volver). Después del primer programado, se arregla hacia adelante.
 Estado: Compila + Tests + probado en UI (local).
 
+**Número de operación (2026-09-30, `V235.1`)** — Cada concepto del catálogo `liquidacion_concepto` puede tener un
+`numero` fijo para elegirlo tipeando al cargar un ítem. La migración numeró los activos no automáticos en el orden que
+tenía el select (`es_haber desc, descripcion, codigo`): en bodega local 1 = AJUSTE (HABER) … 8 = FALTANTE DE CAJA.
+Único **solo entre activos** (índice parcial `uq_liquidacion_concepto_numero_activo`): desactivar libera el número y
+reactivar se valida. `saveLiquidacionConcepto`: `0` quita el número, `null` (cliente viejo) lo conserva por skipNull.
+El select de ítem manual y la lista del ABM se ordenan por número (sin número al final). Un concepto nuevo agregado
+por migración queda sin número hasta que se lo asignen en Configuración → Conceptos.
+Desktop: "Operación" es un solo campo con lista desplegable (mat-autocomplete): escribir el número completa la
+operación en el acto (si no es el comienzo de otro número; si lo es, con Enter o al salir), escribir parte del nombre
+filtra; "No existe esa operación" si no hay coincidencias. Columna/campo N° en el ABM de conceptos.
+
 **Recibo de sueldo (PDF)** — Plantilla Jasper `recibo-liquidacion.jrxml`
 (cabecera + tabla de items + totales), `ReciboLiquidacionService.generarBase64`
 y query `imprimirReciboLiquidacion(id)`. Fuentes fijadas a `SansSerif` (fuente

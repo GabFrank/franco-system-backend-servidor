@@ -35,6 +35,8 @@ type LiquidacionConcepto {
     esCalculadoAuto: Boolean
     esRemunerativo: Boolean
     activo: Boolean
+    # numero fijo de la operacion para cargar items (atajo); unico entre activos
+    numero: Int
     usuario: Usuario
     creadoEn: Date
 }
@@ -47,6 +49,8 @@ input LiquidacionConceptoInput {
     esCalculadoAuto: Boolean
     esRemunerativo: Boolean
     activo: Boolean
+    # null = no cambia; 0 = sin numero
+    numero: Int
     creadoEn: Date
     usuarioId: Int
 }

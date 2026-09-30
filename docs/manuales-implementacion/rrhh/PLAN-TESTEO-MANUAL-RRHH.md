@@ -419,6 +419,19 @@ Leyenda de estado: ⬜ pendiente · 🟡 implementado, pendiente de test manual 
 
 ---
 
+### ✅ T23 — Operación del ítem por número *(probado en UI local, 2026-09-30)*
+- **Pasos:** liquidación en BORRADOR → Agregar Item → campo **Operación**.
+- **Esperado:**
+  1. Clic en el campo → lista completa `1 · AJUSTE (HABER)`, `2 · BONIFICACION`…
+  2. Escribir `2` → el campo se completa con `2 · BONIFICACION` sin Enter y la lista se cierra.
+  3. Volver al campo (selecciona todo) y escribir `7` → `7 · DESCUENTO JUDICIAL`.
+  4. Escribir `falt` y salir con Tab → `8 · FALTANTE DE CAJA`.
+  5. Escribir `99` → "No existe esa operación"; guardar pide elegir la operación.
+  6. Configuración → Conceptos: columna N° ordenada; poner a una operación un número de otra activa → "El número 3
+     ya lo usa BONO MANUAL"; vaciar el número lo quita.
+
+---
+
 ## Mejoras futuras detectadas durante el testeo (TODO — NO implementado)
 
 ### TODO-1 — Feriados avanzados (gestión real de feriados) — *detectado en T3*

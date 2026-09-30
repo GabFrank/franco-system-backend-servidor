@@ -6,9 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Resumen fiscal de las ventas facturadas de un mes, para pasarle al contador: base e IVA por
- * tasa, la vista por rubros del formulario 120 y el detalle por timbrado. Una seccion por RUC,
- * porque el contador declara por contribuyente.
+ * Resumen de las ventas facturadas de un mes, para pasarle al contador: exentas, gravadas 5 % y
+ * gravadas 10 % (base e IVA) y el detalle por timbrado. Solo datos: armar la declaracion es
+ * trabajo del contador. Una seccion por RUC, porque el contador declara por contribuyente.
  */
 @Data
 public class ResumenFiscalVentas {

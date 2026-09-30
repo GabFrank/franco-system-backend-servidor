@@ -1,7 +1,6 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.dto.ResumenFiscalContribuyente;
-import com.franco.dev.domain.financiero.dto.ResumenFiscalRubro;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalTimbrado;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalVentas;
 import com.franco.dev.domain.personas.Usuario;
@@ -39,7 +38,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * PDF del resumen fiscal de ventas (resumen-fiscal-ventas.jrxml). Una pasada de la plantilla por
+ * PDF del resumen de ventas para el contador (resumen-fiscal-ventas.jrxml). Una pasada de la plantilla por
  * RUC, exportadas juntas en un solo PDF.
  */
 @Service
@@ -68,27 +67,12 @@ public class ReporteResumenFiscalVentasService {
 
     @Data
     @AllArgsConstructor
-    public static class FilaRubro {
-        /** Vacio cuando repite el rubro de la fila anterior. */
-        private String rubro;
-        private String inciso;
-        private String concepto;
-        private String gravada10;
-        private String gravada5;
-        private String iva10;
-        private String iva5;
-        private String exentas;
-    }
-
-    @Data
-    @AllArgsConstructor
     public static class FilaDetalle {
         private String sucursal;
         private String tipo;
         private String rango;
         private String emitidas;
         private String anuladas;
-        private String fueraDeVigencia;
         private String gravada10;
         private String iva10;
         private String gravada5;
@@ -102,14 +86,11 @@ public class ReporteResumenFiscalVentasService {
     static class Contenido {
         final Map<String, Object> parametros;
         final List<FilaResumen> resumen;
-        final List<FilaRubro> rubros;
         final List<FilaDetalle> detalle;
 
-        Contenido(Map<String, Object> parametros, List<FilaResumen> resumen, List<FilaRubro> rubros,
-                  List<FilaDetalle> detalle) {
+        Contenido(Map<String, Object> parametros, List<FilaResumen> resumen, List<FilaDetalle> detalle) {
             this.parametros = parametros;
             this.resumen = resumen;
-            this.rubros = rubros;
             this.detalle = detalle;
         }
     }
@@ -141,25 +122,12 @@ public class ReporteResumenFiscalVentasService {
         p.put("totalFacturado", gs(c.getTotalFacturado()));
         p.put("emitidas", entero(c.getEmitidas()));
         p.put("anuladas", entero(c.getAnuladas()));
-        p.put("avisoVigencia", c.getFueraDeVigencia() != null && c.getFueraDeVigencia() > 0
-                ? "Atención: " + entero(c.getFueraDeVigencia())
-                + " factura(s) se emitieron fuera de la vigencia de su timbrado (columna F. vig.)."
-                : null);
 
         List<FilaResumen> filasResumen = new ArrayList<>();
         filasResumen.add(new FilaResumen("Gravadas 10%", gs(c.getGravada10()), gs(c.getIva10()), false));
         filasResumen.add(new FilaResumen("Gravadas 5%", gs(c.getGravada5()), gs(c.getIva5()), false));
         filasResumen.add(new FilaResumen("Exentas", gs(c.getExentas()), "", false));
         filasResumen.add(new FilaResumen("Total", gs(c.getTotalBase()), gs(c.getTotalIva()), true));
-
-        List<FilaRubro> filasRubro = new ArrayList<>();
-        String rubroAnterior = null;
-        for (ResumenFiscalRubro r : c.getRubros()) {
-            filasRubro.add(new FilaRubro(r.getRubro().equals(rubroAnterior) ? "" : r.getRubro(), r.getInciso(),
-                    r.getConcepto(), gs(r.getGravada10()), gs(r.getGravada5()), gs(r.getIva10()),
-                    gs(r.getIva5()), gs(r.getExentas())));
-            rubroAnterior = r.getRubro();
-        }
 
         List<FilaDetalle> filasDetalle = new ArrayList<>();
         for (ResumenFiscalTimbrado d : c.getDetalle()) {
@@ -169,22 +137,19 @@ public class ReporteResumenFiscalVentasService {
                     d.getNumeroDesde() + " al " + d.getNumeroHasta(),
                     entero(d.getEmitidas()),
                     entero(d.getAnuladas()),
-                    d.getFueraDeVigencia() != null && d.getFueraDeVigencia() > 0 ? entero(d.getFueraDeVigencia()) : "",
                     gs(d.getGravada10()), gs(d.getIva10()), gs(d.getGravada5()), gs(d.getIva5()),
                     gs(d.getExentas()), gs(d.getTotalFacturado()), false));
         }
         filasDetalle.add(new FilaDetalle("Total", "", "", entero(c.getEmitidas()), entero(c.getAnuladas()),
-                c.getFueraDeVigencia() != null && c.getFueraDeVigencia() > 0 ? entero(c.getFueraDeVigencia()) : "",
                 gs(c.getGravada10()), gs(c.getIva10()), gs(c.getGravada5()), gs(c.getIva5()),
                 gs(c.getExentas()), gs(c.getTotalFacturado()), true));
 
-        return new Contenido(p, filasResumen, filasRubro, filasDetalle);
+        return new Contenido(p, filasResumen, filasDetalle);
     }
 
     JasperPrint llenar(Contenido contenido) throws JRException {
         Map<String, Object> p = new HashMap<>(contenido.parametros);
         p.put("resumenDS", new JRBeanCollectionDataSource(contenido.resumen));
-        p.put("rubrosDS", new JRBeanCollectionDataSource(contenido.rubros));
         return JasperFillManager.fillReport(plantilla(), p, new JRBeanCollectionDataSource(contenido.detalle));
     }
 

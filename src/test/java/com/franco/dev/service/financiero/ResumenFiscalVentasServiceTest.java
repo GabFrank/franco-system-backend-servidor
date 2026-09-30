@@ -1,7 +1,6 @@
 package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.financiero.dto.ResumenFiscalContribuyente;
-import com.franco.dev.domain.financiero.dto.ResumenFiscalRubro;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalTimbrado;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalVentas;
 import graphql.GraphQLException;
@@ -31,10 +30,10 @@ class ResumenFiscalVentasServiceTest {
         List<Object[]> filas = Arrays.asList(
                 // electronica: 110.000 al 10 % (IVA 10.000), 21.000 al 5 % (IVA 1.000), 5.000 exentas
                 fila(RUC, RAZON, 1L, "SUC. CENTRAL", "001", "001", "18270044", true, 3, 1, 156442, 156445,
-                        "110000.40", "10000.30", "21000", "1000", "5000", 0),
+                        "110000.40", "10000.30", "21000", "1000", "5000"),
                 // papel: 55.000 al 10 % (IVA 5.000)
                 fila(RUC, RAZON, 3L, "SUC. ROTONDA", "002", "003", "17599896", false, 2, 0, 88, 89,
-                        "55000", "5000", null, null, null, 2));
+                        "55000", "5000", null, null, null));
 
         ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 7, "Todas", filas);
 
@@ -56,7 +55,6 @@ class ResumenFiscalVentasServiceTest {
         assertEquals(191000d, c.getTotalFacturado());
         assertEquals(5L, c.getEmitidas());
         assertEquals(1L, c.getAnuladas());
-        assertEquals(2L, c.getFueraDeVigencia());
 
         ResumenFiscalTimbrado e = c.getDetalle().get(0);
         assertEquals("SUC. CENTRAL", e.getSucursal());
@@ -77,33 +75,12 @@ class ResumenFiscalVentasServiceTest {
     }
 
     @Test
-    void losRubrosDelFormulario120TomanLaBaseSinIva() {
-        ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 7, "Todas", Collections.singletonList(
-                fila(RUC, RAZON, 1L, "SUC. CENTRAL", "001", "001", "18270044", true, 1, 0, 1, 1,
-                        "110000", "10000", "21000", "1000", "5000", 0)));
-
-        List<ResumenFiscalRubro> rubros = r.getContribuyentes().get(0).getRubros();
-        ResumenFiscalRubro a = rubro(rubros, "RUBRO 1", "A");
-        assertEquals(100000d, a.getGravada10());
-        assertEquals(10000d, a.getIva10());
-        ResumenFiscalRubro b = rubro(rubros, "RUBRO 1", "B");
-        assertEquals(0d, b.getGravada5(), "el sistema no distingue productos agricolas: todo el 5 % va a C");
-        ResumenFiscalRubro cc = rubro(rubros, "RUBRO 1", "C");
-        assertEquals(20000d, cc.getGravada5());
-        assertEquals(1000d, cc.getIva5());
-        assertEquals(5000d, rubro(rubros, "RUBRO 1", "D").getExentas());
-        assertEquals(0d, rubro(rubros, "RUBRO 3", "H").getGravada10());
-        assertEquals(0d, rubro(rubros, "RUBRO 5", "C").getIva10());
-        assertEquals(0d, rubro(rubros, "RUBRO 6", "E").getExentas());
-    }
-
-    @Test
     void unaSeccionPorRucOrdenadasPorRuc() {
         ResumenFiscalVentas r = ResumenFiscalVentasService.armar(2026, 1, "SUC. CENTRAL", Arrays.asList(
                 fila("99999999-1", "OTRA S.A.", 1L, "SUC. CENTRAL", "001", "002", "1", false, 1, 0, 1, 1,
-                        "11000", "1000", null, null, null, 0),
+                        "11000", "1000", null, null, null),
                 fila(RUC, RAZON, 1L, "SUC. CENTRAL", "001", "001", "2", true, 1, 0, 1, 1,
-                        "22000", "2000", null, null, null, 0)));
+                        "22000", "2000", null, null, null)));
 
         assertEquals("Enero 2026", r.getPeriodo());
         assertEquals(2, r.getContribuyentes().size());
@@ -127,22 +104,14 @@ class ResumenFiscalVentasServiceTest {
         assertThrows(GraphQLException.class, () -> ResumenFiscalVentasService.validarPeriodo(null, 5));
     }
 
-    private static ResumenFiscalRubro rubro(List<ResumenFiscalRubro> rubros, String rubro, String inciso) {
-        return rubros.stream()
-                .filter(x -> rubro.equals(x.getRubro()) && inciso.equals(x.getInciso()))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("falta " + rubro + " " + inciso));
-    }
-
     /** Misma forma que devuelve FacturaLegalRepository.resumenFiscalVentas*. */
     private static Object[] fila(String ruc, String razon, Long sucId, String sucursal, String establecimiento,
                                  String punto, String timbrado, boolean electronico, long emitidas, long anuladas,
-                                 long desde, long hasta, String t10, String i10, String t5, String i5, String t0,
-                                 long fueraDeVigencia) {
+                                 long desde, long hasta, String t10, String i10, String t5, String i5, String t0) {
         return new Object[]{ruc, razon, BigDecimal.valueOf(sucId), sucursal, establecimiento, punto, timbrado,
                 electronico, BigDecimal.valueOf(emitidas), BigDecimal.valueOf(anuladas),
                 new BigDecimal(desde), new BigDecimal(hasta),
-                dec(t10), dec(i10), dec(t5), dec(i5), dec(t0), BigDecimal.valueOf(fueraDeVigencia)};
+                dec(t10), dec(i10), dec(t5), dec(i5), dec(t0)};
     }
 
     private static BigDecimal dec(String v) {

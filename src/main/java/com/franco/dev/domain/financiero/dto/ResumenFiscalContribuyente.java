@@ -26,8 +26,5 @@ public class ResumenFiscalContribuyente {
     private Double totalFacturado;
     private Long emitidas;
     private Long anuladas;
-    /** Facturas vigentes emitidas fuera del periodo de vigencia de su timbrado. */
-    private Long fueraDeVigencia;
-    private List<ResumenFiscalRubro> rubros = new ArrayList<>();
     private List<ResumenFiscalTimbrado> detalle = new ArrayList<>();
 }

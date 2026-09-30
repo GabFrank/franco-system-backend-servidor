@@ -1,4 +1,4 @@
-# Resumen fiscal de las ventas facturadas de un mes (base sin IVA e IVA por tasa), para el contador.
+# Ventas facturadas de un mes para el contador: exentas, gravadas 5 % y 10 % (base sin IVA e IVA).
 # Papel y electronicas por igual; las anuladas no suman. sucIds vacio o null = todas.
 type ResumenFiscalVentas {
     anio: Int
@@ -21,20 +21,7 @@ type ResumenFiscalContribuyente {
     totalFacturado: Float
     emitidas: Int
     anuladas: Int
-    fueraDeVigencia: Int
-    rubros: [ResumenFiscalRubro]
     detalle: [ResumenFiscalTimbrado]
-}
-
-type ResumenFiscalRubro {
-    rubro: String
-    inciso: String
-    concepto: String
-    gravada10: Float
-    gravada5: Float
-    iva10: Float
-    iva5: Float
-    exentas: Float
 }
 
 type ResumenFiscalTimbrado {
@@ -49,7 +36,6 @@ type ResumenFiscalTimbrado {
     numeroHasta: String
     emitidas: Int
     anuladas: Int
-    fueraDeVigencia: Int
     gravada10: Float
     iva10: Float
     gravada5: Float

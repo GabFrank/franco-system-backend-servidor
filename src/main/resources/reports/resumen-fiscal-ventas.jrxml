@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Resumen fiscal de ventas de un mes, para el contador. Lo llena ReporteResumenFiscalVentasService,
-     una vez por RUC; los montos llegan pre-formateados. En el titulo van el resumen de IVA y la vista
-     por rubros del formulario 120 (tamaño fijo); el detalle por timbrado es la fuente de datos
-     principal, así su encabezado se repite si ocupa más de una página. -->
+<!-- Resumen de ventas de un mes para el contador (exentas, gravadas 5 % y 10 %). Lo llena
+     ReporteResumenFiscalVentasService, una vez por RUC; los montos llegan pre-formateados. El resumen
+     de IVA va en el titulo (tamaño fijo); el detalle por timbrado es la fuente de datos principal, así
+     su encabezado se repite si ocupa más de una página. -->
 <jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="resumen-fiscal-ventas" pageWidth="842" pageHeight="595" orientation="Landscape" whenNoDataType="AllSectionsNoDetail" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
 	<style name="celda" fontName="SansSerif" fontSize="7">
 		<box leftPadding="3" rightPadding="3">
@@ -28,16 +28,6 @@
 		<field name="iva" class="java.lang.String"/>
 		<field name="total" class="java.lang.Boolean"/>
 	</subDataset>
-	<subDataset name="rubros">
-		<field name="rubro" class="java.lang.String"/>
-		<field name="inciso" class="java.lang.String"/>
-		<field name="concepto" class="java.lang.String"/>
-		<field name="gravada10" class="java.lang.String"/>
-		<field name="gravada5" class="java.lang.String"/>
-		<field name="iva10" class="java.lang.String"/>
-		<field name="iva5" class="java.lang.String"/>
-		<field name="exentas" class="java.lang.String"/>
-	</subDataset>
 	<parameter name="razonSocial" class="java.lang.String"/>
 	<parameter name="ruc" class="java.lang.String"/>
 	<parameter name="periodo" class="java.lang.String"/>
@@ -47,15 +37,12 @@
 	<parameter name="totalFacturado" class="java.lang.String"/>
 	<parameter name="emitidas" class="java.lang.String"/>
 	<parameter name="anuladas" class="java.lang.String"/>
-	<parameter name="avisoVigencia" class="java.lang.String"/>
 	<parameter name="resumenDS" class="net.sf.jasperreports.engine.JRDataSource"/>
-	<parameter name="rubrosDS" class="net.sf.jasperreports.engine.JRDataSource"/>
 	<field name="sucursal" class="java.lang.String"/>
 	<field name="tipo" class="java.lang.String"/>
 	<field name="rango" class="java.lang.String"/>
 	<field name="emitidas" class="java.lang.String"/>
 	<field name="anuladas" class="java.lang.String"/>
-	<field name="fueraDeVigencia" class="java.lang.String"/>
 	<field name="gravada10" class="java.lang.String"/>
 	<field name="iva10" class="java.lang.String"/>
 	<field name="gravada5" class="java.lang.String"/>
@@ -64,7 +51,7 @@
 	<field name="totalFacturado" class="java.lang.String"/>
 	<field name="total" class="java.lang.Boolean"/>
 	<title>
-		<band height="186" splitType="Stretch">
+		<band height="136" splitType="Stretch">
 			<staticText>
 				<reportElement x="0" y="0" width="802" height="20"/>
 				<textElement textAlignment="Center" verticalAlignment="Middle">
@@ -147,7 +134,7 @@
 				</jr:list>
 			</componentElement>
 			<frame>
-				<reportElement x="470" y="78" width="332" height="80"/>
+				<reportElement x="470" y="78" width="332" height="56"/>
 				<box>
 					<pen lineWidth="0.5" lineColor="#9E9E9E"/>
 				</box>
@@ -193,100 +180,9 @@
 					</textElement>
 					<textFieldExpression><![CDATA[$P{anuladas}]]></textFieldExpression>
 				</textField>
-				<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-					<reportElement x="6" y="52" width="320" height="24" forecolor="#B00020"/>
-					<textElement verticalAlignment="Top">
-						<font fontName="SansSerif" size="7"/>
-					</textElement>
-					<textFieldExpression><![CDATA[$P{avisoVigencia}]]></textFieldExpression>
-				</textField>
 			</frame>
 			<staticText>
 				<reportElement positionType="Float" x="0" y="120" width="802" height="14"/>
-				<textElement verticalAlignment="Middle">
-					<font fontName="SansSerif" size="10" isBold="true"/>
-				</textElement>
-				<text><![CDATA[Resumen por rubros (formulario 120)]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" positionType="Float" x="0" y="136" width="412" height="14"/>
-				<textElement verticalAlignment="Middle"/>
-				<text><![CDATA[Concepto]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" positionType="Float" x="412" y="136" width="78" height="14"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<text><![CDATA[Grav. 10%]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" positionType="Float" x="490" y="136" width="78" height="14"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<text><![CDATA[Grav. 5%]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" positionType="Float" x="568" y="136" width="78" height="14"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<text><![CDATA[IVA 10%]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" positionType="Float" x="646" y="136" width="78" height="14"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<text><![CDATA[IVA 5%]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" positionType="Float" x="724" y="136" width="78" height="14"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<text><![CDATA[Exentas]]></text>
-			</staticText>
-			<componentElement>
-				<reportElement positionType="Float" x="0" y="150" width="802" height="13"/>
-				<jr:list xmlns:jr="http://jasperreports.sourceforge.net/jasperreports/components" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports/components http://jasperreports.sourceforge.net/xsd/components.xsd" printOrder="Vertical">
-					<datasetRun subDataset="rubros">
-						<dataSourceExpression><![CDATA[$P{rubrosDS}]]></dataSourceExpression>
-					</datasetRun>
-					<jr:listContents height="13" width="802">
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="0" y="0" width="52" height="13"/>
-							<textElement verticalAlignment="Middle">
-								<font isBold="true"/>
-							</textElement>
-							<textFieldExpression><![CDATA[$F{rubro}]]></textFieldExpression>
-						</textField>
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="52" y="0" width="360" height="13"/>
-							<textElement verticalAlignment="Middle"/>
-							<textFieldExpression><![CDATA["(" + $F{inciso} + ") " + $F{concepto}]]></textFieldExpression>
-						</textField>
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="412" y="0" width="78" height="13"/>
-							<textElement textAlignment="Right" verticalAlignment="Middle"/>
-							<textFieldExpression><![CDATA[$F{gravada10}]]></textFieldExpression>
-						</textField>
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="490" y="0" width="78" height="13"/>
-							<textElement textAlignment="Right" verticalAlignment="Middle"/>
-							<textFieldExpression><![CDATA[$F{gravada5}]]></textFieldExpression>
-						</textField>
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="568" y="0" width="78" height="13"/>
-							<textElement textAlignment="Right" verticalAlignment="Middle"/>
-							<textFieldExpression><![CDATA[$F{iva10}]]></textFieldExpression>
-						</textField>
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="646" y="0" width="78" height="13"/>
-							<textElement textAlignment="Right" verticalAlignment="Middle"/>
-							<textFieldExpression><![CDATA[$F{iva5}]]></textFieldExpression>
-						</textField>
-						<textField isBlankWhenNull="true">
-							<reportElement style="celda" x="724" y="0" width="78" height="13"/>
-							<textElement textAlignment="Right" verticalAlignment="Middle"/>
-							<textFieldExpression><![CDATA[$F{exentas}]]></textFieldExpression>
-						</textField>
-					</jr:listContents>
-				</jr:list>
-			</componentElement>
-			<staticText>
-				<reportElement positionType="Float" x="0" y="169" width="802" height="14"/>
 				<textElement verticalAlignment="Middle">
 					<font fontName="SansSerif" size="10" isBold="true"/>
 				</textElement>
@@ -297,34 +193,29 @@
 	<columnHeader>
 		<band height="14" splitType="Stretch">
 			<staticText>
-				<reportElement style="encabezado" x="0" y="0" width="142" height="14"/>
+				<reportElement style="encabezado" x="0" y="0" width="178" height="14"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[Sucursal / Timbrado]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="142" y="0" width="48" height="14"/>
+				<reportElement style="encabezado" x="178" y="0" width="48" height="14"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[Tipo]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="190" y="0" width="130" height="14"/>
+				<reportElement style="encabezado" x="226" y="0" width="130" height="14"/>
 				<textElement verticalAlignment="Middle"/>
 				<text><![CDATA[Numeración usada]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="320" y="0" width="40" height="14"/>
+				<reportElement style="encabezado" x="356" y="0" width="40" height="14"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<text><![CDATA[Vigentes]]></text>
 			</staticText>
 			<staticText>
-				<reportElement style="encabezado" x="360" y="0" width="40" height="14"/>
+				<reportElement style="encabezado" x="396" y="0" width="40" height="14"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<text><![CDATA[Anuladas]]></text>
-			</staticText>
-			<staticText>
-				<reportElement style="encabezado" x="400" y="0" width="36" height="14"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<text><![CDATA[F. vig.]]></text>
 			</staticText>
 			<staticText>
 				<reportElement style="encabezado" x="436" y="0" width="61" height="14"/>
@@ -361,34 +252,29 @@
 	<detail>
 		<band height="13" splitType="Stretch">
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="0" y="0" width="142" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="0" y="0" width="178" height="13"/>
 				<textElement verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{sucursal}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="142" y="0" width="48" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="178" y="0" width="48" height="13"/>
 				<textElement verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{tipo}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="190" y="0" width="130" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="226" y="0" width="130" height="13"/>
 				<textElement verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{rango}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="320" y="0" width="40" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="356" y="0" width="40" height="13"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{emitidas}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="360" y="0" width="40" height="13"/>
+				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="396" y="0" width="40" height="13"/>
 				<textElement textAlignment="Right" verticalAlignment="Middle"/>
 				<textFieldExpression><![CDATA[$F{anuladas}]]></textFieldExpression>
-			</textField>
-			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
-				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="400" y="0" width="36" height="13"/>
-				<textElement textAlignment="Right" verticalAlignment="Middle"/>
-				<textFieldExpression><![CDATA[$F{fueraDeVigencia}]]></textFieldExpression>
 			</textField>
 			<textField isStretchWithOverflow="true" isBlankWhenNull="true">
 				<reportElement style="detalleCelda" stretchType="RelativeToTallestObject" x="436" y="0" width="61" height="13"/>

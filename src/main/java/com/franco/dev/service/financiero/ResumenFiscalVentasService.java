@@ -2,7 +2,6 @@ package com.franco.dev.service.financiero;
 
 import com.franco.dev.domain.empresarial.Sucursal;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalContribuyente;
-import com.franco.dev.domain.financiero.dto.ResumenFiscalRubro;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalTimbrado;
 import com.franco.dev.domain.financiero.dto.ResumenFiscalVentas;
 import com.franco.dev.repository.financiero.FacturaLegalRepository;
@@ -24,7 +23,9 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /**
- * Resumen fiscal de las ventas facturadas de un mes (base e IVA por tasa), para el contador.
+ * Resumen de las ventas facturadas de un mes para el contador: exentas, gravadas 5 % y gravadas
+ * 10 % (base e IVA) y el detalle por timbrado. Solo datos: la declaracion (formulario 120) la
+ * arma el contador.
  *
  * <p>Sale de {@code factura_legal}, donde caen igual las facturas en papel (autoimpresor) y las
  * electronicas. Quedan afuera las anuladas: {@code activo = false} en papel, y en electronicas
@@ -73,7 +74,7 @@ public class ResumenFiscalVentasService {
      * [0] ruc, [1] razon social, [2] sucursal id, [3] sucursal, [4] establecimiento,
      * [5] punto de expedicion, [6] timbrado, [7] electronico, [8] emitidas, [9] anuladas,
      * [10] numero desde, [11] numero hasta, [12] total 10 %, [13] IVA 10 %, [14] total 5 %,
-     * [15] IVA 5 %, [16] exentas, [17] fuera de vigencia.
+     * [15] IVA 5 %, [16] exentas.
      */
     static ResumenFiscalVentas armar(int anio, int mes, String sucursalesFiltro, List<Object[]> filas) {
         ResumenFiscalVentas resumen = new ResumenFiscalVentas();
@@ -118,7 +119,6 @@ public class ResumenFiscalVentasService {
         d.setIva5((double) iva5);
         d.setExentas((double) exentas);
         d.setTotalFacturado((double) (total10 + total5 + exentas));
-        d.setFueraDeVigencia(entero(f[17]));
         return d;
     }
 
@@ -138,47 +138,9 @@ public class ResumenFiscalVentasService {
         c.setTotalFacturado(c.getTotalBase() + c.getTotalIva());
         c.setEmitidas(detalle.stream().mapToLong(ResumenFiscalTimbrado::getEmitidas).sum());
         c.setAnuladas(detalle.stream().mapToLong(ResumenFiscalTimbrado::getAnuladas).sum());
-        c.setFueraDeVigencia(detalle.stream().mapToLong(ResumenFiscalTimbrado::getFueraDeVigencia).sum());
-        c.setRubros(rubros(c));
         return c;
     }
 
-    /**
-     * Vista por rubros del formulario 120. Solo 1-A, 1-C y 1-D tienen datos: el sistema no separa
-     * los productos agricolas (todo el 5 % va a C), no exporta, no registra retenciones y los
-     * ajustes por notas de credito todavia no se emiten.
-     */
-    private static List<ResumenFiscalRubro> rubros(ResumenFiscalContribuyente c) {
-        List<ResumenFiscalRubro> r = new ArrayList<>();
-        r.add(rubro("RUBRO 1", "A", "Enajenación de bienes y servicios gravados a la tasa del 10%",
-                c.getGravada10(), 0d, c.getIva10(), 0d, 0d));
-        r.add(rubro("RUBRO 1", "B", "Enajenación de productos agrícolas y derivados gravados a la tasa del 5%",
-                0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 1", "C", "Enajenación de bienes y servicios gravados a la tasa del 5%",
-                0d, c.getGravada5(), 0d, c.getIva5(), 0d));
-        r.add(rubro("RUBRO 1", "D", "Enajenación de bienes, servicios o ingresos exonerados o exentos",
-                0d, 0d, 0d, 0d, c.getExentas()));
-        r.add(rubro("RUBRO 1", "E", "Exportación de productos agrícolas y derivados", 0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 1", "F", "Prestación de servicios de flete internacional por exportación",
-                0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 1", "G", "Exportación de otros bienes", 0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 3", "H", "Ajuste de precio, devoluciones, descuentos, rebajas e incobrables tasa 10%",
-                0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 3", "I", "Ajuste de precio, devoluciones y descuentos de productos agrícolas tasa 5%",
-                0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 3", "J", "Ajuste de precio, devoluciones y descuentos de otros bienes tasa 5%",
-                0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 3", "K", "Ajuste de precio, devoluciones y descuentos de operaciones exoneradas o exentas",
-                0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 5", "C", "Retenciones por operaciones gravadas", 0d, 0d, 0d, 0d, 0d));
-        r.add(rubro("RUBRO 6", "E", "Ajuste de precio y devoluciones de operaciones exoneradas", 0d, 0d, 0d, 0d, 0d));
-        return r;
-    }
-
-    private static ResumenFiscalRubro rubro(String rubro, String inciso, String concepto, Double gravada10,
-                                            Double gravada5, Double iva10, Double iva5, Double exentas) {
-        return new ResumenFiscalRubro(rubro, inciso, concepto, gravada10, gravada5, iva10, iva5, exentas);
-    }
 
     private String etiquetaSucursales(List<Long> sucursales) {
         if (sucursales.isEmpty()) {

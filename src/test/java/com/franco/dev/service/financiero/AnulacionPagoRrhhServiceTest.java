@@ -68,7 +68,7 @@ class AnulacionPagoRrhhServiceTest {
                 mock(PagoSolicitudDetalleRepository.class), mock(JornadaService.class),
                 mock(CreditoConvenioService.class), mock(LiquidacionConceptoService.class),
                 mock(PlatformTransactionManager.class), mock(PrestamoCuotaDescuentoService.class),
-                mock(ValeCuotaDescuentoService.class), mock(javax.persistence.EntityManager.class));
+                mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class), mock(javax.persistence.EntityManager.class));
 
         finiquitoRepository = mock(LiquidacionFinalRepository.class);
         finiquitoService = mock(LiquidacionFinalService.class);

@@ -81,6 +81,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final PlatformTransactionManager transactionManager;
     private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
     private final ValeCuotaDescuentoService valeCuotaDescuentoService;
+    private final ItemProgramadoAplicacionService itemProgramadoAplicacionService;
 
     /**
      * Inyectado por campo a proposito: @AllArgsConstructor solo toma los final, y este no
@@ -344,6 +345,12 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             }
         }
 
+        // ITEM_PROGRAMADO — items cargados desde otra liquidacion para este periodo. Antes del convenio:
+        // el tope del credito tiene que verlos, si no el neto podria quedar negativo.
+        for (LiquidacionItemProgramado p : itemProgramadoAplicacionService.paraLiquidacion(fid, liq.getPeriodo(), liq.getId())) {
+            items.add(itemProgramado(liq, p));
+        }
+
         // CREDITO_CONVENIO_CUOTA (DESC) — cuotas VENCIDAS de compras a credito del
         // funcionario, cobradas hasta donde alcanza el neto (tope por disponible; el
         // remanente cae al mes siguiente). Se arma AL FINAL: el convenio es el
@@ -476,6 +483,17 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 signo, desc);
     }
 
+    /**
+     * El ítem de un programado no se edita ni se elimina desde la liquidación: eliminado, el programado
+     * quedaría PENDIENTE con un periodo que ya pasó; editado, el pago se rechazaría por monto distinto.
+     */
+    private static void exigirNoProgramado(LiquidacionItem it) {
+        if (LiquidacionItemProgramado.REFERENCIA_TIPO.equals(it.getReferenciaTipo())) {
+            throw new GraphQLException("Este item viene de un item programado: anulalo desde Items programados"
+                    + " (y volvé a programarlo si cambia el monto)");
+        }
+    }
+
     /** El ítem automático que aplica un programado en la liquidación de su periodo. */
     private LiquidacionItem itemProgramado(LiquidacionSueldo liq, LiquidacionItemProgramado p) {
         return item(liq, p.getCodigo(), p.getDescripcion(), p.getMonto(), p.getTipo(), p.getId(),
@@ -527,6 +545,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         if (liq != null && liq.getEstado() != LiquidacionSueldoEstado.BORRADOR) {
             throw new GraphQLException("Solo se pueden eliminar items en estado BORRADOR");
         }
+        exigirNoProgramado(it);
         itemRepository.deleteById(itemId);
         if (liq != null) {
             aplicarTotales(liq, itemRepository.findByLiquidacionIdOrderByIdAsc(liq.getId()));
@@ -549,6 +568,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         if (liq.getEstado() != LiquidacionSueldoEstado.BORRADOR) {
             throw new GraphQLException("Solo se pueden editar items en estado BORRADOR");
         }
+        exigirNoProgramado(it);
         if (!Boolean.TRUE.equals(it.getEditado())) it.setMontoOriginal(it.getMonto());
         if (descripcion != null) it.setDescripcion(descripcion.toUpperCase());
         if (monto != null) it.setMonto(monto);
@@ -611,6 +631,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // lock antes que el saldo de caja.
         prestamoCuotaDescuentoService.validarLiquidacion(liq.getId());
         valeCuotaDescuentoService.validarLiquidacion(liq.getId());
+        itemProgramadoAplicacionService.validarLiquidacion(liq.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -768,6 +789,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 case ValeService.REFERENCIA_CUOTA:
                     if (pagar) valeCuotaDescuentoService.aplicarLiquidacion(refId, it.getMonto(), liq.getId());
                     else valeCuotaDescuentoService.revertirLiquidacion(refId, liq.getId());
+                    break;
+                case LiquidacionItemProgramado.REFERENCIA_TIPO:
+                    if (pagar) itemProgramadoAplicacionService.aplicarLiquidacion(refId, it.getMonto(), liq.getId());
+                    else itemProgramadoAplicacionService.revertirLiquidacion(refId, liq.getId());
                     break;
                 case "AGUINALDO":
                     aguinaldoRepository.findById(refId).ifPresent(a -> {

@@ -120,4 +120,13 @@ public interface LiquidacionItemRepository extends HelperRepository<LiquidacionI
             "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA")
     List<com.franco.dev.domain.rrhh.LiquidacionSueldo> findLiquidacionesVivasConProgramado(
             @Param("programadoId") Long programadoId);
+
+    /** De estas referencias de un tipo, las que ya estan en una liquidacion no ANULADA distinta de la indicada. */
+    @Query("select distinct i.referenciaId from LiquidacionItem i " +
+            "where i.referenciaTipo = :tipo and i.referenciaId in :ids " +
+            "and i.liquidacion.estado <> com.franco.dev.domain.rrhh.enums.LiquidacionSueldoEstado.ANULADA " +
+            "and (:excludeLiqId is null or i.liquidacion.id <> :excludeLiqId)")
+    List<Long> findReferenciasEnOtrasLiquidaciones(@Param("tipo") String tipo,
+                                                   @Param("ids") Collection<Long> ids,
+                                                   @Param("excludeLiqId") Long excludeLiqId);
 }

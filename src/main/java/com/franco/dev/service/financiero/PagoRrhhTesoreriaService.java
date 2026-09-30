@@ -66,6 +66,7 @@ public class PagoRrhhTesoreriaService {
     private final MonedaService monedaService;
     private final com.franco.dev.service.rrhh.PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
     private final com.franco.dev.service.rrhh.ValeCuotaDescuentoService valeCuotaDescuentoService;
+    private final com.franco.dev.service.rrhh.ItemProgramadoAplicacionService itemProgramadoAplicacionService;
 
     /** Un documento de RRHH a pagar con su reparto de formas de pago. */
     @lombok.Data
@@ -219,6 +220,7 @@ public class PagoRrhhTesoreriaService {
                 // borrador se cobrarian dos veces (issue #300).
                 prestamoCuotaDescuentoService.validarLiquidacion(id);
                 valeCuotaDescuentoService.validarLiquidacion(id);
+                itemProgramadoAplicacionService.validarLiquidacion(id);
                 return saldoPendiente(l.getTotalNeto(), l.getSolicitudPagoId());
             }
             case FINIQUITO: {
@@ -230,6 +232,7 @@ public class PagoRrhhTesoreriaService {
                 }
                 prestamoCuotaDescuentoService.validarFiniquito(id);
                 valeCuotaDescuentoService.validarFiniquito(id);
+                itemProgramadoAplicacionService.validarFiniquito(id);
                 return saldoPendiente(f.getTotalLiquidado(), f.getSolicitudPagoId());
             }
             case AGUINALDO: {

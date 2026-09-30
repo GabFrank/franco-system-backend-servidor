@@ -65,6 +65,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
@@ -192,10 +193,22 @@ public class ImpresionService {
     }
 
     public Boolean printBalance(PdvCajaBalanceDto balanceDto, String printerName, String local) {
+        return printBalance(balanceDto, printerName, local, null);
+    }
+
+    /**
+     * Con {@code destino != null} el balance se escribe ahi y NO se busca impresora: es la impresion
+     * desde el cliente (el desktop recibe los bytes y los imprime en su impresora local). Con
+     * {@code destino == null} hace exactamente lo de siempre.
+     */
+    public Boolean printBalance(PdvCajaBalanceDto balanceDto, String printerName, String local, OutputStream destino) {
         try {
-            selectedPrintService = printingService.getPrintService(printerName);
-            if (selectedPrintService != null) {
-                printerOutputStream = new PrinterOutputStream(selectedPrintService);
+            if (destino == null) {
+                selectedPrintService = printingService.getPrintService(printerName);
+            }
+            if (destino != null || selectedPrintService != null) {
+                OutputStream salida = destino != null ? destino
+                        : (printerOutputStream = new PrinterOutputStream(selectedPrintService));
                 // creating the EscPosImage, need buffered image and algorithm.
                 // Styles
                 Style center = new Style().setJustification(EscPosConst.Justification.Center);
@@ -205,7 +218,7 @@ public class ImpresionService {
                 BufferedImage imageBufferedImage = ImageIO.read(new File(imageService.getImagePath() + "logo.png"));
                 imageBufferedImage = resize(imageBufferedImage, 200, 100);
                 RasterBitImageWrapper imageWrapper = new RasterBitImageWrapper();
-                EscPos escpos = new EscPos(printerOutputStream);
+                EscPos escpos = new EscPos(salida);
                 Bitonal algorithm = new BitonalThreshold();
                 EscPosImage escposImage = new EscPosImage(new CoffeeImageImpl(imageBufferedImage), algorithm);
                 imageWrapper.setJustification(EscPosConst.Justification.Center);
@@ -414,7 +427,7 @@ public class ImpresionService {
                 }
                 escpos.feed(5);
                 escpos.close();
-                printerOutputStream.close();
+                if (destino == null) printerOutputStream.close();
                 return true;
             }
         } catch (IOException e) {

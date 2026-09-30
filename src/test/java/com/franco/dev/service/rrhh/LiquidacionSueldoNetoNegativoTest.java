@@ -139,6 +139,7 @@ class LiquidacionSueldoNetoNegativoTest {
                 mock(LiquidacionConceptoService.class),
                 mock(PlatformTransactionManager.class),
                 descuento,
+                mock(ValeCuotaDescuentoService.class),
                 mock(javax.persistence.EntityManager.class));
 
         liq = new LiquidacionSueldo();

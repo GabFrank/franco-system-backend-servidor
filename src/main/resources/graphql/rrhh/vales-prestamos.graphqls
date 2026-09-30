@@ -5,6 +5,12 @@ enum ValeEstado {
     ANULADO
 }
 
+enum ValeCuotaEstado {
+    PENDIENTE
+    DESCONTADA
+    ANULADA
+}
+
 enum PrestamoEstado {
     ACTIVO
     PAGADO
@@ -45,6 +51,12 @@ type Vale {
     fecha: String
     estado: ValeEstado
     esAdelanto: Boolean
+    # 1 = se descuenta entero; mas de 1 = una cuota por liquidacion (ver valeCuotas)
+    cantidadCuotas: Int
+    # entregado en bienes: nace confirmado, sin egreso de caja
+    enEspecie: Boolean
+    # lo que falta descontar (suma de cuotas pendientes si va en cuotas)
+    saldoPendiente: Float
     liquidacionId: Int
     cajaVirtualId: Int
     movimientoCajaVirtualId: Int
@@ -64,10 +76,22 @@ input ValeRrhhInput {
     fecha: String
     estado: ValeEstado
     esAdelanto: Boolean
+    cantidadCuotas: Int
     observacion: String
     comprobanteUrl: String
     autorizadoPorId: Int
     usuarioId: Int
+}
+
+type ValeCuota {
+    id: ID!
+    numero: Int
+    monto: Float
+    fechaDescuento: String
+    estado: ValeCuotaEstado
+    liquidacionId: Int
+    liquidacionFinalId: Int
+    creadoEn: Date
 }
 
 type PrestamoCuota {
@@ -154,6 +178,7 @@ extend type Query {
     vale(id: ID!): Vale
     valesPorFuncionario(funcionarioId: ID!): [Vale]
     valesPorEstado(estado: ValeEstado): [Vale]
+    valeCuotas(valeId: ID!): [ValeCuota]
     valesPage(page: Int = 0, size: Int = 20, funcionarioId: ID, estado: ValeEstado, desde: String, hasta: String): ValePage
 
     prestamo(id: ID!): Prestamo
@@ -171,6 +196,8 @@ extend type Mutation {
     confirmarVale(id: ID!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
     crearValeConfirmado(vale: ValeRrhhInput!, cajaVirtualId: ID!, autorizadoPorId: ID): Vale
     anularVale(id: ID!): Vale
+    # vale entregado en bienes (ej. uniforme): nace CONFIRMADO, sin caja
+    crearValeEnEspecie(vale: ValeRrhhInput!, autorizadoPorId: ID): Vale
 
     crearPrestamo(prestamo: PrestamoInput!, cajaVirtualId: ID!): Prestamo
     # montoPagadoEsperado: el monto pagado que mostraba la pantalla. Si la cuota cambio, se rechaza (#299).

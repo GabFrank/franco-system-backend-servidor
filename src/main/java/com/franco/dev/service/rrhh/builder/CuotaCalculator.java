@@ -22,10 +22,18 @@ public final class CuotaCalculator {
      * @throws IllegalArgumentException si n < 1 o total nulo.
      */
     public static List<BigDecimal> calcularCuotas(BigDecimal total, int n) {
+        return calcularCuotas(total, n, 2);
+    }
+
+    /**
+     * Igual que {@link #calcularCuotas(BigDecimal, int)} redondeando la cuota base a {@code escala}
+     * decimales. Con escala 0 un monto en guaranies da cuotas enteras (100.000 en 3 = 33.333 + 33.333 + 33.334).
+     */
+    public static List<BigDecimal> calcularCuotas(BigDecimal total, int n, int escala) {
         if (total == null) throw new IllegalArgumentException("El monto total no puede ser nulo");
         if (n < 1) throw new IllegalArgumentException("La cantidad de cuotas debe ser al menos 1");
 
-        BigDecimal cuotaBase = total.divide(new BigDecimal(n), 2, RoundingMode.HALF_UP);
+        BigDecimal cuotaBase = total.divide(new BigDecimal(n), escala, RoundingMode.HALF_UP);
         List<BigDecimal> cuotas = new ArrayList<>(n);
         BigDecimal acumulado = BigDecimal.ZERO;
         for (int i = 1; i <= n; i++) {

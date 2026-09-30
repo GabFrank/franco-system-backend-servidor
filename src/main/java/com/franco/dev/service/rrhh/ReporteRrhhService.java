@@ -39,6 +39,7 @@ public class ReporteRrhhService {
     private final ConfiguracionRrhhService configuracionRrhhService;
     private final LiquidacionFinalService liquidacionFinalService;
     private final com.franco.dev.repository.rrhh.ValeRepository valeRepository;
+    private final ValeService valeService;
     private final com.franco.dev.repository.rrhh.PrestamoRepository prestamoRepository;
     private final com.franco.dev.repository.rrhh.AguinaldoRepository aguinaldoRepository;
     private final com.franco.dev.repository.rrhh.PenalizacionRepository penalizacionRepository;
@@ -65,7 +66,8 @@ public class ReporteRrhhService {
                               com.franco.dev.service.general.CiudadService ciudadService,
                               com.franco.dev.repository.rrhh.LiquidacionItemRepository liquidacionItemRepository,
                               com.franco.dev.repository.rrhh.LiquidacionFinalItemRepository liquidacionFinalItemRepository,
-                              com.franco.dev.service.utils.ImageService imageService) {
+                              com.franco.dev.service.utils.ImageService imageService,
+                              ValeService valeService) {
         this.liquidacionSueldoRepository = liquidacionSueldoRepository;
         this.configuracionRrhhService = configuracionRrhhService;
         this.liquidacionFinalService = liquidacionFinalService;
@@ -80,6 +82,7 @@ public class ReporteRrhhService {
         this.liquidacionItemRepository = liquidacionItemRepository;
         this.liquidacionFinalItemRepository = liquidacionFinalItemRepository;
         this.imageService = imageService;
+        this.valeService = valeService;
     }
 
     /**
@@ -295,11 +298,13 @@ public class ReporteRrhhService {
         for (com.franco.dev.domain.rrhh.enums.ValeEstado est : new com.franco.dev.domain.rrhh.enums.ValeEstado[]{
                 com.franco.dev.domain.rrhh.enums.ValeEstado.SOLICITADO, com.franco.dev.domain.rrhh.enums.ValeEstado.CONFIRMADO}) {
             for (com.franco.dev.domain.rrhh.Vale v : valeRepository.findByEstadoOrderByFechaDesc(est)) {
+                // Lo que falta descontar: en un vale en cuotas, solo las pendientes (fila y total iguales).
+                BigDecimal saldo = valeService.saldoPendiente(v);
                 filas.add(new com.franco.dev.service.rrhh.dto.ReporteGenericoRowDto(
-                        nombreFuncionario(v.getFuncionario()), formatear(v.getMonto()),
+                        nombreFuncionario(v.getFuncionario()), formatear(saldo),
                         v.getEstado() != null ? v.getEstado().name() : "",
                         v.getFecha() != null ? v.getFecha().toString() : ""));
-                if (v.getMonto() != null) total = total.add(v.getMonto());
+                total = total.add(saldo);
             }
         }
         Map<String, Object> params = paramsGenericos("VALES PENDIENTES", "Vales solicitados / confirmados sin descontar",

@@ -80,6 +80,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     private final LiquidacionConceptoService liquidacionConceptoService;
     private final PlatformTransactionManager transactionManager;
     private final PrestamoCuotaDescuentoService prestamoCuotaDescuentoService;
+    private final ValeCuotaDescuentoService valeCuotaDescuentoService;
 
     /**
      * Inyectado por campo a proposito: @AllArgsConstructor solo toma los final, y este no
@@ -291,6 +292,16 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // VALE_DESCUENTO / ADELANTO_DESCUENTO — vales CONFIRMADO sin liquidar
         for (Vale v : valeRepository.findByFuncionarioIdAndEstado(fid, ValeEstado.CONFIRMADO)) {
             if (v.getLiquidacionId() != null) continue;
+            if (ValeService.tieneCuotas(v)) {
+                // Vale en cuotas: una por periodo (las atrasadas tambien), nunca el vale entero.
+                String codigo = Boolean.TRUE.equals(v.getEsAdelanto()) ? "ADELANTO_DESCUENTO" : "VALE_DESCUENTO";
+                for (com.franco.dev.domain.rrhh.ValeCuota c
+                        : valeCuotaDescuentoService.cuotasParaLiquidacion(v, fin, liq.getId())) {
+                    items.add(item(liq, codigo, ValeCuotaDescuentoService.descripcion(v, c), c.getMonto(),
+                            LiquidacionItemTipo.DESCUENTO, c.getId(), ValeService.REFERENCIA_CUOTA));
+                }
+                continue;
+            }
             BigDecimal monto = v.getMonto() != null ? v.getMonto() : BigDecimal.ZERO;
             if (Boolean.TRUE.equals(v.getEsAdelanto())) {
                 items.add(item(liq, "ADELANTO_DESCUENTO", "ADELANTO DE SUELDO", monto, LiquidacionItemTipo.DESCUENTO, v.getId(), "ADELANTO"));
@@ -535,6 +546,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // el neto ya la trae descontada y pagar la cobraria dos veces (issue #300). Toma las cuotas con
         // lock antes que el saldo de caja.
         prestamoCuotaDescuentoService.validarLiquidacion(liq.getId());
+        valeCuotaDescuentoService.validarLiquidacion(liq.getId());
 
         CajaVirtual caja = cajaVirtualService.findById(cajaVirtualId)
                 .orElseThrow(() -> new GraphQLException("Caja Mayor no encontrada"));
@@ -570,6 +582,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
     public LiquidacionSueldo anular(Long id) {
         LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
         if (liq.getEstado() == LiquidacionSueldoEstado.ANULADA) return liq;
+        // Pagada desde el hub de tesoreria: la plata salio por un evento de pago (caja, banco o cheque)
+        // y la caja que tiene linkeada es la del movimiento consolidado de ese evento. Revertirla aca
+        // dejaba el pago vivo (y anularlo despues revertia dos veces), y sin caja (banco/cheque) no
+        // revertia nada. Se anula junto con su pago, en AnulacionPagoRrhhService.
+        if (liq.getEstado() == LiquidacionSueldoEstado.PAGADA && liq.getSolicitudPagoId() != null) {
+            throw new GraphQLException("La liquidacion #" + liq.getId() + " se pago desde tesoreria:"
+                    + " hay que anularla junto con su pago");
+        }
         if (liq.getEstado() == LiquidacionSueldoEstado.PAGADA && liq.getCajaVirtualId() != null) {
             if (liq.getMovimientoCajaVirtualId() == null) {
                 throw new GraphQLException("La liquidacion #" + liq.getId() + " esta pagada contra una caja"
@@ -642,6 +662,25 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         repository.save(liq);
     }
 
+    /**
+     * Anula una liquidacion PAGADA desde tesoreria cuyo pago ya no esta vivo (todos sus detalles
+     * anulados sin que la liquidacion se sincronizara). No hay plata que devolver: solo se revierten
+     * los efectos cruzados. Sin esto quedaria trabada: {@link #anular} la rechaza y no hay pago que anular.
+     */
+    @Transactional
+    public LiquidacionSueldo anularSinPagoVivo(Long id) {
+        LiquidacionSueldo liq = repository.findById(id).orElseThrow(() -> new GraphQLException("Liquidacion no encontrada"));
+        if (liq.getEstado() != LiquidacionSueldoEstado.PAGADA || liq.getSolicitudPagoId() == null) {
+            throw new GraphQLException("La liquidacion #" + id + " no esta pagada desde tesoreria");
+        }
+        aplicarEfectosCruzados(liq, false);
+        liq.setCajaVirtualId(null);
+        liq.setMovimientoCajaVirtualId(null);
+        liq.setFechaPago(null);
+        liq.setEstado(LiquidacionSueldoEstado.ANULADA);
+        return repository.save(liq);
+    }
+
     /** Aplica (pagar=true) o revierte (pagar=false) los efectos cruzados de los items. */
     private void aplicarEfectosCruzados(LiquidacionSueldo liq, boolean pagar) {
         for (LiquidacionItem it : itemRepository.findByLiquidacionIdOrderByIdAsc(liq.getId())) {
@@ -661,6 +700,10 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                     // Con lock, actualiza tambien el prestamo y, al revertir, recalcula el estado (issue #300).
                     if (pagar) prestamoCuotaDescuentoService.aplicar(refId, it.getMonto());
                     else prestamoCuotaDescuentoService.revertir(refId, it.getMonto());
+                    break;
+                case ValeService.REFERENCIA_CUOTA:
+                    if (pagar) valeCuotaDescuentoService.aplicarLiquidacion(refId, it.getMonto(), liq.getId());
+                    else valeCuotaDescuentoService.revertirLiquidacion(refId, liq.getId());
                     break;
                 case "AGUINALDO":
                     aguinaldoRepository.findById(refId).ifPresent(a -> {

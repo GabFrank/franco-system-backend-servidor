@@ -128,7 +128,8 @@ class ContraAsientoRrhhTest {
                 mock(CreditoConvenioService.class),
                 mock(AguinaldoRepository.class),
                 mock(BaseRemunerativaService.class),
-                descuento);
+                descuento,
+                mock(ValeCuotaDescuentoService.class));
 
         valeRepository = mock(ValeRepository.class);
         when(valeRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -137,7 +138,10 @@ class ContraAsientoRrhhTest {
                 cajaVirtualService,
                 movimientoCajaVirtualService,
                 mock(UsuarioService.class),
-                mock(PagoSolicitudDetalleRepository.class));
+                mock(PagoSolicitudDetalleRepository.class),
+                mock(ValeCuotaRepository.class),
+                mock(LiquidacionItemRepository.class),
+                mock(LiquidacionFinalItemRepository.class));
     }
 
     // ─────────────────────────────── finiquito ───────────────────────────────
@@ -166,6 +170,26 @@ class ContraAsientoRrhhTest {
         assertEquals(0, SALDO_INICIAL.compareTo(saldo.getSaldo()),
                 "no tenia que moverse plata, la caja quedo en " + saldo.getSaldo());
         assertEquals(LiquidacionFinalEstado.APROBADA, lf.getEstado());
+    }
+
+    /**
+     * Finiquito pagado desde el hub de tesoreria en efectivo: tiene linkeado el movimiento consolidado del
+     * pago. Anularlo directo revertia ese movimiento dejando el pago vivo (y anularlo despues revertia la
+     * caja otra vez); ahora se rechaza: se anula junto con su pago (AnulacionPagoRrhhService).
+     */
+    @Test
+    void anularDirectoUnFiniquitoPagadoDesdeTesoreriaSeRechazaSinMoverLaCaja() {
+        LiquidacionFinal lf = finiquito(new BigDecimal("2000000"), LiquidacionFinalEstado.PAGADA);
+        MovimientoCajaVirtual pago = posteaEgreso(lf.getTotalLiquidado(),
+                com.franco.dev.domain.financiero.enums.OrigenMovimientoTipo.RRHH_LIQUIDACION_FINAL, lf.getId());
+        lf.setCajaVirtualId(CAJA_ID);
+        lf.setMovimientoCajaVirtualId(pago.getId());
+        lf.setSolicitudPagoId(55L);
+        BigDecimal antes = saldo.getSaldo();
+
+        assertThrows(GraphQLException.class, () -> finiquitoService.anular(77L));
+        assertEquals(0, antes.compareTo(saldo.getSaldo()), "la caja no se tenia que mover");
+        assertEquals(LiquidacionFinalEstado.PAGADA, lf.getEstado());
     }
 
     /** Finiquito ya pagado con total negativo (dato viejo): anularlo devuelve la plata. */

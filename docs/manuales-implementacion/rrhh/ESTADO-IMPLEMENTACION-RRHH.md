@@ -156,6 +156,34 @@ CONFIRMADO sin `liquidacionId`). **Tipo GraphQL renombrado a `ValeRrhhInput`**
 de `print/print-data.graphqls` (usado por `printVale`, producción). Pantallas de
 lista/crear/confirmar/anular. Estado: Compila.
 
+**Vale en cuotas y vale en especie (2026-09-29, `V233.1`)** — `vale.cantidad_cuotas` (1 a 12) y
+`vale.en_especie`. Un vale de 1 cuota sigue el camino de siempre (se descuenta entero, sin filas en
+`vale_cuota`). Con más de 1, `ValeService.save` genera `rrhh.vale_cuota` con `CuotaCalculator` (montos
+enteros si el monto lo es; la última absorbe el redondeo) y `fecha_descuento = fecha del vale + (k-1)
+meses`: la cuota k se descuenta en la liquidación cuyo periodo (según `DIA_CIERRE_MES`) contiene esa
+fecha. Reglas que sostienen que una cuota se descuente una sola vez:
+- Las cuotas se regeneran **solo en `SOLICITADO`**; desde `CONFIRMADO` quedan congeladas y `saveVale`
+  rechaza cambiar monto, fecha o cuotas. En un vale en cuotas o en especie, `saveVale` **nunca** cambia
+  el estado (rol GESTIONAR no puede confirmar sin caja ni devolver un vale en especie a `SOLICITADO`).
+- `construirItemsAutomaticos` emite un ítem por cuota `PENDIENTE` con fecha ≤ fin del periodo
+  (`VALE_DESCUENTO`/`ADELANTO_DESCUENTO`, descripción `VALE <MOTIVO> k/n`, `referenciaTipo = VALE_CUOTA`),
+  salvo que la cuota ya esté en otra liquidación o finiquito no anulado. El finiquito toma todas las
+  pendientes. El camino viejo (vale entero) salta los vales en cuotas.
+- `ValeCuotaDescuentoService` (espejo de `PrestamoCuotaDescuentoService`) valida antes de mover plata en
+  los mismos 4 lugares (pagar mensual, pagar finiquito, hub de tesorería ×2) y aplica/revierte en
+  `aplicarEfectosCruzados`. Una cuota descontada por otro documento hace fallar el pago; por el mismo,
+  es no-op. El vale pasa a `DESCONTADO` con la última cuota.
+- `anular` el vale, o anular su pago desde tesorería, se rechaza si una cuota ya se descontó o está en
+  un documento vivo (si no, el vale volvería a ser pagable por el total).
+- **Editar el monto** de un ítem `VALE_CUOTA` hace fallar el pago ("regenere"): para postergar una cuota
+  se elimina el ítem del borrador y queda pendiente para el mes siguiente.
+
+El vale **en especie** (`crearValeEnEspecie`, rol APROBAR) nace `CONFIRMADO` sin egreso de caja;
+`confirmar` lo rechaza. Dashboard, top exposición, resumen mobile, reporte de vales pendientes y el
+legajo del desktop suman `saldoPendiente` (cuotas pendientes), no el monto. **Rollback**: el JAR
+anterior descontaría entero un vale en cuotas ya descontado en parte; después del primer vale en
+cuotas, se arregla hacia adelante. Estado: Compila + Tests + probado en UI por Franco.
+
 **Préstamos + cuotas** — `prestamo` + `prestamo_cuota`: creación con N cuotas y
 desembolso (EGRESO), cobro directo de cuota (INGRESO), plan de cuotas con
 `CuotaCalculator` (la última absorbe el redondeo). Job `PrestamoCuotaScheduler`
@@ -620,6 +648,24 @@ al `lockById` del motor dejaría un saldo sin refrescar ante pagos concurrentes.
 Decisión consciente: **la anulación (`anularPagoCpp`) sigue con rol de tesorería**, sin exigir rol RRHH (devuelve la
 plata a la caja y reabre el documento; la caja es de tesorería). `detalleDePago` también muestra las líneas RRHH con
 el rol de lectura de tesorería, que ya ve la etiqueta del movimiento de caja.
+
+**Anular una liquidación o finiquito pagado desde el hub (fix 2026-09-29).** Antes, `anular` solo revertía si había
+`cajaVirtualId`: pagado por banco o cheque quedaba ANULADO sin devolver la plata ni revertir vales, cuotas, aguinaldo
+ni convenio; pagado en efectivo revertía el movimiento consolidado del evento dejando el `Pago` vivo, y anularlo
+después desde la caja revertía **dos veces**. Además, un pago 100% bancario no se podía anular desde ninguna pantalla
+(el botón vive en la fila del movimiento de caja). Ahora `anularLiquidacion` / `anularLiquidacionFinal` pasan por
+`AnulacionPagoRrhhService`:
+- documento pagado desde el hub con pagos **exclusivos** → `anularPagoCpp` de cada uno (exige además
+  `TESORERIA CPP PAGAR` o `GESTIONAR`), que devuelve la plata por el medio usado y, vía `sincronizarDesdeSolicitudPago`,
+  deja el documento APROBADO con los efectos revertidos; después `anular` lo pasa a ANULADO. Una transacción, con
+  `lockById` del documento al inicio;
+- un pago que también pagó **otra** obligación (lote) → rechazo que la nombra; se anula el pago completo desde tesorería;
+- PAGADO con solicitud pero sin pagos vivos (datos inconsistentes) → `anularSinPagoVivo` revierte los efectos;
+- `LiquidacionSueldoService.anular` / `LiquidacionFinalService.anular` rechazan un documento PAGADO con
+  `solicitudPagoId`: cierra la doble reversa para cualquier otro llamador.
+En producción (bodega) 142 de 144 liquidaciones pagadas pasaron por el hub; al 2026-09-29 no había ninguna ANULADA
+con pago de hub (verificado solo lectura en bodega y farmacia). Pendiente: anular una sola liquidación de un lote
+(anulación parcial en el motor de tesorería).
 
 > **Regla para nuevas implementaciones RRHH:** toda mutation nueva debe llamar
 > `seg.requireAnyRole(...)` con el rol adecuado, y toda query que exponga datos de

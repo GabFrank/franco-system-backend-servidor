@@ -464,17 +464,25 @@ public class SifenService {
         // 1. Consultar estado en SIFEN
             RespuestaConsultaLoteDE respuesta = Sifen.consultaLoteDE(lote.getProtocolo());
             
-        log.info("   📥 Respuesta recibida - Código: {}, Mensaje: {}", 
+        log.info("   📥 Respuesta recibida - Código: {}, Mensaje: {}",
             respuesta.getdCodResLot(), respuesta.getdMsgResLot());
-        
+
+        aplicarRespuestaConsultaLote(lote, respuesta);
+    }
+
+    /**
+     * Aplica al lote y a sus DE la respuesta de la consulta. Separado de {@link #consultarLote}
+     * para poder probarlo sin llamar a SIFEN; corre dentro de su transacción.
+     */
+    void aplicarRespuestaConsultaLote(LoteDE lote, RespuestaConsultaLoteDE respuesta) {
         // 2. Actualizar lote con respuesta
         lote.setFechaUltimoIntento(LocalDateTime.now());
         lote.setRespuestaSifen(respuesta.getRespuestaBruta());
         
         String codigoRespuesta = respuesta.getdCodResLot();
         
-        // 3. Procesar según código de respuesta
-        switch (codigoRespuesta) {
+        // 3. Procesar según código de respuesta. Un código nulo caía en NPE dentro del switch.
+        switch (codigoRespuesta != null ? codigoRespuesta : "") {
             case "0360": // Lote no existe
                 log.error("❌ Lote {} no existe en SIFEN", lote.getId());
                 lote.setEstado(EstadoLoteDE.ERROR_PERMANENTE);
@@ -492,11 +500,14 @@ public class SifenService {
                 break;
                 
             default:
-                log.warn("⚠️ Código de respuesta inesperado: {}", codigoRespuesta);
-                lote.setEstado(EstadoLoteDE.ERROR_PERMANENTE);
+                // No se sabe qué pasó con el lote: no se lo da por muerto. Antes quedaba
+                // ERROR_PERMANENTE con sus DE en EN_LOTE, y ya ningún proceso lo volvía a mirar.
+                // ERROR_PERMANENTE queda solo para 0360, cuando SIFEN dice que el lote no existe.
+                log.warn("⚠️ Lote {}: código de respuesta inesperado {} ({}) - el estado no cambia",
+                    lote.getId(), codigoRespuesta, respuesta.getdMsgResLot());
                 break;
         }
-        
+
         loteDEService.save(lote);
     }
 

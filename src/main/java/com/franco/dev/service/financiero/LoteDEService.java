@@ -58,6 +58,10 @@ public class LoteDEService extends CrudService<LoteDE, LoteDERepository, Embebed
         return repository.findByEstadoInOrderByCreadoEnAsc(estados);
     }
 
+    public List<LoteDE> findEnProcesoDeNotas() {
+        return repository.findEnProcesoDeNotas();
+    }
+
     public Optional<LoteDE> findByProtocolo(String protocolo) {
         return repository.findByProtocolo(protocolo);
     }

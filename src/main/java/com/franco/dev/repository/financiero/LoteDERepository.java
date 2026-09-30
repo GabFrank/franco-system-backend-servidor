@@ -54,6 +54,17 @@ public interface LoteDERepository extends HelperRepository<LoteDE, EmbebedPrimar
 
     Optional<LoteDE> findByProtocolo(String protocolo);
 
+    /**
+     * Lotes EN_PROCESO de notas de credito o de remision: los unicos que el central envia por su
+     * cuenta. Los de facturas llegan replicados de las filiales y los consulta cada filial; por eso
+     * se filtra por las columnas de nota del DE, y por sucursal porque la PK es (id, sucursal_id).
+     */
+    @Query("SELECT l FROM LoteDE l WHERE l.estado = 'EN_PROCESO' AND EXISTS (" +
+           "SELECT d FROM DocumentoElectronico d WHERE d.loteDeId = l.id AND d.sucursalId = l.sucursalId " +
+           "AND (d.notaCreditoId IS NOT NULL OR d.notaRemisionId IS NOT NULL)) " +
+           "ORDER BY l.creadoEn ASC")
+    List<LoteDE> findEnProcesoDeNotas();
+
     @Query("SELECT l FROM LoteDE l WHERE l.id = :id AND l.sucursalId = :sucursalId")
     Optional<LoteDE> findByIdAndSucursalId(@Param("id") Long id, @Param("sucursalId") Long sucursalId);
 

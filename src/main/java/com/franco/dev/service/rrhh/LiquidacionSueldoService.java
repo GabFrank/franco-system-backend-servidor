@@ -355,6 +355,14 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         // funcionario, cobradas hasta donde alcanza el neto (tope por disponible; el
         // remanente cae al mes siguiente). Se arma AL FINAL: el convenio es el
         // descuento elastico y no debe dejar el neto en negativo.
+        items.addAll(itemsConvenio(liq, f, fin, items));
+        return items;
+    }
+
+    /** Las cuotas de convenio que entran con el neto que dejan {@code items} (tope por disponible). */
+    private List<LiquidacionItem> itemsConvenio(LiquidacionSueldo liq, Funcionario f, LocalDate fin,
+                                                List<LiquidacionItem> items) {
+        List<LiquidacionItem> out = new ArrayList<>();
         BigDecimal disponible = disponibleParaConvenio(items);
         Long personaId = f.getPersona() != null ? f.getPersona().getId() : null;
         LocalDateTime finVenc = fin.atTime(23, 59, 59);
@@ -367,9 +375,26 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
             it.setReferenciaSucursalId(cc.cuota.getSucursalId());
             it.setReferenciaEstadoPrevio(cc.ventaCredito != null && cc.ventaCredito.getEstado() != null
                     ? cc.ventaCredito.getEstado().name() : null);
-            items.add(it);
+            out.add(it);
         }
-        return items;
+        return out;
+    }
+
+    /**
+     * Vuelve a armar solo las cuotas de convenio de un BORRADOR despues de cambiarle un item sin regenerarlo
+     * (agregar o quitar un programado): el convenio es el descuento elastico y su tope depende del neto. Sin
+     * esto, un descuento nuevo podia dejar el neto negativo. No toca el resto de los items (ni sus ediciones).
+     */
+    private void rearmarConvenio(LiquidacionSueldo liq) {
+        List<LiquidacionItem> resto = new ArrayList<>();
+        for (LiquidacionItem it : itemRepository.findByLiquidacionIdOrderByIdAsc(liq.getId())) {
+            if ("CREDITO_CONVENIO_CUOTA".equals(it.getReferenciaTipo())) itemRepository.deleteById(it.getId());
+            else resto.add(it);
+        }
+        if (liq.getFuncionario() == null || liq.getFechaFin() == null) return;
+        for (LiquidacionItem it : itemsConvenio(liq, liq.getFuncionario(), liq.getFechaFin(), resto)) {
+            itemRepository.save(it);
+        }
     }
 
     /** Neto disponible para cobrar convenio = Σ HABER − Σ DESCUENTO de los items ya armados. */
@@ -514,8 +539,9 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
         boolean yaEsta = items.stream().anyMatch(it -> LiquidacionItemProgramado.REFERENCIA_TIPO.equals(it.getReferenciaTipo())
                 && p.getId().equals(it.getReferenciaId()));
         if (yaEsta) return;
-        items.add(itemRepository.save(itemProgramado(liq, p)));
-        aplicarTotales(liq, items);
+        itemRepository.save(itemProgramado(liq, p));
+        rearmarConvenio(liq);
+        aplicarTotales(liq, itemRepository.findByLiquidacionIdOrderByIdAsc(liq.getId()));
         repository.save(liq);
     }
 
@@ -533,6 +559,7 @@ public class LiquidacionSueldoService extends CrudService<LiquidacionSueldo, Liq
                 itemRepository.deleteById(it.getId());
             }
         }
+        rearmarConvenio(liq);
         aplicarTotales(liq, itemRepository.findByLiquidacionIdOrderByIdAsc(liquidacionId));
         repository.save(liq);
     }

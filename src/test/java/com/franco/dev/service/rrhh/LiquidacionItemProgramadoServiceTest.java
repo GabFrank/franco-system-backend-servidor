@@ -41,6 +41,7 @@ class LiquidacionItemProgramadoServiceTest {
     private LiquidacionItemRepository itemRepository;
     private LiquidacionFinalItemRepository finalItemRepository;
     private LiquidacionConceptoService conceptoService;
+    private CreditoConvenioService convenio;
     private LiquidacionItemProgramadoService service;
 
     private LiquidacionSueldo septiembre;
@@ -63,6 +64,7 @@ class LiquidacionItemProgramadoServiceTest {
                 .when(itemRepository).deleteById(anyLong());
         finalItemRepository = mock(LiquidacionFinalItemRepository.class);
         conceptoService = mock(LiquidacionConceptoService.class);
+        convenio = mock(CreditoConvenioService.class);
 
         LiquidacionSueldoService liquidacionService = new LiquidacionSueldoService(
                 liquidacionRepository, itemRepository,
@@ -73,7 +75,7 @@ class LiquidacionItemProgramadoServiceTest {
                 mock(PrestamoCuotaRepository.class), mock(CajaVirtualService.class),
                 mock(MovimientoCajaVirtualService.class), mock(UsuarioService.class),
                 mock(PagoSolicitudDetalleRepository.class), mock(JornadaService.class),
-                mock(CreditoConvenioService.class), conceptoService,
+                convenio, conceptoService,
                 mock(PlatformTransactionManager.class), mock(PrestamoCuotaDescuentoService.class),
                 mock(ValeCuotaDescuentoService.class), mock(com.franco.dev.service.rrhh.ItemProgramadoAplicacionService.class), mock(javax.persistence.EntityManager.class));
         service = new LiquidacionItemProgramadoService(repository, liquidacionRepository, itemRepository,
@@ -179,6 +181,26 @@ class LiquidacionItemProgramadoServiceTest {
         assertEquals(p.getId(), it.getReferenciaId());
         assertSame(noviembre, it.getLiquidacion());
         assertEquals(0, BigDecimal.valueOf(300_000).compareTo(noviembre.getTotalDescuentos()));
+    }
+
+    @Test
+    void alEntrarEnUnBorradorExistenteElConvenioSeRecalculaConElNetoNuevo() {
+        // Sin recalcular, el tope del convenio seguia viendo el neto viejo y el neto podia quedar negativo.
+        LiquidacionSueldo noviembre = liquidacion(501L, "2026-11", LiquidacionSueldoEstado.BORRADOR);
+        noviembre.setFuncionario(septiembre.getFuncionario());
+        noviembre.setFechaFin(java.time.LocalDate.of(2026, 11, 30));
+        LiquidacionItem sueldo = new LiquidacionItem();
+        sueldo.setId(1L);
+        sueldo.setLiquidacion(noviembre);
+        sueldo.setTipo(LiquidacionItemTipo.HABER);
+        sueldo.setMonto(BigDecimal.valueOf(3_000_000));
+        items.add(sueldo);
+        when(liquidacionRepository.findByFuncionarioIdAndPeriodo(7L, "2026-11")).thenReturn(Optional.of(noviembre));
+
+        programar("2026-11");
+
+        verify(convenio).planificar(any(), any(), argThat(d -> d.compareTo(BigDecimal.valueOf(2_700_000)) == 0), any(), any());
+        assertEquals(0, BigDecimal.valueOf(2_700_000).compareTo(noviembre.getTotalNeto()));
     }
 
     @Test
